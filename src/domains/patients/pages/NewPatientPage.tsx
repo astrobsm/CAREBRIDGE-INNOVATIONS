@@ -9,6 +9,7 @@ import { ArrowLeft, Save, User, Phone, MapPin, Heart, AlertCircle, Building2, Ho
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { syncRecord } from '../../../services/cloudSyncService';
 import type { Patient, BloodGroup, Genotype } from '../../../types';
 
 // Hospital options
@@ -149,6 +150,10 @@ export default function NewPatientPage() {
       };
 
       await db.patients.add(patient);
+      
+      // Sync to cloud immediately
+      await syncRecord('patients', patient as unknown as Record<string, unknown>);
+      
       toast.success('Patient registered successfully!');
       navigate(`/patients/${patient.id}`);
     } catch (error) {

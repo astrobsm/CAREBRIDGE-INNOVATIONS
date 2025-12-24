@@ -11,7 +11,10 @@ import {
   Smartphone,
   Clock
 } from 'lucide-react';
-import { useSyncState, syncService, type SyncStatus } from '../../services/syncService';
+import { useSyncState, syncService, type SyncState } from '../../services/cloudSyncService';
+
+// SyncStatus type for compatibility
+type SyncStatus = SyncState['status'];
 
 interface SyncIndicatorProps {
   compact?: boolean;
