@@ -412,26 +412,102 @@ ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for public access (for demo purposes)
 -- In production, you should create more restrictive policies based on user roles
+-- Using 'anon' role for unauthenticated access via anon key
 
-CREATE POLICY "Allow all operations for authenticated users" ON hospitals FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON users FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON patients FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON vital_signs FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON clinical_encounters FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON surgeries FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON wounds FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON burn_assessments FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON lab_requests FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON prescriptions FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON nutrition_assessments FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON invoices FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON admissions FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON treatment_plans FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON treatment_progress FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON ward_rounds FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON investigations FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON chat_rooms FOR ALL USING (true);
-CREATE POLICY "Allow all operations for authenticated users" ON chat_messages FOR ALL USING (true);
+CREATE POLICY "Allow public read access" ON hospitals FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON hospitals FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON hospitals FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON hospitals FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON users FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON users FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON users FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON users FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON patients FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON patients FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON patients FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON patients FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON vital_signs FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON vital_signs FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON vital_signs FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON vital_signs FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON clinical_encounters FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON clinical_encounters FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON clinical_encounters FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON clinical_encounters FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON surgeries FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON surgeries FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON surgeries FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON surgeries FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON wounds FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON wounds FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON wounds FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON wounds FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON burn_assessments FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON burn_assessments FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON burn_assessments FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON burn_assessments FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON lab_requests FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON lab_requests FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON lab_requests FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON lab_requests FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON prescriptions FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON prescriptions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON prescriptions FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON prescriptions FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON nutrition_assessments FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON nutrition_assessments FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON nutrition_assessments FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON nutrition_assessments FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON invoices FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON invoices FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON invoices FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON invoices FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON admissions FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON admissions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON admissions FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON admissions FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON treatment_plans FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON treatment_plans FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON treatment_plans FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON treatment_plans FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON treatment_progress FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON treatment_progress FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON treatment_progress FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON treatment_progress FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON ward_rounds FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON ward_rounds FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON ward_rounds FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON ward_rounds FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON investigations FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON investigations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON investigations FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON investigations FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON chat_rooms FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON chat_rooms FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON chat_rooms FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON chat_rooms FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read access" ON chat_messages FOR SELECT USING (true);
+CREATE POLICY "Allow public insert access" ON chat_messages FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update access" ON chat_messages FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete access" ON chat_messages FOR DELETE USING (true);
 
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_patients_hospital ON patients(registered_hospital_id);

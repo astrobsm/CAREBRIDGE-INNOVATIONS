@@ -45,6 +45,12 @@ function updateSyncState(updates: Partial<CloudSyncState>) {
 // Initialize cloud sync with real-time subscriptions
 export function initCloudSync() {
   console.log('[CloudSync] Initializing cloud sync...');
+  console.log('[CloudSync] Supabase configured:', isSupabaseConfigured());
+  console.log('[CloudSync] Online:', navigator.onLine);
+  
+  // Expose test function to browser console for debugging
+  (window as any).testSupabaseConnection = testSupabaseConnection;
+  (window as any).triggerSync = fullSync;
   
   // Monitor online/offline status
   window.addEventListener('online', () => {
@@ -62,9 +68,13 @@ export function initCloudSync() {
 
   // Initial sync and setup if online and configured
   if (navigator.onLine && isSupabaseConfigured()) {
+    console.log('[CloudSync] Starting initial sync...');
     // Pull data first, then set up real-time
     fullSync().then(() => {
+      console.log('[CloudSync] Initial sync complete, setting up real-time...');
       setupRealtimeSubscriptions();
+    }).catch(err => {
+      console.error('[CloudSync] Initial sync failed:', err);
     });
     
     // Set up periodic sync every 30 seconds
@@ -73,6 +83,48 @@ export function initCloudSync() {
         fullSync();
       }
     }, 30000);
+  } else {
+    console.log('[CloudSync] Skipping sync - not online or Supabase not configured');
+  }
+}
+
+// Test Supabase connection and verify tables exist
+export async function testSupabaseConnection(): Promise<{ success: boolean; message: string; details?: any }> {
+  console.log('[CloudSync] Testing Supabase connection...');
+  
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, message: 'Supabase not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.' };
+  }
+
+  try {
+    // Try to query the patients table
+    const { data, error, status } = await supabase
+      .from('patients')
+      .select('id')
+      .limit(1);
+
+    if (error) {
+      console.error('[CloudSync] Supabase test failed:', error);
+      return { 
+        success: false, 
+        message: `Database error: ${error.message}. Code: ${error.code}`,
+        details: { error, status }
+      };
+    }
+
+    console.log('[CloudSync] Supabase connection successful!');
+    return { 
+      success: true, 
+      message: 'Connected to Supabase successfully!',
+      details: { recordCount: data?.length || 0, status }
+    };
+  } catch (err) {
+    console.error('[CloudSync] Connection test error:', err);
+    return { 
+      success: false, 
+      message: err instanceof Error ? err.message : 'Unknown error',
+      details: err
+    };
   }
 }
 
