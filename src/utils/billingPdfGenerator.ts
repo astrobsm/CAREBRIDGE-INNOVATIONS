@@ -1,0 +1,628 @@
+// Invoice and Billing PDF Generator
+// Generates professional invoices and bill estimates with CareBridge branding
+
+import jsPDF from 'jspdf';
+import { format } from 'date-fns';
+import {
+  addBrandedHeader,
+  addBrandedFooter,
+  addPatientInfoBox,
+  addSectionTitle,
+  formatNairaPDF,
+  checkNewPage,
+  PDF_COLORS,
+  type PDFDocumentInfo,
+  type PDFPatientInfo,
+} from './pdfUtils';
+
+export interface InvoiceItemPDF {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  category?: string;
+  discountPercent?: number;
+}
+
+export interface InvoicePDFOptions {
+  invoiceNumber: string;
+  invoiceDate: Date;
+  dueDate?: Date;
+  patient: PDFPatientInfo;
+  hospitalName: string;
+  hospitalAddress?: string;
+  hospitalPhone?: string;
+  hospitalEmail?: string;
+  items: InvoiceItemPDF[];
+  subtotal: number;
+  discountAmount?: number;
+  taxAmount?: number;
+  totalAmount: number;
+  paidAmount?: number;
+  status: 'pending' | 'paid' | 'partial' | 'overdue' | 'cancelled';
+  notes?: string;
+  paymentInstructions?: string;
+  bankDetails?: {
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+  };
+}
+
+export function generateInvoicePDF(options: InvoicePDFOptions): void {
+  const {
+    invoiceNumber,
+    invoiceDate,
+    dueDate,
+    patient,
+    hospitalName,
+    hospitalAddress,
+    hospitalPhone,
+    hospitalEmail,
+    items,
+    subtotal,
+    discountAmount = 0,
+    taxAmount = 0,
+    totalAmount,
+    paidAmount = 0,
+    status,
+    notes,
+    paymentInstructions,
+    bankDetails,
+  } = options;
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Add branded header
+  const info: PDFDocumentInfo = {
+    title: 'INVOICE',
+    subtitle: `Invoice #${invoiceNumber}`,
+    hospitalName,
+    hospitalAddress,
+    hospitalPhone,
+    hospitalEmail,
+  };
+
+  let yPos = addBrandedHeader(doc, info);
+
+  // Invoice status badge
+  const statusColors: Record<string, [number, number, number]> = {
+    pending: [234, 179, 8],    // Yellow
+    paid: [34, 197, 94],       // Green
+    partial: [59, 130, 246],   // Blue
+    overdue: [220, 38, 38],    // Red
+    cancelled: [107, 114, 128], // Gray
+  };
+
+  const statusLabels: Record<string, string> = {
+    pending: 'PENDING',
+    paid: 'PAID',
+    partial: 'PARTIALLY PAID',
+    overdue: 'OVERDUE',
+    cancelled: 'CANCELLED',
+  };
+
+  doc.setFillColor(...statusColors[status]);
+  doc.roundedRect(pageWidth - 55, yPos - 10, 40, 12, 2, 2, 'F');
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text(statusLabels[status], pageWidth - 35, yPos - 3, { align: 'center' });
+
+  yPos += 5;
+
+  // Invoice details box
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(15, yPos, pageWidth - 30, 20, 2, 2, 'F');
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...PDF_COLORS.dark);
+  
+  doc.text(`Invoice Date: ${format(invoiceDate, 'dd MMMM yyyy')}`, 20, yPos + 8);
+  if (dueDate) {
+    doc.text(`Due Date: ${format(dueDate, 'dd MMMM yyyy')}`, 20, yPos + 15);
+  }
+  doc.text(`Invoice #: ${invoiceNumber}`, pageWidth - 70, yPos + 8);
+  
+  yPos += 28;
+
+  // Patient information
+  yPos = addPatientInfoBox(doc, yPos, patient);
+
+  // Items table
+  yPos = addSectionTitle(doc, yPos, 'Invoice Items');
+
+  // Table header
+  const colWidths = [70, 25, 35, 35]; // Description, Qty, Unit Price, Total
+  doc.setFillColor(...PDF_COLORS.primary);
+  doc.rect(15, yPos, pageWidth - 30, 8, 'F');
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  
+  let xPos = 17;
+  const headers = ['Description', 'Qty', 'Unit Price', 'Total'];
+  headers.forEach((header, i) => {
+    doc.text(header, xPos, yPos + 5.5);
+    xPos += colWidths[i];
+  });
+  yPos += 8;
+
+  // Table rows
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...PDF_COLORS.dark);
+  
+  items.forEach((item, index) => {
+    yPos = checkNewPage(doc, yPos, 10);
+    
+    // Alternate row colors
+    if (index % 2 === 0) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(15, yPos, pageWidth - 30, 8, 'F');
+    }
+    
+    xPos = 17;
+    doc.setFontSize(8);
+    
+    // Description (with category if available)
+    let description = item.description;
+    if (item.category) {
+      description = `[${item.category}] ${description}`;
+    }
+    // Truncate if too long
+    if (doc.getTextWidth(description) > colWidths[0] - 4) {
+      while (doc.getTextWidth(description + '...') > colWidths[0] - 4) {
+        description = description.slice(0, -1);
+      }
+      description += '...';
+    }
+    doc.text(description, xPos, yPos + 5.5);
+    xPos += colWidths[0];
+    
+    // Quantity
+    doc.text(item.quantity.toString(), xPos, yPos + 5.5);
+    xPos += colWidths[1];
+    
+    // Unit Price
+    doc.text(formatNairaPDF(item.unitPrice), xPos, yPos + 5.5);
+    xPos += colWidths[2];
+    
+    // Total
+    doc.text(formatNairaPDF(item.total), xPos, yPos + 5.5);
+    
+    yPos += 8;
+  });
+
+  // Table border
+  const tableHeight = 8 + items.length * 8;
+  doc.setDrawColor(...PDF_COLORS.lightGray);
+  doc.setLineWidth(0.3);
+  doc.rect(15, yPos - tableHeight, pageWidth - 30, tableHeight, 'S');
+
+  yPos += 10;
+
+  // Summary section
+  yPos = checkNewPage(doc, yPos, 50);
+  
+  const summaryX = pageWidth - 90;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...PDF_COLORS.dark);
+
+  // Subtotal
+  doc.text('Subtotal:', summaryX, yPos);
+  doc.text(formatNairaPDF(subtotal), pageWidth - 20, yPos, { align: 'right' });
+  yPos += 7;
+
+  // Discount
+  if (discountAmount > 0) {
+    doc.setTextColor(...PDF_COLORS.success);
+    doc.text('Discount:', summaryX, yPos);
+    doc.text(`-${formatNairaPDF(discountAmount)}`, pageWidth - 20, yPos, { align: 'right' });
+    yPos += 7;
+  }
+
+  // Tax
+  if (taxAmount > 0) {
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.text('Tax:', summaryX, yPos);
+    doc.text(formatNairaPDF(taxAmount), pageWidth - 20, yPos, { align: 'right' });
+    yPos += 7;
+  }
+
+  // Divider line
+  doc.setDrawColor(...PDF_COLORS.gray);
+  doc.setLineWidth(0.5);
+  doc.line(summaryX, yPos, pageWidth - 15, yPos);
+  yPos += 5;
+
+  // Total
+  doc.setFillColor(...PDF_COLORS.primaryDark);
+  doc.roundedRect(summaryX - 5, yPos - 2, pageWidth - summaryX - 5, 12, 2, 2, 'F');
+  
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('TOTAL:', summaryX, yPos + 6);
+  doc.text(formatNairaPDF(totalAmount), pageWidth - 20, yPos + 6, { align: 'right' });
+  yPos += 18;
+
+  // Paid amount & balance (if applicable)
+  if (paidAmount > 0 || status === 'partial') {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...PDF_COLORS.success);
+    doc.text('Amount Paid:', summaryX, yPos);
+    doc.text(formatNairaPDF(paidAmount), pageWidth - 20, yPos, { align: 'right' });
+    yPos += 7;
+
+    const balance = totalAmount - paidAmount;
+    if (balance > 0) {
+      doc.setTextColor(...PDF_COLORS.danger);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Balance Due:', summaryX, yPos);
+      doc.text(formatNairaPDF(balance), pageWidth - 20, yPos, { align: 'right' });
+      yPos += 7;
+    }
+  }
+
+  yPos += 10;
+
+  // Bank details (if provided)
+  if (bankDetails) {
+    yPos = checkNewPage(doc, yPos, 40);
+    yPos = addSectionTitle(doc, yPos, 'Payment Details', 'info');
+    
+    doc.setFillColor(240, 249, 255);
+    doc.roundedRect(15, yPos, pageWidth - 30, 25, 2, 2, 'F');
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...PDF_COLORS.dark);
+    
+    doc.text(`Bank: ${bankDetails.bankName}`, 20, yPos + 8);
+    doc.text(`Account Name: ${bankDetails.accountName}`, 20, yPos + 15);
+    doc.text(`Account Number: ${bankDetails.accountNumber}`, 20, yPos + 22);
+    
+    yPos += 32;
+  }
+
+  // Payment instructions
+  if (paymentInstructions) {
+    yPos = checkNewPage(doc, yPos, 30);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.text('Payment Instructions:', 15, yPos);
+    yPos += 6;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    const lines = doc.splitTextToSize(paymentInstructions, pageWidth - 30);
+    doc.text(lines, 15, yPos);
+    yPos += lines.length * 4 + 5;
+  }
+
+  // Notes
+  if (notes) {
+    yPos = checkNewPage(doc, yPos, 30);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.text('Notes:', 15, yPos);
+    yPos += 6;
+    
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(...PDF_COLORS.gray);
+    const noteLines = doc.splitTextToSize(notes, pageWidth - 30);
+    doc.text(noteLines, 15, yPos);
+  }
+
+  // Add footer to all pages
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    addBrandedFooter(doc, i, totalPages, 'Thank you for your business. Please retain this invoice for your records.');
+  }
+
+  // Save the PDF
+  doc.save(`Invoice_${invoiceNumber}_${format(invoiceDate, 'yyyyMMdd')}.pdf`);
+}
+
+// Generate a fee estimate/quote PDF
+export interface FeeEstimatePDFOptions {
+  estimateNumber: string;
+  patient: PDFPatientInfo;
+  hospitalName: string;
+  hospitalPhone?: string;
+  procedureName: string;
+  procedureDate?: Date;
+  items: InvoiceItemPDF[];
+  subtotal: number;
+  discountPercent?: number;
+  discountAmount?: number;
+  totalAmount: number;
+  validUntil?: Date;
+  notes?: string;
+  surgeon?: string;
+  anaesthetist?: string;
+}
+
+export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
+  const {
+    estimateNumber,
+    patient,
+    hospitalName,
+    hospitalPhone,
+    procedureName,
+    procedureDate,
+    items,
+    subtotal,
+    discountPercent = 0,
+    discountAmount = 0,
+    totalAmount,
+    validUntil,
+    notes,
+    surgeon,
+    anaesthetist,
+  } = options;
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Add branded header
+  const info: PDFDocumentInfo = {
+    title: 'FEE ESTIMATE',
+    subtitle: `Estimate #${estimateNumber} - ${procedureName}`,
+    hospitalName,
+    hospitalPhone,
+  };
+
+  let yPos = addBrandedHeader(doc, info);
+  yPos += 5;
+
+  // Patient information
+  yPos = addPatientInfoBox(doc, yPos, patient, {
+    Procedure: procedureName,
+    ...(procedureDate ? { 'Scheduled Date': format(procedureDate, 'dd MMMM yyyy') } : {}),
+  });
+
+  // Surgical team (if provided)
+  if (surgeon || anaesthetist) {
+    doc.setFillColor(252, 252, 253);
+    doc.roundedRect(15, yPos, pageWidth - 30, 18, 2, 2, 'F');
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...PDF_COLORS.primaryDark);
+    doc.text('Surgical Team', 20, yPos + 6);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...PDF_COLORS.dark);
+    if (surgeon) {
+      doc.text(`Surgeon: ${surgeon}`, 20, yPos + 13);
+    }
+    if (anaesthetist) {
+      doc.text(`Anaesthetist: ${anaesthetist}`, pageWidth / 2, yPos + 13);
+    }
+    
+    yPos += 25;
+  }
+
+  // Cost breakdown
+  yPos = addSectionTitle(doc, yPos, 'Cost Breakdown');
+
+  // Table
+  doc.setFillColor(...PDF_COLORS.primary);
+  doc.rect(15, yPos, pageWidth - 30, 8, 'F');
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('Description', 17, yPos + 5.5);
+  doc.text('Amount', pageWidth - 50, yPos + 5.5);
+  yPos += 8;
+
+  // Items
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...PDF_COLORS.dark);
+  
+  items.forEach((item, index) => {
+    if (index % 2 === 0) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(15, yPos, pageWidth - 30, 8, 'F');
+    }
+    
+    doc.setFontSize(8);
+    doc.text(item.description, 17, yPos + 5.5);
+    doc.text(formatNairaPDF(item.total), pageWidth - 50, yPos + 5.5);
+    yPos += 8;
+  });
+
+  // Table border
+  doc.setDrawColor(...PDF_COLORS.lightGray);
+  doc.rect(15, yPos - (items.length + 1) * 8, pageWidth - 30, (items.length + 1) * 8, 'S');
+
+  yPos += 10;
+
+  // Summary
+  const summaryX = pageWidth - 90;
+  doc.setFontSize(9);
+  
+  doc.text('Subtotal:', summaryX, yPos);
+  doc.text(formatNairaPDF(subtotal), pageWidth - 20, yPos, { align: 'right' });
+  yPos += 7;
+
+  if (discountAmount > 0) {
+    doc.setTextColor(...PDF_COLORS.success);
+    doc.text(`Discount (${discountPercent}%):`, summaryX, yPos);
+    doc.text(`-${formatNairaPDF(discountAmount)}`, pageWidth - 20, yPos, { align: 'right' });
+    yPos += 7;
+  }
+
+  // Total
+  doc.setDrawColor(...PDF_COLORS.gray);
+  doc.line(summaryX, yPos, pageWidth - 15, yPos);
+  yPos += 5;
+
+  doc.setFillColor(...PDF_COLORS.primaryDark);
+  doc.roundedRect(summaryX - 5, yPos - 2, pageWidth - summaryX - 5, 12, 2, 2, 'F');
+  
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('ESTIMATED TOTAL:', summaryX, yPos + 6);
+  doc.text(formatNairaPDF(totalAmount), pageWidth - 20, yPos + 6, { align: 'right' });
+  
+  yPos += 20;
+
+  // Validity notice
+  if (validUntil) {
+    doc.setFillColor(254, 249, 195);
+    doc.roundedRect(15, yPos, pageWidth - 30, 12, 2, 2, 'F');
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...PDF_COLORS.warning);
+    doc.text(`⚠ This estimate is valid until ${format(validUntil, 'dd MMMM yyyy')}`, 20, yPos + 8);
+    yPos += 18;
+  }
+
+  // Notes
+  if (notes) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(...PDF_COLORS.gray);
+    doc.text('Note: ' + notes, 15, yPos);
+  }
+
+  // Disclaimer
+  yPos = doc.internal.pageSize.getHeight() - 40;
+  doc.setFillColor(248, 250, 252);
+  doc.rect(15, yPos, pageWidth - 30, 15, 'F');
+  
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...PDF_COLORS.gray);
+  doc.text('DISCLAIMER: This is an estimate only. Actual costs may vary based on intraoperative findings,', 20, yPos + 5);
+  doc.text('complications, additional procedures, or length of hospital stay. A final invoice will be provided upon discharge.', 20, yPos + 10);
+
+  // Footer
+  addBrandedFooter(doc, 1, 1, 'This estimate is not a guarantee of services. Please contact us for any questions.');
+
+  // Save
+  doc.save(`FeeEstimate_${estimateNumber}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+}
+
+// Generate a receipt PDF
+export interface ReceiptPDFOptions {
+  receiptNumber: string;
+  paymentDate: Date;
+  patient: PDFPatientInfo;
+  hospitalName: string;
+  hospitalPhone?: string;
+  invoiceNumber?: string;
+  amountPaid: number;
+  paymentMethod: string;
+  receivedBy?: string;
+  notes?: string;
+}
+
+export function generateReceiptPDF(options: ReceiptPDFOptions): void {
+  const {
+    receiptNumber,
+    paymentDate,
+    patient,
+    hospitalName,
+    hospitalPhone,
+    invoiceNumber,
+    amountPaid,
+    paymentMethod,
+    receivedBy,
+    notes,
+  } = options;
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Add branded header
+  const info: PDFDocumentInfo = {
+    title: 'PAYMENT RECEIPT',
+    subtitle: `Receipt #${receiptNumber}`,
+    hospitalName,
+    hospitalPhone,
+  };
+
+  let yPos = addBrandedHeader(doc, info);
+
+  // PAID stamp
+  doc.setFillColor(...PDF_COLORS.success);
+  doc.roundedRect(pageWidth - 55, yPos - 10, 40, 12, 2, 2, 'F');
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('PAID', pageWidth - 35, yPos - 3, { align: 'center' });
+
+  yPos += 10;
+
+  // Patient info
+  yPos = addPatientInfoBox(doc, yPos, patient);
+
+  // Payment details
+  yPos = addSectionTitle(doc, yPos, 'Payment Details', 'success');
+
+  doc.setFillColor(240, 253, 244);
+  doc.roundedRect(15, yPos, pageWidth - 30, 45, 3, 3, 'F');
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...PDF_COLORS.dark);
+
+  let detailY = yPos + 10;
+  doc.text(`Receipt Number: ${receiptNumber}`, 20, detailY);
+  doc.text(`Payment Date: ${format(paymentDate, 'dd MMMM yyyy, HH:mm')}`, pageWidth / 2, detailY);
+  detailY += 10;
+
+  if (invoiceNumber) {
+    doc.text(`Invoice Reference: ${invoiceNumber}`, 20, detailY);
+    detailY += 10;
+  }
+
+  doc.text(`Payment Method: ${paymentMethod}`, 20, detailY);
+  if (receivedBy) {
+    doc.text(`Received By: ${receivedBy}`, pageWidth / 2, detailY);
+  }
+  detailY += 10;
+
+  // Amount box
+  doc.setFillColor(...PDF_COLORS.success);
+  doc.roundedRect(20, detailY - 2, pageWidth - 40, 14, 2, 2, 'F');
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('Amount Paid:', 25, detailY + 7);
+  doc.text(formatNairaPDF(amountPaid), pageWidth - 25, detailY + 7, { align: 'right' });
+
+  yPos += 55;
+
+  // Notes
+  if (notes) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(...PDF_COLORS.gray);
+    doc.text('Notes: ' + notes, 15, yPos);
+  }
+
+  // Footer
+  addBrandedFooter(doc, 1, 1, 'Please retain this receipt for your records. Thank you for your payment.');
+
+  // Save
+  doc.save(`Receipt_${receiptNumber}_${format(paymentDate, 'yyyyMMdd')}.pdf`);
+}

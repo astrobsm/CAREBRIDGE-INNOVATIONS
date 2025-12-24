@@ -1,0 +1,124 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext';
+import MainLayout from './components/layouts/MainLayout';
+import AuthLayout from './components/layouts/AuthLayout';
+import LoginPage from './domains/auth/pages/LoginPage';
+import RegisterPage from './domains/auth/pages/RegisterPage';
+import UserAgreementPage from './domains/auth/pages/UserAgreementPage';
+import DashboardPage from './domains/dashboard/pages/DashboardPage';
+import PatientsListPage from './domains/patients/pages/PatientsListPage';
+import PatientDetailsPage from './domains/patients/pages/PatientDetailsPage';
+import NewPatientPage from './domains/patients/pages/NewPatientPage';
+import ClinicalEncounterPage from './domains/clinical/pages/ClinicalEncounterPage';
+import VitalsPage from './domains/clinical/pages/VitalsPage';
+import SurgeryListPage from './domains/surgery/pages/SurgeryListPage';
+import SurgeryPlanningPage from './domains/surgery/pages/SurgeryPlanningPage';
+import WoundsPage from './domains/wounds/pages/WoundsPage';
+import BurnsAssessmentPage from './domains/burns/pages/BurnsAssessmentPage';
+import LaboratoryPage from './domains/laboratory/pages/LaboratoryPage';
+import PharmacyPage from './domains/pharmacy/pages/PharmacyPage';
+import NutritionPage from './domains/nutrition/pages/NutritionPage';
+import BillingPage from './domains/billing/pages/BillingPage';
+import HospitalsPage from './domains/hospitals/pages/HospitalsPage';
+import SettingsPage from './domains/settings/pages/SettingsPage';
+import ClinicalCalculatorsPage from './domains/calculators/pages/ClinicalCalculatorsPage';
+import AdmissionsPage from './domains/admissions/pages/AdmissionsPage';
+import WardRoundsPage from './domains/ward-rounds/pages/WardRoundsPage';
+import InvestigationsPage from './domains/investigations/pages/InvestigationsPage';
+import ChatPage from './domains/communication/pages/ChatPage';
+import VideoConferencePage from './domains/communication/pages/VideoConferencePage';
+import NotFoundPage from './pages/NotFoundPage';
+import LoadingScreen from './components/common/LoadingScreen';
+import InstallPrompt from './components/pwa/InstallPrompt';
+
+// Component to check agreement status and redirect
+function AgreementGuard({ children }: { children: React.ReactNode }) {
+  const { needsAgreement } = useAuth();
+  
+  if (needsAgreement()) {
+    return <Navigate to="/agreement" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
+function App() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <>
+    <Routes>
+      {/* Public Routes */}
+      <Route element={<AuthLayout />}>
+        <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/" replace />} />
+        <Route path="/register" element={!isAuthenticated ? <RegisterPage /> : <Navigate to="/" replace />} />
+      </Route>
+
+      {/* User Agreement Route - for authenticated users who haven't accepted */}
+      <Route 
+        path="/agreement" 
+        element={
+          isAuthenticated 
+            ? (user?.hasAcceptedAgreement 
+                ? <Navigate to="/" replace /> 
+                : <UserAgreementPage />)
+            : <Navigate to="/login" replace />
+        } 
+      />
+
+      {/* Protected Routes - with Agreement Guard */}
+      <Route element={isAuthenticated ? <AgreementGuard><MainLayout /></AgreementGuard> : <Navigate to="/login" replace />}>
+        <Route index element={<DashboardPage />} />
+        
+        {/* Patient Routes */}
+        <Route path="patients">
+          <Route index element={<PatientsListPage />} />
+          <Route path="new" element={<NewPatientPage />} />
+          <Route path=":patientId" element={<PatientDetailsPage />} />
+          <Route path=":patientId/encounter" element={<ClinicalEncounterPage />} />
+          <Route path=":patientId/vitals" element={<VitalsPage />} />
+        </Route>
+
+        {/* Surgery Routes */}
+        <Route path="surgery">
+          <Route index element={<SurgeryListPage />} />
+          <Route path="planning/:patientId" element={<SurgeryPlanningPage />} />
+        </Route>
+
+        {/* Clinical Modules */}
+        <Route path="admissions" element={<AdmissionsPage />} />
+        <Route path="ward-rounds" element={<WardRoundsPage />} />
+        <Route path="investigations" element={<InvestigationsPage />} />
+        <Route path="wounds" element={<WoundsPage />} />
+        <Route path="burns" element={<BurnsAssessmentPage />} />
+        <Route path="laboratory" element={<LaboratoryPage />} />
+        <Route path="pharmacy" element={<PharmacyPage />} />
+        <Route path="nutrition" element={<NutritionPage />} />
+        <Route path="billing" element={<BillingPage />} />
+        <Route path="calculators" element={<ClinicalCalculatorsPage />} />
+        <Route path="hospitals" element={<HospitalsPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+
+        {/* Communication Routes */}
+        <Route path="communication">
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="video" element={<VideoConferencePage />} />
+          <Route path="video/:conferenceId" element={<VideoConferencePage />} />
+        </Route>
+      </Route>
+
+      {/* 404 Route */}
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+    
+    {/* PWA Install Prompt & Offline/Update Notifications */}
+    <InstallPrompt />
+  </>
+  );
+}
+
+export default App;

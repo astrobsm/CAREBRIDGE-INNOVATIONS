@@ -1,0 +1,456 @@
+// Clinical Calculators Hub Page
+// WHO-Aligned Critical Care Management Tools
+
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Calculator,
+  Droplet,
+  Zap,
+  FlaskConical,
+  Activity,
+  Pill,
+  Flame,
+  UtensilsCrossed,
+  Heart,
+  Bed,
+  Apple,
+  Soup,
+  TrendingDown,
+  TrendingUp,
+  CircleDot,
+  User,
+  X,
+  ChevronRight,
+} from 'lucide-react';
+import { PatientCalculatorInfo, COMMON_COMORBIDITIES, NIGERIAN_HOSPITALS } from '../types';
+import SodiumCalculator from './calculators/SodiumCalculator';
+import PotassiumCalculator from './calculators/PotassiumCalculator';
+import AcidBaseCalculator from './calculators/AcidBaseCalculator';
+import GFRCalculator from './calculators/GFRCalculator';
+import BNFDrugCalculator from './calculators/BNFDrugCalculator';
+import BurnsCalculator from './calculators/BurnsCalculator';
+import NutritionCalculator from './calculators/NutritionCalculator';
+import DVTRiskCalculator from './calculators/DVTRiskCalculator';
+import BradenScaleCalculator from './calculators/BradenScaleCalculator';
+import MUSTCalculator from './calculators/MUSTCalculator';
+import WoundMealPlanCalculator from './calculators/WoundMealPlanCalculator';
+import WeightLossCalculator from './calculators/WeightLossCalculator';
+import WeightGainCalculator from './calculators/WeightGainCalculator';
+import SickleCellCalculator from './calculators/SickleCellCalculator';
+
+type CalculatorTab = 
+  | 'sodium' 
+  | 'potassium' 
+  | 'acidbase' 
+  | 'gfr' 
+  | 'bnf' 
+  | 'burns' 
+  | 'nutrition' 
+  | 'dvt' 
+  | 'pressuresore' 
+  | 'must' 
+  | 'woundmealplan' 
+  | 'weightloss' 
+  | 'weightgain' 
+  | 'sicklecell';
+
+interface CalculatorTabConfig {
+  id: CalculatorTab;
+  label: string;
+  icon: typeof Calculator;
+  description: string;
+  category: 'electrolytes' | 'renal' | 'drugs' | 'wounds' | 'nutrition' | 'risk' | 'hematology';
+}
+
+const calculatorTabs: CalculatorTabConfig[] = [
+  // Electrolytes & Fluids
+  { id: 'sodium', label: 'Sodium', icon: Droplet, description: 'Hypo/Hypernatremia management', category: 'electrolytes' },
+  { id: 'potassium', label: 'Potassium', icon: Zap, description: 'Hypo/Hyperkalemia management', category: 'electrolytes' },
+  { id: 'acidbase', label: 'Acid-Base', icon: FlaskConical, description: 'ABG interpretation', category: 'electrolytes' },
+  
+  // Renal
+  { id: 'gfr', label: 'GFR', icon: Activity, description: 'Kidney function & CKD staging', category: 'renal' },
+  
+  // Drugs
+  { id: 'bnf', label: 'BNF Drugs', icon: Pill, description: 'Drug dosing calculator', category: 'drugs' },
+  
+  // Wounds & Burns
+  { id: 'burns', label: 'Burns', icon: Flame, description: 'TBSA, Parkland & ABSI', category: 'wounds' },
+  { id: 'pressuresore', label: 'Pressure Sore', icon: Bed, description: 'Braden Scale assessment', category: 'wounds' },
+  { id: 'woundmealplan', label: 'Wound Healing', icon: Soup, description: 'Nutritional support for wounds', category: 'wounds' },
+  
+  // Nutrition
+  { id: 'nutrition', label: 'Nutrition', icon: UtensilsCrossed, description: 'Caloric & protein requirements', category: 'nutrition' },
+  { id: 'must', label: 'MUST Score', icon: Apple, description: 'Malnutrition screening', category: 'nutrition' },
+  { id: 'weightloss', label: 'Weight Loss', icon: TrendingDown, description: 'Weight reduction planning', category: 'nutrition' },
+  { id: 'weightgain', label: 'Weight Gain', icon: TrendingUp, description: 'Weight gain planning', category: 'nutrition' },
+  
+  // Risk Assessment
+  { id: 'dvt', label: 'DVT Risk', icon: Heart, description: 'Caprini VTE scoring', category: 'risk' },
+  
+  // Hematology
+  { id: 'sicklecell', label: 'Sickle Cell', icon: CircleDot, description: 'Crisis management', category: 'hematology' },
+];
+
+const categoryLabels = {
+  electrolytes: 'Electrolytes & Fluids',
+  renal: 'Renal Function',
+  drugs: 'Drug Dosing',
+  wounds: 'Wounds & Burns',
+  nutrition: 'Nutrition',
+  risk: 'Risk Assessment',
+  hematology: 'Hematology',
+};
+
+export default function ClinicalCalculatorsPage() {
+  const [activeTab, setActiveTab] = useState<CalculatorTab>('sodium');
+  const [showPatientForm, setShowPatientForm] = useState(false);
+  const [patientInfo, setPatientInfo] = useState<PatientCalculatorInfo>({
+    name: '',
+    age: '',
+    gender: 'male',
+    weight: '',
+    height: '',
+    hospital: '',
+    hospitalNumber: '',
+    diagnosis: '',
+    comorbidities: [],
+  });
+
+  const toggleComorbidity = (comorbidity: string) => {
+    setPatientInfo(prev => ({
+      ...prev,
+      comorbidities: prev.comorbidities.includes(comorbidity)
+        ? prev.comorbidities.filter(c => c !== comorbidity)
+        : [...prev.comorbidities, comorbidity]
+    }));
+  };
+
+  const activeTabConfig = calculatorTabs.find(t => t.id === activeTab);
+
+  const renderCalculator = () => {
+    switch (activeTab) {
+      case 'sodium':
+        return <SodiumCalculator patientInfo={patientInfo} />;
+      case 'potassium':
+        return <PotassiumCalculator patientInfo={patientInfo} />;
+      case 'acidbase':
+        return <AcidBaseCalculator patientInfo={patientInfo} />;
+      case 'gfr':
+        return <GFRCalculator patientInfo={patientInfo} />;
+      case 'bnf':
+        return <BNFDrugCalculator patientInfo={patientInfo} />;
+      case 'burns':
+        return <BurnsCalculator patientInfo={patientInfo} />;
+      case 'nutrition':
+        return <NutritionCalculator patientInfo={patientInfo} />;
+      case 'dvt':
+        return <DVTRiskCalculator patientInfo={patientInfo} />;
+      case 'pressuresore':
+        return <BradenScaleCalculator patientInfo={patientInfo} />;
+      case 'must':
+        return <MUSTCalculator patientInfo={patientInfo} />;
+      case 'woundmealplan':
+        return <WoundMealPlanCalculator patientInfo={patientInfo} />;
+      case 'weightloss':
+        return <WeightLossCalculator patientInfo={patientInfo} />;
+      case 'weightgain':
+        return <WeightGainCalculator patientInfo={patientInfo} />;
+      case 'sicklecell':
+        return <SickleCellCalculator patientInfo={patientInfo} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-sky-50">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-lg print:hidden">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center gap-3">
+            <Calculator className="w-10 h-10" />
+            <div>
+              <h1 className="text-2xl font-bold">Clinical Calculators</h1>
+              <p className="text-sm text-sky-100">WHO-Aligned Critical Care Management</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Patient Information Banner */}
+      {patientInfo.name && (
+        <div className="bg-gradient-to-r from-blue-100 to-blue-50 border-b-2 border-blue-300 print:hidden">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-6 text-sm">
+                <div><strong>Patient:</strong> {patientInfo.name}</div>
+                {patientInfo.hospital && <div><strong>Hospital:</strong> {patientInfo.hospital}</div>}
+                <div><strong>Age:</strong> {patientInfo.age} years</div>
+                <div><strong>Gender:</strong> {patientInfo.gender === 'male' ? 'Male' : 'Female'}</div>
+                {patientInfo.hospitalNumber && <div><strong>Hospital #:</strong> {patientInfo.hospitalNumber}</div>}
+                {patientInfo.diagnosis && <div><strong>Dx:</strong> {patientInfo.diagnosis}</div>}
+              </div>
+              <button
+                onClick={() => setShowPatientForm(true)}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                Edit
+              </button>
+            </div>
+            {patientInfo.comorbidities.length > 0 && (
+              <div className="mt-2 text-xs">
+                <strong>Comorbidities:</strong> {patientInfo.comorbidities.join(', ')}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab Navigation */}
+      <nav className="bg-white shadow-md sticky top-0 z-10 print:hidden">
+        <div className="container mx-auto px-4">
+          <div className="flex overflow-x-auto">
+            <button
+              onClick={() => setShowPatientForm(true)}
+              className="flex items-center gap-2 px-4 py-4 font-semibold text-blue-600 hover:bg-blue-50 transition-all whitespace-nowrap border-r border-gray-200"
+            >
+              <User className="w-5 h-5" />
+              Patient Info
+            </button>
+            {calculatorTabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-4 font-medium transition-all whitespace-nowrap text-sm ${
+                    activeTab === tab.id
+                      ? 'text-sky-600 border-b-2 border-sky-600 bg-sky-50'
+                      : 'text-gray-600 hover:text-sky-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </nav>
+
+      {/* Patient Information Form Modal */}
+      <AnimatePresence>
+        {showPatientForm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="sticky top-0 bg-gradient-to-r from-sky-600 to-indigo-600 text-white p-6 rounded-t-lg flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">Patient Information</h2>
+                  <p className="text-sm text-sky-100 mt-1">Enter patient details for all calculators</p>
+                </div>
+                <button
+                  onClick={() => setShowPatientForm(false)}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Patient Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={patientInfo.name}
+                      onChange={(e) => setPatientInfo({...patientInfo, name: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      placeholder="Full Name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Hospital
+                    </label>
+                    <select
+                      value={patientInfo.hospital}
+                      onChange={(e) => setPatientInfo({...patientInfo, hospital: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                    >
+                      <option value="">Select Hospital</option>
+                      {NIGERIAN_HOSPITALS.map(hospital => (
+                        <option key={hospital} value={hospital}>{hospital}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Hospital Number
+                    </label>
+                    <input
+                      type="text"
+                      value={patientInfo.hospitalNumber}
+                      onChange={(e) => setPatientInfo({...patientInfo, hospitalNumber: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      placeholder="e.g., MRN123456"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Age (years) *
+                    </label>
+                    <input
+                      type="number"
+                      value={patientInfo.age}
+                      onChange={(e) => setPatientInfo({...patientInfo, age: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      placeholder="Age"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Gender *
+                    </label>
+                    <select
+                      value={patientInfo.gender}
+                      onChange={(e) => setPatientInfo({...patientInfo, gender: e.target.value as PatientCalculatorInfo['gender']})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                    >
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="elderly-male">Elderly Male (65+)</option>
+                      <option value="elderly-female">Elderly Female (65+)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Weight (kg)
+                    </label>
+                    <input
+                      type="number"
+                      value={patientInfo.weight}
+                      onChange={(e) => setPatientInfo({...patientInfo, weight: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      placeholder="Weight in kg"
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Height (cm)
+                    </label>
+                    <input
+                      type="number"
+                      value={patientInfo.height}
+                      onChange={(e) => setPatientInfo({...patientInfo, height: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      placeholder="Height in cm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Diagnosis
+                  </label>
+                  <input
+                    type="text"
+                    value={patientInfo.diagnosis}
+                    onChange={(e) => setPatientInfo({...patientInfo, diagnosis: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                    placeholder="Primary diagnosis"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Comorbidities
+                    <span className="text-xs text-gray-500 ml-2">(Select all that apply)</span>
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                    {COMMON_COMORBIDITIES.map((comorbidity) => (
+                      <label key={comorbidity} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={patientInfo.comorbidities.includes(comorbidity)}
+                          onChange={() => toggleComorbidity(comorbidity)}
+                          className="w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
+                        />
+                        <span className="text-sm text-gray-700">{comorbidity}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-lg flex gap-3 border-t">
+                <button
+                  onClick={() => setShowPatientForm(false)}
+                  className="flex-1 px-6 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition-colors"
+                >
+                  Save & Continue
+                </button>
+                <button
+                  onClick={() => setShowPatientForm(false)}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Calculator Content */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Active Calculator Info */}
+          {activeTabConfig && (
+            <div className="mb-6 flex items-center gap-3 text-gray-600">
+              <ChevronRight className="w-5 h-5" />
+              <span className="text-sm">{categoryLabels[activeTabConfig.category]}</span>
+              <ChevronRight className="w-5 h-5" />
+              <span className="font-medium text-gray-900">{activeTabConfig.label}</span>
+              <span className="text-sm text-gray-500">- {activeTabConfig.description}</span>
+            </div>
+          )}
+          
+          {renderCalculator()}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-gray-800 text-white py-6 mt-16 print:hidden">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-lg font-semibold text-sky-400 mb-3">
+            CAREBRIDGE INNOVATIONS
+          </p>
+          <p className="text-sm italic text-gray-300 mb-4">
+            Interactive Surgical EMR & Patient Management
+          </p>
+          <p className="text-sm text-gray-400">
+            Clinical Critical Calculator - For healthcare professionals only
+          </p>
+          <p className="text-xs text-gray-500 mt-2">
+            Based on WHO guidelines and standard ICU protocols. Always verify calculations and use clinical judgment.
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+}
