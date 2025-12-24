@@ -60,6 +60,16 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Skip WebSocket requests (for Vite HMR)
+  if (request.url.includes('ws://') || request.url.includes('wss://')) {
+    return;
+  }
+
+  // Skip Vite HMR requests
+  if (url.pathname.includes('/@vite') || url.pathname.includes('/@fs') || url.searchParams.has('token')) {
+    return;
+  }
+
   // Skip cross-origin requests
   if (url.origin !== location.origin) {
     return;

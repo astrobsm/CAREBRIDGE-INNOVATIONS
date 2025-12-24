@@ -5,10 +5,14 @@ import { Toaster } from 'react-hot-toast';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import initPWA from './services/pwaService';
+import { initCloudSync } from './services/cloudSyncService';
 import './index.css';
 
 // Initialize PWA (service worker, install prompt)
 initPWA();
+
+// Initialize cloud sync with Supabase
+initCloudSync();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

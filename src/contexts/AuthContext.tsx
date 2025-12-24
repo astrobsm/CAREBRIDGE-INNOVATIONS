@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database';
 import type { User, UserRole } from '../types';
+import Dexie from 'dexie';
 
 interface AuthContextType {
   user: User | null;
@@ -78,9 +79,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing session on mount
+  // Initialize database and check for existing session on mount
   useEffect(() => {
-    const checkAuth = async () => {
+    const initAndCheckAuth = async () => {
+      try {
+        // Try to open the database - this will trigger version upgrade if needed
+        await db.open();
+      } catch (error) {
+        console.warn('[Auth] Database open failed, attempting recovery...', error);
+        // If database fails to open (version conflict), delete and recreate
+        if (error instanceof Dexie.VersionError || error instanceof Dexie.UpgradeError) {
+          console.log('[Auth] Deleting old database due to version conflict...');
+          await Dexie.delete('CareBridgeDB');
+          // Reload the page to reinitialize with fresh database
+          window.location.reload();
+          return;
+        }
+      }
+
       try {
         const storedUserId = localStorage.getItem('carebridge_user_id');
         if (storedUserId) {
@@ -99,11 +115,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    checkAuth();
+    initAndCheckAuth();
   }, []);
 
   const login = useCallback(async (email: string, _password: string): Promise<boolean> => {
     try {
+      // Ensure database is open
+      if (!db.isOpen()) {
+        await db.open();
+      }
+
       // In a real app, you'd validate the password against a hash
       const foundUser = await db.users
         .where('email')
@@ -138,6 +159,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return false;
     } catch (error) {
       console.error('Login failed:', error);
+      // If it's a database error, try to recover
+      if (error instanceof Dexie.DexieError) {
+        console.warn('[Auth] Database error during login, attempting recovery...');
+        try {
+          await Dexie.delete('CareBridgeDB');
+          window.location.reload();
+        } catch {
+          // Ignore deletion errors
+        }
+      }
       return false;
     }
   }, []);
