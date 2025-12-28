@@ -6,10 +6,14 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import initPWA from './services/pwaService';
 import { initCloudSync } from './services/cloudSyncService';
+import { initializeDemoData } from './database';
 import './index.css';
 
 // Initialize PWA (service worker, install prompt)
 initPWA();
+
+// Initialize demo data (seed hospitals if database is empty)
+initializeDemoData().catch(console.error);
 
 // Note: Cloud sync is now initialized AFTER React mounts to avoid state update issues
 // initCloudSync() will be called after the first render
