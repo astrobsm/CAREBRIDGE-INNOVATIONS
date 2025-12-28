@@ -89,8 +89,8 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
     title: planTitles[options.planType] || 'Meal Plan',
     subtitle: `Generated on ${format(new Date(), 'MMMM d, yyyy')}`,
     hospitalName: 'CareBridge Innovations in Healthcare',
-    hospitalPhone: '+234 800 000 0000',
-    hospitalEmail: 'nutrition@carebridge.ng',
+    hospitalPhone: '09028724839',
+    hospitalEmail: 'info.carebridge@gmail.com',
   });
 
   // Patient info box if available

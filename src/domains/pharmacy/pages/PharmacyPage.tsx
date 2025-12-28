@@ -306,9 +306,9 @@ export default function PharmacyPage() {
           address: patient.address,
         },
         hospitalName: 'CareBridge Innovations in Healthcare',
-        hospitalPhone: '+234 800 000 0000',
-        hospitalEmail: 'contact@carebridge.ng',
-        prescribedBy: prescriber ? `${prescriber.firstName} ${prescriber.lastName}` : 'Unknown',
+        hospitalPhone: '09028724839',
+        hospitalEmail: 'info.carebridge@gmail.com',
+        prescribedBy: prescriber ? `${prescriber.firstName} ${prescriber.lastName}`  : 'Unknown',
         prescriberTitle: prescriber?.role || 'Doctor',
         medications: prescription.medications.map(med => ({
           name: med.name,
