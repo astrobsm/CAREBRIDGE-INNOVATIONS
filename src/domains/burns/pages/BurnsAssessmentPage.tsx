@@ -21,6 +21,8 @@ import {
   Info,
   Calendar,
   FileText,
+  Brain,
+  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -31,6 +33,7 @@ import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
 import { generateBurnsPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { PatientSelector, PatientDisplay } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
+import { AIBurnExpert } from '../components';
 
 const burnSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
@@ -129,10 +132,12 @@ export default function BurnsAssessmentPage() {
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showAIBurnExpert, setShowAIBurnExpert] = useState(false);
   const [selectedBurn, setSelectedBurn] = useState<BurnAssessment | null>(null);
   const [selectedAreas, setSelectedAreas] = useState<{ [key: string]: { percent: number; depth: BurnDepth } }>({});
   const [patientAge, setPatientAge] = useState(30);
   const [patientGender, setPatientGender] = useState<'male' | 'female'>('male');
+  const [patientWeightState, setPatientWeightState] = useState(70);
 
   const burns = useLiveQuery(() => db.burnAssessments.orderBy('createdAt').reverse().toArray(), []);
   
@@ -291,11 +296,47 @@ export default function BurnsAssessmentPage() {
             TBSA calculation, Parkland formula, and burn care protocols
           </p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary">
-          <Plus size={18} />
-          New Assessment
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowAIBurnExpert(true)}
+            className="btn bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 flex items-center gap-2"
+            title="AI-powered burn assessment using Rule of 9s and Lund-Browder"
+          >
+            <Brain size={18} />
+            <span>Burn Expert AI</span>
+            <Sparkles size={14} className="animate-pulse" />
+          </button>
+          <button onClick={() => setShowModal(true)} className="btn btn-primary">
+            <Plus size={18} />
+            New Assessment
+          </button>
+        </div>
       </div>
+
+      {/* AI Burn Expert Modal */}
+      {showAIBurnExpert && (
+        <AIBurnExpert
+          patientAge={patientAge}
+          patientWeight={patientWeightState}
+          patientGender={patientGender}
+          onAnalysisComplete={(analysis) => {
+            // Apply AI analysis to selected areas
+            const newAreas: { [key: string]: { percent: number; depth: BurnDepth } } = {};
+            analysis.regions.forEach(region => {
+              if (region.percentBurned > 0) {
+                newAreas[region.regionId] = {
+                  percent: region.percentBurned,
+                  depth: region.depth,
+                };
+              }
+            });
+            setSelectedAreas(newAreas);
+            setShowAIBurnExpert(false);
+            toast.success(`AI Assessment applied: ${analysis.totalTBSA.toFixed(1)}% TBSA (${analysis.severityLevel})`);
+          }}
+          onClose={() => setShowAIBurnExpert(false)}
+        />
+      )}
 
       {/* Quick Calculator */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

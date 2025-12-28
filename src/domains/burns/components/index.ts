@@ -7,6 +7,7 @@ export { default as VitalsMonitor } from './VitalsMonitor';
 export { default as BurnAlertsPanel } from './BurnAlertsPanel';
 export { default as BurnScoreSummary } from './BurnScoreSummary';
 export { default as BurnWoundAssessment } from './BurnWoundAssessment';
+export { default as AIBurnExpert } from './AIBurnExpert';
 
 // Re-export types
 export * from '../types';
