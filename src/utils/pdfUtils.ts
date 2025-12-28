@@ -3,7 +3,7 @@
 
 import jsPDF from 'jspdf';
 
-// CareBridge brand colors (from logo)
+// CareBridge brand colors (from logo) - DEEP BLACK for excellent visibility
 export const PDF_COLORS = {
   primary: [81, 112, 255] as [number, number, number],      // #5170FF - Logo blue
   primaryDark: [24, 0, 172] as [number, number, number],    // #1800AC - Logo purple
@@ -11,9 +11,10 @@ export const PDF_COLORS = {
   danger: [220, 38, 38] as [number, number, number],        // Red
   warning: [234, 179, 8] as [number, number, number],       // Yellow
   info: [59, 130, 246] as [number, number, number],         // Blue
-  dark: [31, 41, 55] as [number, number, number],           // Gray-800
-  gray: [107, 114, 128] as [number, number, number],        // Gray-500
-  lightGray: [156, 163, 175] as [number, number, number],   // Gray-400
+  dark: [0, 0, 0] as [number, number, number],              // Pure Black - maximum visibility
+  text: [0, 0, 0] as [number, number, number],              // Pure Black for body text
+  gray: [31, 41, 55] as [number, number, number],           // Dark Gray-800 for secondary text
+  lightGray: [75, 85, 99] as [number, number, number],      // Gray-600 - still readable
   white: [255, 255, 255] as [number, number, number],
 };
 
@@ -155,7 +156,7 @@ export function addBrandedHeader(
   if (info.subtitle) {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...PDF_COLORS.gray);
+    doc.setTextColor(...PDF_COLORS.dark);
     doc.text(info.subtitle, 15, y + 6);
     y += 8;
   }
@@ -163,7 +164,7 @@ export function addBrandedHeader(
   // Date generated
   if (includeDate) {
     doc.setFontSize(9);
-    doc.setTextColor(...PDF_COLORS.lightGray);
+    doc.setTextColor(...PDF_COLORS.gray);
     doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 15, y, { align: 'right' });
   }
 

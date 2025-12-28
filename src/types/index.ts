@@ -648,6 +648,16 @@ export interface Admission {
   // Treatment Plan Link
   treatmentPlanId?: string;
   
+  // Risk Assessments (DVT, Pressure Sore, Nutritional, Drug Allergies)
+  riskAssessments?: {
+    dvtCaprini?: any;
+    pressureSore?: any;
+    nutritional?: any;
+    mealPlan?: any;
+    drugAllergies?: any;
+    completedAt?: Date;
+  };
+  
   // Status Tracking
   status: AdmissionStatus;
   estimatedStayDays?: number;
@@ -1418,6 +1428,7 @@ export interface WardRound {
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   leadDoctorId: string;
   leadDoctorName: string;
+  leadDoctorDesignation?: 'consultant' | 'senior_registrar' | 'registrar' | 'resident' | 'house_officer';
   teamMembers: WardRoundTeamMember[];
   patients: WardRoundPatient[];
   notes?: string;
@@ -1739,4 +1750,1314 @@ export interface ConferenceRecordingInfo {
   recordedBy: string;
   includesPresentation: boolean;
   includesChat: boolean;
+}
+// ==========================================
+// ENHANCED DISCHARGE MODULE (v2)
+// ==========================================
+
+export type DischargeType = 
+  | 'routine'
+  | 'against_advice'
+  | 'transfer'
+  | 'death'
+  | 'absconded';
+
+export interface EnhancedDischargeSummary {
+  id: string;
+  patientId: string;
+  admissionId: string;
+  hospitalId: string;
+  
+  // Basic Info
+  dischargeDate: Date;
+  dischargeTime: string;
+  dischargeType: DischargeType;
+  dischargedBy: string;
+  
+  // Clinical Summary
+  admissionDiagnosis: string;
+  primaryDiagnosis: string;
+  secondaryDiagnoses: string[];
+  proceduresPerformed: string[];
+  
+  // Hospital Course
+  briefHospitalCourse: string;
+  keyFindings: string[];
+  investigationsSummary: string;
+  treatmentGiven: string;
+  complications: string[];
+  
+  // Condition at Discharge
+  conditionAtDischarge: 'improved' | 'stable' | 'unchanged' | 'worse' | 'deceased';
+  vitalSignsAtDischarge: {
+    bloodPressure: string;
+    pulse: number;
+    temperature: number;
+    respiratoryRate: number;
+    oxygenSaturation: number;
+  };
+  functionalStatus: string;
+  
+  // Take-Home Medications
+  takeHomeMedications: TakeHomeMedication[];
+  
+  // Instructions & Plans
+  takeHomeInstructions: TakeHomeInstruction[];
+  dietaryRecommendations: DietaryRecommendation[];
+  lifestyleModifications: LifestyleModification[];
+  activityRestrictions: string[];
+  woundCareInstructions?: string;
+  
+  // Follow-up
+  followUpAppointments: EnhancedFollowUpAppointment[];
+  referrals: DischargeReferral[];
+  warningSignsToWatch: string[];
+  emergencyContact: string;
+  
+  // Generated Plans
+  mealPlan?: GeneratedMealPlan;
+  recoveryPlan?: RecoveryPlan;
+  
+  // Signatures
+  doctorSignature?: string;
+  patientAcknowledgement: boolean;
+  patientSignature?: string;
+  patientSignatureDate?: Date;
+  
+  // Timestamps
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TakeHomeMedication {
+  id: string;
+  name: string;
+  genericName?: string;
+  dosage: string;
+  frequency: string;
+  route: string;
+  duration: string;
+  quantity: number;
+  instructions: string;
+  purpose: string;
+  isNewMedication: boolean;
+  refillsAllowed: number;
+}
+
+export interface TakeHomeInstruction {
+  id: string;
+  category: 'wound_care' | 'medication' | 'activity' | 'diet' | 'hygiene' | 'warning_signs' | 'follow_up' | 'other';
+  title: string;
+  instruction: string;
+  priority: 'essential' | 'important' | 'recommended';
+  timing?: string;
+}
+
+export interface DietaryRecommendation {
+  id: string;
+  category: 'foods_to_eat' | 'foods_to_avoid' | 'fluid_intake' | 'supplements' | 'meal_timing';
+  recommendation: string;
+  reason: string;
+  duration?: string;
+}
+
+export interface LifestyleModification {
+  id: string;
+  category: 'exercise' | 'smoking' | 'alcohol' | 'sleep' | 'stress' | 'work' | 'driving' | 'sexual_activity' | 'other';
+  recommendation: string;
+  duration: string;
+  importance: 'critical' | 'important' | 'helpful';
+  startDate?: string;
+}
+
+export interface EnhancedFollowUpAppointment {
+  id: string;
+  specialty: string;
+  doctorName?: string;
+  purpose: string;
+  recommendedDate: Date;
+  location?: string;
+  notes?: string;
+  isBooked: boolean;
+}
+
+export interface DischargeReferral {
+  id: string;
+  specialty: string;
+  reason: string;
+  urgency: 'routine' | 'soon' | 'urgent';
+  facilityName?: string;
+  contactInfo?: string;
+}
+
+export interface GeneratedMealPlan {
+  id: string;
+  duration: string;
+  calorieTarget: number;
+  proteinTarget: number;
+  meals: MealPlanDay[];
+  specialConsiderations: string[];
+  supplements: string[];
+}
+
+export interface MealPlanDay {
+  day: number;
+  breakfast: MealItem;
+  midMorningSnack?: MealItem;
+  lunch: MealItem;
+  afternoonSnack?: MealItem;
+  dinner: MealItem;
+  eveningSnack?: MealItem;
+}
+
+export interface MealItem {
+  name: string;
+  ingredients: string[];
+  calories: number;
+  protein: number;
+  preparation?: string;
+  alternatives?: string[];
+}
+
+export interface RecoveryPlan {
+  id: string;
+  phases: RecoveryPhase[];
+  milestones: RecoveryMilestone[];
+  expectedFullRecovery: string;
+}
+
+export interface RecoveryPhase {
+  name: string;
+  duration: string;
+  startDay: number;
+  endDay: number;
+  goals: string[];
+  activities: string[];
+  restrictions: string[];
+  expectedProgress: string;
+}
+
+export interface RecoveryMilestone {
+  name: string;
+  expectedDay: number;
+  description: string;
+  criteria: string[];
+}
+
+// ==========================================
+// CONSUMABLE BOM (Bill of Materials) MODULE
+// ==========================================
+
+export interface ConsumableBOM {
+  id: string;
+  patientId: string;
+  encounterId?: string;
+  admissionId?: string;
+  
+  // Service Details
+  serviceType: 'wound_care' | 'dressing' | 'debridement' | 'suturing' | 'catheter' | 'injection' | 'other';
+  serviceName: string;
+  procedureCode?: string;
+  
+  // Wound-specific details
+  woundDetails?: WoundBOMDetails;
+  
+  // Items
+  consumables: ConsumableItem[];
+  professionalFees: ProfessionalFee[];
+  
+  // Totals
+  consumablesTotal: number;
+  professionalFeesTotal: number;
+  grandTotal: number;
+  
+  // Metadata
+  performedBy: string;
+  performedAt: Date;
+  notes?: string;
+  
+  // Invoice
+  invoiceGenerated: boolean;
+  invoiceId?: string;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface WoundBOMDetails {
+  woundId?: string;
+  woundType: string;
+  woundSize: 'small' | 'medium' | 'large';
+  woundLocation: string;
+  proceduresPerformed: WoundProcedure[];
+}
+
+export type WoundProcedure = 
+  | 'inspection'
+  | 'cleaning'
+  | 'dressing'
+  | 'debridement_sharp'
+  | 'debridement_mechanical'
+  | 'debridement_enzymatic'
+  | 'negative_pressure'
+  | 'suturing'
+  | 'skin_grafting';
+
+export interface ConsumableItem {
+  id: string;
+  name: string;
+  category: 'dressing' | 'antiseptic' | 'suture' | 'gloves' | 'instruments' | 'irrigation' | 'other';
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  totalPrice: number;
+  isReusable: boolean;
+}
+
+export interface ProfessionalFee {
+  id: string;
+  description: string;
+  category: 'consultation' | 'procedure' | 'nursing' | 'specialty' | 'after_hours';
+  woundSize?: 'small' | 'medium' | 'large';
+  baseAmount: number;
+  modifiers: ProfessionalFeeModifier[];
+  finalAmount: number;
+}
+
+export interface ProfessionalFeeModifier {
+  type: 'complexity' | 'after_hours' | 'emergency' | 'specialist' | 'equipment';
+  description: string;
+  percentage: number;
+}
+
+// ==========================================
+// HISTOPATHOLOGY REQUEST (WHO Standards)
+// ==========================================
+
+export interface HistopathologyRequest {
+  id: string;
+  patientId: string;
+  encounterId?: string;
+  surgeryId?: string;
+  
+  // Request Info
+  requestDate: Date;
+  requestedBy: string;
+  requestingDepartment: string;
+  priority: 'routine' | 'urgent' | 'frozen_section';
+  
+  // Clinical Information (WHO Required)
+  clinicalHistory: string;
+  clinicalDiagnosis: string;
+  relevantInvestigations: string;
+  previousBiopsies?: string;
+  familyHistory?: string;
+  riskFactors?: string[];
+  
+  // Specimen Details (WHO Required)
+  specimenType: HistopathologySpecimenType;
+  specimenSite: string;
+  specimenLaterality?: 'left' | 'right' | 'bilateral' | 'midline' | 'not_applicable';
+  specimenSize?: string;
+  specimenWeight?: string;
+  numberOfSpecimens: number;
+  specimenOrientation?: string;
+  
+  // Collection Details
+  collectionMethod: 'excision' | 'incision' | 'punch' | 'shave' | 'curettage' | 'aspiration' | 'other';
+  collectionDate: Date;
+  collectionTime: string;
+  collector: string;
+  
+  // Fixation (WHO Required)
+  fixative: 'formalin_10' | 'formalin_buffered' | 'alcohol' | 'fresh' | 'other';
+  fixationTime?: string;
+  
+  // Special Requirements
+  specialStains?: string[];
+  immunohistochemistry?: string[];
+  molecularStudies?: string[];
+  electronMicroscopy: boolean;
+  frozenSection: boolean;
+  
+  // Operative Findings (if surgical)
+  operativeFindings?: string;
+  surgicalMargins?: string;
+  lymphNodesSubmitted?: number;
+  
+  // Additional WHO Fields
+  tumorMarkers?: string[];
+  stagingInfo?: string;
+  treatmentHistory?: string;
+  radiationHistory?: string;
+  chemotherapyHistory?: string;
+  
+  // Status
+  status: 'pending' | 'received' | 'processing' | 'reported' | 'amended';
+  receivedAt?: Date;
+  reportedAt?: Date;
+  
+  // Results
+  grossDescription?: string;
+  microscopicDescription?: string;
+  diagnosis?: string;
+  synopticReport?: HistopathologySynoptic;
+  stageClassification?: string;
+  gradeClassification?: string;
+  margins?: string;
+  
+  // Pathologist
+  pathologist?: string;
+  pathologistSignature?: string;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type HistopathologySpecimenType = 
+  | 'biopsy'
+  | 'excision'
+  | 'resection'
+  | 'amputation'
+  | 'curettage'
+  | 'aspiration'
+  | 'fluid'
+  | 'smear'
+  | 'frozen_section';
+
+export interface HistopathologySynoptic {
+  tumorType?: string;
+  histologicGrade?: string;
+  tumorSize?: string;
+  margins?: string;
+  lymphNodes?: {
+    examined: number;
+    positive: number;
+  };
+  vascularInvasion?: boolean;
+  perineuralInvasion?: boolean;
+  stage?: string;
+  additionalFindings?: string[];
+}
+
+// ==========================================
+// BLOOD TRANSFUSION MODULE
+// ==========================================
+
+export interface BloodTransfusion {
+  id: string;
+  patientId: string;
+  encounterId?: string;
+  admissionId?: string;
+  surgeryId?: string;
+  hospitalId?: string;
+  
+  // Request Details
+  requestDate: Date;
+  requestedBy: string;
+  indication: string;
+  urgency: 'routine' | 'urgent' | 'emergency';
+  
+  // Patient Blood Info
+  patientBloodGroup: BloodGroup;
+  patientRhFactor: 'positive' | 'negative';
+  patientAntibodies?: string[];
+  
+  // Blood Product Details
+  productType: BloodProductType;
+  unitNumber: string;
+  donorBloodGroup: BloodGroup;
+  donorRhFactor: 'positive' | 'negative';
+  volumeMl: number;
+  expiryDate: Date;
+  
+  // Crossmatch
+  crossmatchResult: 'compatible' | 'incompatible' | 'pending';
+  crossmatchDate?: Date;
+  crossmatchBy?: string;
+  
+  // Transfusion Details
+  transfusionStart?: Date;
+  transfusionEnd?: Date;
+  transfusionRate?: number;
+  administeredBy?: string;
+  witnessedBy?: string;
+  
+  // Vitals
+  preVitals?: TransfusionVitals;
+  monitoringVitals?: TransfusionVitals[];
+  postVitals?: TransfusionVitals;
+  
+  // Reactions
+  reactionOccurred: boolean;
+  reactionType?: TransfusionReactionType;
+  reactionTime?: Date;
+  reactionSeverity?: 'mild' | 'moderate' | 'severe' | 'life_threatening';
+  reactionManagement?: string;
+  
+  // Outcome
+  outcome?: 'completed' | 'stopped' | 'reaction';
+  notes?: string;
+  
+  // Status
+  status: 'requested' | 'crossmatched' | 'ready' | 'in_progress' | 'completed' | 'cancelled';
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type BloodProductType = 
+  | 'whole_blood'
+  | 'packed_red_cells'
+  | 'fresh_frozen_plasma'
+  | 'platelets'
+  | 'cryoprecipitate'
+  | 'albumin'
+  | 'immunoglobulin';
+
+export type TransfusionReactionType = 
+  | 'febrile'
+  | 'allergic'
+  | 'hemolytic_acute'
+  | 'hemolytic_delayed'
+  | 'anaphylactic'
+  | 'trali'
+  | 'taco'
+  | 'septic'
+  | 'other';
+
+export interface TransfusionVitals {
+  time: Date;
+  temperature: number;
+  pulse: number;
+  bloodPressureSystolic: number;
+  bloodPressureDiastolic: number;
+  respiratoryRate: number;
+  oxygenSaturation: number;
+  notes?: string;
+}
+
+// ==========================================
+// MDT (MULTIDISCIPLINARY TEAM) MEETING MODULE
+// ==========================================
+
+export interface MDTMeeting {
+  id: string;
+  patientId: string;
+  hospitalId?: string;
+  
+  // Meeting Details
+  meetingDate: Date;
+  meetingTime?: string;
+  meetingType: 'tumor_board' | 'case_conference' | 'mortality_morbidity' | 'grand_rounds' | 'other';
+  location?: string;
+  
+  // Case Presentation
+  casePresenter?: string;
+  caseSummary?: string;
+  
+  // Attendees
+  attendees: MDTAttendee[];
+  specialtiesRepresented: string[];
+  
+  // Clinical Details
+  diagnosis?: string;
+  staging?: {
+    t?: string;
+    n?: string;
+    m?: string;
+    stage?: string;
+    grading?: string;
+  };
+  relevantInvestigations?: string[];
+  imagingReviewed?: string[];
+  pathologyReviewed?: string[];
+  
+  // Discussion
+  discussionPoints?: string[];
+  treatmentOptions?: MDTTreatmentOption[];
+  
+  // Recommendations
+  mdtRecommendation?: string;
+  treatmentPlan?: string;
+  clinicalTrialEligibility?: boolean;
+  clinicalTrialDetails?: string;
+  
+  // Follow-up
+  followUpRequired?: boolean;
+  followUpDate?: Date;
+  followUpActions?: string[];
+  
+  // Documentation
+  minutes?: string;
+  recordedBy?: string;
+  
+  // Status
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface MDTAttendee {
+  id: string;
+  name: string;
+  role: string;
+  specialty: string;
+  present: boolean;
+  contribution?: string;
+}
+
+export interface MDTTreatmentOption {
+  option: string;
+  pros: string[];
+  cons: string[];
+  recommendation?: 'recommended' | 'alternative' | 'not_recommended';
+}
+
+// ==========================================
+// NUTRITION PLAN MODULE
+// ==========================================
+
+export interface NutritionPlan {
+  id: string;
+  patientId: string;
+  encounterId?: string;
+  admissionId?: string;
+  hospitalId?: string;
+  
+  // Patient Metrics
+  weight: number;
+  height: number;
+  bmi: number;
+  activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  clinicalCondition?: string;
+  stressFactor?: number;
+  
+  // Calculated Requirements
+  bmr: number;
+  tdee: number;
+  calorieTarget: number;
+  proteinTarget: number;
+  carbsTarget: number;
+  fatTarget: number;
+  fiberTarget: number;
+  fluidTarget: number;
+  
+  // Plan Details
+  mealFrequency: number;
+  snacksPerDay: number;
+  dietaryRestrictions?: string[];
+  foodAllergies?: string[];
+  foodPreferences?: string[];
+  
+  // Meal Plans
+  mealPlans?: NutritionMealPlan[];
+  weeklyMenu?: WeeklyMenu;
+  
+  // Special Considerations
+  enteralFeeding?: boolean;
+  enteralFormula?: string;
+  enteralRate?: number;
+  parenteralNutrition?: boolean;
+  parenteralDetails?: {
+    type: string;
+    volume: number;
+    rate: number;
+    composition: string;
+  };
+  
+  // Supplements
+  supplements?: NutritionSupplement[];
+  
+  // Monitoring
+  monitoringParameters?: string[];
+  weightGoals?: {
+    targetWeight: number;
+    weeklyChange: number;
+    targetDate: Date;
+  };
+  
+  // Metadata
+  planType: 'standard' | 'weight_loss' | 'weight_gain' | 'renal' | 'diabetic' | 'cardiac' | 'oncology' | 'pediatric' | 'geriatric' | 'custom';
+  status: 'active' | 'completed' | 'on_hold' | 'discontinued';
+  startDate: Date;
+  endDate?: Date;
+  createdBy: string;
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  notes?: string;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface NutritionMealPlan {
+  dayOfWeek: number;
+  meals: NutritionMeal[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+}
+
+export interface NutritionMeal {
+  type: 'breakfast' | 'morning_snack' | 'lunch' | 'afternoon_snack' | 'dinner' | 'evening_snack';
+  time: string;
+  foods: NutritionFoodItem[];
+  totalCalories: number;
+  notes?: string;
+}
+
+export interface NutritionFoodItem {
+  name: string;
+  portion: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number;
+}
+
+export interface WeeklyMenu {
+  [key: string]: NutritionMealPlan; // 'monday', 'tuesday', etc.
+}
+
+export interface NutritionSupplement {
+  name: string;
+  dosage: string;
+  frequency: string;
+  purpose: string;
+  duration?: string;
+}
+
+// ============================================================
+// LIMB SALVAGE MODULE - Diabetic Foot Assessment
+// ============================================================
+
+// Wagner Classification for Diabetic Foot Ulcers
+export type WagnerGrade = 0 | 1 | 2 | 3 | 4 | 5;
+
+// University of Texas Classification
+export interface TexasClassification {
+  grade: 0 | 1 | 2 | 3; // 0=pre/post ulcerative, 1=superficial, 2=tendon/capsule, 3=bone/joint
+  stage: 'A' | 'B' | 'C' | 'D'; // A=clean, B=infected, C=ischemic, D=infected+ischemic
+}
+
+// WIFI Classification (Wound, Ischemia, foot Infection)
+export interface WIFIClassification {
+  wound: 0 | 1 | 2 | 3; // 0=no ulcer, 1=small shallow, 2=deeper, 3=extensive
+  ischemia: 0 | 1 | 2 | 3; // 0=ABI≥0.8, 1=0.6-0.79, 2=0.4-0.59, 3=<0.4
+  footInfection: 0 | 1 | 2 | 3; // 0=none, 1=mild, 2=moderate, 3=severe
+}
+
+// SINBAD Score (Site, Ischemia, Neuropathy, Bacterial infection, Area, Depth)
+export interface SINBADScore {
+  site: 0 | 1; // 0=forefoot, 1=midfoot/hindfoot
+  ischemia: 0 | 1; // 0=pedal pulses present, 1=absent
+  neuropathy: 0 | 1; // 0=protective sensation intact, 1=absent
+  bacterialInfection: 0 | 1; // 0=absent, 1=present
+  area: 0 | 1; // 0=<1cm², 1=≥1cm²
+  depth: 0 | 1; // 0=superficial, 1=deep
+  total: number; // 0-6
+}
+
+// Doppler Ultrasound Findings
+export interface DopplerFindings {
+  // Arterial Assessment
+  arterial: {
+    femoralArtery: 'normal' | 'stenosis' | 'occluded' | 'not_assessed';
+    poplitealArtery: 'normal' | 'stenosis' | 'occluded' | 'not_assessed';
+    anteriorTibialArtery: 'normal' | 'stenosis' | 'occluded' | 'not_assessed';
+    posteriorTibialArtery: 'normal' | 'stenosis' | 'occluded' | 'not_assessed';
+    dorsalisPedisArtery: 'normal' | 'stenosis' | 'occluded' | 'not_assessed';
+    peronealArtery: 'normal' | 'stenosis' | 'occluded' | 'not_assessed';
+    abi: number; // Ankle-Brachial Index
+    tbi?: number; // Toe-Brachial Index
+    waveform: 'triphasic' | 'biphasic' | 'monophasic' | 'absent';
+    calcification: boolean;
+    notes?: string;
+  };
+  // Venous Assessment
+  venous: {
+    greatSaphenousVein: 'normal' | 'reflux' | 'occluded' | 'not_assessed';
+    smallSaphenousVein: 'normal' | 'reflux' | 'occluded' | 'not_assessed';
+    poplitealVein: 'normal' | 'reflux' | 'occluded' | 'not_assessed';
+    femoralVein: 'normal' | 'reflux' | 'occluded' | 'not_assessed';
+    deepVeinThrombosis: boolean;
+    chronicVenousInsufficiency: boolean;
+    notes?: string;
+  };
+}
+
+// Osteomyelitis Assessment
+export interface OsteomyelitisAssessment {
+  suspected: boolean;
+  probeToBone: boolean; // Positive probe-to-bone test
+  radiographicChanges: boolean;
+  mriFindings?: 'negative' | 'suspicious' | 'positive' | 'not_done';
+  boneBiopsy?: 'negative' | 'positive' | 'not_done';
+  affectedBones: string[];
+  duration?: string; // How long suspected
+  notes?: string;
+}
+
+// Sepsis Assessment
+export interface SepsisAssessment {
+  // Clinical Features (qSOFA)
+  clinicalFeatures: {
+    alteredMentalStatus: boolean; // GCS < 15
+    respiratoryRate: number; // ≥22/min
+    systolicBP: number; // ≤100 mmHg
+    temperature: number;
+    heartRate: number;
+    qsofaScore: number; // 0-3
+  };
+  // Laboratory Features
+  laboratoryFeatures: {
+    wbc: number;
+    neutrophils?: number;
+    bands?: number;
+    lactate?: number;
+    procalcitonin?: number;
+    crp?: number;
+    esr?: number;
+    plateletCount?: number;
+    creatinine?: number;
+    bilirubin?: number;
+  };
+  // SIRS Criteria
+  sirsScore: number; // 0-4
+  sepsisSeverity: 'none' | 'sirs' | 'sepsis' | 'severe_sepsis' | 'septic_shock';
+}
+
+// Renal Status
+export interface RenalStatus {
+  creatinine: number;
+  bun?: number;
+  egfr: number;
+  ckdStage: 1 | 2 | 3 | 4 | 5; // CKD Stage
+  onDialysis: boolean;
+  dialysisType?: 'hemodialysis' | 'peritoneal';
+  dialysisFrequency?: string;
+}
+
+// Comorbidities Assessment
+export interface DiabeticFootComorbidities {
+  diabetesType: 'type1' | 'type2' | 'other';
+  diabetesDuration: number; // years
+  hba1c?: number;
+  lastFastingGlucose?: number;
+  onInsulin: boolean;
+  oralHypoglycemics: string[];
+  
+  // Cardiovascular
+  hypertension: boolean;
+  coronaryArteryDisease: boolean;
+  heartFailure: boolean;
+  previousMI: boolean;
+  previousStroke: boolean;
+  peripheralVascularDisease: boolean;
+  
+  // Other Comorbidities
+  chronicKidneyDisease: boolean;
+  retinopathy: boolean;
+  neuropathy: boolean;
+  previousAmputation: boolean;
+  previousAmputationLevel?: string;
+  smoking: boolean;
+  smokingPackYears?: number;
+  
+  // Charlson Comorbidity Index
+  charlsonIndex?: number;
+}
+
+// Amputation Levels
+export type AmputationLevel = 
+  | 'none'
+  | 'toe_disarticulation'
+  | 'ray_amputation'
+  | 'transmetatarsal'
+  | 'lisfranc'
+  | 'chopart'
+  | 'syme'
+  | 'bka' // Below Knee Amputation
+  | 'through_knee'
+  | 'aka'; // Above Knee Amputation
+
+// Limb Salvage Score
+export interface LimbSalvageScore {
+  // Individual Component Scores
+  woundScore: number;
+  ischemiaScore: number;
+  infectionScore: number;
+  renalScore: number;
+  comorbidityScore: number;
+  ageScore: number;
+  nutritionalScore: number;
+  
+  // Total Score
+  totalScore: number;
+  maxScore: number;
+  percentage: number;
+  
+  // Risk Category
+  riskCategory: 'low' | 'moderate' | 'high' | 'very_high';
+  
+  // Limb Salvage Probability
+  salvageProbability: 'excellent' | 'good' | 'fair' | 'poor' | 'very_poor';
+}
+
+// Treatment Recommendations
+export interface LimbSalvageRecommendation {
+  category: 'immediate' | 'short_term' | 'long_term';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  recommendation: string;
+  rationale: string;
+  timeframe?: string;
+}
+
+// ==========================================
+// COMPREHENSIVE BURN MONITORING TYPES
+// Based on WHO/ISBI Guidelines (2024)
+// ==========================================
+
+// Burn Monitoring Record - Comprehensive hourly monitoring
+export interface BurnMonitoringRecord {
+  id: string;
+  patientId: string;
+  burnAssessmentId: string;
+  admissionId?: string;
+  hospitalId?: string;
+  
+  // Timestamp
+  recordedAt: Date;
+  recordedBy: string;
+  recordedByName?: string;
+  
+  // Vital Signs
+  vitals: BurnMonitoringVitals;
+  
+  // Urine Output
+  urineOutput: BurnUrineOutput;
+  
+  // Fluid Administered
+  fluidAdministered: BurnFluidAdministered;
+  
+  // Neurological
+  gcsScore: GCSScore;
+  
+  // Pain Assessment
+  painScore: number; // 0-10
+  painLocation?: string;
+  
+  // Wound Status
+  woundStatus?: BurnWoundStatus;
+  
+  // Labs (if available at this time)
+  labs?: BurnMonitoringLabs;
+  
+  // Alerts Generated
+  alerts: BurnMonitoringAlert[];
+  
+  // Notes
+  notes?: string;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Burn Monitoring Vitals
+export interface BurnMonitoringVitals {
+  heartRate: number;
+  bloodPressureSystolic: number;
+  bloodPressureDiastolic: number;
+  map: number; // Mean Arterial Pressure
+  respiratoryRate: number;
+  oxygenSaturation: number;
+  temperature: number;
+  
+  // Respiratory
+  fiO2?: number;
+  peep?: number;
+  ventMode?: 'room_air' | 'nasal_cannula' | 'face_mask' | 'niv' | 'mechanical_ventilation';
+}
+
+// Burn Urine Output Monitoring
+export interface BurnUrineOutput {
+  volume: number; // mL
+  hourlyRate: number; // mL/kg/hr
+  color: 'clear' | 'straw' | 'yellow' | 'amber' | 'tea' | 'cola' | 'red' | 'brown';
+  specific_gravity?: number;
+  
+  // Derived
+  isBelowTarget: boolean; // <0.5 mL/kg/hr = concerning
+  adjustmentRecommended?: 'increase_fluids' | 'decrease_fluids' | 'maintain';
+}
+
+// Burn Fluid Administration
+export interface BurnFluidAdministered {
+  fluidType: string;
+  volumeGiven: number; // mL
+  rate: number; // mL/hr
+  runningTotal24h: number;
+  targetRemaining: number;
+  percentOfTarget: number;
+  
+  // Calculation Reference
+  parklandTarget24h: number;
+  brookeTarget24h: number;
+  formula: 'parkland' | 'modified_brooke';
+  currentPhase: 'first_8h' | 'next_16h' | 'day_2' | 'ongoing';
+}
+
+// GCS Score Components
+export interface GCSScore {
+  eyeOpening: 1 | 2 | 3 | 4;
+  verbalResponse: 1 | 2 | 3 | 4 | 5;
+  motorResponse: 1 | 2 | 3 | 4 | 5 | 6;
+  total: number;
+  isIntubated: boolean;
+  intubatedScore?: string; // e.g., "10T"
+}
+
+// Burn Wound Status (for monitoring rounds)
+export interface BurnWoundStatus {
+  dressingIntact: boolean;
+  strikeThrough: boolean;
+  odor: boolean;
+  increasedPain: boolean;
+  periWoundErythema: boolean;
+  escharStatus?: 'intact' | 'separating' | 'debrided';
+  graftStatus?: 'n/a' | 'adherent' | 'partial_loss' | 'complete_loss';
+  notes?: string;
+}
+
+// Burn Monitoring Labs
+export interface BurnMonitoringLabs {
+  timestamp: Date;
+  
+  // Metabolic
+  sodium?: number;
+  potassium?: number;
+  chloride?: number;
+  bicarbonate?: number;
+  glucose?: number;
+  lactate?: number;
+  
+  // Renal
+  bun?: number;
+  creatinine?: number;
+  
+  // Hematology
+  hemoglobin?: number;
+  hematocrit?: number;
+  wbc?: number;
+  platelets?: number;
+  
+  // Coagulation
+  pt?: number;
+  inr?: number;
+  aptt?: number;
+  
+  // Inflammatory
+  crp?: number;
+  procalcitonin?: number;
+  
+  // ABG
+  ph?: number;
+  pco2?: number;
+  po2?: number;
+  baseExcess?: number;
+}
+
+// Burn Monitoring Alert
+export interface BurnMonitoringAlert {
+  id: string;
+  type: 'critical' | 'warning' | 'info';
+  category: 'vitals' | 'fluids' | 'renal' | 'respiratory' | 'sepsis' | 'compartment' | 'labs';
+  message: string;
+  value?: number;
+  threshold?: number;
+  suggestedAction: string;
+  acknowledged: boolean;
+  acknowledgedBy?: string;
+  acknowledgedAt?: Date;
+  resolved: boolean;
+  resolvedAt?: Date;
+}
+
+// Escharotomy Record
+export interface EscharotomyRecord {
+  id: string;
+  patientId: string;
+  burnAssessmentId: string;
+  
+  // Procedure Details
+  performedAt: Date;
+  performedBy: string;
+  performedByName?: string;
+  
+  // Location
+  location: string;
+  side: 'left' | 'right' | 'bilateral' | 'midline';
+  
+  // Indications
+  indications: string[];
+  compartmentPressure?: number;
+  
+  // Technique
+  incisionLength: number; // cm
+  deepFasciotomy: boolean;
+  
+  // Outcome
+  immediateResult: 'restored_perfusion' | 'improved_perfusion' | 'no_change';
+  complications?: string[];
+  
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Skin Graft Record
+export interface SkinGraftRecord {
+  id: string;
+  patientId: string;
+  burnAssessmentId: string;
+  surgeryId?: string;
+  
+  // Procedure Details
+  performedAt: Date;
+  performedBy: string;
+  performedByName?: string;
+  
+  // Graft Type
+  graftType: 'stsg' | 'ftsg' | 'composite' | 'allograft' | 'xenograft' | 'cultured_epithelium';
+  meshRatio?: string; // e.g., "1:1.5", "1:3"
+  
+  // Donor Site
+  donorSite: string;
+  donorArea: number; // cm²
+  
+  // Recipient Site
+  recipientSite: string;
+  recipientArea: number; // cm²
+  
+  // Fixation
+  fixationMethod: 'sutures' | 'staples' | 'fibrin_glue' | 'negative_pressure' | 'combination';
+  dressingType: string;
+  
+  // Follow-up
+  assessments: GraftAssessment[];
+  
+  // Final Outcome
+  finalTakePercentage?: number;
+  
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Graft Assessment
+export interface GraftAssessment {
+  id: string;
+  assessedAt: Date;
+  assessedBy: string;
+  postOpDay: number;
+  
+  takePercentage: number;
+  appearance: 'healthy_pink' | 'pale' | 'cyanotic' | 'necrotic' | 'infected';
+  edema: 'none' | 'mild' | 'moderate' | 'severe';
+  hematoma: boolean;
+  seroma: boolean;
+  infection: boolean;
+  
+  donorSiteStatus: 'healing' | 'delayed_healing' | 'infected' | 'healed';
+  
+  interventionRequired: boolean;
+  intervention?: string;
+  
+  notes?: string;
+}
+
+// Comprehensive Burn Care Plan
+export interface BurnCarePlan {
+  id: string;
+  patientId: string;
+  burnAssessmentId: string;
+  admissionId?: string;
+  hospitalId?: string;
+  
+  // Phase
+  currentPhase: 'resuscitation' | 'acute' | 'grafting' | 'rehabilitation';
+  
+  // Goals
+  resuscitationGoals?: ResuscitationGoals;
+  woundCareGoals?: string[];
+  nutritionGoals?: string[];
+  rehabilitationGoals?: string[];
+  
+  // Orders
+  fluidOrders?: FluidOrder[];
+  medicationOrders?: BurnMedicationOrder[];
+  woundCareOrders?: WoundCareOrder[];
+  
+  // Team
+  primarySurgeon: string;
+  primaryNurse?: string;
+  dietitian?: string;
+  physiotherapist?: string;
+  occupationalTherapist?: string;
+  psychologist?: string;
+  
+  // Status
+  status: 'active' | 'completed' | 'modified';
+  
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Resuscitation Goals
+export interface ResuscitationGoals {
+  urineOutputTarget: number; // mL/kg/hr
+  mapTarget: number;
+  lactateTarget: number;
+  baseExcessTarget: number;
+  targetFluid24h: number;
+}
+
+// Fluid Order
+export interface FluidOrder {
+  id: string;
+  fluidType: string;
+  rate: number;
+  startTime: Date;
+  endTime?: Date;
+  totalVolume?: number;
+  titrationRules?: string;
+}
+
+// Burn Medication Order
+export interface BurnMedicationOrder {
+  id: string;
+  medication: string;
+  dose: string;
+  route: string;
+  frequency: string;
+  indication: string;
+  startDate: Date;
+  endDate?: Date;
+}
+
+// Wound Care Order
+export interface WoundCareOrder {
+  id: string;
+  area: string;
+  dressingType: string;
+  frequency: string;
+  technique: string;
+  specialInstructions?: string;
+}
+
+// Main Limb Salvage Assessment Interface
+export interface LimbSalvageAssessment {
+  id: string;
+  patientId: string;
+  encounterId?: string;
+  admissionId?: string;
+  hospitalId?: string;
+  
+  // Assessment Date/Time
+  assessmentDate: Date;
+  assessedBy: string;
+  assessedByName?: string;
+  
+  // Patient Demographics for Scoring
+  patientAge: number;
+  patientGender: 'male' | 'female';
+  
+  // Affected Limb
+  affectedSide: 'left' | 'right' | 'bilateral';
+  
+  // Wound Classification
+  wagnerGrade: WagnerGrade;
+  texasClassification: TexasClassification;
+  wifiClassification: WIFIClassification;
+  sinbadScore: SINBADScore;
+  
+  // Wound Details
+  woundLocation: string;
+  woundSize: {
+    length: number;
+    width: number;
+    depth: number;
+    area: number;
+  };
+  woundDuration: number; // days
+  previousDebridement: boolean;
+  debridementCount?: number;
+  woundPhotos?: string[];
+  
+  // Vascular Assessment
+  dopplerFindings: DopplerFindings;
+  angiogramPerformed: boolean;
+  angiogramFindings?: string;
+  previousRevascularization: boolean;
+  revascularizationDetails?: string;
+  
+  // Neuropathy Assessment
+  monofilamentTest: boolean; // true = protective sensation absent
+  vibrationSense: boolean; // true = absent
+  ankleReflexes: 'present' | 'diminished' | 'absent';
+  neuropathySymptoms: string[];
+  
+  // Osteomyelitis
+  osteomyelitis: OsteomyelitisAssessment;
+  
+  // Sepsis Assessment
+  sepsis: SepsisAssessment;
+  
+  // Renal Status
+  renalStatus: RenalStatus;
+  
+  // Comorbidities
+  comorbidities: DiabeticFootComorbidities;
+  
+  // Nutritional Status
+  albumin?: number;
+  prealbumin?: number;
+  bmi?: number;
+  mustScore?: number;
+  
+  // Calculated Scores
+  limbSalvageScore: LimbSalvageScore;
+  
+  // Decision
+  recommendedManagement: 'conservative' | 'revascularization' | 'minor_amputation' | 'major_amputation';
+  recommendedAmputationLevel?: AmputationLevel;
+  
+  // Generated Recommendations
+  recommendations: LimbSalvageRecommendation[];
+  
+  // Treatment Plan
+  treatmentPlan?: string;
+  
+  // Progress Monitoring
+  followUpDate?: Date;
+  progressNotes?: string;
+  
+  // Outcome Tracking
+  actualOutcome?: 'healed' | 'improved' | 'stable' | 'worsened' | 'amputated';
+  actualAmputationLevel?: AmputationLevel;
+  outcomeDate?: Date;
+  
+  // Metadata
+  status: 'draft' | 'completed' | 'reviewed';
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

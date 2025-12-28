@@ -16,7 +16,7 @@ function addHeader(doc: jsPDF, title: string, patientInfo: PatientCalculatorInfo
   const documentInfo: PDFDocumentInfo = {
     title: 'Clinical Calculator Report',
     subtitle: title,
-    hospitalName: patientInfo.hospital || 'CareBridge Healthcare',
+    hospitalName: patientInfo.hospital || 'CareBridge Innovations in Healthcare',
   };
   let yPos = addBrandedHeader(doc, documentInfo);
   

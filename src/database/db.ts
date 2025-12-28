@@ -27,6 +27,17 @@ import type {
   NursePatientAssignment,
   Investigation,
   EnhancedVideoConference,
+  DischargeSummary,
+  ConsumableBOM,
+  HistopathologyRequest,
+  BloodTransfusion,
+  MDTMeeting,
+  NutritionPlan,
+  LimbSalvageAssessment,
+  BurnMonitoringRecord,
+  EscharotomyRecord,
+  SkinGraftRecord,
+  BurnCarePlan,
 } from '../types';
 
 export class CareBridgeDatabase extends Dexie {
@@ -52,17 +63,32 @@ export class CareBridgeDatabase extends Dexie {
   chatRooms!: Table<ChatRoom, string>;
   chatMessages!: Table<ChatMessage, string>;
   videoConferences!: Table<VideoConference, string>;
-  // New tables for ward rounds and investigations
+  // Ward rounds and investigations
   wardRounds!: Table<WardRound, string>;
   doctorAssignments!: Table<DoctorPatientAssignment, string>;
   nurseAssignments!: Table<NursePatientAssignment, string>;
   investigations!: Table<Investigation, string>;
   enhancedVideoConferences!: Table<EnhancedVideoConference, string>;
+  // Discharge, consumables, and histopathology
+  dischargeSummaries!: Table<DischargeSummary, string>;
+  consumableBOMs!: Table<ConsumableBOM, string>;
+  histopathologyRequests!: Table<HistopathologyRequest, string>;
+  // Blood transfusion, MDT, and nutrition plans
+  bloodTransfusions!: Table<BloodTransfusion, string>;
+  mdtMeetings!: Table<MDTMeeting, string>;
+  nutritionPlans!: Table<NutritionPlan, string>;
+  // Limb Salvage Assessments
+  limbSalvageAssessments!: Table<LimbSalvageAssessment, string>;
+  // Burn Care Monitoring Tables
+  burnMonitoringRecords!: Table<BurnMonitoringRecord, string>;
+  escharotomyRecords!: Table<EscharotomyRecord, string>;
+  skinGraftRecords!: Table<SkinGraftRecord, string>;
+  burnCarePlans!: Table<BurnCarePlan, string>;
 
   constructor() {
     super('CareBridgeDB');
 
-    this.version(52).stores({
+    this.version(56).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -85,12 +111,26 @@ export class CareBridgeDatabase extends Dexie {
       chatRooms: 'id, type, hospitalId, patientId, lastMessageAt, createdBy, createdAt, isArchived',
       chatMessages: 'id, roomId, senderId, type, createdAt',
       videoConferences: 'id, hostId, status, roomCode, scheduledStart, hospitalId, patientId, createdAt',
-      // New tables
       wardRounds: 'id, hospitalId, wardName, roundDate, roundType, status, leadDoctorId, createdAt',
       doctorAssignments: 'id, hospitalId, doctorId, patientId, assignmentType, status, assignedAt, createdAt',
       nurseAssignments: 'id, hospitalId, nurseId, patientId, shiftType, assignmentDate, status, createdAt',
       investigations: 'id, patientId, hospitalId, type, category, status, requestedBy, requestedAt, createdAt',
       enhancedVideoConferences: 'id, roomId, hostId, hospitalId, type, status, scheduledAt, createdAt',
+      // Discharge, consumables, and histopathology
+      dischargeSummaries: 'id, patientId, admissionId, hospitalId, dischargeDate, dischargeType, dischargedBy, createdAt',
+      consumableBOMs: 'id, patientId, encounterId, admissionId, serviceType, performedBy, performedAt, createdAt',
+      histopathologyRequests: 'id, patientId, encounterId, surgeryId, status, requestedBy, requestDate, createdAt',
+      // Blood transfusion, MDT, and nutrition plans
+      bloodTransfusions: 'id, patientId, encounterId, admissionId, surgeryId, status, requestDate, createdAt',
+      mdtMeetings: 'id, patientId, hospitalId, meetingType, status, meetingDate, createdAt',
+      nutritionPlans: 'id, patientId, encounterId, admissionId, planType, status, startDate, createdAt',
+      // Limb Salvage Assessments
+      limbSalvageAssessments: 'id, patientId, encounterId, admissionId, hospitalId, status, assessmentDate, assessedBy, createdAt',
+      // Burn Care Monitoring Tables
+      burnMonitoringRecords: 'id, patientId, burnAssessmentId, admissionId, recordedAt, createdAt',
+      escharotomyRecords: 'id, patientId, burnAssessmentId, performedAt, createdAt',
+      skinGraftRecords: 'id, patientId, burnAssessmentId, surgeryId, performedAt, createdAt',
+      burnCarePlans: 'id, patientId, burnAssessmentId, admissionId, status, createdAt',
     });
   }
 }

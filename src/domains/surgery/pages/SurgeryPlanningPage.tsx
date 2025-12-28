@@ -824,7 +824,36 @@ export default function SurgeryPlanningPage() {
                   <button
                     type="button"
                     className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
-                    onClick={() => toast.success('Fasting Guidelines PDF downloading...')}
+                    onClick={() => {
+                      if (patient && selectedProcedure) {
+                        const scheduledDate = watch('scheduledDate');
+                        // Calculate age from dateOfBirth
+                        const patientAge = patient.dateOfBirth 
+                          ? Math.floor((new Date().getTime() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+                          : undefined;
+                        generatePreOpInstructionsPDF(
+                          {
+                            name: `${patient.firstName} ${patient.lastName}`,
+                            hospitalNumber: patient.hospitalNumber || '',
+                            age: patientAge,
+                            gender: patient.gender,
+                          },
+                          {
+                            procedureName: selectedProcedure.name,
+                            procedureCode: selectedProcedure.icdCode,
+                            scheduledDate: scheduledDate || new Date().toISOString().slice(0, 10),
+                            scheduledTime: '08:00',
+                            surgeon: user ? `${user.firstName} ${user.lastName}` : 'Attending Surgeon',
+                            anaesthesiaType: anaesthesiaType || 'general',
+                            asaScore: asaScore || 1,
+                            hospitalName: 'CareBridge Innovations in Healthcare',
+                          }
+                        );
+                        toast.success('Fasting Guidelines PDF downloaded!');
+                      } else {
+                        toast.error('Please select a patient and procedure first');
+                      }
+                    }}
                   >
                     <Download size={16} />
                     Fasting Guidelines PDF
@@ -832,7 +861,36 @@ export default function SurgeryPlanningPage() {
                   <button
                     type="button"
                     className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
-                    onClick={() => toast.success('Informed Consent Form PDF downloading...')}
+                    onClick={() => {
+                      if (patient && selectedProcedure) {
+                        const scheduledDate = watch('scheduledDate');
+                        // Calculate age from dateOfBirth
+                        const patientAge = patient.dateOfBirth 
+                          ? Math.floor((new Date().getTime() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+                          : undefined;
+                        generateConsentFormPDF(
+                          {
+                            name: `${patient.firstName} ${patient.lastName}`,
+                            hospitalNumber: patient.hospitalNumber || '',
+                            age: patientAge,
+                            gender: patient.gender,
+                          },
+                          {
+                            procedureName: selectedProcedure.name,
+                            procedureCode: selectedProcedure.icdCode,
+                            scheduledDate: scheduledDate || new Date().toISOString().slice(0, 10),
+                            scheduledTime: '08:00',
+                            surgeon: user ? `${user.firstName} ${user.lastName}` : 'Attending Surgeon',
+                            anaesthesiaType: anaesthesiaType || 'general',
+                            asaScore: asaScore || 1,
+                            hospitalName: 'CareBridge Innovations in Healthcare',
+                          }
+                        );
+                        toast.success('Informed Consent Form PDF downloaded!');
+                      } else {
+                        toast.error('Please select a patient and procedure first');
+                      }
+                    }}
                   >
                     <FileText size={16} />
                     Informed Consent Form
@@ -1086,7 +1144,7 @@ export default function SurgeryPlanningPage() {
                               anaesthesiaType: watch('anaesthesiaType'),
                               asaScore: watch('asaScore') || 1,
                               capriniScore: calculatedCapriniScore,
-                              hospitalName: 'CareBridge Partner Hospital',
+                              hospitalName: 'CareBridge Innovations in Healthcare',
                             },
                             selectedProcedure,
                             feeEstimate
@@ -1155,7 +1213,7 @@ export default function SurgeryPlanningPage() {
                               anaesthesiaType: watch('anaesthesiaType'),
                               asaScore: watch('asaScore') || 1,
                               capriniScore: calculatedCapriniScore,
-                              hospitalName: 'CareBridge Partner Hospital',
+                              hospitalName: 'CareBridge Innovations in Healthcare',
                             }
                           );
                           toast.success('Pre-Operative Instructions PDF downloaded!');
@@ -1201,7 +1259,7 @@ export default function SurgeryPlanningPage() {
                               anaesthesiaType: watch('anaesthesiaType'),
                               asaScore: watch('asaScore') || 1,
                               capriniScore: calculatedCapriniScore,
-                              hospitalName: 'CareBridge Partner Hospital',
+                              hospitalName: 'CareBridge Innovations in Healthcare',
                             }
                           );
                           toast.success('Post-Operative Instructions PDF downloaded!');
@@ -1248,7 +1306,7 @@ export default function SurgeryPlanningPage() {
                               anaesthesiaType: watch('anaesthesiaType'),
                               asaScore: watch('asaScore') || 1,
                               capriniScore: calculatedCapriniScore,
-                              hospitalName: 'CareBridge Partner Hospital',
+                              hospitalName: 'CareBridge Innovations in Healthcare',
                             }
                           );
                           toast.success('Consent Form PDF downloaded!');
@@ -1290,7 +1348,7 @@ export default function SurgeryPlanningPage() {
                               procedure: education,
                               surgeonName: `${user?.firstName} ${user?.lastName}` || 'Attending Surgeon',
                               surgeonLicense: user?.licenseNumber,
-                              hospitalName: 'CareBridge Partner Hospital',
+                              hospitalName: 'CareBridge Innovations in Healthcare',
                               scheduledDate: watch('scheduledDate') ? new Date(watch('scheduledDate')) : undefined,
                               includeConsentSection: true,
                             });
@@ -1347,7 +1405,7 @@ export default function SurgeryPlanningPage() {
                               anaesthesiaType: watch('anaesthesiaType'),
                               asaScore: watch('asaScore') || 1,
                               capriniScore: calculatedCapriniScore,
-                              hospitalName: 'CareBridge Partner Hospital',
+                              hospitalName: 'CareBridge Innovations in Healthcare',
                             },
                             selectedProcedure,
                             feeEstimate

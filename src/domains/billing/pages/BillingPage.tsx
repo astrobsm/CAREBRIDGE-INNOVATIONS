@@ -43,6 +43,8 @@ import {
   discountPresets,
 } from '../../../data/nonTheaterServices';
 import { surgicalProcedures, calculateSurgicalFeeEstimate } from '../../../data/surgicalFees';
+import { PatientSelector, PatientDisplay } from '../../../components/patient';
+import { usePatientMap } from '../../../services/patientHooks';
 
 // Procedure pricing matrix (Nigerian Naira - NGN)
 const procedurePricing = {
@@ -202,17 +204,15 @@ export default function BillingPage() {
   const [serviceSearchQuery, setServiceSearchQuery] = useState('');
 
   const invoices = useLiveQuery(() => db.invoices.orderBy('createdAt').reverse().toArray(), []);
-  const patients = useLiveQuery(() => db.patients.toArray(), []);
-
-  const patientMap = useMemo(() => {
-    const map = new Map();
-    patients?.forEach(p => map.set(p.id, p));
-    return map;
-  }, [patients]);
+  
+  // Use the new patient map hook for efficient lookups
+  const patientMap = usePatientMap();
 
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     reset,
     formState: { errors: _errors },
   } = useForm<InvoiceFormData>({
@@ -834,15 +834,12 @@ export default function BillingPage() {
                     {/* Patient Selection */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="label">Patient *</label>
-                        <select {...register('patientId')} className="input">
-                          <option value="">Select patient</option>
-                          {patients?.map((patient) => (
-                            <option key={patient.id} value={patient.id}>
-                              {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
-                            </option>
-                          ))}
-                        </select>
+                        <PatientSelector
+                          value={watch('patientId')}
+                          onChange={(patientId) => setValue('patientId', patientId || '')}
+                          label="Patient"
+                          required
+                        />
                       </div>
                       <div>
                         <label className="label">Notes</label>

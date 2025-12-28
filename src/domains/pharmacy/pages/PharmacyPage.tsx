@@ -26,6 +26,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { generatePrescriptionPDF, generateDispensingSlipPDF } from '../../../utils/prescriptionPdfGenerator';
 import type { Prescription, Medication, MedicationRoute } from '../../../types';
+import { PatientSelector, PatientDisplay } from '../../../components/patient';
+import { usePatientMap } from '../../../services/patientHooks';
 
 // BNF-adapted medication database for Africa
 const medicationDatabase = {
@@ -158,17 +160,15 @@ export default function PharmacyPage() {
   });
 
   const prescriptions = useLiveQuery(() => db.prescriptions.orderBy('prescribedAt').reverse().toArray(), []);
-  const patients = useLiveQuery(() => db.patients.toArray(), []);
-
-  const patientMap = useMemo(() => {
-    const map = new Map();
-    patients?.forEach(p => map.set(p.id, p));
-    return map;
-  }, [patients]);
+  
+  // Use the new patient map hook for efficient lookups
+  const patientMap = usePatientMap();
 
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     reset,
     formState: { errors },
   } = useForm<PrescriptionFormData>({
@@ -305,9 +305,9 @@ export default function PharmacyPage() {
           phone: patient.phone,
           address: patient.address,
         },
-        hospitalName: 'CareBridge Medical Center',
+        hospitalName: 'CareBridge Innovations in Healthcare',
         hospitalPhone: '+234 800 000 0000',
-        hospitalEmail: 'pharmacy@carebridge.ng',
+        hospitalEmail: 'contact@carebridge.ng',
         prescribedBy: prescriber ? `${prescriber.firstName} ${prescriber.lastName}` : 'Unknown',
         prescriberTitle: prescriber?.role || 'Doctor',
         medications: prescription.medications.map(med => ({
@@ -349,7 +349,7 @@ export default function PharmacyPage() {
           name: `${patient.firstName} ${patient.lastName}`,
           hospitalNumber: patient.hospitalNumber,
         },
-        hospitalName: 'CareBridge Medical Center',
+        hospitalName: 'CareBridge Innovations in Healthcare',
         prescribedBy: prescriber ? `${prescriber.firstName} ${prescriber.lastName}` : 'Unknown',
         medications: prescription.medications.map(med => ({
           name: med.name,
@@ -533,15 +533,13 @@ export default function PharmacyPage() {
                   {/* Patient Selection */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="label">Patient *</label>
-                      <select {...register('patientId')} className={`input ${errors.patientId ? 'input-error' : ''}`}>
-                        <option value="">Select patient</option>
-                        {patients?.map((patient) => (
-                          <option key={patient.id} value={patient.id}>
-                            {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
-                          </option>
-                        ))}
-                      </select>
+                      <PatientSelector
+                        value={watch('patientId')}
+                        onChange={(patientId) => setValue('patientId', patientId || '')}
+                        label="Patient"
+                        required
+                        error={errors.patientId?.message}
+                      />
                     </div>
                     <div>
                       <label className="label">Notes</label>

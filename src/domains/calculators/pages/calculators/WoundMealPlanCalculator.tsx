@@ -2,8 +2,10 @@
 // African Food-Based Nutritional Support for Wound Healing
 
 import { useState } from 'react';
-import { Utensils, Calculator, AlertCircle, Apple, Droplet, Pill } from 'lucide-react';
+import { Utensils, Calculator, AlertCircle, Apple, Droplet, Pill, Download, Share2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { PatientCalculatorInfo } from '../../types';
+import { downloadMealPlanPDF, shareMealPlanOnWhatsApp, type MealPlanPDFOptions } from '../../../../utils/mealPlanPdfGenerator';
 
 interface WoundHealingResult {
   calorieNeeds: number;
@@ -488,6 +490,84 @@ export default function WoundMealPlanCalculator({ patientInfo }: Props) {
       {result && (
         <div className="mt-8 space-y-4">
           <div className="border-t-2 border-gray-200 pt-6">
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 mb-6">
+              <button
+                onClick={() => {
+                  const pdfOptions: MealPlanPDFOptions = {
+                    patientName: patientInfo.name || undefined,
+                    hospitalNumber: patientInfo.hospitalNumber || undefined,
+                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
+                    gender: patientInfo.gender || undefined,
+                    weight: parseFloat(weight) || undefined,
+                    height: parseFloat(height) || undefined,
+                    diagnosis: woundType,
+                    planType: 'wound_healing',
+                    calorieTarget: result.calorieNeeds,
+                    proteinTarget: result.proteinNeeds,
+                    fluidTarget: result.fluidNeeds,
+                    vitaminCTarget: result.vitaminCNeeds,
+                    zincTarget: result.zincNeeds,
+                    mealPlan: result.mealPlan,
+                    proteinFoods: result.proteinRichFoods,
+                    vitaminCFoods: result.vitaminCFoods,
+                    zincFoods: result.zincFoods,
+                    foodsToAvoid: result.foodsToAvoid,
+                    supplements: result.supplements,
+                    hydrationTips: result.hydrationTips,
+                    warnings: result.warnings,
+                    woundType: woundType,
+                    woundGrade: result.woundGrade,
+                    healingStage: result.healingStage,
+                    estimatedHealingTime: result.estimatedHealingTime,
+                  };
+                  downloadMealPlanPDF(pdfOptions);
+                  toast.success('Meal plan PDF downloaded!');
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download PDF
+              </button>
+              <button
+                onClick={async () => {
+                  const pdfOptions: MealPlanPDFOptions = {
+                    patientName: patientInfo.name || undefined,
+                    hospitalNumber: patientInfo.hospitalNumber || undefined,
+                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
+                    gender: patientInfo.gender || undefined,
+                    weight: parseFloat(weight) || undefined,
+                    height: parseFloat(height) || undefined,
+                    diagnosis: woundType,
+                    planType: 'wound_healing',
+                    calorieTarget: result.calorieNeeds,
+                    proteinTarget: result.proteinNeeds,
+                    fluidTarget: result.fluidNeeds,
+                    vitaminCTarget: result.vitaminCNeeds,
+                    zincTarget: result.zincNeeds,
+                    mealPlan: result.mealPlan,
+                    proteinFoods: result.proteinRichFoods,
+                    vitaminCFoods: result.vitaminCFoods,
+                    zincFoods: result.zincFoods,
+                    foodsToAvoid: result.foodsToAvoid,
+                    supplements: result.supplements,
+                    hydrationTips: result.hydrationTips,
+                    warnings: result.warnings,
+                    woundType: woundType,
+                    woundGrade: result.woundGrade,
+                    healingStage: result.healingStage,
+                    estimatedHealingTime: result.estimatedHealingTime,
+                  };
+                  await shareMealPlanOnWhatsApp(pdfOptions);
+                  toast.success('Opening WhatsApp...');
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Share on WhatsApp
+              </button>
+            </div>
+
             {/* Summary Cards */}
             <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
               <div className="bg-orange-100 rounded-lg p-3 text-center">

@@ -1,5 +1,5 @@
 // Admissions Management Page
-// Handles patient admissions with duration tracking and treatment plan linking
+// Handles patient admissions with duration tracking, treatment plan linking, and risk assessments
 
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -24,6 +24,7 @@ import {
   ArrowRight,
   Activity,
   UserCheck,
+  Shield,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -31,7 +32,11 @@ import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Admission, WardType, AdmissionStatus } from '../../../types';
 import AdmissionDurationClock from '../components/AdmissionDurationClock';
+import AdmissionRiskAssessments from '../components/AdmissionRiskAssessments';
+import type { AdmissionRiskAssessments as AdmissionRiskData } from '../components/AdmissionRiskAssessments';
 import { generateAdmissionPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
+import { PatientSelector } from '../../../components/patient';
+import { usePatientMap } from '../../../services/patientHooks';
 
 const admissionSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
@@ -82,7 +87,13 @@ const statusColors: Record<AdmissionStatus, string> = {
   absconded: 'bg-red-100 text-red-700',
 };
 
-export default function AdmissionsPage() {
+type AdmissionStep = 'details' | 'assessments';
+
+interface AdmissionsPageProps {
+  embedded?: boolean;
+}
+
+export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps) {
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -90,19 +101,19 @@ export default function AdmissionsPage() {
   const [statusFilter, setStatusFilter] = useState<AdmissionStatus | 'all'>('active');
   const [wardFilter, setWardFilter] = useState<WardType | 'all'>('all');
   const [selectedAdmission, setSelectedAdmission] = useState<Admission | null>(null);
+  
+  // Multi-step admission form state
+  const [admissionStep, setAdmissionStep] = useState<AdmissionStep>('details');
+  const [riskAssessments, setRiskAssessments] = useState<AdmissionRiskData>({});
 
   const admissions = useLiveQuery(
     () => db.admissions.orderBy('admissionDate').reverse().toArray(),
     []
   );
-  const patients = useLiveQuery(() => db.patients.toArray(), []);
   const users = useLiveQuery(() => db.users.toArray(), []);
 
-  const patientMap = useMemo(() => {
-    const map = new Map();
-    patients?.forEach(p => map.set(p.id, p));
-    return map;
-  }, [patients]);
+  // Use the new patient map hook for efficient lookups
+  const patientMap = usePatientMap();
 
   const userMap = useMemo(() => {
     const map = new Map();
@@ -123,6 +134,7 @@ export default function AdmissionsPage() {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<AdmissionFormData>({
     resolver: zodResolver(admissionSchema),
@@ -199,6 +211,8 @@ export default function AdmissionsPage() {
         primaryNurse: data.primaryNurse,
         estimatedStayDays: data.estimatedStayDays,
         status: 'active',
+        // Include risk assessments data
+        riskAssessments: riskAssessments.completedAt ? riskAssessments : undefined,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -206,11 +220,23 @@ export default function AdmissionsPage() {
       await db.admissions.add(admission);
       toast.success(`Patient admitted successfully! Admission #${admission.admissionNumber}`);
       setShowModal(false);
+      setAdmissionStep('details');
+      setRiskAssessments({});
       reset();
     } catch (error) {
       console.error('Error creating admission:', error);
       toast.error('Failed to admit patient');
     }
+  };
+
+  // Handle proceeding to risk assessments step
+  const handleProceedToAssessments = () => {
+    setAdmissionStep('assessments');
+  };
+
+  // Handle going back to details step
+  const handleBackToDetails = () => {
+    setAdmissionStep('details');
   };
 
   const handleDischarge = async (admission: Admission) => {
@@ -464,57 +490,51 @@ export default function AdmissionsPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-            onClick={() => setShowModal(false)}
+            onClick={() => { setShowModal(false); setAdmissionStep('details'); }}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  <BedDouble className="w-5 h-5 text-emerald-500" />
-                  New Patient Admission
-                </h2>
+              <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
+                <div>
+                  <h2 className="text-xl font-semibold flex items-center gap-2">
+                    <BedDouble className="w-5 h-5 text-emerald-500" />
+                    New Patient Admission
+                  </h2>
+                  <div className="flex items-center gap-2 mt-2 text-sm">
+                    <span className={`px-3 py-1 rounded-full ${admissionStep === 'details' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                      1. Admission Details
+                    </span>
+                    <ArrowRight className="w-4 h-4 text-gray-400" />
+                    <span className={`px-3 py-1 rounded-full ${admissionStep === 'assessments' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                      2. Risk Assessments
+                    </span>
+                  </div>
+                </div>
                 <button
-                  onClick={() => setShowModal(false)}
+                  onClick={() => { setShowModal(false); setAdmissionStep('details'); }}
                   className="p-2 hover:bg-gray-100 rounded-lg"
                 >
                   <X size={20} />
                 </button>
               </div>
 
+              {/* Step 1: Admission Details Form */}
+              {admissionStep === 'details' && (
               <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
                 {/* Patient Selection */}
                 <div>
-                  <label className="label">Select Patient *</label>
-                  <select {...register('patientId')} className="input">
-                    <option value="">Select a patient...</option>
-                    {patients?.map((patient) => (
-                      <option key={patient.id} value={patient.id}>
-                        {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
-                      </option>
-                    ))}
-                  </select>
-                  {errors.patientId && (
-                    <p className="text-red-500 text-sm mt-1">{errors.patientId.message}</p>
-                  )}
-
-                  {/* Patient Quick Info */}
-                  {selectedPatient && (
-                    <div className="mt-2 p-3 bg-gray-50 rounded-lg flex items-center gap-3">
-                      <User className="w-10 h-10 text-gray-400 bg-white p-2 rounded-full" />
-                      <div>
-                        <p className="font-medium">{selectedPatient.firstName} {selectedPatient.lastName}</p>
-                        <p className="text-sm text-gray-500">
-                          {selectedPatient.gender}, {new Date().getFullYear() - new Date(selectedPatient.dateOfBirth).getFullYear()} yrs • 
-                          Blood: {selectedPatient.bloodGroup || 'Unknown'}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  <PatientSelector
+                    value={watch('patientId')}
+                    onChange={(patientId) => setValue('patientId', patientId || '')}
+                    label="Select Patient"
+                    required
+                    error={errors.patientId?.message}
+                  />
                 </div>
 
                 {/* Admission Source */}
@@ -659,21 +679,88 @@ export default function AdmissionsPage() {
                   </div>
                 </div>
 
-                {/* Submit Button */}
-                <div className="flex justify-end gap-3 pt-4 border-t">
+                {/* Action Buttons - Step 1 */}
+                <div className="flex justify-between gap-3 pt-4 border-t">
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
+                    onClick={() => { setShowModal(false); setAdmissionStep('details'); }}
                     className="btn btn-secondary"
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-primary flex items-center gap-2">
-                    <Save size={18} />
-                    Admit Patient
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleProceedToAssessments}
+                      disabled={!watch('patientId')}
+                      className="btn btn-primary flex items-center gap-2"
+                    >
+                      <Shield size={18} />
+                      Proceed to Risk Assessments
+                      <ArrowRight size={18} />
+                    </button>
+                  </div>
                 </div>
               </form>
+              )}
+
+              {/* Step 2: Risk Assessments */}
+              {admissionStep === 'assessments' && selectedPatient && (
+                <div className="p-6 space-y-6">
+                  {/* Patient Summary */}
+                  <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-emerald-900">
+                          {selectedPatient.firstName} {selectedPatient.lastName}
+                        </p>
+                        <p className="text-sm text-emerald-700">
+                          {selectedPatient.hospitalNumber} • {selectedPatient.gender} • {selectedPatient.dateOfBirth ? `${new Date().getFullYear() - new Date(selectedPatient.dateOfBirth).getFullYear()} yrs` : 'Age unknown'}
+                        </p>
+                      </div>
+                      <div className="text-right text-sm">
+                        <p className="text-gray-600">Ward: {watch('wardName')}</p>
+                        <p className="text-gray-600">Bed: {watch('bedNumber')}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Risk Assessments Component */}
+                  <AdmissionRiskAssessments
+                    patientInfo={{
+                      id: selectedPatient.id,
+                      name: `${selectedPatient.firstName} ${selectedPatient.lastName}`,
+                      hospitalNumber: selectedPatient.hospitalNumber,
+                      age: selectedPatient.dateOfBirth 
+                        ? new Date().getFullYear() - new Date(selectedPatient.dateOfBirth).getFullYear() 
+                        : 0,
+                      gender: selectedPatient.gender as 'Male' | 'Female',
+                    }}
+                    onAssessmentsComplete={(assessments) => setRiskAssessments(assessments)}
+                    initialAssessments={riskAssessments}
+                  />
+
+                  {/* Action Buttons - Step 2 */}
+                  <div className="flex justify-between gap-3 pt-4 border-t">
+                    <button
+                      type="button"
+                      onClick={handleBackToDetails}
+                      className="btn btn-secondary flex items-center gap-2"
+                    >
+                      <ArrowRight className="rotate-180" size={18} />
+                      Back to Details
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmit(onSubmit)}
+                      className="btn btn-primary flex items-center gap-2"
+                    >
+                      <Save size={18} />
+                      Complete Admission
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

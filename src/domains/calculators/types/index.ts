@@ -246,12 +246,34 @@ export interface DrugDose {
 // Nutrition Calculator Types
 export interface NutritionResult {
   bmr: number;
+  mifflinBmr: number;
   tdee: number;
-  proteinRequirement: number;
-  fluidRequirement: number;
-  mealPlan: MealPlanItem[];
-  supplements: string[];
+  activityFactor: number;
+  stressMultiplier: number;
+  proteinNeeds: number;
+  proteinFactor: number;
+  proteinRationale: string;
+  carbNeeds: number;
+  fatNeeds: number;
+  fluidNeeds: number;
+  fluidRationale: string;
+  micronutrients: string[];
+  mealPlan: {
+    breakfast: string[];
+    midMorning: string[];
+    lunch: string[];
+    afternoon: string[];
+    dinner: string[];
+    evening: string[];
+    highProteinOptions: string[];
+    caloricBoosters: string[];
+  };
   specialConsiderations: string[];
+  macroBreakdown: {
+    protein: { grams: number; calories: number; percentage: number };
+    carbs: { grams: number; calories: number; percentage: number };
+    fat: { grams: number; calories: number; percentage: number };
+  };
 }
 
 export interface MealPlanItem {

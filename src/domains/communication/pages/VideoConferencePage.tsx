@@ -52,34 +52,50 @@ import type {
   ConferenceChatMessage,
 } from '../../../types';
 
-// Simulated participant video component
+// Simulated participant video component with real video stream support
 function ParticipantVideo({ 
   participant, 
   isLarge = false,
   isSelf = false,
+  videoStream = null,
 }: { 
   participant: ConferenceParticipant; 
   isLarge?: boolean;
   isSelf?: boolean;
+  videoStream?: MediaStream | null;
 }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Connect video stream to video element
+  useEffect(() => {
+    if (videoRef.current && videoStream && participant.isVideoOn) {
+      videoRef.current.srcObject = videoStream;
+    }
+  }, [videoStream, participant.isVideoOn]);
+
   return (
     <div className={`relative bg-gray-900 rounded-xl overflow-hidden ${
       isLarge ? 'aspect-video' : 'aspect-video'
     }`}>
-      {/* Video placeholder - would be actual video stream */}
-      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-        {participant.isVideoOn ? (
-          <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-              {participant.userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-            </div>
-          </div>
-        ) : (
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+      {/* Video element - shows actual camera feed when video is on */}
+      {participant.isVideoOn && videoStream ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={isSelf} // Mute self to prevent echo
+          className="w-full h-full object-cover"
+          style={{
+            transform: isSelf ? 'scaleX(-1)' : 'none', // Mirror self-view
+          }}
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+          <div className={`${isLarge ? 'w-32 h-32' : 'w-20 h-20'} rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white ${isLarge ? 'text-4xl' : 'text-2xl'} font-bold`}>
             {participant.userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Participant info overlay */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
@@ -307,6 +323,9 @@ export default function VideoConferencePage() {
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Screen sharing stream
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+
   // UI state
   const [showChat, setShowChat] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
@@ -371,6 +390,15 @@ export default function VideoConferencePage() {
       startCamera();
     }
   }, [isJoined, stream, startCamera]);
+
+  // Cleanup screen sharing on unmount
+  useEffect(() => {
+    return () => {
+      if (screenStream) {
+        screenStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [screenStream]);
 
   // Handle custom background upload
   const handleCustomBackgroundUpload = (file: File) => {
@@ -490,6 +518,12 @@ export default function VideoConferencePage() {
   const handleLeaveConference = async () => {
     if (!user || !conference) return;
 
+    // Stop screen sharing if active
+    if (screenStream) {
+      screenStream.getTracks().forEach(track => track.stop());
+      setScreenStream(null);
+    }
+
     const updatedParticipants = participants.map(p => 
       p.userId === user.id 
         ? { ...p, leftAt: new Date(), connectionStatus: 'disconnected' as const }
@@ -527,13 +561,49 @@ export default function VideoConferencePage() {
     ));
   };
 
-  const toggleScreenShare = () => {
-    setIsScreenSharing(!isScreenSharing);
-    setParticipants(prev => prev.map(p => 
-      p.userId === user?.id ? { ...p, isScreenSharing: !isScreenSharing } : p
-    ));
+  const toggleScreenShare = async () => {
     if (!isScreenSharing) {
-      toast.success('Screen sharing started');
+      try {
+        // Request screen sharing
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            displaySurface: 'monitor',
+          },
+          audio: true,
+        });
+
+        setScreenStream(displayStream);
+        setIsScreenSharing(true);
+        
+        // Listen for when user stops sharing via browser UI
+        displayStream.getVideoTracks()[0].addEventListener('ended', () => {
+          setIsScreenSharing(false);
+          setScreenStream(null);
+          setParticipants(prev => prev.map(p => 
+            p.userId === user?.id ? { ...p, isScreenSharing: false } : p
+          ));
+          toast.success('Screen sharing stopped');
+        });
+
+        setParticipants(prev => prev.map(p => 
+          p.userId === user?.id ? { ...p, isScreenSharing: true } : p
+        ));
+        toast.success('Screen sharing started');
+      } catch (err) {
+        console.error('Error sharing screen:', err);
+        toast.error('Failed to share screen');
+      }
+    } else {
+      // Stop screen sharing
+      if (screenStream) {
+        screenStream.getTracks().forEach(track => track.stop());
+        setScreenStream(null);
+      }
+      setIsScreenSharing(false);
+      setParticipants(prev => prev.map(p => 
+        p.userId === user?.id ? { ...p, isScreenSharing: false } : p
+      ));
+      toast.success('Screen sharing stopped');
     }
   };
 
@@ -862,8 +932,54 @@ export default function VideoConferencePage() {
               onClose={() => setShowPresentation(false)}
               isPresenter={isPresenter}
             />
+          ) : isScreenSharing && screenStream ? (
+            /* Screen sharing view */
+            <div className="h-full flex flex-col gap-4 relative">
+              {/* Main screen share display */}
+              <div className="flex-1 bg-gray-800 rounded-xl overflow-hidden relative">
+                <video
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain"
+                  ref={(el) => {
+                    if (el && screenStream) {
+                      el.srcObject = screenStream;
+                    }
+                  }}
+                />
+                <div className="absolute top-4 left-4 px-3 py-1.5 bg-green-500 text-white text-sm rounded-full flex items-center gap-2">
+                  <Monitor size={16} />
+                  You are sharing your screen
+                </div>
+              </div>
+              
+              {/* Self-view PIP (Picture-in-Picture) */}
+              {stream && isVideoOn && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="absolute bottom-4 right-4 w-48 aspect-video bg-gray-900 rounded-xl overflow-hidden shadow-2xl border-2 border-gray-700"
+                >
+                  <video
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                    style={{ transform: 'scaleX(-1)' }}
+                    ref={(el) => {
+                      if (el && stream) {
+                        el.srcObject = stream;
+                      }
+                    }}
+                  />
+                  <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/50 text-white text-xs rounded">
+                    You
+                  </div>
+                </motion.div>
+              )}
+            </div>
           ) : (
-            <div className={`h-full ${
+            <div className={`h-full relative ${
               viewMode === 'grid' 
                 ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'
                 : 'flex flex-col gap-4'
@@ -877,6 +993,7 @@ export default function VideoConferencePage() {
                         participant={participants[0]} 
                         isLarge 
                         isSelf={participants[0].userId === user?.id}
+                        videoStream={participants[0].userId === user?.id ? stream : null}
                       />
                     ) : (
                       <div className="h-full bg-gray-800 rounded-xl flex items-center justify-center">
@@ -893,6 +1010,7 @@ export default function VideoConferencePage() {
                           <ParticipantVideo 
                             participant={p}
                             isSelf={p.userId === user?.id}
+                            videoStream={p.userId === user?.id ? stream : null}
                           />
                         </div>
                       ))}
@@ -906,8 +1024,34 @@ export default function VideoConferencePage() {
                     key={p.id} 
                     participant={p}
                     isSelf={p.userId === user?.id}
+                    videoStream={p.userId === user?.id ? stream : null}
                   />
                 ))
+              )}
+
+              {/* Self-view PIP when in speaker/grid view and multiple participants */}
+              {stream && isVideoOn && participants.length > 0 && !participants.find(p => p.userId === user?.id && participants[0].userId === user?.id) && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="absolute bottom-4 right-4 w-48 aspect-video bg-gray-900 rounded-xl overflow-hidden shadow-2xl border-2 border-gray-700 z-10"
+                >
+                  <video
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                    style={{ transform: 'scaleX(-1)' }}
+                    ref={(el) => {
+                      if (el && stream) {
+                        el.srcObject = stream;
+                      }
+                    }}
+                  />
+                  <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/50 text-white text-xs rounded">
+                    You
+                  </div>
+                </motion.div>
               )}
             </div>
           )}

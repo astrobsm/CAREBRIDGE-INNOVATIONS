@@ -51,7 +51,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
       yPos = margin;
       // Add page header
       pdf.setFontSize(8);
-      pdf.setTextColor(128, 128, 128);
+      pdf.setTextColor(31, 41, 55);
       pdf.text(`${procedure.procedureName} - Patient Information`, margin, yPos);
       pdf.text(`Page ${pdf.getNumberOfPages()}`, pageWidth - margin - 20, yPos);
       yPos += 10;
@@ -203,7 +203,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   
   pdf.setFontSize(9);
   pdf.setFont('helvetica', 'italic');
-  pdf.setTextColor(100, 100, 100);
+  pdf.setTextColor(0, 0, 0);
   pdf.text('All medical procedures carry some risk. The following complications may occur:', margin, yPos);
   yPos += 8;
   
@@ -260,7 +260,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
     pdf.text(`${change.category}:`, margin + 3, yPos);
     
     const importanceColor = change.importance === 'essential' ? [180, 0, 0] : 
-                           change.importance === 'recommended' ? [0, 100, 0] : [100, 100, 100];
+                           change.importance === 'recommended' ? [0, 100, 0] : [0, 0, 0];
     pdf.setTextColor(importanceColor[0], importanceColor[1], importanceColor[2]);
     pdf.text(`[${change.importance.toUpperCase()}]`, margin + 50, yPos);
     yPos += 5;
@@ -283,7 +283,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   yPos += 3;
   pdf.setFontSize(8);
   pdf.setFont('helvetica', 'italic');
-  pdf.setTextColor(100, 100, 100);
+  pdf.setTextColor(0, 0, 0);
   pdf.text('Compliance with these instructions is essential for the best outcome', margin, yPos);
   yPos += 7;
   

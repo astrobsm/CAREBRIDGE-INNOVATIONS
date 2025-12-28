@@ -2,8 +2,10 @@
 // Harris-Benedict, Caloric Requirements, African Food-Based Recommendations
 
 import { useState } from 'react';
-import { UtensilsCrossed, Calculator, AlertCircle, Apple, Flame } from 'lucide-react';
+import { UtensilsCrossed, Calculator, AlertCircle, Apple, Flame, Download, Share2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { PatientCalculatorInfo, NutritionResult } from '../../types';
+import { downloadMealPlanPDF, shareMealPlanOnWhatsApp, type MealPlanPDFOptions } from '../../../../utils/mealPlanPdfGenerator';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -463,6 +465,76 @@ export default function NutritionCalculator({ patientInfo }: Props) {
       {result && (
         <div className="mt-8 space-y-6">
           <div className="border-t-2 border-gray-200 pt-6">
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 mb-6">
+              <button
+                onClick={() => {
+                  const pdfOptions: MealPlanPDFOptions = {
+                    patientName: patientInfo.name || undefined,
+                    hospitalNumber: patientInfo.hospitalNumber || undefined,
+                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
+                    gender: patientInfo.gender || undefined,
+                    weight: parseFloat(String(weight)) || undefined,
+                    height: parseFloat(String(height)) || undefined,
+                    diagnosis: result.specialConsiderations?.join(', ') || 'Clinical Nutrition Assessment',
+                    planType: 'clinical_nutrition',
+                    calorieTarget: result.tdee,
+                    proteinTarget: result.proteinNeeds,
+                    fluidTarget: result.fluidNeeds,
+                    mealPlan: {
+                      breakfast: result.mealPlan.breakfast,
+                      midMorning: result.mealPlan.midMorning,
+                      lunch: result.mealPlan.lunch,
+                      afternoon: result.mealPlan.afternoon,
+                      dinner: result.mealPlan.dinner,
+                      evening: result.mealPlan.evening,
+                    },
+                    foodsToEat: result.mealPlan.highProteinOptions,
+                    warnings: result.specialConsiderations,
+                  };
+                  downloadMealPlanPDF(pdfOptions);
+                  toast.success('Nutrition plan PDF downloaded!');
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download PDF
+              </button>
+              <button
+                onClick={async () => {
+                  const pdfOptions: MealPlanPDFOptions = {
+                    patientName: patientInfo.name || undefined,
+                    hospitalNumber: patientInfo.hospitalNumber || undefined,
+                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
+                    gender: patientInfo.gender || undefined,
+                    weight: parseFloat(String(weight)) || undefined,
+                    height: parseFloat(String(height)) || undefined,
+                    diagnosis: result.specialConsiderations?.join(', ') || 'Clinical Nutrition Assessment',
+                    planType: 'clinical_nutrition',
+                    calorieTarget: result.tdee,
+                    proteinTarget: result.proteinNeeds,
+                    fluidTarget: result.fluidNeeds,
+                    mealPlan: {
+                      breakfast: result.mealPlan.breakfast,
+                      midMorning: result.mealPlan.midMorning,
+                      lunch: result.mealPlan.lunch,
+                      afternoon: result.mealPlan.afternoon,
+                      dinner: result.mealPlan.dinner,
+                      evening: result.mealPlan.evening,
+                    },
+                    foodsToEat: result.mealPlan.highProteinOptions,
+                    warnings: result.specialConsiderations,
+                  };
+                  await shareMealPlanOnWhatsApp(pdfOptions);
+                  toast.success('Opening WhatsApp...');
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Share on WhatsApp
+              </button>
+            </div>
+
             {/* Main Metrics */}
             <div className="grid md:grid-cols-3 gap-4 mb-6">
               <div className="bg-blue-100 rounded-lg p-4 text-center">

@@ -2,7 +2,7 @@
 // Includes Pre-operative Instructions, Post-operative Instructions, and Fee Estimates
 
 import jsPDF from 'jspdf';
-import { formatNaira, SurgicalFeeEstimate, SurgicalProcedure } from '../../../data/surgicalFees';
+import { SurgicalFeeEstimate, SurgicalProcedure } from '../../../data/surgicalFees';
 import { 
   addBrandedHeader, 
   addBrandedFooter, 
@@ -10,9 +10,7 @@ import {
   type PDFDocumentInfo,
 } from '../../../utils/pdfUtils';
 
-const PRIMARY_COLOR: [number, number, number] = PDF_COLORS.primary;
 const DANGER_COLOR: [number, number, number] = PDF_COLORS.danger;
-const SUCCESS_COLOR: [number, number, number] = PDF_COLORS.success;
 
 interface PatientInfo {
   name: string;
@@ -42,7 +40,7 @@ function addHeader(doc: jsPDF, title: string, subtitle?: string, hospitalName?: 
   const info: PDFDocumentInfo = {
     title,
     subtitle,
-    hospitalName: hospitalName || 'CareBridge Healthcare',
+    hospitalName: hospitalName || 'CareBridge Innovations in Healthcare',
   };
   return addBrandedHeader(doc, info);
 }
@@ -54,45 +52,83 @@ function addFooter(doc: jsPDF, pageNumber: number, totalPages?: number): void {
 
 // Helper to add patient info box
 function addPatientBox(doc: jsPDF, yPos: number, patient: PatientInfo, surgery: SurgeryInfo): number {
-  doc.setFillColor(240, 249, 255);
-  doc.roundedRect(15, yPos, 180, 45, 3, 3, 'F');
+  // Box with subtle border for definition
+  doc.setFillColor(245, 250, 255);
+  doc.roundedRect(15, yPos, 180, 48, 3, 3, 'F');
+  doc.setDrawColor(81, 112, 255);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(15, yPos, 180, 48, 3, 3, 'S');
   
-  doc.setFontSize(11);
+  // Title
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(24, 0, 172); // Dark purple for title
   doc.text('Patient Information', 20, yPos + 10);
   
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  // Draw a line under title
+  doc.setDrawColor(200, 210, 255);
+  doc.setLineWidth(0.3);
+  doc.line(20, yPos + 13, 185, yPos + 13);
+  
+  // Content with pure black text
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
   
   const leftCol = 20;
   const rightCol = 110;
-  let lineY = yPos + 20;
+  let lineY = yPos + 22;
   
-  doc.text(`Name: ${patient.name}`, leftCol, lineY);
-  doc.text(`Hospital No: ${patient.hospitalNumber}`, rightCol, lineY);
-  lineY += 8;
+  // Labels in bold, values in normal
+  doc.setFont('helvetica', 'bold');
+  doc.text('Name:', leftCol, lineY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(patient.name, 42, lineY);
   
-  doc.text(`Age: ${patient.age || 'N/A'} years`, leftCol, lineY);
-  doc.text(`Gender: ${patient.gender || 'N/A'}`, rightCol, lineY);
-  lineY += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Hospital No:', rightCol, lineY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(patient.hospitalNumber, 147, lineY);
+  lineY += 9;
   
-  doc.text(`Procedure: ${surgery.procedureName}`, leftCol, lineY);
-  doc.text(`Date: ${new Date(surgery.scheduledDate).toLocaleDateString('en-GB')}`, rightCol, lineY);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Age:', leftCol, lineY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${patient.age || 'N/A'} years`, 37, lineY);
   
-  return yPos + 55;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Gender:', rightCol, lineY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(patient.gender || 'N/A', 137, lineY);
+  lineY += 9;
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Procedure:', leftCol, lineY);
+  doc.setFont('helvetica', 'normal');
+  // Truncate long procedure names
+  const maxProcLength = 45;
+  const procName = surgery.procedureName.length > maxProcLength 
+    ? surgery.procedureName.substring(0, maxProcLength) + '...' 
+    : surgery.procedureName;
+  doc.text(procName, 52, lineY);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Date:', 155, lineY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(new Date(surgery.scheduledDate).toLocaleDateString('en-GB'), 170, lineY);
+  
+  return yPos + 58;
 }
 
-// Helper to add numbered list
-function addNumberedList(doc: jsPDF, yPos: number, items: string[], maxWidth: number = 170): number {
+// Helper to add numbered list with clear black text
+function addNumberedList(doc: jsPDF, yPos: number, items: string[], maxWidth: number = 165): number {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(0, 0, 0); // Pure black
   
   items.forEach((item, index) => {
     const lines = doc.splitTextToSize(`${index + 1}. ${item}`, maxWidth);
     lines.forEach((line: string, lineIndex: number) => {
-      doc.text(lineIndex === 0 ? line : `   ${line}`, 25, yPos);
+      doc.text(lineIndex === 0 ? line : `    ${line}`, 25, yPos);
       yPos += 6;
     });
     yPos += 2;
@@ -101,16 +137,17 @@ function addNumberedList(doc: jsPDF, yPos: number, items: string[], maxWidth: nu
   return yPos;
 }
 
-// Helper to add bullet list
-function addBulletList(doc: jsPDF, yPos: number, items: string[], maxWidth: number = 170): number {
+// Helper to add bullet list with clear black text
+function addBulletList(doc: jsPDF, yPos: number, items: string[], maxWidth: number = 165): number {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(0, 0, 0); // Pure black
   
   items.forEach((item) => {
-    const lines = doc.splitTextToSize(`• ${item}`, maxWidth);
+    // Use a simple dash instead of bullet for better PDF compatibility
+    const lines = doc.splitTextToSize(`- ${item}`, maxWidth);
     lines.forEach((line: string, lineIndex: number) => {
-      doc.text(lineIndex === 0 ? line : `  ${line}`, 25, yPos);
+      doc.text(lineIndex === 0 ? line : `   ${line}`, 25, yPos);
       yPos += 6;
     });
     yPos += 1;
@@ -119,15 +156,15 @@ function addBulletList(doc: jsPDF, yPos: number, items: string[], maxWidth: numb
   return yPos;
 }
 
-// Helper to add section title
+// Helper to add section title with high contrast
 function addSectionTitle(doc: jsPDF, yPos: number, title: string): number {
-  doc.setFillColor(...PRIMARY_COLOR);
-  doc.roundedRect(15, yPos, 180, 8, 2, 2, 'F');
+  doc.setFillColor(24, 0, 172); // Dark purple for better contrast
+  doc.roundedRect(15, yPos, 180, 10, 2, 2, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
-  doc.setTextColor(255, 255, 255);
-  doc.text(title, 20, yPos + 6);
-  return yPos + 15;
+  doc.setTextColor(255, 255, 255); // White text on dark background
+  doc.text(title, 20, yPos + 7);
+  return yPos + 16;
 }
 
 // PRE-OPERATIVE INSTRUCTIONS PDF
@@ -409,6 +446,11 @@ export function generatePostOpInstructionsPDF(
   doc.save(`PostOp_Instructions_${patient.hospitalNumber}_${new Date().toISOString().slice(0,10)}.pdf`);
 }
 
+// Helper to format currency without special characters for PDF (better font support)
+function formatPDFAmount(amount: number): string {
+  return `N ${amount.toLocaleString('en-NG')}`;
+}
+
 // SURGICAL FEE ESTIMATE PDF
 export function generateFeeEstimatePDF(
   patient: PatientInfo,
@@ -424,72 +466,110 @@ export function generateFeeEstimatePDF(
   // Procedure Details
   yPos = addSectionTitle(doc, yPos, 'PROCEDURE DETAILS');
   
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
   
   const leftCol = 20;
   const rightCol = 110;
   
-  doc.text(`Procedure: ${procedure.name}`, leftCol, yPos);
-  yPos += 7;
-  doc.text(`ICD-10 Code: ${procedure.icdCode}`, leftCol, yPos);
-  doc.text(`Category: ${procedure.category}`, rightCol, yPos);
-  yPos += 7;
-  doc.text(`Complexity: ${procedure.complexityLabel}`, leftCol, yPos);
-  doc.text(`ASA Score: ${surgery.asaScore}`, rightCol, yPos);
-  yPos += 12;
+  // Procedure name in bold
+  doc.text('Procedure:', leftCol, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(procedure.name, 50, yPos);
+  yPos += 8;
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('ICD-10 Code:', leftCol, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(procedure.icdCode || 'N/A', 55, yPos);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Category:', rightCol, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(procedure.category, 140, yPos);
+  yPos += 8;
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Complexity:', leftCol, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(procedure.complexityLabel, 55, yPos);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('ASA Score:', rightCol, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(String(surgery.asaScore), 145, yPos);
+  yPos += 15;
   
   // Fee Breakdown Table
   yPos = addSectionTitle(doc, yPos, 'FEE BREAKDOWN');
   
-  // Table header
-  doc.setFillColor(240, 249, 255);
-  doc.rect(15, yPos, 180, 10, 'F');
+  // Table header with dark background for contrast
+  doc.setFillColor(31, 41, 55); // Dark gray background
+  doc.rect(15, yPos, 180, 12, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.text('Description', 20, yPos + 7);
-  doc.text('Amount (₦)', 160, yPos + 7);
-  yPos += 12;
+  doc.setFontSize(11);
+  doc.setTextColor(255, 255, 255); // White text on dark background
+  doc.text('Description', 20, yPos + 8);
+  doc.text('Amount (NGN)', 155, yPos + 8);
+  yPos += 14;
   
-  // Table rows
+  // Table rows with alternating backgrounds and clear text
   const rows = [
-    ['Surgeon\'s Professional Fee', formatNaira(feeEstimate.surgeonFee)],
-    ['Anaesthesia Fee', formatNaira(feeEstimate.anaesthesiaFee)],
-    ['Theatre Consumables', formatNaira(feeEstimate.theatreConsumables)],
-    ['Post-Operative Medications (Est.)', formatNaira(feeEstimate.postOpMedications)],
+    ["Surgeon's Professional Fee", formatPDFAmount(feeEstimate.surgeonFee)],
+    ['Anaesthesia Fee', formatPDFAmount(feeEstimate.anaesthesiaFee)],
+    ['Theatre Consumables', formatPDFAmount(feeEstimate.theatreConsumables)],
+    ['Post-Operative Medications (Est.)', formatPDFAmount(feeEstimate.postOpMedications)],
   ];
   
   if (feeEstimate.histologyFee > 0) {
-    rows.push(['Histopathology Fee', formatNaira(feeEstimate.histologyFee)]);
+    rows.push(['Histopathology Fee', formatPDFAmount(feeEstimate.histologyFee)]);
   }
   
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
   rows.forEach((row, index) => {
+    // Alternating row colors - light blue and white
     if (index % 2 === 0) {
-      doc.setFillColor(250, 250, 250);
-      doc.rect(15, yPos - 3, 180, 10, 'F');
+      doc.setFillColor(240, 249, 255); // Light blue
+    } else {
+      doc.setFillColor(255, 255, 255); // White
     }
-    doc.text(row[0], 20, yPos + 4);
-    doc.text(row[1], 160, yPos + 4);
-    yPos += 10;
+    doc.rect(15, yPos - 2, 180, 12, 'F');
+    
+    // Draw borders for table structure
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.rect(15, yPos - 2, 180, 12, 'S');
+    
+    // Text in pure black for maximum readability
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.text(row[0], 20, yPos + 6);
+    
+    // Amount right-aligned and bold
+    doc.setFont('helvetica', 'bold');
+    doc.text(row[1], 190, yPos + 6, { align: 'right' });
+    yPos += 12;
   });
   
-  // Total
-  doc.setFillColor(...SUCCESS_COLOR);
-  doc.rect(15, yPos, 180, 12, 'F');
+  // Total row with strong contrast
+  doc.setFillColor(24, 0, 172); // Primary dark purple
+  doc.rect(15, yPos - 2, 180, 14, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
+  doc.setFontSize(13);
   doc.setTextColor(255, 255, 255);
-  doc.text('TOTAL ESTIMATE', 20, yPos + 8);
-  doc.text(formatNaira(feeEstimate.totalEstimate), 155, yPos + 8);
+  doc.text('TOTAL ESTIMATE', 20, yPos + 7);
+  doc.text(formatPDFAmount(feeEstimate.totalEstimate), 190, yPos + 7, { align: 'right' });
   yPos += 20;
   
-  // Fee Range Note
+  // Fee Range Note with clear formatting
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Professional Fee Range:', 20, yPos);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Professional Fee Range for this procedure: ${formatNaira(procedure.minFee)} - ${formatNaira(procedure.maxFee)}`, 20, yPos);
+  doc.text(`${formatPDFAmount(procedure.minFee)} - ${formatPDFAmount(procedure.maxFee)}`, 75, yPos);
   yPos += 15;
   
   // Payment Terms
@@ -505,15 +585,21 @@ export function generateFeeEstimatePDF(
   yPos = addNumberedList(doc, yPos, paymentInfo);
   yPos += 5;
   
-  // Disclaimer
+  // Disclaimer with better contrast
   doc.setFillColor(254, 243, 199);
   doc.roundedRect(15, yPos, 180, 35, 3, 3, 'F');
+  doc.setDrawColor(180, 140, 20);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(15, yPos, 180, 35, 3, 3, 'S');
+  
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(146, 64, 14);
+  doc.setFontSize(11);
+  doc.setTextColor(120, 53, 15); // Darker brown for better contrast
   doc.text('Important Notice', 20, yPos + 10);
+  
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
+  doc.setTextColor(80, 40, 10); // Even darker for body text
   const disclaimerLines = doc.splitTextToSize(feeEstimate.disclaimer, 170);
   doc.text(disclaimerLines, 20, yPos + 18);
   

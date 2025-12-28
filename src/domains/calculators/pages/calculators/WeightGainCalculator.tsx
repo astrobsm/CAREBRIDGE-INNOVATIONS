@@ -2,8 +2,10 @@
 // Clinical Weight Gain for Underweight/Malnourished Patients
 
 import { useState } from 'react';
-import { TrendingUp, Calculator, AlertCircle, Target, Apple } from 'lucide-react';
+import { TrendingUp, Calculator, AlertCircle, Target, Apple, Download, Share2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { PatientCalculatorInfo, WeightManagementResult } from '../../types';
+import { downloadMealPlanPDF, shareMealPlanOnWhatsApp, type MealPlanPDFOptions } from '../../../../utils/mealPlanPdfGenerator';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -351,6 +353,84 @@ export default function WeightGainCalculator({ patientInfo }: Props) {
       {result && (
         <div className="mt-8 space-y-4">
           <div className="border-t-2 border-gray-200 pt-6">
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 mb-6">
+              <button
+                onClick={() => {
+                  const pdfOptions: MealPlanPDFOptions = {
+                    patientName: patientInfo.name || undefined,
+                    hospitalNumber: patientInfo.hospitalNumber || undefined,
+                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
+                    gender: patientInfo.gender || undefined,
+                    weight: parseFloat(currentWeight) || undefined,
+                    height: parseFloat(height) || undefined,
+                    diagnosis: 'Underweight / Malnutrition',
+                    planType: 'weight_gain',
+                    calorieTarget: result.targetCalories,
+                    proteinTarget: result.proteinTarget,
+                    fluidTarget: 2500,
+                    mealPlan: {
+                      breakfast: result.dietarySuggestions?.toEat?.slice(0, 2) || [],
+                      lunch: result.dietarySuggestions?.toEat?.slice(2, 4) || [],
+                      dinner: result.dietarySuggestions?.toEat?.slice(4, 6) || [],
+                    },
+                    foodsToEat: result.dietarySuggestions?.toEat,
+                    foodsToAvoid: result.dietarySuggestions?.toLimit,
+                    exerciseRecommendations: result.exerciseRecommendations,
+                    warnings: result.medicalConsiderations,
+                    currentBMI: result.currentBMI,
+                    targetBMI: result.targetBMI,
+                    weightChange: result.weightChange,
+                    weeksNeeded: result.weeksNeeded,
+                    dailyDeficit: result.dailyDeficit,
+                  };
+                  downloadMealPlanPDF(pdfOptions);
+                  toast.success('Weight gain plan PDF downloaded!');
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download PDF
+              </button>
+              <button
+                onClick={async () => {
+                  const pdfOptions: MealPlanPDFOptions = {
+                    patientName: patientInfo.name || undefined,
+                    hospitalNumber: patientInfo.hospitalNumber || undefined,
+                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
+                    gender: patientInfo.gender || undefined,
+                    weight: parseFloat(currentWeight) || undefined,
+                    height: parseFloat(height) || undefined,
+                    diagnosis: 'Underweight / Malnutrition',
+                    planType: 'weight_gain',
+                    calorieTarget: result.targetCalories,
+                    proteinTarget: result.proteinTarget,
+                    fluidTarget: 2500,
+                    mealPlan: {
+                      breakfast: result.dietarySuggestions?.toEat?.slice(0, 2) || [],
+                      lunch: result.dietarySuggestions?.toEat?.slice(2, 4) || [],
+                      dinner: result.dietarySuggestions?.toEat?.slice(4, 6) || [],
+                    },
+                    foodsToEat: result.dietarySuggestions?.toEat,
+                    foodsToAvoid: result.dietarySuggestions?.toLimit,
+                    exerciseRecommendations: result.exerciseRecommendations,
+                    warnings: result.medicalConsiderations,
+                    currentBMI: result.currentBMI,
+                    targetBMI: result.targetBMI,
+                    weightChange: result.weightChange,
+                    weeksNeeded: result.weeksNeeded,
+                    dailyDeficit: result.dailyDeficit,
+                  };
+                  await shareMealPlanOnWhatsApp(pdfOptions);
+                  toast.success('Opening WhatsApp...');
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Share on WhatsApp
+              </button>
+            </div>
+
             {/* Summary Cards */}
             <div className="grid md:grid-cols-4 gap-4 mb-6">
               <div className="bg-amber-100 rounded-lg p-4 text-center">

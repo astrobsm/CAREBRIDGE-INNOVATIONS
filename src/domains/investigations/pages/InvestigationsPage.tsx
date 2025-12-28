@@ -168,7 +168,7 @@ export default function InvestigationsPage() {
 
   // Fetch data
   const hospitals = useLiveQuery(() => db.hospitals.where('isActive').equals(1).toArray(), []);
-  const patients = useLiveQuery(() => db.patients.where('isActive').equals(1).toArray(), []);
+  const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
   const investigations = useLiveQuery(() => db.investigations.orderBy('createdAt').reverse().toArray(), []);
 
   // Filter investigations

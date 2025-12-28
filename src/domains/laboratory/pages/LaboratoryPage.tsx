@@ -18,6 +18,12 @@ import {
   Activity,
   TestTube,
   FileText,
+  Syringe,
+  Upload,
+  AlertTriangle,
+  Phone,
+  Calendar,
+  Droplets,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -25,6 +31,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { generateLabResultPDF } from '../../../utils/clinicalPdfGenerators';
 import type { LabRequest, LabTest, LabCategory } from '../../../types';
+import { PatientSelector } from '../../../components/patient';
 
 const labRequestSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
@@ -173,6 +180,14 @@ export default function LaboratoryPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedTests, setSelectedTests] = useState<string[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['haematology', 'biochemistry']);
+  
+  // New state for enhanced workflow
+  const [activeTab, setActiveTab] = useState<'requests' | 'collection' | 'results'>('requests');
+  const [showCollectionModal, setShowCollectionModal] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<LabRequest | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { result: string; isAbnormal: boolean; notes?: string }>>({});
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
 
   const labRequests = useLiveQuery(() => db.labRequests.orderBy('requestedAt').reverse().toArray(), []);
   const patients = useLiveQuery(() => db.patients.toArray(), []);
@@ -183,10 +198,22 @@ export default function LaboratoryPage() {
     return map;
   }, [patients]);
 
+  // Selected patient details
+  const selectedPatient = useMemo(() => {
+    if (!selectedPatientId) return null;
+    return patientMap.get(selectedPatientId) || null;
+  }, [selectedPatientId, patientMap]);
+
+  // Handle patient selection
+  const handlePatientSelect = (patientId: string) => {
+    setSelectedPatientId(patientId);
+  };
+
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<LabRequestFormData>({
     resolver: zodResolver(labRequestSchema),
@@ -194,6 +221,76 @@ export default function LaboratoryPage() {
       priority: 'routine',
     },
   });
+
+  // Handle sample collection
+  const handleCollectSample = async () => {
+    if (!selectedRequest || !user) return;
+
+    try {
+      await db.labRequests.update(selectedRequest.id, {
+        status: 'collected',
+        collectedAt: new Date(),
+      });
+      toast.success('Sample collection recorded successfully!');
+      setShowCollectionModal(false);
+      setSelectedRequest(null);
+    } catch (error) {
+      console.error('Error recording collection:', error);
+      toast.error('Failed to record sample collection');
+    }
+  };
+
+  // Handle result upload
+  const handleUploadResults = async () => {
+    if (!selectedRequest || !user) return;
+
+    try {
+      const updatedTests = selectedRequest.tests.map(test => ({
+        ...test,
+        result: testResults[test.id]?.result || test.result,
+        isAbnormal: testResults[test.id]?.isAbnormal || test.isAbnormal,
+        notes: testResults[test.id]?.notes || test.notes,
+      }));
+
+      const allTestsHaveResults = updatedTests.every(test => test.result);
+
+      await db.labRequests.update(selectedRequest.id, {
+        tests: updatedTests,
+        status: allTestsHaveResults ? 'completed' : 'processing',
+        completedAt: allTestsHaveResults ? new Date() : undefined,
+      });
+
+      toast.success(allTestsHaveResults ? 'All results uploaded - Request completed!' : 'Results saved successfully!');
+      setShowResultModal(false);
+      setSelectedRequest(null);
+      setTestResults({});
+    } catch (error) {
+      console.error('Error uploading results:', error);
+      toast.error('Failed to upload results');
+    }
+  };
+
+  // Open collection modal
+  const openCollectionModal = (request: LabRequest) => {
+    setSelectedRequest(request);
+    setShowCollectionModal(true);
+  };
+
+  // Open result modal
+  const openResultModal = (request: LabRequest) => {
+    setSelectedRequest(request);
+    // Pre-populate existing results
+    const existingResults: Record<string, { result: string; isAbnormal: boolean; notes?: string }> = {};
+    request.tests.forEach(test => {
+      existingResults[test.id] = {
+        result: test.result || '',
+        isAbnormal: test.isAbnormal || false,
+        notes: test.notes || '',
+      };
+    });
+    setTestResults(existingResults);
+    setShowResultModal(true);
+  };
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev =>
@@ -317,9 +414,9 @@ export default function LaboratoryPage() {
           gender: patient.gender,
           phone: patient.phone,
         },
-        hospitalName: 'CareBridge Medical Center',
+        hospitalName: 'CareBridge Innovations in Healthcare',
         hospitalPhone: '+234 800 000 0000',
-        hospitalEmail: 'lab@carebridge.ng',
+        hospitalEmail: 'contact@carebridge.ng',
         requestedBy: requester ? `${requester.firstName} ${requester.lastName}` : 'Unknown',
         priority: request.priority,
         category: category.charAt(0).toUpperCase() + category.slice(1),
@@ -332,7 +429,10 @@ export default function LaboratoryPage() {
           specimen: test.specimen,
         })),
         clinicalInfo: request.clinicalInfo,
-        status: request.status,
+        // Map LabRequest status to PDF status format
+        status: request.status === 'collected' || request.status === 'processing' 
+          ? 'in_progress' 
+          : request.status as 'pending' | 'in_progress' | 'completed' | 'cancelled',
       });
 
       toast.success('Lab report PDF downloaded');
@@ -361,16 +461,60 @@ export default function LaboratoryPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
             <FlaskConical className="w-7 h-7 text-teal-500" />
-            Laboratory
+            Laboratory & Investigations
           </h1>
           <p className="text-gray-600 mt-1">
-            Request and track laboratory investigations
+            Request investigations, collect samples, and upload results
           </p>
         </div>
         <button onClick={() => setShowModal(true)} className="btn btn-primary">
           <Plus size={18} />
           New Lab Request
         </button>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="card p-1">
+        <div className="flex flex-wrap gap-1">
+          <button
+            onClick={() => setActiveTab('requests')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'requests'
+                ? 'bg-teal-500 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <FileText size={18} />
+            <span>Investigation Requests</span>
+            {stats.pending > 0 && (
+              <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full">
+                {stats.pending}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('collection')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'collection'
+                ? 'bg-teal-500 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Syringe size={18} />
+            <span>Sample Collection</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('results')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'results'
+                ? 'bg-teal-500 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Upload size={18} />
+            <span>Result Upload</span>
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -507,13 +651,36 @@ export default function LaboratoryPage() {
                         {format(new Date(request.requestedAt), 'MMM d, yyyy h:mm a')}
                       </td>
                       <td className="px-6 py-4">
-                        <button
-                          onClick={() => handleExportLabReport(request)}
-                          className="p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
-                          title="Download Lab Report PDF"
-                        >
-                          <FileText size={18} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          {/* Collect Sample - only for pending requests */}
+                          {request.status === 'pending' && (
+                            <button
+                              onClick={() => openCollectionModal(request)}
+                              className="p-2 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                              title="Collect Sample"
+                            >
+                              <Syringe size={18} />
+                            </button>
+                          )}
+                          {/* Upload Results - for collected or processing requests */}
+                          {(request.status === 'collected' || request.status === 'processing') && (
+                            <button
+                              onClick={() => openResultModal(request)}
+                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                              title="Upload Results"
+                            >
+                              <Upload size={18} />
+                            </button>
+                          )}
+                          {/* Download PDF */}
+                          <button
+                            onClick={() => handleExportLabReport(request)}
+                            className="p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                            title="Download Lab Report PDF"
+                          >
+                            <FileText size={18} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -557,18 +724,61 @@ export default function LaboratoryPage() {
 
               <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col max-h-[calc(90vh-80px)]">
                 <div className="p-6 overflow-y-auto flex-1">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div>
-                      <label className="label">Patient *</label>
-                      <select {...register('patientId')} className={`input ${errors.patientId ? 'input-error' : ''}`}>
-                        <option value="">Select patient</option>
-                        {patients?.map((patient) => (
-                          <option key={patient.id} value={patient.id}>
-                            {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
-                          </option>
-                        ))}
-                      </select>
+                  {/* Patient Selection */}
+                  <div className="mb-6">
+                    <label className="label">Patient *</label>
+                    <PatientSelector
+                      value={selectedPatientId}
+                      onChange={(patientId) => {
+                        handlePatientSelect(patientId || '');
+                        setValue('patientId', patientId || '');
+                      }}
+                      error={errors.patientId?.message}
+                    />
+                  </div>
+
+                  {/* Selected Patient Details */}
+                  {selectedPatient && (
+                    <div className="mb-6 p-4 bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-xl">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-white rounded-full shadow-sm">
+                          <User className="w-5 h-5 text-teal-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">
+                            {selectedPatient.firstName} {selectedPatient.lastName}
+                          </h3>
+                          <p className="text-sm text-gray-500">{selectedPatient.hospitalNumber}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Calendar size={14} />
+                          <span>
+                            {selectedPatient.dateOfBirth 
+                              ? `${Math.floor((Date.now() - new Date(selectedPatient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} yrs`
+                              : 'Age N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <User size={14} />
+                          <span className="capitalize">{selectedPatient.gender}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Phone size={14} />
+                          <span>{selectedPatient.phone || 'N/A'}</span>
+                        </div>
+                        {selectedPatient.bloodGroup && (
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Droplets size={14} />
+                            <span>{selectedPatient.bloodGroup}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div>
                       <label className="label">Priority *</label>
                       <select {...register('priority')} className="input">
@@ -677,6 +887,237 @@ export default function LaboratoryPage() {
                   </div>
                 </div>
               </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Sample Collection Modal */}
+      <AnimatePresence>
+        {showCollectionModal && selectedRequest && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
+            onClick={() => setShowCollectionModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-6 border-b bg-sky-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-sky-100 rounded-lg">
+                    <Syringe className="w-5 h-5 text-sky-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Sample Collection</h2>
+                </div>
+                <button onClick={() => setShowCollectionModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Patient Info */}
+                {(() => {
+                  const patient = patientMap.get(selectedRequest.patientId);
+                  return patient && (
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3 mb-2">
+                        <User className="w-5 h-5 text-gray-400" />
+                        <p className="font-semibold">{patient.firstName} {patient.lastName}</p>
+                      </div>
+                      <p className="text-sm text-gray-500">{patient.hospitalNumber}</p>
+                    </div>
+                  );
+                })()}
+
+                {/* Specimens to Collect */}
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <Droplets className="w-4 h-4 text-sky-500" />
+                    Specimens to Collect
+                  </h3>
+                  <div className="space-y-2">
+                    {[...new Set(selectedRequest.tests.map(t => t.specimen))].map((specimen) => (
+                      <div key={specimen} className="p-3 bg-sky-50 rounded-lg border border-sky-200">
+                        <p className="font-medium text-sky-800">{specimen}</p>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {selectedRequest.tests
+                            .filter(t => t.specimen === specimen)
+                            .map(test => (
+                              <span key={test.id} className="badge badge-secondary text-xs">
+                                {test.name}
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Collection Details */}
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-emerald-700 mb-2">
+                    <Calendar className="w-4 h-4" />
+                    <span className="font-medium">Collection Time</span>
+                  </div>
+                  <p className="text-sm text-emerald-600">{format(new Date(), 'EEEE, MMMM d, yyyy h:mm a')}</p>
+                  <p className="text-sm text-emerald-600 mt-1">Collected by: {user?.firstName} {user?.lastName}</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-4 p-6 border-t bg-gray-50">
+                <button type="button" onClick={() => setShowCollectionModal(false)} className="btn btn-secondary">
+                  Cancel
+                </button>
+                <button onClick={handleCollectSample} className="btn btn-primary">
+                  <CheckCircle size={18} />
+                  Confirm Collection
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Result Upload Modal */}
+      <AnimatePresence>
+        {showResultModal && selectedRequest && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
+            onClick={() => setShowResultModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-6 border-b bg-purple-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Upload className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Upload Test Results</h2>
+                </div>
+                <button onClick={() => setShowResultModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+                {/* Patient Info */}
+                {(() => {
+                  const patient = patientMap.get(selectedRequest.patientId);
+                  return patient && (
+                    <div className="p-4 bg-gray-50 rounded-lg mb-4">
+                      <div className="flex items-center gap-3">
+                        <User className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="font-semibold">{patient.firstName} {patient.lastName}</p>
+                          <p className="text-sm text-gray-500">{patient.hospitalNumber}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Test Results Form */}
+                <div className="space-y-4">
+                  <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                    <TestTube className="w-4 h-4 text-purple-500" />
+                    Enter Results for Each Test
+                  </h3>
+                  
+                  {selectedRequest.tests.map((test) => (
+                    <div key={test.id} className="p-4 border rounded-lg bg-white hover:bg-gray-50">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <p className="font-medium text-gray-900">{test.name}</p>
+                          <p className="text-sm text-gray-500">{test.specimen}</p>
+                        </div>
+                        <span className="badge badge-secondary text-xs">{test.category}</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="label">Result {test.unit && `(${test.unit})`}</label>
+                          <input
+                            type="text"
+                            value={testResults[test.id]?.result || ''}
+                            onChange={(e) => setTestResults(prev => ({
+                              ...prev,
+                              [test.id]: { ...prev[test.id], result: e.target.value }
+                            }))}
+                            placeholder={test.referenceRange ? `Ref: ${test.referenceRange}` : 'Enter result'}
+                            className="input"
+                          />
+                        </div>
+                        <div>
+                          <label className="label">Notes</label>
+                          <input
+                            type="text"
+                            value={testResults[test.id]?.notes || ''}
+                            onChange={(e) => setTestResults(prev => ({
+                              ...prev,
+                              [test.id]: { ...prev[test.id], notes: e.target.value }
+                            }))}
+                            placeholder="Optional notes"
+                            className="input"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 mt-3">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={testResults[test.id]?.isAbnormal || false}
+                            onChange={(e) => setTestResults(prev => ({
+                              ...prev,
+                              [test.id]: { ...prev[test.id], isAbnormal: e.target.checked }
+                            }))}
+                            className="w-4 h-4 rounded text-red-600"
+                          />
+                          <span className="text-sm text-red-600 flex items-center gap-1">
+                            <AlertTriangle size={14} />
+                            Flag as Abnormal
+                          </span>
+                        </label>
+                        {test.referenceRange && (
+                          <span className="text-xs text-gray-500 ml-auto">
+                            Reference: {test.referenceRange}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center gap-4 p-6 border-t bg-gray-50">
+                <p className="text-sm text-gray-500">
+                  {Object.values(testResults).filter(r => r.result).length} of {selectedRequest.tests.length} results entered
+                </p>
+                <div className="flex gap-4">
+                  <button type="button" onClick={() => setShowResultModal(false)} className="btn btn-secondary">
+                    Cancel
+                  </button>
+                  <button onClick={handleUploadResults} className="btn btn-primary">
+                    <Save size={18} />
+                    Save Results
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}

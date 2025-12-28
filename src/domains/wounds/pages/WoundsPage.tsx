@@ -22,6 +22,8 @@ import {
   Ruler,
   Activity,
   FileText,
+  Camera,
+  Target,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -30,6 +32,9 @@ import { format, differenceInDays } from 'date-fns';
 import type { Wound, WoundType, TissueType } from '../../../types';
 import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
 import { generateWoundPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
+import { PatientSelector } from '../../../components/patient';
+import { usePatientMap } from '../../../services/patientHooks';
+import AIWoundPlanimetry from '../components/AIWoundPlanimetry';
 
 const woundSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
@@ -123,15 +128,13 @@ export default function WoundsPage() {
   const [selectedPhase, setSelectedPhase] = useState<keyof typeof woundPhases | null>(null);
   const [selectedWound, setSelectedWound] = useState<Wound | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showAIPlanimetry, setShowAIPlanimetry] = useState(false);
+  const [woundImageData, setWoundImageData] = useState<string | null>(null);
 
   const wounds = useLiveQuery(() => db.wounds.orderBy('createdAt').reverse().toArray(), []);
-  const patients = useLiveQuery(() => db.patients.toArray(), []);
-
-  const patientMap = useMemo(() => {
-    const map = new Map();
-    patients?.forEach(p => map.set(p.id, p));
-    return map;
-  }, [patients]);
+  
+  // Use the new patient map hook for efficient lookups
+  const patientMap = usePatientMap();
 
   const {
     register,
@@ -165,7 +168,7 @@ export default function WoundsPage() {
     const hasNecrotic = tissueTypes.includes('necrotic') || tissueTypes.includes('eschar');
     const hasSlough = tissueTypes.includes('slough');
     const hasGranulation = tissueTypes.includes('granulation');
-    const _hasEpithelial = tissueTypes.includes('epithelial');
+    // Epithelial tissue check can be used for healing stage assessment
 
     if (hasNecrotic || (hasSlough && !hasGranulation)) {
       return 'extension';
@@ -457,16 +460,13 @@ export default function WoundsPage() {
                 <div className="space-y-6">
                   {/* Patient Selection */}
                   <div>
-                    <label className="label">Patient *</label>
-                    <select {...register('patientId')} className={`input ${errors.patientId ? 'input-error' : ''}`}>
-                      <option value="">Select patient</option>
-                      {patients?.map((patient) => (
-                        <option key={patient.id} value={patient.id}>
-                          {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
-                        </option>
-                      ))}
-                    </select>
-                    {errors.patientId && <p className="text-sm text-red-500 mt-1">{errors.patientId.message}</p>}
+                    <PatientSelector
+                      value={watch('patientId')}
+                      onChange={(patientId) => setValue('patientId', patientId || '')}
+                      label="Patient"
+                      required
+                      error={errors.patientId?.message}
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -494,21 +494,40 @@ export default function WoundsPage() {
                   </div>
 
                   {/* Measurements */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="label">Length (cm) *</label>
-                      <input type="number" step="0.1" {...register('length', { valueAsNumber: true })} className={`input ${errors.length ? 'input-error' : ''}`} />
-                      {errors.length && <p className="text-sm text-red-500 mt-1">{errors.length.message}</p>}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="label mb-0">Wound Dimensions</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAIPlanimetry(true)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm font-medium"
+                      >
+                        <Target size={16} />
+                        AI Measurement
+                      </button>
                     </div>
-                    <div>
-                      <label className="label">Width (cm) *</label>
-                      <input type="number" step="0.1" {...register('width', { valueAsNumber: true })} className={`input ${errors.width ? 'input-error' : ''}`} />
-                      {errors.width && <p className="text-sm text-red-500 mt-1">{errors.width.message}</p>}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="label text-xs">Length (cm) *</label>
+                        <input type="number" step="0.1" {...register('length', { valueAsNumber: true })} className={`input ${errors.length ? 'input-error' : ''}`} />
+                        {errors.length && <p className="text-sm text-red-500 mt-1">{errors.length.message}</p>}
+                      </div>
+                      <div>
+                        <label className="label text-xs">Width (cm) *</label>
+                        <input type="number" step="0.1" {...register('width', { valueAsNumber: true })} className={`input ${errors.width ? 'input-error' : ''}`} />
+                        {errors.width && <p className="text-sm text-red-500 mt-1">{errors.width.message}</p>}
+                      </div>
+                      <div>
+                        <label className="label text-xs">Depth (cm)</label>
+                        <input type="number" step="0.1" {...register('depth', { valueAsNumber: true })} className="input" />
+                      </div>
                     </div>
-                    <div>
-                      <label className="label">Depth (cm)</label>
-                      <input type="number" step="0.1" {...register('depth', { valueAsNumber: true })} className="input" />
-                    </div>
+                    {woundImageData && (
+                      <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded-lg flex items-center gap-2">
+                        <Camera size={16} className="text-purple-600" />
+                        <span className="text-sm text-purple-700">Wound image captured from AI measurement</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Tissue Types */}
@@ -788,6 +807,26 @@ export default function WoundsPage() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* AI Wound Planimetry Modal */}
+      <AnimatePresence>
+        {showAIPlanimetry && (
+          <AIWoundPlanimetry
+            onMeasurementComplete={(measurement, imageData) => {
+              // Auto-populate form fields with AI measurements
+              setValue('length', measurement.length);
+              setValue('width', measurement.width);
+              if (measurement.depth) {
+                setValue('depth', measurement.depth);
+              }
+              setWoundImageData(imageData);
+              setShowAIPlanimetry(false);
+              toast.success('Measurements applied to form');
+            }}
+            onCancel={() => setShowAIPlanimetry(false)}
+          />
         )}
       </AnimatePresence>
     </div>

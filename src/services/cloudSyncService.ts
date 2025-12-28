@@ -1,6 +1,8 @@
 // Enhanced Cloud Sync Service for CareBridge
 // Real-time bidirectional sync between local IndexedDB and Supabase
+// Version 2.0 - Fixed React imports
 
+import { useState, useEffect } from 'react';
 import { db } from '../database/db';
 import { supabase, isSupabaseConfigured, TABLES } from './supabaseClient';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -33,8 +35,19 @@ export function subscribeSyncState(callback: (state: CloudSyncState) => void): (
   return () => syncListeners.delete(callback);
 }
 
-function notifySyncListeners() {
-  syncListeners.forEach(cb => cb(syncState));
+function notifySyncListeners(): void {
+  syncListeners.forEach((cb) => {
+    try {
+      if (typeof cb === 'function') {
+        cb(syncState);
+      } else {
+        console.error('[CloudSync] Invalid listener (not a function):', typeof cb);
+        syncListeners.delete(cb);
+      }
+    } catch (err) {
+      console.error('[CloudSync] Error in sync listener:', err);
+    }
+  });
 }
 
 function updateSyncState(updates: Partial<CloudSyncState>) {
@@ -169,44 +182,136 @@ export async function fullSync(): Promise<void> {
 async function pullAllFromCloud(): Promise<void> {
   console.log('[CloudSync] Pulling data from cloud...');
   
+  // Core tables
   await pullTable(TABLES.hospitals, 'hospitals');
   await pullTable(TABLES.patients, 'patients');
+  
+  // Clinical tables
   await pullTable(TABLES.vitalSigns, 'vitalSigns');
   await pullTable(TABLES.clinicalEncounters, 'clinicalEncounters');
   await pullTable(TABLES.surgeries, 'surgeries');
   await pullTable(TABLES.wounds, 'wounds');
   await pullTable(TABLES.burnAssessments, 'burnAssessments');
+  
+  // Lab & Pharmacy
   await pullTable(TABLES.labRequests, 'labRequests');
   await pullTable(TABLES.prescriptions, 'prescriptions');
+  
+  // Nutrition
   await pullTable(TABLES.nutritionAssessments, 'nutritionAssessments');
+  await pullTable(TABLES.nutritionPlans, 'nutritionPlans');
+  
+  // Billing
   await pullTable(TABLES.invoices, 'invoices');
+  
+  // Admission & Ward
   await pullTable(TABLES.admissions, 'admissions');
+  await pullTable(TABLES.admissionNotes, 'admissionNotes');
+  await pullTable(TABLES.bedAssignments, 'bedAssignments');
+  
+  // Treatment
   await pullTable(TABLES.treatmentPlans, 'treatmentPlans');
   await pullTable(TABLES.treatmentProgress, 'treatmentProgress');
+  
+  // Ward Rounds & Assignments
   await pullTable(TABLES.wardRounds, 'wardRounds');
+  await pullTable(TABLES.doctorAssignments, 'doctorAssignments');
+  await pullTable(TABLES.nurseAssignments, 'nurseAssignments');
+  
+  // Investigations
   await pullTable(TABLES.investigations, 'investigations');
+  
+  // Communication
+  await pullTable(TABLES.chatRooms, 'chatRooms');
+  await pullTable(TABLES.chatMessages, 'chatMessages');
+  await pullTable(TABLES.videoConferences, 'videoConferences');
+  await pullTable(TABLES.enhancedVideoConferences, 'enhancedVideoConferences');
+  
+  // Discharge & Documentation
+  await pullTable(TABLES.dischargeSummaries, 'dischargeSummaries');
+  await pullTable(TABLES.consumableBOMs, 'consumableBOMs');
+  await pullTable(TABLES.histopathologyRequests, 'histopathologyRequests');
+  
+  // Blood Transfusion & MDT
+  await pullTable(TABLES.bloodTransfusions, 'bloodTransfusions');
+  await pullTable(TABLES.mdtMeetings, 'mdtMeetings');
+  
+  // Limb Salvage
+  await pullTable(TABLES.limbSalvageAssessments, 'limbSalvageAssessments');
+  
+  // Burn Care Monitoring
+  await pullTable(TABLES.burnMonitoringRecords, 'burnMonitoringRecords');
+  await pullTable(TABLES.escharotomyRecords, 'escharotomyRecords');
+  await pullTable(TABLES.skinGraftRecords, 'skinGraftRecords');
+  await pullTable(TABLES.burnCarePlans, 'burnCarePlans');
 }
 
 // Push all local data to cloud
 async function pushAllToCloud(): Promise<void> {
   console.log('[CloudSync] Pushing data to cloud...');
   
+  // Core tables
   await pushTable('hospitals', TABLES.hospitals);
   await pushTable('patients', TABLES.patients);
+  
+  // Clinical tables
   await pushTable('vitalSigns', TABLES.vitalSigns);
   await pushTable('clinicalEncounters', TABLES.clinicalEncounters);
   await pushTable('surgeries', TABLES.surgeries);
   await pushTable('wounds', TABLES.wounds);
   await pushTable('burnAssessments', TABLES.burnAssessments);
+  
+  // Lab & Pharmacy
   await pushTable('labRequests', TABLES.labRequests);
   await pushTable('prescriptions', TABLES.prescriptions);
+  
+  // Nutrition
   await pushTable('nutritionAssessments', TABLES.nutritionAssessments);
+  await pushTable('nutritionPlans', TABLES.nutritionPlans);
+  
+  // Billing
   await pushTable('invoices', TABLES.invoices);
+  
+  // Admission & Ward
   await pushTable('admissions', TABLES.admissions);
+  await pushTable('admissionNotes', TABLES.admissionNotes);
+  await pushTable('bedAssignments', TABLES.bedAssignments);
+  
+  // Treatment
   await pushTable('treatmentPlans', TABLES.treatmentPlans);
   await pushTable('treatmentProgress', TABLES.treatmentProgress);
+  
+  // Ward Rounds & Assignments
   await pushTable('wardRounds', TABLES.wardRounds);
+  await pushTable('doctorAssignments', TABLES.doctorAssignments);
+  await pushTable('nurseAssignments', TABLES.nurseAssignments);
+  
+  // Investigations
   await pushTable('investigations', TABLES.investigations);
+  
+  // Communication
+  await pushTable('chatRooms', TABLES.chatRooms);
+  await pushTable('chatMessages', TABLES.chatMessages);
+  await pushTable('videoConferences', TABLES.videoConferences);
+  await pushTable('enhancedVideoConferences', TABLES.enhancedVideoConferences);
+  
+  // Discharge & Documentation
+  await pushTable('dischargeSummaries', TABLES.dischargeSummaries);
+  await pushTable('consumableBOMs', TABLES.consumableBOMs);
+  await pushTable('histopathologyRequests', TABLES.histopathologyRequests);
+  
+  // Blood Transfusion & MDT
+  await pushTable('bloodTransfusions', TABLES.bloodTransfusions);
+  await pushTable('mdtMeetings', TABLES.mdtMeetings);
+  
+  // Limb Salvage
+  await pushTable('limbSalvageAssessments', TABLES.limbSalvageAssessments);
+  
+  // Burn Care Monitoring
+  await pushTable('burnMonitoringRecords', TABLES.burnMonitoringRecords);
+  await pushTable('escharotomyRecords', TABLES.escharotomyRecords);
+  await pushTable('skinGraftRecords', TABLES.skinGraftRecords);
+  await pushTable('burnCarePlans', TABLES.burnCarePlans);
 }
 
 // Pull a single table from cloud
@@ -238,8 +343,8 @@ async function pullTable(cloudTableName: string, localTableName: string): Promis
             await (db as any)[localTableName].add(record);
           } else {
             // Compare updated_at timestamps
-            const localUpdated = new Date(localRecord.updatedAt || 0).getTime();
-            const cloudUpdated = new Date(record.updatedAt || 0).getTime();
+            const localUpdated = new Date(String(localRecord.updatedAt || '1970-01-01')).getTime();
+            const cloudUpdated = new Date(String((record as any).updatedAt || '1970-01-01')).getTime();
             
             if (cloudUpdated > localUpdated) {
               // Cloud version is newer, update local
@@ -304,11 +409,14 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
 function setupRealtimeSubscriptions() {
   if (!supabase) return;
   
+  // Store reference to avoid null checks in callbacks
+  const sb = supabase;
+  
   console.log('[CloudSync] Setting up real-time subscriptions...');
   
   // Clean up existing channels
   realtimeChannels.forEach(channel => {
-    supabase?.removeChannel(channel);
+    sb.removeChannel(channel);
   });
   realtimeChannels = [];
 
@@ -322,10 +430,15 @@ function setupRealtimeSubscriptions() {
     { cloud: TABLES.treatmentPlans, local: 'treatmentPlans' },
     { cloud: TABLES.wounds, local: 'wounds' },
     { cloud: TABLES.prescriptions, local: 'prescriptions' },
+    { cloud: TABLES.burnAssessments, local: 'burnAssessments' },
+    { cloud: TABLES.burnMonitoringRecords, local: 'burnMonitoringRecords' },
+    { cloud: TABLES.burnCarePlans, local: 'burnCarePlans' },
+    { cloud: TABLES.investigations, local: 'investigations' },
+    { cloud: TABLES.limbSalvageAssessments, local: 'limbSalvageAssessments' },
   ];
 
   tablesToWatch.forEach(({ cloud, local }) => {
-    const channel = supabase
+    const channel = sb
       .channel(`${cloud}-changes`)
       .on(
         'postgres_changes',
@@ -425,14 +538,31 @@ function getCloudTableName(localTableName: string): string | null {
     labRequests: TABLES.labRequests,
     prescriptions: TABLES.prescriptions,
     nutritionAssessments: TABLES.nutritionAssessments,
+    nutritionPlans: TABLES.nutritionPlans,
     invoices: TABLES.invoices,
     admissions: TABLES.admissions,
+    admissionNotes: TABLES.admissionNotes,
+    bedAssignments: TABLES.bedAssignments,
     treatmentPlans: TABLES.treatmentPlans,
     treatmentProgress: TABLES.treatmentProgress,
     wardRounds: TABLES.wardRounds,
+    doctorAssignments: TABLES.doctorAssignments,
+    nurseAssignments: TABLES.nurseAssignments,
     investigations: TABLES.investigations,
     chatRooms: TABLES.chatRooms,
     chatMessages: TABLES.chatMessages,
+    videoConferences: TABLES.videoConferences,
+    enhancedVideoConferences: TABLES.enhancedVideoConferences,
+    dischargeSummaries: TABLES.dischargeSummaries,
+    consumableBOMs: TABLES.consumableBOMs,
+    histopathologyRequests: TABLES.histopathologyRequests,
+    bloodTransfusions: TABLES.bloodTransfusions,
+    mdtMeetings: TABLES.mdtMeetings,
+    limbSalvageAssessments: TABLES.limbSalvageAssessments,
+    burnMonitoringRecords: TABLES.burnMonitoringRecords,
+    escharotomyRecords: TABLES.escharotomyRecords,
+    skinGraftRecords: TABLES.skinGraftRecords,
+    burnCarePlans: TABLES.burnCarePlans,
   };
   return mapping[localTableName] || null;
 }
@@ -556,13 +686,17 @@ function toSyncState(cloudState: CloudSyncState): SyncState {
 
 // React hook for sync state - compatible with SyncIndicator
 export function useSyncState(): SyncState {
-  const [state, setState] = useState<SyncState>(toSyncState(syncState));
+  // Use React useState with lazy initialization
+  const [state, setState] = useState<SyncState>(() => toSyncState(syncState));
 
   useEffect(() => {
-    const unsubscribe = subscribeSyncState((cloudState) => {
+    // Subscribe to sync state changes
+    const unsubscribe = subscribeSyncState((cloudState: CloudSyncState) => {
       setState(toSyncState(cloudState));
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   return state;
@@ -575,9 +709,20 @@ export const syncService = {
   },
   
   subscribe(callback: (state: SyncState) => void): () => void {
-    return subscribeSyncState((cloudState) => {
-      callback(toSyncState(cloudState));
-    });
+    if (typeof callback !== 'function') {
+      console.error('[CloudSync] subscribe called with non-function:', typeof callback);
+      return () => {}; // Return no-op unsubscribe
+    }
+    
+    const wrappedCallback = (cloudState: CloudSyncState): void => {
+      try {
+        callback(toSyncState(cloudState));
+      } catch (err) {
+        console.error('[CloudSync] Error in subscribe callback:', err);
+      }
+    };
+    
+    return subscribeSyncState(wrappedCallback);
   },
   
   async forceSync(): Promise<void> {

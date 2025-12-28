@@ -21,6 +21,9 @@ import {
   Video,
   Clipboard,
   TestTube2,
+  LogOut,
+  Droplets,
+  Footprints,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -47,8 +50,8 @@ const navigation: NavItem[] = [
     permission: 'view_patients',
   },
   { 
-    name: 'Admissions', 
-    href: '/admissions', 
+    name: 'ADT', 
+    href: '/adt', 
     icon: <BedDouble size={20} />,
     permission: 'manage_admissions',
   },
@@ -56,6 +59,18 @@ const navigation: NavItem[] = [
     name: 'Ward Rounds', 
     href: '/ward-rounds', 
     icon: <Clipboard size={20} />,
+    permission: 'create_encounters',
+  },
+  { 
+    name: 'MDT', 
+    href: '/mdt', 
+    icon: <Users size={20} />,
+    permission: 'create_encounters',
+  },
+  { 
+    name: 'Blood Bank', 
+    href: '/blood-transfusion', 
+    icon: <Droplets size={20} />,
     permission: 'create_encounters',
   },
   { 
@@ -73,6 +88,10 @@ const navigation: NavItem[] = [
     href: '/surgery', 
     icon: <Scissors size={20} />,
     permission: 'manage_surgeries',
+    children: [
+      { name: 'Surgery List', href: '/surgery' },
+      { name: 'Preoperative Review', href: '/surgery/preoperative' },
+    ],
   },
   { 
     name: 'Wounds', 
@@ -84,6 +103,12 @@ const navigation: NavItem[] = [
     name: 'Burns', 
     href: '/burns', 
     icon: <Flame size={20} />,
+    permission: 'manage_wounds',
+  },
+  { 
+    name: 'Limb Salvage', 
+    href: '/limb-salvage', 
+    icon: <Footprints size={20} />,
     permission: 'manage_wounds',
   },
   { 

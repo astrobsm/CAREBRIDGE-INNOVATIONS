@@ -1326,7 +1326,7 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
 
 import type { Wound, BurnAssessment, NutritionAssessment, Admission, ClinicalEncounter, Patient, Diagnosis } from '../types';
 
-const DEFAULT_HOSPITAL = 'CareBridge Medical Center';
+const DEFAULT_HOSPITAL = 'CareBridge Innovations in Healthcare';
 
 /**
  * Generate wound assessment PDF from database wound entity

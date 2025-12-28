@@ -16,6 +16,7 @@ import {
   Plus,
   Trash2,
   CheckCircle,
+  UserCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -170,6 +171,14 @@ export default function ClinicalEncounterPage() {
               Patient: {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => navigate(`/patients/${patientId}/clinical-summary`)}
+            className="btn btn-secondary flex items-center gap-2"
+          >
+            <UserCheck size={18} />
+            Patient Summary
+          </button>
         </div>
       </div>
 

@@ -41,8 +41,18 @@ const wardRoundSchema = z.object({
   roundTime: z.string().min(1, 'Time is required'),
   roundType: z.enum(['morning', 'evening', 'night', 'consultant', 'teaching', 'emergency']),
   leadDoctorId: z.string().min(1, 'Lead doctor is required'),
+  leadDoctorDesignation: z.enum(['consultant', 'senior_registrar', 'registrar', 'resident', 'house_officer']),
+  teamMemberIds: z.array(z.string()).optional(),
   notes: z.string().optional(),
 });
+
+const leaderDesignations = [
+  { value: 'consultant', label: 'Consultant', color: 'bg-purple-100 text-purple-800' },
+  { value: 'senior_registrar', label: 'Senior Registrar', color: 'bg-blue-100 text-blue-800' },
+  { value: 'registrar', label: 'Registrar', color: 'bg-sky-100 text-sky-800' },
+  { value: 'resident', label: 'Resident Doctor', color: 'bg-teal-100 text-teal-800' },
+  { value: 'house_officer', label: 'House Officer', color: 'bg-green-100 text-green-800' },
+];
 
 const doctorAssignmentSchema = z.object({
   hospitalId: z.string().min(1, 'Hospital is required'),
@@ -107,7 +117,7 @@ export default function WardRoundsPage() {
 
   // Fetch data
   const hospitals = useLiveQuery(() => db.hospitals.where('isActive').equals(1).toArray(), []);
-  const patients = useLiveQuery(() => db.patients.where('isActive').equals(1).toArray(), []);
+  const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
   const admissions = useLiveQuery(() => db.admissions.where('status').equals('active').toArray(), []);
   const users = useLiveQuery(() => db.users.where('isActive').equals(1).toArray(), []);
   const wardRounds = useLiveQuery(() => db.wardRounds.orderBy('roundDate').reverse().toArray(), []);
@@ -170,8 +180,20 @@ export default function WardRoundsPage() {
     resolver: zodResolver(wardRoundSchema),
     defaultValues: {
       roundType: 'morning',
+      leadDoctorDesignation: 'consultant',
+      teamMemberIds: [],
     },
   });
+  
+  // Watch selected hospital to display details
+  const selectedHospitalId = roundForm.watch('hospitalId');
+  const selectedHospitalDetails = useMemo(() => {
+    if (!selectedHospitalId || !hospitals) return null;
+    return hospitals.find(h => h.id === selectedHospitalId) || null;
+  }, [selectedHospitalId, hospitals]);
+  
+  // Watch selected team members
+  const selectedTeamMemberIds = roundForm.watch('teamMemberIds') || [];
 
   const doctorAssignForm = useForm<DoctorAssignmentFormData>({
     resolver: zodResolver(doctorAssignmentSchema),
@@ -195,6 +217,18 @@ export default function WardRoundsPage() {
       const leadDoctor = doctors.find(d => d.id === data.leadDoctorId);
       const hospital = hospitals?.find(h => h.id === data.hospitalId);
       
+      // Build team members from selected IDs
+      const teamMembersList = (data.teamMemberIds || []).map(userId => {
+        const user = users?.find(u => u.id === userId);
+        return {
+          userId,
+          name: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
+          role: user?.role || 'nurse' as const,
+          specialty: user?.specialization,
+          isPresent: false,
+        };
+      });
+      
       const newRound: WardRound = {
         id: uuidv4(),
         hospitalId: data.hospitalId,
@@ -205,7 +239,8 @@ export default function WardRoundsPage() {
         status: 'scheduled',
         leadDoctorId: data.leadDoctorId,
         leadDoctorName: `${leadDoctor?.firstName} ${leadDoctor?.lastName}`,
-        teamMembers: [],
+        leadDoctorDesignation: data.leadDoctorDesignation,
+        teamMembers: teamMembersList,
         patients: admittedPatients
           .filter(p => p.admission?.wardName === data.wardName)
           .map(p => ({
@@ -728,8 +763,9 @@ export default function WardRoundsPage() {
               </div>
 
               <form onSubmit={roundForm.handleSubmit(handleCreateRound)} className="p-6 space-y-4">
+                {/* Hospital Selection */}
                 <div>
-                  <label className="label">Hospital</label>
+                  <label className="label">Hospital *</label>
                   <select {...roundForm.register('hospitalId')} className="input">
                     <option value="">Select hospital</option>
                     {hospitals?.map((h) => (
@@ -740,6 +776,34 @@ export default function WardRoundsPage() {
                     <p className="text-sm text-red-500 mt-1">{roundForm.formState.errors.hospitalId.message}</p>
                   )}
                 </div>
+                
+                {/* Hospital Details Card */}
+                {selectedHospitalDetails && (
+                  <div className="p-4 bg-sky-50 border border-sky-200 rounded-lg">
+                    <h4 className="font-medium text-sky-900 mb-2 flex items-center gap-2">
+                      <Clipboard size={16} />
+                      Hospital Information
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-500">Name:</span>
+                        <p className="font-medium">{selectedHospitalDetails.name}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Type:</span>
+                        <p className="font-medium capitalize">{selectedHospitalDetails.type?.replace('_', ' ')}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Address:</span>
+                        <p className="font-medium">{selectedHospitalDetails.address}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Phone:</span>
+                        <p className="font-medium">{selectedHospitalDetails.phone}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="label">Ward</label>
@@ -780,19 +844,97 @@ export default function WardRoundsPage() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="label">Lead Doctor</label>
-                  <select {...roundForm.register('leadDoctorId')} className="input">
-                    <option value="">Select lead doctor</option>
-                    {doctors.map((doctor) => (
-                      <option key={doctor.id} value={doctor.id}>
-                        {doctor.firstName} {doctor.lastName} - {doctor.specialization}
-                      </option>
-                    ))}
-                  </select>
-                  {roundForm.formState.errors.leadDoctorId && (
-                    <p className="text-sm text-red-500 mt-1">{roundForm.formState.errors.leadDoctorId.message}</p>
-                  )}
+                {/* Lead Doctor & Designation */}
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg space-y-4">
+                  <h4 className="font-medium text-purple-900 flex items-center gap-2">
+                    <Stethoscope size={16} />
+                    Round Leader
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Lead Doctor *</label>
+                      <select {...roundForm.register('leadDoctorId')} className="input">
+                        <option value="">Select lead doctor</option>
+                        {doctors.map((doctor) => (
+                          <option key={doctor.id} value={doctor.id}>
+                            {doctor.firstName} {doctor.lastName}
+                          </option>
+                        ))}
+                      </select>
+                      {roundForm.formState.errors.leadDoctorId && (
+                        <p className="text-sm text-red-500 mt-1">{roundForm.formState.errors.leadDoctorId.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="label">Designation *</label>
+                      <select {...roundForm.register('leadDoctorDesignation')} className="input">
+                        {leaderDesignations.map((d) => (
+                          <option key={d.value} value={d.value}>{d.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Team Members Selection */}
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <h4 className="font-medium text-emerald-900 mb-3 flex items-center gap-2">
+                    <Users size={16} />
+                    Team Members (Optional)
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="label text-xs">Doctors</label>
+                      <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
+                        {doctors.filter(d => d.id !== roundForm.watch('leadDoctorId')).map((doctor) => (
+                          <label key={doctor.id} className="flex items-center gap-1 px-2 py-1 bg-white border rounded cursor-pointer hover:bg-gray-50">
+                            <input
+                              type="checkbox"
+                              checked={selectedTeamMemberIds.includes(doctor.id)}
+                              onChange={(e) => {
+                                const current = selectedTeamMemberIds;
+                                if (e.target.checked) {
+                                  roundForm.setValue('teamMemberIds', [...current, doctor.id]);
+                                } else {
+                                  roundForm.setValue('teamMemberIds', current.filter(id => id !== doctor.id));
+                                }
+                              }}
+                              className="rounded text-emerald-600"
+                            />
+                            <span className="text-xs">{doctor.firstName} {doctor.lastName}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label text-xs">Nurses</label>
+                      <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
+                        {nurses.map((nurse) => (
+                          <label key={nurse.id} className="flex items-center gap-1 px-2 py-1 bg-white border rounded cursor-pointer hover:bg-gray-50">
+                            <input
+                              type="checkbox"
+                              checked={selectedTeamMemberIds.includes(nurse.id)}
+                              onChange={(e) => {
+                                const current = selectedTeamMemberIds;
+                                if (e.target.checked) {
+                                  roundForm.setValue('teamMemberIds', [...current, nurse.id]);
+                                } else {
+                                  roundForm.setValue('teamMemberIds', current.filter(id => id !== nurse.id));
+                                }
+                              }}
+                              className="rounded text-emerald-600"
+                            />
+                            <span className="text-xs">{nurse.firstName} {nurse.lastName}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    {selectedTeamMemberIds.length > 0 && (
+                      <p className="text-xs text-emerald-700">
+                        {selectedTeamMemberIds.length} team member(s) selected
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div>

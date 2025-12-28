@@ -1,4 +1,5 @@
 // Cross-Device Sync Service for CareBridge
+import { useState, useEffect } from 'react';
 import { db } from '../database/db';
 import type { Patient, Hospital, User } from '../types';
 
@@ -588,6 +589,3 @@ export function useSyncState(): SyncState {
 
   return state;
 }
-
-// Need to import these for the hook
-import { useState, useEffect } from 'react';

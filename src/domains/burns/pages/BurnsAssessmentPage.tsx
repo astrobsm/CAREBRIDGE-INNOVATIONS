@@ -29,6 +29,8 @@ import { format, differenceInDays } from 'date-fns';
 import type { BurnAssessment, BurnDepth, BurnArea } from '../../../types';
 import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
 import { generateBurnsPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
+import { PatientSelector, PatientDisplay } from '../../../components/patient';
+import { usePatientMap } from '../../../services/patientHooks';
 
 const burnSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
@@ -133,18 +135,15 @@ export default function BurnsAssessmentPage() {
   const [patientGender, setPatientGender] = useState<'male' | 'female'>('male');
 
   const burns = useLiveQuery(() => db.burnAssessments.orderBy('createdAt').reverse().toArray(), []);
-  const patients = useLiveQuery(() => db.patients.toArray(), []);
-
-  const patientMap = useMemo(() => {
-    const map = new Map();
-    patients?.forEach(p => map.set(p.id, p));
-    return map;
-  }, [patients]);
+  
+  // Use the new patient map hook for efficient lookups
+  const patientMap = usePatientMap();
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     reset,
     formState: { errors },
   } = useForm<BurnFormData>({
@@ -783,15 +782,13 @@ export default function BurnsAssessmentPage() {
               <form onSubmit={handleSubmit(onSubmit)} className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
                 <div className="space-y-4">
                   <div>
-                    <label className="label">Patient *</label>
-                    <select {...register('patientId')} className={`input ${errors.patientId ? 'input-error' : ''}`}>
-                      <option value="">Select patient</option>
-                      {patients?.map((patient) => (
-                        <option key={patient.id} value={patient.id}>
-                          {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
-                        </option>
-                      ))}
-                    </select>
+                    <PatientSelector
+                      value={watch('patientId')}
+                      onChange={(patientId) => setValue('patientId', patientId || '')}
+                      label="Patient"
+                      required
+                      error={errors.patientId?.message}
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">

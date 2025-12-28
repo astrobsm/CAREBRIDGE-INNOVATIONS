@@ -11,8 +11,8 @@ import './index.css';
 // Initialize PWA (service worker, install prompt)
 initPWA();
 
-// Initialize cloud sync with Supabase
-initCloudSync();
+// Note: Cloud sync is now initialized AFTER React mounts to avoid state update issues
+// initCloudSync() will be called after the first render
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -43,3 +43,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+// Initialize cloud sync AFTER React has mounted
+// This prevents state updates from happening before React is ready
+setTimeout(() => {
+  initCloudSync();
+}, 100);

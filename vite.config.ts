@@ -10,28 +10,28 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'CareBridge - Healthcare Innovations',
+        name: 'CareBridge - Innovations in Healthcare',
         short_name: 'CareBridge',
-        description: 'Interactive Surgical EMR & Patient Management System',
-        theme_color: '#0F766E',
-        background_color: '#ffffff',
+        description: 'Interactive Surgical EMR & Patient Management System for African Clinical Contexts',
+        theme_color: '#1800AC',
+        background_color: '#eef2ff',
         display: 'standalone',
         orientation: 'portrait-primary',
         scope: '/',
         start_url: '/',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: '/icons/icon-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/icons/icon-512x512.png',
             sizes: '512x512',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/icons/icon-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
