@@ -3061,3 +3061,150 @@ export interface LimbSalvageAssessment {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// ====== TRANSFUSION ORDER & MONITORING TYPES ======
+
+export type ScreeningTestResult = 'negative' | 'positive' | 'not_done';
+
+export interface TransfusionScreeningTests {
+  hiv: ScreeningTestResult;
+  hbsAg: ScreeningTestResult;
+  hcv: ScreeningTestResult;
+  vdrl: ScreeningTestResult;
+  malaria?: ScreeningTestResult;
+}
+
+export interface TransfusionOrder {
+  id: string;
+  orderId: string;
+  patientId: string;
+  hospitalId: string;
+  requestId?: string;
+  
+  // Order Details
+  orderDate: Date;
+  orderedBy: string;
+  ordererDesignation?: string;
+  urgency: 'routine' | 'urgent' | 'emergency' | 'massive_transfusion';
+  
+  // Patient Blood Details
+  patientBloodGroup: string;
+  patientRhFactor: string;
+  patientGenotype?: string;
+  antibodyScreenResult?: string;
+  crossmatchResult?: string;
+  crossmatchDate?: Date;
+  
+  // Indication
+  indication: string;
+  hemoglobinLevel?: number;
+  plateletCount?: number;
+  inr?: number;
+  fibrinogen?: number;
+  
+  // Product Details
+  productType: string;
+  productCode?: string;
+  numberOfUnits: number;
+  volumePerUnit?: number;
+  bloodGroupOfProduct?: string;
+  donorId?: string;
+  collectionDate?: Date;
+  expiryDate?: Date;
+  
+  // Product Source
+  bloodBankName?: string;
+  bloodBankAddress?: string;
+  bloodBankPhone?: string;
+  
+  // Screening Tests
+  screeningTests: TransfusionScreeningTests;
+  
+  // Transfusion Details
+  rateOfTransfusion: number;
+  estimatedDuration: string;
+  
+  // Pre-transfusion Vitals
+  preTransfusionVitals?: {
+    temperature: number;
+    pulse: number;
+    bp: string;
+    respiratoryRate: number;
+    spo2: number;
+  };
+  
+  // Consent
+  consentObtained: boolean;
+  consentDate?: Date;
+  consentWitness?: string;
+  
+  // Verification
+  verifyingNurse1?: string;
+  verifyingNurse2?: string;
+  
+  // Ward/Bed Info
+  wardBed: string;
+  diagnosis: string;
+  
+  // Status
+  status: 'pending' | 'approved' | 'in_progress' | 'completed' | 'cancelled';
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TransfusionMonitoringEntry {
+  time: string;
+  temperature?: number;
+  pulse?: number;
+  bp?: string;
+  respiratoryRate?: number;
+  spo2?: number;
+  volumeInfused?: number;
+  symptoms?: string;
+  nurseInitials?: string;
+}
+
+export interface TransfusionMonitoringChart {
+  id: string;
+  chartId: string;
+  patientId: string;
+  hospitalId?: string;
+  transfusionOrderId?: string;
+  
+  // Patient Info (denormalized for easy access)
+  patientName: string;
+  hospitalNumber: string;
+  wardBed: string;
+  
+  // Transfusion Details
+  chartDate: Date;
+  productType: string;
+  unitNumber: string;
+  startTime?: string;
+  endTime?: string;
+  
+  // Monitoring Entries
+  entries: TransfusionMonitoringEntry[];
+  
+  // Summary
+  totalVolumeTransfused?: number;
+  complications?: string;
+  outcome?: 'completed_uneventful' | 'completed_with_reaction' | 'stopped_due_to_reaction';
+  
+  // Signatures
+  nurseSignature?: string;
+  doctorReview?: string;
+  
+  // Upload/OCR Support
+  uploadedChartUrl?: string;
+  uploadedChartBase64?: string;
+  ocrText?: string;
+  ocrProcessedAt?: Date;
+  
+  // Status
+  status: 'template' | 'in_progress' | 'completed' | 'uploaded';
+  
+  createdAt: Date;
+  updatedAt: Date;
+}

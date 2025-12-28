@@ -38,6 +38,8 @@ import type {
   EscharotomyRecord,
   SkinGraftRecord,
   BurnCarePlan,
+  TransfusionOrder,
+  TransfusionMonitoringChart,
 } from '../types';
 
 export class CareBridgeDatabase extends Dexie {
@@ -84,11 +86,14 @@ export class CareBridgeDatabase extends Dexie {
   escharotomyRecords!: Table<EscharotomyRecord, string>;
   skinGraftRecords!: Table<SkinGraftRecord, string>;
   burnCarePlans!: Table<BurnCarePlan, string>;
+  // Transfusion Orders and Monitoring Charts
+  transfusionOrders!: Table<TransfusionOrder, string>;
+  transfusionMonitoringCharts!: Table<TransfusionMonitoringChart, string>;
 
   constructor() {
     super('CareBridgeDB');
 
-    this.version(57).stores({
+    this.version(58).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -137,6 +142,9 @@ export class CareBridgeDatabase extends Dexie {
       // Medication Charts (MAR)
       medicationCharts: 'id, patientId, hospitalId, admissionId, chartDate, shiftType, assignedNurseId, isCompleted, createdAt',
       nursePatientAssignments: 'id, nurseId, hospitalId, patientId, shiftDate, shiftType, isActive, createdAt',
+      // Transfusion Orders and Monitoring Charts
+      transfusionOrders: 'id, patientId, hospitalId, orderId, requestId, status, orderDate, orderedBy, createdAt',
+      transfusionMonitoringCharts: 'id, patientId, transfusionOrderId, chartDate, status, uploadedChartUrl, ocrText, createdAt',
     });
   }
 }

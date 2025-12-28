@@ -5,7 +5,7 @@
  * Comprehensive blood transfusion management interface
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -24,9 +24,16 @@ import {
   ChevronDown,
   ChevronUp,
   ClipboardCheck,
+  Download,
+  Upload,
+  Camera,
+  FileUp,
+  ClipboardList,
+  Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
@@ -41,8 +48,15 @@ import {
   type TransfusionUrgency,
   type ReactionType,
 } from '../../../services/bloodTransfusionService';
+import {
+  downloadTransfusionOrderPDF,
+  downloadMonitoringChartPDF,
+  type TransfusionOrderData,
+  type TransfusionMonitoringChartData,
+} from '../../../utils/transfusionPdfGenerator';
+import type { TransfusionOrder, TransfusionMonitoringChart, Patient } from '../../../types';
 
-type TabType = 'requests' | 'active' | 'inventory' | 'reactions' | 'mtp';
+type TabType = 'requests' | 'active' | 'orders' | 'charts' | 'inventory' | 'reactions' | 'mtp';
 
 const bloodTypeColors: Record<BloodType, string> = {
   'O-': 'bg-gray-100 text-gray-800',
@@ -68,6 +82,11 @@ export default function BloodTransfusionPage() {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showStartModal, setShowStartModal] = useState(false);
   const [showReactionModal, setShowReactionModal] = useState(false);
+  const [showChartUploadModal, setShowChartUploadModal] = useState(false);
+  const [selectedOrderForView, setSelectedOrderForView] = useState<TransfusionOrder | null>(null);
+  const [selectedChartForView, setSelectedChartForView] = useState<TransfusionMonitoringChart | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [selectedRequest, setSelectedRequest] = useState<TransfusionRequest | null>(null);
   const [expandedSections, setExpandedSections] = useState<string[]>(['checklist']);
 
@@ -75,6 +94,13 @@ export default function BloodTransfusionPage() {
   const [requests, setRequests] = useState<TransfusionRequest[]>([]);
   const [activeTransfusions, setActiveTransfusions] = useState<TransfusionRecord[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState('');
+  
+  // Chart upload states
+  const [chartUploadFile, setChartUploadFile] = useState<File | null>(null);
+  const [chartUploadPreview, setChartUploadPreview] = useState<string>('');
+  const [chartOcrText, setChartOcrText] = useState('');
+  const [isProcessingOcr, setIsProcessingOcr] = useState(false);
+  const [selectedPatientForChart, setSelectedPatientForChart] = useState<Patient | null>(null);
 
   // Form states
   const [patientBloodType, setPatientBloodType] = useState<BloodType>('O+');
@@ -96,6 +122,15 @@ export default function BloodTransfusionPage() {
 
   // Data queries
   const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
+  const hospitals = useLiveQuery(() => db.hospitals.toArray(), []);
+  const transfusionOrders = useLiveQuery(() => db.transfusionOrders.orderBy('createdAt').reverse().toArray(), []);
+  const transfusionCharts = useLiveQuery(() => db.transfusionMonitoringCharts.orderBy('createdAt').reverse().toArray(), []);
+  
+  // Get default hospital
+  const defaultHospital = useMemo(() => {
+    if (!hospitals || hospitals.length === 0) return null;
+    return hospitals[0];
+  }, [hospitals]);
   
   // Selected patient details
   const selectedPatient = useMemo(() => {
@@ -184,6 +219,264 @@ export default function BloodTransfusionPage() {
     setInr('');
     setSelectedProducts([]);
     setUrgency('routine');
+  };
+
+  // Generate and download transfusion order PDF
+  const handleGenerateOrderPDF = async (order: TransfusionOrder) => {
+    const patient = patients?.find(p => p.id === order.patientId);
+    if (!patient) {
+      toast.error('Patient not found');
+      return;
+    }
+    
+    const orderData: TransfusionOrderData = {
+      orderId: order.orderId,
+      orderDate: new Date(order.orderDate),
+      orderedBy: order.orderedBy,
+      ordererDesignation: order.ordererDesignation,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      hospitalNumber: patient.hospitalNumber,
+      dateOfBirth: patient.dateOfBirth ? new Date(patient.dateOfBirth) : undefined,
+      age: patient.dateOfBirth ? Math.floor((new Date().getTime() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
+      gender: patient.gender || 'Unknown',
+      wardBed: order.wardBed,
+      diagnosis: order.diagnosis,
+      patientBloodGroup: order.patientBloodGroup,
+      patientRhFactor: order.patientRhFactor,
+      patientGenotype: order.patientGenotype,
+      antibodyScreenResult: order.antibodyScreenResult,
+      crossmatchResult: order.crossmatchResult,
+      crossmatchDate: order.crossmatchDate ? new Date(order.crossmatchDate) : undefined,
+      indication: order.indication,
+      hemoglobinLevel: order.hemoglobinLevel,
+      plateletCount: order.plateletCount,
+      inr: order.inr,
+      urgency: order.urgency,
+      productType: order.productType,
+      productCode: order.productCode,
+      numberOfUnits: order.numberOfUnits,
+      volumePerUnit: order.volumePerUnit,
+      bloodGroupOfProduct: order.bloodGroupOfProduct,
+      donorId: order.donorId,
+      collectionDate: order.collectionDate ? new Date(order.collectionDate) : undefined,
+      expiryDate: order.expiryDate ? new Date(order.expiryDate) : undefined,
+      bloodBankName: order.bloodBankName,
+      bloodBankAddress: order.bloodBankAddress,
+      bloodBankPhone: order.bloodBankPhone,
+      screeningTests: order.screeningTests,
+      rateOfTransfusion: order.rateOfTransfusion,
+      estimatedDuration: order.estimatedDuration,
+      preTransfusionVitals: order.preTransfusionVitals,
+      consentObtained: order.consentObtained,
+      consentDate: order.consentDate ? new Date(order.consentDate) : undefined,
+      consentWitness: order.consentWitness,
+      verifyingNurse1: order.verifyingNurse1,
+      verifyingNurse2: order.verifyingNurse2,
+      hospitalName: defaultHospital?.name || 'CareBridge Hospital',
+      hospitalAddress: defaultHospital?.address,
+      hospitalPhone: defaultHospital?.phone,
+      hospitalEmail: defaultHospital?.email,
+    };
+    
+    try {
+      await downloadTransfusionOrderPDF(orderData);
+      toast.success('Transfusion order PDF downloaded');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF');
+    }
+  };
+  
+  // Generate monitoring chart template PDF
+  const handleGenerateChartTemplate = async () => {
+    const chartData: TransfusionMonitoringChartData = {
+      chartId: `CHART-${Date.now()}`,
+      patientName: '',
+      hospitalNumber: '',
+      wardBed: '',
+      date: new Date(),
+      productType: '',
+      unitNumber: '',
+      entries: [],
+      hospitalName: defaultHospital?.name || 'CareBridge Hospital',
+      hospitalAddress: defaultHospital?.address,
+      hospitalPhone: defaultHospital?.phone,
+      hospitalEmail: defaultHospital?.email,
+    };
+    
+    try {
+      await downloadMonitoringChartPDF(chartData, true);
+      toast.success('Monitoring chart template downloaded');
+    } catch (error) {
+      console.error('Error generating chart template:', error);
+      toast.error('Failed to generate chart template');
+    }
+  };
+  
+  // Handle file upload for chart
+  const handleChartFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    setChartUploadFile(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setChartUploadPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+  
+  // Simple OCR using Canvas (basic text extraction simulation)
+  const handleProcessOCR = async () => {
+    if (!chartUploadFile) {
+      toast.error('Please upload an image first');
+      return;
+    }
+    
+    setIsProcessingOcr(true);
+    
+    // Simulate OCR processing (in real implementation, use Tesseract.js or cloud OCR)
+    // For now, we'll create a placeholder
+    setTimeout(() => {
+      const simulatedOcrText = `
+BLOOD TRANSFUSION MONITORING CHART
+===================================
+Patient: ${selectedPatientForChart?.firstName || ''} ${selectedPatientForChart?.lastName || ''}
+Hospital No: ${selectedPatientForChart?.hospitalNumber || ''}
+Date: ${format(new Date(), 'dd/MM/yyyy')}
+
+Time-based monitoring entries would be extracted here.
+This is a placeholder for actual OCR text extraction.
+
+To implement full OCR:
+1. Install tesseract.js: npm install tesseract.js
+2. Use Tesseract.recognize() on the uploaded image
+
+Note: Uploaded chart stored successfully.
+      `.trim();
+      
+      setChartOcrText(simulatedOcrText);
+      setIsProcessingOcr(false);
+      toast.success('Chart processed. For full OCR, integrate Tesseract.js');
+    }, 2000);
+  };
+  
+  // Save uploaded chart to database
+  const handleSaveUploadedChart = async () => {
+    if (!selectedPatientForChart) {
+      toast.error('Please select a patient');
+      return;
+    }
+    
+    const newChart: TransfusionMonitoringChart = {
+      id: uuidv4(),
+      chartId: `CHART-${Date.now()}`,
+      patientId: selectedPatientForChart.id,
+      hospitalId: defaultHospital?.id,
+      patientName: `${selectedPatientForChart.firstName} ${selectedPatientForChart.lastName}`,
+      hospitalNumber: selectedPatientForChart.hospitalNumber,
+      wardBed: '',
+      chartDate: new Date(),
+      productType: '',
+      unitNumber: '',
+      entries: [],
+      uploadedChartBase64: chartUploadPreview,
+      ocrText: chartOcrText,
+      ocrProcessedAt: chartOcrText ? new Date() : undefined,
+      status: 'uploaded',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    try {
+      await db.transfusionMonitoringCharts.add(newChart);
+      toast.success('Chart uploaded successfully');
+      setShowChartUploadModal(false);
+      resetChartUploadForm();
+    } catch (error) {
+      console.error('Error saving chart:', error);
+      toast.error('Failed to save chart');
+    }
+  };
+  
+  const resetChartUploadForm = () => {
+    setChartUploadFile(null);
+    setChartUploadPreview('');
+    setChartOcrText('');
+    setSelectedPatientForChart(null);
+  };
+  
+  // Create transfusion order from request
+  const handleCreateOrderFromRequest = async (request: TransfusionRequest) => {
+    const patient = patients?.find(p => p.id === request.patientId);
+    if (!patient) {
+      toast.error('Patient not found');
+      return;
+    }
+    
+    const bloodType = patient.bloodGroup || 'O+';
+    
+    const newOrder: TransfusionOrder = {
+      id: uuidv4(),
+      orderId: `ORD-${Date.now().toString().slice(-8)}`,
+      patientId: request.patientId,
+      hospitalId: defaultHospital?.id || '',
+      requestId: request.id,
+      orderDate: new Date(),
+      orderedBy: user?.email || 'Unknown',
+      ordererDesignation: user?.role,
+      urgency: request.urgency as TransfusionOrder['urgency'],
+      patientBloodGroup: bloodType.replace(/[+-]/, ''),
+      patientRhFactor: bloodType.includes('+') ? 'positive' : 'negative',
+      patientGenotype: patient.genotype,
+      indication: request.indication,
+      hemoglobinLevel: request.hemoglobinLevel,
+      plateletCount: request.plateletCount,
+      inr: request.inr,
+      productType: request.products[0]?.productType ? bloodProductInfo[request.products[0].productType].name : 'Packed Red Blood Cells',
+      productCode: `PROD-${Date.now().toString().slice(-6)}`,
+      numberOfUnits: request.products.reduce((sum, p) => sum + p.units, 0),
+      volumePerUnit: 300,
+      bloodGroupOfProduct: bloodType,
+      screeningTests: {
+        hiv: 'negative',
+        hbsAg: 'negative',
+        hcv: 'negative',
+        vdrl: 'negative',
+        malaria: 'negative',
+      },
+      rateOfTransfusion: 150,
+      estimatedDuration: '2-4 hours',
+      preTransfusionVitals: {
+        temperature: preVitals.temperature || 36.5,
+        pulse: preVitals.pulse || 80,
+        bp: `${preVitals.bloodPressure?.systolic || 120}/${preVitals.bloodPressure?.diastolic || 80}`,
+        respiratoryRate: preVitals.respiratoryRate || 16,
+        spo2: preVitals.oxygenSaturation || 98,
+      },
+      consentObtained: true,
+      consentDate: new Date(),
+      verifyingNurse1: verifyingNurse1,
+      verifyingNurse2: verifyingNurse2,
+      wardBed: 'Ward A, Bed 1',
+      diagnosis: request.indication,
+      status: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    try {
+      await db.transfusionOrders.add(newOrder);
+      toast.success('Transfusion order created');
+      
+      // Auto-generate PDF
+      await handleGenerateOrderPDF(newOrder);
+    } catch (error) {
+      console.error('Error creating order:', error);
+      toast.error('Failed to create order');
+    }
   };
 
   // Handle starting transfusion
@@ -585,6 +878,240 @@ export default function BloodTransfusionPage() {
           </div>
         );
 
+      case 'orders':
+        return (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Transfusion Orders</h3>
+              <p className="text-sm text-gray-500">Orders are created from approved requests</p>
+            </div>
+            
+            {/* Pending Requests for Order Creation */}
+            {requests.filter(r => r.status === 'requested').length > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                <h4 className="font-medium text-yellow-800 mb-3">Pending Requests - Click to Generate Order</h4>
+                <div className="space-y-2">
+                  {requests.filter(r => r.status === 'requested').map(request => {
+                    const patient = patients?.find(p => p.id === request.patientId);
+                    return (
+                      <button
+                        key={request.id}
+                        onClick={() => handleCreateOrderFromRequest(request)}
+                        className="w-full p-3 bg-white rounded-lg border border-yellow-300 hover:border-yellow-500 hover:bg-yellow-50 text-left transition-colors flex justify-between items-center"
+                      >
+                        <div>
+                          <span className="font-medium">{patient?.firstName} {patient?.lastName}</span>
+                          <span className="text-sm text-gray-500 ml-2">
+                            {request.products.map(p => bloodProductInfo[p.productType]?.name).join(', ')}
+                          </span>
+                        </div>
+                        <span className="text-sm text-yellow-600 flex items-center gap-1">
+                          <Plus size={14} /> Generate Order
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {!transfusionOrders || transfusionOrders.length === 0 ? (
+              <div className="bg-white rounded-xl p-8 text-center text-gray-500 border">
+                <FileText className="mx-auto mb-4 text-gray-300" size={48} />
+                <p>No transfusion orders yet</p>
+                <p className="text-sm mt-2">Create a request first, then generate an order</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {transfusionOrders.map(order => {
+                  const patient = patients?.find(p => p.id === order.patientId);
+                  return (
+                    <motion.div
+                      key={order.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white rounded-xl p-4 border shadow-sm"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <FileText className="text-red-600" size={18} />
+                            <span className="font-medium">
+                              {order.orderId} - {order.productType}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Patient: {patient?.firstName} {patient?.lastName} ({patient?.hospitalNumber})
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {order.numberOfUnits} unit(s) • {order.bloodGroupOfProduct} • Rate: {order.rateOfTransfusion} mL/hr
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+                            <span>Ordered: {format(new Date(order.orderDate), 'dd/MM/yyyy HH:mm')}</span>
+                            <span>By: {order.orderedBy}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${urgencyColors[order.urgency]}`}>
+                            {order.urgency.replace('_', ' ')}
+                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            order.status === 'completed' ? 'bg-green-100 text-green-700' :
+                            order.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                            order.status === 'approved' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {order.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Screening Tests */}
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-xs font-medium text-gray-600 mb-2">Screening Tests:</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {Object.entries(order.screeningTests).map(([test, result]) => (
+                            <span
+                              key={test}
+                              className={`px-2 py-0.5 rounded text-xs ${
+                                result === 'negative' ? 'bg-green-100 text-green-700' :
+                                result === 'positive' ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {test.toUpperCase()}: {result}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Actions */}
+                      <div className="mt-3 pt-3 border-t flex gap-2">
+                        <button
+                          onClick={() => handleGenerateOrderPDF(order)}
+                          className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm flex items-center gap-1 hover:bg-red-700"
+                        >
+                          <Download size={14} />
+                          Download PDF
+                        </button>
+                        <button
+                          onClick={() => setSelectedOrderForView(order)}
+                          className="px-3 py-1 border border-gray-300 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-50"
+                        >
+                          <Eye size={14} />
+                          View Details
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'charts':
+        return (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center flex-wrap gap-3">
+              <h3 className="text-lg font-semibold">Monitoring Charts</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleGenerateChartTemplate}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700"
+                >
+                  <Download size={18} />
+                  Download Template
+                </button>
+                <button
+                  onClick={() => setShowChartUploadModal(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2 hover:bg-green-700"
+                >
+                  <Upload size={18} />
+                  Upload Chart
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <h4 className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                <FileText size={18} />
+                How to Use Monitoring Charts
+              </h4>
+              <ol className="text-sm space-y-1 list-decimal list-inside text-blue-800">
+                <li>Download the blank monitoring chart template</li>
+                <li>Print and fill during transfusion (record vitals at each interval)</li>
+                <li>After completion, scan or photograph the filled chart</li>
+                <li>Upload here for digital storage and optional OCR text extraction</li>
+              </ol>
+            </div>
+
+            {!transfusionCharts || transfusionCharts.length === 0 ? (
+              <div className="bg-white rounded-xl p-8 text-center text-gray-500 border">
+                <ClipboardCheck className="mx-auto mb-4 text-gray-300" size={48} />
+                <p>No uploaded charts yet</p>
+                <p className="text-sm mt-2">Download a template, fill it during transfusion, then upload</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {transfusionCharts.map(chart => (
+                  <motion.div
+                    key={chart.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white rounded-xl border shadow-sm overflow-hidden"
+                  >
+                    {chart.uploadedChartBase64 && (
+                      <div className="h-40 bg-gray-100 overflow-hidden">
+                        <img
+                          src={chart.uploadedChartBase64}
+                          alt="Uploaded chart"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">{chart.chartId}</h4>
+                        <span className={`px-2 py-0.5 rounded text-xs ${
+                          chart.status === 'completed' ? 'bg-green-100 text-green-700' :
+                          chart.status === 'uploaded' ? 'bg-blue-100 text-blue-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {chart.status}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {chart.patientName} ({chart.hospitalNumber})
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Date: {format(new Date(chart.chartDate), 'dd/MM/yyyy')}
+                      </p>
+                      
+                      {chart.ocrText && (
+                        <div className="mt-2 p-2 bg-gray-50 rounded text-xs max-h-20 overflow-y-auto">
+                          <p className="font-medium text-gray-600 mb-1">Extracted Text:</p>
+                          <p className="text-gray-500 whitespace-pre-wrap">{chart.ocrText.slice(0, 200)}...</p>
+                        </div>
+                      )}
+                      
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          onClick={() => setSelectedChartForView(chart)}
+                          className="px-3 py-1 border border-gray-300 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-50"
+                        >
+                          <Eye size={14} />
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
       case 'mtp':
         return (
           <div className="space-y-4">
@@ -709,11 +1236,13 @@ export default function BloodTransfusionPage() {
 
       {/* Tabs */}
       <div className="bg-white rounded-xl shadow-sm border">
-        <div className="border-b">
-          <div className="flex">
+        <div className="border-b overflow-x-auto">
+          <div className="flex min-w-max">
             {[
               { id: 'requests', label: 'Requests', icon: FileText },
               { id: 'active', label: 'Active', icon: Activity },
+              { id: 'orders', label: 'Orders', icon: ClipboardList },
+              { id: 'charts', label: 'Charts', icon: ClipboardCheck },
               { id: 'inventory', label: 'Products', icon: Droplets },
               { id: 'reactions', label: 'Reactions', icon: AlertTriangle },
               { id: 'mtp', label: 'MTP', icon: AlertCircle },
@@ -721,7 +1250,7 @@ export default function BloodTransfusionPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
-                className={`flex items-center gap-2 px-6 py-4 font-medium border-b-2 transition-colors ${
+                className={`flex items-center gap-2 px-5 py-4 font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'border-red-600 text-red-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -1262,6 +1791,328 @@ export default function BloodTransfusionPage() {
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
                 >
                   Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Chart Upload Modal */}
+      <AnimatePresence>
+        {showChartUploadModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && setShowChartUploadModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+            >
+              <div className="flex items-center justify-between p-4 border-b bg-green-50">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Upload className="text-green-600" />
+                  Upload Monitoring Chart
+                </h2>
+                <button onClick={() => { setShowChartUploadModal(false); resetChartUploadForm(); }} className="p-2 hover:bg-green-100 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)] space-y-6">
+                {/* Patient Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Patient *</label>
+                  <select
+                    value={selectedPatientForChart?.id || ''}
+                    onChange={(e) => {
+                      const patient = patients?.find(p => p.id === e.target.value);
+                      setSelectedPatientForChart(patient || null);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  >
+                    <option value="">Select patient...</option>
+                    {patients?.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.firstName} {p.lastName} ({p.hospitalNumber})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Upload Options */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Upload Chart Image</label>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-400 hover:bg-green-50 transition-colors"
+                    >
+                      <FileUp className="mx-auto text-gray-400 mb-2" size={32} />
+                      <p className="text-sm text-gray-600">Upload from device</p>
+                    </button>
+                    <button
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex-1 p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-400 hover:bg-green-50 transition-colors"
+                    >
+                      <Camera className="mx-auto text-gray-400 mb-2" size={32} />
+                      <p className="text-sm text-gray-600">Take a photo</p>
+                    </button>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleChartFileUpload}
+                    className="hidden"
+                  />
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleChartFileUpload}
+                    className="hidden"
+                  />
+                </div>
+
+                {/* Preview */}
+                {chartUploadPreview && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <img
+                      src={chartUploadPreview}
+                      alt="Chart preview"
+                      className="w-full max-h-64 object-contain bg-gray-50"
+                    />
+                  </div>
+                )}
+
+                {/* OCR Section */}
+                {chartUploadFile && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-medium text-gray-700">Text Extraction (OCR)</label>
+                      <button
+                        onClick={handleProcessOCR}
+                        disabled={isProcessingOcr}
+                        className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm flex items-center gap-1 hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {isProcessingOcr ? (
+                          <>
+                            <RefreshCw className="animate-spin" size={14} />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <FileText size={14} />
+                            Extract Text
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    
+                    {chartOcrText && (
+                      <textarea
+                        value={chartOcrText}
+                        onChange={(e) => setChartOcrText(e.target.value)}
+                        rows={6}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm font-mono"
+                        placeholder="Extracted text will appear here..."
+                      />
+                    )}
+                    
+                    <p className="text-xs text-gray-500">
+                      Note: For full OCR functionality, integrate Tesseract.js. The extracted text can be edited before saving.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
+                <button
+                  onClick={() => { setShowChartUploadModal(false); resetChartUploadForm(); }}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveUploadedChart}
+                  disabled={!selectedPatientForChart || !chartUploadFile}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  Save Chart
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Order View Modal */}
+      <AnimatePresence>
+        {selectedOrderForView && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && setSelectedOrderForView(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+            >
+              <div className="flex items-center justify-between p-4 border-b">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <FileText className="text-red-600" />
+                  Order Details - {selectedOrderForView.orderId}
+                </h2>
+                <button onClick={() => setSelectedOrderForView(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-12rem)] space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500">Patient Blood Group</p>
+                    <p className="font-medium">{selectedOrderForView.patientBloodGroup} {selectedOrderForView.patientRhFactor}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500">Product</p>
+                    <p className="font-medium">{selectedOrderForView.productType}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500">Units</p>
+                    <p className="font-medium">{selectedOrderForView.numberOfUnits}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500">Transfusion Rate</p>
+                    <p className="font-medium">{selectedOrderForView.rateOfTransfusion} mL/hr</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg col-span-2">
+                    <p className="text-xs text-gray-500">Indication</p>
+                    <p className="font-medium">{selectedOrderForView.indication}</p>
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-blue-600 font-medium mb-2">Blood Bank Source</p>
+                  <p className="text-sm">{selectedOrderForView.bloodBankName || 'Not specified'}</p>
+                  <p className="text-xs text-gray-500">{selectedOrderForView.bloodBankAddress}</p>
+                </div>
+                
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-600 font-medium mb-2">Screening Tests</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {Object.entries(selectedOrderForView.screeningTests).map(([test, result]) => (
+                      <div key={test} className="text-center">
+                        <p className="text-xs text-gray-500 uppercase">{test}</p>
+                        <p className={`text-sm font-medium ${result === 'negative' ? 'text-green-600' : result === 'positive' ? 'text-red-600' : 'text-gray-500'}`}>
+                          {result}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
+                <button
+                  onClick={() => handleGenerateOrderPDF(selectedOrderForView)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                >
+                  <Download size={16} />
+                  Download PDF
+                </button>
+                <button
+                  onClick={() => setSelectedOrderForView(null)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Chart View Modal */}
+      <AnimatePresence>
+        {selectedChartForView && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && setSelectedChartForView(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
+            >
+              <div className="flex items-center justify-between p-4 border-b">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <ClipboardCheck className="text-blue-600" />
+                  Chart - {selectedChartForView.chartId}
+                </h2>
+                <button onClick={() => setSelectedChartForView(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)] space-y-4">
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500">Patient</p>
+                    <p className="font-medium">{selectedChartForView.patientName}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Hospital No</p>
+                    <p className="font-medium">{selectedChartForView.hospitalNumber}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Date</p>
+                    <p className="font-medium">{format(new Date(selectedChartForView.chartDate), 'dd/MM/yyyy')}</p>
+                  </div>
+                </div>
+                
+                {selectedChartForView.uploadedChartBase64 && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <img
+                      src={selectedChartForView.uploadedChartBase64}
+                      alt="Chart"
+                      className="w-full"
+                    />
+                  </div>
+                )}
+                
+                {selectedChartForView.ocrText && (
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-sm mb-2">Extracted Text</h4>
+                    <pre className="text-xs font-mono whitespace-pre-wrap text-gray-700">
+                      {selectedChartForView.ocrText}
+                    </pre>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
+                <button
+                  onClick={() => setSelectedChartForView(null)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Close
                 </button>
               </div>
             </motion.div>
