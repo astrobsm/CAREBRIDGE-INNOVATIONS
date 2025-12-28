@@ -196,6 +196,8 @@ export default function AIBurnExpert({
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Must call play() to start the video feed
+        await videoRef.current.play();
         setIsCameraActive(true);
       }
     } catch (error) {
@@ -248,7 +250,14 @@ export default function AIBurnExpert({
 
   // AI Image Analysis (simulated with intelligent estimation)
   const analyzeImage = useCallback(async () => {
-    if (!imageSrc || !canvasRef.current) return;
+    if (!imageSrc) {
+      toast.error('No image to analyze');
+      return;
+    }
+    if (!canvasRef.current) {
+      toast.error('Canvas not available');
+      return;
+    }
 
     setIsProcessing(true);
     setAiThinking(true);
@@ -257,39 +266,69 @@ export default function AIBurnExpert({
     try {
       // Load image onto canvas for analysis
       const img = new Image();
-      img.onload = async () => {
-        const canvas = canvasRef.current!;
-        const ctx = canvas.getContext('2d')!;
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-
-        // Get image data for analysis
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // Perform color analysis to detect burn regions
-        const burnAnalysis = await performBurnColorAnalysis(imageData);
-        
-        // Update region assessments based on AI analysis
-        setRegionAssessments(prev => prev.map(region => {
-          const aiResult = burnAnalysis.regionEstimates.find(r => r.regionId === region.regionId);
-          if (aiResult && aiResult.percentBurned > 0) {
-            return {
-              ...region,
-              percentBurned: aiResult.percentBurned,
-              depth: aiResult.estimatedDepth,
-              confidence: aiResult.confidence,
-              aiSuggested: true,
-            };
-          }
-          return region;
-        }));
-
-        setAiMessage(`Analysis complete! Detected burns in ${burnAnalysis.affectedRegions} region(s). Total estimated TBSA: ${burnAnalysis.estimatedTBSA.toFixed(1)}%. Please review and adjust the assessment.`);
+      img.crossOrigin = 'anonymous'; // Handle CORS for data URLs
+      
+      img.onerror = (err) => {
+        console.error('Image load error:', err);
+        toast.error('Failed to load image. Proceeding with manual assessment.');
+        setManualMode(true);
         setStep('assess');
         setIsProcessing(false);
         setAiThinking(false);
       };
+      
+      img.onload = async () => {
+        try {
+          const canvas = canvasRef.current;
+          if (!canvas) {
+            throw new Error('Canvas not available');
+          }
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            throw new Error('Canvas context not available');
+          }
+          
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+
+          // Get image data for analysis
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          
+          // Perform color analysis to detect burn regions
+          const burnAnalysis = await performBurnColorAnalysis(imageData);
+          
+          // Update region assessments based on AI analysis
+          setRegionAssessments(prev => prev.map(region => {
+            const aiResult = burnAnalysis.regionEstimates.find(r => r.regionId === region.regionId);
+            if (aiResult && aiResult.percentBurned > 0) {
+              return {
+                ...region,
+                percentBurned: aiResult.percentBurned,
+                depth: aiResult.estimatedDepth,
+                confidence: aiResult.confidence,
+                aiSuggested: true,
+              };
+            }
+            return region;
+          }));
+
+          setAiMessage(`Analysis complete! Detected burns in ${burnAnalysis.affectedRegions} region(s). Total estimated TBSA: ${burnAnalysis.estimatedTBSA.toFixed(1)}%. Please review and adjust the assessment.`);
+          toast.success('AI analysis complete!');
+          setStep('assess');
+          setIsProcessing(false);
+          setAiThinking(false);
+        } catch (innerError) {
+          console.error('Canvas processing error:', innerError);
+          toast.error('Image processing failed. Proceeding with manual assessment.');
+          setManualMode(true);
+          setStep('assess');
+          setIsProcessing(false);
+          setAiThinking(false);
+        }
+      };
+      
+      // Set the image source to trigger loading
       img.src = imageSrc;
     } catch (error) {
       console.error('Image analysis error:', error);
@@ -299,7 +338,7 @@ export default function AIBurnExpert({
       setIsProcessing(false);
       setAiThinking(false);
     }
-  }, [imageSrc]);
+  }, [imageSrc, calculationMethod, ageGroup]);
 
   // Color analysis for burn detection (simplified AI simulation)
   const performBurnColorAnalysis = async (imageData: ImageData): Promise<{
