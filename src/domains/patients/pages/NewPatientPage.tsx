@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,19 +10,9 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
-import type { Patient, BloodGroup, Genotype } from '../../../types';
+import type { Patient, BloodGroup, Genotype, Hospital } from '../../../types';
 
-// Hospital options
-const hospitals = [
-  { id: 'niger-foundation', name: 'Niger Foundation Hospital' },
-  { id: 'st-patrics', name: 'St. Patrics Hospital' },
-  { id: 'regions-hospital', name: 'Regions Hospital' },
-  { id: 'raymond-anikwe', name: 'Raymond Anikwe Hospital' },
-  { id: 'st-marys', name: 'St. Marys Hospital' },
-  { id: 'st-gabriel', name: 'St. Gabriel Hospital' },
-  { id: 'roza-mystica', name: 'Roza Mystica Hospital' },
-  { id: 'others', name: 'Others (Specify)' },
-];
+// Hospital options will be fetched from database
 
 const patientSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
@@ -71,6 +61,24 @@ export default function NewPatientPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [loadingHospitals, setLoadingHospitals] = useState(true);
+
+  // Fetch hospitals from database
+  useEffect(() => {
+    const fetchHospitals = async () => {
+      try {
+        const hospitalList = await db.hospitals.filter(h => h.isActive === true).toArray();
+        setHospitals(hospitalList);
+      } catch (error) {
+        console.error('Error fetching hospitals:', error);
+        toast.error('Failed to load hospitals');
+      } finally {
+        setLoadingHospitals(false);
+      }
+    };
+    fetchHospitals();
+  }, []);
 
   const {
     register,
@@ -105,7 +113,7 @@ export default function NewPatientPage() {
         if (data.hospitalId === 'others') {
           hospitalName = data.otherHospitalName;
         } else {
-          const selectedHospital = hospitals.find(h => h.id === data.hospitalId);
+          const selectedHospital = hospitals.find((h: Hospital) => h.id === data.hospitalId);
           hospitalName = selectedHospital?.name;
         }
       }
@@ -303,11 +311,12 @@ export default function NewPatientPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Hospital *</label>
-                  <select {...register('hospitalId')} className={`input ${errors.hospitalId ? 'input-error' : ''}`}>
-                    <option value="">Select hospital</option>
-                    {hospitals.map((hospital) => (
+                  <select {...register('hospitalId')} className={`input ${errors.hospitalId ? 'input-error' : ''}`} disabled={loadingHospitals}>
+                    <option value="">{loadingHospitals ? 'Loading hospitals...' : 'Select hospital'}</option>
+                    {hospitals.map((hospital: Hospital) => (
                       <option key={hospital.id} value={hospital.id}>{hospital.name}</option>
                     ))}
+                    <option value="others">Others (Specify)</option>
                   </select>
                   {errors.hospitalId && <p className="text-sm text-red-500 mt-1">{errors.hospitalId.message}</p>}
                 </div>
