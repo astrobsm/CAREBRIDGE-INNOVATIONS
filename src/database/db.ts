@@ -88,7 +88,7 @@ export class CareBridgeDatabase extends Dexie {
   constructor() {
     super('CareBridgeDB');
 
-    this.version(56).stores({
+    this.version(57).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -131,6 +131,12 @@ export class CareBridgeDatabase extends Dexie {
       escharotomyRecords: 'id, patientId, burnAssessmentId, performedAt, createdAt',
       skinGraftRecords: 'id, patientId, burnAssessmentId, surgeryId, performedAt, createdAt',
       burnCarePlans: 'id, patientId, burnAssessmentId, admissionId, status, createdAt',
+      // NPWT (Negative Pressure Wound Therapy) Sessions
+      npwtSessions: 'id, patientId, hospitalId, woundType, cycleType, cycleNumber, sessionDate, nextChangeDate, performedBy, createdAt',
+      npwtNotifications: 'id, sessionId, patientId, scheduledTime, sent, createdAt',
+      // Medication Charts (MAR)
+      medicationCharts: 'id, patientId, hospitalId, admissionId, chartDate, shiftType, assignedNurseId, isCompleted, createdAt',
+      nursePatientAssignments: 'id, nurseId, hospitalId, patientId, shiftDate, shiftType, isActive, createdAt',
     });
   }
 }

@@ -24,6 +24,8 @@ import {
   LogOut,
   Droplets,
   Footprints,
+  Wind,
+  ClipboardList,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -110,6 +112,18 @@ const navigation: NavItem[] = [
     href: '/limb-salvage', 
     icon: <Footprints size={20} />,
     permission: 'manage_wounds',
+  },
+  { 
+    name: 'NPWT', 
+    href: '/npwt', 
+    icon: <Wind size={20} />,
+    permission: 'manage_wounds',
+  },
+  { 
+    name: 'Medication Chart', 
+    href: '/medication-chart', 
+    icon: <ClipboardList size={20} />,
+    permission: 'view_prescriptions',
   },
   { 
     name: 'Investigations', 

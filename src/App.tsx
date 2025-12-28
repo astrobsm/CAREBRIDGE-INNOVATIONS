@@ -32,6 +32,8 @@ import UnifiedLabPage from './domains/investigations/pages/UnifiedLabPage';
 import DischargePage from './domains/discharge/pages/DischargePage';
 import ADTPage from './domains/adt/pages/ADTPage';
 import LimbSalvagePage from './domains/limb-salvage/pages/LimbSalvagePage';
+import NPWTPage from './domains/npwt/pages/NPWTPage';
+import MedicationChartPage from './domains/medication-chart/pages/MedicationChartPage';
 import ChatPage from './domains/communication/pages/ChatPage';
 import VideoConferencePage from './domains/communication/pages/VideoConferencePage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -109,6 +111,8 @@ function App() {
         <Route path="wounds" element={<WoundsPage />} />
         <Route path="burns" element={<BurnsAssessmentPage />} />
         <Route path="limb-salvage" element={<LimbSalvagePage />} />
+        <Route path="npwt" element={<NPWTPage />} />
+        <Route path="medication-chart" element={<MedicationChartPage />} />
         <Route path="laboratory" element={<LaboratoryPage />} />
         <Route path="pharmacy" element={<PharmacyPage />} />
         <Route path="nutrition" element={<NutritionPlannerPage />} />
