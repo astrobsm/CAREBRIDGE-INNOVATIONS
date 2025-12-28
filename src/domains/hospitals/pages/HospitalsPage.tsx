@@ -35,13 +35,9 @@ const nigerianStates = [
 ];
 
 const hospitalTypes = [
-  { value: 'general', label: 'General Hospital' },
-  { value: 'specialist', label: 'Specialist Hospital' },
-  { value: 'teaching', label: 'Teaching Hospital' },
-  { value: 'private', label: 'Private Hospital' },
-  { value: 'federal', label: 'Federal Medical Centre' },
-  { value: 'clinic', label: 'Clinic' },
-  { value: 'maternity', label: 'Maternity Centre' },
+  { value: 'primary', label: 'Primary Healthcare Centre' },
+  { value: 'secondary', label: 'Secondary/General Hospital' },
+  { value: 'tertiary', label: 'Tertiary/Teaching Hospital' },
 ];
 
 const availableSpecialties = [
@@ -110,6 +106,7 @@ export default function HospitalsPage() {
   } = useForm<HospitalFormData>({
     resolver: zodResolver(hospitalSchema),
     defaultValues: {
+      type: 'secondary',
       is24Hours: false,
       hasEmergency: false,
       hasLaboratory: false,
@@ -151,7 +148,7 @@ export default function HospitalsPage() {
   const openEditModal = (hospital: Hospital) => {
     setEditingHospital(hospital);
     setValue('name', hospital.name);
-    setValue('type', hospital.type || 'general');
+    setValue('type', hospital.type || 'secondary');
     setValue('address', hospital.address);
     setValue('city', hospital.city || '');
     setValue('state', hospital.state || '');
@@ -495,15 +492,16 @@ export default function HospitalsPage() {
                         className={`input ${errors.name ? 'input-error' : ''}`}
                         placeholder="Enter hospital name"
                       />
+                      {errors.name && <span className="text-red-500 text-xs mt-1">{errors.name.message}</span>}
                     </div>
                     <div>
                       <label className="label">Type *</label>
-                      <select {...register('type')} className="input">
-                        <option value="">Select type</option>
+                      <select {...register('type')} className={`input ${errors.type ? 'input-error' : ''}`}>
                         {hospitalTypes.map((type) => (
                           <option key={type.value} value={type.value}>{type.label}</option>
                         ))}
                       </select>
+                      {errors.type && <span className="text-red-500 text-xs mt-1">{errors.type.message}</span>}
                     </div>
                   </div>
 
@@ -515,6 +513,7 @@ export default function HospitalsPage() {
                       className={`input ${errors.address ? 'input-error' : ''}`}
                       placeholder="Enter street address"
                     />
+                    {errors.address && <span className="text-red-500 text-xs mt-1">{errors.address.message}</span>}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -525,15 +524,17 @@ export default function HospitalsPage() {
                         className={`input ${errors.city ? 'input-error' : ''}`}
                         placeholder="Enter city"
                       />
+                      {errors.city && <span className="text-red-500 text-xs mt-1">{errors.city.message}</span>}
                     </div>
                     <div>
                       <label className="label">State *</label>
-                      <select {...register('state')} className="input">
+                      <select {...register('state')} className={`input ${errors.state ? 'input-error' : ''}`}>
                         <option value="">Select state</option>
                         {nigerianStates.map((state) => (
                           <option key={state} value={state}>{state}</option>
                         ))}
                       </select>
+                      {errors.state && <span className="text-red-500 text-xs mt-1">{errors.state.message}</span>}
                     </div>
                   </div>
 
@@ -546,15 +547,17 @@ export default function HospitalsPage() {
                         className={`input ${errors.phone ? 'input-error' : ''}`}
                         placeholder="+234..."
                       />
+                      {errors.phone && <span className="text-red-500 text-xs mt-1">{errors.phone.message}</span>}
                     </div>
                     <div>
                       <label className="label">Email</label>
                       <input
                         {...register('email')}
                         type="email"
-                        className="input"
+                        className={`input ${errors.email ? 'input-error' : ''}`}
                         placeholder="hospital@example.com"
                       />
+                      {errors.email && <span className="text-red-500 text-xs mt-1">{errors.email.message}</span>}
                     </div>
                     <div>
                       <label className="label">Website</label>
