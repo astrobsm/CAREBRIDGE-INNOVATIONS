@@ -24,6 +24,8 @@ import {
   FileText,
   Camera,
   Target,
+  Download,
+  Printer,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -32,6 +34,7 @@ import { format, differenceInDays } from 'date-fns';
 import type { Wound, WoundType, TissueType } from '../../../types';
 import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
 import { generateWoundPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
+import { generateCalibrationRulerPDF } from '../../../utils/calibrationRulerPdf';
 import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
 import AIWoundPlanimetry from '../components/AIWoundPlanimetry';
@@ -255,10 +258,23 @@ export default function WoundsPage() {
             AI-powered wound assessment and treatment protocols
           </p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary">
-          <Plus size={18} />
-          New Assessment
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button 
+            onClick={() => {
+              generateCalibrationRulerPDF();
+              toast.success('Calibration rulers PDF downloaded!');
+            }} 
+            className="btn btn-secondary flex items-center gap-2"
+            title="Download printable calibration rulers for wound measurement"
+          >
+            <Printer size={18} />
+            <span className="hidden sm:inline">Print Rulers</span>
+          </button>
+          <button onClick={() => setShowModal(true)} className="btn btn-primary">
+            <Plus size={18} />
+            New Assessment
+          </button>
+        </div>
       </div>
 
       {/* Wound Phase Guide */}
