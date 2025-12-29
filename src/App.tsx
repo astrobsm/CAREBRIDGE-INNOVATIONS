@@ -34,6 +34,7 @@ import ADTPage from './domains/adt/pages/ADTPage';
 import LimbSalvagePage from './domains/limb-salvage/pages/LimbSalvagePage';
 import NPWTPage from './domains/npwt/pages/NPWTPage';
 import MedicationChartPage from './domains/medication-chart/pages/MedicationChartPage';
+import PatientEducationPage from './domains/patient-education/pages/PatientEducationPage';
 import ChatPage from './domains/communication/pages/ChatPage';
 import VideoConferencePage from './domains/communication/pages/VideoConferencePage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -113,6 +114,7 @@ function App() {
         <Route path="limb-salvage" element={<LimbSalvagePage />} />
         <Route path="npwt" element={<NPWTPage />} />
         <Route path="medication-chart" element={<MedicationChartPage />} />
+        <Route path="patient-education" element={<PatientEducationPage />} />
         <Route path="laboratory" element={<LaboratoryPage />} />
         <Route path="pharmacy" element={<PharmacyPage />} />
         <Route path="nutrition" element={<NutritionPlannerPage />} />

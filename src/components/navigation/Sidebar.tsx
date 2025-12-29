@@ -26,6 +26,7 @@ import {
   Footprints,
   Wind,
   ClipboardList,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -176,6 +177,11 @@ const navigation: NavItem[] = [
       { name: 'Nutrition', href: '/calculators?tab=nutrition' },
       { name: 'DVT Risk', href: '/calculators?tab=dvt' },
     ],
+  },
+  { 
+    name: 'Patient Education', 
+    href: '/patient-education', 
+    icon: <BookOpen size={20} />,
   },
   { 
     name: 'Hospitals', 
