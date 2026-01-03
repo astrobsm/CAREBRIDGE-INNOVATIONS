@@ -179,39 +179,55 @@ export default function AppointmentBookingForm({
     }
   }, [watchedType, setValue]);
 
-  // Load available slots when date and clinician are selected
+  // Load available slots when date is selected (clinician is optional)
   useEffect(() => {
     const loadSlots = async () => {
-      if (watchedDate && watchedClinicianId) {
+      // Load slots when date is selected (clinician is optional now)
+      if (watchedDate) {
         setLoadingSlots(true);
         try {
-          const slots = await getAvailableSlots(
-            watchedClinicianId,
-            new Date(watchedDate),
-            watchedHospitalId
-          );
-          setAvailableSlots(slots);
-          
-          // If no predefined slots, generate default slots
-          if (slots.length === 0) {
-            const defaultSlots = [];
-            for (let h = 8; h <= 17; h++) {
-              defaultSlots.push(`${String(h).padStart(2, '0')}:00`);
+          // Generate default time slots from 8 AM to 6 PM
+          const defaultSlots: string[] = [];
+          for (let h = 8; h <= 18; h++) {
+            defaultSlots.push(`${String(h).padStart(2, '0')}:00`);
+            if (h < 18) {
               defaultSlots.push(`${String(h).padStart(2, '0')}:30`);
             }
+          }
+          
+          // If clinician is selected, try to get their specific slots
+          if (watchedClinicianId) {
+            try {
+              const slots = await getAvailableSlots(
+                watchedClinicianId,
+                new Date(watchedDate),
+                watchedHospitalId
+              );
+              // Use clinician-specific slots if available, otherwise use defaults
+              setAvailableSlots(slots.length > 0 ? slots : defaultSlots);
+            } catch {
+              setAvailableSlots(defaultSlots);
+            }
+          } else {
+            // No clinician selected, use default slots
             setAvailableSlots(defaultSlots);
           }
         } catch (error) {
           console.error('Error loading slots:', error);
           // Fallback to default slots
-          const defaultSlots = [];
-          for (let h = 8; h <= 17; h++) {
+          const defaultSlots: string[] = [];
+          for (let h = 8; h <= 18; h++) {
             defaultSlots.push(`${String(h).padStart(2, '0')}:00`);
-            defaultSlots.push(`${String(h).padStart(2, '0')}:30`);
+            if (h < 18) {
+              defaultSlots.push(`${String(h).padStart(2, '0')}:30`);
+            }
           }
           setAvailableSlots(defaultSlots);
         }
         setLoadingSlots(false);
+      } else {
+        // Clear slots if no date selected
+        setAvailableSlots([]);
       }
     };
     loadSlots();
@@ -566,6 +582,10 @@ export default function AppointmentBookingForm({
                         <div className="flex items-center gap-2 px-4 py-3 border border-gray-200 rounded-xl">
                           <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
                           <span className="text-gray-500">Loading available slots...</span>
+                        </div>
+                      ) : !watchedDate ? (
+                        <div className="px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500">
+                          Please select a date first
                         </div>
                       ) : (
                         <select
