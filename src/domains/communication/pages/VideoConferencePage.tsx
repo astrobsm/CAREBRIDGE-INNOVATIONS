@@ -709,17 +709,17 @@ export default function VideoConferencePage() {
   // Pre-join screen
   if (!isJoined) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-2 sm:p-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-8 max-w-lg w-full"
+          className="bg-white rounded-2xl p-4 sm:p-8 max-w-lg w-full"
         >
           <div className="text-center mb-8">
             <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4">
               <Video className="w-10 h-10 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
               {conference ? 'Join Meeting' : 'Start a New Meeting'}
             </h1>
             {conference && (
@@ -884,9 +884,9 @@ export default function VideoConferencePage() {
   return (
     <div className={`h-screen bg-gray-900 flex flex-col ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
       {/* Meeting header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-800/50">
-        <div className="flex items-center gap-4">
-          <h1 className="text-white font-semibold">{conference?.title || 'Meeting'}</h1>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-gray-800/50">
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+          <h1 className="text-sm sm:text-base text-white font-semibold">{conference?.title || 'Meeting'}</h1>
           <span className="px-2 py-1 bg-red-500 text-white text-xs rounded-full flex items-center gap-1">
             <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
             Live
@@ -922,7 +922,7 @@ export default function VideoConferencePage() {
       {/* Main content area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Video grid or presentation */}
-        <div className="flex-1 p-4">
+        <div className="flex-1 p-2 sm:p-4">
           {showPresentation ? (
             <SlidePresenter
               slides={slides}
@@ -981,8 +981,8 @@ export default function VideoConferencePage() {
           ) : (
             <div className={`h-full relative ${
               viewMode === 'grid' 
-                ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'
-                : 'flex flex-col gap-4'
+                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4'
+                : 'flex flex-col gap-2 sm:gap-4'
             }`}>
               {viewMode === 'speaker' ? (
                 <>

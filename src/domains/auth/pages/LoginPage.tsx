@@ -107,9 +107,9 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-2 min-w-touch min-h-touch flex items-center justify-center"
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
             {errors.password && (
@@ -123,15 +123,15 @@ export default function LoginPage() {
             )}
           </div>
 
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2">
+          <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-3">
+            <label className="flex items-center gap-2 cursor-pointer min-h-touch">
               <input
                 type="checkbox"
-                className="w-4 h-4 rounded border-gray-300 text-sky-500 focus:ring-sky-500"
+                className="w-5 h-5 rounded border-gray-300 text-sky-500 focus:ring-sky-500"
               />
               <span className="text-sm text-gray-600">Remember me</span>
             </label>
-            <a href="#" className="text-sm text-sky-600 hover:text-sky-700 font-medium">
+            <a href="#" className="text-sm text-sky-600 hover:text-sky-700 font-medium min-h-touch flex items-center">
               Forgot password?
             </a>
           </div>
@@ -139,7 +139,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="btn btn-primary w-full py-3"
+            className="btn btn-primary w-full"
           >
             {isLoading ? (
               <motion.div

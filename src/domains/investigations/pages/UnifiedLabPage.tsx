@@ -7,7 +7,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,6 +46,7 @@ import {
 } from 'recharts';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { HospitalSelector } from '../../../components/hospital';
 import { 
   investigationLabService, 
   testDefinitions, 
@@ -325,20 +326,20 @@ export default function UnifiedLabPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
             <FlaskConical className="text-primary-600" />
             Laboratory & Investigations
           </h1>
-          <p className="text-gray-500 mt-1">Manage investigation requests, results, and trends</p>
+          <p className="text-sm sm:text-base text-gray-500 mt-1">Manage investigation requests, results, and trends</p>
         </div>
         
         <button
           onClick={() => setShowRequestModal(true)}
-          className="btn btn-primary flex items-center gap-2"
+          className="btn btn-primary flex items-center gap-2 w-full sm:w-auto"
         >
           <Plus size={18} />
           New Request
@@ -346,50 +347,50 @@ export default function UnifiedLabPage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Clock className="text-yellow-600" size={20} />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-5">
+        <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 bg-yellow-100 rounded-lg">
+              <Clock className="text-yellow-600" size={18} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.pending}</p>
               <p className="text-xs text-gray-500">Pending</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Activity className="text-purple-600" size={20} />
+        <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg">
+              <Activity className="text-purple-600" size={18} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.processing}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.processing}</p>
               <p className="text-xs text-gray-500">Processing</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CheckCircle2 className="text-green-600" size={20} />
+        <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg">
+              <CheckCircle2 className="text-green-600" size={18} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.completed}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.completed}</p>
               <p className="text-xs text-gray-500">Today</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <AlertTriangle className="text-red-600" size={20} />
+        <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 bg-red-100 rounded-lg">
+              <AlertTriangle className="text-red-600" size={18} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.stat}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.stat}</p>
               <p className="text-xs text-gray-500">STAT</p>
             </div>
           </div>
@@ -397,11 +398,11 @@ export default function UnifiedLabPage() {
         
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <Clock className="text-orange-600" size={20} />
+            <div className="p-1.5 sm:p-2 bg-orange-100 rounded-lg">
+              <Clock className="text-orange-600" size={18} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.urgent}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.urgent}</p>
               <p className="text-xs text-gray-500">Urgent</p>
             </div>
           </div>
@@ -442,7 +443,7 @@ export default function UnifiedLabPage() {
 
         {/* Filters */}
         {activeTab !== 'trends' && (
-          <div className="p-4 border-b border-gray-100 flex flex-wrap gap-4">
+          <div className="p-3 sm:p-4 border-b border-gray-100 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
             {/* Search */}
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -484,7 +485,7 @@ export default function UnifiedLabPage() {
         )}
 
         {/* Content */}
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
           {activeTab === 'trends' ? (
             <TrendAnalysisView
               patients={patients || []}
@@ -615,7 +616,7 @@ function InvestigationsList({
             'border-gray-200 bg-white'
           }`}
         >
-          <div className="flex flex-col md:flex-row justify-between gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-gray-900">{inv.patientName}</h3>
@@ -1002,18 +1003,17 @@ function RequestModal({
             {/* Hospital Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Hospital *</label>
-              <select
-                {...form.register('hospitalId')}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="">Select Hospital</option>
-                {hospitals.map(h => (
-                  <option key={h.id} value={h.id}>{h.name}</option>
-                ))}
-              </select>
-              {form.formState.errors.hospitalId && (
-                <p className="text-red-500 text-xs mt-1">{form.formState.errors.hospitalId.message}</p>
-              )}
+              <Controller
+                name="hospitalId"
+                control={form.control}
+                render={({ field }) => (
+                  <HospitalSelector
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={form.formState.errors.hospitalId?.message}
+                  />
+                )}
+              />
             </div>
 
             {/* Priority and Fasting */}

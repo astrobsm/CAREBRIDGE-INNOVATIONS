@@ -27,6 +27,7 @@ import {
   Wind,
   ClipboardList,
   BookOpen,
+  CalendarDays,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -46,6 +47,12 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: <Home size={20} /> },
+  { 
+    name: 'Appointments', 
+    href: '/appointments', 
+    icon: <CalendarDays size={20} />,
+    permission: 'view_patients',
+  },
   { 
     name: 'Patients', 
     href: '/patients', 

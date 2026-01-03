@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Save, User, Phone, MapPin, Heart, AlertCircle, Building2, Home } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { HospitalSelector } from '../../../components/hospital';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import type { Patient, BloodGroup, Genotype, Hospital } from '../../../types';
@@ -84,6 +85,7 @@ export default function NewPatientPage() {
     register,
     handleSubmit,
     watch,
+    control,
     formState: { errors },
   } = useForm<PatientFormData>({
     resolver: zodResolver(patientSchema),
@@ -175,32 +177,32 @@ export default function NewPatientPage() {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <button
           onClick={() => navigate('/patients')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-3 sm:mb-4 min-h-touch"
         >
           <ArrowLeft size={18} />
           Back to Patients
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Register New Patient</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="page-title">Register New Patient</h1>
+        <p className="page-subtitle">
           Enter the patient's information to create a new medical record
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
         {/* Personal Information */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="card"
+          className="card card-compact"
         >
           <div className="card-header flex items-center gap-3">
             <User className="w-5 h-5 text-sky-500" />
             <h2 className="font-semibold text-gray-900">Personal Information</h2>
           </div>
-          <div className="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="card-body form-grid-2">
             <div>
               <label className="label">First Name *</label>
               <input {...register('firstName')} className={`input ${errors.firstName ? 'input-error' : ''}`} />
@@ -262,7 +264,7 @@ export default function NewPatientPage() {
               <label className="label">Religion</label>
               <input {...register('religion')} className="input" />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className="label">Tribe/Ethnicity</label>
               <input {...register('tribe')} className="input" />
             </div>
@@ -274,7 +276,7 @@ export default function NewPatientPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="card"
+          className="card card-compact"
         >
           <div className="card-header flex items-center gap-3">
             <Building2 className="w-5 h-5 text-sky-500" />
@@ -283,23 +285,23 @@ export default function NewPatientPage() {
           <div className="card-body space-y-4">
             <div>
               <label className="label">Care Type *</label>
-              <div className="flex gap-6 mt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <div className="flex flex-col xs:flex-row gap-4 xs:gap-6 mt-2">
+                <label className="flex items-center gap-2 cursor-pointer min-h-touch">
                   <input
                     type="radio"
                     {...register('careType')}
                     value="hospital"
-                    className="w-4 h-4 text-sky-600 border-gray-300 focus:ring-sky-500"
+                    className="w-5 h-5 text-sky-600 border-gray-300 focus:ring-sky-500"
                   />
                   <Building2 className="w-4 h-4 text-gray-500" />
                   <span className="text-gray-700">Hospital Care</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer min-h-touch">
                   <input
                     type="radio"
                     {...register('careType')}
                     value="homecare"
-                    className="w-4 h-4 text-sky-600 border-gray-300 focus:ring-sky-500"
+                    className="w-5 h-5 text-sky-600 border-gray-300 focus:ring-sky-500"
                   />
                   <Home className="w-4 h-4 text-gray-500" />
                   <span className="text-gray-700">Home Care</span>
@@ -308,17 +310,23 @@ export default function NewPatientPage() {
             </div>
 
             {careType === 'hospital' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="form-grid-2">
                 <div>
-                  <label className="label">Hospital *</label>
-                  <select {...register('hospitalId')} className={`input ${errors.hospitalId ? 'input-error' : ''}`} disabled={loadingHospitals}>
-                    <option value="">{loadingHospitals ? 'Loading hospitals...' : 'Select hospital'}</option>
-                    {hospitals.map((hospital: Hospital) => (
-                      <option key={hospital.id} value={hospital.id}>{hospital.name}</option>
-                    ))}
-                    <option value="others">Others (Specify)</option>
-                  </select>
-                  {errors.hospitalId && <p className="text-sm text-red-500 mt-1">{errors.hospitalId.message}</p>}
+                  <Controller
+                    name="hospitalId"
+                    control={control}
+                    render={({ field }) => (
+                      <HospitalSelector
+                        label="Hospital *"
+                        value={field.value}
+                        onChange={(id) => field.onChange(id)}
+                        placeholder="Search or select hospital"
+                        required
+                        showAddNew
+                        error={errors.hospitalId?.message}
+                      />
+                    )}
+                  />
                 </div>
 
                 {hospitalId === 'others' && (
@@ -363,13 +371,13 @@ export default function NewPatientPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="card"
+          className="card card-compact"
         >
           <div className="card-header flex items-center gap-3">
             <Phone className="w-5 h-5 text-sky-500" />
             <h2 className="font-semibold text-gray-900">Contact Information</h2>
           </div>
-          <div className="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="card-body form-grid-2">
             <div>
               <label className="label">Phone Number *</label>
               <input {...register('phone')} type="tel" className={`input ${errors.phone ? 'input-error' : ''}`} placeholder="+234 800 123 4567" />
@@ -379,7 +387,7 @@ export default function NewPatientPage() {
               <label className="label">Alternate Phone</label>
               <input {...register('alternatePhone')} type="tel" className="input" />
             </div>
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
               <label className="label">Email Address</label>
               <input {...register('email')} type="email" className="input" placeholder="patient@example.com" />
             </div>
@@ -391,14 +399,14 @@ export default function NewPatientPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="card"
+          className="card card-compact"
         >
           <div className="card-header flex items-center gap-3">
             <MapPin className="w-5 h-5 text-sky-500" />
             <h2 className="font-semibold text-gray-900">Address</h2>
           </div>
-          <div className="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
+          <div className="card-body form-grid-2">
+            <div className="sm:col-span-2">
               <label className="label">Street Address *</label>
               <input {...register('address')} className={`input ${errors.address ? 'input-error' : ''}`} />
               {errors.address && <p className="text-sm text-red-500 mt-1">{errors.address.message}</p>}
@@ -426,19 +434,19 @@ export default function NewPatientPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="card"
+          className="card card-compact"
         >
           <div className="card-header flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-sky-500" />
             <h2 className="font-semibold text-gray-900">Medical Information</h2>
           </div>
-          <div className="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
+          <div className="card-body space-y-4">
+            <div>
               <label className="label">Known Allergies</label>
               <input {...register('allergies')} className="input" placeholder="Separate multiple allergies with commas" />
               <p className="text-xs text-gray-500 mt-1">e.g., Penicillin, Peanuts, Latex</p>
             </div>
-            <div className="md:col-span-2">
+            <div>
               <label className="label">Chronic Conditions</label>
               <input {...register('chronicConditions')} className="input" placeholder="Separate multiple conditions with commas" />
               <p className="text-xs text-gray-500 mt-1">e.g., Diabetes, Hypertension, Asthma</p>
@@ -451,13 +459,13 @@ export default function NewPatientPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="card"
+          className="card card-compact"
         >
           <div className="card-header flex items-center gap-3">
             <Heart className="w-5 h-5 text-sky-500" />
             <h2 className="font-semibold text-gray-900">Next of Kin</h2>
           </div>
-          <div className="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="card-body form-grid-2">
             <div>
               <label className="label">Full Name *</label>
               <input {...register('nextOfKinName')} className={`input ${errors.nextOfKinName ? 'input-error' : ''}`} />
@@ -473,7 +481,7 @@ export default function NewPatientPage() {
               <input {...register('nextOfKinPhone')} type="tel" className={`input ${errors.nextOfKinPhone ? 'input-error' : ''}`} />
               {errors.nextOfKinPhone && <p className="text-sm text-red-500 mt-1">{errors.nextOfKinPhone.message}</p>}
             </div>
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
               <label className="label">Address *</label>
               <input {...register('nextOfKinAddress')} className={`input ${errors.nextOfKinAddress ? 'input-error' : ''}`} />
               {errors.nextOfKinAddress && <p className="text-sm text-red-500 mt-1">{errors.nextOfKinAddress.message}</p>}
@@ -481,33 +489,35 @@ export default function NewPatientPage() {
           </div>
         </motion.div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-4">
-          <button
-            type="button"
-            onClick={() => navigate('/patients')}
-            className="btn btn-secondary"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="btn btn-primary"
-          >
-            {isLoading ? (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-              />
-            ) : (
-              <>
-                <Save size={18} />
-                Register Patient
-              </>
-            )}
-          </button>
+        {/* Actions - Sticky on mobile */}
+        <div className="sticky bottom-0 bg-gray-50 -mx-4 px-4 py-4 sm:relative sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent border-t sm:border-0 border-gray-200">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:gap-4">
+            <button
+              type="button"
+              onClick={() => navigate('/patients')}
+              className="btn btn-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="btn btn-primary"
+            >
+              {isLoading ? (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                />
+              ) : (
+                <>
+                  <Save size={18} />
+                  Register Patient
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </form>
     </div>

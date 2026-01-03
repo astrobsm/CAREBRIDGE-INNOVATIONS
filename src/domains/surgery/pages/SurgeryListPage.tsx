@@ -87,34 +87,34 @@ export default function SurgeryListPage() {
   }, [surgeries]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <Scissors className="w-7 h-7 text-purple-500" />
+          <h1 className="page-title flex items-center gap-3">
+            <Scissors className="w-6 h-6 sm:w-7 sm:h-7 text-purple-500" />
             Surgery Schedule
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="page-subtitle">
             Manage surgical procedures and operating room schedules
           </p>
         </div>
-        <Link to="/patients" className="btn btn-primary">
+        <Link to="/patients" className="btn btn-primary w-full sm:w-auto">
           <Plus size={18} />
           Schedule Surgery
         </Link>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="card p-4"
+          className="card card-compact p-3 sm:p-4"
         >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-100 rounded-lg">
-              <Calendar className="w-5 h-5 text-amber-600" />
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{stats.today}</p>
@@ -126,11 +126,11 @@ export default function SurgeryListPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="card p-4"
+          className="card card-compact p-3 sm:p-4"
         >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-sky-100 rounded-lg">
-              <Clock className="w-5 h-5 text-sky-600" />
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-sky-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{stats.scheduled}</p>
@@ -142,11 +142,11 @@ export default function SurgeryListPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="card p-4"
+          className="card card-compact p-3 sm:p-4"
         >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-100 rounded-lg">
-              <AlertTriangle className="w-5 h-5 text-orange-600" />
+              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{stats.inProgress}</p>
@@ -158,11 +158,11 @@ export default function SurgeryListPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="card p-4"
+          className="card card-compact p-3 sm:p-4"
         >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-emerald-100 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{stats.completed}</p>
@@ -173,7 +173,7 @@ export default function SurgeryListPage() {
       </div>
 
       {/* Filters */}
-      <div className="card p-4">
+      <div className="card card-compact p-3 sm:p-4">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search

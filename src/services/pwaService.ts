@@ -56,10 +56,111 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       window.location.reload();
     });
 
+    // Register for background sync
+    await registerBackgroundSync(registration);
+    
+    // Register for periodic background sync (if available)
+    await registerPeriodicSync(registration);
+
     return registration;
   } catch (error) {
     console.error('[PWA] Service Worker registration failed:', error);
     return null;
+  }
+}
+
+// Register for Background Sync
+async function registerBackgroundSync(registration: ServiceWorkerRegistration): Promise<void> {
+  if ('sync' in registration) {
+    try {
+      await (registration as any).sync.register('carebridge-sync');
+      console.log('[PWA] Background sync registered');
+    } catch (error) {
+      console.log('[PWA] Background sync not available:', error);
+    }
+  }
+}
+
+// Register for Periodic Background Sync
+async function registerPeriodicSync(registration: ServiceWorkerRegistration): Promise<void> {
+  if ('periodicSync' in registration) {
+    try {
+      // Check permission
+      const status = await navigator.permissions.query({
+        name: 'periodic-background-sync' as PermissionName,
+      });
+      
+      if (status.state === 'granted') {
+        await (registration as any).periodicSync.register('carebridge-periodic-sync', {
+          minInterval: 15 * 60 * 1000, // 15 minutes
+        });
+        console.log('[PWA] Periodic background sync registered');
+      }
+    } catch (error) {
+      console.log('[PWA] Periodic background sync not available:', error);
+    }
+  }
+}
+
+// Request background sync (call this when you have pending data)
+export async function requestBackgroundSync(): Promise<boolean> {
+  if (!swRegistration) {
+    console.log('[PWA] No service worker registration');
+    return false;
+  }
+  
+  if (!('sync' in swRegistration)) {
+    console.log('[PWA] Background sync not supported');
+    return false;
+  }
+  
+  try {
+    await (swRegistration as any).sync.register('carebridge-sync');
+    console.log('[PWA] Background sync requested');
+    return true;
+  } catch (error) {
+    console.error('[PWA] Failed to request background sync:', error);
+    return false;
+  }
+}
+
+// Trigger immediate sync via service worker message
+export function triggerServiceWorkerSync(): void {
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'TRIGGER_SYNC' });
+  }
+}
+
+// Get offline queue status from service worker
+export async function getOfflineQueueStatus(): Promise<number> {
+  return new Promise((resolve) => {
+    if (!navigator.serviceWorker.controller) {
+      resolve(0);
+      return;
+    }
+    
+    const messageHandler = (event: MessageEvent) => {
+      if (event.data?.type === 'QUEUE_STATUS') {
+        navigator.serviceWorker.removeEventListener('message', messageHandler);
+        resolve(event.data.pendingCount || 0);
+      }
+    };
+    
+    navigator.serviceWorker.addEventListener('message', messageHandler);
+    navigator.serviceWorker.controller.postMessage({ type: 'GET_QUEUE_STATUS' });
+    
+    // Timeout after 2 seconds
+    setTimeout(() => {
+      navigator.serviceWorker.removeEventListener('message', messageHandler);
+      resolve(0);
+    }, 2000);
+  });
+}
+
+// Clear service worker caches
+export function clearServiceWorkerCache(): void {
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
   }
 }
 

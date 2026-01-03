@@ -246,19 +246,19 @@ export default function WoundsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="page-title flex items-center gap-3">
             <CircleDot className="w-7 h-7 text-rose-500" />
             Wound Care Management
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="page-subtitle">
             AI-powered wound assessment and treatment protocols
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button 
             onClick={() => {
               generateCalibrationRulerPDF();
@@ -270,7 +270,7 @@ export default function WoundsPage() {
             <Printer size={18} />
             <span className="hidden sm:inline">Print Rulers</span>
           </button>
-          <button onClick={() => setShowModal(true)} className="btn btn-primary">
+          <button onClick={() => setShowModal(true)} className="btn btn-primary w-full sm:w-auto">
             <Plus size={18} />
             New Assessment
           </button>
@@ -278,13 +278,13 @@ export default function WoundsPage() {
       </div>
 
       {/* Wound Phase Guide */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="form-grid">
         {Object.entries(woundPhases).map(([key, phase]) => (
           <motion.div
             key={key}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`card p-4 border-2 cursor-pointer transition-all ${
+            className={`card card-compact p-4 sm:p-4 border-2 cursor-pointer transition-all ${
               selectedPhase === key ? phase.color : 'border-transparent hover:border-gray-200'
             }`}
             onClick={() => setSelectedPhase(selectedPhase === key ? null : key as keyof typeof woundPhases)}
@@ -337,7 +337,7 @@ export default function WoundsPage() {
       </AnimatePresence>
 
       {/* Search */}
-      <div className="card p-4">
+      <div className="card card-compact p-4">
         <div className="relative">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -351,7 +351,7 @@ export default function WoundsPage() {
       </div>
 
       {/* Wounds List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredWounds.length > 0 ? (
           filteredWounds.map((wound, index) => {
             const patient = patientMap.get(wound.patientId);
@@ -485,7 +485,7 @@ export default function WoundsPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="form-grid-2">
                     <div>
                       <label className="label">Location *</label>
                       <input {...register('location')} className={`input ${errors.location ? 'input-error' : ''}`} placeholder="e.g., Left lower leg" />
@@ -569,7 +569,7 @@ export default function WoundsPage() {
                   </div>
 
                   {/* Exudate */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="form-grid-2">
                     <div>
                       <label className="label">Exudate Amount *</label>
                       <select {...register('exudateAmount')} className="input">
@@ -592,7 +592,7 @@ export default function WoundsPage() {
                   </div>
 
                   {/* Pain and Odor */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="form-grid-2">
                     <div>
                       <label className="label">Pain Level (0-10) *</label>
                       <input type="range" min="0" max="10" {...register('painLevel', { valueAsNumber: true })} className="w-full" />

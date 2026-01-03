@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Settings,
@@ -21,10 +21,16 @@ import {
   Wifi,
   WifiOff,
   HardDrive,
+  CheckCircle,
+  AlertCircle,
+  Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../database';
+import { useOfflineState, offlineDataManager } from '../../../services/offlineDataManager';
+import { fullSync } from '../../../services/cloudSyncService';
+import { requestBackgroundSync, clearServiceWorkerCache } from '../../../services/pwaService';
 
 const settingsTabs = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -39,7 +45,26 @@ export default function SettingsPage() {
   const { user, logout: _logout } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [isSaving, setIsSaving] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const offlineState = useOfflineState();
+  const [storageUsage, setStorageUsage] = useState({ used: 0, quota: 0 });
+
+  // Get storage usage on mount
+  useEffect(() => {
+    async function getStorageUsage() {
+      if ('storage' in navigator && 'estimate' in navigator.storage) {
+        try {
+          const estimate = await navigator.storage.estimate();
+          setStorageUsage({
+            used: estimate.usage || 0,
+            quota: estimate.quota || 0
+          });
+        } catch (error) {
+          console.error('Failed to get storage estimate:', error);
+        }
+      }
+    }
+    getStorageUsage();
+  }, [activeTab]);
 
   // Profile settings
   const [profileSettings, setProfileSettings] = useState({
@@ -104,15 +129,24 @@ export default function SettingsPage() {
   };
 
   const handleSync = async () => {
-    setIsSyncing(true);
+    if (!offlineState.isOnline) {
+      toast.error('You are offline. Connect to the internet to sync.');
+      return;
+    }
+    
     try {
-      // Simulate sync
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success('Data synchronized successfully!');
+      toast.loading('Starting sync...', { id: 'sync-toast' });
+      
+      // Trigger the sync via the cloud sync service
+      await fullSync();
+      
+      // Also request background sync registration
+      await requestBackgroundSync();
+      
+      toast.success('Data synchronized successfully!', { id: 'sync-toast' });
     } catch (error) {
-      toast.error('Sync failed. Will retry later.');
-    } finally {
-      setIsSyncing(false);
+      console.error('Sync failed:', error);
+      toast.error('Sync failed. Will retry automatically.', { id: 'sync-toast' });
     }
   };
 
@@ -147,10 +181,24 @@ export default function SettingsPage() {
   const handleClearCache = async () => {
     if (window.confirm('Are you sure you want to clear the local cache? This will not delete your data.')) {
       try {
+        // Clear service worker caches
+        clearServiceWorkerCache();
+        
+        // Also clear via caches API
         if ('caches' in window) {
           const cacheNames = await caches.keys();
           await Promise.all(cacheNames.map(name => caches.delete(name)));
         }
+        
+        // Update storage usage display
+        if ('storage' in navigator && 'estimate' in navigator.storage) {
+          const estimate = await navigator.storage.estimate();
+          setStorageUsage({
+            used: estimate.usage || 0,
+            quota: estimate.quota || 0
+          });
+        }
+        
         toast.success('Cache cleared successfully!');
       } catch (error) {
         toast.error('Failed to clear cache');
@@ -171,7 +219,7 @@ export default function SettingsPage() {
           >
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="form-grid-2">
                 <div>
                   <label className="label">First Name</label>
                   <input
@@ -213,7 +261,7 @@ export default function SettingsPage() {
 
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Professional Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="form-grid-2">
                 <div>
                   <label className="label">Role</label>
                   <input
@@ -236,11 +284,11 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-2">
               <button
                 onClick={handleSaveProfile}
                 disabled={isSaving}
-                className="btn btn-primary"
+                className="btn btn-primary w-full sm:w-auto"
               >
                 {isSaving ? <RefreshCw className="animate-spin" size={18} /> : <Save size={18} />}
                 {isSaving ? 'Saving...' : 'Save Changes'}
@@ -431,7 +479,7 @@ export default function SettingsPage() {
           >
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Theme</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 {[
                   { value: 'light', label: 'Light', icon: Sun },
                   { value: 'dark', label: 'Dark', icon: Moon },
@@ -440,16 +488,16 @@ export default function SettingsPage() {
                   <button
                     key={theme.value}
                     onClick={() => setAppearanceSettings({ ...appearanceSettings, theme: theme.value })}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
+                    className={`p-3 sm:p-4 rounded-lg border-2 transition-colors ${
                       appearanceSettings.theme === theme.value
                         ? 'border-violet-500 bg-violet-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <theme.icon className={`w-8 h-8 mx-auto mb-2 ${
+                    <theme.icon className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-1 sm:mb-2 ${
                       appearanceSettings.theme === theme.value ? 'text-violet-600' : 'text-gray-400'
                     }`} />
-                    <p className={`text-sm font-medium ${
+                    <p className={`text-xs sm:text-sm font-medium ${
                       appearanceSettings.theme === theme.value ? 'text-violet-600' : 'text-gray-600'
                     }`}>
                       {theme.label}
@@ -461,12 +509,12 @@ export default function SettingsPage() {
 
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Font Size</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 {['small', 'medium', 'large'].map((size) => (
                   <button
                     key={size}
                     onClick={() => setAppearanceSettings({ ...appearanceSettings, fontSize: size })}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
+                    className={`p-3 sm:p-4 rounded-lg border-2 transition-colors ${
                       appearanceSettings.fontSize === size
                         ? 'border-violet-500 bg-violet-50'
                         : 'border-gray-200 hover:border-gray-300'
@@ -508,28 +556,102 @@ export default function SettingsPage() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
-            <div className="card bg-gradient-to-r from-blue-50 to-violet-50 p-4">
-              <div className="flex items-center gap-3">
-                {navigator.onLine ? (
-                  <>
-                    <Wifi className="w-8 h-8 text-green-500" />
-                    <div>
-                      <p className="font-medium text-gray-900">Online</p>
-                      <p className="text-sm text-gray-500">Connected and syncing</p>
+            {/* Connection Status Card */}
+            <div className={`card p-4 ${offlineState.isOnline ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' : 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200'} border`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {offlineState.isOnline ? (
+                    <>
+                      <div className="p-2 bg-green-100 rounded-full">
+                        <Wifi className="w-6 h-6 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-green-800">Online</p>
+                        <p className="text-sm text-green-600">Connected and ready to sync</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-2 bg-orange-100 rounded-full">
+                        <WifiOff className="w-6 h-6 text-orange-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-orange-800">Offline</p>
+                        <p className="text-sm text-orange-600">Working offline - data saved locally</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="text-right">
+                  {offlineState.isSyncing && (
+                    <div className="flex items-center gap-2 text-blue-600">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span className="text-sm font-medium">Syncing...</span>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-8 h-8 text-yellow-500" />
-                    <div>
-                      <p className="font-medium text-gray-900">Offline</p>
-                      <p className="text-sm text-gray-500">Working offline, data will sync when connected</p>
-                    </div>
-                  </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Sync Status Card */}
+            <div className="card border p-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Cloud className="w-5 h-5 text-indigo-600" />
+                Sync Status
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-600">Status</span>
+                  <div className="flex items-center gap-2">
+                    {offlineState.isSyncing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />
+                        <span className="font-medium text-blue-600">Syncing</span>
+                      </>
+                    ) : offlineState.syncError ? (
+                      <>
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                        <span className="font-medium text-red-600">Error</span>
+                      </>
+                    ) : offlineState.pendingChanges > 0 ? (
+                      <>
+                        <Clock className="w-4 h-4 text-yellow-500" />
+                        <span className="font-medium text-yellow-600">Pending</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span className="font-medium text-green-600">Up to date</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-600">Pending Changes</span>
+                  <span className={`font-medium ${offlineState.pendingChanges > 0 ? 'text-yellow-600' : 'text-gray-900'}`}>
+                    {offlineState.pendingChanges} {offlineState.pendingChanges === 1 ? 'change' : 'changes'}
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-600">Last Synced</span>
+                  <span className="font-medium text-gray-900">
+                    {offlineState.lastSyncAt 
+                      ? offlineState.lastSyncAt.toLocaleString() 
+                      : 'Never'}
+                  </span>
+                </div>
+                
+                {offlineState.syncError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg mt-2">
+                    <p className="text-sm text-red-700">{offlineState.syncError}</p>
+                  </div>
                 )}
               </div>
             </div>
 
+            {/* Sync Settings */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Sync Settings</h3>
               <div className="space-y-4">
@@ -576,15 +698,42 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex gap-4">
-              <button onClick={handleSync} disabled={isSyncing} className="btn btn-primary flex-1">
-                {isSyncing ? <RefreshCw className="animate-spin" size={18} /> : <Cloud size={18} />}
-                {isSyncing ? 'Syncing...' : 'Sync Now'}
+              <button 
+                onClick={handleSync} 
+                disabled={offlineState.isSyncing || !offlineState.isOnline} 
+                className="btn btn-primary flex-1"
+              >
+                {offlineState.isSyncing ? <RefreshCw className="animate-spin" size={18} /> : <Cloud size={18} />}
+                {offlineState.isSyncing ? 'Syncing...' : !offlineState.isOnline ? 'Offline' : 'Sync Now'}
               </button>
+              {offlineState.pendingChanges > 0 && (
+                <button 
+                  onClick={() => offlineDataManager.clearAllPending()}
+                  className="btn btn-danger-outline"
+                  title="Clear pending changes (data will not be synced)"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
+            </div>
+
+            {/* Offline-First Info */}
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="font-medium text-blue-800 mb-2">Offline-First Mode</h4>
+              <p className="text-sm text-blue-700">
+                CareBridge works fully offline. All your data is stored locally on your device and will 
+                automatically sync to the cloud when you're connected to the internet. You can continue 
+                working even without an internet connection.
+              </p>
             </div>
           </motion.div>
         );
 
       case 'data':
+        const usedMB = Math.round(storageUsage.used / (1024 * 1024));
+        const quotaMB = Math.round(storageUsage.quota / (1024 * 1024));
+        const usagePercent = storageUsage.quota > 0 ? (storageUsage.used / storageUsage.quota) * 100 : 0;
+        
         return (
           <motion.div
             key="data"
@@ -601,10 +750,15 @@ export default function SettingsPage() {
                   <div className="flex-1">
                     <div className="flex justify-between mb-1">
                       <span className="text-sm text-gray-600">Local Storage</span>
-                      <span className="text-sm font-medium text-gray-900">45 MB / 500 MB</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {usedMB} MB / {quotaMB > 1000 ? `${Math.round(quotaMB / 1024)} GB` : `${quotaMB} MB`}
+                      </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-violet-600 h-2 rounded-full" style={{ width: '9%' }}></div>
+                      <div 
+                        className={`h-2 rounded-full ${usagePercent > 80 ? 'bg-red-500' : usagePercent > 50 ? 'bg-yellow-500' : 'bg-violet-600'}`} 
+                        style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                      ></div>
                     </div>
                   </div>
                 </div>
@@ -677,42 +831,44 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-          <Settings className="w-7 h-7 text-gray-500" />
+        <h1 className="page-title flex items-center gap-3">
+          <Settings className="w-6 h-6 sm:w-7 sm:h-7 text-gray-500" />
           Settings
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="page-subtitle">
           Manage your account and application preferences
         </p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar */}
+      <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
+        {/* Sidebar - Horizontal scroll on mobile */}
         <div className="lg:w-64 flex-shrink-0">
-          <nav className="card p-2 space-y-1">
-            {settingsTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-violet-50 text-violet-700'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <tab.icon size={20} />
-                <span className="font-medium">{tab.label}</span>
-              </button>
-            ))}
+          <nav className="card card-compact p-2 overflow-x-auto lg:overflow-visible">
+            <div className="flex lg:flex-col gap-1 min-w-max lg:min-w-0">
+              {settingsTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg transition-colors whitespace-nowrap min-h-touch ${
+                    activeTab === tab.id
+                      ? 'bg-violet-50 text-violet-700'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <tab.icon size={20} />
+                  <span className="font-medium text-sm sm:text-base">{tab.label}</span>
+                </button>
+              ))}
+            </div>
           </nav>
         </div>
 
         {/* Content */}
-        <div className="flex-1">
-          <div className="card p-6">
+        <div className="flex-1 min-w-0">
+          <div className="card card-compact p-4 sm:p-6">
             <AnimatePresence mode="wait">
               {renderTabContent()}
             </AnimatePresence>

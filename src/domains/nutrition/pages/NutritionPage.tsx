@@ -344,24 +344,24 @@ export default function NutritionPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3">
             <Apple className="w-7 h-7 text-green-500" />
             Nutrition Assessment
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             MUST screening & African food-based meal planning
           </p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={() => setShowMealPlanModal(true)} className="btn btn-secondary">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button onClick={() => setShowMealPlanModal(true)} className="btn btn-secondary w-full sm:w-auto">
             <Utensils size={18} />
             Meal Planner
           </button>
-          <button onClick={() => setShowModal(true)} className="btn btn-primary">
+          <button onClick={() => setShowModal(true)} className="btn btn-primary w-full sm:w-auto">
             <Plus size={18} />
             New Assessment
           </button>
@@ -488,7 +488,7 @@ export default function NutritionPage() {
               <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col max-h-[calc(90vh-80px)]">
                 <div className="p-6 overflow-y-auto flex-1 space-y-6">
                   {/* Patient & Measurements */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
                       <label className="label">Patient *</label>
                       <select {...register('patientId')} className="input">
@@ -670,7 +670,7 @@ export default function NutritionPage() {
                   )}
 
                   {/* Allergies & Notes */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="label">Food Allergies (comma-separated)</label>
                       <input {...register('allergies')} className="input" placeholder="e.g., Peanuts, Shellfish" />
@@ -804,7 +804,7 @@ export default function NutritionPage() {
 
                   {/* Day Content */}
                   <div className="flex-1 overflow-y-auto p-6">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       {(['breakfast', 'midMorning', 'lunch', 'afternoon', 'dinner', 'bedtime'] as const).map((meal) => (
                         <div key={meal} className="card border p-4">
                           <h4 className="font-medium text-gray-700 mb-2 capitalize">

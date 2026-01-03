@@ -244,6 +244,24 @@ async function pullAllFromCloud(): Promise<void> {
   await pullTable(TABLES.escharotomyRecords, 'escharotomyRecords');
   await pullTable(TABLES.skinGraftRecords, 'skinGraftRecords');
   await pullTable(TABLES.burnCarePlans, 'burnCarePlans');
+  
+  // Appointments
+  await pullTable(TABLES.appointments, 'appointments');
+  await pullTable(TABLES.appointmentReminders, 'appointmentReminders');
+  await pullTable(TABLES.appointmentSlots, 'appointmentSlots');
+  await pullTable(TABLES.clinicSessions, 'clinicSessions');
+  
+  // NPWT
+  await pullTable(TABLES.npwtSessions, 'npwtSessions');
+  await pullTable(TABLES.npwtNotifications, 'npwtNotifications');
+  
+  // Medication Charts
+  await pullTable(TABLES.medicationCharts, 'medicationCharts');
+  await pullTable(TABLES.nursePatientAssignments, 'nursePatientAssignments');
+  
+  // Transfusion Orders
+  await pullTable(TABLES.transfusionOrders, 'transfusionOrders');
+  await pullTable(TABLES.transfusionMonitoringCharts, 'transfusionMonitoringCharts');
 }
 
 // Push all local data to cloud
@@ -312,6 +330,24 @@ async function pushAllToCloud(): Promise<void> {
   await pushTable('escharotomyRecords', TABLES.escharotomyRecords);
   await pushTable('skinGraftRecords', TABLES.skinGraftRecords);
   await pushTable('burnCarePlans', TABLES.burnCarePlans);
+  
+  // Appointments
+  await pushTable('appointments', TABLES.appointments);
+  await pushTable('appointmentReminders', TABLES.appointmentReminders);
+  await pushTable('appointmentSlots', TABLES.appointmentSlots);
+  await pushTable('clinicSessions', TABLES.clinicSessions);
+  
+  // NPWT
+  await pushTable('npwtSessions', TABLES.npwtSessions);
+  await pushTable('npwtNotifications', TABLES.npwtNotifications);
+  
+  // Medication Charts
+  await pushTable('medicationCharts', TABLES.medicationCharts);
+  await pushTable('nursePatientAssignments', TABLES.nursePatientAssignments);
+  
+  // Transfusion Orders
+  await pushTable('transfusionOrders', TABLES.transfusionOrders);
+  await pushTable('transfusionMonitoringCharts', TABLES.transfusionMonitoringCharts);
 }
 
 // Pull a single table from cloud

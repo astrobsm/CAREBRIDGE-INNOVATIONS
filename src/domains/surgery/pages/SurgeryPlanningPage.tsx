@@ -398,29 +398,29 @@ export default function SurgeryPlanningPage() {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
+      <div className="flex flex-col gap-4 mb-6">
         <button
           onClick={() => navigate(`/patients/${patientId}`)}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 w-fit"
         >
           <ArrowLeft size={18} />
           Back to Patient
         </button>
         
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <Scissors className="w-7 h-7 text-purple-500" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <Scissors className="w-6 h-6 sm:w-7 sm:h-7 text-purple-500" />
             Surgery Planning
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             Patient: {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
         {/* Tabs */}
-        <div className="flex flex-wrap gap-2 border-b border-gray-200">
+        <div className="flex overflow-x-auto gap-1 sm:gap-2 border-b border-gray-200 -mx-4 px-4 sm:mx-0 sm:px-0">
           {[
             { id: 'details', label: 'Procedure Details', icon: Scissors },
             { id: 'assessment', label: 'Risk Assessment', icon: AlertTriangle },
@@ -433,14 +433,15 @@ export default function SurgeryPlanningPage() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`flex items-center gap-2 px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-purple-500 text-purple-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
               <tab.icon size={16} />
-              {tab.label}
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
             </button>
           ))}
         </div>
@@ -450,7 +451,7 @@ export default function SurgeryPlanningPage() {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6"
           >
             {/* Procedure Selection Card */}
             <div className="card">
@@ -559,7 +560,7 @@ export default function SurgeryPlanningPage() {
                 <ClipboardCheck className="w-5 h-5 text-sky-500" />
                 <h2 className="font-semibold text-gray-900">Schedule & Details</h2>
               </div>
-              <div className="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="card-body grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="label">Procedure Code (ICD-10)</label>
                   <input 
@@ -632,7 +633,7 @@ export default function SurgeryPlanningPage() {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6"
           >
             {/* ASA Score */}
             <div className="card">
@@ -669,18 +670,18 @@ export default function SurgeryPlanningPage() {
 
             {/* Caprini VTE Score */}
             <div className="card">
-              <div className="card-header flex items-center justify-between">
+              <div className="card-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-500" />
                   <h2 className="font-semibold text-gray-900">Caprini VTE Risk Assessment</h2>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-center">
-                    <span className="text-2xl font-bold text-gray-900">{calculatedCapriniScore}</span>
+                    <span className="text-xl sm:text-2xl font-bold text-gray-900">{calculatedCapriniScore}</span>
                     <p className="text-xs text-gray-500">Score</p>
                   </div>
                   {capriniRisk && (
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${capriniRisk.color}`}>
+                    <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${capriniRisk.color}`}>
                       {capriniRisk.level} Risk
                     </span>
                   )}
@@ -707,7 +708,7 @@ export default function SurgeryPlanningPage() {
                       {expandedCapriniSections.includes(section) ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                     </button>
                     {expandedCapriniSections.includes(section) && (
-                      <div className="p-3 border-t bg-gray-50 grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div className="p-3 border-t bg-gray-50 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {factors.map(factor => (
                           <label
                             key={factor.label}
@@ -748,7 +749,7 @@ export default function SurgeryPlanningPage() {
                 <h2 className="font-semibold text-gray-900">WHO Surgical Risk Factors</h2>
               </div>
               <div className="card-body">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {whoRiskFactors.map(factor => (
                     <label
                       key={factor}
@@ -820,10 +821,10 @@ export default function SurgeryPlanningPage() {
                 </label>
 
                 {/* Downloadable Guidelines */}
-                <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t">
+                <div className="flex flex-col gap-3 mt-4 pt-4 border-t sm:flex-row sm:flex-wrap">
                   <button
                     type="button"
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
                     onClick={() => {
                       if (patient && selectedProcedure) {
                         const scheduledDate = watch('scheduledDate');
@@ -860,7 +861,7 @@ export default function SurgeryPlanningPage() {
                   </button>
                   <button
                     type="button"
-                    className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
                     onClick={() => {
                       if (patient && selectedProcedure) {
                         const scheduledDate = watch('scheduledDate');
@@ -916,7 +917,7 @@ export default function SurgeryPlanningPage() {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6"
           >
             {Object.entries(preOpInvestigations).map(([category, tests]) => (
               <div key={category} className="card">
@@ -988,7 +989,7 @@ export default function SurgeryPlanningPage() {
               <Users className="w-5 h-5 text-indigo-500" />
               <h2 className="font-semibold text-gray-900">Surgical Team</h2>
             </div>
-            <div className="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="card-body grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="label">Primary Surgeon</label>
                 <input
@@ -1043,7 +1044,7 @@ export default function SurgeryPlanningPage() {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6"
           >
             <div className="card">
               <div className="card-header flex items-center gap-3">
@@ -1057,7 +1058,7 @@ export default function SurgeryPlanningPage() {
                     <p>Please select a procedure in the Procedure Details tab to generate a fee estimate.</p>
                   </div>
                 ) : feeEstimate ? (
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     {/* Procedure Info */}
                     <div className={`p-4 rounded-lg ${complexityLevels[selectedProcedure.complexity].color}`}>
                       <h3 className="font-bold text-lg">{selectedProcedure.name}</h3>
@@ -1168,7 +1169,7 @@ export default function SurgeryPlanningPage() {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6"
           >
             <div className="card">
               <div className="card-header flex items-center gap-3">
@@ -1180,7 +1181,7 @@ export default function SurgeryPlanningPage() {
                   Download pre-operative instructions, consent forms, and other important documents for this surgery.
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {/* Pre-Op Instructions */}
                   <div className="border rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50 transition-colors">
                     <div className="flex items-start gap-3 mb-3">
@@ -1436,18 +1437,18 @@ export default function SurgeryPlanningPage() {
         )}
 
         {/* Submit Button */}
-        <div className="flex justify-end gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end sm:gap-4">
           <button
             type="button"
             onClick={() => navigate(`/patients/${patientId}`)}
-            className="btn btn-secondary"
+            className="btn btn-secondary w-full sm:w-auto order-2 sm:order-1"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className="btn btn-primary"
+            className="btn btn-primary w-full sm:w-auto order-1 sm:order-2"
           >
             {isLoading ? (
               <>

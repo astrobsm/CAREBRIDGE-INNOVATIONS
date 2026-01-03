@@ -37,6 +37,7 @@ import MedicationChartPage from './domains/medication-chart/pages/MedicationChar
 import PatientEducationPage from './domains/patient-education/pages/PatientEducationPage';
 import ChatPage from './domains/communication/pages/ChatPage';
 import VideoConferencePage from './domains/communication/pages/VideoConferencePage';
+import AppointmentsPage from './domains/appointments/pages/AppointmentsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
 import InstallPrompt from './components/pwa/InstallPrompt';
@@ -102,6 +103,7 @@ function App() {
         </Route>
 
         {/* Clinical Modules */}
+        <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="adt" element={<ADTPage />} />
         <Route path="admissions" element={<AdmissionsPage />} />
         <Route path="discharge" element={<DischargePage />} />

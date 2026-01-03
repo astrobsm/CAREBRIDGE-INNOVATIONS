@@ -80,15 +80,15 @@ export default function LimbSalvagePage() {
   const veryHighRisk = assessments?.filter(a => a.limbSalvageScore?.riskCategory === 'very_high').length || 0;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="page-title flex items-center gap-2">
             <Footprints className="h-7 w-7 text-blue-600" />
             Diabetic Foot - Limb Salvage Module
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="page-subtitle">
             Comprehensive scoring and decision support for diabetic foot management
           </p>
         </div>
@@ -97,7 +97,7 @@ export default function LimbSalvagePage() {
             setSelectedAssessment(undefined);
             setShowForm(true);
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 w-full sm:w-auto justify-center"
         >
           <Plus className="h-5 w-5" />
           New Assessment
@@ -105,8 +105,8 @@ export default function LimbSalvagePage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow border-l-4 border-blue-500">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total</p>
@@ -115,7 +115,7 @@ export default function LimbSalvagePage() {
             <Stethoscope className="h-8 w-8 text-blue-500" />
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow border-l-4 border-green-500">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Low Risk</p>
@@ -124,7 +124,7 @@ export default function LimbSalvagePage() {
             <Heart className="h-8 w-8 text-green-500" />
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-yellow-500">
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow border-l-4 border-yellow-500">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Moderate</p>
@@ -133,7 +133,7 @@ export default function LimbSalvagePage() {
             <Activity className="h-8 w-8 text-yellow-500" />
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-orange-500">
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow border-l-4 border-orange-500">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">High Risk</p>
@@ -142,7 +142,7 @@ export default function LimbSalvagePage() {
             <AlertTriangle className="h-8 w-8 text-orange-500" />
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-red-500">
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow border-l-4 border-red-500">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Very High</p>
@@ -298,7 +298,7 @@ export default function LimbSalvagePage() {
               </div>
 
               {/* Classification Scores */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                 <div className="bg-gray-50 p-3 rounded-lg text-center">
                   <p className="text-xs text-gray-500">Wagner</p>
                   <p className="text-2xl font-bold">Grade {viewAssessment.wagnerGrade}</p>

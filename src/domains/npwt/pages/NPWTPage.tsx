@@ -303,19 +303,19 @@ export default function NPWTPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="page-title flex items-center gap-3">
             <Wind className="w-7 h-7 text-purple-600" />
             NPWT Management
           </h1>
-          <p className="text-gray-600 mt-1">Negative Pressure Wound Therapy tracking and monitoring</p>
+          <p className="page-subtitle">Negative Pressure Wound Therapy tracking and monitoring</p>
         </div>
         <button
           onClick={() => setShowNewSession(true)}
-          className="btn btn-primary flex items-center gap-2"
+          className="btn btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
         >
           <Plus size={18} />
           New NPWT Session
@@ -324,7 +324,7 @@ export default function NPWTPage() {
 
       {/* Alert Cards */}
       {(upcomingChanges.length > 0 || overdueChanges.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="form-grid-2">
           {overdueChanges.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
@@ -359,8 +359,8 @@ export default function NPWTPage() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="card p-4">
+      <div className="stats-grid">
+        <div className="card card-compact p-3 sm:p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 rounded-lg">
               <Wind className="w-5 h-5 text-purple-600" />
@@ -371,7 +371,7 @@ export default function NPWTPage() {
             </div>
           </div>
         </div>
-        <div className="card p-4">
+        <div className="card card-compact p-3 sm:p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
               <TrendingUp className="w-5 h-5 text-green-600" />
@@ -384,7 +384,7 @@ export default function NPWTPage() {
             </div>
           </div>
         </div>
-        <div className="card p-4">
+        <div className="card card-compact p-3 sm:p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <Clock className="w-5 h-5 text-blue-600" />
@@ -397,7 +397,7 @@ export default function NPWTPage() {
             </div>
           </div>
         </div>
-        <div className="card p-4">
+        <div className="card card-compact p-3 sm:p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-100 rounded-lg">
               <Calendar className="w-5 h-5 text-amber-600" />
@@ -413,7 +413,7 @@ export default function NPWTPage() {
       </div>
 
       {/* Search and Filter */}
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
@@ -427,7 +427,7 @@ export default function NPWTPage() {
         <select
           value={filterCycle}
           onChange={(e) => setFilterCycle(e.target.value as any)}
-          className="input w-full md:w-48"
+          className="input w-full sm:w-48"
         >
           <option value="all">All Cycles</option>
           <option value="4_day">4-Day Cycle</option>
@@ -436,7 +436,7 @@ export default function NPWTPage() {
       </div>
 
       {/* Sessions List */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {filteredSessions.length === 0 ? (
           <div className="card p-8 text-center">
             <Wind className="w-12 h-12 mx-auto text-gray-300 mb-4" />
@@ -580,7 +580,7 @@ export default function NPWTPage() {
                     <Layers size={18} />
                     Wound Information
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="form-grid-2">
                     <div>
                       <label className="label">Wound Type *</label>
                       <select {...register('woundType')} className={`input ${errors.woundType ? 'input-error' : ''}`}>

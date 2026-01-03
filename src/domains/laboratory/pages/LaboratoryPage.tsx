@@ -455,19 +455,19 @@ export default function LaboratoryPage() {
   }, [labRequests]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <FlaskConical className="w-7 h-7 text-teal-500" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <FlaskConical className="w-6 h-6 sm:w-7 sm:h-7 text-teal-500" />
             Laboratory & Investigations
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             Request investigations, collect samples, and upload results
           </p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary">
+        <button onClick={() => setShowModal(true)} className="btn btn-primary w-full sm:w-auto">
           <Plus size={18} />
           New Lab Request
         </button>
@@ -518,7 +518,7 @@ export default function LaboratoryPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-100 rounded-lg">
@@ -566,8 +566,8 @@ export default function LaboratoryPage() {
       </div>
 
       {/* Filters */}
-      <div className="card p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="card p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
           <div className="relative flex-1">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -595,8 +595,8 @@ export default function LaboratoryPage() {
 
       {/* Lab Requests Table */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto -mx-px">
+          <table className="w-full min-w-[700px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>

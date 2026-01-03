@@ -3,7 +3,8 @@
 
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
+import { HospitalSelector } from '../../../components/hospital';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
@@ -386,33 +387,33 @@ export default function WardRoundsPage() {
   }, [admissions]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3">
             <Clipboard className="w-8 h-8 text-sky-500" />
             Ward Rounds & Assignments
           </h1>
-          <p className="text-gray-500 mt-1">
+          <p className="text-sm sm:text-base text-gray-500 mt-1">
             Manage ward rounds, doctor and nurse patient assignments
           </p>
         </div>
         <div className="flex gap-2">
           {activeTab === 'rounds' && (
-            <button onClick={() => setShowRoundModal(true)} className="btn btn-primary">
+            <button onClick={() => setShowRoundModal(true)} className="btn btn-primary w-full sm:w-auto">
               <Plus size={18} />
               Schedule Round
             </button>
           )}
           {activeTab === 'doctor_assignments' && (
-            <button onClick={() => setShowDoctorAssignModal(true)} className="btn btn-primary">
+            <button onClick={() => setShowDoctorAssignModal(true)} className="btn btn-primary w-full sm:w-auto">
               <UserPlus size={18} />
               Assign Doctor
             </button>
           )}
           {activeTab === 'nurse_assignments' && (
-            <button onClick={() => setShowNurseAssignModal(true)} className="btn btn-primary">
+            <button onClick={() => setShowNurseAssignModal(true)} className="btn btn-primary w-full sm:w-auto">
               <UserPlus size={18} />
               Assign Nurse
             </button>
@@ -421,7 +422,7 @@ export default function WardRoundsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
+      <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('rounds')}
           className={`px-4 py-2 font-medium border-b-2 transition-colors ${
@@ -464,7 +465,7 @@ export default function WardRoundsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
@@ -491,7 +492,7 @@ export default function WardRoundsPage() {
 
       {/* Content based on active tab */}
       {activeTab === 'rounds' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredRounds.length > 0 ? (
             filteredRounds.map((round) => {
               const roundTypeInfo = roundTypes.find(t => t.value === round.roundType);
@@ -766,12 +767,18 @@ export default function WardRoundsPage() {
                 {/* Hospital Selection */}
                 <div>
                   <label className="label">Hospital *</label>
-                  <select {...roundForm.register('hospitalId')} className="input">
-                    <option value="">Select hospital</option>
-                    {hospitals?.map((h) => (
-                      <option key={h.id} value={h.id}>{h.name}</option>
-                    ))}
-                  </select>
+                  <Controller
+                    name="hospitalId"
+                    control={roundForm.control}
+                    render={({ field }) => (
+                      <HospitalSelector
+                        value={field.value}
+                        onChange={(hospitalId) => field.onChange(hospitalId || '')}
+                        placeholder="Search hospital..."
+                        showAddNew={true}
+                      />
+                    )}
+                  />
                   {roundForm.formState.errors.hospitalId && (
                     <p className="text-sm text-red-500 mt-1">{roundForm.formState.errors.hospitalId.message}</p>
                   )}
@@ -984,12 +991,18 @@ export default function WardRoundsPage() {
               <form onSubmit={doctorAssignForm.handleSubmit(handleDoctorAssignment)} className="p-6 space-y-4">
                 <div>
                   <label className="label">Hospital</label>
-                  <select {...doctorAssignForm.register('hospitalId')} className="input">
-                    <option value="">Select hospital</option>
-                    {hospitals?.map((h) => (
-                      <option key={h.id} value={h.id}>{h.name}</option>
-                    ))}
-                  </select>
+                  <Controller
+                    name="hospitalId"
+                    control={doctorAssignForm.control}
+                    render={({ field }) => (
+                      <HospitalSelector
+                        value={field.value}
+                        onChange={(hospitalId) => field.onChange(hospitalId || '')}
+                        placeholder="Search hospital..."
+                        showAddNew={true}
+                      />
+                    )}
+                  />
                 </div>
 
                 <div>
@@ -1083,12 +1096,18 @@ export default function WardRoundsPage() {
               <form onSubmit={nurseAssignForm.handleSubmit(handleNurseAssignment)} className="p-6 space-y-4">
                 <div>
                   <label className="label">Hospital</label>
-                  <select {...nurseAssignForm.register('hospitalId')} className="input">
-                    <option value="">Select hospital</option>
-                    {hospitals?.map((h) => (
-                      <option key={h.id} value={h.id}>{h.name}</option>
-                    ))}
-                  </select>
+                  <Controller
+                    name="hospitalId"
+                    control={nurseAssignForm.control}
+                    render={({ field }) => (
+                      <HospitalSelector
+                        value={field.value}
+                        onChange={(hospitalId) => field.onChange(hospitalId || '')}
+                        placeholder="Search hospital..."
+                        showAddNew={true}
+                      />
+                    )}
+                  />
                 </div>
 
                 <div>

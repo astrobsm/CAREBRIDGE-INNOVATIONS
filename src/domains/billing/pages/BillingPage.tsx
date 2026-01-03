@@ -467,35 +467,35 @@ export default function BillingPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <Receipt className="w-7 h-7 text-emerald-500" />
+          <h1 className="page-title flex items-center gap-3">
+            <Receipt className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" />
             Billing & Invoices
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="page-subtitle">
             Procedure-linked billing with payment tracking
           </p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary">
+        <button onClick={() => setShowModal(true)} className="btn btn-primary w-full sm:w-auto">
           <Plus size={18} />
           New Invoice
         </button>
       </div>
 
       {/* Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="card p-4"
+          className="card card-compact p-3 sm:p-4"
         >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
-              <FileText className="w-5 h-5 text-blue-600" />
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
             </div>
             <div>
               <p className="text-sm text-gray-500">Total Invoices</p>

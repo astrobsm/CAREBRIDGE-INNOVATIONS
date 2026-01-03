@@ -78,57 +78,58 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Welcome Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="page-title">
             Good {getGreeting()}, {user?.firstName}!
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="page-subtitle">
             Here's what's happening at CareBridge today.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Calendar size={16} />
-          {format(new Date(), 'EEEE, MMMM d, yyyy')}
+          <span className="hidden xs:inline">{format(new Date(), 'EEEE, ')}</span>
+          {format(new Date(), 'MMM d, yyyy')}
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="stats-grid">
         {stats.map((stat, index) => (
           <motion.div
             key={stat.name}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.1 }}
-            className="card p-6"
+            className="stat-card"
           >
             <div className="flex items-start justify-between">
-              <div className={`p-3 rounded-xl ${stat.color} text-white`}>
+              <div className={`p-2 sm:p-3 rounded-xl ${stat.color} text-white`}>
                 {stat.icon}
               </div>
-              <div className="flex items-center gap-1 text-emerald-600 text-sm font-medium">
+              <div className="flex items-center gap-1 text-emerald-600 text-xs sm:text-sm font-medium">
                 <TrendingUp size={14} />
                 {stat.change}
               </div>
             </div>
-            <div className="mt-4">
-              <h3 className="text-3xl font-bold text-gray-900">{stat.value}</h3>
-              <p className="text-gray-600 text-sm mt-1">{stat.name}</p>
+            <div className="mt-3 sm:mt-4">
+              <h3 className="stat-value">{stat.value}</h3>
+              <p className="stat-label">{stat.name}</p>
             </div>
           </motion.div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Recent Patients */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.4 }}
-          className="card"
+          className="card card-compact"
         >
           <div className="card-header flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">Recent Patients</h2>
@@ -141,9 +142,9 @@ export default function DashboardPage() {
               recentPatients.map((patient) => (
                 <div
                   key={patient.id}
-                  className="px-6 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors"
+                  className="px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 hover:bg-gray-50 transition-colors"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-medium">
+                  <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0">
                     {patient.firstName[0]}{patient.lastName[0]}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -160,10 +161,10 @@ export default function DashboardPage() {
                 </div>
               ))
             ) : (
-              <div className="px-6 py-12 text-center">
-                <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No patients registered yet</p>
-                <a href="/patients/new" className="text-sky-600 text-sm hover:underline mt-1 inline-block">
+              <div className="empty-state">
+                <Users className="empty-state-icon" />
+                <p className="empty-state-title">No patients registered yet</p>
+                <a href="/patients/new" className="text-sky-600 text-sm hover:underline">
                   Register first patient
                 </a>
               </div>
@@ -176,7 +177,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.5 }}
-          className="card"
+          className="card card-compact"
         >
           <div className="card-header flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">Upcoming Surgeries</h2>
@@ -189,11 +190,11 @@ export default function DashboardPage() {
               upcomingSurgeries.map((surgery) => (
                 <div
                   key={surgery.id}
-                  className="px-6 py-4 hover:bg-gray-50 transition-colors"
+                  className="px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-medium text-gray-900">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-gray-900 truncate">
                         {surgery.procedureName}
                       </p>
                       <p className="text-sm text-gray-500">

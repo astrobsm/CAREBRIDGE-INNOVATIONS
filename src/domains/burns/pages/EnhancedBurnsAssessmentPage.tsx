@@ -379,9 +379,9 @@ export default function EnhancedBurnsAssessmentPage() {
     switch (activeTab) {
       case 'assessment':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Quick Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="stats-grid">
               <div className={`p-4 rounded-lg ${
                 selectedBurn.tbsaPercentage >= 30 ? 'bg-red-100 text-red-800' :
                 selectedBurn.tbsaPercentage >= 20 ? 'bg-amber-100 text-amber-800' : 'bg-orange-100 text-orange-800'
@@ -416,7 +416,7 @@ export default function EnhancedBurnsAssessmentPage() {
                 <Info size={16} />
                 Burn Information
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 text-sm">
                 <div>
                   <span className="text-gray-500">Type:</span>
                   <span className="ml-2 font-medium capitalize">{selectedBurn.burnType}</span>
@@ -445,7 +445,7 @@ export default function EnhancedBurnsAssessmentPage() {
             {/* Affected Areas */}
             <div className="bg-gray-50 rounded-lg p-4">
               <h4 className="font-semibold text-gray-900 mb-3">Affected Areas</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {selectedBurn.affectedAreas.map((area, idx) => {
                   const depthInfo = burnDepths.find(d => d.value === area.depth);
                   return (
@@ -517,7 +517,7 @@ export default function EnhancedBurnsAssessmentPage() {
 
       case 'monitoring':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <VitalsMonitor
               burnAssessmentId={selectedBurn.id}
               patientWeight={patientWeight}
@@ -578,19 +578,19 @@ export default function EnhancedBurnsAssessmentPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="page-title flex items-center gap-3">
             <Flame className="w-7 h-7 text-orange-500" />
             Burns Assessment & Management
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="page-subtitle">
             WHO/ISBI Guidelines 2024 - Comprehensive Burn Care Protocol
           </p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary">
+        <button onClick={() => setShowModal(true)} className="btn btn-primary w-full sm:w-auto">
           <Plus size={18} />
           New Assessment
         </button>
@@ -617,7 +617,7 @@ export default function EnhancedBurnsAssessmentPage() {
       )}
 
       {/* TBSA Calculator Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Lund-Browder Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

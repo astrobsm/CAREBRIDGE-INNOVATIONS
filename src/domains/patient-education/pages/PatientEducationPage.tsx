@@ -161,15 +161,15 @@ const PatientEducationPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <BookOpen className="h-8 w-8 text-blue-600" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-blue-100 rounded-lg">
+                <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Patient Education</h1>
-                <p className="text-gray-600">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Patient Education</h1>
+                <p className="text-sm sm:text-base text-gray-600 mt-1">
                   Comprehensive educational materials aligned with WHO guidelines
                 </p>
               </div>
@@ -177,25 +177,25 @@ const PatientEducationPage: React.FC = () => {
           </div>
 
           {/* Search */}
-          <div className="mt-6 relative">
+          <div className="mt-4 sm:mt-6 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search conditions, procedures, or ICD codes..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
             />
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
           {/* Categories List */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <h2 className="font-semibold text-lg mb-4">Categories</h2>
+            <div className="bg-white rounded-xl shadow-sm p-3 sm:p-4">
+              <h2 className="font-semibold text-base sm:text-lg mb-3 sm:mb-4">Categories</h2>
               <div className="space-y-2">
                 {filteredCategories.map((category) => (
                   <motion.button
@@ -246,10 +246,10 @@ const PatientEducationPage: React.FC = () => {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-white rounded-xl shadow-sm p-4"
+                  className="bg-white rounded-xl shadow-sm p-3 sm:p-4"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-semibold text-lg">{selectedCategory.name}</h2>
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <h2 className="font-semibold text-base sm:text-lg">{selectedCategory.name}</h2>
                     <button
                       onClick={() => handleDownloadCategoryPDF(selectedCategory)}
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -281,9 +281,9 @@ const PatientEducationPage: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                      <p>Content coming soon</p>
+                    <div className="text-center py-6 sm:py-8 text-gray-500">
+                      <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 text-gray-300" />
+                      <p className="text-sm sm:text-base">Content coming soon</p>
                       <p className="text-xs mt-1">Educational materials for this category are being developed</p>
                     </div>
                   )}
@@ -292,10 +292,10 @@ const PatientEducationPage: React.FC = () => {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-500"
+                  className="bg-white rounded-xl shadow-sm p-6 sm:p-8 text-center text-gray-500"
                 >
-                  <BookOpen className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>Select a category to view conditions</p>
+                  <BookOpen className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm sm:text-base">Select a category to view conditions</p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -313,25 +313,25 @@ const PatientEducationPage: React.FC = () => {
                   className="bg-white rounded-xl shadow-sm overflow-hidden"
                 >
                   {/* Condition Header */}
-                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
-                    <h2 className="font-bold text-lg">{selectedCondition.name}</h2>
-                    <div className="flex items-center gap-4 mt-2 text-blue-100 text-sm">
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-3 sm:p-4 text-white">
+                    <h2 className="font-bold text-base sm:text-lg">{selectedCondition.name}</h2>
+                    <div className="flex items-center gap-2 sm:gap-4 mt-2 text-blue-100 text-xs sm:text-sm">
                       <span>ICD: {selectedCondition.icdCode}</span>
                     </div>
                   </div>
 
-                  <div className="p-4 space-y-3">
+                  <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
                     {/* Download Button */}
                     <button
                       onClick={handleDownloadConditionPDF}
-                      className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors"
+                      className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-2.5 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
                     >
-                      <Download className="h-5 w-5" />
+                      <Download className="h-4 w-4 sm:h-5 sm:w-5" />
                       Download Patient Education PDF
                     </button>
 
                     {/* Sections */}
-                    <div className="space-y-2 mt-4">
+                    <div className="space-y-2 mt-3 sm:mt-4">
                       {/* Overview */}
                       <SectionToggle 
                         id="overview" 
@@ -533,10 +533,10 @@ const PatientEducationPage: React.FC = () => {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-500"
+                  className="bg-white rounded-xl shadow-sm p-6 sm:p-8 text-center text-gray-500"
                 >
-                  <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>Select a condition to view details</p>
+                  <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm sm:text-base">Select a condition to view details</p>
                 </motion.div>
               )}
             </AnimatePresence>

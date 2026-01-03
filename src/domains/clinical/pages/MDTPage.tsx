@@ -622,7 +622,7 @@ export default function MDTPage() {
                 </div>
 
                 {/* Specialty Plans Grid */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {Object.entries(specialtyDefinitions).slice(0, 8).map(([key, spec]) => {
                     const plan = patientPlans.find(p => p.specialty === key);
                     return (
@@ -912,7 +912,7 @@ export default function MDTPage() {
                         </button>
                         
                         {expandedSections.includes(`team-${plan.id}`) && (
-                          <div className="mt-3 grid grid-cols-2 gap-3">
+                          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                             {plan.teamResponsibilities.map((team, idx) => (
                               <div
                                 key={idx}
@@ -1028,20 +1028,20 @@ export default function MDTPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Users className="text-primary-600" />
             Multidisciplinary Team (MDT)
           </h1>
-          <p className="text-gray-500 mt-1">Coordinate care across specialties with harmonized treatment plans</p>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Coordinate care across specialties with harmonized treatment plans</p>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <p className="text-2xl font-bold text-blue-600">{meetings.length}</p>
           <p className="text-sm text-gray-500">Scheduled Meetings</p>

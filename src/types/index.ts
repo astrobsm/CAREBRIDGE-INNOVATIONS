@@ -3208,3 +3208,226 @@ export interface TransfusionMonitoringChart {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// ============================================
+// APPOINTMENT DIARY MODULE
+// ============================================
+
+// Appointment Types
+export type AppointmentType = 
+  | 'follow_up'          // Post-operative/treatment follow-up
+  | 'fresh_consultation' // New patient consultation
+  | 'review'             // Routine review
+  | 'procedure'          // Minor procedures
+  | 'dressing_change'    // Wound dressing
+  | 'suture_removal'     // Post-surgical suture removal
+  | 'home_visit'         // Home care visit
+  | 'telemedicine'       // Video/phone consultation
+  | 'pre_operative'      // Pre-op assessment
+  | 'post_operative'     // Post-op check
+  | 'emergency'          // Emergency appointment
+  | 'other';
+
+export type AppointmentStatus = 
+  | 'scheduled'          // Appointment is booked
+  | 'confirmed'          // Patient confirmed attendance
+  | 'checked_in'         // Patient has arrived
+  | 'in_progress'        // Currently seeing patient
+  | 'completed'          // Appointment completed
+  | 'no_show'            // Patient didn't attend
+  | 'cancelled'          // Cancelled by patient/clinic
+  | 'rescheduled';       // Moved to new date/time
+
+export type AppointmentPriority = 'routine' | 'urgent' | 'emergency';
+
+export type ReminderStatus = 'pending' | 'sent' | 'delivered' | 'failed' | 'acknowledged';
+
+export type ReminderChannel = 'push_notification' | 'whatsapp' | 'sms' | 'email';
+
+// Main Appointment Interface
+export interface Appointment {
+  id: string;
+  appointmentNumber: string;         // Unique appointment reference (e.g., APT-2025-001234)
+  patientId: string;
+  hospitalId: string;                // Hospital where appointment is scheduled
+  
+  // Scheduling
+  appointmentDate: Date;
+  appointmentTime: string;           // HH:mm format (24hr)
+  duration: number;                  // Duration in minutes (default 30)
+  
+  // Appointment Details
+  type: AppointmentType;
+  priority: AppointmentPriority;
+  status: AppointmentStatus;
+  
+  // Location
+  location: AppointmentLocation;
+  
+  // Clinical Context
+  reasonForVisit: string;            // Primary reason for the appointment
+  notes?: string;                    // Additional notes
+  relatedEncounterId?: string;       // Link to previous encounter
+  relatedSurgeryId?: string;         // Link to related surgery
+  relatedWoundId?: string;           // Link to wound care
+  
+  // Staff Assignment
+  clinicianId: string;               // Assigned doctor/clinician
+  clinicianName?: string;            // Denormalized for quick display
+  
+  // Patient Contact (for reminders)
+  patientWhatsApp: string;           // WhatsApp number for reminders
+  patientPhone?: string;             // Alternative phone
+  patientEmail?: string;             // Email for confirmation
+  
+  // Reminder Configuration
+  reminderEnabled: boolean;
+  reminderSchedule: ReminderSchedule[];
+  
+  // Booking Details
+  bookedBy: string;                  // User who created appointment
+  bookedAt: Date;
+  lastModifiedBy?: string;
+  
+  // Completion Details
+  checkedInAt?: Date;
+  seenAt?: Date;
+  completedAt?: Date;
+  outcomeNotes?: string;
+  nextAppointmentId?: string;        // Link to follow-up if scheduled
+  
+  // Sync & Audit
+  syncStatus?: 'pending' | 'synced' | 'conflict';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Appointment Location
+export interface AppointmentLocation {
+  type: 'hospital' | 'home' | 'telemedicine';
+  hospitalId?: string;
+  hospitalName?: string;
+  department?: string;
+  room?: string;
+  
+  // For home visits
+  homeAddress?: string;
+  homeCity?: string;
+  homeState?: string;
+  homeLandmarks?: string;
+  homeContactPhone?: string;
+  assignedDriverId?: string;
+  assignedHomeCareGiverId?: string;
+  
+  // For telemedicine
+  meetingLink?: string;
+  meetingPlatform?: 'video_conference' | 'phone' | 'whatsapp_video';
+}
+
+// Reminder Schedule
+export interface ReminderSchedule {
+  id: string;
+  offsetHours: number;               // Hours before appointment (e.g., 24, 2, 1)
+  channel: ReminderChannel;
+  status: ReminderStatus;
+  scheduledFor: Date;
+  sentAt?: Date;
+  deliveredAt?: Date;
+  failureReason?: string;
+  messageContent?: string;           // Generated message content
+}
+
+// Appointment Reminder Record (for tracking sent reminders)
+export interface AppointmentReminder {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  hospitalId: string;
+  
+  // Reminder Details
+  channel: ReminderChannel;
+  scheduledFor: Date;
+  sentAt?: Date;
+  deliveredAt?: Date;
+  status: ReminderStatus;
+  
+  // Message Content
+  messageTemplate: string;
+  messageContent: string;
+  
+  // WhatsApp Specific
+  whatsAppNumber?: string;
+  whatsAppMessageId?: string;
+  
+  // Response Tracking
+  patientResponse?: 'confirmed' | 'cancelled' | 'rescheduled' | 'no_response';
+  responseReceivedAt?: Date;
+  
+  // Error Handling
+  failureReason?: string;
+  retryCount: number;
+  maxRetries: number;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Appointment Slot Template (for managing available slots)
+export interface AppointmentSlot {
+  id: string;
+  hospitalId: string;
+  clinicianId: string;
+  
+  // Schedule Pattern
+  dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0 = Sunday
+  startTime: string;                     // HH:mm
+  endTime: string;                       // HH:mm
+  slotDuration: number;                  // Minutes per slot
+  
+  // Capacity
+  maxAppointments: number;
+  
+  // Availability
+  isActive: boolean;
+  effectiveFrom: Date;
+  effectiveTo?: Date;
+  
+  // Location
+  locationType: 'hospital' | 'home' | 'telemedicine';
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Clinic/Outpatient Session
+export interface ClinicSession {
+  id: string;
+  hospitalId: string;
+  clinicianId: string;
+  
+  sessionDate: Date;
+  startTime: string;
+  endTime: string;
+  
+  clinicType: string;                    // e.g., "Surgical Outpatient", "Wound Clinic"
+  location: string;
+  
+  maxPatients: number;
+  bookedCount: number;
+  
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  notes?: string;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Appointment Summary/Statistics
+export interface AppointmentStats {
+  totalScheduled: number;
+  totalCompleted: number;
+  totalNoShow: number;
+  totalCancelled: number;
+  averageWaitTime?: number;              // Minutes
+  attendanceRate?: number;               // Percentage
+}

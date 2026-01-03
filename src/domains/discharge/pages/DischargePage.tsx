@@ -251,21 +251,21 @@ export default function DischargePage({ embedded = false }: DischargePageProps) 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <LogOut className="w-7 h-7 text-indigo-500" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <LogOut className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" />
             Discharge Management
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             Process patient discharges with comprehensive summaries and follow-up tracking
           </p>
         </div>
         <button
           onClick={() => setShowFollowUpTracker(true)}
-          className="btn btn-secondary flex items-center gap-2"
+          className="btn btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
         >
           <RefreshCw size={18} />
           Follow-up Tracker
@@ -273,7 +273,7 @@ export default function DischargePage({ embedded = false }: DischargePageProps) 
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         <div className="card p-4 bg-gradient-to-br from-orange-50 to-amber-50">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-100 rounded-lg">
@@ -321,8 +321,8 @@ export default function DischargePage({ embedded = false }: DischargePageProps) 
       </div>
 
       {/* Filters */}
-      <div className="card p-4">
-        <div className="flex flex-col md:flex-row gap-4">
+      <div className="card p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
@@ -336,7 +336,7 @@ export default function DischargePage({ embedded = false }: DischargePageProps) 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'all' | 'pending' | 'completed')}
-            className="input w-full md:w-44"
+            className="input w-full sm:w-44"
           >
             <option value="all">All Status</option>
             <option value="pending">Pending Discharge</option>
@@ -345,7 +345,7 @@ export default function DischargePage({ embedded = false }: DischargePageProps) 
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value as 'all' | 'today' | 'week' | 'month')}
-            className="input w-full md:w-40"
+            className="input w-full sm:w-40"
           >
             <option value="all">All Time</option>
             <option value="today">Today</option>
@@ -356,7 +356,7 @@ export default function DischargePage({ embedded = false }: DischargePageProps) 
       </div>
 
       {/* Admissions List */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {filteredAdmissions.length === 0 ? (
           <div className="card p-12 text-center">
             <LogOut className="w-12 h-12 text-gray-300 mx-auto mb-4" />

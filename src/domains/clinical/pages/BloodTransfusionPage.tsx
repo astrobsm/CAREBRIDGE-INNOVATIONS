@@ -709,7 +709,7 @@ Note: Uploaded chart stored successfully.
                     {/* Vitals Monitoring */}
                     <div className="p-4 border-t">
                       <h5 className="font-medium mb-3">Pre-transfusion Vitals</h5>
-                      <div className="grid grid-cols-5 gap-3 text-center">
+                      <div className="grid grid-cols-3 gap-3 text-center sm:grid-cols-5">
                         <div className="p-2 bg-gray-50 rounded-lg">
                           <Thermometer className="mx-auto text-orange-500 mb-1" size={18} />
                           <p className="text-lg font-semibold">{transfusion.preVitals.temperature}°C</p>
@@ -774,7 +774,7 @@ Note: Uploaded chart stored successfully.
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Blood Products Reference</h3>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {Object.entries(bloodProductInfo).map(([key, info]) => (
                 <div key={key} className="bg-white rounded-xl p-4 border shadow-sm">
                   <h4 className="font-semibold text-red-600 mb-2">{info.name}</h4>
@@ -1053,7 +1053,7 @@ Note: Uploaded chart stored successfully.
                 <p className="text-sm mt-2">Download a template, fill it during transfusion, then upload</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {transfusionCharts.map(chart => (
                   <motion.div
                     key={chart.id}
@@ -1135,7 +1135,7 @@ Note: Uploaded chart stored successfully.
 
             <div className="bg-white rounded-xl p-4 border">
               <h4 className="font-semibold mb-3">Standard MTP Pack (Per Round)</h4>
-              <div className="grid grid-cols-4 gap-4 text-center">
+              <div className="grid grid-cols-2 gap-4 text-center sm:grid-cols-4">
                 <div className="p-3 bg-red-100 rounded-lg">
                   <p className="text-2xl font-bold text-red-700">6</p>
                   <p className="text-sm">PRBC</p>
@@ -1158,7 +1158,7 @@ Note: Uploaded chart stored successfully.
 
             <div className="bg-white rounded-xl p-4 border">
               <h4 className="font-semibold mb-3">Lab Monitoring During MTP</h4>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <h5 className="font-medium text-sm mb-2">Every 30-60 minutes:</h5>
                   <ul className="text-sm text-gray-600 list-disc list-inside">
@@ -1198,20 +1198,20 @@ Note: Uploaded chart stored successfully.
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Droplets className="text-red-600" />
             Blood Transfusion
           </h1>
-          <p className="text-gray-500 mt-1">Manage blood products, transfusions, and reactions</p>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage blood products, transfusions, and reactions</p>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <p className="text-2xl font-bold text-yellow-600">{requests.filter(r => r.status === 'requested').length}</p>
           <p className="text-sm text-gray-500">Pending Requests</p>

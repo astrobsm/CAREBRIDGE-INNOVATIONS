@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1800AC">
+  <title>Offline - CareBridge</title>
+  <link rel="icon" href="/icons/logo.png" type="image/png">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      text-align: center;
+      max-width: 500px;
+      background: white;
+      border-radius: 16px;
+      padding: 48px 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    }
+    
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 24px;
+    }
+    
+    .icon {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 24px;
+      background: #f3f4f6;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .icon svg {
+      width: 60px;
+      height: 60px;
+      color: #6366f1;
+    }
+    
+    h1 {
+      color: #1e293b;
+      font-size: 28px;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+    
+    .subtitle {
+      color: #64748b;
+      font-size: 18px;
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+    
+    .features {
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 32px;
+      text-align: left;
+    }
+    
+    .features h3 {
+      color: #334155;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+    }
+    
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      color: #475569;
+      font-size: 15px;
+    }
+    
+    .feature-item svg {
+      width: 20px;
+      height: 20px;
+      color: #10b981;
+      flex-shrink: 0;
+    }
+    
+    .retry-btn {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .retry-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+    }
+    
+    .retry-btn:active {
+      transform: translateY(0);
+    }
+    
+    .status {
+      margin-top: 24px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
+    
+    .status.online {
+      display: block;
+      background: #dcfce7;
+      color: #166534;
+    }
+    
+    .footer {
+      margin-top: 32px;
+      color: #94a3b8;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="/icons/logo.png" alt="CareBridge" class="logo" onerror="this.style.display='none'">
+    
+    <div class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" />
+      </svg>
+    </div>
+    
+    <h1>You're Offline</h1>
+    <p class="subtitle">Don't worry - CareBridge continues to work offline. All your changes are saved locally and will sync automatically when you're back online.</p>
+    
+    <div class="features">
+      <h3>What you can still do:</h3>
+      <div class="feature-item">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <span>View and edit patient records</span>
+      </div>
+      <div class="feature-item">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <span>Record vital signs and clinical notes</span>
+      </div>
+      <div class="feature-item">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <span>Create prescriptions and lab requests</span>
+      </div>
+      <div class="feature-item">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <span>Generate PDF reports and documents</span>
+      </div>
+    </div>
+    
+    <button class="retry-btn" onclick="checkConnection()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      Check Connection
+    </button>
+    
+    <div id="status" class="status"></div>
+    
+    <p class="footer">CareBridge - Innovations in Healthcare</p>
+  </div>
+
+  <script>
+    // Check if online and reload
+    function checkConnection() {
+      if (navigator.onLine) {
+        location.reload();
+      } else {
+        const status = document.getElementById('status');
+        status.textContent = 'Still offline. Please check your internet connection.';
+        status.style.display = 'block';
+        status.style.background = '#fef3c7';
+        status.style.color = '#92400e';
+        
+        setTimeout(() => {
+          status.style.display = 'none';
+        }, 3000);
+      }
+    }
+
+    // Auto-reload when online
+    window.addEventListener('online', () => {
+      const status = document.getElementById('status');
+      status.textContent = 'Connection restored! Reloading...';
+      status.className = 'status online';
+      setTimeout(() => {
+        location.reload();
+      }, 1000);
+    });
+
+    // Periodic check
+    setInterval(() => {
+      if (navigator.onLine) {
+        location.reload();
+      }
+    }, 5000);
+  </script>
+</body>
+</html>

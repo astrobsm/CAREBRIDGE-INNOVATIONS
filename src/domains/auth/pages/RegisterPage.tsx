@@ -76,26 +76,26 @@ export default function RegisterPage() {
   };
 
   return (
-    <div>
+    <div className="px-1">
       {/* Mobile Logo */}
-      <div className="lg:hidden text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-sky-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="lg:hidden text-center mb-6 sm:mb-8">
+        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-sky-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+          <svg className="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">CareBridge</h1>
-        <p className="text-gray-500">Surgical EMR System</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">CareBridge</h1>
+        <p className="text-sm sm:text-base text-gray-500">Surgical EMR System</p>
       </div>
 
-      <div className="card p-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Create Account</h2>
-          <p className="text-gray-600 mt-1">Join CareBridge to get started</p>
+      <div className="card p-4 sm:p-6 lg:p-8">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Create Account</h2>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Join CareBridge to get started</p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="firstName" className="label">First Name</label>
               <input
@@ -211,7 +211,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="btn btn-primary w-full py-3"
+            className="btn btn-primary w-full py-3 min-h-[48px] text-base"
           >
             {isLoading ? (
               <motion.div
@@ -228,7 +228,7 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        <p className="text-center text-gray-600 mt-6">
+        <p className="text-center text-sm sm:text-base text-gray-600 mt-4 sm:mt-6">
           Already have an account?{' '}
           <Link to="/login" className="text-sky-600 hover:text-sky-700 font-medium">
             Sign in

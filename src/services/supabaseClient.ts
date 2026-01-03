@@ -97,6 +97,24 @@ export const TABLES = {
   skinGraftRecords: 'skin_graft_records',
   burnCarePlans: 'burn_care_plans',
   
+  // Appointments
+  appointments: 'appointments',
+  appointmentReminders: 'appointment_reminders',
+  appointmentSlots: 'appointment_slots',
+  clinicSessions: 'clinic_sessions',
+  
+  // NPWT (Negative Pressure Wound Therapy)
+  npwtSessions: 'npwt_sessions',
+  npwtNotifications: 'npwt_notifications',
+  
+  // Medication Charts
+  medicationCharts: 'medication_charts',
+  nursePatientAssignments: 'nurse_patient_assignments',
+  
+  // Transfusion Orders & Monitoring
+  transfusionOrders: 'transfusion_orders',
+  transfusionMonitoringCharts: 'transfusion_monitoring_charts',
+  
   // Audit & Sync
   auditLogs: 'audit_logs',
   syncStatus: 'sync_status',
@@ -140,6 +158,20 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   escharotomyRecords: 'escharotomy_records',
   skinGraftRecords: 'skin_graft_records',
   burnCarePlans: 'burn_care_plans',
+  // Appointments
+  appointments: 'appointments',
+  appointmentReminders: 'appointment_reminders',
+  appointmentSlots: 'appointment_slots',
+  clinicSessions: 'clinic_sessions',
+  // NPWT
+  npwtSessions: 'npwt_sessions',
+  npwtNotifications: 'npwt_notifications',
+  // Medication Charts
+  medicationCharts: 'medication_charts',
+  nursePatientAssignments: 'nurse_patient_assignments',
+  // Transfusion
+  transfusionOrders: 'transfusion_orders',
+  transfusionMonitoringCharts: 'transfusion_monitoring_charts',
   auditLogs: 'audit_logs',
   syncStatus: 'sync_status',
 };

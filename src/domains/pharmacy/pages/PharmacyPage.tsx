@@ -375,19 +375,19 @@ export default function PharmacyPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3">
             <Pill className="w-7 h-7 text-violet-500" />
             Pharmacy
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             Prescription management with BNF-adapted dosing
           </p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary">
+        <button onClick={() => setShowModal(true)} className="btn btn-primary w-full sm:w-auto">
           <Plus size={18} />
           New Prescription
         </button>
@@ -550,7 +550,7 @@ export default function PharmacyPage() {
                   {/* Add Medication Form */}
                   <div className="card border-2 border-dashed border-gray-200 p-4">
                     <h3 className="font-semibold text-gray-900 mb-4">Add Medication</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <label className="label text-xs">Category</label>
                         <select

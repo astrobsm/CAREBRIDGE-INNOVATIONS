@@ -264,21 +264,21 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <BedDouble className="w-7 h-7 text-emerald-500" />
+          <h1 className="page-title flex items-center gap-3">
+            <BedDouble className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" />
             Admissions
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="page-subtitle">
             Manage patient admissions with real-time duration tracking
           </p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="btn btn-primary flex items-center gap-2"
+          className="btn btn-primary flex items-center gap-2 w-full sm:w-auto"
         >
           <Plus size={18} />
           New Admission
@@ -286,8 +286,8 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="card p-4 bg-gradient-to-br from-emerald-50 to-teal-50">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="card card-compact p-3 sm:p-4 bg-gradient-to-br from-emerald-50 to-teal-50">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-emerald-100 rounded-lg">
               <BedDouble className="w-5 h-5 text-emerald-600" />
@@ -298,7 +298,7 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
             </div>
           </div>
         </div>
-        <div className="card p-4 bg-gradient-to-br from-red-50 to-orange-50">
+        <div className="card card-compact p-3 sm:p-4 bg-gradient-to-br from-red-50 to-orange-50">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-red-100 rounded-lg">
               <Activity className="w-5 h-5 text-red-600" />
@@ -309,7 +309,7 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
             </div>
           </div>
         </div>
-        <div className="card p-4 bg-gradient-to-br from-orange-50 to-yellow-50">
+        <div className="card card-compact p-3 sm:p-4 bg-gradient-to-br from-orange-50 to-yellow-50">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-100 rounded-lg">
               <AlertTriangle className="w-5 h-5 text-orange-600" />
@@ -320,7 +320,7 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
             </div>
           </div>
         </div>
-        <div className="card p-4 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <div className="card card-compact p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-indigo-50">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <FileText className="w-5 h-5 text-blue-600" />
@@ -368,7 +368,7 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
       </div>
 
       {/* Admissions Grid */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {filteredAdmissions.map((admission) => {
           const patient = patientMap.get(admission.patientId);
           const doctor = userMap.get(admission.primaryDoctor);

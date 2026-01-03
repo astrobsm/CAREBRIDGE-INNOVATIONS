@@ -23,7 +23,8 @@ import {
   X,
   ChevronRight,
 } from 'lucide-react';
-import { PatientCalculatorInfo, COMMON_COMORBIDITIES, NIGERIAN_HOSPITALS } from '../types';
+import { HospitalSelector } from '../../../components/hospital';
+import { PatientCalculatorInfo, COMMON_COMORBIDITIES } from '../types';
 import SodiumCalculator from './calculators/SodiumCalculator';
 import PotassiumCalculator from './calculators/PotassiumCalculator';
 import AcidBaseCalculator from './calculators/AcidBaseCalculator';
@@ -168,12 +169,12 @@ export default function ClinicalCalculatorsPage() {
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-sky-50">
       {/* Header */}
       <header className="bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-lg print:hidden">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Calculator className="w-10 h-10" />
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Calculator className="w-8 h-8 sm:w-10 sm:h-10" />
             <div>
-              <h1 className="text-2xl font-bold">Clinical Calculators</h1>
-              <p className="text-sm text-sky-100">WHO-Aligned Critical Care Management</p>
+              <h1 className="text-xl sm:text-2xl font-bold">Clinical Calculators</h1>
+              <p className="text-xs sm:text-sm text-sky-100">WHO-Aligned Critical Care Management</p>
             </div>
           </div>
         </div>
@@ -182,9 +183,9 @@ export default function ClinicalCalculatorsPage() {
       {/* Patient Information Banner */}
       {patientInfo.name && (
         <div className="bg-gradient-to-r from-blue-100 to-blue-50 border-b-2 border-blue-300 print:hidden">
-          <div className="container mx-auto px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-6 text-sm">
+          <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-xs sm:text-sm">
                 <div><strong>Patient:</strong> {patientInfo.name}</div>
                 {patientInfo.hospital && <div><strong>Hospital:</strong> {patientInfo.hospital}</div>}
                 <div><strong>Age:</strong> {patientInfo.age} years</div>
@@ -210,14 +211,14 @@ export default function ClinicalCalculatorsPage() {
 
       {/* Tab Navigation */}
       <nav className="bg-white shadow-md sticky top-0 z-10 print:hidden">
-        <div className="container mx-auto px-4">
-          <div className="flex overflow-x-auto">
+        <div className="container mx-auto px-2 sm:px-4">
+          <div className="flex overflow-x-auto scrollbar-hide -mx-2 px-2 sm:mx-0 sm:px-0">
             <button
               onClick={() => setShowPatientForm(true)}
-              className="flex items-center gap-2 px-4 py-4 font-semibold text-blue-600 hover:bg-blue-50 transition-all whitespace-nowrap border-r border-gray-200"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 sm:py-4 font-semibold text-blue-600 hover:bg-blue-50 transition-all whitespace-nowrap border-r border-gray-200 text-sm sm:text-base"
             >
-              <User className="w-5 h-5" />
-              Patient Info
+              <User className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden xs:inline">Patient</span> Info
             </button>
             {calculatorTabs.map((tab) => {
               const Icon = tab.icon;
@@ -225,7 +226,7 @@ export default function ClinicalCalculatorsPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-4 font-medium transition-all whitespace-nowrap text-sm ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 sm:py-4 font-medium transition-all whitespace-nowrap text-xs sm:text-sm ${
                     activeTab === tab.id
                       ? 'text-sky-600 border-b-2 border-sky-600 bg-sky-50'
                       : 'text-gray-600 hover:text-sky-600 hover:bg-gray-50'
@@ -268,8 +269,8 @@ export default function ClinicalCalculatorsPage() {
                 </button>
               </div>
 
-              <div className="p-6 space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
+              <div className="p-4 sm:p-6 space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Patient Name *
@@ -283,19 +284,16 @@ export default function ClinicalCalculatorsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Hospital
-                    </label>
-                    <select
+                    <HospitalSelector
                       value={patientInfo.hospital}
-                      onChange={(e) => setPatientInfo({...patientInfo, hospital: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
-                    >
-                      <option value="">Select Hospital</option>
-                      {NIGERIAN_HOSPITALS.map(hospital => (
-                        <option key={hospital} value={hospital}>{hospital}</option>
-                      ))}
-                    </select>
+                      onChange={(hospitalId, hospital) => setPatientInfo({
+                        ...patientInfo,
+                        hospital: hospital?.name || hospitalId || ''
+                      })}
+                      label="Hospital"
+                      placeholder="Search or select hospital..."
+                      showAddNew={true}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -381,7 +379,7 @@ export default function ClinicalCalculatorsPage() {
                     Comorbidities
                     <span className="text-xs text-gray-500 ml-2">(Select all that apply)</span>
                   </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2 sm:p-3">
                     {COMMON_COMORBIDITIES.map((comorbidity) => (
                       <label key={comorbidity} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
                         <input
@@ -417,16 +415,16 @@ export default function ClinicalCalculatorsPage() {
       </AnimatePresence>
 
       {/* Calculator Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <div className="max-w-4xl mx-auto">
           {/* Active Calculator Info */}
           {activeTabConfig && (
-            <div className="mb-6 flex items-center gap-3 text-gray-600">
-              <ChevronRight className="w-5 h-5" />
-              <span className="text-sm">{categoryLabels[activeTabConfig.category]}</span>
-              <ChevronRight className="w-5 h-5" />
-              <span className="font-medium text-gray-900">{activeTabConfig.label}</span>
-              <span className="text-sm text-gray-500">- {activeTabConfig.description}</span>
+            <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-1.5 sm:gap-3 text-gray-600">
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-xs sm:text-sm">{categoryLabels[activeTabConfig.category]}</span>
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="font-medium text-gray-900 text-sm sm:text-base">{activeTabConfig.label}</span>
+              <span className="text-xs sm:text-sm text-gray-500 hidden sm:inline">- {activeTabConfig.description}</span>
             </div>
           )}
           
@@ -435,8 +433,8 @@ export default function ClinicalCalculatorsPage() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white py-6 mt-16 print:hidden">
-        <div className="container mx-auto px-4 text-center">
+      <footer className="bg-gray-800 text-white py-4 sm:py-6 mt-8 sm:mt-16 print:hidden">
+        <div className="container mx-auto px-3 sm:px-4 text-center">
           <p className="text-lg font-semibold text-sky-400 mb-3">
             CAREBRIDGE INNOVATIONS
           </p>

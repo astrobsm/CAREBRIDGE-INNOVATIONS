@@ -174,11 +174,11 @@ const ADTPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+        <div className="page-header">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">ADT Management</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="page-title">ADT Management</h1>
+            <p className="page-subtitle">
               Admission, Discharge & Transfer - Unified Patient Flow Management
             </p>
           </div>
@@ -221,7 +221,7 @@ const ADTPage: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <AnimatePresence mode="wait">
           {/* Overview Tab */}
           {activeTab === 'overview' && (
@@ -230,10 +230,10 @@ const ADTPage: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
+              className="space-y-4 sm:space-y-6"
             >
               {/* Stats Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                 <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 rounded-lg">
@@ -296,9 +296,9 @@ const ADTPage: React.FC = () => {
               </div>
 
               {/* Bed Occupancy & Pending Actions */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                 {/* Bed Occupancy */}
-                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                <div className="card card-compact p-4 sm:p-6 border border-gray-200 shadow-sm">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Bed Occupancy</h3>
                   <div className="flex items-center justify-center">
                     <div className="relative w-32 h-32">
@@ -336,7 +336,7 @@ const ADTPage: React.FC = () => {
                 </div>
 
                 {/* Pending Discharges */}
-                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                <div className="card card-compact p-4 sm:p-6 border border-gray-200 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Pending Discharges</h3>
                     <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
@@ -384,7 +384,7 @@ const ADTPage: React.FC = () => {
                 </div>
 
                 {/* Critical Patients */}
-                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                <div className="card card-compact p-4 sm:p-6 border border-gray-200 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Critical Patients</h3>
                     <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
@@ -425,9 +425,9 @@ const ADTPage: React.FC = () => {
               </div>
 
               {/* Ward Distribution & Recent Activity */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 {/* Ward Distribution */}
-                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                <div className="card card-compact p-4 sm:p-6 border border-gray-200 shadow-sm">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Ward Distribution</h3>
                   <div className="space-y-3">
                     {Object.entries(
@@ -456,7 +456,7 @@ const ADTPage: React.FC = () => {
                 </div>
 
                 {/* Recent Activity */}
-                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                <div className="card card-compact p-4 sm:p-6 border border-gray-200 shadow-sm">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
                   <div className="space-y-4">
                     {admissions
@@ -495,7 +495,7 @@ const ADTPage: React.FC = () => {
               </div>
 
               {/* Quick Actions */}
-              <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+              <div className="card card-compact p-4 sm:p-6 border border-gray-200 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <button

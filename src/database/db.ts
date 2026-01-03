@@ -40,6 +40,10 @@ import type {
   BurnCarePlan,
   TransfusionOrder,
   TransfusionMonitoringChart,
+  Appointment,
+  AppointmentReminder,
+  AppointmentSlot,
+  ClinicSession,
 } from '../types';
 
 export class CareBridgeDatabase extends Dexie {
@@ -89,11 +93,16 @@ export class CareBridgeDatabase extends Dexie {
   // Transfusion Orders and Monitoring Charts
   transfusionOrders!: Table<TransfusionOrder, string>;
   transfusionMonitoringCharts!: Table<TransfusionMonitoringChart, string>;
+  // Appointment Diary Module
+  appointments!: Table<Appointment, string>;
+  appointmentReminders!: Table<AppointmentReminder, string>;
+  appointmentSlots!: Table<AppointmentSlot, string>;
+  clinicSessions!: Table<ClinicSession, string>;
 
   constructor() {
     super('CareBridgeDB');
 
-    this.version(58).stores({
+    this.version(59).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -145,6 +154,11 @@ export class CareBridgeDatabase extends Dexie {
       // Transfusion Orders and Monitoring Charts
       transfusionOrders: 'id, patientId, hospitalId, orderId, requestId, status, orderDate, orderedBy, createdAt',
       transfusionMonitoringCharts: 'id, patientId, transfusionOrderId, chartDate, status, uploadedChartUrl, ocrText, createdAt',
+      // Appointment Diary Module
+      appointments: 'id, appointmentNumber, patientId, hospitalId, appointmentDate, type, status, priority, clinicianId, bookedBy, createdAt',
+      appointmentReminders: 'id, appointmentId, patientId, hospitalId, channel, scheduledFor, status, sentAt, createdAt',
+      appointmentSlots: 'id, hospitalId, clinicianId, dayOfWeek, isActive, createdAt',
+      clinicSessions: 'id, hospitalId, clinicianId, sessionDate, status, createdAt',
     });
   }
 }

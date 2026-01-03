@@ -415,7 +415,7 @@ export default function NutritionPlannerPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {filteredFoods.map(food => (
                 <div key={food.id} className="bg-white rounded-xl border shadow-sm overflow-hidden">
                   <div
@@ -517,7 +517,7 @@ export default function NutritionPlannerPage() {
                 <Utensils className="text-green-600" size={20} />
                 Sample Nigerian Meals
               </h4>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {(['breakfast', 'lunch', 'dinner'] as MealType[]).map(mealType => (
                   <div key={mealType}>
                     <h5 className="font-medium capitalize mb-2">{mealType}</h5>
@@ -773,20 +773,20 @@ export default function NutritionPlannerPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Apple className="text-green-600" />
             Nutrition Planner
           </h1>
-          <p className="text-gray-500 mt-1">Nutritional assessment and meal planning with African foods</p>
+          <p className="text-sm sm:text-base text-gray-500 mt-1">Nutritional assessment and meal planning with African foods</p>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <p className="text-2xl font-bold text-green-600">{assessments.length}</p>
           <p className="text-sm text-gray-500">Assessments</p>
@@ -807,8 +807,8 @@ export default function NutritionPlannerPage() {
 
       {/* Tabs */}
       <div className="bg-white rounded-xl shadow-sm border">
-        <div className="border-b">
-          <div className="flex">
+        <div className="border-b overflow-x-auto">
+          <div className="flex min-w-max">
             {[
               { id: 'assessment', label: 'Assessment', icon: Scale },
               { id: 'foods', label: 'Food Database', icon: Apple },
@@ -981,7 +981,7 @@ export default function NutritionPlannerPage() {
                 )}
 
                 {/* MUST Components */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Weight Loss (% in 3-6 months)</label>
                     <input
@@ -1050,7 +1050,7 @@ export default function NutritionPlannerPage() {
                 </div>
 
                 {/* Requirements Modifiers */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Stress Factor</label>
                     <select

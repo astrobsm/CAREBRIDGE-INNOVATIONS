@@ -376,13 +376,13 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-120px)] flex bg-white rounded-xl shadow-sm overflow-hidden">
+    <div className="h-[calc(100vh-80px)] sm:h-[calc(100vh-120px)] flex bg-white rounded-xl shadow-sm overflow-hidden">
       {/* Sidebar - Room List */}
-      <div className={`w-80 border-r flex flex-col ${selectedRoomId && 'hidden md:flex'}`}>
+      <div className={`w-full sm:w-80 border-r flex flex-col ${selectedRoomId && 'hidden sm:flex'}`}>
         {/* Header */}
-        <div className="p-4 border-b">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-gray-900">Messages</h1>
+        <div className="p-3 sm:p-4 border-b">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900">Messages</h1>
             <button
               onClick={() => setShowNewRoomModal(true)}
               className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -482,7 +482,7 @@ export default function ChatPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setSelectedRoomId(null)}
-                className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
+                className="sm:hidden p-2 hover:bg-gray-100 rounded-lg"
               >
                 <ChevronLeft size={20} />
               </button>
@@ -601,8 +601,8 @@ export default function ChatPage() {
           </AnimatePresence>
 
           {/* Message Input */}
-          <div className="p-4 border-t bg-white">
-            <div className="flex items-end gap-3">
+          <div className="p-3 sm:p-4 border-t bg-white">
+            <div className="flex items-end gap-2 sm:gap-3">
               <button className="p-2 hover:bg-gray-100 rounded-lg" title="Attach File">
                 <Paperclip size={20} className="text-gray-500" />
               </button>
@@ -651,13 +651,13 @@ export default function ChatPage() {
         </div>
       ) : (
         /* No Chat Selected */
-        <div className="flex-1 hidden md:flex items-center justify-center bg-gray-50">
+        <div className="flex-1 hidden sm:flex items-center justify-center bg-gray-50">
           <div className="text-center">
             <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
               <MessageSquare className="w-12 h-12 text-blue-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">CareBridge Messaging</h2>
-            <p className="text-gray-500 max-w-md">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">CareBridge Messaging</h2>
+            <p className="text-sm sm:text-base text-gray-500 max-w-md">
               Select a conversation to start messaging or create a new chat to connect with your team.
             </p>
             <button

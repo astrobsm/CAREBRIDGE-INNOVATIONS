@@ -221,26 +221,26 @@ export default function HospitalsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <Building2 className="w-7 h-7 text-blue-500" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <Building2 className="w-6 h-6 sm:w-7 sm:h-7 text-blue-500" />
             Hospital Registry
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             Manage hospitals and their service capabilities
           </p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary">
+        <button onClick={() => setShowModal(true)} className="btn btn-primary w-full sm:w-auto justify-center">
           <Plus size={18} />
           Add Hospital
         </button>
       </div>
 
       {/* Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -311,8 +311,8 @@ export default function HospitalsPage() {
       </div>
 
       {/* Filters */}
-      <div className="card p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="card p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
           <div className="relative flex-1">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -347,7 +347,7 @@ export default function HospitalsPage() {
       </div>
 
       {/* Hospital Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
         {filteredHospitals.length > 0 ? (
           filteredHospitals.map((hospital) => (
             <motion.div
@@ -482,9 +482,9 @@ export default function HospitalsPage() {
               </div>
 
               <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col max-h-[calc(90vh-80px)]">
-                <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 sm:space-y-6">
                   {/* Basic Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="label">Hospital Name *</label>
                       <input
@@ -516,7 +516,7 @@ export default function HospitalsPage() {
                     {errors.address && <span className="text-red-500 text-xs mt-1">{errors.address.message}</span>}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="label">City *</label>
                       <input
@@ -539,7 +539,7 @@ export default function HospitalsPage() {
                   </div>
 
                   {/* Contact Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
                       <label className="label">Phone *</label>
                       <input
@@ -570,7 +570,7 @@ export default function HospitalsPage() {
                   </div>
 
                   {/* Capacity */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
                       <label className="label">Bed Capacity</label>
                       <input

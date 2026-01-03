@@ -5,6 +5,15 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
+    // Add custom screens with xs breakpoint for small phones
+    screens: {
+      'xs': '375px',   // iPhone SE, small phones
+      'sm': '640px',   // Large phones, small tablets
+      'md': '768px',   // Tablets
+      'lg': '1024px',  // Small laptops
+      'xl': '1280px',  // Desktops
+      '2xl': '1536px', // Large desktops
+    },
     extend: {
       colors: {
         primary: {
@@ -93,6 +102,20 @@ export default {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.7' },
         },
+      },
+      // Mobile-friendly spacing
+      spacing: {
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-left': 'env(safe-area-inset-left)',
+        'safe-right': 'env(safe-area-inset-right)',
+      },
+      // Minimum touch target sizes
+      minWidth: {
+        'touch': '44px',
+      },
+      minHeight: {
+        'touch': '44px',
       },
     },
   },

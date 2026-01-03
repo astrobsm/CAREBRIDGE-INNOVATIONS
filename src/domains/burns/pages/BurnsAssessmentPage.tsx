@@ -284,19 +284,19 @@ export default function BurnsAssessmentPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="page-title flex items-center gap-3">
             <Flame className="w-7 h-7 text-orange-500" />
             Burns Assessment & Management
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="page-subtitle">
             TBSA calculation, Parkland formula, and burn care protocols
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowAIBurnExpert(true)}
             className="btn bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 flex items-center gap-2"
@@ -339,7 +339,7 @@ export default function BurnsAssessmentPage() {
       )}
 
       {/* Quick Calculator */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* TBSA Calculator */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -351,7 +351,7 @@ export default function BurnsAssessmentPage() {
             <h2 className="font-semibold text-gray-900">TBSA Calculator (Rule of 9s)</h2>
           </div>
           <div className="card-body">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 mb-4">
               <div>
                 <label className="label">Patient Age</label>
                 <input
@@ -399,7 +399,7 @@ export default function BurnsAssessmentPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {bodyParts.map((part) => {
                 const selected = selectedAreas[part.id];
                 return (

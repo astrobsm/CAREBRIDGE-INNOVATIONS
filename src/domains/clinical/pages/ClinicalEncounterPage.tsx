@@ -161,20 +161,20 @@ export default function ClinicalEncounterPage() {
           Back to Patient
         </button>
         
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3">
               <Stethoscope className="w-7 h-7 text-sky-500" />
               Clinical Encounter
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
               Patient: {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
             </p>
           </div>
           <button
             type="button"
             onClick={() => navigate(`/patients/${patientId}/clinical-summary`)}
-            className="btn btn-secondary flex items-center gap-2"
+            className="btn btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
           >
             <UserCheck size={18} />
             Patient Summary
@@ -226,7 +226,7 @@ export default function ClinicalEncounterPage() {
         </motion.div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
         {/* Encounter Type */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -238,7 +238,7 @@ export default function ClinicalEncounterPage() {
             <h2 className="font-semibold text-gray-900">Encounter Details</h2>
           </div>
           <div className="card-body">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="label">Encounter Type *</label>
                 <select {...register('type')} className="input">
@@ -249,7 +249,7 @@ export default function ClinicalEncounterPage() {
                   ))}
                 </select>
               </div>
-              <div className="md:col-span-2">
+              <div className="sm:col-span-2">
                 <label className="label">Chief Complaint *</label>
                 <textarea
                   {...register('chiefComplaint')}
@@ -372,7 +372,7 @@ export default function ClinicalEncounterPage() {
             <div className="card-header">
               <h2 className="font-semibold text-gray-900">Physical Examination</h2>
             </div>
-            <div className="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="card-body grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="label">General Appearance</label>
                 <textarea
@@ -482,7 +482,7 @@ export default function ClinicalEncounterPage() {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6"
           >
             {/* Diagnoses */}
             <div className="card">

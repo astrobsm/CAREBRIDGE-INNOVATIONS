@@ -240,7 +240,7 @@ export default function PreoperativeAssessmentPage() {
     switch (currentStep) {
       case 'basic':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Patient Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Patient *</label>
@@ -275,7 +275,7 @@ export default function PreoperativeAssessmentPage() {
                     View Full Summary
                   </button>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 text-sm">
                   <div>
                     <span className="text-gray-500">Name:</span>
                     <p className="font-medium">{selectedPatient.firstName} {selectedPatient.lastName}</p>
@@ -348,7 +348,7 @@ export default function PreoperativeAssessmentPage() {
             )}
 
             {/* Surgery Details */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Surgery Name *</label>
                 <input
@@ -427,7 +427,7 @@ export default function PreoperativeAssessmentPage() {
 
       case 'airway':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Wind className="text-primary-600" />
               Airway Assessment
@@ -436,7 +436,7 @@ export default function PreoperativeAssessmentPage() {
             {/* Mallampati Score */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Mallampati Score</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {mallampatiScores.map((m, idx) => (
                   <button
                     key={idx}
@@ -456,7 +456,7 @@ export default function PreoperativeAssessmentPage() {
             </div>
 
             {/* Physical Measurements */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Mouth Opening (cm)
@@ -537,7 +537,7 @@ export default function PreoperativeAssessmentPage() {
 
       case 'cardiac':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Heart className="text-red-600" />
               Cardiac Risk Assessment (RCRI)
@@ -613,7 +613,7 @@ export default function PreoperativeAssessmentPage() {
 
       case 'vte':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <AlertTriangle className="text-orange-600" />
               VTE Risk Assessment (Caprini Score)
@@ -669,7 +669,7 @@ export default function PreoperativeAssessmentPage() {
 
       case 'bleeding':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Stethoscope className="text-red-600" />
               Bleeding Risk Assessment
@@ -768,7 +768,7 @@ export default function PreoperativeAssessmentPage() {
 
       case 'fasting':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Coffee className="text-amber-600" />
               Fasting Guidelines
@@ -810,7 +810,7 @@ export default function PreoperativeAssessmentPage() {
 
       case 'medications':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Pill className="text-purple-600" />
               Medication Review
@@ -847,13 +847,13 @@ export default function PreoperativeAssessmentPage() {
 
       case 'summary':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Clipboard className="text-primary-600" />
               Assessment Summary
             </h3>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="p-4 bg-gray-50 rounded-lg">
                 <h4 className="font-medium text-sm text-gray-500">ASA Classification</h4>
                 <p className="text-xl font-bold">ASA {asaClass}{asaEmergency ? 'E' : ''}</p>
@@ -917,19 +917,19 @@ export default function PreoperativeAssessmentPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Stethoscope className="text-primary-600" />
             Preoperative Assessment
           </h1>
-          <p className="text-gray-500 mt-1">Comprehensive anaesthetic review for surgical patients</p>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Comprehensive anaesthetic review for surgical patients</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="btn btn-primary flex items-center gap-2"
+          className="btn btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
         >
           <Plus size={18} />
           New Assessment
@@ -937,7 +937,7 @@ export default function PreoperativeAssessmentPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <p className="text-2xl font-bold text-yellow-600">5</p>
           <p className="text-sm text-gray-500">Pending Review</p>

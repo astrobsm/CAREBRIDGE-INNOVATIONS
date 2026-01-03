@@ -124,6 +124,15 @@ export {
   cleanupCloudSync,
 } from './cloudSyncService';
 
+// Offline Data Manager
+export {
+  offlineDataManager,
+  useOfflineState,
+  useIsOnline,
+  getDeviceId,
+} from './offlineDataManager';
+export type { OfflineChange, OfflineState, ConflictResolution } from './offlineDataManager';
+
 export { default as initPWA, usePWA, registerServiceWorker, promptInstall, applyUpdate, isAppInstalled } from './pwaService';
 
 export { 
