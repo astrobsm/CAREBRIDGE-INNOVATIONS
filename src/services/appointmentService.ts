@@ -46,7 +46,7 @@ export interface CreateAppointmentInput {
   location: AppointmentLocation;
   reasonForVisit: string;
   notes?: string;
-  clinicianId: string;
+  clinicianId?: string; // Optional - can be assigned later
   clinicianName?: string;
   patientWhatsApp: string;
   patientPhone?: string;

@@ -57,7 +57,7 @@ const appointmentSchema = z.object({
   homeLandmarks: z.string().optional(),
   assignedDriverId: z.string().optional(),
   assignedHomeCareGiverId: z.string().optional(),
-  clinicianId: z.string().min(1, 'Please select a clinician'),
+  clinicianId: z.string().optional(), // Made optional - can be assigned later
   reasonForVisit: z.string().min(1, 'Please provide reason for visit'),
   notes: z.string().optional(),
   patientWhatsApp: z.string().min(10, 'Valid WhatsApp number required'),
@@ -274,7 +274,7 @@ export default function AppointmentBookingForm({
         location.meetingPlatform = 'video_conference';
       }
 
-      const clinician = clinicians?.find(c => c.id === data.clinicianId);
+      const clinician = data.clinicianId ? clinicians?.find(c => c.id === data.clinicianId) : null;
 
       const appointment = await createAppointment({
         patientId: data.patientId,
@@ -287,7 +287,7 @@ export default function AppointmentBookingForm({
         location,
         reasonForVisit: data.reasonForVisit,
         notes: data.notes,
-        clinicianId: data.clinicianId,
+        clinicianId: data.clinicianId || undefined,
         clinicianName: clinician ? `${clinician.firstName} ${clinician.lastName}` : undefined,
         patientWhatsApp: data.patientWhatsApp,
         patientPhone: data.patientPhone,
@@ -306,6 +306,17 @@ export default function AppointmentBookingForm({
       toast.error('Failed to book appointment. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Handle form validation errors
+  const onFormError = (formErrors: any) => {
+    console.log('Form validation errors:', formErrors);
+    const errorMessages = Object.values(formErrors)
+      .map((err: any) => err?.message)
+      .filter(Boolean);
+    if (errorMessages.length > 0) {
+      toast.error(`Please fix: ${errorMessages[0]}`);
     }
   };
 
@@ -354,7 +365,7 @@ export default function AppointmentBookingForm({
         </div>
 
         {/* Form Content */}
-        <form onSubmit={handleSubmit(onSubmit as any)} className="overflow-y-auto max-h-[calc(90vh-200px)]">
+        <form onSubmit={handleSubmit(onSubmit as any, onFormError)} className="overflow-y-auto max-h-[calc(90vh-200px)]">
           <div className="p-6">
             <AnimatePresence mode="wait">
               {/* Step 1: Patient & Appointment Type */}
@@ -509,13 +520,13 @@ export default function AppointmentBookingForm({
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       <User className="w-4 h-4 inline mr-2" />
-                      Clinician/Doctor *
+                      Clinician/Doctor <span className="text-gray-400 font-normal">(Optional)</span>
                     </label>
                     <select
                       {...register('clinicianId')}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     >
-                      <option value="">Select clinician...</option>
+                      <option value="">No specific clinician (assign later)</option>
                       {clinicians?.map(clinician => (
                         <option key={clinician.id} value={clinician.id}>
                           Dr. {clinician.firstName} {clinician.lastName} 
@@ -523,8 +534,8 @@ export default function AppointmentBookingForm({
                         </option>
                       ))}
                     </select>
-                    {errors.clinicianId && (
-                      <p className="text-red-500 text-sm mt-1">{errors.clinicianId.message}</p>
+                    {clinicians?.length === 0 && (
+                      <p className="text-amber-600 text-sm mt-1">No clinicians registered. Appointment can be assigned later.</p>
                     )}
                   </div>
 
