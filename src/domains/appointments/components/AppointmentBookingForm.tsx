@@ -41,7 +41,7 @@ const appointmentSchema = z.object({
   hospitalId: z.string().min(1, 'Please select a hospital'),
   appointmentDate: z.string().min(1, 'Please select a date'),
   appointmentTime: z.string().min(1, 'Please select a time'),
-  duration: z.number().min(15).max(120).default(30),
+  duration: z.coerce.number().min(15).max(120).default(30),
   type: z.enum([
     'follow_up', 'fresh_consultation', 'review', 'procedure',
     'dressing_change', 'suture_removal', 'home_visit', 'telemedicine',
