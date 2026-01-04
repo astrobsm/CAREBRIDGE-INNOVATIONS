@@ -19,10 +19,12 @@ import {
   Bed,
   Clock,
   CheckCircle,
+  Upload,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import BulkImportModal from '../../../components/common/BulkImportModal';
 import type { Hospital } from '../../../types';
 
 // Nigerian states for address
@@ -88,6 +90,7 @@ type HospitalFormData = z.infer<typeof hospitalSchema>;
 export default function HospitalsPage() {
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [stateFilter, setStateFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -233,10 +236,19 @@ export default function HospitalsPage() {
             Manage hospitals and their service capabilities
           </p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary w-full sm:w-auto justify-center">
-          <Plus size={18} />
-          Add Hospital
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <button 
+            onClick={() => setShowBulkImport(true)} 
+            className="btn btn-secondary w-full sm:w-auto justify-center"
+          >
+            <Upload size={18} />
+            Bulk Import
+          </button>
+          <button onClick={() => setShowModal(true)} className="btn btn-primary w-full sm:w-auto justify-center">
+            <Plus size={18} />
+            Add Hospital
+          </button>
+        </div>
       </div>
 
       {/* Statistics */}
@@ -663,6 +675,16 @@ export default function HospitalsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Bulk Import Modal */}
+      <BulkImportModal
+        isOpen={showBulkImport}
+        onClose={() => setShowBulkImport(false)}
+        type="hospitals"
+        onImportComplete={(count) => {
+          toast.success(`${count} hospitals imported successfully!`);
+        }}
+      />
     </div>
   );
 }

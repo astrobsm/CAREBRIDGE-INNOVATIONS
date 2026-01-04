@@ -197,6 +197,12 @@ const navigation: NavItem[] = [
     permission: 'manage_hospital',
   },
   { 
+    name: 'Users', 
+    href: '/users', 
+    icon: <Users size={20} />,
+    permission: 'manage_hospital',
+  },
+  { 
     name: 'Settings', 
     href: '/settings', 
     icon: <Settings size={20} />,

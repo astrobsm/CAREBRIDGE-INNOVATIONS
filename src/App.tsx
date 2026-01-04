@@ -25,6 +25,7 @@ import NutritionPlannerPage from './domains/nutrition/pages/NutritionPlannerPage
 import BillingPage from './domains/billing/pages/BillingPage';
 import HospitalsPage from './domains/hospitals/pages/HospitalsPage';
 import SettingsPage from './domains/settings/pages/SettingsPage';
+import UsersManagementPage from './domains/auth/pages/UsersManagementPage';
 import ClinicalCalculatorsPage from './domains/calculators/pages/ClinicalCalculatorsPage';
 import AdmissionsPage from './domains/admissions/pages/AdmissionsPage';
 import WardRoundsPage from './domains/ward-rounds/pages/WardRoundsPage';
@@ -123,6 +124,7 @@ function App() {
         <Route path="billing" element={<BillingPage />} />
         <Route path="calculators" element={<ClinicalCalculatorsPage />} />
         <Route path="hospitals" element={<HospitalsPage />} />
+        <Route path="users" element={<UsersManagementPage />} />
         <Route path="settings" element={<SettingsPage />} />
 
         {/* Communication Routes */}
