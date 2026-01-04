@@ -256,16 +256,16 @@ export default function BurnsCalculator({ patientInfo }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
-      <div className="flex items-center gap-3 mb-6">
-        <Flame className="w-7 h-7 text-orange-600" />
-        <h2 className="text-2xl font-bold text-gray-800">Burns Assessment Calculator</h2>
+    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <Flame className="w-5 h-5 sm:w-7 sm:h-7 text-orange-600" />
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-800">Burns Assessment Calculator</h2>
       </div>
 
-      <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-lg">
-        <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-gray-700">
+      <div className="bg-red-50 border-l-4 border-red-500 p-3 sm:p-4 mb-4 sm:mb-6 rounded-r-lg">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 mt-0.5 flex-shrink-0" />
+          <div className="text-xs sm:text-sm text-gray-700">
             <p className="font-semibold mb-1">Critical Burns - Emergency Management</p>
             <p>This calculator provides TBSA estimation (Rule of Nines), Parkland fluid resuscitation, and ABSI prognostication. Always prioritize airway management in major burns.</p>
           </div>
@@ -273,7 +273,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
       </div>
 
       {/* Patient Parameters */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             Weight (kg) *
@@ -330,20 +330,20 @@ export default function BurnsCalculator({ patientInfo }: Props) {
       </div>
 
       {/* Body Map for TBSA */}
-      <div className="bg-gray-50 rounded-lg p-4 mb-6">
-        <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-          <Activity className="w-5 h-5 text-orange-600" />
-          Body Surface Area Affected - Rule of Nines {isChild ? '(Pediatric)' : '(Adult)'}
+      <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+        <h3 className="font-bold text-gray-800 mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base">
+          <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
+          Body Surface Area - Rule of Nines {isChild ? '(Pediatric)' : '(Adult)'}
         </h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Enter the percentage of each body area affected by burns. Maximum value shown in parentheses.
+        <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
+          Enter the percentage of each body area affected by burns.
         </p>
         
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {Object.entries(ruleOfNines).map(([key, { name, percentage }]) => (
             <div key={key}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {name} (max {percentage}%)
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                {name} ({percentage}%)
               </label>
               <div className="flex items-center gap-2">
                 <input
@@ -355,7 +355,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
                   onChange={(e) => handleBodyPartChange(key as keyof typeof bodyParts, parseFloat(e.target.value))}
                   className="flex-1 accent-orange-600"
                 />
-                <span className="text-sm font-semibold w-12 text-right">
+                <span className="text-xs sm:text-sm font-semibold w-10 sm:w-12 text-right">
                   {bodyParts[key as keyof typeof bodyParts]}%
                 </span>
               </div>
@@ -363,19 +363,19 @@ export default function BurnsCalculator({ patientInfo }: Props) {
           ))}
         </div>
         
-        <div className="mt-4 p-3 bg-orange-100 rounded-lg">
-          <p className="text-lg font-bold text-orange-800">
+        <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-orange-100 rounded-lg">
+          <p className="text-base sm:text-lg font-bold text-orange-800">
             Total TBSA: {calculateTBSA().toFixed(1)}%
           </p>
         </div>
       </div>
 
       {/* Burn Characteristics */}
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h4 className="font-semibold text-gray-800 mb-3">Burn Depth</h4>
-          <div className="space-y-2">
-            <label className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+          <h4 className="font-semibold text-gray-800 mb-2 sm:mb-3 text-sm sm:text-base">Burn Depth</h4>
+          <div className="space-y-1 sm:space-y-2">
+            <label className="flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 hover:bg-gray-100 rounded cursor-pointer">
               <input
                 type="radio"
                 name="burnDepth"

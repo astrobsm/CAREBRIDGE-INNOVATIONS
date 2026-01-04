@@ -199,61 +199,61 @@ export default function MUSTCalculator({ patientInfo }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
-      <div className="flex items-center gap-3 mb-6">
-        <Scale className="w-7 h-7 text-amber-600" />
-        <h2 className="text-2xl font-bold text-gray-800">MUST Calculator</h2>
+    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <Scale className="w-5 h-5 sm:w-7 sm:h-7 text-amber-600" />
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-800">MUST Calculator</h2>
       </div>
 
-      <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6 rounded-r-lg">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-gray-700">
-            <p className="font-semibold mb-1">Malnutrition Universal Screening Tool (MUST)</p>
-            <p>Validated 5-step nutritional screening tool. Identifies adults at risk of malnutrition or who are malnourished.</p>
+      <div className="bg-amber-50 border-l-4 border-amber-500 p-3 sm:p-4 mb-4 sm:mb-6 rounded-r-lg">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div className="text-xs sm:text-sm text-gray-700">
+            <p className="font-semibold mb-1">Malnutrition Universal Screening Tool</p>
+            <p>Validated nutritional screening tool for adults at risk of malnutrition.</p>
           </div>
         </div>
       </div>
 
       {/* Input Fields */}
-      <div className="space-y-6 mb-6">
+      <div className="space-y-4 sm:space-y-6 mb-4 sm:mb-6">
         {/* Step 1: BMI */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-            <span className="bg-amber-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
+        <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+          <h3 className="font-bold text-gray-800 mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base">
+            <span className="bg-amber-600 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm">1</span>
             BMI Score
           </h3>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Current Weight (kg) *
+              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+                Weight (kg) *
               </label>
               <input
                 type="number"
                 step="0.1"
                 value={currentWeight}
                 onChange={(e) => setCurrentWeight(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-gray-900"
+                className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-gray-900 text-sm"
                 placeholder="e.g., 65"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
                 Height (cm) *
               </label>
               <input
                 type="number"
                 value={height}
                 onChange={(e) => setHeight(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-gray-900"
+                className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-gray-900 text-sm"
                 placeholder="e.g., 170"
               />
             </div>
           </div>
           {currentWeight && height && (
-            <div className="mt-3 p-2 bg-amber-100 rounded">
-              <p className="text-sm">
-                <strong>Calculated BMI:</strong> {calculateBMI(parseFloat(currentWeight), parseFloat(height)).toFixed(1)} kg/m² 
+            <div className="mt-2 sm:mt-3 p-2 bg-amber-100 rounded">
+              <p className="text-xs sm:text-sm">
+                <strong>BMI:</strong> {calculateBMI(parseFloat(currentWeight), parseFloat(height)).toFixed(1)} kg/m² 
                 ({getBMICategory(calculateBMI(parseFloat(currentWeight), parseFloat(height)))})
               </p>
             </div>

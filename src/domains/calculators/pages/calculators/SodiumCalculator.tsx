@@ -160,19 +160,19 @@ export default function SodiumCalculator({ patientInfo }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
-      <div className="flex items-center gap-3 mb-6">
-        <Calculator className="w-7 h-7 text-sky-600" />
-        <h2 className="text-2xl font-bold text-gray-800">Sodium Disorder Calculator</h2>
+    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <Calculator className="w-5 h-5 sm:w-7 sm:h-7 text-sky-600" />
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-800">Sodium Disorder Calculator</h2>
       </div>
 
       {/* Alert Box */}
-      <div className="bg-blue-50 border-l-4 border-sky-600 p-4 mb-6 rounded-r-lg">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-sky-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-gray-700">
+      <div className="bg-blue-50 border-l-4 border-sky-600 p-3 sm:p-4 mb-4 sm:mb-6 rounded-r-lg">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-sky-600 mt-0.5 flex-shrink-0" />
+          <div className="text-xs sm:text-sm text-gray-700">
             <p className="font-semibold mb-1">WHO Safety Guidelines for Sodium Correction</p>
-            <ul className="list-disc ml-4 space-y-1">
+            <ul className="list-disc ml-4 space-y-0.5 sm:space-y-1">
               <li>Max correction: 6-8 mEq/L per 24 hours (NEVER exceed 10-12 mEq/L)</li>
               <li>High-risk patients (chronic, alcoholism, malnourished): ≤6 mEq/L per 24h</li>
               <li>Monitor serum sodium every 2-4 hours during active correction</li>
@@ -184,7 +184,7 @@ export default function SodiumCalculator({ patientInfo }: Props) {
       </div>
 
       {/* Input Form */}
-      <div className="grid md:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             Current Sodium (mmol/L) *

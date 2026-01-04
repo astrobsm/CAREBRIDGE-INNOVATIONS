@@ -340,39 +340,39 @@ export default function AppointmentBookingForm({
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden"
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden"
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-4">
+        <div className="flex-shrink-0 bg-gradient-to-r from-emerald-600 to-teal-600 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Calendar className="w-6 h-6" />
-                Book New Appointment
+              <h2 className="text-base sm:text-xl font-bold text-white flex items-center gap-2">
+                <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
+                Book Appointment
               </h2>
-              <p className="text-emerald-100 text-sm mt-1">
-                Step {step} of 3: {step === 1 ? 'Patient & Type' : step === 2 ? 'Schedule & Location' : 'Contact & Reminders'}
+              <p className="text-emerald-100 text-xs sm:text-sm mt-0.5 sm:mt-1">
+                Step {step}/3: {step === 1 ? 'Patient & Type' : step === 2 ? 'Schedule' : 'Contact'}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+              className="text-white/80 hover:text-white p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           </div>
 
           {/* Progress Bar */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-1.5 sm:gap-2 mt-3 sm:mt-4">
             {[1, 2, 3].map(s => (
               <div
                 key={s}
-                className={`h-1.5 flex-1 rounded-full transition-colors ${
+                className={`h-1 sm:h-1.5 flex-1 rounded-full transition-colors ${
                   s <= step ? 'bg-white' : 'bg-white/30'
                 }`}
               />
@@ -381,8 +381,8 @@ export default function AppointmentBookingForm({
         </div>
 
         {/* Form Content */}
-        <form onSubmit={handleSubmit(onSubmit as any, onFormError)} className="overflow-y-auto max-h-[calc(90vh-200px)]">
-          <div className="p-6">
+        <form onSubmit={handleSubmit(onSubmit as any, onFormError)} className="flex-1 overflow-y-auto">
+          <div className="p-4 sm:p-6">
             <AnimatePresence mode="wait">
               {/* Step 1: Patient & Appointment Type */}
               {step === 1 && (
@@ -391,7 +391,7 @@ export default function AppointmentBookingForm({
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="space-y-6"
+                  className="space-y-4 sm:space-y-6"
                 >
                   {/* Patient Selection */}
                   <div>
@@ -931,21 +931,21 @@ export default function AppointmentBookingForm({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 border-t flex items-center justify-between">
+          <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t flex items-center justify-between">
             <button
               type="button"
               onClick={step === 1 ? onClose : prevStep}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+              className="px-3 sm:px-4 py-2 text-gray-600 hover:text-gray-800 font-medium text-sm sm:text-base"
             >
               {step === 1 ? 'Cancel' : '← Back'}
             </button>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               {step < 3 ? (
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                  className="px-4 sm:px-6 py-2 sm:py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base"
                 >
                   Next
                   <ChevronRight className="w-4 h-4" />
@@ -954,17 +954,19 @@ export default function AppointmentBookingForm({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 sm:px-6 py-2 sm:py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-1.5 sm:gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Booking...
+                      <span className="hidden sm:inline">Booking...</span>
+                      <span className="sm:hidden">...</span>
                     </>
                   ) : (
                     <>
                       <Check className="w-4 h-4" />
-                      Book Appointment
+                      <span className="hidden sm:inline">Book Appointment</span>
+                      <span className="sm:hidden">Book</span>
                     </>
                   )}
                 </button>

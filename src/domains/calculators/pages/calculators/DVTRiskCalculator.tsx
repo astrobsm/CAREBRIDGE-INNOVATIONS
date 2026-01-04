@@ -293,24 +293,24 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
-      <div className="flex items-center gap-3 mb-6">
-        <Heart className="w-7 h-7 text-red-600" />
-        <h2 className="text-2xl font-bold text-gray-800">DVT Risk Calculator (Caprini Score)</h2>
+    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <Heart className="w-5 h-5 sm:w-7 sm:h-7 text-red-600" />
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-800">DVT Risk Calculator (Caprini)</h2>
       </div>
 
-      <div className="bg-blue-50 border-l-4 border-sky-600 p-4 mb-6 rounded-r-lg">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-sky-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-gray-700">
+      <div className="bg-blue-50 border-l-4 border-sky-600 p-3 sm:p-4 mb-4 sm:mb-6 rounded-r-lg">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-sky-600 mt-0.5 flex-shrink-0" />
+          <div className="text-xs sm:text-sm text-gray-700">
             <p className="font-semibold mb-1">Caprini VTE Risk Assessment</p>
-            <p>Validated scoring system for VTE risk stratification in surgical and medical patients. Higher scores warrant more aggressive prophylaxis.</p>
+            <p>Validated scoring system for VTE risk stratification in surgical and medical patients.</p>
           </div>
         </div>
       </div>
 
       {/* Age Input */}
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <label className="block text-sm font-semibold text-gray-700 mb-2">
           Age (years) *
         </label>
@@ -318,20 +318,20 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
           type="number"
           value={age}
           onChange={(e) => setAge(e.target.value)}
-          className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
+          className="w-full sm:max-w-xs px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
           placeholder="e.g., 55"
         />
       </div>
 
       {/* Risk Factors */}
-      <div className="space-y-6 mb-6">
+      <div className="space-y-4 sm:space-y-6 mb-4 sm:mb-6">
         {/* 1 Point Risk Factors */}
-        <div className="border-2 border-blue-200 rounded-lg p-4">
-          <h3 className="font-bold text-blue-700 mb-3 flex items-center gap-2">
-            <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
+        <div className="border-2 border-blue-200 rounded-lg p-3 sm:p-4">
+          <h3 className="font-bold text-blue-700 mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base">
+            <span className="bg-blue-600 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm">1</span>
             1 Point Risk Factors
           </h3>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 sm:gap-2">
             {[
               { state: minorSurgery, setter: setMinorSurgery, label: 'Minor surgery planned' },
               { state: bmi30Plus, setter: setBmi30Plus, label: 'BMI > 30 kg/m²' },
@@ -348,14 +348,14 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
               { state: chf, setter: setChf, label: 'CHF (<1 month)' },
               { state: inflammatory, setter: setInflammatory, label: 'Inflammatory bowel disease' },
             ].map((factor, index) => (
-              <label key={index} className="flex items-center space-x-2 p-2 hover:bg-blue-50 rounded cursor-pointer">
+              <label key={index} className="flex items-center space-x-2 p-1.5 sm:p-2 hover:bg-blue-50 rounded cursor-pointer">
                 <input
                   type="checkbox"
                   checked={factor.state}
                   onChange={(e) => factor.setter(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded"
+                  className="w-4 h-4 text-blue-600 rounded flex-shrink-0"
                 />
-                <span className="text-sm">{factor.label}</span>
+                <span className="text-xs sm:text-sm">{factor.label}</span>
               </label>
             ))}
           </div>

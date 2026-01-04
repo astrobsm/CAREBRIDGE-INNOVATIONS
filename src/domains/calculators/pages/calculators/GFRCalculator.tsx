@@ -199,63 +199,63 @@ export default function GFRCalculator({ patientInfo }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
-      <div className="flex items-center gap-3 mb-6">
-        <Calculator className="w-7 h-7 text-sky-600" />
-        <h2 className="text-2xl font-bold text-gray-800">GFR Calculator</h2>
+    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <Calculator className="w-5 h-5 sm:w-7 sm:h-7 text-sky-600" />
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-800">GFR Calculator</h2>
       </div>
 
       {/* CKD Staging Reference */}
-      <div className="bg-gray-50 border border-gray-200 p-4 mb-6 rounded-lg">
-        <p className="font-semibold text-gray-800 mb-2">CKD Staging by GFR:</p>
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
-          <div className="bg-green-100 p-2 rounded text-center">G1: ≥90</div>
-          <div className="bg-green-50 p-2 rounded text-center">G2: 60-89</div>
-          <div className="bg-yellow-100 p-2 rounded text-center">G3a: 45-59</div>
-          <div className="bg-yellow-200 p-2 rounded text-center">G3b: 30-44</div>
-          <div className="bg-orange-200 p-2 rounded text-center">G4: 15-29</div>
-          <div className="bg-red-200 p-2 rounded text-center">G5: &lt;15</div>
+      <div className="bg-gray-50 border border-gray-200 p-3 sm:p-4 mb-4 sm:mb-6 rounded-lg">
+        <p className="font-semibold text-gray-800 mb-2 text-sm sm:text-base">CKD Staging:</p>
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2 text-xs">
+          <div className="bg-green-100 p-1.5 sm:p-2 rounded text-center">G1: ≥90</div>
+          <div className="bg-green-50 p-1.5 sm:p-2 rounded text-center">G2: 60-89</div>
+          <div className="bg-yellow-100 p-1.5 sm:p-2 rounded text-center">G3a: 45-59</div>
+          <div className="bg-yellow-200 p-1.5 sm:p-2 rounded text-center">G3b: 30-44</div>
+          <div className="bg-orange-200 p-1.5 sm:p-2 rounded text-center">G4: 15-29</div>
+          <div className="bg-red-200 p-1.5 sm:p-2 rounded text-center">G5: &lt;15</div>
         </div>
       </div>
 
       {/* Input Form */}
-      <div className="grid md:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 mb-4 sm:mb-6">
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Serum Creatinine (mg/dL) *
+          <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+            Creatinine (mg/dL) *
           </label>
           <input
             type="number"
             value={creatinine}
             onChange={(e) => setCreatinine(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
+            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900 text-sm"
             placeholder="e.g., 1.2"
             step="0.01"
           />
-          <p className="text-xs text-gray-500 mt-1">μmol/L × 0.0113 = mg/dL</p>
+          <p className="text-xs text-gray-500 mt-1 hidden sm:block">μmol/L × 0.0113 = mg/dL</p>
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
             Age (years) *
           </label>
           <input
             type="number"
             value={age}
             onChange={(e) => setAge(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
+            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900 text-sm"
             placeholder="e.g., 55"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
             Gender *
           </label>
           <select
             value={gender}
             onChange={(e) => setGender(e.target.value as 'male' | 'female')}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
+            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900 text-sm"
           >
             <option value="male">Male</option>
             <option value="female">Female</option>
@@ -263,14 +263,14 @@ export default function GFRCalculator({ patientInfo }: Props) {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Weight (kg) - for Cockcroft-Gault
+          <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+            Weight (kg)
           </label>
           <input
             type="number"
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
+            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900 text-sm"
             placeholder="e.g., 70"
             step="0.1"
           />

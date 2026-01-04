@@ -275,41 +275,41 @@ export default function BNFDrugCalculator({ patientInfo }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
-      <div className="flex items-center gap-3 mb-6">
-        <Pill className="w-7 h-7 text-blue-600" />
-        <h2 className="text-2xl font-bold text-gray-800">BNF Drug Calculator</h2>
+    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <Pill className="w-5 h-5 sm:w-7 sm:h-7 text-blue-600" />
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-800">BNF Drug Calculator</h2>
       </div>
 
-      <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
-        <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-gray-700">
+      <div className="bg-blue-50 border-l-4 border-blue-500 p-3 sm:p-4 mb-4 sm:mb-6 rounded-r-lg">
+        <div className="flex items-start gap-2 sm:gap-3">
+          <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div className="text-xs sm:text-sm text-gray-700">
             <p className="font-semibold mb-1">Drug Dosing with Renal & Hepatic Adjustments</p>
-            <p>BNF-adapted dosing guidelines for common medications. Always verify with current formulary and clinical judgement.</p>
+            <p className="hidden sm:block">BNF-adapted dosing guidelines for common medications. Always verify with current formulary and clinical judgement.</p>
           </div>
         </div>
       </div>
 
       {/* Drug Search */}
-      <div className="mb-6">
-        <label className="block text-sm font-semibold text-gray-700 mb-2">
+      <div className="mb-4 sm:mb-6">
+        <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
           Search Drug *
         </label>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-            placeholder="Search by drug name or class..."
+            className="w-full pl-9 sm:pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 text-sm"
+            placeholder="Search drug..."
           />
         </div>
         
         {/* Drug List */}
         {searchTerm && (
-          <div className="mt-2 border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+          <div className="mt-2 border border-gray-200 rounded-lg max-h-40 sm:max-h-48 overflow-y-auto">
             {filteredDrugs.map(([key, drug]) => (
               <button
                 key={key}
@@ -317,34 +317,34 @@ export default function BNFDrugCalculator({ patientInfo }: Props) {
                   setSelectedDrug(key);
                   setSearchTerm(drug.name);
                 }}
-                className={`w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0 ${
+                className={`w-full text-left px-3 sm:px-4 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-0 ${
                   selectedDrug === key ? 'bg-blue-100' : ''
                 }`}
               >
-                <span className="font-medium">{drug.name}</span>
-                <span className="text-sm text-gray-500 ml-2">({drug.class})</span>
+                <span className="font-medium text-sm">{drug.name}</span>
+                <span className="text-xs text-gray-500 ml-2">({drug.class})</span>
               </button>
             ))}
             {filteredDrugs.length === 0 && (
-              <p className="px-4 py-2 text-gray-500 text-sm">No drugs found</p>
+              <p className="px-4 py-2 text-gray-500 text-xs sm:text-sm">No drugs found</p>
             )}
           </div>
         )}
       </div>
 
       {/* Patient Parameters */}
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            <Beaker className="inline w-4 h-4 mr-1" />
-            GFR (mL/min)
+          <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+            <Beaker className="inline w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+            GFR
           </label>
           <input
             type="number"
             value={gfr}
             onChange={(e) => setGfr(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-            placeholder="e.g., 45"
+            className="w-full px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 text-sm"
+            placeholder="45"
           />
         </div>
         <div>
