@@ -5,15 +5,90 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, User, Phone, MapPin, Heart, AlertCircle, Building2, Home } from 'lucide-react';
+import { 
+  ArrowLeft, Save, User, Phone, MapPin, Heart, AlertCircle, Building2, Home,
+  Activity, ShieldAlert, Stethoscope, ChevronDown, ChevronUp, Info
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { HospitalSelector } from '../../../components/hospital';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
-import type { Patient, BloodGroup, Genotype, Hospital } from '../../../types';
+import type { Patient, BloodGroup, Genotype, Hospital, DVTRiskAssessment, PressureSoreRiskAssessment, Comorbidity } from '../../../types';
 
 // Hospital options will be fetched from database
+
+// DVT Risk Factors (Caprini Score)
+const dvtRiskFactors = [
+  { id: 'age_41_60', label: 'Age 41-60 years', points: 1 },
+  { id: 'age_61_74', label: 'Age 61-74 years', points: 2 },
+  { id: 'age_75_plus', label: 'Age ≥75 years', points: 3 },
+  { id: 'minor_surgery', label: 'Minor surgery planned', points: 1 },
+  { id: 'major_surgery', label: 'Major surgery (>45 min)', points: 2 },
+  { id: 'laparoscopic_surgery', label: 'Laparoscopic surgery (>45 min)', points: 2 },
+  { id: 'malignancy', label: 'Malignancy (present or previous)', points: 2 },
+  { id: 'bed_rest', label: 'Confined to bed (>72 hours)', points: 2 },
+  { id: 'immobilizing_cast', label: 'Immobilizing plaster cast', points: 2 },
+  { id: 'central_venous_access', label: 'Central venous access', points: 2 },
+  { id: 'obesity', label: 'Obesity (BMI >25)', points: 1 },
+  { id: 'varicose_veins', label: 'Varicose veins', points: 1 },
+  { id: 'pregnancy', label: 'Pregnancy or postpartum', points: 1 },
+  { id: 'oral_contraceptives', label: 'Oral contraceptives/HRT', points: 1 },
+  { id: 'sepsis', label: 'Sepsis (within 1 month)', points: 1 },
+  { id: 'pneumonia', label: 'Serious lung disease/Pneumonia', points: 1 },
+  { id: 'copd', label: 'COPD', points: 1 },
+  { id: 'mi', label: 'Acute MI', points: 1 },
+  { id: 'chf', label: 'Congestive heart failure', points: 1 },
+  { id: 'inflammatory_bowel', label: 'Inflammatory bowel disease', points: 1 },
+  { id: 'swollen_legs', label: 'Swollen legs (current)', points: 1 },
+  { id: 'previous_dvt', label: 'History of DVT/PE', points: 3 },
+  { id: 'family_dvt', label: 'Family history of DVT/PE', points: 3 },
+  { id: 'factor_v_leiden', label: 'Factor V Leiden', points: 3 },
+  { id: 'prothrombin_mutation', label: 'Prothrombin 20210A', points: 3 },
+  { id: 'lupus_anticoagulant', label: 'Lupus anticoagulant', points: 3 },
+  { id: 'anticardiolipin', label: 'Anticardiolipin antibodies', points: 3 },
+  { id: 'homocysteine', label: 'Elevated serum homocysteine', points: 3 },
+  { id: 'heparin_thrombocytopenia', label: 'Heparin-induced thrombocytopenia', points: 3 },
+  { id: 'stroke', label: 'Stroke (<1 month)', points: 5 },
+  { id: 'multiple_trauma', label: 'Multiple trauma (<1 month)', points: 5 },
+  { id: 'hip_knee_replacement', label: 'Hip/knee arthroplasty', points: 5 },
+  { id: 'hip_pelvis_fracture', label: 'Hip, pelvis, or leg fracture', points: 5 },
+  { id: 'spinal_cord_injury', label: 'Spinal cord injury (<1 month)', points: 5 },
+];
+
+// Common comorbidities
+const commonComorbidities = [
+  'Hypertension',
+  'Diabetes Mellitus Type 1',
+  'Diabetes Mellitus Type 2',
+  'Coronary Artery Disease',
+  'Heart Failure',
+  'Atrial Fibrillation',
+  'Chronic Kidney Disease',
+  'COPD',
+  'Asthma',
+  'Stroke/CVA',
+  'Peripheral Vascular Disease',
+  'Hypothyroidism',
+  'Hyperthyroidism',
+  'Epilepsy',
+  'Depression',
+  'Anxiety',
+  'Rheumatoid Arthritis',
+  'Osteoarthritis',
+  'Osteoporosis',
+  'Cancer (specify)',
+  'HIV/AIDS',
+  'Hepatitis B',
+  'Hepatitis C',
+  'Sickle Cell Disease',
+  'Peptic Ulcer Disease',
+  'GERD',
+  'Liver Cirrhosis',
+  'Chronic Liver Disease',
+  'Dementia',
+  'Parkinson\'s Disease',
+];
 
 const patientSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
@@ -37,8 +112,8 @@ const patientSchema = z.object({
   chronicConditions: z.string().optional(),
   nextOfKinName: z.string().min(2, 'Next of kin name is required'),
   nextOfKinRelationship: z.string().min(2, 'Relationship is required'),
-  nextOfKinPhone: z.string().min(10, 'Phone number is required'),
-  nextOfKinAddress: z.string().min(5, 'Address is required'),
+  nextOfKinPhone: z.string().min(10, 'Next of kin phone number is required'),
+  nextOfKinAddress: z.string().min(5, 'Next of kin address is required'),
   // Care type and hospital fields
   careType: z.enum(['home_care', 'hospital']),
   hospitalId: z.string().optional(),
@@ -64,6 +139,26 @@ export default function NewPatientPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [loadingHospitals, setLoadingHospitals] = useState(true);
+  
+  // DVT Risk Assessment State
+  const [selectedDvtFactors, setSelectedDvtFactors] = useState<string[]>([]);
+  const [dvtExpanded, setDvtExpanded] = useState(true);
+  
+  // Pressure Sore Risk Assessment State (Braden Scale)
+  const [bradenScores, setBradenScores] = useState({
+    sensoryPerception: 0,
+    moisture: 0,
+    activity: 0,
+    mobility: 0,
+    nutrition: 0,
+    frictionShear: 0,
+  });
+  const [pressureSoreExpanded, setPressureSoreExpanded] = useState(true);
+  
+  // Comorbidities State
+  const [selectedComorbidities, setSelectedComorbidities] = useState<string[]>([]);
+  const [customComorbidity, setCustomComorbidity] = useState('');
+  const [comorbiditiesExpanded, setComorbiditiesExpanded] = useState(true);
 
   // Fetch hospitals from database
   useEffect(() => {
@@ -106,7 +201,105 @@ export default function NewPatientPage() {
     return `${prefix}${year}${random}`;
   };
 
+  // Calculate DVT Risk Score (Caprini)
+  const calculateDvtRisk = (): DVTRiskAssessment => {
+    let score = 0;
+    const riskFactorLabels: string[] = [];
+    
+    selectedDvtFactors.forEach(factorId => {
+      const factor = dvtRiskFactors.find(f => f.id === factorId);
+      if (factor) {
+        score += factor.points;
+        riskFactorLabels.push(factor.label);
+      }
+    });
+
+    let riskLevel: 'low' | 'moderate' | 'high' | 'very_high';
+    let prophylaxisRecommended: string;
+
+    if (score === 0) {
+      riskLevel = 'low';
+      prophylaxisRecommended = 'Early ambulation only';
+    } else if (score <= 2) {
+      riskLevel = 'low';
+      prophylaxisRecommended = 'Early ambulation, consider compression stockings';
+    } else if (score <= 4) {
+      riskLevel = 'moderate';
+      prophylaxisRecommended = 'Pharmacological prophylaxis (LMWH/UFH) + mechanical prophylaxis';
+    } else if (score <= 8) {
+      riskLevel = 'high';
+      prophylaxisRecommended = 'Pharmacological prophylaxis (LMWH/UFH) + mechanical prophylaxis + extended prophylaxis';
+    } else {
+      riskLevel = 'very_high';
+      prophylaxisRecommended = 'Aggressive pharmacological + mechanical prophylaxis, consider IVC filter if anticoagulation contraindicated';
+    }
+
+    return {
+      score,
+      riskLevel,
+      riskFactors: riskFactorLabels,
+      prophylaxisRecommended,
+      assessedBy: user?.id || 'system',
+      assessedAt: new Date(),
+    };
+  };
+
+  // Calculate Pressure Sore Risk Score (Braden Scale)
+  const calculatePressureSoreRisk = (): PressureSoreRiskAssessment => {
+    const total = Object.values(bradenScores).reduce((sum, score) => sum + score, 0);
+    
+    let riskLevel: 'no_risk' | 'mild_risk' | 'moderate_risk' | 'high_risk' | 'very_high_risk';
+    let interventionsRequired: string[] = [];
+
+    if (total >= 19) {
+      riskLevel = 'no_risk';
+      interventionsRequired = ['Standard care', 'Regular repositioning'];
+    } else if (total >= 15) {
+      riskLevel = 'mild_risk';
+      interventionsRequired = ['Regular skin assessment', 'Pressure-relieving mattress', 'Repositioning every 4 hours'];
+    } else if (total >= 13) {
+      riskLevel = 'moderate_risk';
+      interventionsRequired = ['Pressure-relieving mattress', 'Repositioning every 2-3 hours', 'Heel protection', 'Nutritional support'];
+    } else if (total >= 10) {
+      riskLevel = 'high_risk';
+      interventionsRequired = ['Specialty pressure-relieving surface', 'Repositioning every 2 hours', 'Heel protection', 'Nutritional consultation', 'Moisture management'];
+    } else {
+      riskLevel = 'very_high_risk';
+      interventionsRequired = ['Air-fluidized or low-air-loss bed', 'Repositioning every 1-2 hours', 'Full nutritional assessment', 'Wound care nurse consultation', 'Consider specialty dressings'];
+    }
+
+    return {
+      score: total,
+      riskLevel,
+      sensoryPerception: bradenScores.sensoryPerception,
+      moisture: bradenScores.moisture,
+      activity: bradenScores.activity,
+      mobility: bradenScores.mobility,
+      nutrition: bradenScores.nutrition,
+      frictionShear: bradenScores.frictionShear,
+      interventionsRequired,
+      assessedBy: user?.id || 'system',
+      assessedAt: new Date(),
+    };
+  };
+
+  // Validate risk assessments before submit
+  const validateRiskAssessments = (): boolean => {
+    // Check if Braden scores are all filled
+    const bradenComplete = Object.values(bradenScores).every(score => score > 0);
+    if (!bradenComplete) {
+      toast.error('Please complete all Pressure Sore Risk Assessment (Braden Scale) fields');
+      return false;
+    }
+    return true;
+  };
+
   const onSubmit = async (data: PatientFormData) => {
+    // Validate risk assessments
+    if (!validateRiskAssessments()) {
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Determine the hospital name
@@ -119,6 +312,16 @@ export default function NewPatientPage() {
           hospitalName = selectedHospital?.name;
         }
       }
+
+      // Calculate risk assessments
+      const dvtRiskAssessment = calculateDvtRisk();
+      const pressureSoreRiskAssessment = calculatePressureSoreRisk();
+
+      // Build comorbidities array
+      const comorbidities: Comorbidity[] = selectedComorbidities.map(condition => ({
+        condition,
+        currentlyManaged: true,
+      }));
 
       const patient: Patient = {
         id: uuidv4(),
@@ -148,6 +351,10 @@ export default function NewPatientPage() {
           phone: data.nextOfKinPhone,
           address: data.nextOfKinAddress,
         },
+        // Risk Assessments
+        dvtRiskAssessment,
+        pressureSoreRiskAssessment,
+        comorbidities,
         // Care Setting fields
         careType: data.careType as 'hospital' | 'homecare',
         hospitalId: data.careType === 'hospital' ? data.hospitalId : undefined,
@@ -452,6 +659,408 @@ export default function NewPatientPage() {
               <p className="text-xs text-gray-500 mt-1">e.g., Diabetes, Hypertension, Asthma</p>
             </div>
           </div>
+        </motion.div>
+
+        {/* DVT Risk Assessment (Caprini Score) - COMPULSORY */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="card card-compact border-2 border-orange-200"
+        >
+          <div 
+            className="card-header flex items-center justify-between cursor-pointer"
+            onClick={() => setDvtExpanded(!dvtExpanded)}
+          >
+            <div className="flex items-center gap-3">
+              <Activity className="w-5 h-5 text-orange-500" />
+              <div>
+                <h2 className="font-semibold text-gray-900">DVT Risk Assessment (Caprini Score) *</h2>
+                <p className="text-xs text-gray-500">Required for all patients</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {selectedDvtFactors.length > 0 && (
+                <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                  Score: {dvtRiskFactors.filter(f => selectedDvtFactors.includes(f.id)).reduce((sum, f) => sum + f.points, 0)}
+                </span>
+              )}
+              {dvtExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+            </div>
+          </div>
+          
+          {dvtExpanded && (
+            <div className="card-body space-y-4">
+              <div className="p-3 bg-orange-50 rounded-lg flex items-start gap-2">
+                <Info className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-orange-700">
+                  Select all risk factors that apply to this patient. The Caprini VTE Risk Score helps determine DVT prophylaxis requirements.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {dvtRiskFactors.map((factor) => (
+                  <label
+                    key={factor.id}
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedDvtFactors.includes(factor.id)
+                        ? 'bg-orange-50 border-orange-300'
+                        : 'bg-white border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedDvtFactors.includes(factor.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedDvtFactors([...selectedDvtFactors, factor.id]);
+                        } else {
+                          setSelectedDvtFactors(selectedDvtFactors.filter(f => f !== factor.id));
+                        }
+                      }}
+                      className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500 mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-gray-700">{factor.label}</span>
+                      <span className="ml-2 text-xs text-orange-600 font-medium">+{factor.points} pts</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              
+              {/* DVT Risk Summary */}
+              {selectedDvtFactors.length > 0 && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-2">Risk Assessment Summary</h4>
+                  {(() => {
+                    const score = dvtRiskFactors.filter(f => selectedDvtFactors.includes(f.id)).reduce((sum, f) => sum + f.points, 0);
+                    let riskLevel = '';
+                    let riskColor = '';
+                    let recommendation = '';
+                    
+                    if (score <= 2) {
+                      riskLevel = 'Low Risk';
+                      riskColor = 'text-green-600 bg-green-100';
+                      recommendation = 'Early ambulation, consider compression stockings';
+                    } else if (score <= 4) {
+                      riskLevel = 'Moderate Risk';
+                      riskColor = 'text-yellow-600 bg-yellow-100';
+                      recommendation = 'Pharmacological + mechanical prophylaxis recommended';
+                    } else if (score <= 8) {
+                      riskLevel = 'High Risk';
+                      riskColor = 'text-orange-600 bg-orange-100';
+                      recommendation = 'Aggressive pharmacological + mechanical prophylaxis + extended prophylaxis';
+                    } else {
+                      riskLevel = 'Very High Risk';
+                      riskColor = 'text-red-600 bg-red-100';
+                      recommendation = 'Aggressive prophylaxis, consider IVC filter if anticoagulation contraindicated';
+                    }
+                    
+                    return (
+                      <>
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-2xl font-bold text-gray-900">{score}</span>
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${riskColor}`}>{riskLevel}</span>
+                        </div>
+                        <p className="text-sm text-gray-600"><strong>Recommendation:</strong> {recommendation}</p>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Pressure Sore Risk Assessment (Braden Scale) - COMPULSORY */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="card card-compact border-2 border-purple-200"
+        >
+          <div 
+            className="card-header flex items-center justify-between cursor-pointer"
+            onClick={() => setPressureSoreExpanded(!pressureSoreExpanded)}
+          >
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="w-5 h-5 text-purple-500" />
+              <div>
+                <h2 className="font-semibold text-gray-900">Pressure Sore Risk (Braden Scale) *</h2>
+                <p className="text-xs text-gray-500">Required for all patients</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {Object.values(bradenScores).some(s => s > 0) && (
+                <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                  Score: {Object.values(bradenScores).reduce((sum, s) => sum + s, 0)}/23
+                </span>
+              )}
+              {pressureSoreExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+            </div>
+          </div>
+          
+          {pressureSoreExpanded && (
+            <div className="card-body space-y-4">
+              <div className="p-3 bg-purple-50 rounded-lg flex items-start gap-2">
+                <Info className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-purple-700">
+                  Rate each category from 1 (worst) to 4 (best). Lower total scores indicate higher risk for pressure sores.
+                </p>
+              </div>
+              
+              {/* Sensory Perception */}
+              <div>
+                <label className="label">Sensory Perception *</label>
+                <select
+                  value={bradenScores.sensoryPerception}
+                  onChange={(e) => setBradenScores({ ...bradenScores, sensoryPerception: parseInt(e.target.value) })}
+                  className={`input ${bradenScores.sensoryPerception === 0 ? 'border-red-300' : ''}`}
+                >
+                  <option value={0}>Select...</option>
+                  <option value={1}>1 - Completely Limited: Unresponsive to painful stimuli</option>
+                  <option value={2}>2 - Very Limited: Responds only to painful stimuli</option>
+                  <option value={3}>3 - Slightly Limited: Responds to verbal commands but cannot always communicate discomfort</option>
+                  <option value={4}>4 - No Impairment: Responds to verbal commands, has no sensory deficit</option>
+                </select>
+              </div>
+              
+              {/* Moisture */}
+              <div>
+                <label className="label">Moisture *</label>
+                <select
+                  value={bradenScores.moisture}
+                  onChange={(e) => setBradenScores({ ...bradenScores, moisture: parseInt(e.target.value) })}
+                  className={`input ${bradenScores.moisture === 0 ? 'border-red-300' : ''}`}
+                >
+                  <option value={0}>Select...</option>
+                  <option value={1}>1 - Constantly Moist: Skin is kept moist almost constantly</option>
+                  <option value={2}>2 - Very Moist: Skin is often but not always moist</option>
+                  <option value={3}>3 - Occasionally Moist: Skin is occasionally moist</option>
+                  <option value={4}>4 - Rarely Moist: Skin is usually dry</option>
+                </select>
+              </div>
+              
+              {/* Activity */}
+              <div>
+                <label className="label">Activity *</label>
+                <select
+                  value={bradenScores.activity}
+                  onChange={(e) => setBradenScores({ ...bradenScores, activity: parseInt(e.target.value) })}
+                  className={`input ${bradenScores.activity === 0 ? 'border-red-300' : ''}`}
+                >
+                  <option value={0}>Select...</option>
+                  <option value={1}>1 - Bedfast: Confined to bed</option>
+                  <option value={2}>2 - Chairfast: Ability to walk severely limited</option>
+                  <option value={3}>3 - Walks Occasionally: Walks occasionally during day</option>
+                  <option value={4}>4 - Walks Frequently: Walks outside room at least twice daily</option>
+                </select>
+              </div>
+              
+              {/* Mobility */}
+              <div>
+                <label className="label">Mobility *</label>
+                <select
+                  value={bradenScores.mobility}
+                  onChange={(e) => setBradenScores({ ...bradenScores, mobility: parseInt(e.target.value) })}
+                  className={`input ${bradenScores.mobility === 0 ? 'border-red-300' : ''}`}
+                >
+                  <option value={0}>Select...</option>
+                  <option value={1}>1 - Completely Immobile: Does not make even slight changes in body position</option>
+                  <option value={2}>2 - Very Limited: Makes occasional slight changes in body position</option>
+                  <option value={3}>3 - Slightly Limited: Makes frequent though slight changes in position</option>
+                  <option value={4}>4 - No Limitations: Makes major and frequent changes in position</option>
+                </select>
+              </div>
+              
+              {/* Nutrition */}
+              <div>
+                <label className="label">Nutrition *</label>
+                <select
+                  value={bradenScores.nutrition}
+                  onChange={(e) => setBradenScores({ ...bradenScores, nutrition: parseInt(e.target.value) })}
+                  className={`input ${bradenScores.nutrition === 0 ? 'border-red-300' : ''}`}
+                >
+                  <option value={0}>Select...</option>
+                  <option value={1}>1 - Very Poor: Never eats a complete meal, rarely eats more than 1/3 of any food</option>
+                  <option value={2}>2 - Probably Inadequate: Rarely eats a complete meal, generally eats only about 1/2 of food</option>
+                  <option value={3}>3 - Adequate: Eats over half of most meals, occasionally refuses a meal</option>
+                  <option value={4}>4 - Excellent: Eats most of every meal, never refuses a meal</option>
+                </select>
+              </div>
+              
+              {/* Friction & Shear */}
+              <div>
+                <label className="label">Friction & Shear *</label>
+                <select
+                  value={bradenScores.frictionShear}
+                  onChange={(e) => setBradenScores({ ...bradenScores, frictionShear: parseInt(e.target.value) })}
+                  className={`input ${bradenScores.frictionShear === 0 ? 'border-red-300' : ''}`}
+                >
+                  <option value={0}>Select...</option>
+                  <option value={1}>1 - Problem: Requires moderate to maximum assistance in moving, spastic/contractures</option>
+                  <option value={2}>2 - Potential Problem: Moves feebly or requires minimum assistance</option>
+                  <option value={3}>3 - No Apparent Problem: Moves in bed and chair independently</option>
+                </select>
+              </div>
+              
+              {/* Braden Score Summary */}
+              {Object.values(bradenScores).every(s => s > 0) && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-2">Risk Assessment Summary</h4>
+                  {(() => {
+                    const total = Object.values(bradenScores).reduce((sum, s) => sum + s, 0);
+                    let riskLevel = '';
+                    let riskColor = '';
+                    let interventions = '';
+                    
+                    if (total >= 19) {
+                      riskLevel = 'No Risk';
+                      riskColor = 'text-green-600 bg-green-100';
+                      interventions = 'Standard care, regular repositioning';
+                    } else if (total >= 15) {
+                      riskLevel = 'Mild Risk';
+                      riskColor = 'text-blue-600 bg-blue-100';
+                      interventions = 'Pressure-relieving mattress, repositioning every 4 hours';
+                    } else if (total >= 13) {
+                      riskLevel = 'Moderate Risk';
+                      riskColor = 'text-yellow-600 bg-yellow-100';
+                      interventions = 'Pressure-relieving mattress, repositioning every 2-3 hours, heel protection';
+                    } else if (total >= 10) {
+                      riskLevel = 'High Risk';
+                      riskColor = 'text-orange-600 bg-orange-100';
+                      interventions = 'Specialty surface, repositioning every 2 hours, nutritional consultation';
+                    } else {
+                      riskLevel = 'Very High Risk';
+                      riskColor = 'text-red-600 bg-red-100';
+                      interventions = 'Air-fluidized bed, repositioning every 1-2 hours, wound care consultation';
+                    }
+                    
+                    return (
+                      <>
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-2xl font-bold text-gray-900">{total}/23</span>
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${riskColor}`}>{riskLevel}</span>
+                        </div>
+                        <p className="text-sm text-gray-600"><strong>Interventions:</strong> {interventions}</p>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Comorbidities - COMPULSORY */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className="card card-compact border-2 border-blue-200"
+        >
+          <div 
+            className="card-header flex items-center justify-between cursor-pointer"
+            onClick={() => setComorbiditiesExpanded(!comorbiditiesExpanded)}
+          >
+            <div className="flex items-center gap-3">
+              <Stethoscope className="w-5 h-5 text-blue-500" />
+              <div>
+                <h2 className="font-semibold text-gray-900">Comorbidities *</h2>
+                <p className="text-xs text-gray-500">Select all existing medical conditions</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {selectedComorbidities.length > 0 && (
+                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                  {selectedComorbidities.length} selected
+                </span>
+              )}
+              {comorbiditiesExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+            </div>
+          </div>
+          
+          {comorbiditiesExpanded && (
+            <div className="card-body space-y-4">
+              <div className="p-3 bg-blue-50 rounded-lg flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-blue-700">
+                  Select all pre-existing medical conditions. This information is critical for surgical planning and risk assessment.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {commonComorbidities.map((condition) => (
+                  <label
+                    key={condition}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedComorbidities.includes(condition)
+                        ? 'bg-blue-50 border-blue-300'
+                        : 'bg-white border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedComorbidities.includes(condition)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedComorbidities([...selectedComorbidities, condition]);
+                        } else {
+                          setSelectedComorbidities(selectedComorbidities.filter(c => c !== condition));
+                        }
+                      }}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">{condition}</span>
+                  </label>
+                ))}
+              </div>
+              
+              {/* Custom Comorbidity Input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customComorbidity}
+                  onChange={(e) => setCustomComorbidity(e.target.value)}
+                  placeholder="Add other condition not listed..."
+                  className="input flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (customComorbidity.trim() && !selectedComorbidities.includes(customComorbidity.trim())) {
+                      setSelectedComorbidities([...selectedComorbidities, customComorbidity.trim()]);
+                      setCustomComorbidity('');
+                    }
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Add
+                </button>
+              </div>
+              
+              {/* Selected Comorbidities Summary */}
+              {selectedComorbidities.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedComorbidities.map((condition) => (
+                    <span
+                      key={condition}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                    >
+                      {condition}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedComorbidities(selectedComorbidities.filter(c => c !== condition))}
+                        className="ml-1 text-blue-600 hover:text-blue-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
 
         {/* Next of Kin */}

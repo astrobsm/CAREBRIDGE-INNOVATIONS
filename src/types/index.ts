@@ -88,6 +88,10 @@ export interface Patient {
   nextOfKin: NextOfKin;
   allergies: string[];
   chronicConditions: string[];
+  // Risk Assessments (required at registration)
+  dvtRiskAssessment?: DVTRiskAssessment;
+  pressureSoreRiskAssessment?: PressureSoreRiskAssessment;
+  comorbidities?: Comorbidity[];
   photo?: string;
   registeredHospitalId: string;
   // Care Setting fields
@@ -98,6 +102,41 @@ export interface Patient {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// DVT Risk Assessment (Caprini Score)
+export interface DVTRiskAssessment {
+  score: number;
+  riskLevel: 'low' | 'moderate' | 'high' | 'very_high';
+  riskFactors: string[];
+  prophylaxisRecommended: string;
+  assessedBy: string;
+  assessedAt: Date;
+}
+
+// Pressure Sore Risk Assessment (Braden Scale)
+export interface PressureSoreRiskAssessment {
+  score: number;
+  riskLevel: 'no_risk' | 'mild_risk' | 'moderate_risk' | 'high_risk' | 'very_high_risk';
+  sensoryPerception: number;
+  moisture: number;
+  activity: number;
+  mobility: number;
+  nutrition: number;
+  frictionShear: number;
+  interventionsRequired: string[];
+  assessedBy: string;
+  assessedAt: Date;
+}
+
+// Comorbidity
+export interface Comorbidity {
+  condition: string;
+  diagnosedDate?: string;
+  severity?: 'mild' | 'moderate' | 'severe';
+  currentlyManaged: boolean;
+  medications?: string[];
+  notes?: string;
 }
 
 export interface NextOfKin {
