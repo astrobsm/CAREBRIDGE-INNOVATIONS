@@ -4,6 +4,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { format, subHours, startOfDay, endOfDay, isBefore, isAfter } from 'date-fns';
 import { db } from '../database';
+import { syncRecord } from './cloudSyncService';
 import type {
   Appointment,
   AppointmentType,
@@ -102,6 +103,9 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
 
   await db.appointments.add(appointment);
 
+  // Sync to cloud immediately
+  await syncRecord('appointments', appointment as unknown as Record<string, unknown>);
+
   // Create reminder records for tracking
   if (reminderSchedule.length > 0) {
     await createAppointmentReminders(appointment);
@@ -129,6 +133,10 @@ export async function updateAppointment(
   };
 
   await db.appointments.put(updated);
+  
+  // Sync to cloud immediately
+  await syncRecord('appointments', updated as unknown as Record<string, unknown>);
+  
   return updated;
 }
 

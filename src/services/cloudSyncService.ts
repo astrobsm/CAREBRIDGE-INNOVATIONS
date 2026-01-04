@@ -471,6 +471,9 @@ function setupRealtimeSubscriptions() {
     { cloud: TABLES.burnCarePlans, local: 'burnCarePlans' },
     { cloud: TABLES.investigations, local: 'investigations' },
     { cloud: TABLES.limbSalvageAssessments, local: 'limbSalvageAssessments' },
+    { cloud: TABLES.appointments, local: 'appointments' },
+    { cloud: TABLES.appointmentSlots, local: 'appointmentSlots' },
+    { cloud: TABLES.clinicSessions, local: 'clinicSessions' },
   ];
 
   tablesToWatch.forEach(({ cloud, local }) => {
@@ -599,6 +602,10 @@ function getCloudTableName(localTableName: string): string | null {
     escharotomyRecords: TABLES.escharotomyRecords,
     skinGraftRecords: TABLES.skinGraftRecords,
     burnCarePlans: TABLES.burnCarePlans,
+    appointments: TABLES.appointments,
+    appointmentSlots: TABLES.appointmentSlots,
+    appointmentReminders: TABLES.appointmentReminders,
+    clinicSessions: TABLES.clinicSessions,
   };
   return mapping[localTableName] || null;
 }
