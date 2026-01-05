@@ -151,14 +151,28 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
     reader.readAsText(selectedFile);
   };
 
+  // Helper to normalize state name (case-insensitive matching)
+  const normalizeState = (state: string): string | null => {
+    const normalized = state.trim().toLowerCase();
+    const match = nigerianStates.find(s => s.toLowerCase() === normalized);
+    return match || null;
+  };
+
   const validateHospital = (row: Record<string, string>, index: number): { valid: boolean; error?: string } => {
     if (!row.name?.trim()) return { valid: false, error: `Row ${index + 1}: Hospital name is required` };
     if (!row.address?.trim()) return { valid: false, error: `Row ${index + 1}: Address is required` };
     if (!row.city?.trim()) return { valid: false, error: `Row ${index + 1}: City is required` };
     if (!row.state?.trim()) return { valid: false, error: `Row ${index + 1}: State is required` };
-    if (!nigerianStates.includes(row.state)) return { valid: false, error: `Row ${index + 1}: Invalid state "${row.state}"` };
+    const normalizedState = normalizeState(row.state);
+    if (!normalizedState) return { valid: false, error: `Row ${index + 1}: Invalid state "${row.state}". Valid states are: ${nigerianStates.join(', ')}` };
+    // Update row.state to proper case for storage
+    row.state = normalizedState;
     if (!row.phone?.trim()) return { valid: false, error: `Row ${index + 1}: Phone is required` };
-    if (row.type && !hospitalTypes.includes(row.type)) return { valid: false, error: `Row ${index + 1}: Invalid hospital type "${row.type}"` };
+    if (row.type) {
+      const normalizedType = row.type.trim().toLowerCase();
+      if (!hospitalTypes.includes(normalizedType)) return { valid: false, error: `Row ${index + 1}: Invalid hospital type "${row.type}". Valid types are: ${hospitalTypes.join(', ')}` };
+      row.type = normalizedType;
+    }
     return { valid: true };
   };
 

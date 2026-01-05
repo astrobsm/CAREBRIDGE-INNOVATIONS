@@ -90,12 +90,12 @@ export function initCloudSync() {
       console.error('[CloudSync] Initial sync failed:', err);
     });
     
-    // Set up periodic sync every 30 seconds
+    // Set up periodic sync every 5 minutes (300000ms) - real-time handles immediate updates
     syncInterval = setInterval(() => {
       if (navigator.onLine && isSupabaseConfigured()) {
         fullSync();
       }
-    }, 30000);
+    }, 300000);
   } else {
     console.log('[CloudSync] Skipping sync - not online or Supabase not configured');
   }
