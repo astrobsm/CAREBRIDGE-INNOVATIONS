@@ -44,6 +44,10 @@ import type {
   AppointmentReminder,
   AppointmentSlot,
   ClinicSession,
+  StaffPatientAssignment,
+  ActivityBillingRecord,
+  PayrollPeriod,
+  StaffPayrollRecord,
 } from '../types';
 
 export class CareBridgeDatabase extends Dexie {
@@ -98,11 +102,16 @@ export class CareBridgeDatabase extends Dexie {
   appointmentReminders!: Table<AppointmentReminder, string>;
   appointmentSlots!: Table<AppointmentSlot, string>;
   clinicSessions!: Table<ClinicSession, string>;
+  // Billing & Payroll
+  staffPatientAssignments!: Table<StaffPatientAssignment, string>;
+  activityBillingRecords!: Table<ActivityBillingRecord, string>;
+  payrollPeriods!: Table<PayrollPeriod, string>;
+  staffPayrollRecords!: Table<StaffPayrollRecord, string>;
 
   constructor() {
     super('CareBridgeDB');
 
-    this.version(59).stores({
+    this.version(60).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -159,6 +168,11 @@ export class CareBridgeDatabase extends Dexie {
       appointmentReminders: 'id, appointmentId, patientId, hospitalId, channel, scheduledFor, status, sentAt, createdAt',
       appointmentSlots: 'id, hospitalId, clinicianId, dayOfWeek, isActive, createdAt',
       clinicSessions: 'id, hospitalId, clinicianId, sessionDate, status, createdAt',
+      // Billing & Payroll
+      staffPatientAssignments: 'id, admissionId, patientId, staffId, staffRole, assignmentType, isActive, hospitalId, createdAt',
+      activityBillingRecords: 'id, patientId, performedBy, performedByRole, category, paymentStatus, invoiceId, hospitalId, performedAt, createdAt',
+      payrollPeriods: 'id, hospitalId, status, startDate, endDate, createdAt',
+      staffPayrollRecords: 'id, payrollPeriodId, staffId, staffRole, paymentStatus, hospitalId, createdAt',
     });
   }
 }

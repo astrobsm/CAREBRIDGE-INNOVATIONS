@@ -14,8 +14,50 @@ import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 
+// Role-specific dashboards
+import DoctorDashboard from '../components/DoctorDashboard';
+import NurseDashboard from '../components/NurseDashboard';
+import LabScientistDashboard from '../components/LabScientistDashboard';
+import AccountantDashboard from '../components/AccountantDashboard';
+import PharmacistDashboard from '../components/PharmacistDashboard';
+import AdminDashboard from '../components/AdminDashboard';
+
 export default function DashboardPage() {
   const { user } = useAuth();
+
+  // Route to role-specific dashboard
+  const getRoleDashboard = () => {
+    if (!user?.role) return null;
+    
+    switch (user.role) {
+      case 'super_admin':
+      case 'hospital_admin':
+        return <AdminDashboard />;
+      case 'surgeon':
+      case 'doctor':
+      case 'plastic_surgeon':
+      case 'anaesthetist':
+        return <DoctorDashboard />;
+      case 'nurse':
+      case 'home_care_giver':
+        return <NurseDashboard />;
+      case 'lab_scientist':
+        return <LabScientistDashboard />;
+      case 'pharmacist':
+        return <PharmacistDashboard />;
+      case 'accountant':
+        return <AccountantDashboard />;
+      // Default dashboard for other roles (receptionist, dietician, physiotherapist, driver, etc.)
+      default:
+        return null;
+    }
+  };
+
+  // If there's a role-specific dashboard, render it
+  const roleDashboard = getRoleDashboard();
+  if (roleDashboard) {
+    return roleDashboard;
+  }
 
   // Live queries for dashboard statistics
   const patientsCount = useLiveQuery(() => db.patients.count(), []);

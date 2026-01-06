@@ -3470,3 +3470,222 @@ export interface AppointmentStats {
   averageWaitTime?: number;              // Minutes
   attendanceRate?: number;               // Percentage
 }
+
+// ============================================
+// BILLING & PAYROLL TYPES
+// ============================================
+
+export type BillingCategory = 
+  | 'doctor_consultation'
+  | 'surgeon_review'
+  | 'plastic_surgeon_review'
+  | 'wound_care'
+  | 'nursing_service'
+  | 'laboratory'
+  | 'pharmacy'
+  | 'physiotherapy'
+  | 'dietetics'
+  | 'anaesthesia'
+  | 'procedure'
+  | 'ward_round'
+  | 'home_care'
+  | 'administrative';
+
+// Staff Assignment to Patient (per admission)
+export interface StaffPatientAssignment {
+  id: string;
+  admissionId: string;
+  patientId: string;
+  patientName: string;
+  hospitalNumber: string;
+  hospitalId: string;
+  
+  // Assigned Staff
+  staffId: string;
+  staffName: string;
+  staffRole: UserRole;
+  
+  // Assignment Details
+  assignmentType: 'primary' | 'secondary' | 'consultant' | 'nurse' | 'on_call';
+  assignedBy: string;
+  assignedAt: Date;
+  
+  // Status
+  isActive: boolean;
+  relievedAt?: Date;
+  relievedBy?: string;
+  
+  // Notes
+  notes?: string;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Activity Billing Record - Tracks each billable activity
+export interface ActivityBillingRecord {
+  id: string;
+  
+  // Activity Details
+  activityId: string;
+  activityCode: string;
+  activityName: string;
+  category: BillingCategory;
+  
+  // Patient Info
+  patientId: string;
+  patientName: string;
+  hospitalNumber: string;
+  
+  // Related Records
+  encounterId?: string;
+  admissionId?: string;
+  wardRoundId?: string;
+  labRequestId?: string;
+  prescriptionId?: string;
+  woundCareId?: string;
+  
+  // Staff who performed the activity
+  performedBy: string;
+  performedByName: string;
+  performedByRole: UserRole;
+  
+  // Billing Details
+  fee: number;
+  staffShare: number;           // 50% of fee
+  hospitalShare: number;        // 50% of fee
+  
+  // Payment Status
+  paymentStatus: 'pending' | 'partial' | 'paid' | 'waived';
+  amountPaid: number;
+  staffAmountPaid: number;      // 50% of amount paid
+  hospitalAmountPaid: number;   // 50% of amount paid
+  
+  // Linked to Invoice
+  invoiceId?: string;
+  invoiceItemId?: string;
+  
+  // Timestamps
+  performedAt: Date;
+  billedAt: Date;
+  paidAt?: Date;
+  
+  notes?: string;
+  hospitalId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Payroll Period
+export interface PayrollPeriod {
+  id: string;
+  hospitalId: string;
+  
+  // Period Details
+  periodName: string;           // e.g., "January 2026"
+  startDate: Date;
+  endDate: Date;
+  
+  // Status
+  status: 'open' | 'processing' | 'closed' | 'paid';
+  
+  // Summary
+  totalBilled: number;
+  totalPaid: number;
+  totalStaffEarnings: number;
+  totalHospitalEarnings: number;
+  
+  // Timestamps
+  closedAt?: Date;
+  closedBy?: string;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Staff Payroll Record - Monthly/Period earnings per staff
+export interface StaffPayrollRecord {
+  id: string;
+  payrollPeriodId: string;
+  staffId: string;
+  staffName: string;
+  staffRole: UserRole;
+  hospitalId: string;
+  
+  // Activity Summary
+  totalActivities: number;
+  activitiesByCategory: Record<BillingCategory, number>;
+  
+  // Earnings
+  totalBilled: number;          // Total amount billed for activities
+  totalPaid: number;            // Total amount paid by patients
+  grossEarnings: number;        // 50% of total paid
+  
+  // Deductions (if any)
+  deductions: number;
+  deductionNotes?: string;
+  
+  // Net Pay
+  netEarnings: number;
+  
+  // Payment Status
+  paymentStatus: 'pending' | 'processing' | 'paid';
+  paidAmount: number;
+  paidAt?: Date;
+  paymentReference?: string;
+  
+  // Activity Details (for breakdown)
+  activityRecords: string[];    // Array of ActivityBillingRecord IDs
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Staff Dashboard Stats
+export interface StaffDashboardStats {
+  staffId: string;
+  period: 'today' | 'week' | 'month' | 'all';
+  
+  // Patients
+  assignedPatients: number;
+  activePatients: number;
+  
+  // Activities
+  totalActivities: number;
+  activitiesByCategory: Record<string, number>;
+  
+  // Earnings
+  totalBilled: number;
+  pendingPayment: number;
+  paidAmount: number;
+  earnedAmount: number;         // 50% of paid
+  
+  // Performance
+  encountersCompleted: number;
+  wardRoundsCompleted: number;
+  proceduresPerformed: number;
+}
+
+// Lab Investigation Visibility
+export interface LabInvestigationVisibility {
+  id: string;
+  labRequestId: string;
+  patientId: string;
+  hospitalId: string;
+  
+  // Who can see this
+  requestingDoctor: string;
+  assignedLabScientist?: string;
+  assignedNurses: string[];
+  
+  // Status
+  status: 'pending' | 'collected' | 'processing' | 'completed';
+  
+  // Results uploaded by
+  resultsUploadedBy?: string;
+  resultsUploadedAt?: Date;
+  resultsUploadedByRole?: UserRole;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
