@@ -6,7 +6,8 @@ import { format } from 'date-fns';
 import type { Patient } from '../types';
 import type { ProcedureEducation, Complication } from '../data/patientEducation';
 import { complicationLikelihood } from '../data/patientEducation';
-import { addBrandedHeader, addBrandedFooter, PDFDocumentInfo } from './pdfUtils';
+import { addBrandedHeader, addBrandedFooter, PDFDocumentInfo, PDF_COLORS } from './pdfUtils';
+import { PDF_FONTS } from './pdfConfig';
 
 // Re-export types for use by consumers
 export type { ProcedureEducation, Complication };
@@ -41,6 +42,11 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  pdf.setFillColor(...PDF_COLORS.white);
+  pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   const margin = 15;
   const contentWidth = pageWidth - 2 * margin;
   let yPos = margin;
@@ -73,18 +79,18 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   pdf.rect(margin, yPos, contentWidth, 35, 'F');
   
   pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.text('Patient Information', margin + 3, yPos + 6);
   
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.text(`Name: ${patient.firstName} ${patient.lastName}`, margin + 3, yPos + 14);
   pdf.text(`Hospital No: ${patient.hospitalNumber}`, margin + 80, yPos + 14);
   pdf.text(`Date of Birth: ${format(new Date(patient.dateOfBirth), 'dd/MM/yyyy')}`, margin + 3, yPos + 22);
   pdf.text(`Gender: ${patient.gender === 'male' ? 'Male' : 'Female'}`, margin + 80, yPos + 22);
   
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.text('Procedure:', margin + 3, yPos + 30);
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.text(procedure.procedureName, margin + 30, yPos + 30);
   
   if (scheduledDate) {
@@ -94,22 +100,22 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   yPos += 42;
   
   // Surgeon information
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.text('Attending Surgeon:', margin + 3, yPos);
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.text(surgeonName + (surgeonLicense ? ` (${surgeonLicense})` : ''), margin + 45, yPos);
   
   yPos += 10;
 
   // ============ SECTION 1: OVERVIEW ============
   pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.setTextColor(0, 102, 153);
   pdf.text('1. ABOUT THE PROCEDURE', margin, yPos);
   yPos += 8;
   
   pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.setTextColor(0, 0, 0);
   
   const overviewLines = pdf.splitTextToSize(procedure.overview, contentWidth);
@@ -119,13 +125,13 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   // ============ SECTION 2: AIMS ============
   addNewPageIfNeeded(50);
   pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.setTextColor(0, 102, 153);
   pdf.text('2. AIMS OF THE PROCEDURE', margin, yPos);
   yPos += 7;
   
   pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.setTextColor(0, 0, 0);
   
   procedure.aims.forEach((aim) => {
@@ -138,13 +144,13 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   // ============ SECTION 3: ANESTHESIA ============
   addNewPageIfNeeded(40);
   pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.setTextColor(0, 102, 153);
   pdf.text('3. ANESTHESIA (PAIN CONTROL)', margin, yPos);
   yPos += 7;
   
   pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.setTextColor(0, 0, 0);
   
   const anesthesiaMap: Record<string, string> = {
@@ -156,11 +162,11 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
     combined: 'Combined techniques',
   };
   
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.text(`Type: ${anesthesiaMap[procedure.preferredAnesthesia] || procedure.preferredAnesthesia}`, margin + 3, yPos);
   yPos += 6;
   
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   const anesthesiaLines = pdf.splitTextToSize(procedure.anesthesiaDescription, contentWidth - 5);
   pdf.text(anesthesiaLines, margin + 3, yPos);
   yPos += anesthesiaLines.length * 5 + 8;
@@ -168,13 +174,13 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   // ============ SECTION 4: EXPECTED OUTCOMES ============
   addNewPageIfNeeded(50);
   pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.setTextColor(0, 102, 153);
   pdf.text('4. EXPECTED OUTCOMES', margin, yPos);
   yPos += 7;
   
   pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.setTextColor(0, 0, 0);
   
   procedure.expectedOutcomes.forEach((outcome) => {
@@ -185,7 +191,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   });
   yPos += 3;
   
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.text(`Success Rate: ${procedure.successRate}`, margin + 3, yPos);
   yPos += 5;
   pdf.text(`Healing Time: ${procedure.healingTime}`, margin + 3, yPos);
@@ -196,26 +202,26 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   // ============ SECTION 5: RISKS & COMPLICATIONS ============
   addNewPageIfNeeded(80);
   pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.setTextColor(0, 102, 153);
   pdf.text('5. RISKS AND POSSIBLE COMPLICATIONS', margin, yPos);
   yPos += 7;
   
   pdf.setFontSize(9);
-  pdf.setFont('helvetica', 'italic');
+  pdf.setFont(PDF_FONTS.primary, 'italic');
   pdf.setTextColor(0, 0, 0);
   pdf.text('All medical procedures carry some risk. The following complications may occur:', margin, yPos);
   yPos += 8;
   
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.setTextColor(0, 0, 0);
   
   // General complications
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.text('General Surgical Risks:', margin + 3, yPos);
   yPos += 6;
   
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   procedure.generalComplications.slice(0, 6).forEach((comp) => {
     addNewPageIfNeeded(15);
     const likelihood = complicationLikelihood[comp.likelihood];
@@ -228,11 +234,11 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   
   // Specific complications
   addNewPageIfNeeded(50);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.text('Procedure-Specific Risks:', margin + 3, yPos);
   yPos += 6;
   
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   procedure.specificComplications.forEach((comp) => {
     addNewPageIfNeeded(15);
     const likelihood = complicationLikelihood[comp.likelihood];
@@ -246,7 +252,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   // ============ SECTION 6: LIFESTYLE CHANGES ============
   addNewPageIfNeeded(60);
   pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.setTextColor(0, 102, 153);
   pdf.text('6. LIFESTYLE CHANGES & RECOVERY INSTRUCTIONS', margin, yPos);
   yPos += 8;
@@ -256,7 +262,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   
   procedure.lifestyleChanges.forEach((change) => {
     addNewPageIfNeeded(20);
-    pdf.setFont('helvetica', 'bold');
+    pdf.setFont(PDF_FONTS.primary, 'bold');
     pdf.text(`${change.category}:`, margin + 3, yPos);
     
     const importanceColor = change.importance === 'essential' ? [180, 0, 0] : 
@@ -266,7 +272,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
     yPos += 5;
     
     pdf.setTextColor(0, 0, 0);
-    pdf.setFont('helvetica', 'normal');
+    pdf.setFont(PDF_FONTS.primary, 'normal');
     const changeText = `${change.recommendation}${change.duration ? ` (Duration: ${change.duration})` : ''}`;
     const changeLines = pdf.splitTextToSize(changeText, contentWidth - 10);
     pdf.text(changeLines, margin + 5, yPos);
@@ -277,12 +283,12 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   // ============ SECTION 7: PATIENT RESPONSIBILITIES ============
   addNewPageIfNeeded(60);
   pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.setTextColor(0, 102, 153);
   pdf.text('7. YOUR RESPONSIBILITIES', margin, yPos);
   yPos += 3;
   pdf.setFontSize(8);
-  pdf.setFont('helvetica', 'italic');
+  pdf.setFont(PDF_FONTS.primary, 'italic');
   pdf.setTextColor(0, 0, 0);
   pdf.text('Compliance with these instructions is essential for the best outcome', margin, yPos);
   yPos += 7;
@@ -302,11 +308,11 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
     const phaseResponsibilities = procedure.patientResponsibilities.filter(r => r.phase === phase);
     if (phaseResponsibilities.length > 0) {
       addNewPageIfNeeded(25);
-      pdf.setFont('helvetica', 'bold');
+      pdf.setFont(PDF_FONTS.primary, 'bold');
       pdf.text(phaseLabels[phase] + ':', margin + 3, yPos);
       yPos += 5;
       
-      pdf.setFont('helvetica', 'normal');
+      pdf.setFont(PDF_FONTS.primary, 'normal');
       phaseResponsibilities.forEach((resp) => {
         addNewPageIfNeeded(12);
         const importanceMarker = resp.importance === 'critical' ? '⚠️' : resp.importance === 'important' ? '•' : '○';
@@ -321,13 +327,13 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   // ============ SECTION 8: FOLLOW-UP ============
   addNewPageIfNeeded(50);
   pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.setTextColor(0, 102, 153);
   pdf.text('8. FOLLOW-UP SCHEDULE', margin, yPos);
   yPos += 7;
   
   pdf.setFontSize(9);
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.setTextColor(0, 0, 0);
   
   procedure.followUpSchedule.forEach((visit, idx) => {
@@ -340,7 +346,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   // ============ SECTION 9: WARNING SIGNS ============
   addNewPageIfNeeded(60);
   pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.setTextColor(180, 0, 0);
   pdf.text('9. WARNING SIGNS - SEEK IMMEDIATE MEDICAL ATTENTION', margin, yPos);
   yPos += 7;
@@ -350,7 +356,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   pdf.rect(margin, yPos - 2, contentWidth, warningBoxHeight, 'F');
   
   pdf.setFontSize(9);
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.setTextColor(0, 0, 0);
   
   procedure.warningSignsToReport.forEach((sign) => {
@@ -364,13 +370,13 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   if (procedure.alternativeTreatments && procedure.alternativeTreatments.length > 0) {
     addNewPageIfNeeded(40);
     pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
+    pdf.setFont(PDF_FONTS.primary, 'bold');
     pdf.setTextColor(0, 102, 153);
     pdf.text('10. ALTERNATIVE TREATMENTS', margin, yPos);
     yPos += 7;
     
     pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
+    pdf.setFont(PDF_FONTS.primary, 'normal');
     pdf.setTextColor(0, 0, 0);
     
     procedure.alternativeTreatments.forEach((alt) => {
@@ -385,18 +391,17 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   if (procedure.riskOfNotTreating) {
     addNewPageIfNeeded(30);
     pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
+    pdf.setFont(PDF_FONTS.primary, 'bold');
     pdf.setTextColor(0, 102, 153);
     pdf.text('11. RISKS OF NOT HAVING THIS PROCEDURE', margin, yPos);
     yPos += 7;
     
     pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(0, 0, 0);
-    
-    const riskLines = pdf.splitTextToSize(procedure.riskOfNotTreating, contentWidth - 5);
-    pdf.text(riskLines, margin + 3, yPos);
-    yPos += riskLines.length * 5 + 8;
+    pdf.setFont(PDF_FONTS.primary, 'normal');
+    pdf.setTextColor(0, 0, 0);  // Reset to black text
+    const riskTextLines = pdf.splitTextToSize(procedure.riskOfNotTreating, contentWidth);
+    pdf.text(riskTextLines, margin, yPos);
+    yPos += riskTextLines.length * 5 + 8;
   }
 
   // ============ CONSENT SECTION ============
@@ -410,13 +415,13 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
     
     yPos += 8;
     pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
+    pdf.setFont(PDF_FONTS.primary, 'bold');
     pdf.setTextColor(0, 102, 153);
     pdf.text('PATIENT ACKNOWLEDGMENT AND CONSENT', pageWidth / 2, yPos, { align: 'center' });
     yPos += 10;
     
     pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
+    pdf.setFont(PDF_FONTS.primary, 'normal');
     pdf.setTextColor(0, 0, 0);
     
     const consentText = [
@@ -472,6 +477,12 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
 export function generateProcedureInfoSheet(procedure: ProcedureEducation, hospitalName: string): void {
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  pdf.setFillColor(...PDF_COLORS.white);
+  pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   const margin = 15;
   const contentWidth = pageWidth - 2 * margin;
   let yPos = margin;
@@ -488,22 +499,22 @@ export function generateProcedureInfoSheet(procedure: ProcedureEducation, hospit
   // Overview
   pdf.setTextColor(0, 0, 0);
   pdf.setFontSize(11);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.text('What is this procedure?', margin, yPos);
   yPos += 6;
   
   pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   const overviewLines = pdf.splitTextToSize(procedure.overview, contentWidth);
   pdf.text(overviewLines, margin, yPos);
   yPos += overviewLines.length * 5 + 8;
 
   // Key Points
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.text('Key Points:', margin, yPos);
   yPos += 6;
   
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.text(`• Success Rate: ${procedure.successRate}`, margin + 3, yPos);
   yPos += 5;
   pdf.text(`• Healing Time: ${procedure.healingTime}`, margin + 3, yPos);
@@ -512,11 +523,11 @@ export function generateProcedureInfoSheet(procedure: ProcedureEducation, hospit
   yPos += 10;
 
   // Most Important Things to Know
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(PDF_FONTS.primary, 'bold');
   pdf.text('Most Important Things To Know:', margin, yPos);
   yPos += 6;
   
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(PDF_FONTS.primary, 'normal');
   const essentialChanges = procedure.lifestyleChanges.filter(c => c.importance === 'essential');
   essentialChanges.forEach(change => {
     const text = pdf.splitTextToSize(`• ${change.category}: ${change.recommendation}`, contentWidth - 5);

@@ -2,6 +2,7 @@
 // Generates professional prescription documents with CareBridge branding
 
 import jsPDF from 'jspdf';
+import { PDF_FONTS } from './pdfConfig';
 import { format } from 'date-fns';
 import {
   addBrandedHeader,
@@ -65,6 +66,10 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
   // Add branded header
   const info: PDFDocumentInfo = {
     title: 'PRESCRIPTION',
@@ -100,7 +105,7 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
   doc.roundedRect(pageWidth - 45, yPos - 5, 30, 8, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(statusLabel, pageWidth - 30, yPos, { align: 'center' });
 
   yPos += 5;
@@ -115,9 +120,9 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
     doc.roundedRect(15, yPos, pageWidth - 30, 12, 2, 2, 'F');
     doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('Diagnosis:', 20, yPos + 5);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(diagnosis, 45, yPos + 5);
     yPos += 18;
   } else {
@@ -137,7 +142,7 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
   doc.rect(startX, yPos, pageWidth - 30, 8, 'F');
   doc.setTextColor(...PDF_COLORS.dark);
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
 
   let xPos = startX + 2;
   cols.forEach((col, index) => {
@@ -148,7 +153,7 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
   yPos += 10;
 
   // Medication rows
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   medications.forEach((med, index) => {
     // Check if we need a new page
     if (yPos > pageHeight - 60) {
@@ -180,11 +185,11 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
     xPos += colWidths[0];
 
     // Medication name
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     const medName = med.name.length > 22 ? med.name.substring(0, 22) + '...' : med.name;
     doc.text(medName, xPos, yPos + 3);
     if (med.genericName && med.genericName !== med.name) {
-      doc.setFont('helvetica', 'italic');
+      doc.setFont(PDF_FONTS.primary, 'italic');
       doc.setFontSize(6);
       doc.setTextColor(...PDF_COLORS.gray);
       const genericName = med.genericName.length > 25 ? med.genericName.substring(0, 25) + '...' : med.genericName;
@@ -193,7 +198,7 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
     xPos += colWidths[1];
 
     // Reset styles for remaining columns
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...PDF_COLORS.dark);
 
@@ -238,7 +243,7 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
     doc.roundedRect(15, yPos, pageWidth - 30, 15, 2, 2, 'F');
     doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
 
     const noteLines = doc.splitTextToSize(notes, pageWidth - 40);
     doc.text(noteLines, 20, yPos + 6);
@@ -259,11 +264,11 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
 
   doc.setTextColor(...PDF_COLORS.dark);
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(prescribedBy, pageWidth - 48, yPos + 22, { align: 'center' });
 
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(...PDF_COLORS.gray);
   doc.text(prescriberTitle, pageWidth - 48, yPos + 27, { align: 'center' });
 
@@ -284,9 +289,9 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
   doc.roundedRect(15, yPos, pageWidth - 30, 15, 2, 2, 'F');
   doc.setTextColor(...PDF_COLORS.danger);
   doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('IMPORTANT:', 20, yPos + 5);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text('This prescription is valid for 30 days from the date of issue. Do not dispense if prescription', 45, yPos + 5);
   doc.text('appears altered. Controlled substances require proper documentation. Keep out of reach of children.', 20, yPos + 10);
 
@@ -317,6 +322,11 @@ export function generateDispensingSlipPDF(
 
   const doc = new jsPDF('p', 'mm', [148, 210]); // A5 size for receipts
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   // Header
   doc.setFillColor(...PDF_COLORS.primary);
@@ -324,11 +334,11 @@ export function generateDispensingSlipPDF(
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('DISPENSING SLIP', pageWidth / 2, 12, { align: 'center' });
 
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(hospitalName, pageWidth / 2, 20, { align: 'center' });
 
   let yPos = 35;
@@ -336,26 +346,26 @@ export function generateDispensingSlipPDF(
   // Prescription details
   doc.setTextColor(...PDF_COLORS.dark);
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Rx #:', 10, yPos);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(prescriptionId.slice(0, 8).toUpperCase(), 25, yPos);
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Patient:', 80, yPos);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(patient.name, 100, yPos);
 
   yPos += 8;
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Date:', 10, yPos);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(format(prescribedDate, 'dd/MM/yyyy'), 25, yPos);
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Hospital #:', 80, yPos);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(patient.hospitalNumber, 105, yPos);
 
   yPos += 12;
@@ -369,14 +379,14 @@ export function generateDispensingSlipPDF(
 
   // Medications
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Medications Dispensed:', 10, yPos);
 
   yPos += 8;
 
   medications.forEach((med, index) => {
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     
     const medText = `${index + 1}. ${med.name} ${med.dosage}`;
     doc.text(medText, 15, yPos);

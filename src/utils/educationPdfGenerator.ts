@@ -10,6 +10,7 @@ import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import type { EducationCondition, EducationCategory } from '../domains/patient-education/types';
 import { PDF_COLORS, addBrandedHeader, PDFDocumentInfo } from './pdfUtils';
+import { PDF_FONTS } from './pdfConfig';
 
 // Helper function to add wrapped text
 const addWrappedText = (
@@ -31,7 +32,7 @@ const addSectionHeader = (doc: jsPDF, title: string, y: number): number => {
   doc.rect(15, y - 5, 180, 8, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(title.toUpperCase(), 17, y);
   doc.setTextColor(0, 0, 0);
   return y + 10;
@@ -41,7 +42,7 @@ const addSectionHeader = (doc: jsPDF, title: string, y: number): number => {
 const addSubsectionHeader = (doc: jsPDF, title: string, y: number): number => {
   doc.setTextColor(PDF_COLORS.primary[0], PDF_COLORS.primary[1], PDF_COLORS.primary[2]);
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(title, 15, y);
   doc.setTextColor(0, 0, 0);
   return y + 6;
@@ -58,7 +59,7 @@ const checkPageBreak = (doc: jsPDF, y: number, neededSpace: number = 30): number
 
 // Add bullet point
 const addBulletPoint = (doc: jsPDF, text: string, x: number, y: number, maxWidth: number): number => {
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   doc.text('•', x, y);
   return addWrappedText(doc, text, x + 5, y, maxWidth - 5, 4);
@@ -75,6 +76,12 @@ export const downloadPatientEducationPDF = (
 ): void => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   const margin = 15;
   const contentWidth = pageWidth - (margin * 2);
   let y = 10;
@@ -97,11 +104,11 @@ export const downloadPatientEducationPDF = (
   
   doc.setTextColor(PDF_COLORS.primary[0], PDF_COLORS.primary[1], PDF_COLORS.primary[2]);
   doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(condition.name, margin + 5, y + 10);
   
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(100, 100, 100);
   doc.text(`Category: ${category.name}`, margin + 5, y + 18);
   doc.text(`ICD Code: ${condition.icdCode}`, margin + 100, y + 18);
@@ -122,13 +129,13 @@ export const downloadPatientEducationPDF = (
   
   // Definition
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   y = addWrappedText(doc, condition.overview.definition, margin, y, contentWidth, 4.5);
   y += 5;
 
   // Alternate names
   if (condition.alternateNames && condition.alternateNames.length > 0) {
-    doc.setFont('helvetica', 'italic');
+    doc.setFont(PDF_FONTS.primary, 'italic');
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
     doc.text(`Also known as: ${condition.alternateNames.join(', ')}`, margin, y);
@@ -177,7 +184,7 @@ export const downloadPatientEducationPDF = (
     
     doc.setTextColor(PDF_COLORS.primary[0], PDF_COLORS.primary[1], PDF_COLORS.primary[2]);
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text(`Phase ${phase.phase}: ${phase.name}`, margin + 3, y + 2);
     
     doc.setTextColor(100, 100, 100);
@@ -188,18 +195,18 @@ export const downloadPatientEducationPDF = (
     y += 20;
     
     // Phase description
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(9);
     y = addWrappedText(doc, phase.description, margin, y, contentWidth, 4);
     y += 3;
 
     // Goals
     y = checkPageBreak(doc, y, 25);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(9);
     doc.text('Goals:', margin, y);
     y += 5;
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     phase.goals.slice(0, 4).forEach(goal => {
       y = checkPageBreak(doc, y, 8);
       y = addBulletPoint(doc, goal, margin + 3, y, contentWidth - 3);
@@ -277,7 +284,7 @@ export const downloadPatientEducationPDF = (
 
     // Immediate postop
     y = addSubsectionHeader(doc, 'Immediately After Surgery', y);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(9);
     doc.text(`Position: ${postop.immediatePostop.positioning}`, margin, y);
     y += 6;
@@ -298,10 +305,10 @@ export const downloadPatientEducationPDF = (
     y = addSubsectionHeader(doc, 'Wound Care Instructions', y);
     postop.woundCare.forEach(care => {
       y = checkPageBreak(doc, y, 8);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(PDF_FONTS.primary, 'bold');
       doc.setFontSize(8);
       doc.text(`${care.day}:`, margin, y);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
       y = addWrappedText(doc, care.instruction, margin + 25, y, contentWidth - 25, 4);
       y += 2;
     });
@@ -310,7 +317,7 @@ export const downloadPatientEducationPDF = (
     // Pain management
     y = checkPageBreak(doc, y, 30);
     y = addSubsectionHeader(doc, 'Pain Management', y);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(9);
     doc.text(`Expected pain level: ${postop.painManagement.expectedPainLevel}`, margin, y);
     y += 6;
@@ -351,10 +358,10 @@ export const downloadPatientEducationPDF = (
   y = addSubsectionHeader(doc, 'Short-Term Outcomes', y);
   condition.expectedOutcomes.shortTerm.forEach(outcome => {
     y = checkPageBreak(doc, y, 12);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(9);
     doc.text(`${outcome.timeframe}:`, margin, y);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     y = addWrappedText(doc, outcome.expectation, margin + 35, y, contentWidth - 35, 4);
     y += 2;
   });
@@ -365,10 +372,10 @@ export const downloadPatientEducationPDF = (
   y = addSubsectionHeader(doc, 'Long-Term Outcomes', y);
   condition.expectedOutcomes.longTerm.forEach(outcome => {
     y = checkPageBreak(doc, y, 12);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(9);
     doc.text(`${outcome.timeframe}:`, margin, y);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     y = addWrappedText(doc, outcome.expectation, margin + 35, y, contentWidth - 35, 4);
     y += 2;
   });
@@ -377,7 +384,7 @@ export const downloadPatientEducationPDF = (
   // Functional and cosmetic
   y = checkPageBreak(doc, y, 25);
   y = addSubsectionHeader(doc, 'Recovery Expectations', y);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   doc.text('Functional Recovery:', margin, y);
   y = addWrappedText(doc, condition.expectedOutcomes.functionalRecovery, margin + 35, y, contentWidth - 35, 4);
@@ -392,10 +399,10 @@ export const downloadPatientEducationPDF = (
     y = checkPageBreak(doc, y, 15);
     doc.setFillColor(230, 255, 230);
     doc.rect(margin, y - 4, contentWidth, 12, 'F');
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(9);
     doc.text('Success Rate:', margin + 3, y + 2);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     y = addWrappedText(doc, condition.expectedOutcomes.successRate, margin + 30, y + 2, contentWidth - 33, 4);
     y += 10;
   }
@@ -407,10 +414,10 @@ export const downloadPatientEducationPDF = (
   y = addSubsectionHeader(doc, 'Appointment Schedule', y);
   condition.followUpCare.schedule.forEach((appt) => {
     y = checkPageBreak(doc, y, 12);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(9);
     doc.text(`${appt.timing}:`, margin, y);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     y = addWrappedText(doc, appt.purpose, margin + 40, y, contentWidth - 40, 4);
     y += 2;
   });
@@ -436,7 +443,7 @@ export const downloadPatientEducationPDF = (
   doc.rect(margin, y - 5, contentWidth, 10, 'F');
   doc.setTextColor(180, 0, 0);
   doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('EMERGENCY - Seek Immediate Medical Attention', margin + 5, y + 2);
   doc.setTextColor(0, 0, 0);
   y += 12;
@@ -465,12 +472,12 @@ export const downloadPatientEducationPDF = (
     doc.setFillColor(importanceColor[0], importanceColor[1], importanceColor[2]);
     doc.circle(margin + 3, y - 1, 2, 'F');
     
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(9);
     doc.text(req.requirement, margin + 8, y);
     y += 5;
     
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
     doc.text(`If not followed: ${req.consequence}`, margin + 8, y);
@@ -487,12 +494,12 @@ export const downloadPatientEducationPDF = (
     
     condition.whoGuidelines.forEach(guideline => {
       y = checkPageBreak(doc, y, 30);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(PDF_FONTS.primary, 'bold');
       doc.setFontSize(9);
       doc.text(`${guideline.title} (${guideline.reference})`, margin, y);
       y += 6;
       
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
       guideline.keyPoints.forEach(point => {
         y = checkPageBreak(doc, y, 6);
         y = addBulletPoint(doc, point, margin + 3, y, contentWidth - 3);
@@ -531,6 +538,12 @@ export const downloadCategorySummaryPDF = (
 ): void => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   const margin = 15;
   const contentWidth = pageWidth - (margin * 2);
   let y = 10;
@@ -548,21 +561,21 @@ export const downloadCategorySummaryPDF = (
   doc.rect(margin, y, contentWidth, 20, 'F');
   doc.setTextColor(PDF_COLORS.primary[0], PDF_COLORS.primary[1], PDF_COLORS.primary[2]);
   doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(`Category ${category.code}: ${category.name}`, margin + 5, y + 12);
   y += 28;
 
   // List of conditions
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Available Educational Materials:', margin, y);
   y += 8;
 
   category.conditions.forEach((condition, index) => {
     y = checkPageBreak(doc, y, 15);
     
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(10);
     doc.text(`${index + 1}. ${condition.name}`, margin + 5, y);
     

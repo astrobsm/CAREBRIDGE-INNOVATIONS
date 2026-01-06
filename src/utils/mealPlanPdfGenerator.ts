@@ -11,6 +11,7 @@ import {
   checkNewPage,
   PDF_COLORS,
 } from './pdfUtils';
+import { PDF_FONTS } from './pdfConfig';
 
 // ==================== TYPES ====================
 
@@ -75,6 +76,10 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   // Plan type titles
   const planTitles: Record<string, string> = {
     wound_healing: 'Wound Healing Meal Plan',
@@ -102,15 +107,15 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
     
     doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('Patient:', 20, y + 8);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(options.patientName, 40, y + 8);
     
     if (options.hospitalNumber) {
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(PDF_FONTS.primary, 'bold');
       doc.text('Hospital No:', 100, y + 8);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
       doc.text(options.hospitalNumber, 125, y + 8);
     }
     
@@ -125,9 +130,9 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
     }
     
     if (options.diagnosis) {
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(PDF_FONTS.primary, 'bold');
       doc.text('Diagnosis:', 20, y + 22);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
       doc.text(options.diagnosis, 45, y + 22);
     }
     
@@ -153,11 +158,11 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
     
     doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text(target.value, x + boxWidth / 2, y + 10, { align: 'center' });
     
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(`${target.label} (${target.unit})`, x + boxWidth / 2, y + 17, { align: 'center' });
   });
   
@@ -243,13 +248,13 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
     // Meal title
     doc.setTextColor(...PDF_COLORS.success);
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text(section.name, x + 3, colY + 6);
     
     // Meal items
     doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     
     section.items!.forEach((item, i) => {
       const cleanItem = item.replace(/[🥚🐟🍗🐄🐐🫘🥜🥛🐌🦐🍊🥭🍋🍈🥒🍅🫑🥬🥗🍍🥩🦪🐔🌾❌]/g, '').trim();
@@ -275,7 +280,7 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
     
     doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     
     options.proteinFoods.slice(0, 6).forEach((food, i) => {
       const cleanFood = food.replace(/[🥚🐟🍗🐄🐐🫘🥜🥛🐌🦐]/g, '').trim();
@@ -351,10 +356,10 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
     
     doc.setTextColor(220, 38, 38);
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('⚠️ Clinical Considerations:', 20, y + 6);
     
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(8);
     options.warnings.forEach((warning, i) => {
       doc.text(`• ${warning}`, 20, y + 12 + (i * 5));

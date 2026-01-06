@@ -8,6 +8,7 @@
 
 import jsPDF from 'jspdf';
 import { PDF_COLORS } from './pdfUtils';
+import { PDF_FONTS } from './pdfConfig';
 
 // A4 dimensions in mm
 const A4_WIDTH = 210;
@@ -252,12 +253,12 @@ function generate15cmRulersPage(doc: jsPDF): void {
   // Page title
   doc.setFontSize(14);
   doc.setTextColor(...PDF_COLORS.primary);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('15cm Calibration Rulers - Standard Size', A4_WIDTH / 2, MARGIN + 10, { align: 'center' });
   
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text('Print at 100% scale (no scaling) • Cut along dashed lines • 0.5mm grid for precision', A4_WIDTH / 2, MARGIN + 16, { align: 'center' });
   
   // Calculate how many rulers fit
@@ -292,12 +293,12 @@ function generate10cmRulersPage(doc: jsPDF): void {
   // Page title
   doc.setFontSize(14);
   doc.setTextColor(...PDF_COLORS.primary);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('10cm Calibration Rulers - Compact Size', A4_WIDTH / 2, MARGIN + 10, { align: 'center' });
   
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text('Print at 100% scale (no scaling) • Cut along dashed lines • 0.5mm grid for precision', A4_WIDTH / 2, MARGIN + 16, { align: 'center' });
   
   // 2 columns of rulers
@@ -336,12 +337,12 @@ function generate5cmRulersPage(doc: jsPDF): void {
   // Page title
   doc.setFontSize(14);
   doc.setTextColor(...PDF_COLORS.primary);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('5cm Calibration Rulers - Mini Size', A4_WIDTH / 2, MARGIN + 10, { align: 'center' });
   
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text('Print at 100% scale (no scaling) • Cut along dashed lines • 0.5mm grid for precision', A4_WIDTH / 2, MARGIN + 16, { align: 'center' });
   
   // 3 columns of rulers
@@ -376,12 +377,12 @@ function generateLShapedRulersPage(doc: jsPDF): void {
   // Page title
   doc.setFontSize(14);
   doc.setTextColor(...PDF_COLORS.primary);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('L-Shaped Corner Rulers - For Length & Width', A4_WIDTH / 2, MARGIN + 10, { align: 'center' });
   
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text('Print at 100% scale (no scaling) • Cut along dashed lines • 0.5mm grid for precision', A4_WIDTH / 2, MARGIN + 16, { align: 'center' });
   
   // 2 L-shaped rulers side by side
@@ -422,10 +423,10 @@ function generateLShapedRulersPage(doc: jsPDF): void {
   const instructionsY = thirdRowY + rulerSize + 15;
   doc.setFontSize(9);
   doc.setTextColor(...PDF_COLORS.dark);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('How to Use:', MARGIN, instructionsY);
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(8);
   const instructions = [
     '1. Place the L-shaped ruler at the wound corner',
@@ -449,12 +450,12 @@ function generateGridReferencePage(doc: jsPDF): void {
   // Page title
   doc.setFontSize(14);
   doc.setTextColor(...PDF_COLORS.primary);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('0.5mm Grid Reference Sheet', A4_WIDTH / 2, MARGIN + 10, { align: 'center' });
   
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text('Use this sheet to verify print accuracy • Each small square = 0.5mm × 0.5mm', A4_WIDTH / 2, MARGIN + 16, { align: 'center' });
   
   // Draw grid area
@@ -549,6 +550,13 @@ export function generateCalibrationRulerPDF(): void {
     unit: 'mm',
     format: 'a4',
   });
+  
+  const pageWidth = A4_WIDTH;
+  const pageHeight = A4_HEIGHT;
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
   
   // Page 1: 15cm Standard Rulers
   generate15cmRulersPage(doc);

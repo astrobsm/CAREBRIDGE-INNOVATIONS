@@ -1,5 +1,7 @@
 // Invoice and Billing PDF Generator
 // Generates professional invoices and bill estimates with CareBridge branding
+// CRITICAL: All PDFs use white background (#FFFFFF), black text (#000000),
+// and Helvetica font (PDF_FONTS.primary) for maximum cross-platform compatibility
 
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
@@ -14,6 +16,7 @@ import {
   type PDFDocumentInfo,
   type PDFPatientInfo,
 } from './pdfUtils';
+import { PDF_FONTS } from './pdfConfig';
 
 export interface InvoiceItemPDF {
   description: string;
@@ -73,6 +76,11 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background for the entire page
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   // Add branded header
   const info: PDFDocumentInfo = {
@@ -106,7 +114,7 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
   doc.setFillColor(...statusColors[status]);
   doc.roundedRect(pageWidth - 55, yPos - 10, 40, 12, 2, 2, 'F');
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text(statusLabels[status], pageWidth - 35, yPos - 3, { align: 'center' });
 
@@ -117,7 +125,7 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
   doc.roundedRect(15, yPos, pageWidth - 30, 20, 2, 2, 'F');
   
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(...PDF_COLORS.dark);
   
   doc.text(`Invoice Date: ${format(invoiceDate, 'dd MMMM yyyy')}`, 20, yPos + 8);
@@ -140,7 +148,7 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
   doc.rect(15, yPos, pageWidth - 30, 8, 'F');
   
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(255, 255, 255);
   
   let xPos = 17;
@@ -152,7 +160,7 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
   yPos += 8;
 
   // Table rows
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(...PDF_COLORS.dark);
   
   items.forEach((item, index) => {
@@ -209,7 +217,7 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
   
   const summaryX = pageWidth - 90;
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(...PDF_COLORS.dark);
 
   // Subtotal
@@ -244,7 +252,7 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
   doc.roundedRect(summaryX - 5, yPos - 2, pageWidth - summaryX - 5, 12, 2, 2, 'F');
   
   doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text('TOTAL:', summaryX, yPos + 6);
   doc.text(formatNairaPDF(totalAmount), pageWidth - 20, yPos + 6, { align: 'right' });
@@ -253,7 +261,7 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
   // Paid amount & balance (if applicable)
   if (paidAmount > 0 || status === 'partial') {
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setTextColor(...PDF_COLORS.success);
     doc.text('Amount Paid:', summaryX, yPos);
     doc.text(formatNairaPDF(paidAmount), pageWidth - 20, yPos, { align: 'right' });
@@ -262,7 +270,7 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
     const balance = totalAmount - paidAmount;
     if (balance > 0) {
       doc.setTextColor(...PDF_COLORS.danger);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(PDF_FONTS.primary, 'bold');
       doc.text('Balance Due:', summaryX, yPos);
       doc.text(formatNairaPDF(balance), pageWidth - 20, yPos, { align: 'right' });
       yPos += 7;
@@ -280,7 +288,7 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
     doc.roundedRect(15, yPos, pageWidth - 30, 25, 2, 2, 'F');
     
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setTextColor(...PDF_COLORS.dark);
     
     doc.text(`Bank: ${bankDetails.bankName}`, 20, yPos + 8);
@@ -295,12 +303,12 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
     yPos = checkNewPage(doc, yPos, 30);
     
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setTextColor(...PDF_COLORS.dark);
     doc.text('Payment Instructions:', 15, yPos);
     yPos += 6;
     
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(8);
     const lines = doc.splitTextToSize(paymentInstructions, pageWidth - 30);
     doc.text(lines, 15, yPos);
@@ -312,12 +320,12 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
     yPos = checkNewPage(doc, yPos, 30);
     
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setTextColor(...PDF_COLORS.dark);
     doc.text('Notes:', 15, yPos);
     yPos += 6;
     
-    doc.setFont('helvetica', 'italic');
+    doc.setFont(PDF_FONTS.primary, 'italic');
     doc.setFontSize(8);
     doc.setTextColor(...PDF_COLORS.gray);
     const noteLines = doc.splitTextToSize(notes, pageWidth - 30);
@@ -375,6 +383,11 @@ export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   // Add branded header
   const info: PDFDocumentInfo = {
@@ -399,11 +412,11 @@ export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
     doc.roundedRect(15, yPos, pageWidth - 30, 18, 2, 2, 'F');
     
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setTextColor(...PDF_COLORS.primaryDark);
     doc.text('Surgical Team', 20, yPos + 6);
     
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setTextColor(...PDF_COLORS.dark);
     if (surgeon) {
       doc.text(`Surgeon: ${surgeon}`, 20, yPos + 13);
@@ -423,14 +436,14 @@ export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
   doc.rect(15, yPos, pageWidth - 30, 8, 'F');
   
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text('Description', 17, yPos + 5.5);
   doc.text('Amount', pageWidth - 50, yPos + 5.5);
   yPos += 8;
 
   // Items
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(...PDF_COLORS.dark);
   
   items.forEach((item, index) => {
@@ -475,7 +488,7 @@ export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
   doc.roundedRect(summaryX - 5, yPos - 2, pageWidth - summaryX - 5, 12, 2, 2, 'F');
   
   doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text('ESTIMATED TOTAL:', summaryX, yPos + 6);
   doc.text(formatNairaPDF(totalAmount), pageWidth - 20, yPos + 6, { align: 'right' });
@@ -488,7 +501,7 @@ export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
     doc.roundedRect(15, yPos, pageWidth - 30, 12, 2, 2, 'F');
     
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setTextColor(...PDF_COLORS.warning);
     doc.text(`⚠ This estimate is valid until ${format(validUntil, 'dd MMMM yyyy')}`, 20, yPos + 8);
     yPos += 18;
@@ -497,7 +510,7 @@ export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
   // Notes
   if (notes) {
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
+    doc.setFont(PDF_FONTS.primary, 'italic');
     doc.setTextColor(...PDF_COLORS.gray);
     doc.text('Note: ' + notes, 15, yPos);
   }
@@ -508,7 +521,7 @@ export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
   doc.rect(15, yPos, pageWidth - 30, 15, 'F');
   
   doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(...PDF_COLORS.gray);
   doc.text('DISCLAIMER: This is an estimate only. Actual costs may vary based on intraoperative findings,', 20, yPos + 5);
   doc.text('complications, additional procedures, or length of hospital stay. A final invoice will be provided upon discharge.', 20, yPos + 10);
@@ -550,6 +563,11 @@ export function generateReceiptPDF(options: ReceiptPDFOptions): void {
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   // Add branded header
   const info: PDFDocumentInfo = {
@@ -565,7 +583,7 @@ export function generateReceiptPDF(options: ReceiptPDFOptions): void {
   doc.setFillColor(...PDF_COLORS.success);
   doc.roundedRect(pageWidth - 55, yPos - 10, 40, 12, 2, 2, 'F');
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text('PAID', pageWidth - 35, yPos - 3, { align: 'center' });
 
@@ -581,7 +599,7 @@ export function generateReceiptPDF(options: ReceiptPDFOptions): void {
   doc.roundedRect(15, yPos, pageWidth - 30, 45, 3, 3, 'F');
   
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(...PDF_COLORS.dark);
 
   let detailY = yPos + 10;
@@ -605,7 +623,7 @@ export function generateReceiptPDF(options: ReceiptPDFOptions): void {
   doc.roundedRect(20, detailY - 2, pageWidth - 40, 14, 2, 2, 'F');
   
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text('Amount Paid:', 25, detailY + 7);
   doc.text(formatNairaPDF(amountPaid), pageWidth - 25, detailY + 7, { align: 'right' });
@@ -615,7 +633,7 @@ export function generateReceiptPDF(options: ReceiptPDFOptions): void {
   // Notes
   if (notes) {
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'italic');
+    doc.setFont(PDF_FONTS.primary, 'italic');
     doc.setTextColor(...PDF_COLORS.gray);
     doc.text('Notes: ' + notes, 15, yPos);
   }

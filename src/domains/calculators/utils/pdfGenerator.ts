@@ -4,6 +4,7 @@
 import jsPDF from 'jspdf';
 import { PatientCalculatorInfo, SodiumResult, DVTRiskResult, GFRResult } from '../types';
 import { addBrandedHeader, addBrandedFooter, PDF_COLORS, PDFDocumentInfo } from '../../../utils/pdfUtils';
+import { PDF_FONTS } from '../../../utils/pdfConfig';
 
 const PRIMARY_COLOR: [number, number, number] = PDF_COLORS.primary;
 const DANGER_COLOR: [number, number, number] = [220, 38, 38]; // Red
@@ -26,11 +27,11 @@ function addHeader(doc: jsPDF, title: string, patientInfo: PatientCalculatorInfo
   doc.roundedRect(15, yPos, 180, 40, 3, 3, 'F');
   
   doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(0, 0, 0);
   doc.text('Patient Information', 20, yPos + 10);
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(10);
   yPos += 18;
   
@@ -68,6 +69,13 @@ function addFooter(doc: jsPDF, pageNumber: number): void {
 // Sodium Calculator PDF
 export function generateSodiumPDF(result: SodiumResult, patientInfo: PatientCalculatorInfo): void {
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   let yPos = addHeader(doc, 'Sodium Disorder Management', patientInfo);
   
   // Severity badge
@@ -78,7 +86,7 @@ export function generateSodiumPDF(result: SodiumResult, patientInfo: PatientCalc
   );
   doc.roundedRect(15, yPos, 180, 20, 3, 3, 'F');
   doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text(result.severity, 105, yPos + 13, { align: 'center' });
   yPos += 30;
@@ -86,11 +94,11 @@ export function generateSodiumPDF(result: SodiumResult, patientInfo: PatientCalc
   // Lab Values
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Laboratory Values', 20, yPos);
   yPos += 8;
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(10);
   doc.text(`Current Na+: ${result.current} mmol/L`, 20, yPos);
   doc.text(`Target Na+: ${result.target} mmol/L`, 100, yPos);
@@ -100,12 +108,12 @@ export function generateSodiumPDF(result: SodiumResult, patientInfo: PatientCalc
   yPos += 15;
   
   // Calculations
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(12);
   doc.text('Calculated Parameters', 20, yPos);
   yPos += 8;
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(10);
   
   if (result.isHypo) {
@@ -128,11 +136,11 @@ export function generateSodiumPDF(result: SodiumResult, patientInfo: PatientCalc
   // Fluid Recommendation
   doc.setFillColor(219, 234, 254);
   doc.roundedRect(15, yPos, 180, 25, 3, 3, 'F');
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(30, 64, 175);
   doc.text('Recommended Fluid', 20, yPos + 8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(10);
   doc.text(result.fluidType, 20, yPos + 18);
   yPos += 35;
@@ -140,10 +148,10 @@ export function generateSodiumPDF(result: SodiumResult, patientInfo: PatientCalc
   // Strategy
   if (result.fluidStrategy) {
     doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('Management Strategy:', 20, yPos);
     yPos += 7;
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     const strategyLines = doc.splitTextToSize(result.fluidStrategy, 170);
     doc.text(strategyLines, 20, yPos);
     yPos += strategyLines.length * 5 + 10;
@@ -152,11 +160,11 @@ export function generateSodiumPDF(result: SodiumResult, patientInfo: PatientCalc
   // WHO Safety Guidelines
   doc.setFillColor(254, 243, 199);
   doc.roundedRect(15, yPos, 180, 40, 3, 3, 'F');
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(146, 64, 14);
   doc.text('WHO Safety Guidelines', 20, yPos + 8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   const guidelines = [
     '• Max correction: 6-8 mEq/L per 24 hours (NEVER exceed 10-12 mEq/L)',
@@ -175,6 +183,13 @@ export function generateSodiumPDF(result: SodiumResult, patientInfo: PatientCalc
 // DVT Risk Calculator PDF
 export function generateDVTRiskPDF(result: DVTRiskResult, patientInfo: PatientCalculatorInfo): void {
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   let yPos = addHeader(doc, 'DVT Risk Assessment (Caprini Score)', patientInfo);
   
   // Score badge
@@ -183,7 +198,7 @@ export function generateDVTRiskPDF(result: DVTRiskResult, patientInfo: PatientCa
   doc.setFillColor(...scoreColor);
   doc.roundedRect(15, yPos, 180, 30, 3, 3, 'F');
   doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text(`Caprini Score: ${result.score}`, 105, yPos + 12, { align: 'center' });
   doc.setFontSize(12);
@@ -193,11 +208,11 @@ export function generateDVTRiskPDF(result: DVTRiskResult, patientInfo: PatientCa
   // Score breakdown
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Risk Factor Breakdown', 20, yPos);
   yPos += 8;
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   
   const breakdownSections = [
@@ -210,10 +225,10 @@ export function generateDVTRiskPDF(result: DVTRiskResult, patientInfo: PatientCa
   breakdownSections.forEach(section => {
     if (section.items.length > 0) {
       doc.setTextColor(...section.color);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(PDF_FONTS.primary, 'bold');
       doc.text(`${section.label}:`, 20, yPos);
       yPos += 5;
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
       doc.setTextColor(0, 0, 0);
       section.items.forEach(item => {
         doc.text(`• ${item}`, 25, yPos);
@@ -225,12 +240,12 @@ export function generateDVTRiskPDF(result: DVTRiskResult, patientInfo: PatientCa
   
   // Recommendations
   yPos += 5;
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.text('Clinical Recommendations', 20, yPos);
   yPos += 7;
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   result.recommendations.forEach(rec => {
     const lines = doc.splitTextToSize(`• ${rec}`, 170);
@@ -242,11 +257,11 @@ export function generateDVTRiskPDF(result: DVTRiskResult, patientInfo: PatientCa
   yPos += 5;
   doc.setFillColor(220, 252, 231);
   doc.roundedRect(15, yPos, 180, 8 + result.prophylaxis.length * 5, 3, 3, 'F');
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(21, 128, 61);
   doc.text('Prophylaxis Protocol', 20, yPos + 6);
   yPos += 10;
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   result.prophylaxis.forEach(item => {
     doc.text(item, 20, yPos);
@@ -260,6 +275,13 @@ export function generateDVTRiskPDF(result: DVTRiskResult, patientInfo: PatientCa
 // GFR Calculator PDF
 export function generateGFRPDF(result: GFRResult, patientInfo: PatientCalculatorInfo): void {
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   let yPos = addHeader(doc, 'GFR & Kidney Function Assessment', patientInfo);
   
   // GFR Values
@@ -268,7 +290,7 @@ export function generateGFRPDF(result: GFRResult, patientInfo: PatientCalculator
   doc.roundedRect(105, yPos, 85, 40, 3, 3, 'F');
   
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(30, 64, 175);
   doc.text('CKD-EPI GFR', 57, yPos + 10, { align: 'center' });
   doc.text('Cockcroft-Gault', 147, yPos + 10, { align: 'center' });
@@ -278,7 +300,7 @@ export function generateGFRPDF(result: GFRResult, patientInfo: PatientCalculator
   doc.text(`${result.gfrCockcroftGault.toFixed(1)}`, 147, yPos + 25, { align: 'center' });
   
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text('mL/min/1.73m²', 57, yPos + 33, { align: 'center' });
   doc.text('mL/min', 147, yPos + 33, { align: 'center' });
   yPos += 50;
@@ -289,19 +311,19 @@ export function generateGFRPDF(result: GFRResult, patientInfo: PatientCalculator
   doc.setFillColor(...stageColor);
   doc.roundedRect(15, yPos, 180, 20, 3, 3, 'F');
   doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text(`CKD Stage ${result.ckdStage}: ${result.stageDescription}`, 105, yPos + 13, { align: 'center' });
   yPos += 30;
   
   // Recommendations
   doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.text('Recommendations', 20, yPos);
   yPos += 7;
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   result.recommendations.forEach(rec => {
     doc.text(`• ${rec}`, 20, yPos);
@@ -311,12 +333,12 @@ export function generateGFRPDF(result: GFRResult, patientInfo: PatientCalculator
   // Drug Dosing
   if (result.drugDosingAdjustments.length > 0) {
     yPos += 5;
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(11);
     doc.text('Drug Dosing Adjustments', 20, yPos);
     yPos += 7;
     
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(9);
     result.drugDosingAdjustments.forEach(adj => {
       doc.text(`• ${adj}`, 20, yPos);

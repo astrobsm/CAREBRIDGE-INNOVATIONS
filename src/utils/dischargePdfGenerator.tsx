@@ -1,5 +1,6 @@
 // Discharge Summary PDF Generator
 // Generates professional PDF documents for patient discharge summaries
+// CRITICAL: Uses white background (#ffffff) and Helvetica font for cross-platform compatibility
 
 import {
   Document,
@@ -13,12 +14,14 @@ import { format, differenceInDays } from 'date-fns';
 import type { DischargeSummary, Patient } from '../types';
 
 // Styles for the PDF
+// TYPOGRAPHY: Helvetica (safe embedded font), minimum 10pt
+// COLORS: White background, black/near-black body text
 const styles = StyleSheet.create({
   page: {
     padding: 40,
     fontSize: 10,
     fontFamily: 'Helvetica',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#ffffff',  // CRITICAL: Always white
   },
   header: {
     borderBottom: '2px solid #4F46E5',
@@ -36,7 +39,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#1F2937',
+    color: '#000000',  // Pure black for maximum readability
     marginTop: 10,
   },
   section: {
@@ -57,11 +60,11 @@ const styles = StyleSheet.create({
   label: {
     width: '35%',
     fontWeight: 'bold',
-    color: '#6B7280',
+    color: '#4B5563',  // Dark gray for labels
   },
   value: {
     width: '65%',
-    color: '#1F2937',
+    color: '#000000',  // Pure black for values
   },
   infoGrid: {
     flexDirection: 'row',
@@ -73,7 +76,7 @@ const styles = StyleSheet.create({
   },
   paragraph: {
     lineHeight: 1.5,
-    color: '#374151',
+    color: '#000000',  // Pure black for body text
     marginBottom: 8,
   },
   table: {

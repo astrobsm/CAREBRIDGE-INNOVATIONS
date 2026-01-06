@@ -3,6 +3,7 @@
 
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
+import { PDF_FONTS } from './pdfConfig';
 import {
   addBrandedHeader,
   addBrandedFooter,
@@ -66,6 +67,11 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   const info: PDFDocumentInfo = {
     title: 'LABORATORY REPORT',
@@ -88,7 +94,7 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
   doc.roundedRect(pageWidth - 40, yPos - 5, 25, 8, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(priority.toUpperCase(), pageWidth - 27.5, yPos, { align: 'center' });
 
   yPos += 5;
@@ -102,7 +108,7 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
   doc.roundedRect(15, yPos, pageWidth - 30, 18, 2, 2, 'F');
   doc.setTextColor(...PDF_COLORS.dark);
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(`Category: ${category}`, 20, yPos + 6);
   doc.text(`Requested: ${format(requestedDate, 'MMM d, yyyy h:mm a')}`, 20, yPos + 12);
   doc.text(`Requested By: ${requestedBy}`, pageWidth / 2, yPos + 6);
@@ -117,9 +123,9 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
     doc.roundedRect(15, yPos, pageWidth - 30, 12, 2, 2, 'F');
     doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('Clinical Info:', 20, yPos + 5);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(clinicalInfo.substring(0, 80), 48, yPos + 5);
     yPos += 18;
   }
@@ -137,7 +143,7 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
   doc.rect(startX, yPos, pageWidth - 30, 8, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
 
   let xPos = startX + 3;
   cols.forEach((col, index) => {
@@ -173,7 +179,7 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
 
     doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
 
     xPos = startX + 5;
     doc.text(test.name.substring(0, 35), xPos, yPos + 3);
@@ -183,14 +189,14 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
     if (test.result) {
       if (test.status === 'high' || test.status === 'critical') {
         doc.setTextColor(...PDF_COLORS.danger);
-        doc.setFont('helvetica', 'bold');
+        doc.setFont(PDF_FONTS.primary, 'bold');
       } else if (test.status === 'low') {
         doc.setTextColor(...PDF_COLORS.info);
-        doc.setFont('helvetica', 'bold');
+        doc.setFont(PDF_FONTS.primary, 'bold');
       }
       doc.text(test.result, xPos, yPos + 3);
       doc.setTextColor(...PDF_COLORS.dark);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
     } else {
       doc.setTextColor(...PDF_COLORS.gray);
       doc.text('Pending', xPos, yPos + 3);
@@ -219,7 +225,7 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
     doc.roundedRect(15, yPos, pageWidth - 30, 20, 2, 2, 'F');
     doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     const lines = doc.splitTextToSize(interpretation, pageWidth - 40);
     doc.text(lines, 20, yPos + 6);
     yPos += 25;
@@ -316,6 +322,11 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   const info: PDFDocumentInfo = {
     title: 'CLINICAL ENCOUNTER',
@@ -336,7 +347,7 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
   yPos = addSectionTitle(doc, yPos, 'Chief Complaint', 'warning');
   doc.setTextColor(...PDF_COLORS.dark);
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(chiefComplaint, 20, yPos + 3);
   yPos += 10;
 
@@ -377,7 +388,7 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
     yPos = checkNewPage(doc, yPos);
     yPos = addSectionTitle(doc, yPos, 'History of Present Illness');
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     const hpiLines = doc.splitTextToSize(historyOfPresentIllness, pageWidth - 40);
     doc.text(hpiLines, 20, yPos + 3);
     yPos += hpiLines.length * 4 + 8;
@@ -390,10 +401,10 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
     
     if (pastMedicalHistory) {
       doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(PDF_FONTS.primary, 'bold');
       doc.setTextColor(...PDF_COLORS.primaryDark);
       doc.text('Past Medical History', 20, yPos);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
       doc.setTextColor(...PDF_COLORS.dark);
       const pmhLines = doc.splitTextToSize(pastMedicalHistory, halfWidth - 5);
       doc.text(pmhLines, 20, yPos + 5);
@@ -401,10 +412,10 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
     
     if (pastSurgicalHistory) {
       doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(PDF_FONTS.primary, 'bold');
       doc.setTextColor(...PDF_COLORS.primaryDark);
       doc.text('Past Surgical History', pageWidth / 2 + 5, yPos);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
       doc.setTextColor(...PDF_COLORS.dark);
       const pshLines = doc.splitTextToSize(pastSurgicalHistory, halfWidth - 5);
       doc.text(pshLines, pageWidth / 2 + 5, yPos + 5);
@@ -420,10 +431,10 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
     Object.entries(physicalExamination).forEach(([system, findings]) => {
       if (findings) {
         doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
+        doc.setFont(PDF_FONTS.primary, 'bold');
         doc.setTextColor(...PDF_COLORS.primaryDark);
         doc.text(`${system}:`, 20, yPos + 3);
-        doc.setFont('helvetica', 'normal');
+        doc.setFont(PDF_FONTS.primary, 'normal');
         doc.setTextColor(...PDF_COLORS.dark);
         doc.text(findings.substring(0, 80), 55, yPos + 3);
         yPos += 6;
@@ -448,7 +459,7 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
       doc.circle(20, yPos + 2, 2, 'F');
       
       doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
       doc.setTextColor(...PDF_COLORS.dark);
       doc.text(`${dx.description} (${dx.type})`, 25, yPos + 3);
       
@@ -481,10 +492,10 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
   doc.line(pageWidth - 80, yPos, pageWidth - 15, yPos);
   doc.setTextColor(...PDF_COLORS.dark);
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(clinician, pageWidth - 47.5, yPos + 7, { align: 'center' });
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(clinicianTitle || 'Attending Physician', pageWidth - 47.5, yPos + 12, { align: 'center' });
 
   addBrandedFooter(doc, 1, 1);
@@ -555,6 +566,11 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   const info: PDFDocumentInfo = {
     title: 'WOUND ASSESSMENT',
@@ -578,7 +594,7 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
     doc.roundedRect(pageWidth - 45, yPos - 5, 30, 8, 2, 2, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(7);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text(healingProgress.toUpperCase(), pageWidth - 30, yPos, { align: 'center' });
   }
 
@@ -593,29 +609,29 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
   
   doc.setTextColor(...PDF_COLORS.dark);
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Type:', 20, yPos + 6);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(woundType, 35, yPos + 6);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Location:', 80, yPos + 6);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(location, 100, yPos + 6);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Etiology:', 20, yPos + 13);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(etiology, 42, yPos + 13);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Phase:', 80, yPos + 13);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(phase, 96, yPos + 13);
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Assessment Date:', 20, yPos + 20);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(format(assessmentDate, 'MMM d, yyyy h:mm a'), 55, yPos + 20);
 
   yPos += 32;
@@ -626,7 +642,7 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
   doc.roundedRect(15, yPos, pageWidth - 30, 18, 2, 2, 'F');
   
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(...PDF_COLORS.primary);
   doc.text(`${dimensions.length} cm`, 35, yPos + 8);
   doc.text('×', 52, yPos + 8);
@@ -637,13 +653,13 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
   }
   
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(...PDF_COLORS.gray);
   doc.text('(L × W × D)', 35, yPos + 13);
   
   const area = dimensions.area || dimensions.length * dimensions.width;
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(...PDF_COLORS.dark);
   doc.text(`Area: ${area.toFixed(2)} cm²`, pageWidth - 50, yPos + 10);
 
@@ -666,10 +682,10 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
     const yOffset = Math.floor(index / 2) * 8;
     
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setTextColor(...PDF_COLORS.gray);
     doc.text(`${label}:`, 20 + xOffset, yPos + yOffset);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setTextColor(...PDF_COLORS.dark);
     doc.text(value.substring(0, 30), 55 + xOffset, yPos + yOffset);
   });
@@ -698,9 +714,9 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
   // Dressing info
   if (dressingType || dressingFrequency) {
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('Current Dressing:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(`${dressingType || 'Standard'} - ${dressingFrequency || 'As needed'}`, 55, yPos);
     yPos += 10;
   }
@@ -711,10 +727,10 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
   doc.line(pageWidth - 80, yPos, pageWidth - 15, yPos);
   doc.setTextColor(...PDF_COLORS.dark);
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(assessedBy, pageWidth - 47.5, yPos + 7, { align: 'center' });
   doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text('Wound Care Specialist', pageWidth - 47.5, yPos + 12, { align: 'center' });
 
   addBrandedFooter(doc, 1, 1);
@@ -779,6 +795,11 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   const info: PDFDocumentInfo = {
     title: 'BURNS ASSESSMENT',
@@ -796,7 +817,7 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
   doc.roundedRect(pageWidth - 50, yPos - 8, 35, 15, 3, 3, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(`${tbsa}% TBSA`, pageWidth - 32.5, yPos + 2, { align: 'center' });
 
   yPos += 5;
@@ -810,36 +831,36 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
   
   doc.setTextColor(...PDF_COLORS.dark);
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Type:', 20, yPos + 6);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(burnType, 35, yPos + 6);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Mechanism:', 80, yPos + 6);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(mechanism.substring(0, 30), 105, yPos + 6);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Time of Injury:', 20, yPos + 13);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(format(injuryDate, 'MMM d, yyyy h:mm a'), 52, yPos + 13);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Weight:', 130, yPos + 13);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(`${patientWeight} kg`, 148, yPos + 13);
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Inhalation Injury:', 20, yPos + 20);
   const inhalationColor = inhalationInjury ? PDF_COLORS.danger : PDF_COLORS.success;
   doc.setTextColor(inhalationColor[0], inhalationColor[1], inhalationColor[2]);
   doc.text(inhalationInjury ? 'YES - Suspected' : 'No', 55, yPos + 20);
   
   doc.setTextColor(...PDF_COLORS.dark);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Tetanus:', 100, yPos + 20);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(tetanusStatus ? 'Up to date' : 'Needs vaccination', 118, yPos + 20);
 
   yPos += 32;
@@ -852,7 +873,7 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
   doc.rect(15, yPos, pageWidth - 30, 8, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Body Area', 20, yPos + 5);
   doc.text('TBSA %', 100, yPos + 5);
   doc.text('Burn Depth', 140, yPos + 5);
@@ -865,7 +886,7 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
     }
     doc.setTextColor(...PDF_COLORS.dark);
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(area.name, 20, yPos + 3);
     doc.text(`${area.percent}%`, 100, yPos + 3);
     doc.text(area.depth, 140, yPos + 3);
@@ -883,7 +904,7 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
     doc.roundedRect(15, yPos, pageWidth - 30, 30, 2, 2, 'F');
     
     doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setTextColor(...PDF_COLORS.primary);
     doc.text('4 × Weight × TBSA = Total 24hr Requirement', 20, yPos + 8);
     
@@ -891,7 +912,7 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
     doc.setTextColor(...PDF_COLORS.dark);
     doc.text(`4 × ${patientWeight}kg × ${tbsa}% = ${fluidRequirement.total24hr.toLocaleString()} mL`, 20, yPos + 15);
     
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(`First 8 hours: ${fluidRequirement.first8hr.toLocaleString()} mL (${fluidRequirement.hourlyRate.toFixed(0)} mL/hr)`, 20, yPos + 22);
     doc.text(`Next 16 hours: ${fluidRequirement.next16hr.toLocaleString()} mL (${(fluidRequirement.next16hr / 16).toFixed(0)} mL/hr)`, 100, yPos + 22);
     
@@ -904,7 +925,7 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
     doc.setFillColor(254, 249, 195);
     doc.roundedRect(15, yPos, pageWidth - 30, 15, 2, 2, 'F');
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setTextColor(...PDF_COLORS.dark);
     doc.text(`ABSI Score: ${absiScore}`, 20, yPos + 9);
     doc.text(`Survival Probability: ${survivalProbability || 'N/A'}`, pageWidth / 2, yPos + 9);
@@ -914,9 +935,9 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
   // Associated injuries
   if (associatedInjuries) {
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('Associated Injuries:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(associatedInjuries, 60, yPos);
     yPos += 10;
   }
@@ -927,10 +948,10 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
   doc.line(pageWidth - 80, yPos, pageWidth - 15, yPos);
   doc.setTextColor(...PDF_COLORS.dark);
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(assessedBy, pageWidth - 47.5, yPos + 7, { align: 'center' });
   doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text('Burns Specialist', pageWidth - 47.5, yPos + 12, { align: 'center' });
 
   addBrandedFooter(doc, 1, 1);
@@ -988,6 +1009,11 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   const info: PDFDocumentInfo = {
     title: 'NUTRITION ASSESSMENT',
@@ -1010,7 +1036,7 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
   doc.roundedRect(pageWidth - 50, yPos - 5, 35, 10, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(`${mustRisk.toUpperCase()} RISK`, pageWidth - 32.5, yPos + 2, { align: 'center' });
 
   yPos += 5;
@@ -1023,7 +1049,7 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
   doc.roundedRect(15, yPos, pageWidth - 30, 20, 2, 2, 'F');
   
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(...PDF_COLORS.dark);
   
   const anthropX = [30, 70, 110, 155];
@@ -1047,7 +1073,7 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
   doc.roundedRect(15, yPos, pageWidth - 30, 15, 2, 2, 'F');
   
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(...PDF_COLORS.dark);
   doc.text(`Calories: ${caloricNeeds} kcal`, 25, yPos + 9);
   doc.text(`Protein: ${proteinNeeds}g`, pageWidth / 2 - 20, yPos + 9);
@@ -1059,7 +1085,7 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
   if (dietaryRestrictions && dietaryRestrictions.length > 0) {
     yPos = addSectionTitle(doc, yPos, 'Dietary Restrictions', 'warning');
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setTextColor(...PDF_COLORS.dark);
     doc.text(dietaryRestrictions.join(', '), 20, yPos + 3);
     yPos += 12;
@@ -1075,7 +1101,7 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
       doc.roundedRect(15, yPos, pageWidth - 30, 18, 2, 2, 'F');
       
       doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(PDF_FONTS.primary, 'bold');
       doc.setTextColor(...PDF_COLORS.primaryDark);
       doc.text(meal.meal, 20, yPos + 6);
       
@@ -1083,7 +1109,7 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
       doc.setTextColor(...PDF_COLORS.gray);
       doc.text(`${meal.calories} kcal`, pageWidth - 35, yPos + 6);
       
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
       doc.setTextColor(...PDF_COLORS.dark);
       doc.text(meal.items.join(' • '), 20, yPos + 12);
       
@@ -1097,7 +1123,7 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
     yPos += 5;
     yPos = addSectionTitle(doc, yPos, 'Recommended Supplements', 'info');
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     supplements.forEach((supp, index) => {
       doc.text(`• ${supp}`, 20, yPos + index * 5);
     });
@@ -1111,10 +1137,10 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
   doc.line(pageWidth - 80, yPos, pageWidth - 15, yPos);
   doc.setTextColor(...PDF_COLORS.dark);
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(assessedBy, pageWidth - 47.5, yPos + 7, { align: 'center' });
   doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text('Clinical Dietician', pageWidth - 47.5, yPos + 12, { align: 'center' });
 
   addBrandedFooter(doc, 1, 1);
@@ -1176,6 +1202,11 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   const info: PDFDocumentInfo = {
     title: 'ADMISSION SUMMARY',
@@ -1199,7 +1230,7 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
   doc.roundedRect(pageWidth - 45, yPos - 5, 30, 8, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(status.toUpperCase(), pageWidth - 30, yPos, { align: 'center' });
 
   yPos += 5;
@@ -1217,29 +1248,29 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
   const col1 = 20;
   const col2 = pageWidth / 2;
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Ward:', col1, yPos + 6);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(`${wardName} (${wardType})`, col1 + 20, yPos + 6);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Bed:', col2, yPos + 6);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(bedNumber, col2 + 15, yPos + 6);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Admitted:', col1, yPos + 13);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(format(admissionDate, 'MMM d, yyyy h:mm a'), col1 + 25, yPos + 13);
   
   if (dischargeDate) {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('Discharged:', col2, yPos + 13);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(format(dischargeDate, 'MMM d, yyyy h:mm a'), col2 + 28, yPos + 13);
   }
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Severity:', col1, yPos + 20);
   const severityColors: Record<string, [number, number, number]> = {
     mild: PDF_COLORS.success,
@@ -1252,23 +1283,23 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
   
   doc.setTextColor(...PDF_COLORS.dark);
   if (durationDays !== undefined) {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('Duration:', col2, yPos + 20);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(`${durationDays} day(s)`, col2 + 22, yPos + 20);
   }
 
   if (primaryDoctor) {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('Primary Doctor:', col1, yPos + 27);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(primaryDoctor, col1 + 35, yPos + 27);
   }
   
   if (primaryNurse) {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('Primary Nurse:', col2, yPos + 27);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(primaryNurse, col2 + 32, yPos + 27);
   }
 
@@ -1277,7 +1308,7 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
   // Chief complaint
   yPos = addSectionTitle(doc, yPos, 'Chief Complaint', 'warning');
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(...PDF_COLORS.dark);
   doc.text(chiefComplaint, 20, yPos + 3);
   yPos += 12;
@@ -1285,7 +1316,7 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
   // Admission diagnosis
   yPos = addSectionTitle(doc, yPos, 'Admission Diagnosis', 'danger');
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(...PDF_COLORS.danger);
   doc.text(admissionDiagnosis, 20, yPos + 3);
   yPos += 12;
@@ -1298,17 +1329,17 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
     doc.setTextColor(...PDF_COLORS.dark);
     
     if (comorbidities) {
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(PDF_FONTS.primary, 'bold');
       doc.text('Comorbidities:', 20, yPos + 6);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
       doc.text(comorbidities.substring(0, 60), 50, yPos + 6);
     }
     
     if (allergies) {
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(PDF_FONTS.primary, 'bold');
       doc.setTextColor(...PDF_COLORS.danger);
       doc.text('⚠ Allergies:', 20, yPos + 12);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(PDF_FONTS.primary, 'normal');
       doc.text(allergies, 48, yPos + 12);
     }
     

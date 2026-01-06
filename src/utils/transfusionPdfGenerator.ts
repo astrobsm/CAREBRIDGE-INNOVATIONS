@@ -10,6 +10,7 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { PDF_COLORS, addBrandedHeader, type PDFDocumentInfo } from './pdfUtils';
+import { PDF_FONTS } from './pdfConfig';
 
 // Transfusion Order Interface
 export interface TransfusionOrderData {
@@ -137,6 +138,11 @@ export interface TransfusionMonitoringChartData {
 export async function generateTransfusionOrderPDF(data: TransfusionOrderData): Promise<jsPDF> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
   
   const docInfo: PDFDocumentInfo = {
     title: 'BLOOD TRANSFUSION ORDER',
@@ -157,7 +163,7 @@ export async function generateTransfusionOrderPDF(data: TransfusionOrderData): P
     doc.rect(15, y, pageWidth - 30, 7, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text(title, 17, y + 5);
     doc.setTextColor(...PDF_COLORS.text);
     y += 12;
@@ -166,10 +172,10 @@ export async function generateTransfusionOrderPDF(data: TransfusionOrderData): P
   
   // Add label-value pair
   const addField = (label: string, value: string, xOffset: number = 15, width: number = 80): void => {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(9);
     doc.text(`${label}:`, xOffset, y);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(value || 'N/A', xOffset + width * 0.4, y);
   };
   
@@ -206,7 +212,7 @@ export async function generateTransfusionOrderPDF(data: TransfusionOrderData): P
   // ==== INDICATION ====
   addSection('CLINICAL INDICATION');
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   const indicationLines = doc.splitTextToSize(data.indication, pageWidth - 35);
   doc.text(indicationLines, 15, y);
@@ -277,12 +283,12 @@ export async function generateTransfusionOrderPDF(data: TransfusionOrderData): P
     doc.setDrawColor(...PDF_COLORS.gray);
     doc.rect(x, y, boxWidth, 15);
     
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(8);
     doc.text(label, x + boxWidth / 2, y + 5, { align: 'center' });
     
     const value = screeningValues[i];
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     if (value === 'negative') {
       doc.setTextColor(...PDF_COLORS.success);
     } else if (value === 'positive') {
@@ -304,11 +310,11 @@ export async function generateTransfusionOrderPDF(data: TransfusionOrderData): P
   
   if (data.preTransfusionVitals) {
     y += 3;
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(9);
     doc.text('Pre-Transfusion Vitals:', 15, y);
     y += 5;
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(
       `Temp: ${data.preTransfusionVitals.temperature}°C  |  Pulse: ${data.preTransfusionVitals.pulse}/min  |  BP: ${data.preTransfusionVitals.bp}  |  RR: ${data.preTransfusionVitals.respiratoryRate}/min  |  SpO2: ${data.preTransfusionVitals.spo2}%`,
       15, y
@@ -342,7 +348,7 @@ export async function generateTransfusionOrderPDF(data: TransfusionOrderData): P
     '10. Report to hospital transfusion committee',
   ];
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(8);
   reactionMeasures.forEach((measure) => {
     doc.text(measure, 17, y);
@@ -367,7 +373,7 @@ export async function generateTransfusionOrderPDF(data: TransfusionOrderData): P
   
   // Verification signatures
   y += 5;
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(9);
   doc.text('Two-Person Bedside Verification:', 15, y);
   y += 8;
@@ -377,7 +383,7 @@ export async function generateTransfusionOrderPDF(data: TransfusionOrderData): P
   
   // Nurse 1
   doc.rect(15, y, 85, 25);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(8);
   doc.text('Verifying Staff 1:', 17, y + 5);
   doc.text(data.verifyingNurse1 || '________________________', 17, y + 12);
@@ -392,9 +398,9 @@ export async function generateTransfusionOrderPDF(data: TransfusionOrderData): P
   
   // Ordering physician
   doc.rect(15, y, 175, 25);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Ordering Physician:', 17, y + 5);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(`Name: ${data.orderedBy}`, 17, y + 12);
   doc.text(`Designation: ${data.ordererDesignation || 'N/A'}`, 80, y + 12);
   doc.text('Signature: ________________', 17, y + 20);
@@ -425,6 +431,10 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   let y = 15;
   
   // Header
@@ -433,11 +443,11 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
   
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('BLOOD TRANSFUSION MONITORING CHART', pageWidth / 2, 12, { align: 'center' });
   
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(data.hospitalName, pageWidth / 2, 20, { align: 'center' });
   
   y = 35;
@@ -448,7 +458,7 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
   doc.rect(10, y, pageWidth - 20, 25, 'F');
   
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   
   const infoX1 = 15;
   const infoX2 = 100;
@@ -468,7 +478,7 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
   
   // Fill values if not template
   if (!isTemplate || data.patientName) {
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(data.patientName || '', infoX1 + 28, y + 7);
     doc.text(data.hospitalNumber || '', infoX2 + 28, y + 7);
     doc.text(data.wardBed || '', infoX3 + 22, y + 7);
@@ -496,7 +506,7 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
     doc.rect(x, y, colWidths[i], rowHeight, 'FD');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     const textX = x + colWidths[i] / 2;
     doc.text(header, textX, y + 8, { align: 'center' });
     x += colWidths[i];
@@ -512,7 +522,7 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
     doc.rect(x, y, width, rowHeight, 'FD');
     x += width;
   });
-  doc.setFont('helvetica', 'italic');
+  doc.setFont(PDF_FONTS.primary, 'italic');
   doc.setFontSize(7);
   doc.text('Pre-transfusion (Baseline)', 12, y + 7);
   y += rowHeight;
@@ -524,6 +534,7 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
     doc.rect(x, y, width, rowHeight, 'FD');
     x += width;
   });
+  doc.setFont(PDF_FONTS.primary, 'italic');
   doc.text('15 min after start', 12, y + 7);
   y += rowHeight;
   
@@ -540,7 +551,7 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
       
       if (!isTemplate && data.entries[rowIdx]) {
         const entry = data.entries[rowIdx];
-        doc.setFont('helvetica', 'normal');
+        doc.setFont(PDF_FONTS.primary, 'normal');
         doc.setFontSize(7);
         let value = '';
         switch (colIdx) {
@@ -556,7 +567,7 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
         }
         doc.text(value, x + width / 2, y + 7, { align: 'center' });
       } else if (isTemplate && colIdx === 0) {
-        doc.setFont('helvetica', 'normal');
+        doc.setFont(PDF_FONTS.primary, 'normal');
         doc.setFontSize(7);
         doc.text(time, x + 2, y + 7);
       }
@@ -580,7 +591,7 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
     doc.rect(x, y, width, rowHeight, 'FD');
     x += width;
   });
-  doc.setFont('helvetica', 'italic');
+  doc.setFont(PDF_FONTS.primary, 'italic');
   doc.setFontSize(7);
   doc.text('1 hr post-transfusion', 12, y + 7);
   y += rowHeight + 8;
@@ -589,11 +600,11 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
   doc.setFillColor(245, 245, 245);
   doc.rect(10, y, pageWidth - 20, 35, 'FD');
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(9);
   doc.text('SUMMARY:', 15, y + 8);
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(8);
   doc.text('Total Volume Transfused: _____________ mL', 15, y + 16);
   doc.text('Duration: _____________ hours', 100, y + 16);
@@ -611,11 +622,11 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
   doc.rect(10, y, pageWidth - 20, 25, 'FD');
   
   doc.setTextColor(...PDF_COLORS.danger);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(9);
   doc.text('⚠️ IN CASE OF TRANSFUSION REACTION:', 15, y + 7);
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(8);
   doc.setTextColor(...PDF_COLORS.text);
   doc.text('1. STOP transfusion immediately  2. Maintain IV access with saline  3. Record vitals  4. Notify doctor & blood bank  5. Keep blood bag for investigation', 15, y + 15);

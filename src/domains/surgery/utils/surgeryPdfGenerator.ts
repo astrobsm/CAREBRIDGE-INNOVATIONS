@@ -9,6 +9,7 @@ import {
   PDF_COLORS,
   type PDFDocumentInfo,
 } from '../../../utils/pdfUtils';
+import { PDF_FONTS } from '../../../utils/pdfConfig';
 
 const DANGER_COLOR: [number, number, number] = PDF_COLORS.danger;
 
@@ -61,7 +62,7 @@ function addPatientBox(doc: jsPDF, yPos: number, patient: PatientInfo, surgery: 
   
   // Title
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(24, 0, 172); // Dark purple for title
   doc.text('Patient Information', 20, yPos + 10);
   
@@ -79,31 +80,31 @@ function addPatientBox(doc: jsPDF, yPos: number, patient: PatientInfo, surgery: 
   let lineY = yPos + 22;
   
   // Labels in bold, values in normal
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Name:', leftCol, lineY);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(patient.name, 42, lineY);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Hospital No:', rightCol, lineY);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(patient.hospitalNumber, 147, lineY);
   lineY += 9;
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Age:', leftCol, lineY);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(`${patient.age || 'N/A'} years`, 37, lineY);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Gender:', rightCol, lineY);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(patient.gender || 'N/A', 137, lineY);
   lineY += 9;
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Procedure:', leftCol, lineY);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   // Truncate long procedure names
   const maxProcLength = 45;
   const procName = surgery.procedureName.length > maxProcLength 
@@ -111,9 +112,9 @@ function addPatientBox(doc: jsPDF, yPos: number, patient: PatientInfo, surgery: 
     : surgery.procedureName;
   doc.text(procName, 52, lineY);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Date:', 155, lineY);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(new Date(surgery.scheduledDate).toLocaleDateString('en-GB'), 170, lineY);
   
   return yPos + 58;
@@ -121,7 +122,7 @@ function addPatientBox(doc: jsPDF, yPos: number, patient: PatientInfo, surgery: 
 
 // Helper to add numbered list with clear black text
 function addNumberedList(doc: jsPDF, yPos: number, items: string[], maxWidth: number = 165): number {
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0); // Pure black
   
@@ -139,7 +140,7 @@ function addNumberedList(doc: jsPDF, yPos: number, items: string[], maxWidth: nu
 
 // Helper to add bullet list with clear black text
 function addBulletList(doc: jsPDF, yPos: number, items: string[], maxWidth: number = 165): number {
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0); // Pure black
   
@@ -160,7 +161,7 @@ function addBulletList(doc: jsPDF, yPos: number, items: string[], maxWidth: numb
 function addSectionTitle(doc: jsPDF, yPos: number, title: string): number {
   doc.setFillColor(24, 0, 172); // Dark purple for better contrast
   doc.roundedRect(15, yPos, 180, 10, 2, 2, 'F');
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255); // White text on dark background
   doc.text(title, 20, yPos + 7);
@@ -170,6 +171,13 @@ function addSectionTitle(doc: jsPDF, yPos: number, title: string): number {
 // PRE-OPERATIVE INSTRUCTIONS PDF
 export function generatePreOpInstructionsPDF(patient: PatientInfo, surgery: SurgeryInfo): void {
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   let yPos = addHeader(doc, 'Pre-Operative Instructions', 'Patient Preparation Guidelines Before Surgery');
   
   yPos = addPatientBox(doc, yPos, patient, surgery);
@@ -264,7 +272,7 @@ export function generatePreOpInstructionsPDF(patient: PatientInfo, surgery: Surg
   // Warning Signs
   doc.setFillColor(...DANGER_COLOR);
   doc.roundedRect(15, yPos, 180, 8, 2, 2, 'F');
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
   doc.text('IMPORTANT - CONTACT US IF:', 20, yPos + 6);
@@ -284,11 +292,11 @@ export function generatePreOpInstructionsPDF(patient: PatientInfo, surgery: Surg
   yPos += 10;
   doc.setFillColor(240, 249, 255);
   doc.roundedRect(15, yPos, 180, 30, 3, 3, 'F');
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
   doc.text('Hospital Contact Information', 20, yPos + 10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(10);
   doc.text(`Hospital: ${surgery.hospitalName || 'Please contact your referring hospital'}`, 20, yPos + 20);
   doc.text(`Surgeon: ${surgery.surgeon}`, 120, yPos + 20);
@@ -313,6 +321,13 @@ export function generatePostOpInstructionsPDF(
   }
 ): void {
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   let yPos = addHeader(doc, 'Post-Operative Instructions', 'Recovery Guidelines After Surgery');
   
   yPos = addPatientBox(doc, yPos, patient, surgery);
@@ -406,7 +421,7 @@ export function generatePostOpInstructionsPDF(
   // Warning Signs
   doc.setFillColor(...DANGER_COLOR);
   doc.roundedRect(15, yPos, 180, 8, 2, 2, 'F');
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
   doc.text('SEEK IMMEDIATE MEDICAL ATTENTION IF:', 20, yPos + 6);
@@ -430,11 +445,11 @@ export function generatePostOpInstructionsPDF(
   yPos += 10;
   doc.setFillColor(219, 234, 254);
   doc.roundedRect(15, yPos, 180, 25, 3, 3, 'F');
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
   doc.text('FOLLOW-UP APPOINTMENT', 20, yPos + 10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(10);
   const followUpText = customInstructions?.followUp || 'Please schedule a follow-up appointment 7-14 days after surgery with your surgeon.';
   doc.text(followUpText, 20, yPos + 18);
@@ -459,6 +474,13 @@ export function generateFeeEstimatePDF(
   feeEstimate: SurgicalFeeEstimate
 ): void {
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   let yPos = addHeader(doc, 'Surgical Fee Estimate', 'Professional Fee Breakdown');
   
   yPos = addPatientBox(doc, yPos, patient, surgery);
@@ -466,7 +488,7 @@ export function generateFeeEstimatePDF(
   // Procedure Details
   yPos = addSectionTitle(doc, yPos, 'PROCEDURE DETAILS');
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
   
@@ -475,29 +497,29 @@ export function generateFeeEstimatePDF(
   
   // Procedure name in bold
   doc.text('Procedure:', leftCol, yPos);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(procedure.name, 50, yPos);
   yPos += 8;
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('ICD-10 Code:', leftCol, yPos);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(procedure.icdCode || 'N/A', 55, yPos);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Category:', rightCol, yPos);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(procedure.category, 140, yPos);
   yPos += 8;
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Complexity:', leftCol, yPos);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(procedure.complexityLabel, 55, yPos);
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('ASA Score:', rightCol, yPos);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(String(surgery.asaScore), 145, yPos);
   yPos += 15;
   
@@ -507,7 +529,7 @@ export function generateFeeEstimatePDF(
   // Table header with dark background for contrast
   doc.setFillColor(31, 41, 55); // Dark gray background
   doc.rect(15, yPos, 180, 12, 'F');
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255); // White text on dark background
   doc.text('Description', 20, yPos + 8);
@@ -526,7 +548,7 @@ export function generateFeeEstimatePDF(
     rows.push(['Histopathology Fee', formatPDFAmount(feeEstimate.histologyFee)]);
   }
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(11);
   rows.forEach((row, index) => {
     // Alternating row colors - light blue and white
@@ -544,11 +566,11 @@ export function generateFeeEstimatePDF(
     
     // Text in pure black for maximum readability
     doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.text(row[0], 20, yPos + 6);
     
     // Amount right-aligned and bold
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text(row[1], 190, yPos + 6, { align: 'right' });
     yPos += 12;
   });
@@ -556,7 +578,7 @@ export function generateFeeEstimatePDF(
   // Total row with strong contrast
   doc.setFillColor(24, 0, 172); // Primary dark purple
   doc.rect(15, yPos - 2, 180, 14, 'F');
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(13);
   doc.setTextColor(255, 255, 255);
   doc.text('TOTAL ESTIMATE', 20, yPos + 7);
@@ -566,9 +588,9 @@ export function generateFeeEstimatePDF(
   // Fee Range Note with clear formatting
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Professional Fee Range:', 20, yPos);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(`${formatPDFAmount(procedure.minFee)} - ${formatPDFAmount(procedure.maxFee)}`, 75, yPos);
   yPos += 15;
   
@@ -592,12 +614,12 @@ export function generateFeeEstimatePDF(
   doc.setLineWidth(0.5);
   doc.roundedRect(15, yPos, 180, 35, 3, 3, 'S');
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(120, 53, 15); // Darker brown for better contrast
   doc.text('Important Notice', 20, yPos + 10);
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   doc.setTextColor(80, 40, 10); // Even darker for body text
   const disclaimerLines = doc.splitTextToSize(feeEstimate.disclaimer, 170);
@@ -611,13 +633,20 @@ export function generateFeeEstimatePDF(
 // SURGICAL CONSENT FORM PDF
 export function generateConsentFormPDF(patient: PatientInfo, surgery: SurgeryInfo): void {
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   let yPos = addHeader(doc, 'Informed Consent for Surgery', 'Patient Authorization Form');
   
   // Patient Details
   doc.setFillColor(240, 249, 255);
   doc.roundedRect(15, yPos, 180, 35, 3, 3, 'F');
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
   
@@ -634,7 +663,7 @@ export function generateConsentFormPDF(patient: PatientInfo, surgery: SurgeryInf
   // Procedure Details
   yPos = addSectionTitle(doc, yPos, 'PROCEDURE DETAILS');
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(10);
   doc.text(`Proposed Procedure: ${surgery.procedureName}`, 20, yPos);
   yPos += 8;
@@ -697,7 +726,7 @@ export function generateConsentFormPDF(patient: PatientInfo, surgery: SurgeryInf
   // Signature Section
   yPos = addSectionTitle(doc, yPos, 'SIGNATURES');
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(10);
   
   // Patient Signature
@@ -723,10 +752,10 @@ export function generateConsentFormPDF(patient: PatientInfo, surgery: SurgeryInf
   doc.setFillColor(240, 249, 255);
   doc.roundedRect(15, yPos, 180, 45, 3, 3, 'F');
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('SURGEON\'S DECLARATION', 20, yPos + 10);
   
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   const surgeonStatement = 'I confirm that I have explained the procedure, its risks, benefits, and alternatives to the patient/guardian. I have answered all questions to their satisfaction.';
   const surgeonLines = doc.splitTextToSize(surgeonStatement, 170);
