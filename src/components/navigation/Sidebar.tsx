@@ -28,6 +28,8 @@ import {
   ClipboardList,
   BookOpen,
   CalendarDays,
+  Wallet,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -101,6 +103,7 @@ const navigation: NavItem[] = [
     children: [
       { name: 'Surgery List', href: '/surgery' },
       { name: 'Preoperative Review', href: '/surgery/preoperative' },
+      { name: 'Post-Op Notes', href: '/surgery/post-op-notes' },
     ],
   },
   { 
@@ -162,6 +165,12 @@ const navigation: NavItem[] = [
     href: '/billing', 
     icon: <Receipt size={20} />,
     permission: 'view_invoices',
+  },
+  { 
+    name: 'Payroll', 
+    href: '/billing/payroll', 
+    icon: <Wallet size={20} />,
+    permission: 'manage_hospital',
   },
   { 
     name: 'Communication', 
