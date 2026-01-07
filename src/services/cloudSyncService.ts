@@ -615,8 +615,14 @@ function convertFromSupabase(record: Record<string, unknown>): Record<string, un
   const result: Record<string, unknown> = {};
   
   for (const key in record) {
-    // Convert snake_case to camelCase
-    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    // Check for special case reverse mappings first
+    let camelKey = REVERSE_FIELD_MAPPINGS[key];
+    
+    if (!camelKey) {
+      // Convert snake_case to camelCase using regex
+      camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    }
+    
     let value = record[key];
     
     // Convert date strings to Date objects
@@ -630,13 +636,34 @@ function convertFromSupabase(record: Record<string, unknown>): Record<string, un
   return result;
 }
 
+// Special case mappings for fields that don't follow simple camelCase to snake_case conversion
+const SPECIAL_FIELD_MAPPINGS: Record<string, string> = {
+  // WhatsApp should be whatsapp (lowercase, no underscore)
+  patientWhatsApp: 'patient_whatsapp',
+  whatsAppNumber: 'whatsapp_number',
+  whatsApp: 'whatsapp',
+  // is24Hours should be is_24_hours (with underscore before number)
+  is24Hours: 'is_24_hours',
+};
+
+// Reverse mappings for converting from Supabase to local
+const REVERSE_FIELD_MAPPINGS: Record<string, string> = Object.fromEntries(
+  Object.entries(SPECIAL_FIELD_MAPPINGS).map(([k, v]) => [v, k])
+);
+
 // Convert record from local format (camelCase) to Supabase format (snake_case)
 function convertToSupabase(record: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   
   for (const key in record) {
-    // Convert camelCase to snake_case
-    const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+    // Check for special case mappings first
+    let snakeKey = SPECIAL_FIELD_MAPPINGS[key];
+    
+    if (!snakeKey) {
+      // Convert camelCase to snake_case using regex
+      snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+    }
+    
     let value = record[key];
     
     // Convert Date objects to ISO strings
