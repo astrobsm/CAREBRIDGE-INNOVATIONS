@@ -48,6 +48,8 @@ import type {
   ActivityBillingRecord,
   PayrollPeriod,
   StaffPayrollRecord,
+  PostOperativeNote,
+  Payslip,
 } from '../types';
 
 export class CareBridgeDatabase extends Dexie {
@@ -107,11 +109,14 @@ export class CareBridgeDatabase extends Dexie {
   activityBillingRecords!: Table<ActivityBillingRecord, string>;
   payrollPeriods!: Table<PayrollPeriod, string>;
   staffPayrollRecords!: Table<StaffPayrollRecord, string>;
+  // Post-Operative Notes & Payslips
+  postOperativeNotes!: Table<PostOperativeNote, string>;
+  payslips!: Table<Payslip, string>;
 
   constructor() {
     super('CareBridgeDB');
 
-    this.version(60).stores({
+    this.version(61).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -173,6 +178,9 @@ export class CareBridgeDatabase extends Dexie {
       activityBillingRecords: 'id, patientId, performedBy, performedByRole, category, paymentStatus, invoiceId, hospitalId, performedAt, createdAt',
       payrollPeriods: 'id, hospitalId, status, startDate, endDate, createdAt',
       staffPayrollRecords: 'id, payrollPeriodId, staffId, staffRole, paymentStatus, hospitalId, createdAt',
+      // Post-Operative Notes & Payslips
+      postOperativeNotes: 'id, surgeryId, patientId, hospitalId, admissionId, status, procedureDate, surgeonId, completedBy, createdAt',
+      payslips: 'id, staffId, staffRole, hospitalId, periodId, paymentStatus, createdAt',
     });
   }
 }

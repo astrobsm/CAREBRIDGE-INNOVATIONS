@@ -34,6 +34,11 @@ export interface User {
   agreementVersion?: string;
   agreementDeviceInfo?: string;
   mustChangePassword?: boolean;
+  // Bank Account Details (for payroll)
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
+  bankCode?: string; // Nigerian bank sort code
   createdAt: Date;
   updatedAt: Date;
 }
@@ -243,11 +248,20 @@ export interface Surgery {
   actualEndTime?: Date;
   status: 'scheduled' | 'in-progress' | 'completed' | 'postponed' | 'cancelled';
   surgeon: string;
+  surgeonId?: string; // User ID for billing
+  surgeonFee?: number; // Fee charged for surgeon
   assistant?: string;
+  assistantId?: string; // User ID of surgeon assistant for billing
+  assistantFeePercentage?: number; // Typically 20% of surgeon fee
+  assistantFee?: number; // Calculated assistant fee
   anaesthetist?: string;
+  anaesthetistId?: string; // User ID for billing
   scrubNurse?: string;
+  scrubNurseId?: string; // User ID for billing
   circulatingNurse?: string;
+  circulatingNurseId?: string; // User ID for billing
   anaesthesiaType?: AnaesthesiaType;
+  anaesthesiaFee?: number;
   operativeNotes?: string;
   complications?: string;
   bloodLoss?: number;
@@ -3685,6 +3699,265 @@ export interface LabInvestigationVisibility {
   resultsUploadedBy?: string;
   resultsUploadedAt?: Date;
   resultsUploadedByRole?: UserRole;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ============================================
+// POST-OPERATIVE NOTE MODULE (WHO Standards)
+// ============================================
+
+export type SpecimenType = 
+  | 'histology'
+  | 'mcs'  // Microscopy, Culture & Sensitivity
+  | 'biochemistry'
+  | 'cytology'
+  | 'frozen_section'
+  | 'other';
+
+export interface PostOperativeSpecimen {
+  id: string;
+  type: SpecimenType;
+  description: string;
+  site: string;
+  sampleNumber?: string;
+  containerId?: string;
+  preservative?: string;
+  labRequestId?: string; // Auto-generated lab request
+  labRequestGenerated: boolean;
+  notes?: string;
+}
+
+export interface PostOperativeLabRequest {
+  id: string;
+  specimenId: string;
+  requestType: SpecimenType;
+  testName: string;
+  urgency: 'routine' | 'urgent' | 'stat';
+  clinicalDetails: string;
+  status: 'pending' | 'collected' | 'processing' | 'completed';
+  requestedAt: Date;
+  requestedBy: string;
+  completedAt?: Date;
+  resultSummary?: string;
+}
+
+export interface PostOperativePatientEducation {
+  procedureType: string;
+  recoveryTimeline: string;
+  expectedRecoveryDays: number;
+  ambulation: {
+    day0: string;
+    day1: string;
+    week1: string;
+    week2: string;
+    ongoingCare: string;
+  };
+  oralIntake: {
+    immediatePostOp: string;
+    day1: string;
+    normalDiet: string;
+    restrictions?: string[];
+  };
+  woundCare: {
+    initialDressing: string;
+    dressingChanges: string;
+    signsOfInfection: string[];
+    whenToSeekHelp: string[];
+  };
+  medications: {
+    painManagement: string;
+    antibiotics?: string;
+    otherMeds?: string[];
+    duration: string;
+  };
+  activityRestrictions: {
+    lifting: string;
+    driving: string;
+    work: string;
+    exercise: string;
+    bathing: string;
+  };
+  followUp: {
+    firstAppointment: string;
+    subsequentCare: string;
+    suturRemoval?: string;
+    investigations?: string[];
+  };
+  emergencyContact: string;
+  emergencySigns: string[];
+}
+
+export interface PostOperativeNote {
+  id: string;
+  surgeryId: string;
+  patientId: string;
+  hospitalId: string;
+  admissionId?: string;
+  
+  // Basic Details
+  procedureName: string;
+  procedureCode?: string;
+  procedureDate: Date;
+  
+  // WHO Surgical Safety Checklist Compliance
+  whoChecklistCompleted: boolean;
+  signInCompleted: boolean;
+  timeOutCompleted: boolean;
+  signOutCompleted: boolean;
+  
+  // Surgical Team
+  surgeon: string;
+  surgeonId: string;
+  surgeonFee: number;
+  assistant?: string;
+  assistantId?: string;
+  assistantFee?: number;  // 20% of surgeon fee
+  anaesthetist?: string;
+  anaesthetistId?: string;
+  anaesthesiaType: AnaesthesiaType;
+  anaesthesiaFee?: number;
+  scrubNurse?: string;
+  scrubNurseId?: string;
+  circulatingNurse?: string;
+  circulatingNurseId?: string;
+  
+  // Operative Details
+  preOperativeDiagnosis: string;
+  postOperativeDiagnosis: string;
+  indication: string;
+  procedurePerformed: string;
+  findings: string;
+  complications: string[];
+  bloodLoss: number; // mL
+  bloodTransfused?: number; // units
+  duration: number; // minutes
+  
+  // Specimens & Lab Requests
+  specimensCollected: boolean;
+  specimens: PostOperativeSpecimen[];
+  labRequests: PostOperativeLabRequest[];
+  
+  // Immediate Post-Op Orders
+  vitalSignsFrequency: string;
+  monitoringInstructions: string[];
+  position: string;
+  dietInstructions: string;
+  ivFluids?: string;
+  medications: PostOperativeMedication[];
+  drainCare?: string;
+  catheterCare?: string;
+  
+  // Recovery Plan (WHO Standards)
+  expectedRecoveryDays: number;
+  ambulation: {
+    day0: string;
+    day1: string;
+    ongoing: string;
+  };
+  oralIntake: {
+    timing: string;
+    type: string;
+    progression: string;
+  };
+  
+  // Patient Education (Auto-generated based on procedure)
+  patientEducation: PostOperativePatientEducation;
+  educationDelivered: boolean;
+  educationDeliveredBy?: string;
+  educationDeliveredAt?: Date;
+  
+  // Follow-up
+  followUpDate?: Date;
+  followUpInstructions: string;
+  suturRemovalDate?: Date;
+  
+  // Warning Signs
+  warningSigns: string[];
+  whenToSeekHelp: string[];
+  
+  // Billing
+  totalProcedureFee: number;
+  billingRecorded: boolean;
+  activityBillingRecordIds: string[];
+  
+  // Status & Approvals
+  status: 'draft' | 'completed' | 'approved';
+  completedBy: string;
+  completedAt: Date;
+  approvedBy?: string;
+  approvedAt?: Date;
+  
+  // PDF & Sharing
+  pdfGenerated: boolean;
+  pdfUrl?: string;
+  sharedViaWhatsApp: boolean;
+  sharedAt?: Date;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ============================================
+// PAYSLIP TYPE
+// ============================================
+
+export interface Payslip {
+  id: string;
+  staffId: string;
+  staffName: string;
+  staffRole: UserRole;
+  hospitalId: string;
+  
+  // Period
+  periodId: string;
+  periodName: string;
+  startDate: Date;
+  endDate: Date;
+  
+  // Bank Details
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
+  
+  // Earnings Breakdown
+  activities: {
+    category: BillingCategory;
+    categoryLabel: string;
+    count: number;
+    totalBilled: number;
+    amountPaid: number;
+    staffEarning: number;  // 50%
+  }[];
+  
+  // Surgery Assistant Earnings (if applicable)
+  surgeryAssistantEarnings?: {
+    surgeryId: string;
+    procedureName: string;
+    surgeonFee: number;
+    assistantFee: number;  // 20% of surgeon fee
+    staffShare: number;    // 50% of assistant fee
+  }[];
+  
+  // Totals
+  grossEarnings: number;
+  deductions: number;
+  deductionDetails?: {
+    description: string;
+    amount: number;
+  }[];
+  netEarnings: number;
+  
+  // Payment Status
+  paymentStatus: 'pending' | 'processing' | 'paid';
+  paidAt?: Date;
+  paymentReference?: string;
+  paymentMethod?: 'bank_transfer' | 'cash' | 'check';
+  
+  // PDF
+  pdfGenerated: boolean;
+  pdfUrl?: string;
   
   createdAt: Date;
   updatedAt: Date;

@@ -17,6 +17,7 @@ import BloodTransfusionPage from './domains/clinical/pages/BloodTransfusionPage'
 import SurgeryListPage from './domains/surgery/pages/SurgeryListPage';
 import SurgeryPlanningPage from './domains/surgery/pages/SurgeryPlanningPage';
 import PreoperativeAssessmentPage from './domains/surgery/pages/PreoperativeAssessmentPage';
+import PostOperativeNotePage from './domains/surgery/pages/PostOperativeNotePage';
 import WoundsPage from './domains/wounds/pages/WoundsPage';
 import BurnsAssessmentPage from './domains/burns/pages/BurnsAssessmentPage';
 import LaboratoryPage from './domains/laboratory/pages/LaboratoryPage';
@@ -102,6 +103,7 @@ function App() {
           <Route index element={<SurgeryListPage />} />
           <Route path="planning/:patientId" element={<SurgeryPlanningPage />} />
           <Route path="preoperative" element={<PreoperativeAssessmentPage />} />
+          <Route path="post-op-note/:surgeryId" element={<PostOperativeNotePage />} />
         </Route>
 
         {/* Clinical Modules */}
