@@ -3,6 +3,8 @@ export type UserRole =
   | 'super_admin'
   | 'hospital_admin'
   | 'surgeon'
+  | 'doctor'
+  | 'plastic_surgeon'
   | 'anaesthetist'
   | 'nurse'
   | 'pharmacist'
@@ -3518,6 +3520,7 @@ export interface StaffPatientAssignment {
   staffId: string;
   staffName: string;
   staffRole: UserRole;
+  role?: UserRole; // Alias for staffRole
   
   // Assignment Details
   assignmentType: 'primary' | 'secondary' | 'consultant' | 'nurse' | 'on_call';

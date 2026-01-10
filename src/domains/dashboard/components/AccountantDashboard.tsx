@@ -145,9 +145,15 @@ export default function AccountantDashboard() {
       }
     }
     
+    // Get patient info for names
+    const patientIds = [...new Set(admissions.map(a => a.patientId))];
+    const patients = await db.patients.where('id').anyOf(patientIds).toArray();
+    const patientMap = new Map(patients.map(p => [p.id, `${p.firstName} ${p.lastName}`]));
+    
     return admissions
       .map(a => ({
         ...a,
+        patientName: patientMap.get(a.patientId) || 'Unknown Patient',
         outstandingAmount: billsByAdmission.get(a.id!) || 0,
       }))
       .filter(a => a.outstandingAmount > 0)

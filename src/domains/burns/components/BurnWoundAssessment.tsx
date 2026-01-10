@@ -117,7 +117,7 @@ export default function BurnWoundAssessmentComponent({
       appearance: assessmentForm.appearance,
       exudateLevel: assessmentForm.exudateLevel as any,
       exudateType: assessmentForm.exudateType as any,
-      infectionSigns: assessmentForm.infectionSigns,
+      infectionSigns: assessmentForm.infectionSigns ? ['Signs present'] : [],
       cultureTaken: assessmentForm.cultureTaken,
       dressingApplied: assessmentForm.dressingType,
       debridementPerformed: assessmentForm.debridementPerformed,
@@ -264,7 +264,7 @@ export default function BurnWoundAssessmentComponent({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                   <div>
                     <span className="text-gray-500">Appearance:</span>
-                    <p className="font-medium">{assessment.appearance.join(', ') || '-'}</p>
+                    <p className="font-medium">{Array.isArray(assessment.appearance) ? assessment.appearance.join(', ') : assessment.appearance || '-'}</p>
                   </div>
                   <div>
                     <span className="text-gray-500">Exudate:</span>

@@ -151,6 +151,8 @@ export interface BurnsResult {
   tetanusRecommendation?: string;
   antibioticGuidance?: string;
   monitoring?: string[];
+  burnDepth?: string;
+  inhalationInjury?: boolean;
 }
 
 // MUST Assessment Types
@@ -162,9 +164,18 @@ export interface MUSTResult {
   acuteIllnessScore: number;
   totalScore: number;
   riskLevel: MUSTRiskLevel;
+  riskCategory?: string;
   recommendations: string[];
   referralNeeded: boolean;
   nutritionalPlan: string[];
+  scoreBreakdown?: { bmi: string | number; weightLoss: string | number; acuteIllness?: string | number; acuteDisease?: string | number };
+  managementPlan?: string[];
+  monitoringFrequency?: string;
+  estimatedCalories?: number;
+  estimatedProtein?: number;
+  dietaryRecommendations?: string[];
+  supplementRecommendations?: string[];
+  additionalConsiderations?: string[];
 }
 
 // Pressure Sore Calculator Types (Braden Scale)
@@ -188,15 +199,22 @@ export interface BradenResult {
   repositioningSchedule?: string;
   surfaceRecommendation?: string;
   subscores?: Record<string, BradenSubscore>;
+  scoreBreakdown?: Record<string, { score: number; label: string; name?: string; max?: number }>;
   interventions?: string[];
   turningSchedule?: string;
   supportSurface?: string;
+  supportSurfaces?: string[];
   skinCare?: string[];
   monitoring?: string[];
   highRiskAreas?: string[];
+  highRiskSites?: string[];
   equipmentList?: string[];
   resourceLimitedOptions?: string[];
   lowestScores?: string[];
+  reassessmentFrequency?: string;
+  problemAreas?: string[];
+  preventionMeasures?: string[];
+  nutritionRecommendations?: string[];
 }
 
 // Sickle Cell Management Types
@@ -210,9 +228,20 @@ export interface SickleCellResult {
   antibioticProphylaxis: string[];
   hydroxyureaIndicated: boolean;
   hydroxyureaDose?: string;
+  hydroxyureaDosing?: string[];
   monitoring: string[];
   emergencyReferral: boolean;
   referralReasons?: string[];
+  // Additional properties used in UI
+  severityFactors?: string[];
+  exchangeTransfusion?: boolean;
+  exchangeVolume?: number;
+  transfusionGuidelines?: string[];
+  acsManagement?: string[];
+  hydrationRecommendation?: string[];
+  infectionManagement?: string[];
+  dischargeCriteria?: string[];
+  longTermRecommendations?: string[];
 }
 
 // BNF Drug Calculator Types
@@ -241,6 +270,7 @@ export interface DrugDose {
     pregnancy?: string;
     breastfeeding?: string;
   };
+  adjustedDose?: string;
 }
 
 // Nutrition Calculator Types

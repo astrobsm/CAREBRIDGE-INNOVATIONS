@@ -16,7 +16,6 @@ import type {
   qSOFAScore,
   SOFAScore,
 } from '../types';
-import { checkBurnCenterCriteria } from '../services/burnScoringService';
 
 interface BurnScoreSummaryProps {
   tbsaCalc?: TBSACalculation;
@@ -261,10 +260,10 @@ export default function BurnScoreSummary({
           unit="/24"
           interpretation={
             sofaScore === undefined ? 'Not calculated' :
-            sofaScore.interpretation
+            (sofaScore.interpretation ?? sofaScore.mortalityRisk ?? 'Calculated')
           }
           color={getSOFAColor(sofaScore?.totalScore)}
-          details={sofaScore && (
+          details={sofaScore && sofaScore.components && (
             <div className="grid grid-cols-3 gap-1 text-xs">
               <span>Resp: {sofaScore.components.respiration}</span>
               <span>Coag: {sofaScore.components.coagulation}</span>

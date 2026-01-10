@@ -2,7 +2,7 @@
 // British National Formulary-Adapted Drug Dosing with Renal/Hepatic Adjustments
 
 import { useState } from 'react';
-import { Pill, Calculator, AlertTriangle, Search, Activity, Beaker } from 'lucide-react';
+import { Pill, Calculator, AlertTriangle, Search, Activity, Beaker, Heart } from 'lucide-react';
 import { PatientCalculatorInfo, DrugDose } from '../../types';
 
 interface Props {
@@ -419,7 +419,7 @@ export default function BNFDrugCalculator({ patientInfo }: Props) {
                 {result.isRenalAdjusted && (
                   <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg">
                     <h4 className="font-bold text-amber-800 mb-1 flex items-center gap-2">
-                      <Kidney className="w-5 h-5" />
+                      <Heart className="w-5 h-5" />
                       Renal Adjustment Required (GFR: {result.gfrUsed})
                     </h4>
                     <p className="text-amber-700">{result.renalAdjustment}</p>

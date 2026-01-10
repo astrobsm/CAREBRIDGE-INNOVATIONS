@@ -1335,14 +1335,14 @@ export default function SurgeryPlanningPage() {
                     <button
                       type="button"
                       className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg transition-colors ${
-                        selectedProcedure && getProcedureEducation(selectedProcedure.id)
+                        selectedProcedure
                           ? 'bg-teal-600 text-white hover:bg-teal-700' 
                           : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                       }`}
-                      disabled={!selectedProcedure || !getProcedureEducation(selectedProcedure.id)}
+                      disabled={!selectedProcedure}
                       onClick={() => {
                         if (patient && selectedProcedure) {
-                          const education = getProcedureEducation(selectedProcedure.id);
+                          const education = getProcedureEducation(selectedProcedure.name);
                           if (education) {
                             generatePatientCounselingPDF({
                               patient: patient,
@@ -1363,9 +1363,7 @@ export default function SurgeryPlanningPage() {
                       }}
                     >
                       <Download size={16} />
-                      {selectedProcedure && getProcedureEducation(selectedProcedure.id) 
-                        ? 'Download' 
-                        : 'Education Not Available'}
+                      Download Counseling
                     </button>
                   </div>
 

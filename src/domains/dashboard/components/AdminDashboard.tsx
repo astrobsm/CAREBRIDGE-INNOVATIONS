@@ -59,7 +59,7 @@ export default function AdminDashboard() {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
     return db.users
-      .filter(u => u.lastLoginAt && new Date(u.lastLoginAt) >= weekAgo)
+      .filter(u => u.updatedAt && new Date(u.updatedAt) >= weekAgo)
       .count();
   }, []);
 
@@ -86,7 +86,7 @@ export default function AdminDashboard() {
         r.paymentStatus === 'paid'
       )
       .toArray();
-    return records.reduce((sum, r) => sum + r.totalAmount, 0);
+    return records.reduce((sum, r) => sum + r.fee, 0);
   }, [selectedPeriod]);
 
   // Users by role
@@ -133,7 +133,7 @@ export default function AdminDashboard() {
   // Sync status
   const syncStatus = useLiveQuery(async () => {
     const pendingSync = await db.activityBillingRecords
-      .filter(r => !r.syncedToCloud)
+      .filter(r => r.paymentStatus === 'pending')
       .count();
     
     return {

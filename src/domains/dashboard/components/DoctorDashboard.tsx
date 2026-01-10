@@ -5,17 +5,12 @@ import {
   Users,
   Stethoscope,
   Scissors,
-  TrendingUp,
   Calendar,
   Activity,
   ClipboardList,
-  Clock,
-  DollarSign,
-  UserPlus,
   FileText,
-  AlertCircle,
   ChevronRight,
-  Bandage,
+  HeartPulse,
 } from 'lucide-react';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -37,7 +32,7 @@ export default function DoctorDashboard() {
   }, [user?.id, statsPeriod]);
 
   // My assigned patients
-  const myAssignments = useLiveQuery(async () => {
+  const _myAssignments = useLiveQuery(async () => {
     if (!user?.id) return [];
     return db.staffPatientAssignments
       .where('staffId')
@@ -52,7 +47,7 @@ export default function DoctorDashboard() {
     return db.admissions
       .where('primaryDoctor')
       .equals(user.id)
-      .filter(a => a.status === 'admitted')
+      .filter(a => a.status === 'active')
       .toArray();
   }, [user?.id]);
 

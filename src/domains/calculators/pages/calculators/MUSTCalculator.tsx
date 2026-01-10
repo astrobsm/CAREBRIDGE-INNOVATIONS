@@ -58,6 +58,7 @@ export default function MUSTCalculator({ patientInfo }: Props) {
     
     // Risk category
     let riskCategory: 'Low' | 'Medium' | 'High';
+    let riskColor: 'green' | 'yellow' | 'red';
     let managementPlan: string[] = [];
     let monitoringFrequency: string;
     let dietaryRecommendations: string[] = [];

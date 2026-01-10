@@ -51,6 +51,7 @@ import type {
   PostOperativeNote,
   Payslip,
 } from '../types';
+import type { DailyMedicationChart } from '../domains/medication-chart/types';
 
 export class CareBridgeDatabase extends Dexie {
   users!: Table<User, string>;
@@ -112,6 +113,8 @@ export class CareBridgeDatabase extends Dexie {
   // Post-Operative Notes & Payslips
   postOperativeNotes!: Table<PostOperativeNote, string>;
   payslips!: Table<Payslip, string>;
+  // Medication Charts
+  medicationCharts!: Table<DailyMedicationChart, string>;
 
   constructor() {
     super('CareBridgeDB');

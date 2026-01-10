@@ -63,21 +63,21 @@ export default function LabScientistDashboard() {
     return db.investigations
       .where('status')
       .equals('completed')
-      .filter(inv => inv.completedAt && new Date(inv.completedAt) >= today)
+      .filter(inv => !!inv.completedAt && new Date(inv.completedAt) >= today)
       .toArray();
   }, []);
 
   // Critical/Urgent results
   const urgentResults = useLiveQuery(async () => {
     return db.investigations
-      .filter(inv => inv.urgency === 'urgent' && inv.status !== 'completed')
+      .filter(inv => inv.priority === 'urgent' && inv.status !== 'completed')
       .toArray();
   }, []);
 
   // Blood typing pending
   const bloodTypingPending = useLiveQuery(async () => {
     return db.transfusionMonitoringCharts
-      .filter(t => t.status === 'pending' && !t.bloodTypeConfirmed)
+      .filter(t => t.status === 'template' || t.status === 'in_progress')
       .count();
   }, []);
 
@@ -93,7 +93,7 @@ export default function LabScientistDashboard() {
       return db.investigations
         .where('status')
         .equals('completed')
-        .filter(inv => inv.completedAt && new Date(inv.completedAt) >= today)
+        .filter(inv => !!inv.completedAt && new Date(inv.completedAt) >= today)
         .toArray();
     }
     return db.investigations.toArray();
@@ -279,15 +279,15 @@ export default function LabScientistDashboard() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-gray-900 truncate">
-                        {investigation.testName || 'Lab Test'}
+                        {investigation.name || investigation.typeName || 'Lab Test'}
                       </p>
                       {getStatusIcon(investigation.status)}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <User size={12} />
                       <span className="truncate">{investigation.patientName || 'Unknown Patient'}</span>
-                      <span className={`px-1.5 py-0.5 rounded-full border ${getPriorityColor(investigation.urgency)}`}>
-                        {investigation.urgency || 'routine'}
+                      <span className={`px-1.5 py-0.5 rounded-full border ${getPriorityColor(investigation.priority)}`}>
+                        {investigation.priority || 'routine'}
                       </span>
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">

@@ -56,7 +56,7 @@ export default function NurseDashboard() {
     return db.nurseAssignments
       .where('nurseId')
       .equals(user.id)
-      .filter(a => a.isActive && new Date(a.assignmentDate) >= today)
+      .filter(a => a.status === 'active' && new Date(a.assignmentDate) >= today)
       .toArray();
   }, [user?.id]);
 
@@ -72,7 +72,7 @@ export default function NurseDashboard() {
     const patientIds = myPatientAssignments?.map(a => a.patientId) || [];
     if (patientIds.length === 0) return [];
     return db.admissions
-      .filter(a => patientIds.includes(a.patientId) && a.status === 'admitted')
+      .filter(a => patientIds.includes(a.patientId) && a.status === 'active')
       .toArray();
   }, [myPatientAssignments]);
 
@@ -83,7 +83,12 @@ export default function NurseDashboard() {
     return db.medicationCharts
       .where('assignedNurseId')
       .equals(user.id)
-      .filter(m => m.chartDate === today)
+      .filter(m => {
+        const chartDateStr = m.chartDate instanceof Date 
+          ? m.chartDate.toISOString().split('T')[0] 
+          : String(m.chartDate).split('T')[0];
+        return chartDateStr === today;
+      })
       .toArray();
   }, [user?.id]);
 
@@ -115,12 +120,12 @@ export default function NurseDashboard() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // Count active wounds that need dressing (wounds with dressing frequency set)
     return db.wounds
       .filter(w => 
         patientIds.includes(w.patientId) && 
-        w.status === 'active' &&
-        w.nextDressingDate && 
-        new Date(w.nextDressingDate) <= new Date()
+        w.healingProgress !== 'improving' &&
+        w.dressingFrequency != null
       )
       .count();
   }, [myPatientAssignments]);

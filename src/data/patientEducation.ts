@@ -1329,9 +1329,199 @@ export const procedureEducationDatabase: ProcedureEducation[] = [
   },
 ];
 
-// Helper function to get procedure education by ID
-export function getProcedureEducation(procedureId: string): ProcedureEducation | undefined {
-  return procedureEducationDatabase.find(p => p.procedureId === procedureId);
+// Mapping from surgical fee procedure names to education IDs
+const procedureNameToEducationId: Record<string, string> = {
+  // Burns-related
+  'split skin graft': 'BURNS-001',
+  'skin graft': 'BURNS-001',
+  'stsg': 'BURNS-001',
+  'burn debridement': 'BURNS-001',
+  'escharotomy': 'BURNS-001',
+  // Wound care
+  'wound debridement': 'WOUND-001',
+  'wound closure': 'WOUND-001',
+  'ulcer debridement': 'WOUND-001',
+  'chronic wound': 'WOUND-001',
+  // NPWT
+  'npwt': 'NPWT-001',
+  'negative pressure': 'NPWT-001',
+  'vac therapy': 'NPWT-001',
+  // Scar revision
+  'scar revision': 'SCAR-001',
+  'keloid': 'SCAR-001',
+  'scar excision': 'SCAR-001',
+  'z-plasty': 'SCAR-001',
+  'contracture release': 'SCAR-001',
+  // Breast surgery
+  'breast': 'BREAST-001',
+  'mastectomy': 'BREAST-001',
+  'breast reconstruction': 'BREAST-001',
+  'breast reduction': 'BREAST-001',
+  // Congenital
+  'cleft lip': 'CONGEN-001',
+  'cleft palate': 'CONGEN-001',
+  'syndactyly': 'CONGEN-001',
+  'polydactyly': 'CONGEN-001',
+  'congenital': 'CONGEN-001',
+  // Hand surgery
+  'hand': 'HAND-001',
+  'carpal tunnel': 'HAND-001',
+  'trigger finger': 'HAND-001',
+  'tendon repair': 'HAND-001',
+  'dupuytren': 'HAND-001',
+  // Body contouring
+  'abdominoplasty': 'BODY-001',
+  'liposuction': 'BODY-001',
+  'tummy tuck': 'BODY-001',
+  'body contouring': 'BODY-001',
+};
+
+// Generate a generic procedure education based on complexity and name
+function generateGenericProcedureEducation(procedureName: string, category: string = 'General Surgery'): ProcedureEducation {
+  const isMinor = category.toLowerCase().includes('minor') || procedureName.toLowerCase().includes('excision') || procedureName.toLowerCase().includes('biopsy');
+  const isMajor = category.toLowerCase().includes('major') || category.toLowerCase().includes('super');
+  
+  return {
+    procedureId: `GEN-${Date.now()}`,
+    procedureName: procedureName,
+    category: category,
+    overview: `${procedureName} is a surgical procedure that will be performed by your surgeon to address your specific medical condition. Your surgeon will explain the specific details of your case during your consultation.`,
+    aims: [
+      'Address your specific medical condition',
+      'Improve your health and quality of life',
+      'Minimize complications and promote healing',
+      'Achieve the best possible surgical outcome',
+    ],
+    indications: [
+      'As recommended by your surgeon based on your clinical assessment',
+      'When conservative treatment has been unsuccessful or is not appropriate',
+      'When surgical intervention offers the best outcome',
+    ],
+    anesthesiaTypes: isMinor ? ['local', 'sedation'] : ['general', 'regional', 'spinal'],
+    preferredAnesthesia: isMinor ? 'local' : 'general',
+    anesthesiaDescription: isMinor 
+      ? 'This procedure may be performed under local anesthesia (numbing the area) with or without sedation to help you relax.'
+      : 'This procedure is typically performed under general anesthesia where you will be completely asleep, or regional/spinal anesthesia depending on your case.',
+    expectedOutcomes: [
+      'Successful treatment of your condition',
+      'Recovery time varies depending on the complexity of the procedure',
+      'Your surgeon will discuss specific expected outcomes with you',
+    ],
+    successRate: 'Varies depending on specific condition and patient factors',
+    healingTime: isMinor ? '1-2 weeks for initial healing' : isMajor ? '4-8 weeks for initial healing' : '2-4 weeks for initial healing',
+    hospitalStay: isMinor ? 'Day case or overnight stay' : isMajor ? '3-7 days or longer' : '1-3 days depending on progress',
+    generalComplications: generalSurgicalComplications,
+    specificComplications: [
+      {
+        name: 'Procedure-specific complications',
+        description: 'Your surgeon will discuss any specific risks related to your particular procedure',
+        likelihood: 'uncommon',
+        percentage: 'Varies',
+        severity: 'moderate',
+      },
+    ],
+    lifestyleChanges: [
+      {
+        category: 'Activity',
+        recommendation: 'Avoid strenuous activity until cleared by your surgeon',
+        duration: isMinor ? '1-2 weeks' : '4-6 weeks',
+        importance: 'essential',
+      },
+      {
+        category: 'Wound Care',
+        recommendation: 'Keep surgical site clean and dry, follow dressing instructions',
+        duration: 'Until wound is healed',
+        importance: 'essential',
+      },
+      {
+        category: 'Medications',
+        recommendation: 'Take all prescribed medications as directed',
+        importance: 'essential',
+      },
+      {
+        category: 'Diet',
+        recommendation: 'Maintain a healthy diet to promote healing',
+        importance: 'recommended',
+      },
+    ],
+    patientResponsibilities: [
+      {
+        phase: 'pre_operative',
+        responsibility: 'Follow all pre-operative instructions including fasting requirements',
+        importance: 'critical',
+      },
+      {
+        phase: 'pre_operative',
+        responsibility: 'Inform your surgeon of all medications including traditional/herbal remedies',
+        importance: 'critical',
+      },
+      {
+        phase: 'immediate_post_op',
+        responsibility: 'Follow discharge instructions carefully',
+        importance: 'critical',
+      },
+      {
+        phase: 'recovery',
+        responsibility: 'Attend all scheduled follow-up appointments',
+        importance: 'important',
+      },
+      {
+        phase: 'recovery',
+        responsibility: 'Report any concerning symptoms immediately',
+        importance: 'critical',
+      },
+    ],
+    followUpSchedule: [
+      isMinor ? 'Wound check at 7-10 days' : 'First follow-up at 1-2 weeks',
+      'Subsequent visits as directed by your surgeon',
+      'Contact clinic if any concerns arise before scheduled appointments',
+    ],
+    warningSignsToReport: [
+      'Increasing pain not controlled by medications',
+      'Fever above 38°C',
+      'Increasing redness, swelling, or discharge from wound',
+      'Bleeding that does not stop with pressure',
+      'Any symptoms that concern you',
+    ],
+    alternativeTreatments: [
+      'Conservative (non-surgical) management where appropriate',
+      'Alternative surgical approaches may be available',
+      'Discuss all options with your surgeon',
+    ],
+    riskOfNotTreating: 'Your surgeon will explain the specific risks of not proceeding with treatment based on your individual condition.',
+  };
+}
+
+// Helper function to get procedure education by ID or name
+export function getProcedureEducation(procedureIdOrName: string): ProcedureEducation | undefined {
+  // First try exact ID match
+  let education = procedureEducationDatabase.find(p => p.procedureId === procedureIdOrName);
+  if (education) return education;
+  
+  // Try to find by exact procedure name
+  education = procedureEducationDatabase.find(p => 
+    p.procedureName.toLowerCase() === procedureIdOrName.toLowerCase()
+  );
+  if (education) return education;
+  
+  // Try fuzzy match on procedure name
+  const lowerName = procedureIdOrName.toLowerCase();
+  for (const [keyword, educationId] of Object.entries(procedureNameToEducationId)) {
+    if (lowerName.includes(keyword)) {
+      education = procedureEducationDatabase.find(p => p.procedureId === educationId);
+      if (education) return education;
+    }
+  }
+  
+  // Try partial match on procedure name in database
+  education = procedureEducationDatabase.find(p => 
+    p.procedureName.toLowerCase().includes(lowerName) ||
+    lowerName.includes(p.procedureName.toLowerCase())
+  );
+  if (education) return education;
+  
+  // If no match found, generate generic education
+  return generateGenericProcedureEducation(procedureIdOrName);
 }
 
 // Helper function to get procedures by category

@@ -754,8 +754,6 @@ export function cleanupCloudSync() {
 // Compatibility layer for SyncIndicator
 // =====================================
 
-import { useState, useEffect } from 'react';
-
 // SyncState interface for compatibility with SyncIndicator
 export interface SyncState {
   status: 'idle' | 'syncing' | 'error' | 'offline' | 'success';
