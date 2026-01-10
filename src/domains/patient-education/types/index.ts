@@ -119,7 +119,7 @@ export interface PreoperativeInstructions {
 
 export interface MedicationInstruction {
   medication: string;
-  instruction: 'continue' | 'stop' | 'modify' | 'discuss';
+  instruction: 'continue' | 'stop' | 'modify' | 'discuss' | string;
   timing?: string;
   reason: string;
 }
@@ -210,7 +210,7 @@ export interface ExpectedOutcomes {
   functionalRecovery: string;
   cosmeticOutcome?: string;
   qualityOfLife?: string;
-  possibleComplications?: ComplicationRisk[];
+  possibleComplications?: (ComplicationRisk | string)[];
   successRate?: string;
 }
 

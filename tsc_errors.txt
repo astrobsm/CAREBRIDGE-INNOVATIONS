@@ -1,0 +1,806 @@
+﻿src/components/clinical/StaffAssignmentModal.tsx(1,20): error TS6133: 'useEffect' is declared but its value is never read.
+src/components/clinical/StaffAssignmentModal.tsx(15,20): error TS2307: Cannot find module '../../../database' or its corresponding type declarations.
+src/components/clinical/StaffAssignmentModal.tsx(16,1): error TS6133: 'format' is declared but its value is never read.
+src/components/clinical/StaffAssignmentModal.tsx(17,62): error TS2307: Cannot find module '../../../services/activityBillingService' or its corresponding type declarations.
+src/components/clinical/StaffAssignmentModal.tsx(18,1): error TS6192: All imports in import declaration are unused.
+src/components/clinical/StaffAssignmentModal.tsx(18,51): error TS2307: Cannot find module '../../../types' or its corresponding type declarations.
+src/components/clinical/StaffAssignmentModal.tsx(48,15): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/components/clinical/StaffAssignmentModal.tsx(55,15): error TS7006: Parameter 'u' implicitly has an 'any' type.
+src/components/clinical/StaffAssignmentModal.tsx(62,25): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/clinical/StaffAssignmentModal.tsx(84,44): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/components/clinical/StaffAssignmentModal.tsx(132,37): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/components/clinical/StaffAssignmentModal.tsx(192,40): error TS7006: Parameter 'assignment' implicitly has an 'any' type.
+src/components/clinical/StaffAssignmentModal.tsx(193,52): error TS7006: Parameter 'u' implicitly has an 'any' type.
+src/components/clinical/StaffAssignmentModal.tsx(262,36): error TS7006: Parameter 'staff' implicitly has an 'any' type.
+src/components/navigation/Sidebar.tsx(21,3): error TS6133: 'Video' is declared but its value is never read.
+src/components/navigation/Sidebar.tsx(24,3): error TS6133: 'LogOut' is declared but its value is never read.
+src/components/navigation/Sidebar.tsx(32,3): error TS6133: 'FileText' is declared but its value is never read.
+src/components/patient/PatientSelector.tsx(13,3): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/components/patient/PatientSelector.tsx(18,3): error TS6133: 'Building2' is declared but its value is never read.
+src/components/patient/PatientSelector.tsx(27,10): error TS6133: 'usePatientSelector' is declared but its value is never read.
+src/components/patient/PatientSelector.tsx(284,3): error TS6133: 'variant' is declared but its value is never read.
+src/components/patient/PatientSelector.tsx(296,46): error TS6133: 'patientLoading' is declared but its value is never read.
+src/components/patient/PatientSelector.tsx(666,3): error TS6133: 'showVitals' is declared but its value is never read.
+src/components/patient/PatientSelector.tsx(667,3): error TS6133: 'showAdmissionStatus' is declared but its value is never read.
+src/components/patient/PatientSelector.tsx(669,3): error TS6133: 'onViewDetails' is declared but its value is never read.
+src/domains/admissions/components/DrugAllergyAssessment.tsx(14,3): error TS6133: 'CheckCircle2' is declared but its value is never read.
+src/domains/admissions/components/DVTCapriniAssessment.tsx(20,3): error TS6133: 'Info' is declared but its value is never read.
+src/domains/admissions/components/MealPlanGenerator.tsx(9,20): error TS6133: 'useMemo' is declared but its value is never read.
+src/domains/admissions/components/MealPlanGenerator.tsx(26,3): error TS6133: 'X' is declared but its value is never read.
+src/domains/admissions/components/MealPlanGenerator.tsx(202,11): error TS6133: 'snackCals' is declared but its value is never read.
+src/domains/admissions/components/NutritionalRiskAssessment.tsx(586,15): error TS6133: 'selectedOption' is declared but its value is never read.
+src/domains/admissions/components/PressureSoreAssessment.tsx(20,3): error TS6133: 'Info' is declared but its value is never read.
+src/domains/admissions/pages/AdmissionsPage.tsx(96,40): error TS6133: 'embedded' is declared but its value is never read.
+src/domains/adt/pages/ADTPage.tsx(48,10): error TS6133: 'selectedAdmissionId' is declared but its value is never read.
+src/domains/appointments/components/AppointmentBookingForm.tsx(36,83): error TS6196: 'Hospital' is declared but never used.
+src/domains/auth/pages/UsersManagementPage.tsx(9,3): error TS6133: 'Filter' is declared but its value is never read.
+src/domains/auth/pages/UsersManagementPage.tsx(337,7): error TS2322: Type 'number' is not assignable to type 'boolean'.
+src/domains/auth/pages/UsersManagementPage.tsx(340,7): error TS2322: Type 'string' is not assignable to type 'Date'.
+src/domains/auth/pages/UsersManagementPage.tsx(341,7): error TS2322: Type 'string' is not assignable to type 'Date'.
+src/domains/billing/pages/BillingPage.tsx(48,27): error TS6133: 'PatientDisplay' is declared but its value is never read.
+src/domains/billing/pages/PayrollDashboardPage.tsx(7,3): error TS6133: 'Calendar' is declared but its value is never read.
+src/domains/billing/pages/PayrollDashboardPage.tsx(8,3): error TS6133: 'FileText' is declared but its value is never read.
+src/domains/billing/pages/PayrollDashboardPage.tsx(9,3): error TS6133: 'Download' is declared but its value is never read.
+src/domains/billing/pages/PayrollDashboardPage.tsx(12,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/domains/billing/pages/PayrollDashboardPage.tsx(13,3): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/domains/billing/pages/PayrollDashboardPage.tsx(14,3): error TS6133: 'Filter' is declared but its value is never read.
+src/domains/billing/pages/PayrollDashboardPage.tsx(17,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/domains/billing/pages/PayrollDashboardPage.tsx(18,3): error TS6133: 'Building2' is declared but its value is never read.
+src/domains/billing/pages/PayrollDashboardPage.tsx(22,44): error TS6133: 'subMonths' is declared but its value is never read.
+src/domains/billing/pages/PayrollDashboardPage.tsx(30,1): error TS6192: All imports in import declaration are unused.
+src/domains/billing/pages/PayrollDashboardPage.tsx(73,39): error TS2339: Property 'role' does not exist on type 'StaffPayrollRecord'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(76,37): error TS2339: Property 'totalEarned' does not exist on type 'StaffPayrollRecord'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(76,53): error TS2339: Property 'totalEarned' does not exist on type 'StaffPayrollRecord'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(89,62): error TS2339: Property 'totalEarned' does not exist on type 'StaffPayrollRecord'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(90,98): error TS2339: Property 'totalEarned' does not exist on type 'StaffPayrollRecord'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(91,104): error TS2339: Property 'totalEarned' does not exist on type 'StaffPayrollRecord'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(92,64): error TS2339: Property 'activitiesCount' does not exist on type 'StaffPayrollRecord'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(115,9): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Date'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(120,39): error TS2345: Argument of type 'PayrollPeriod' is not assignable to parameter of type 'string'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(122,25): error TS2345: Argument of type 'PayrollPeriod' is not assignable to parameter of type 'SetStateAction<string | null>'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(366,94): error TS2339: Property 'role' does not exist on type 'StaffPayrollRecord'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(367,33): error TS2339: Property 'role' does not exist on type 'StaffPayrollRecord'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(371,31): error TS2339: Property 'activitiesCount' does not exist on type 'StaffPayrollRecord'.
+src/domains/billing/pages/PayrollDashboardPage.tsx(377,46): error TS2339: Property 'totalEarned' does not exist on type 'StaffPayrollRecord'.
+src/domains/burns/components/BurnScoreSummary.tsx(19,1): error TS6133: 'checkBurnCenterCriteria' is declared but its value is never read.
+src/domains/burns/components/BurnScoreSummary.tsx(264,23): error TS2339: Property 'interpretation' does not exist on type 'SOFAScore'.
+src/domains/burns/components/BurnScoreSummary.tsx(269,38): error TS2339: Property 'components' does not exist on type 'SOFAScore'.
+src/domains/burns/components/BurnScoreSummary.tsx(270,38): error TS2339: Property 'components' does not exist on type 'SOFAScore'.
+src/domains/burns/components/BurnScoreSummary.tsx(271,39): error TS2339: Property 'components' does not exist on type 'SOFAScore'.
+src/domains/burns/components/BurnScoreSummary.tsx(272,36): error TS2339: Property 'components' does not exist on type 'SOFAScore'.
+src/domains/burns/components/BurnScoreSummary.tsx(273,37): error TS2339: Property 'components' does not exist on type 'SOFAScore'.
+src/domains/burns/components/BurnScoreSummary.tsx(274,39): error TS2339: Property 'components' does not exist on type 'SOFAScore'.
+src/domains/burns/components/BurnWoundAssessment.tsx(117,7): error TS2322: Type 'string[]' is not assignable to type '"necrotic" | "infected" | "clean" | "granulating" | "sloughy" | undefined'.
+src/domains/burns/components/BurnWoundAssessment.tsx(134,7): error TS2322: Type 'string' is not assignable to type '"circumferential_limb" | "circumferential_chest" | "abdominal_compartment" | undefined'.
+src/domains/burns/components/BurnWoundAssessment.tsx(136,7): error TS2322: Type 'string' is not assignable to type 'string[]'.
+src/domains/burns/components/BurnWoundAssessment.tsx(144,7): error TS2353: Object literal may only specify known properties, and 'date' does not exist in type 'Partial<GraftingRecord>'.
+src/domains/burns/components/BurnWoundAssessment.tsx(253,75): error TS2339: Property 'region' does not exist on type 'BurnWoundAssessment'.
+src/domains/burns/components/BurnWoundAssessment.tsx(256,51): error TS2339: Property 'date' does not exist on type 'BurnWoundAssessment'.
+src/domains/burns/components/BurnWoundAssessment.tsx(259,102): error TS2339: Property 'depth' does not exist on type 'BurnWoundAssessment'.
+src/domains/burns/components/BurnWoundAssessment.tsx(260,33): error TS2339: Property 'depth' does not exist on type 'BurnWoundAssessment'.
+src/domains/burns/components/BurnWoundAssessment.tsx(267,71): error TS2339: Property 'join' does not exist on type '"necrotic" | "infected" | "clean" | "granulating" | "sloughy"'.
+  Property 'join' does not exist on type '"necrotic"'.
+src/domains/burns/components/BurnWoundAssessment.tsx(271,60): error TS2339: Property 'exudateLevel' does not exist on type 'BurnWoundAssessment'.
+src/domains/burns/components/BurnWoundAssessment.tsx(275,60): error TS2339: Property 'dressingApplied' does not exist on type 'BurnWoundAssessment'.
+src/domains/burns/components/BurnWoundAssessment.tsx(278,33): error TS2339: Property 'infectionSigns' does not exist on type 'BurnWoundAssessment'.
+src/domains/burns/components/BurnWoundAssessment.tsx(284,33): error TS2339: Property 'debridementPerformed' does not exist on type 'BurnWoundAssessment'.
+src/domains/burns/components/BurnWoundAssessment.tsx(314,71): error TS2339: Property 'location' does not exist on type 'EscharotomyRecord'.
+src/domains/burns/components/BurnWoundAssessment.tsx(316,47): error TS2339: Property 'date' does not exist on type 'EscharotomyRecord'.
+src/domains/burns/components/BurnWoundAssessment.tsx(330,56): error TS2339: Property 'performer' does not exist on type 'EscharotomyRecord'.
+src/domains/burns/components/BurnWoundAssessment.tsx(360,47): error TS2339: Property 'date' does not exist on type 'GraftingRecord'.
+src/domains/burns/components/BurnWoundAssessment.tsx(363,27): error TS2339: Property 'takePercentage' does not exist on type 'GraftingRecord'.
+src/domains/burns/components/BurnWoundAssessment.tsx(365,30): error TS2339: Property 'takePercentage' does not exist on type 'GraftingRecord'.
+src/domains/burns/components/BurnWoundAssessment.tsx(366,30): error TS2339: Property 'takePercentage' does not exist on type 'GraftingRecord'.
+src/domains/burns/components/BurnWoundAssessment.tsx(369,31): error TS2339: Property 'takePercentage' does not exist on type 'GraftingRecord'.
+src/domains/burns/components/BurnWoundAssessment.tsx(384,56): error TS2339: Property 'graftSizeCm2' does not exist on type 'GraftingRecord'.
+src/domains/burns/components/BurnWoundAssessment.tsx(386,27): error TS2551: Property 'meshingRatio' does not exist on type 'GraftingRecord'. Did you mean 'meshRatio'?
+src/domains/burns/components/BurnWoundAssessment.tsx(389,58): error TS2551: Property 'meshingRatio' does not exist on type 'GraftingRecord'. Did you mean 'meshRatio'?
+src/domains/burns/components/FluidResuscitationDashboard.tsx(12,3): error TS6133: 'CheckCircle' is declared but its value is never read.
+src/domains/burns/components/FluidResuscitationDashboard.tsx(52,10): error TS6133: 'hourlyEntries' is declared but its value is never read.
+src/domains/burns/components/FluidResuscitationDashboard.tsx(52,25): error TS6133: 'setHourlyEntries' is declared but its value is never read.
+src/domains/burns/components/LundBrowderChart.tsx(5,22): error TS6133: 'Info' is declared but its value is never read.
+src/domains/burns/components/LundBrowderChart.tsx(5,43): error TS6133: 'Check' is declared but its value is never read.
+src/domains/burns/components/LundBrowderChart.tsx(98,9): error TS6133: 'getDepthColor' is declared but its value is never read.
+src/domains/burns/components/VitalsMonitor.tsx(15,3): error TS6133: 'Minus' is declared but its value is never read.
+src/domains/burns/components/VitalsMonitor.tsx(16,3): error TS6133: 'Clock' is declared but its value is never read.
+src/domains/burns/pages/BurnsAssessmentPage.tsx(34,27): error TS6133: 'PatientDisplay' is declared but its value is never read.
+src/domains/burns/pages/BurnsAssessmentPage.tsx(140,30): error TS6133: 'setPatientWeightState' is declared but its value is never read.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(16,3): error TS6133: 'Clock' is declared but its value is never read.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(25,3): error TS6133: 'Calendar' is declared but its value is never read.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(28,3): error TS6133: 'Thermometer' is declared but its value is never read.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(29,3): error TS6133: 'Bell' is declared but its value is never read.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(31,3): error TS6133: 'Settings' is declared but its value is never read.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(39,1): error TS6133: 'TreatmentPlanCard' is declared but its value is never read.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(124,10): error TS6133: 'fluidAdjustments' is declared but its value is never read.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(140,5): error TS6133: 'setValue' is declared but its value is never read.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(159,57): error TS2345: Argument of type 'number' is not assignable to parameter of type '"infant" | "child_1" | "child_5" | "child_10" | "adult"'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(178,7): error TS2345: Argument of type 'number' is not assignable to parameter of type '"male" | "female"'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(193,7): error TS2554: Expected 3-4 arguments, but got 5.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(206,12): error TS2554: Expected 10 arguments, but got 3.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(318,27): error TS2339: Property 'percentage' does not exist on type 'LundBrowderEntry'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(327,9): error TS2322: Type '"thermal" | "chemical" | "electrical" | "radiation" | "friction" | "inhalation" | "contact"' is not assignable to type '"thermal" | "chemical" | "electrical" | "radiation" | "friction"'.
+  Type '"inhalation"' is not assignable to type '"thermal" | "chemical" | "electrical" | "radiation" | "friction"'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(334,42): error TS2339: Property 'totalVolume24h' does not exist on type 'FluidResuscitationPlan'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(335,47): error TS2339: Property 'phase1Volume' does not exist on type 'FluidResuscitationPlan'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(336,48): error TS2339: Property 'phase2Volume' does not exist on type 'FluidResuscitationPlan'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(343,28): error TS2339: Property 'score' does not exist on type 'ABSIScore'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(344,42): error TS2339: Property 'survivalRate' does not exist on type 'ABSIScore'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(349,34): error TS2339: Property 'score' does not exist on type 'ABSIScore'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(350,34): error TS2339: Property 'score' does not exist on type 'ABSIScore'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(351,34): error TS2339: Property 'score' does not exist on type 'ABSIScore'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(352,34): error TS2339: Property 'score' does not exist on type 'ABSIScore'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(497,86): error TS2339: Property 'totalCalories' does not exist on type '{ caloricTarget: number; proteinTarget: number; carbTarget: number; fatTarget: number; vitaminC: number; vitaminE: number; zinc: number; selenium: number; }'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(501,83): error TS2339: Property 'proteinGrams' does not exist on type '{ caloricTarget: number; proteinTarget: number; carbTarget: number; fatTarget: number; vitaminC: number; vitaminE: number; zinc: number; selenium: number; }'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(505,85): error TS2551: Property 'vitaminCMg' does not exist on type '{ caloricTarget: number; proteinTarget: number; carbTarget: number; fatTarget: number; vitaminC: number; vitaminE: number; zinc: number; selenium: number; }'. Did you mean 'vitaminC'?
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(509,83): error TS2551: Property 'zincMg' does not exist on type '{ caloricTarget: number; proteinTarget: number; carbTarget: number; fatTarget: number; vitaminC: number; vitaminE: number; zinc: number; selenium: number; }'. Did you mean 'zinc'?
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(543,13): error TS2322: Type '{ patientWeight: number; tbsaPercentage: number; timeOfInjury: Date; patientType: string; urineOutputs: UrineOutput[]; onLogFluidAdjustment: (entry: HourlyResuscitationEntry) => void; }' is not assignable to type 'IntrinsicAttributes & FluidResuscitationDashboardProps'.
+  Property 'tbsaPercentage' does not exist on type 'IntrinsicAttributes & FluidResuscitationDashboardProps'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(600,25): error TS2339: Property 'referralIndicated' does not exist on type '{ meetsCriteria: boolean; reasons: string[]; } | { referralIndicated: boolean; criteria: never[]; }'.
+  Property 'referralIndicated' does not exist on type '{ meetsCriteria: boolean; reasons: string[]; }'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(607,35): error TS2339: Property 'criteria' does not exist on type '{ meetsCriteria: boolean; reasons: string[]; } | { referralIndicated: boolean; criteria: never[]; }'.
+  Property 'criteria' does not exist on type '{ meetsCriteria: boolean; reasons: string[]; }'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(607,49): error TS7006: Parameter 'criterion' implicitly has an 'any' type.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(607,60): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(659,15): error TS2322: Type '{ patientAge: number; onChange: (entries: LundBrowderEntry[]) => void; }' is not assignable to type 'IntrinsicAttributes & LundBrowderChartProps'.
+  Property 'onChange' does not exist on type 'IntrinsicAttributes & LundBrowderChartProps'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(685,34): error TS2339: Property 'deepTBSA' does not exist on type 'TBSACalculation'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(688,77): error TS2339: Property 'deepTBSA' does not exist on type 'TBSACalculation'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(710,82): error TS2339: Property 'score' does not exist on type 'ABSIScore'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(711,69): error TS2339: Property 'interpretation' does not exist on type 'ABSIScore'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(715,80): error TS2339: Property 'survivalRate' does not exist on type 'ABSIScore'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(737,76): error TS2339: Property 'totalVolume24h' does not exist on type 'FluidResuscitationPlan'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(742,68): error TS2339: Property 'phase1Volume' does not exist on type 'FluidResuscitationPlan'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(746,68): error TS2339: Property 'phase2Volume' does not exist on type 'FluidResuscitationPlan'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(751,41): error TS2339: Property 'targetUrineOutput' does not exist on type 'FluidResuscitationPlan'.
+src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx(751,75): error TS2339: Property 'targetUrineOutput' does not exist on type 'FluidResuscitationPlan'.
+src/domains/burns/services/burnScoringService.ts(17,3): error TS6196: 'AlertThreshold' is declared but never used.
+src/domains/burns/services/burnScoringService.ts(19,3): error TS6196: 'AlertPriority' is declared but never used.
+src/domains/burns/services/burnScoringService.ts(23,3): error TS6196: 'LUND_BROWDER_CHART' is declared but never used.
+src/domains/burns/services/burnScoringService.ts(35,3): error TS6133: 'ageGroup' is declared but its value is never read.
+src/domains/burns/services/burnScoringService.ts(551,3): error TS6133: 'age' is declared but its value is never read.
+src/domains/burns/services/burnScoringService.ts(552,3): error TS6133: 'height' is declared but its value is never read.
+src/domains/burns/services/burnScoringService.ts(553,3): error TS6133: 'gender' is declared but its value is never read.
+src/domains/burns/services/burnScoringService.ts(603,3): error TS6133: 'weight' is declared but its value is never read.
+src/domains/burns/services/burnScoringService.ts(910,3): error TS6133: 'mechanism' is declared but its value is never read.
+src/domains/calculators/pages/calculators/BNFDrugCalculator.tsx(219,64): error TS6133: 'key' is declared but its value is never read.
+src/domains/calculators/pages/calculators/BNFDrugCalculator.tsx(257,7): error TS2353: Object literal may only specify known properties, and 'adjustedDose' does not exist in type 'DrugDose'.
+src/domains/calculators/pages/calculators/BNFDrugCalculator.tsx(422,24): error TS2304: Cannot find name 'Kidney'.
+src/domains/calculators/pages/calculators/BNFDrugCalculator.tsx(456,20): error TS18048: 'result.sideEffects' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BNFDrugCalculator.tsx(486,18): error TS18048: 'result.specialNotes' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BradenCalculator.tsx(248,7): error TS2322: Type '{ sensoryPerception: { score: number; max: number; name: string; }; moisture: { score: number; max: number; name: string; }; activity: { score: number; max: number; name: string; }; mobility: { score: number; max: number; name: string; }; nutrition: { ...; }; frictionShear: { ...; }; }' is not assignable to type 'Record<string, BradenSubscore>'.
+  Property 'sensoryPerception' is incompatible with index signature.
+    Property 'label' is missing in type '{ score: number; max: number; name: string; }' but required in type 'BradenSubscore'.
+src/domains/calculators/pages/calculators/BradenCalculator.tsx(408,18): error TS18048: 'result.interventions' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BradenCalculator.tsx(432,18): error TS18048: 'result.skinCare' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BradenCalculator.tsx(442,18): error TS18048: 'result.highRiskAreas' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BradenCalculator.tsx(451,14): error TS18048: 'result.equipmentList' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BradenCalculator.tsx(455,20): error TS18048: 'result.equipmentList' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BradenCalculator.tsx(466,18): error TS18048: 'result.resourceLimitedOptions' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(12,47): error TS6133: 'patientInfo' is declared but its value is never read.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(69,9): error TS6133: 'riskColor' is declared but its value is never read.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(258,7): error TS2353: Object literal may only specify known properties, and 'scoreBreakdown' does not exist in type 'BradenResult'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(386,35): error TS2339: Property 'reassessmentFrequency' does not exist on type 'BradenResult'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(394,40): error TS2339: Property 'scoreBreakdown' does not exist on type 'BradenResult'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(394,69): error TS2339: Property 'score' does not exist on type 'unknown'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(394,76): error TS2339: Property 'label' does not exist on type 'unknown'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(409,21): error TS2339: Property 'problemAreas' does not exist on type 'BradenResult'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(413,27): error TS2339: Property 'problemAreas' does not exist on type 'BradenResult'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(413,45): error TS7006: Parameter 'area' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(413,51): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(435,18): error TS18048: 'result.interventions' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(444,21): error TS2551: Property 'supportSurfaces' does not exist on type 'BradenResult'. Did you mean 'supportSurface'?
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(448,27): error TS2551: Property 'supportSurfaces' does not exist on type 'BradenResult'. Did you mean 'supportSurface'?
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(448,48): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(448,54): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(459,25): error TS2339: Property 'preventionMeasures' does not exist on type 'BradenResult'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(459,49): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(459,55): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(466,21): error TS2339: Property 'nutritionRecommendations' does not exist on type 'BradenResult'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(470,27): error TS2339: Property 'nutritionRecommendations' does not exist on type 'BradenResult'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(470,57): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(470,63): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(478,14): error TS18048: 'result.skinCare' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(482,20): error TS18048: 'result.skinCare' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(493,25): error TS2339: Property 'highRiskSites' does not exist on type 'BradenResult'.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(493,44): error TS7006: Parameter 'site' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/BradenScaleCalculator.tsx(493,50): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(251,7): error TS2353: Object literal may only specify known properties, and 'burnDepth' does not exist in type 'BurnsResult'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(496,52): error TS18048: 'result.parklandFluid' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(511,23): error TS18048: 'result.parklandFluid' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(513,28): error TS18048: 'result.parklandFluid' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(518,23): error TS18048: 'result.parklandFluid' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(520,28): error TS18048: 'result.parklandFluid' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(535,14): error TS18048: 'result.referralCriteria' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(539,20): error TS18048: 'result.referralCriteria' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(550,18): error TS18048: 'result.woundCare' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(560,18): error TS18048: 'result.painManagement' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(570,59): error TS18048: 'result.nutritionNeeds' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(571,59): error TS18048: 'result.nutritionNeeds' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/BurnsCalculator.tsx(594,18): error TS18048: 'result.monitoring' is possibly 'undefined'.
+src/domains/calculators/pages/calculators/GFRCalculator.tsx(36,11): error TS6133: 'alpha' is declared but its value is never read.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(68,7): error TS2304: Cannot find name 'riskColor'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(84,7): error TS2304: Cannot find name 'riskColor'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(106,7): error TS2304: Cannot find name 'riskColor'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(166,7): error TS2353: Object literal may only specify known properties, and 'bmi' does not exist in type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(373,22): error TS2339: Property 'riskCategory' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(374,22): error TS2339: Property 'riskCategory' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(377,24): error TS2339: Property 'riskCategory' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(378,24): error TS2339: Property 'riskCategory' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(382,75): error TS2339: Property 'riskCategory' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(389,60): error TS2339: Property 'scoreBreakdown' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(390,68): error TS2339: Property 'scoreBreakdown' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(391,70): error TS2339: Property 'scoreBreakdown' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(397,22): error TS2339: Property 'riskCategory' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(398,22): error TS2339: Property 'riskCategory' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(405,25): error TS2339: Property 'managementPlan' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(405,45): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(405,51): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(412,40): error TS2339: Property 'monitoringFrequency' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(421,75): error TS2339: Property 'estimatedCalories' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(425,75): error TS2339: Property 'estimatedProtein' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(435,25): error TS2551: Property 'dietaryRecommendations' does not exist on type 'MUSTResult'. Did you mean 'recommendations'?
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(435,53): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(435,59): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(442,21): error TS2339: Property 'supplementRecommendations' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(446,27): error TS2339: Property 'supplementRecommendations' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(446,58): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(446,64): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(454,21): error TS2339: Property 'additionalConsiderations' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(458,27): error TS2339: Property 'additionalConsiderations' does not exist on type 'MUSTResult'.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(458,57): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/MUSTCalculator.tsx(458,63): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/NutritionCalculator.tsx(200,36): error TS6133: 'calories' is declared but its value is never read.
+src/domains/calculators/pages/calculators/NutritionCalculator.tsx(200,54): error TS6133: 'protein' is declared but its value is never read.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(5,10): error TS6133: 'Heart' is declared but its value is never read.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(240,7): error TS2353: Object literal may only specify known properties, and 'severityFactors' does not exist in type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(511,23): error TS2339: Property 'severityFactors' does not exist on type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(511,44): error TS7006: Parameter 'factor' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(511,52): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(517,21): error TS2339: Property 'exchangeTransfusion' does not exist on type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(521,54): error TS2339: Property 'exchangeVolume' does not exist on type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(524,27): error TS2339: Property 'transfusionGuidelines' does not exist on type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(524,54): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(524,60): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(532,21): error TS2551: Property 'acsManagement' does not exist on type 'SickleCellResult'. Did you mean 'painManagement'?
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(536,27): error TS2551: Property 'acsManagement' does not exist on type 'SickleCellResult'. Did you mean 'painManagement'?
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(536,46): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(536,52): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(560,25): error TS2339: Property 'hydrationRecommendation' does not exist on type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(560,54): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(560,60): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(567,21): error TS2339: Property 'infectionManagement' does not exist on type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(571,27): error TS2339: Property 'infectionManagement' does not exist on type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(571,52): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(571,58): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(579,22): error TS2339: Property 'exchangeTransfusion' does not exist on type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(583,27): error TS2339: Property 'transfusionGuidelines' does not exist on type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(583,54): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(583,60): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(594,25): error TS2551: Property 'hydroxyureaDosing' does not exist on type 'SickleCellResult'. Did you mean 'hydroxyureaDose'?
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(594,48): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(594,54): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(617,25): error TS2339: Property 'dischargeCriteria' does not exist on type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(617,48): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(617,54): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(627,25): error TS2339: Property 'longTermRecommendations' does not exist on type 'SickleCellResult'.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(627,54): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/calculators/pages/calculators/SickleCellCalculator.tsx(627,60): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/domains/dashboard/components/AccountantDashboard.tsx(3,20): error TS6133: 'useEffect' is declared but its value is never read.
+src/domains/dashboard/components/AccountantDashboard.tsx(5,3): error TS6133: 'DollarSign' is declared but its value is never read.
+src/domains/dashboard/components/AccountantDashboard.tsx(13,3): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/domains/dashboard/components/AccountantDashboard.tsx(69,67): error TS2339: Property 'totalAmount' does not exist on type 'ActivityBillingRecord'.
+src/domains/dashboard/components/AccountantDashboard.tsx(70,105): error TS2339: Property 'totalAmount' does not exist on type 'ActivityBillingRecord'.
+src/domains/dashboard/components/AccountantDashboard.tsx(71,111): error TS2339: Property 'totalAmount' does not exist on type 'ActivityBillingRecord'.
+src/domains/dashboard/components/AccountantDashboard.tsx(72,109): error TS2339: Property 'totalAmount' does not exist on type 'ActivityBillingRecord'.
+src/domains/dashboard/components/AccountantDashboard.tsx(95,44): error TS2339: Property 'performedByUserId' does not exist on type 'ActivityBillingRecord'.
+src/domains/dashboard/components/AccountantDashboard.tsx(101,48): error TS2339: Property 'performedByUserId' does not exist on type 'ActivityBillingRecord'.
+src/domains/dashboard/components/AccountantDashboard.tsx(102,29): error TS2339: Property 'performedByUserId' does not exist on type 'ActivityBillingRecord'.
+src/domains/dashboard/components/AccountantDashboard.tsx(103,26): error TS2339: Property 'performedByUserId' does not exist on type 'ActivityBillingRecord'.
+src/domains/dashboard/components/AccountantDashboard.tsx(115,9): error TS6133: 'payrollPeriods' is declared but its value is never read.
+src/domains/dashboard/components/AccountantDashboard.tsx(130,20): error TS2367: This comparison appears to be unintentional because the types 'AdmissionStatus' and '"admitted"' have no overlap.
+src/domains/dashboard/components/AccountantDashboard.tsx(130,47): error TS2367: This comparison appears to be unintentional because the types 'AdmissionStatus' and '"pending_discharge"' have no overlap.
+src/domains/dashboard/components/AccountantDashboard.tsx(136,42): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/domains/dashboard/components/AccountantDashboard.tsx(142,44): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/domains/dashboard/components/AccountantDashboard.tsx(143,28): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/domains/dashboard/components/AccountantDashboard.tsx(143,61): error TS2339: Property 'totalAmount' does not exist on type 'ActivityBillingRecord'.
+src/domains/dashboard/components/AccountantDashboard.tsx(361,79): error TS2339: Property 'patientName' does not exist on type '{ outstandingAmount: number; id: string; patientId: string; hospitalId: string; encounterId?: string | undefined; admissionNumber: string; admissionDate: Date; admissionTime: string; ... 25 more ...; updatedAt: Date; }'.
+src/domains/dashboard/components/AdminDashboard.tsx(8,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/domains/dashboard/components/AdminDashboard.tsx(13,3): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/domains/dashboard/components/AdminDashboard.tsx(62,22): error TS2339: Property 'lastLoginAt' does not exist on type 'User'.
+src/domains/dashboard/components/AdminDashboard.tsx(62,48): error TS2339: Property 'lastLoginAt' does not exist on type 'User'.
+src/domains/dashboard/components/AdminDashboard.tsx(89,47): error TS2339: Property 'totalAmount' does not exist on type 'ActivityBillingRecord'.
+src/domains/dashboard/components/AdminDashboard.tsx(136,23): error TS2339: Property 'syncedToCloud' does not exist on type 'ActivityBillingRecord'.
+src/domains/dashboard/components/DoctorDashboard.tsx(8,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/domains/dashboard/components/DoctorDashboard.tsx(12,3): error TS6133: 'Clock' is declared but its value is never read.
+src/domains/dashboard/components/DoctorDashboard.tsx(13,3): error TS6133: 'DollarSign' is declared but its value is never read.
+src/domains/dashboard/components/DoctorDashboard.tsx(14,3): error TS6133: 'UserPlus' is declared but its value is never read.
+src/domains/dashboard/components/DoctorDashboard.tsx(16,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/domains/dashboard/components/DoctorDashboard.tsx(18,3): error TS2724: '"lucide-react"' has no exported member named 'Bandage'. Did you mean 'Badge'?
+src/domains/dashboard/components/DoctorDashboard.tsx(18,3): error TS6133: 'Bandage' is declared but its value is never read.
+src/domains/dashboard/components/DoctorDashboard.tsx(40,9): error TS6133: 'myAssignments' is declared but its value is never read.
+src/domains/dashboard/components/DoctorDashboard.tsx(55,20): error TS2367: This comparison appears to be unintentional because the types 'AdmissionStatus' and '"admitted"' have no overlap.
+src/domains/dashboard/components/DoctorDashboard.tsx(353,14): error TS2304: Cannot find name 'HeartPulse'.
+src/domains/dashboard/components/LabScientistDashboard.tsx(14,3): error TS6133: 'Activity' is declared but its value is never read.
+src/domains/dashboard/components/LabScientistDashboard.tsx(39,9): error TS6133: 'allInvestigations' is declared but its value is never read.
+src/domains/dashboard/components/LabScientistDashboard.tsx(66,22): error TS2322: Type 'boolean | undefined' is not assignable to type 'boolean'.
+  Type 'undefined' is not assignable to type 'boolean'.
+src/domains/dashboard/components/LabScientistDashboard.tsx(73,26): error TS2339: Property 'urgency' does not exist on type 'Investigation'.
+src/domains/dashboard/components/LabScientistDashboard.tsx(78,9): error TS6133: 'bloodTypingPending' is declared but its value is never read.
+src/domains/dashboard/components/LabScientistDashboard.tsx(80,20): error TS2367: This comparison appears to be unintentional because the types '"completed" | "in_progress" | "template" | "uploaded"' and '"pending"' have no overlap.
+src/domains/dashboard/components/LabScientistDashboard.tsx(80,49): error TS2339: Property 'bloodTypeConfirmed' does not exist on type 'TransfusionMonitoringChart'.
+src/domains/dashboard/components/LabScientistDashboard.tsx(96,24): error TS2322: Type 'boolean | undefined' is not assignable to type 'boolean'.
+  Type 'undefined' is not assignable to type 'boolean'.
+src/domains/dashboard/components/LabScientistDashboard.tsx(282,40): error TS2339: Property 'testName' does not exist on type 'Investigation'.
+src/domains/dashboard/components/LabScientistDashboard.tsx(289,108): error TS2339: Property 'urgency' does not exist on type 'Investigation'.
+src/domains/dashboard/components/LabScientistDashboard.tsx(290,40): error TS2339: Property 'urgency' does not exist on type 'Investigation'.
+src/domains/dashboard/components/NurseDashboard.tsx(8,3): error TS6133: 'Clock' is declared but its value is never read.
+src/domains/dashboard/components/NurseDashboard.tsx(11,3): error TS6133: 'ClipboardCheck' is declared but its value is never read.
+src/domains/dashboard/components/NurseDashboard.tsx(15,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/domains/dashboard/components/NurseDashboard.tsx(59,22): error TS2339: Property 'isActive' does not exist on type 'NursePatientAssignment'.
+src/domains/dashboard/components/NurseDashboard.tsx(75,56): error TS2367: This comparison appears to be unintentional because the types 'AdmissionStatus' and '"admitted"' have no overlap.
+src/domains/dashboard/components/NurseDashboard.tsx(83,15): error TS2339: Property 'medicationCharts' does not exist on type 'CareBridgeDatabase'.
+src/domains/dashboard/components/NurseDashboard.tsx(86,15): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/domains/dashboard/components/NurseDashboard.tsx(121,11): error TS2339: Property 'status' does not exist on type 'Wound'.
+src/domains/dashboard/components/NurseDashboard.tsx(122,11): error TS2339: Property 'nextDressingDate' does not exist on type 'Wound'.
+src/domains/dashboard/components/NurseDashboard.tsx(123,20): error TS2339: Property 'nextDressingDate' does not exist on type 'Wound'.
+src/domains/dashboard/components/PharmacistDashboard.tsx(11,3): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/domains/dashboard/components/PharmacistDashboard.tsx(12,3): error TS6133: 'ShoppingCart' is declared but its value is never read.
+src/domains/dashboard/components/PharmacistDashboard.tsx(15,3): error TS6133: 'User' is declared but its value is never read.
+src/domains/dashboard/components/PharmacistDashboard.tsx(53,20): error TS2322: Type 'boolean | undefined' is not assignable to type 'boolean'.
+  Type 'undefined' is not assignable to type 'boolean'.
+src/domains/dashboard/components/PharmacistDashboard.tsx(59,15): error TS2339: Property 'inventoryItems' does not exist on type 'CareBridgeDatabase'.
+src/domains/dashboard/components/PharmacistDashboard.tsx(60,15): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/dashboard/components/PharmacistDashboard.tsx(68,15): error TS2339: Property 'inventoryItems' does not exist on type 'CareBridgeDatabase'.
+src/domains/dashboard/components/PharmacistDashboard.tsx(69,15): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/dashboard/components/PharmacistDashboard.tsx(76,48): error TS2339: Property 'isControlledSubstance' does not exist on type 'Prescription'.
+src/domains/dashboard/components/PharmacistDashboard.tsx(90,22): error TS2322: Type 'boolean | undefined' is not assignable to type 'boolean'.
+  Type 'undefined' is not assignable to type 'boolean'.
+src/domains/dashboard/components/PharmacistDashboard.tsx(252,41): error TS2339: Property 'patientName' does not exist on type 'Prescription'.
+src/domains/dashboard/components/PharmacistDashboard.tsx(254,39): error TS2339: Property 'isControlledSubstance' does not exist on type 'Prescription'.
+src/domains/dashboard/components/PharmacistDashboard.tsx(307,50): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/dashboard/components/PharmacistDashboard.tsx(325,49): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/domains/dashboard/pages/DashboardPage.tsx(37,12): error TS2678: Type '"doctor"' is not comparable to type 'UserRole'.
+src/domains/dashboard/pages/DashboardPage.tsx(38,12): error TS2678: Type '"plastic_surgeon"' is not comparable to type 'UserRole'.
+src/domains/discharge/components/AMADischargeForm.tsx(15,3): error TS6133: 'Calendar' is declared but its value is never read.
+src/domains/discharge/components/AMADischargeForm.tsx(103,9): error TS6133: 'formValues' is declared but its value is never read.
+src/domains/discharge/components/DischargeChecklist.tsx(13,3): error TS6133: 'Activity' is declared but its value is never read.
+src/domains/discharge/components/DischargeChecklist.tsx(15,3): error TS6133: 'Phone' is declared but its value is never read.
+src/domains/discharge/components/DischargeChecklist.tsx(19,3): error TS6133: 'Truck' is declared but its value is never read.
+src/domains/discharge/components/DischargeChecklist.tsx(20,3): error TS6133: 'Home' is declared but its value is never read.
+src/domains/discharge/components/DischargeFormModal.tsx(14,3): error TS6133: 'User' is declared but its value is never read.
+src/domains/discharge/components/DischargeFormModal.tsx(18,3): error TS6133: 'Phone' is declared but its value is never read.
+src/domains/discharge/components/DischargeReadinessAssessment.tsx(11,3): error TS6133: 'Thermometer' is declared but its value is never read.
+src/domains/discharge/components/DischargeReadinessAssessment.tsx(26,1): error TS6133: 'format' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryGenerator.tsx(21,3): error TS6133: 'Edit' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryGenerator.tsx(22,3): error TS6133: 'Clock' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryGenerator.tsx(23,3): error TS6133: 'User' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryGenerator.tsx(24,3): error TS6133: 'Stethoscope' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryGenerator.tsx(25,3): error TS6133: 'Activity' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryGenerator.tsx(29,3): error TS6133: 'Heart' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryGenerator.tsx(30,3): error TS6133: 'Shield' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryGenerator.tsx(193,10): error TS6133: 'editSection' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryGenerator.tsx(193,23): error TS6133: 'setEditSection' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryGenerator.tsx(215,9): error TS6133: 'updateField' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryGenerator.tsx(894,45): error TS6133: 'i' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryView.tsx(19,3): error TS6133: 'Clock' is declared but its value is never read.
+src/domains/discharge/components/DischargeSummaryView.tsx(20,3): error TS6133: 'MapPin' is declared but its value is never read.
+src/domains/discharge/components/FollowUpTracker.tsx(17,3): error TS6133: 'Filter' is declared but its value is never read.
+src/domains/discharge/components/FollowUpTracker.tsx(19,3): error TS6133: 'MessageCircle' is declared but its value is never read.
+src/domains/discharge/components/FollowUpTracker.tsx(20,3): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/domains/discharge/components/FollowUpTracker.tsx(22,18): error TS6133: 'isAfter' is declared but its value is never read.
+src/domains/discharge/components/FollowUpTracker.tsx(22,37): error TS6133: 'addDays' is declared but its value is never read.
+src/domains/discharge/components/FollowUpTracker.tsx(38,10): error TS6133: 'selectedSummary' is declared but its value is never read.
+src/domains/discharge/components/FollowUpTracker.tsx(38,27): error TS6133: 'setSelectedSummary' is declared but its value is never read.
+src/domains/discharge/components/FollowUpTracker.tsx(197,73): error TS6133: 'appointmentDate' is declared but its value is never read.
+src/domains/discharge/components/LifestyleModifications.tsx(13,3): error TS6133: 'Heart' is declared but its value is never read.
+src/domains/discharge/components/LifestyleModifications.tsx(20,3): error TS6133: 'Footprints' is declared but its value is never read.
+src/domains/discharge/components/LifestyleModifications.tsx(27,3): error TS6133: 'Sun' is declared but its value is never read.
+src/domains/discharge/components/PatientEducationSheet.tsx(4,20): error TS6133: 'useMemo' is declared but its value is never read.
+src/domains/discharge/components/PatientEducationSheet.tsx(17,3): error TS6133: 'Download' is declared but its value is never read.
+src/domains/discharge/components/PreDischargeAssessment.tsx(12,3): error TS6133: 'AlertTriangle' is declared but its value is never read.
+src/domains/discharge/components/PreDischargeAssessment.tsx(20,3): error TS6133: 'Brain' is declared but its value is never read.
+src/domains/discharge/components/PreDischargeAssessment.tsx(22,3): error TS6133: 'Home' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(15,3): error TS6133: 'AlertTriangle' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(17,3): error TS6133: 'Plus' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(18,3): error TS6133: 'Filter' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(19,3): error TS6133: 'Download' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(20,3): error TS6133: 'Printer' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(21,3): error TS6133: 'Activity' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(22,3): error TS6133: 'Pill' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(23,3): error TS6133: 'Stethoscope' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(24,3): error TS6133: 'ClipboardList' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(25,3): error TS6133: 'Phone' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(26,3): error TS6133: 'MapPin' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(28,3): error TS6133: 'ArrowRight' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(29,3): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(50,7): error TS6133: 'statusColors' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(56,7): error TS6133: 'conditionColors' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(63,7): error TS6133: 'dispositionLabels' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(76,39): error TS6133: 'embedded' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(77,9): error TS6133: 'user' is declared but its value is never read.
+src/domains/discharge/pages/DischargePage.tsx(374,21): error TS6133: 'doctor' is declared but its value is never read.
+src/domains/laboratory/pages/LaboratoryPage.tsx(160,7): error TS6133: '_calculateGFR' is declared but its value is never read.
+src/domains/nutrition/pages/NutritionPlannerPage.tsx(22,3): error TS6133: 'AlertTriangle' is declared but its value is never read.
+src/domains/nutrition/pages/NutritionPlannerPage.tsx(23,3): error TS6133: 'CheckCircle2' is declared but its value is never read.
+src/domains/nutrition/pages/NutritionPlannerPage.tsx(43,8): error TS6133: 'FoodItem' is declared but its value is never read.
+src/domains/nutrition/pages/NutritionPlannerPage.tsx(107,31): error TS6133: 'setDietaryRestrictions' is declared but its value is never read.
+src/domains/nutrition/pages/NutritionPlannerPage.tsx(108,21): error TS6133: 'setAllergies' is declared but its value is never read.
+src/domains/patient-education/data/breastConditions.ts(235,9): error TS2322: Type '"stop as directed (usually 5-7 days before)"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/breastConditions.ts(245,9): error TS2322: Type '"continue unless advised otherwise"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/breastConditions.ts(383,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(384,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(385,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(386,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(387,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(388,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(389,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(390,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(391,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(639,9): error TS2322: Type '"discuss with surgeon"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/breastConditions.ts(644,9): error TS2322: Type '"continue as normal"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/breastConditions.ts(764,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(765,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(766,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(767,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(768,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditions.ts(769,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart2.ts(190,9): error TS2322: Type '"start immediately"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/breastConditionsPart2.ts(310,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart2.ts(311,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart2.ts(312,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart2.ts(313,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart2.ts(314,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart2.ts(315,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart2.ts(547,9): error TS2322: Type '"start promptly - safe during breastfeeding"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/breastConditionsPart2.ts(655,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart2.ts(656,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart2.ts(657,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart2.ts(658,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart2.ts(659,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(175,9): error TS2322: Type '"stop as directed (usually 7 days)"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/breastConditionsPart3.ts(180,9): error TS2322: Type '"may need to stop"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/breastConditionsPart3.ts(185,9): error TS2322: Type '"stop 2 weeks before"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/breastConditionsPart3.ts(319,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(320,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(321,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(322,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(323,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(324,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(325,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(326,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(327,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(593,9): error TS2322: Type '"stop as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/breastConditionsPart3.ts(598,9): error TS2322: Type '"stop completely"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/breastConditionsPart3.ts(728,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(729,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(730,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(731,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(732,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(733,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(734,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(735,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(736,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/breastConditionsPart3.ts(737,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(192,9): error TS2322: Type '"stop as directed by surgeon"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducation.ts(197,9): error TS2322: Type '"may continue or stop per surgeon"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducation.ts(202,9): error TS2322: Type '"start before surgery"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducation.ts(343,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(344,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(345,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(346,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(347,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(348,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(349,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(609,9): error TS2322: Type '"stop as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducation.ts(614,9): error TS2322: Type '"optimize fluid status"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducation.ts(735,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(736,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(737,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(738,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducation.ts(739,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(202,9): error TS2322: Type '"stop as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducationPart2.ts(207,9): error TS2322: Type '"stop minimum 4-6 weeks before"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducationPart2.ts(212,9): error TS2322: Type '"hold day of surgery"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducationPart2.ts(351,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(352,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(353,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(354,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(355,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(356,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(357,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(641,9): error TS2322: Type '"continue until surgery"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducationPart2.ts(646,9): error TS2322: Type '"stop as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducationPart2.ts(781,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(782,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(783,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(784,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(785,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(786,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart2.ts(787,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart3.ts(184,9): error TS2322: Type '"stop as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducationPart3.ts(189,9): error TS2322: Type '"stop 4 weeks before"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducationPart3.ts(321,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart3.ts(322,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart3.ts(323,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart3.ts(324,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart3.ts(325,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart3.ts(541,9): error TS2322: Type '"stop as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducationPart3.ts(546,9): error TS2322: Type '"may need to stop"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/herniaEducationPart3.ts(675,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart3.ts(676,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart3.ts(677,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart3.ts(678,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/herniaEducationPart3.ts(679,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgery.ts(161,9): error TS2322: Type '"stop completely"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/pediatricSurgery.ts(286,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgery.ts(287,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgery.ts(288,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgery.ts(289,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgery.ts(290,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgery.ts(542,9): error TS2322: Type '"nil by mouth"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/pediatricSurgery.ts(663,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgery.ts(664,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgery.ts(665,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgery.ts(666,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgery.ts(667,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(162,9): error TS2322: Type '"can be given"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(167,9): error TS2322: Type '"nil by mouth"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(303,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(304,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(305,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(306,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(535,9): error TS2322: Type '"fasting as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(668,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(669,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(670,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(671,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(672,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart2.ts(673,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(149,9): error TS2322: Type '"follow fasting guidelines"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(282,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(283,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(284,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(285,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(286,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(542,9): error TS2322: Type '"as per hospital protocol"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(665,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(666,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(667,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(668,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(669,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pediatricSurgeryPart3.ts(670,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(215,9): error TS2322: Type '"hold if surgery planned"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(220,9): error TS2322: Type '"start"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(350,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(351,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(352,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(353,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(354,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(665,9): error TS2322: Type '"discuss with surgeon"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(670,9): error TS2322: Type '"start or continue"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(815,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(816,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(817,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(818,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(819,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(820,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart2.ts(821,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/pressureInjuriesPart3.ts(174,9): error TS2322: Type '"discuss with surgeon"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(208,9): error TS2322: Type '"stop 7 days before surgery"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(213,9): error TS2322: Type '"stop minimum 4 weeks before"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(218,9): error TS2322: Type '"start if deficient"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(359,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(360,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(361,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(362,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(363,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(364,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(671,9): error TS2322: Type '"stop as directed by surgeon"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(676,9): error TS2322: Type '"stop minimum 4-6 weeks before"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(681,9): error TS2322: Type '"may continue or stop per surgeon"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(813,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(814,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(815,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(816,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(817,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(818,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgery.ts(819,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(217,9): error TS2322: Type '"stop as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(222,9): error TS2322: Type '"stop 4-6 weeks before"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(345,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(346,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(347,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(348,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(349,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(350,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(614,9): error TS2322: Type '"stop 7-10 days before"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(619,9): error TS2322: Type '"stop 4 weeks before"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(624,9): error TS2322: Type '"stop 2 weeks before"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(744,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(745,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(746,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(747,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(748,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart2.ts(749,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(212,9): error TS2322: Type '"stop as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(217,9): error TS2322: Type '"stop completely"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(346,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(347,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(348,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(349,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(350,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(351,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(352,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(656,9): error TS2322: Type '"stop minimum 6 weeks before"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(661,9): error TS2322: Type '"discuss with surgeon"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(666,9): error TS2322: Type '"may be started before surgery"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(812,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(813,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(814,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(815,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(816,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(817,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/reconstructiveSurgeryPart3.ts(818,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(210,9): error TS2322: Type '"continue unless directed otherwise"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditions.ts(215,9): error TS2322: Type '"stop 48 hours before if having contrast/surgery"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditions.ts(220,9): error TS2322: Type '"stop as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditions.ts(350,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(351,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(352,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(353,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(354,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(355,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(356,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(625,9): error TS2322: Type '"stop as directed (warfarin 5 days, DOACs 2-3 days)"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditions.ts(630,9): error TS2322: Type '"stop 48 hours before"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditions.ts(635,9): error TS2322: Type '"continue on day of surgery"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditions.ts(762,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(763,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(764,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(765,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(766,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(767,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(768,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditions.ts(769,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(185,9): error TS2322: Type '"continue in most cases (discuss with doctor)"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(190,9): error TS2322: Type '"continue as normal"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(322,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(323,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(324,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(325,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(326,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(327,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(328,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(597,9): error TS2322: Type '"start immediately once diagnosed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(716,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(717,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(718,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(719,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(720,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart2.ts(721,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(220,9): error TS2322: Type '"continue or as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(225,9): error TS2322: Type '"as directed by diabetes team"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(358,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(359,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(360,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(361,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(362,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(363,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(364,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(618,9): error TS2322: Type '"as directed by surgeon"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(623,9): error TS2322: Type '"as directed"' is not assignable to type '"stop" | "continue" | "modify" | "discuss"'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(749,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(750,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(751,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(752,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(753,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(754,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(755,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patient-education/data/vascularConditionsPart3.ts(756,7): error TS2322: Type 'string' is not assignable to type 'ComplicationRisk'.
+src/domains/patients/pages/NewPatientPage.tsx(141,10): error TS6133: 'loadingHospitals' is declared but its value is never read.
+src/domains/patients/pages/NewPatientPage.tsx(562,14): error TS2367: This comparison appears to be unintentional because the types '"hospital" | "home_care"' and '"homecare"' have no overlap.
+src/domains/patients/pages/PatientsListPage.tsx(9,3): error TS6133: 'MoreVertical' is declared but its value is never read.
+src/domains/pharmacy/pages/PharmacyPage.tsx(29,27): error TS6133: 'PatientDisplay' is declared but its value is never read.
+src/domains/surgery/pages/PostOperativeNotePage.tsx(8,20): error TS6133: 'useEffect' is declared but its value is never read.
+src/domains/surgery/pages/PostOperativeNotePage.tsx(19,3): error TS6133: 'Clock' is declared but its value is never read.
+src/domains/surgery/pages/PostOperativeNotePage.tsx(26,3): error TS6133: 'Send' is declared but its value is never read.
+src/domains/surgery/pages/PostOperativeNotePage.tsx(27,3): error TS6133: 'Save' is declared but its value is never read.
+src/domains/surgery/pages/PostOperativeNotePage.tsx(28,3): error TS6133: 'Eye' is declared but its value is never read.
+src/domains/surgery/pages/PostOperativeNotePage.tsx(34,1): error TS6192: All imports in import declaration are unused.
+src/domains/surgery/pages/PostOpNotesListPage.tsx(7,3): error TS6133: 'Filter' is declared but its value is never read.
+src/domains/surgery/pages/PostOpNotesListPage.tsx(9,3): error TS6133: 'Plus' is declared but its value is never read.
+src/domains/surgery/pages/PostOpNotesListPage.tsx(272,61): error TS2339: Property 'length' does not exist on type 'PostOperativePatientEducation'.
+src/domains/wounds/pages/WoundsPage.tsx(27,3): error TS6133: 'Download' is declared but its value is never read.
+src/hooks/useBillingActivity.ts(5,32): error TS6196: 'ActivityBillingRecord' is declared but never used.
+src/hooks/useBillingActivity.ts(37,55): error TS2339: Property 'defaultPrice' does not exist on type 'BillableActivity'.
+src/hooks/useBillingActivity.ts(42,11): error TS2554: Expected 9-10 arguments, but got 1.
+src/hooks/useBillingActivity.ts(82,39): error TS2367: This comparison appears to be unintentional because the types '"super_admin" | "hospital_admin" | "anaesthetist" | "nurse" | "pharmacist" | "lab_scientist" | "dietician" | "physiotherapist" | "accountant" | "home_care_giver" | "driver" | undefined' and '"plastic_surgeon"' have no overlap.
+src/hooks/useBillingActivity.ts(88,39): error TS2367: This comparison appears to be unintentional because the types '"super_admin" | "hospital_admin" | "anaesthetist" | "nurse" | "pharmacist" | "lab_scientist" | "dietician" | "physiotherapist" | "accountant" | "home_care_giver" | "driver" | undefined' and '"plastic_surgeon"' have no overlap.
+src/main.tsx(52,37): error TS6133: 'remaining' is declared but its value is never read.
+src/services/apiService.ts(15,3): error TS6196: 'Wound' is declared but never used.
+src/services/apiService.ts(19,3): error TS6196: 'NutritionAssessment' is declared but never used.
+src/services/apiService.ts(20,3): error TS6196: 'NutritionPlan' is declared but never used.
+src/services/apiService.ts(21,3): error TS6196: 'Invoice' is declared but never used.
+src/services/apiService.ts(23,3): error TS6196: 'AdmissionNote' is declared but never used.
+src/services/apiService.ts(24,3): error TS6196: 'BedAssignment' is declared but never used.
+src/services/apiService.ts(25,3): error TS6196: 'TreatmentPlan' is declared but never used.
+src/services/apiService.ts(26,3): error TS6196: 'TreatmentProgress' is declared but never used.
+src/services/apiService.ts(27,3): error TS6196: 'ChatRoom' is declared but never used.
+src/services/apiService.ts(28,3): error TS6196: 'ChatMessage' is declared but never used.
+src/services/apiService.ts(29,3): error TS6196: 'VideoConference' is declared but never used.
+src/services/apiService.ts(30,3): error TS6196: 'WardRound' is declared but never used.
+src/services/apiService.ts(31,3): error TS6196: 'DoctorPatientAssignment' is declared but never used.
+src/services/apiService.ts(32,3): error TS6196: 'NursePatientAssignment' is declared but never used.
+src/services/apiService.ts(34,3): error TS6196: 'DischargeSummary' is declared but never used.
+src/services/apiService.ts(35,3): error TS6196: 'ConsumableBOM' is declared but never used.
+src/services/apiService.ts(36,3): error TS6196: 'HistopathologyRequest' is declared but never used.
+src/services/apiService.ts(37,3): error TS6196: 'BloodTransfusion' is declared but never used.
+src/services/apiService.ts(38,3): error TS6196: 'MDTMeeting' is declared but never used.
+src/services/appointmentService.ts(91,5): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/services/burnCareService.ts(549,32): error TS2339: Property 'status' does not exist on type 'BurnAssessment'.
+src/services/burnCareService.ts(549,57): error TS2339: Property 'status' does not exist on type 'BurnAssessment'.
+src/services/burnCareService.ts(555,41): error TS6133: 'tbsa' is declared but its value is never read.
+src/services/cloudSyncService.ts(5,10): error TS2300: Duplicate identifier 'useState'.
+src/services/cloudSyncService.ts(5,20): error TS2300: Duplicate identifier 'useEffect'.
+src/services/cloudSyncService.ts(429,22): error TS6133: 'data' is declared but its value is never read.
+src/services/cloudSyncService.ts(757,10): error TS2300: Duplicate identifier 'useState'.
+src/services/cloudSyncService.ts(757,20): error TS2300: Duplicate identifier 'useEffect'.
+src/services/dataHooks.ts(15,8): error TS6133: 'CloudSyncState' is declared but its value is never read.
+src/services/dataHooks.ts(148,51): error TS2345: Argument of type 'Dispatch<SetStateAction<{ patient: Patient; vitals: VitalSigns[]; admissions: Admission[]; surgeries: Surgery[]; burns: BurnAssessment[]; } | null>>' is not assignable to parameter of type '(value: { patient: Patient | undefined; vitals: VitalSigns[]; encounters: ClinicalEncounter[]; surgeries: Surgery[]; admissions: Admission[]; prescriptions: Prescription[]; labRequests: LabRequest[]; investigations: Investigation[]; }) => void | PromiseLike<...>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type '{ patient: Patient | undefined; vitals: VitalSigns[]; encounters: ClinicalEncounter[]; surgeries: Surgery[]; admissions: Admission[]; prescriptions: Prescription[]; labRequests: LabRequest[]; investigations: Investigation[]; }' is not assignable to type 'SetStateAction<{ patient: Patient; vitals: VitalSigns[]; admissions: Admission[]; surgeries: Surgery[]; burns: BurnAssessment[]; } | null>'.
+      Property 'burns' is missing in type '{ patient: Patient | undefined; vitals: VitalSigns[]; encounters: ClinicalEncounter[]; surgeries: Surgery[]; admissions: Admission[]; prescriptions: Prescription[]; labRequests: LabRequest[]; investigations: Investigation[]; }' but required in type '{ patient: Patient; vitals: VitalSigns[]; admissions: Admission[]; surgeries: Surgery[]; burns: BurnAssessment[]; }'.
+src/services/index.ts(80,3): error TS2300: Duplicate identifier 'getDeviceId'.
+src/services/index.ts(132,3): error TS2300: Duplicate identifier 'getDeviceId'.
+src/services/limbSalvageService.ts(9,3): error TS6196: 'WIFIClassification' is declared but never used.
+src/services/limbSalvageService.ts(11,3): error TS6196: 'DopplerFindings' is declared but never used.
+src/services/limbSalvageService.ts(12,3): error TS6196: 'OsteomyelitisAssessment' is declared but never used.
+src/services/limbSalvageService.ts(13,3): error TS6196: 'SepsisAssessment' is declared but never used.
+src/services/limbSalvageService.ts(288,9): error TS6133: 'score' is declared but its value is never read.
+src/services/nutritionPlannerService.ts(1264,11): error TS6133: 'suitableFoods' is declared but its value is never read.
+src/services/offlineDataManager.ts(145,34): error TS6133: 'reject' is declared but its value is never read.
+src/services/offlineDataManager.ts(172,34): error TS6133: 'reject' is declared but its value is never read.
+src/services/offlineDataManager.ts(272,34): error TS6133: 'reject' is declared but its value is never read.
+src/services/patientService.ts(7,42): error TS6133: 'LOCAL_TO_CLOUD_TABLE' is declared but its value is never read.
+src/services/patientService.ts(197,18): error TS18046: 'valueA' is of type 'unknown'.
+src/services/patientService.ts(197,27): error TS18046: 'valueB' is of type 'unknown'.
+src/services/patientService.ts(197,41): error TS18046: 'valueA' is of type 'unknown'.
+src/services/patientService.ts(197,50): error TS18046: 'valueB' is of type 'unknown'.
+src/services/patientService.ts(199,16): error TS18046: 'valueA' is of type 'unknown'.
+src/services/patientService.ts(199,25): error TS18046: 'valueB' is of type 'unknown'.
+src/services/patientService.ts(199,39): error TS18046: 'valueA' is of type 'unknown'.
+src/services/patientService.ts(199,48): error TS18046: 'valueB' is of type 'unknown'.
+src/services/patientService.ts(425,50): error TS2367: This comparison appears to be unintentional because the types '"in-progress" | "completed" | "cancelled" | "postponed"' and '"planned"' have no overlap.
+src/services/patientService.ts(508,12): error TS2352: Conversion of type '{ id: string; hospitalNumber: string; firstName: string; lastName: string; middleName: string | undefined; dateOfBirth: Date | undefined; gender: "male" | "female"; phone: string; ... 15 more ...; updatedAt: Date; }' to type 'Patient' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'chronicConditions' is missing in type '{ id: string; hospitalNumber: string; firstName: string; lastName: string; middleName: string | undefined; dateOfBirth: Date | undefined; gender: "male" | "female"; phone: string; ... 15 more ...; updatedAt: Date; }' but required in type 'Patient'.
+src/services/patientService.ts(526,59): error TS2339: Property 'emergencyContact' does not exist on type 'Patient'.
+src/services/patientService.ts(528,44): error TS2339: Property 'insurance' does not exist on type 'Patient'.
+src/services/postOperativeNoteService.ts(22,3): error TS2724: '"../types"' has no exported member named 'PostOperativeMedication'. Did you mean 'PostoperativeMedication'?
+src/services/postOperativeNoteService.ts(25,3): error TS6196: 'AnaesthesiaType' is declared but never used.
+src/services/postOperativeNoteService.ts(263,3): error TS6133: 'surgeonNotes' is declared but its value is never read.
+src/services/postOperativeNoteService.ts(296,3): error TS6133: 'patientId' is declared but its value is never read.
+src/services/preoperativeService.ts(16,1): error TS6133: 'db' is declared but its value is never read.
+src/services/preoperativeService.ts(17,1): error TS6133: 'Patient' is declared but its value is never read.
+src/services/preoperativeService.ts(562,11): error TS6133: 'hoursToSurgery' is declared but its value is never read.
+src/services/preoperativeService.ts(704,31): error TS6133: 'patientId' is declared but its value is never read.
+src/services/woundCareService.ts(10,22): error TS6196: 'WoundPhoto' is declared but never used.
+src/services/woundCareService.ts(10,46): error TS6196: 'WoundType' is declared but never used.
+src/services/woundCareService.ts(458,16): error TS2339: Property 'wound_progress' does not exist on type 'CareBridgeDatabase'.
+src/services/woundCareService.ts(490,32): error TS2339: Property 'wound_progress' does not exist on type 'CareBridgeDatabase'.
+src/types/index.ts(3848,16): error TS2552: Cannot find name 'PostOperativeMedication'. Did you mean 'PostoperativeMedication'?
+src/utils/clinicalPdfGenerators.ts(62,5): error TS6133: 'status' is declared but its value is never read.
+src/utils/clinicalPdfGenerators.ts(540,5): error TS6133: 'encounterId' is declared but its value is never read.
+src/utils/clinicalPdfGenerators.ts(553,5): error TS6133: 'familyHistory' is declared but its value is never read.
+src/utils/clinicalPdfGenerators.ts(554,5): error TS6133: 'socialHistory' is declared but its value is never read.
+src/utils/clinicalPdfGenerators.ts(559,5): error TS6133: 'notes' is declared but its value is never read.
+src/utils/clinicalPdfGenerators.ts(690,28): error TS6133: 'index' is declared but its value is never read.
+src/utils/clinicalPdfGenerators.ts(803,5): error TS6133: 'notes' is declared but its value is never read.
+src/utils/clinicalPdfGenerators.ts(1032,5): error TS6133: 'notes' is declared but its value is never read.
+src/utils/clinicalPdfGenerators.ts(1246,5): error TS6133: 'notes' is declared but its value is never read.
+src/utils/clinicalPdfGenerators.ts(1419,5): error TS6133: 'admissionId' is declared but its value is never read.
+src/utils/clinicalPdfGenerators.ts(1439,5): error TS6133: 'notes' is declared but its value is never read.
+src/utils/postOpNotePdfGenerator.ts(291,9): error TS6133: 'pageWidth' is declared but its value is never read.

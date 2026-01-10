@@ -322,7 +322,7 @@ export default function UsersManagementPage() {
       return false;
     }
 
-    const now = new Date().toISOString();
+    const now = new Date();
     const newUser: User = {
       id: crypto.randomUUID(),
       email: formData.email,
@@ -334,7 +334,7 @@ export default function UsersManagementPage() {
       hospitalId: formData.hospitalId,
       specialization: formData.specialization,
       licenseNumber: formData.licenseNumber,
-      isActive: 1,
+      isActive: true,
       mustChangePassword: true,
       hasAcceptedAgreement: false,
       createdAt: now,

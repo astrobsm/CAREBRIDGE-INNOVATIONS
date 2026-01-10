@@ -57,7 +57,7 @@ export default function PayrollDashboardPage() {
     if (!selectedPeriod) return [];
     
     let records = await db.staffPayrollRecords
-      .where('periodId')
+      .where('payrollPeriodId')
       .equals(selectedPeriod)
       .toArray();
     
@@ -70,10 +70,10 @@ export default function PayrollDashboardPage() {
     }
     
     if (filterRole !== 'all') {
-      records = records.filter(r => r.role === filterRole);
+      records = records.filter(r => r.staffRole === filterRole);
     }
     
-    return records.sort((a, b) => b.totalEarned - a.totalEarned);
+    return records.sort((a, b) => b.netEarnings - a.netEarnings);
   }, [selectedPeriod, searchQuery, filterRole]);
 
   // Summary statistics
@@ -81,22 +81,22 @@ export default function PayrollDashboardPage() {
     if (!selectedPeriod) return null;
     
     const records = await db.staffPayrollRecords
-      .where('periodId')
+      .where('payrollPeriodId')
       .equals(selectedPeriod)
       .toArray();
     
     const totalStaff = records.length;
-    const totalEarnings = records.reduce((sum, r) => sum + r.totalEarned, 0);
-    const totalPaid = records.filter(r => r.paymentStatus === 'paid').reduce((sum, r) => sum + r.totalEarned, 0);
-    const totalPending = records.filter(r => r.paymentStatus === 'pending').reduce((sum, r) => sum + r.totalEarned, 0);
-    const totalActivities = records.reduce((sum, r) => sum + r.activitiesCount, 0);
+    const totalEarnings = records.reduce((sum, r) => sum + r.netEarnings, 0);
+    const totalPaid = records.filter(r => r.paymentStatus === 'paid').reduce((sum, r) => sum + r.netEarnings, 0);
+    const totalPending = records.filter(r => r.paymentStatus === 'pending').reduce((sum, r) => sum + r.netEarnings, 0);
+    const totalActivitiesCount = records.reduce((sum, r) => sum + r.totalActivities, 0);
     
     return {
       totalStaff,
       totalEarnings,
       totalPaid,
       totalPending,
-      totalActivities,
+      totalActivities: totalActivitiesCount,
     };
   }, [selectedPeriod]);
 
@@ -363,18 +363,18 @@ export default function PayrollDashboardPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 text-xs rounded-full ${getRoleColor(record.role)}`}>
-                        {record.role.replace('_', ' ')}
+                      <span className={`px-2 py-1 text-xs rounded-full ${getRoleColor(record.staffRole)}`}>
+                        {record.staffRole.replace('_', ' ')}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center text-gray-600">
-                      {record.activitiesCount}
+                      {record.totalActivities}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600">
                       {formatCurrency(record.totalBilled)}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-emerald-600">
-                      {formatCurrency(record.totalEarned)}
+                      {formatCurrency(record.netEarnings)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${

@@ -12,10 +12,10 @@ import {
   Stethoscope,
   Heart,
 } from 'lucide-react';
-import { db } from '../../../database';
+import { db } from '../../database';
 import { format } from 'date-fns';
-import { assignStaffToPatient, releaseStaffAssignment } from '../../../services/activityBillingService';
-import type { User, StaffPatientAssignment } from '../../../types';
+import { assignStaffToPatient, releaseStaffAssignment } from '../../services/activityBillingService';
+import type { User, StaffPatientAssignment } from '../../types';
 
 interface StaffAssignmentModalProps {
   admissionId: string;

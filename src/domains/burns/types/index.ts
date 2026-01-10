@@ -30,6 +30,7 @@ export interface LundBrowderEntry {
   regionName: string;
   ageGroup: 'infant' | 'child_1' | 'child_5' | 'child_10' | 'adult';
   percentBurned: number;
+  percentage?: number; // Alias for percentBurned
   depth: BurnDepthType;
   maxPercent: number;
 }
@@ -190,6 +191,7 @@ export interface TBSACalculation {
   superficialTBSA: number;
   partialThicknessTBSA: number;
   fullThicknessTBSA: number;
+  deepTBSA?: number; // Alias for fullThicknessTBSA
   calculatedAt: Date;
   calculatedBy: string;
 }
@@ -224,7 +226,9 @@ export interface ABSIScore {
   fullThicknessPoints: number;
   
   totalScore: number;
+  score?: number; // Alias for totalScore
   survivalProbability: string;
+  survivalRate?: string; // Alias for survivalProbability
   threatLevel: 'very_low' | 'moderate' | 'moderately_severe' | 'severe' | 'very_severe';
 }
 
@@ -257,6 +261,17 @@ export interface SOFAScore {
   
   totalScore: number; // 0-24
   mortalityRisk: string;
+  
+  // Additional display properties
+  interpretation?: string;
+  components?: {
+    respiration: number;
+    coagulation: number;
+    liver: number;
+    cardiovascular: number;
+    cns: number;
+    renal: number;
+  };
 }
 
 // ==========================================
@@ -279,8 +294,11 @@ export interface FluidResuscitationPlan {
   
   // Calculated requirements (24hr)
   totalFluid24h: number; // mL
+  totalVolume24h?: number; // Alias for totalFluid24h
   firstHalfVolume: number; // First 8 hours from burn
+  phase1Volume?: number; // Alias for firstHalfVolume
   secondHalfVolume: number; // Next 16 hours
+  phase2Volume?: number; // Alias for secondHalfVolume
   
   // Hourly targets
   firstHalfRate: number; // mL/hr
@@ -294,6 +312,7 @@ export interface FluidResuscitationPlan {
   
   // Urine output target
   urineOutputTarget: number; // mL/kg/hr
+  targetUrineOutput?: number; // Alias for urineOutputTarget
   
   // Adjustments
   adjustments: FluidAdjustment[];
@@ -433,10 +452,16 @@ export interface BurnWoundAssessment {
   id: string;
   burnAssessmentId: string;
   timestamp: Date;
+  date?: Date; // Alias for timestamp
+  
+  // Wound location
+  region?: string;
   
   // Wound characteristics
-  appearance: 'clean' | 'granulating' | 'sloughy' | 'necrotic' | 'infected';
+  appearance: 'clean' | 'granulating' | 'sloughy' | 'necrotic' | 'infected' | string[];
+  depth?: string;
   exudateAmount: 'none' | 'minimal' | 'moderate' | 'heavy';
+  exudateLevel?: 'none' | 'minimal' | 'moderate' | 'heavy'; // Alias for exudateAmount
   exudateType: 'serous' | 'serosanguinous' | 'purulent' | 'bloody';
   odor: boolean;
   surroundingSkin: 'normal' | 'erythematous' | 'indurated' | 'macerated';
@@ -447,6 +472,7 @@ export interface BurnWoundAssessment {
   localWarmth: boolean;
   purulentDischarge: boolean;
   feverWithWound: boolean;
+  infectionSigns?: string[];
   
   // Graft status (if applicable)
   graftPresent: boolean;
@@ -455,8 +481,13 @@ export interface BurnWoundAssessment {
   
   // Dressing
   dressingType: string;
+  dressingApplied?: string; // Alias for dressingType
   dressingChangeDate: Date;
   nextDressingChange: Date;
+  
+  // Debridement
+  debridementPerformed?: boolean;
+  cultureTaken?: boolean;
   
   // Photos
   photoUrls: string[];
@@ -469,8 +500,9 @@ export interface EscharotomyRecord {
   id: string;
   burnAssessmentId: string;
   
-  indication: 'circumferential_limb' | 'circumferential_chest' | 'abdominal_compartment';
+  indication: 'circumferential_limb' | 'circumferential_chest' | 'abdominal_compartment' | string;
   site: string;
+  location?: string; // Alias for site
   
   preOperativeFindings: {
     compartmentPressure?: number;
@@ -481,7 +513,9 @@ export interface EscharotomyRecord {
   };
   
   procedureDateTime: Date;
+  date?: Date; // Alias for procedureDateTime
   surgeon: string;
+  performer?: string; // Alias for surgeon
   assistants: string[];
   
   technique: string;
@@ -494,7 +528,7 @@ export interface EscharotomyRecord {
     respiratoryImprovement?: boolean;
   };
   
-  complications?: string[];
+  complications?: string[] | string;
   
   createdAt: Date;
 }
@@ -504,16 +538,20 @@ export interface GraftingRecord {
   burnAssessmentId: string;
   
   procedureDate: Date;
+  date?: Date; // Alias for procedureDate
   surgeon: string;
   
   graftType: 'split_thickness' | 'full_thickness' | 'xenograft' | 'allograft' | 'synthetic';
   donorSite?: string;
   recipientSite: string;
   areaGraftedCm2: number;
+  graftSizeCm2?: number; // Alias for areaGraftedCm2
   meshRatio?: string;
+  meshingRatio?: string; // Alias for meshRatio
   
   postOpDay: number;
   graftTakePercent: number;
+  takePercentage?: number; // Alias for graftTakePercent
   complications?: string[];
   
   dailyAssessments: {

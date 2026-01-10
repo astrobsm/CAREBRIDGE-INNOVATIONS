@@ -66,10 +66,10 @@ export default function AccountantDashboard() {
   const financialSummary = useLiveQuery(async () => {
     if (!billingRecords) return null;
     
-    const totalBilled = billingRecords.reduce((sum, r) => sum + r.totalAmount, 0);
-    const totalPaid = billingRecords.filter(r => r.paymentStatus === 'paid').reduce((sum, r) => sum + r.totalAmount, 0);
-    const totalPending = billingRecords.filter(r => r.paymentStatus === 'pending').reduce((sum, r) => sum + r.totalAmount, 0);
-    const totalWaived = billingRecords.filter(r => r.paymentStatus === 'waived').reduce((sum, r) => sum + r.totalAmount, 0);
+    const totalBilled = billingRecords.reduce((sum, r) => sum + r.fee, 0);
+    const totalPaid = billingRecords.filter(r => r.paymentStatus === 'paid').reduce((sum, r) => sum + r.fee, 0);
+    const totalPending = billingRecords.filter(r => r.paymentStatus === 'pending').reduce((sum, r) => sum + r.fee, 0);
+    const totalWaived = billingRecords.filter(r => r.paymentStatus === 'waived').reduce((sum, r) => sum + r.fee, 0);
     
     const hospitalShare = totalPaid * REVENUE_SHARE_CONFIG.hospitalPercentage;
     const staffShare = totalPaid * REVENUE_SHARE_CONFIG.staffPercentage;
@@ -92,15 +92,15 @@ export default function AccountantDashboard() {
     const staffMap = new Map<string, { userId: string; name: string; earnings: number; activities: number }>();
     
     for (const record of billingRecords.filter(r => r.paymentStatus === 'paid')) {
-      const existing = staffMap.get(record.performedByUserId);
+      const existing = staffMap.get(record.performedBy);
       if (existing) {
         existing.earnings += record.staffShare;
         existing.activities += 1;
       } else {
         // Get user name
-        const user = await db.users.get(record.performedByUserId);
-        staffMap.set(record.performedByUserId, {
-          userId: record.performedByUserId,
+        const user = await db.users.get(record.performedBy);
+        staffMap.set(record.performedBy, {
+          userId: record.performedBy,
           name: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
           earnings: record.staffShare,
           activities: 1,
@@ -127,20 +127,22 @@ export default function AccountantDashboard() {
   // Outstanding patient bills
   const outstandingBills = useLiveQuery(async () => {
     const admissions = await db.admissions
-      .filter(a => a.status === 'admitted' || a.status === 'pending_discharge')
+      .filter(a => a.status === 'active' || a.status === 'discharged')
       .toArray();
     
     // Get billing records for these admissions
     const admissionIds = admissions.map(a => a.id);
     const bills = await db.activityBillingRecords
-      .filter(r => admissionIds.includes(r.admissionId) && r.paymentStatus === 'pending')
+      .filter(r => r.admissionId && admissionIds.includes(r.admissionId) && r.paymentStatus === 'pending')
       .toArray();
     
     // Group by admission
     const billsByAdmission = new Map<string, number>();
     for (const bill of bills) {
-      const current = billsByAdmission.get(bill.admissionId) || 0;
-      billsByAdmission.set(bill.admissionId, current + bill.totalAmount);
+      if (bill.admissionId) {
+        const current = billsByAdmission.get(bill.admissionId) || 0;
+        billsByAdmission.set(bill.admissionId, current + bill.fee);
+      }
     }
     
     return admissions
