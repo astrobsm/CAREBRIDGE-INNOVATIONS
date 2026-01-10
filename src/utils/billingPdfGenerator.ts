@@ -644,3 +644,348 @@ export function generateReceiptPDF(options: ReceiptPDFOptions): void {
   // Save
   doc.save(`Receipt_${receiptNumber}_${format(paymentDate, 'yyyyMMdd')}.pdf`);
 }
+
+// ==========================================
+// PDF BLOB AND SHARING FUNCTIONS
+// ==========================================
+
+/**
+ * Generate invoice PDF and return as Blob for sharing
+ */
+export function getInvoicePDFBlob(options: InvoicePDFOptions): Blob {
+  const {
+    invoiceNumber,
+    invoiceDate,
+    dueDate,
+    patient,
+    hospitalName,
+    hospitalAddress,
+    hospitalPhone,
+    hospitalEmail,
+    items,
+    subtotal,
+    discountAmount = 0,
+    taxAmount = 0,
+    totalAmount,
+    paidAmount = 0,
+    status,
+    notes,
+    paymentInstructions,
+    bankDetails,
+  } = options;
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background for the entire page
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // Add branded header
+  const info: PDFDocumentInfo = {
+    title: 'INVOICE',
+    subtitle: `Invoice #${invoiceNumber}`,
+    hospitalName,
+    hospitalAddress,
+    hospitalPhone,
+    hospitalEmail,
+  };
+
+  let yPos = addBrandedHeader(doc, info);
+
+  // Invoice status badge
+  const statusColors: Record<string, [number, number, number]> = {
+    pending: [234, 179, 8],
+    paid: [34, 197, 94],
+    partial: [59, 130, 246],
+    overdue: [220, 38, 38],
+    cancelled: [107, 114, 128],
+  };
+
+  const statusLabels: Record<string, string> = {
+    pending: 'PENDING',
+    paid: 'PAID',
+    partial: 'PARTIALLY PAID',
+    overdue: 'OVERDUE',
+    cancelled: 'CANCELLED',
+  };
+
+  doc.setFillColor(...statusColors[status]);
+  doc.roundedRect(pageWidth - 55, yPos - 10, 40, 12, 2, 2, 'F');
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text(statusLabels[status], pageWidth - 35, yPos - 3, { align: 'center' });
+
+  yPos += 5;
+
+  // Invoice details box
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(15, yPos, pageWidth - 30, 20, 2, 2, 'F');
+  
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setTextColor(...PDF_COLORS.dark);
+  
+  doc.text(`Invoice Date: ${format(invoiceDate, 'dd MMMM yyyy')}`, 20, yPos + 8);
+  if (dueDate) {
+    doc.text(`Due Date: ${format(dueDate, 'dd MMMM yyyy')}`, 20, yPos + 15);
+  }
+  doc.text(`Invoice #: ${invoiceNumber}`, pageWidth - 70, yPos + 8);
+  
+  yPos += 28;
+
+  // Patient information
+  yPos = addPatientInfoBox(doc, yPos, patient);
+
+  // Items table
+  yPos = addSectionTitle(doc, yPos, 'Invoice Items');
+
+  // Table header
+  const colWidths = [70, 25, 35, 35];
+  doc.setFillColor(...PDF_COLORS.primary);
+  doc.rect(15, yPos, pageWidth - 30, 8, 'F');
+  
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(255, 255, 255);
+  
+  let xPos = 17;
+  const headers = ['Description', 'Qty', 'Unit Price', 'Total'];
+  headers.forEach((header, i) => {
+    doc.text(header, xPos, yPos + 5.5);
+    xPos += colWidths[i];
+  });
+  yPos += 8;
+
+  // Table rows
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setTextColor(...PDF_COLORS.dark);
+  
+  items.forEach((item, index) => {
+    yPos = checkNewPage(doc, yPos, 10);
+    
+    if (index % 2 === 0) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(15, yPos, pageWidth - 30, 8, 'F');
+    }
+    
+    xPos = 17;
+    doc.setFontSize(8);
+    
+    let description = item.description;
+    if (item.category) {
+      description = `[${item.category}] ${description}`;
+    }
+    if (doc.getTextWidth(description) > colWidths[0] - 4) {
+      while (doc.getTextWidth(description + '...') > colWidths[0] - 4) {
+        description = description.slice(0, -1);
+      }
+      description += '...';
+    }
+    doc.text(description, xPos, yPos + 5.5);
+    xPos += colWidths[0];
+    
+    doc.text(item.quantity.toString(), xPos, yPos + 5.5);
+    xPos += colWidths[1];
+    
+    doc.text(formatNairaPDF(item.unitPrice), xPos, yPos + 5.5);
+    xPos += colWidths[2];
+    
+    doc.text(formatNairaPDF(item.total), xPos, yPos + 5.5);
+    
+    yPos += 8;
+  });
+
+  // Table border
+  const tableHeight = 8 + items.length * 8;
+  doc.setDrawColor(...PDF_COLORS.lightGray);
+  doc.setLineWidth(0.3);
+  doc.rect(15, yPos - tableHeight, pageWidth - 30, tableHeight, 'S');
+
+  yPos += 10;
+
+  // Summary section
+  yPos = checkNewPage(doc, yPos, 50);
+  
+  const summaryX = pageWidth - 90;
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setTextColor(...PDF_COLORS.dark);
+
+  doc.text('Subtotal:', summaryX, yPos);
+  doc.text(formatNairaPDF(subtotal), pageWidth - 20, yPos, { align: 'right' });
+  yPos += 7;
+
+  if (discountAmount > 0) {
+    doc.setTextColor(...PDF_COLORS.success);
+    doc.text('Discount:', summaryX, yPos);
+    doc.text(`-${formatNairaPDF(discountAmount)}`, pageWidth - 20, yPos, { align: 'right' });
+    yPos += 7;
+  }
+
+  if (taxAmount > 0) {
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.text('Tax:', summaryX, yPos);
+    doc.text(formatNairaPDF(taxAmount), pageWidth - 20, yPos, { align: 'right' });
+    yPos += 7;
+  }
+
+  doc.setDrawColor(...PDF_COLORS.gray);
+  doc.setLineWidth(0.5);
+  doc.line(summaryX, yPos, pageWidth - 15, yPos);
+  yPos += 5;
+
+  doc.setFillColor(...PDF_COLORS.primaryDark);
+  doc.roundedRect(summaryX - 5, yPos - 2, pageWidth - summaryX - 5, 12, 2, 2, 'F');
+  
+  doc.setFontSize(11);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('TOTAL:', summaryX, yPos + 6);
+  doc.text(formatNairaPDF(totalAmount), pageWidth - 20, yPos + 6, { align: 'right' });
+  yPos += 18;
+
+  if (paidAmount > 0 || status === 'partial') {
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setTextColor(...PDF_COLORS.success);
+    doc.text('Amount Paid:', summaryX, yPos);
+    doc.text(formatNairaPDF(paidAmount), pageWidth - 20, yPos, { align: 'right' });
+    yPos += 7;
+
+    const balance = totalAmount - paidAmount;
+    if (balance > 0) {
+      doc.setTextColor(...PDF_COLORS.danger);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Balance Due:', summaryX, yPos);
+      doc.text(formatNairaPDF(balance), pageWidth - 20, yPos, { align: 'right' });
+      yPos += 7;
+    }
+  }
+
+  yPos += 10;
+
+  if (bankDetails) {
+    yPos = checkNewPage(doc, yPos, 40);
+    yPos = addSectionTitle(doc, yPos, 'Payment Details', 'info');
+    
+    doc.setFillColor(240, 249, 255);
+    doc.roundedRect(15, yPos, pageWidth - 30, 25, 2, 2, 'F');
+    
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setTextColor(...PDF_COLORS.dark);
+    
+    doc.text(`Bank: ${bankDetails.bankName}`, 20, yPos + 8);
+    doc.text(`Account Name: ${bankDetails.accountName}`, 20, yPos + 15);
+    doc.text(`Account Number: ${bankDetails.accountNumber}`, 20, yPos + 22);
+    
+    yPos += 32;
+  }
+
+  if (paymentInstructions) {
+    yPos = checkNewPage(doc, yPos, 30);
+    
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.text('Payment Instructions:', 15, yPos);
+    yPos += 6;
+    
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(8);
+    const lines = doc.splitTextToSize(paymentInstructions, pageWidth - 30);
+    doc.text(lines, 15, yPos);
+    yPos += lines.length * 4 + 5;
+  }
+
+  if (notes) {
+    yPos = checkNewPage(doc, yPos, 30);
+    
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.text('Notes:', 15, yPos);
+    yPos += 6;
+    
+    doc.setFont(PDF_FONTS.primary, 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(...PDF_COLORS.gray);
+    const noteLines = doc.splitTextToSize(notes, pageWidth - 30);
+    doc.text(noteLines, 15, yPos);
+  }
+
+  // Add footer to all pages
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    addBrandedFooter(doc, i, totalPages, 'Thank you for your business. Please retain this invoice for your records.');
+  }
+
+  return doc.output('blob');
+}
+
+/**
+ * Download invoice as PDF
+ */
+export function downloadInvoicePDF(options: InvoicePDFOptions): void {
+  const blob = getInvoicePDFBlob(options);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Invoice_${options.invoiceNumber}_${format(options.invoiceDate, 'yyyyMMdd')}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Share invoice via WhatsApp
+ * Opens WhatsApp with a pre-filled message and triggers PDF download for attachment
+ */
+export function shareInvoiceViaWhatsApp(
+  options: InvoicePDFOptions,
+  patientName: string,
+  phoneNumber?: string
+): void {
+  const blob = getInvoicePDFBlob(options);
+  const url = URL.createObjectURL(blob);
+  
+  // Format balance if applicable
+  const balance = options.totalAmount - (options.paidAmount || 0);
+  const balanceText = balance > 0 ? `\nBalance Due: ₦${balance.toLocaleString()}` : '';
+  
+  // Create WhatsApp message
+  const message = encodeURIComponent(
+    `📋 *Invoice #${options.invoiceNumber}*\n\n` +
+    `Patient: ${patientName}\n` +
+    `Date: ${format(options.invoiceDate, 'dd MMMM yyyy')}\n` +
+    `Total Amount: ₦${options.totalAmount.toLocaleString()}\n` +
+    `Amount Paid: ₦${(options.paidAmount || 0).toLocaleString()}` +
+    balanceText + `\n\n` +
+    `Status: ${options.status.toUpperCase()}\n\n` +
+    `Please find the invoice PDF attached.`
+  );
+  
+  // Build WhatsApp URL
+  const whatsappUrl = phoneNumber 
+    ? `https://wa.me/${phoneNumber.replace(/[^0-9]/g, '')}?text=${message}`
+    : `https://wa.me/?text=${message}`;
+  
+  // Open WhatsApp in new tab
+  window.open(whatsappUrl, '_blank');
+  
+  // Also trigger download so user can attach the PDF
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Invoice_${options.invoiceNumber}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  // Clean up
+  URL.revokeObjectURL(url);
+}

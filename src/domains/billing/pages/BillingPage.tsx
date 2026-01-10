@@ -29,6 +29,8 @@ import {
   Package,
   Award,
   Activity,
+  Download,
+  Share2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -45,6 +47,8 @@ import {
 import { surgicalProcedures, calculateSurgicalFeeEstimate } from '../../../data/surgicalFees';
 import { PatientSelector, PatientDisplay } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
+import { downloadInvoicePDF, shareInvoiceViaWhatsApp } from '../../../utils/billingPdfGenerator';
+import type { InvoicePDFOptions, InvoiceItemPDF } from '../../../utils/billingPdfGenerator';
 
 // Procedure pricing matrix (Nigerian Naira - NGN)
 const procedurePricing = {
@@ -445,6 +449,105 @@ export default function BillingPage() {
     }
   };
 
+  // Download invoice as PDF
+  const handleDownloadInvoice = async (invoice: Invoice) => {
+    try {
+      const patient = patientMap.get(invoice.patientId);
+      const hospital = await db.hospitals.get(invoice.hospitalId);
+      
+      if (!patient) {
+        toast.error('Patient not found');
+        return;
+      }
+
+      const pdfOptions: InvoicePDFOptions = {
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: new Date(invoice.createdAt),
+        dueDate: invoice.dueDate ? new Date(invoice.dueDate) : undefined,
+        patient: {
+          name: `${patient.firstName} ${patient.lastName}`,
+          hospitalNumber: patient.hospitalNumber || 'N/A',
+          gender: patient.gender,
+          age: patient.dateOfBirth ? Math.floor((new Date().getTime() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
+          phone: patient.phone,
+        },
+        hospitalName: hospital?.name || 'CareBridge Hospital',
+        hospitalAddress: hospital?.address,
+        hospitalPhone: hospital?.phone,
+        items: invoice.items.map((item): InvoiceItemPDF => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.amount || item.total || item.quantity * item.unitPrice,
+          category: item.category,
+        })),
+        subtotal: invoice.subtotal || invoice.items.reduce((sum, item) => sum + (item.amount || item.total || item.quantity * item.unitPrice), 0),
+        discountAmount: invoice.discount,
+        taxAmount: invoice.tax,
+        totalAmount: invoice.totalAmount || invoice.total || 0,
+        paidAmount: invoice.paidAmount || invoice.amountPaid || 0,
+        status: invoice.status as 'pending' | 'paid' | 'partial' | 'overdue' | 'cancelled',
+        notes: invoice.notes,
+      };
+
+      downloadInvoicePDF(pdfOptions);
+      toast.success('Invoice PDF downloaded');
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      toast.error('Failed to download invoice');
+    }
+  };
+
+  // Share invoice via WhatsApp
+  const handleShareWhatsApp = async (invoice: Invoice) => {
+    try {
+      const patient = patientMap.get(invoice.patientId);
+      const hospital = await db.hospitals.get(invoice.hospitalId);
+      
+      if (!patient) {
+        toast.error('Patient not found');
+        return;
+      }
+
+      const pdfOptions: InvoicePDFOptions = {
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: new Date(invoice.createdAt),
+        dueDate: invoice.dueDate ? new Date(invoice.dueDate) : undefined,
+        patient: {
+          name: `${patient.firstName} ${patient.lastName}`,
+          hospitalNumber: patient.hospitalNumber || 'N/A',
+          gender: patient.gender,
+          age: patient.dateOfBirth ? Math.floor((new Date().getTime() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
+          phone: patient.phone,
+        },
+        hospitalName: hospital?.name || 'CareBridge Hospital',
+        hospitalAddress: hospital?.address,
+        hospitalPhone: hospital?.phone,
+        items: invoice.items.map((item): InvoiceItemPDF => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.amount || item.total || item.quantity * item.unitPrice,
+          category: item.category,
+        })),
+        subtotal: invoice.subtotal || invoice.items.reduce((sum, item) => sum + (item.amount || item.total || item.quantity * item.unitPrice), 0),
+        discountAmount: invoice.discount,
+        taxAmount: invoice.tax,
+        totalAmount: invoice.totalAmount || invoice.total || 0,
+        paidAmount: invoice.paidAmount || invoice.amountPaid || 0,
+        status: invoice.status as 'pending' | 'paid' | 'partial' | 'overdue' | 'cancelled',
+        notes: invoice.notes,
+      };
+
+      const patientName = `${patient.firstName} ${patient.lastName}`;
+      shareInvoiceViaWhatsApp(pdfOptions, patientName, patient.phone);
+      toast.success('Opening WhatsApp...');
+    } catch (error) {
+      console.error('Error sharing invoice:', error);
+      toast.error('Failed to share invoice');
+    }
+  };
+
   const getStatusBadge = (status: Invoice['status']) => {
     switch (status) {
       case 'pending':
@@ -646,7 +749,7 @@ export default function BillingPage() {
                         {format(new Date(invoice.createdAt), 'MMM d, yyyy')}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                           {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
                             <button
                               onClick={() => {
@@ -656,20 +759,35 @@ export default function BillingPage() {
                               className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                               title="Record Payment"
                             >
-                              <CreditCard size={18} />
+                              <CreditCard size={16} className="sm:w-[18px] sm:h-[18px]" />
                             </button>
                           )}
+                          <button
+                            onClick={() => handleDownloadInvoice(invoice)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Download Invoice PDF"
+                          >
+                            <Download size={16} className="sm:w-[18px] sm:h-[18px]" />
+                          </button>
+                          <button
+                            onClick={() => handleShareWhatsApp(invoice)}
+                            className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Share via WhatsApp"
+                          >
+                            <Share2 size={16} className="sm:w-[18px] sm:h-[18px]" />
+                          </button>
                           <button
                             className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
                             title="View Details"
                           >
-                            <Eye size={18} />
+                            <Eye size={16} className="sm:w-[18px] sm:h-[18px]" />
                           </button>
                           <button
+                            onClick={() => handleDownloadInvoice(invoice)}
                             className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
                             title="Print Invoice"
                           >
-                            <Printer size={18} />
+                            <Printer size={16} className="sm:w-[18px] sm:h-[18px]" />
                           </button>
                         </div>
                       </td>
