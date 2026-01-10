@@ -262,6 +262,18 @@ async function pullAllFromCloud(): Promise<void> {
   // Transfusion Orders
   await pullTable(TABLES.transfusionOrders, 'transfusionOrders');
   await pullTable(TABLES.transfusionMonitoringCharts, 'transfusionMonitoringCharts');
+  
+  // Staff Assignments & Billing
+  await pullTable(TABLES.staffPatientAssignments, 'staffPatientAssignments');
+  await pullTable(TABLES.activityBillingRecords, 'activityBillingRecords');
+  
+  // Payroll
+  await pullTable(TABLES.payrollPeriods, 'payrollPeriods');
+  await pullTable(TABLES.staffPayrollRecords, 'staffPayrollRecords');
+  await pullTable(TABLES.payslips, 'payslips');
+  
+  // Post-Operative Notes
+  await pullTable(TABLES.postOperativeNotes, 'postOperativeNotes');
 }
 
 // Push all local data to cloud
@@ -348,6 +360,18 @@ async function pushAllToCloud(): Promise<void> {
   // Transfusion Orders
   await pushTable('transfusionOrders', TABLES.transfusionOrders);
   await pushTable('transfusionMonitoringCharts', TABLES.transfusionMonitoringCharts);
+  
+  // Staff Assignments & Billing
+  await pushTable('staffPatientAssignments', TABLES.staffPatientAssignments);
+  await pushTable('activityBillingRecords', TABLES.activityBillingRecords);
+  
+  // Payroll
+  await pushTable('payrollPeriods', TABLES.payrollPeriods);
+  await pushTable('staffPayrollRecords', TABLES.staffPayrollRecords);
+  await pushTable('payslips', TABLES.payslips);
+  
+  // Post-Operative Notes
+  await pushTable('postOperativeNotes', TABLES.postOperativeNotes);
 }
 
 // Pull a single table from cloud
@@ -487,23 +511,100 @@ function setupRealtimeSubscriptions() {
   realtimeChannels = [];
 
   // Subscribe to key tables for real-time updates
+  // COMPREHENSIVE: All synced tables for full cross-device sync
   const tablesToWatch = [
+    // Core tables
+    { cloud: TABLES.hospitals, local: 'hospitals' },
     { cloud: TABLES.patients, local: 'patients' },
+    
+    // Clinical tables
     { cloud: TABLES.vitalSigns, local: 'vitalSigns' },
     { cloud: TABLES.clinicalEncounters, local: 'clinicalEncounters' },
     { cloud: TABLES.surgeries, local: 'surgeries' },
-    { cloud: TABLES.admissions, local: 'admissions' },
-    { cloud: TABLES.treatmentPlans, local: 'treatmentPlans' },
     { cloud: TABLES.wounds, local: 'wounds' },
-    { cloud: TABLES.prescriptions, local: 'prescriptions' },
     { cloud: TABLES.burnAssessments, local: 'burnAssessments' },
-    { cloud: TABLES.burnMonitoringRecords, local: 'burnMonitoringRecords' },
-    { cloud: TABLES.burnCarePlans, local: 'burnCarePlans' },
+    
+    // Lab & Pharmacy
+    { cloud: TABLES.labRequests, local: 'labRequests' },
+    { cloud: TABLES.prescriptions, local: 'prescriptions' },
+    
+    // Nutrition
+    { cloud: TABLES.nutritionAssessments, local: 'nutritionAssessments' },
+    { cloud: TABLES.nutritionPlans, local: 'nutritionPlans' },
+    
+    // Billing
+    { cloud: TABLES.invoices, local: 'invoices' },
+    
+    // Admission & Ward
+    { cloud: TABLES.admissions, local: 'admissions' },
+    { cloud: TABLES.admissionNotes, local: 'admissionNotes' },
+    { cloud: TABLES.bedAssignments, local: 'bedAssignments' },
+    
+    // Treatment
+    { cloud: TABLES.treatmentPlans, local: 'treatmentPlans' },
+    { cloud: TABLES.treatmentProgress, local: 'treatmentProgress' },
+    
+    // Ward Rounds & Assignments
+    { cloud: TABLES.wardRounds, local: 'wardRounds' },
+    { cloud: TABLES.doctorAssignments, local: 'doctorAssignments' },
+    { cloud: TABLES.nurseAssignments, local: 'nurseAssignments' },
+    
+    // Investigations
     { cloud: TABLES.investigations, local: 'investigations' },
+    
+    // Communication
+    { cloud: TABLES.chatRooms, local: 'chatRooms' },
+    { cloud: TABLES.chatMessages, local: 'chatMessages' },
+    { cloud: TABLES.videoConferences, local: 'videoConferences' },
+    { cloud: TABLES.enhancedVideoConferences, local: 'enhancedVideoConferences' },
+    
+    // Discharge & Documentation
+    { cloud: TABLES.dischargeSummaries, local: 'dischargeSummaries' },
+    { cloud: TABLES.consumableBOMs, local: 'consumableBOMs' },
+    { cloud: TABLES.histopathologyRequests, local: 'histopathologyRequests' },
+    
+    // Blood Transfusion & MDT
+    { cloud: TABLES.bloodTransfusions, local: 'bloodTransfusions' },
+    { cloud: TABLES.mdtMeetings, local: 'mdtMeetings' },
+    
+    // Limb Salvage
     { cloud: TABLES.limbSalvageAssessments, local: 'limbSalvageAssessments' },
+    
+    // Burn Care Monitoring
+    { cloud: TABLES.burnMonitoringRecords, local: 'burnMonitoringRecords' },
+    { cloud: TABLES.escharotomyRecords, local: 'escharotomyRecords' },
+    { cloud: TABLES.skinGraftRecords, local: 'skinGraftRecords' },
+    { cloud: TABLES.burnCarePlans, local: 'burnCarePlans' },
+    
+    // Appointments
     { cloud: TABLES.appointments, local: 'appointments' },
+    { cloud: TABLES.appointmentReminders, local: 'appointmentReminders' },
     { cloud: TABLES.appointmentSlots, local: 'appointmentSlots' },
     { cloud: TABLES.clinicSessions, local: 'clinicSessions' },
+    
+    // NPWT
+    { cloud: TABLES.npwtSessions, local: 'npwtSessions' },
+    { cloud: TABLES.npwtNotifications, local: 'npwtNotifications' },
+    
+    // Medication Charts
+    { cloud: TABLES.medicationCharts, local: 'medicationCharts' },
+    { cloud: TABLES.nursePatientAssignments, local: 'nursePatientAssignments' },
+    
+    // Transfusion Orders
+    { cloud: TABLES.transfusionOrders, local: 'transfusionOrders' },
+    { cloud: TABLES.transfusionMonitoringCharts, local: 'transfusionMonitoringCharts' },
+    
+    // Staff Assignments & Billing
+    { cloud: TABLES.staffPatientAssignments, local: 'staffPatientAssignments' },
+    { cloud: TABLES.activityBillingRecords, local: 'activityBillingRecords' },
+    
+    // Payroll
+    { cloud: TABLES.payrollPeriods, local: 'payrollPeriods' },
+    { cloud: TABLES.staffPayrollRecords, local: 'staffPayrollRecords' },
+    { cloud: TABLES.payslips, local: 'payslips' },
+    
+    // Post-Operative Notes
+    { cloud: TABLES.postOperativeNotes, local: 'postOperativeNotes' },
   ];
 
   tablesToWatch.forEach(({ cloud, local }) => {
@@ -640,6 +741,24 @@ function getCloudTableName(localTableName: string): string | null {
     appointmentSlots: TABLES.appointmentSlots,
     appointmentReminders: TABLES.appointmentReminders,
     clinicSessions: TABLES.clinicSessions,
+    // NPWT
+    npwtSessions: TABLES.npwtSessions,
+    npwtNotifications: TABLES.npwtNotifications,
+    // Medication Charts
+    medicationCharts: TABLES.medicationCharts,
+    nursePatientAssignments: TABLES.nursePatientAssignments,
+    // Transfusion
+    transfusionOrders: TABLES.transfusionOrders,
+    transfusionMonitoringCharts: TABLES.transfusionMonitoringCharts,
+    // Staff Assignments & Billing
+    staffPatientAssignments: TABLES.staffPatientAssignments,
+    activityBillingRecords: TABLES.activityBillingRecords,
+    // Payroll
+    payrollPeriods: TABLES.payrollPeriods,
+    staffPayrollRecords: TABLES.staffPayrollRecords,
+    payslips: TABLES.payslips,
+    // Post-Operative Notes
+    postOperativeNotes: TABLES.postOperativeNotes,
   };
   return mapping[localTableName] || null;
 }

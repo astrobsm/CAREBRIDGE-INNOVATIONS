@@ -118,6 +118,18 @@ export const TABLES = {
   // Audit & Sync
   auditLogs: 'audit_logs',
   syncStatus: 'sync_status',
+  
+  // Staff Assignments & Billing
+  staffPatientAssignments: 'staff_patient_assignments',
+  activityBillingRecords: 'activity_billing_records',
+  
+  // Payroll
+  payrollPeriods: 'payroll_periods',
+  staffPayrollRecords: 'staff_payroll_records',
+  payslips: 'payslips',
+  
+  // Post-Operative Notes
+  postOperativeNotes: 'post_operative_notes',
 } as const;
 
 // Local to cloud table name mapping
@@ -174,6 +186,15 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   transfusionMonitoringCharts: 'transfusion_monitoring_charts',
   auditLogs: 'audit_logs',
   syncStatus: 'sync_status',
+  // Staff Assignments & Billing
+  staffPatientAssignments: 'staff_patient_assignments',
+  activityBillingRecords: 'activity_billing_records',
+  // Payroll
+  payrollPeriods: 'payroll_periods',
+  staffPayrollRecords: 'staff_payroll_records',
+  payslips: 'payslips',
+  // Post-Operative Notes
+  postOperativeNotes: 'post_operative_notes',
 };
 
 // Type for sync status
