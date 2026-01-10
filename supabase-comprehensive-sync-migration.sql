@@ -21,15 +21,15 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================
 -- Tracks which staff (doctors, nurses) are assigned to patients
 CREATE TABLE IF NOT EXISTS staff_patient_assignments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    admission_id UUID REFERENCES admissions(id) ON DELETE CASCADE,
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY,
+    admission_id TEXT REFERENCES admissions(id) ON DELETE CASCADE,
+    patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
     patient_name TEXT NOT NULL,
     hospital_number TEXT NOT NULL,
-    hospital_id UUID NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
+    hospital_id TEXT NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
     
     -- Assigned Staff
-    staff_id UUID NOT NULL,
+    staff_id TEXT NOT NULL,
     staff_name TEXT NOT NULL,
     staff_role TEXT NOT NULL,
     
@@ -62,7 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_staff_patient_assignments_active ON staff_patient
 -- ============================================
 -- Tracks individual billable activities with 50/50 revenue sharing
 CREATE TABLE IF NOT EXISTS activity_billing_records (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY,
     
     -- Activity Details
     activity_id TEXT NOT NULL,
@@ -71,17 +71,17 @@ CREATE TABLE IF NOT EXISTS activity_billing_records (
     category TEXT NOT NULL,
     
     -- Patient Info
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
     patient_name TEXT NOT NULL,
     hospital_number TEXT NOT NULL,
     
     -- Related Records
-    encounter_id UUID,
-    admission_id UUID,
-    ward_round_id UUID,
-    lab_request_id UUID,
-    prescription_id UUID,
-    wound_care_id UUID,
+    encounter_id TEXT,
+    admission_id TEXT,
+    ward_round_id TEXT,
+    lab_request_id TEXT,
+    prescription_id TEXT,
+    wound_care_id TEXT,
     
     -- Staff who performed the activity
     performed_by TEXT NOT NULL,
@@ -100,8 +100,8 @@ CREATE TABLE IF NOT EXISTS activity_billing_records (
     hospital_amount_paid DECIMAL(10,2) NOT NULL DEFAULT 0,
     
     -- Linked to Invoice
-    invoice_id UUID,
-    invoice_item_id UUID,
+    invoice_id TEXT,
+    invoice_item_id TEXT,
     
     -- Timestamps
     performed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS activity_billing_records (
     paid_at TIMESTAMPTZ,
     
     notes TEXT,
-    hospital_id UUID NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
+    hospital_id TEXT NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -127,8 +127,8 @@ CREATE INDEX IF NOT EXISTS idx_activity_billing_performed_at ON activity_billing
 -- ============================================
 -- Manages payroll periods (monthly/weekly) for staff payments
 CREATE TABLE IF NOT EXISTS payroll_periods (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    hospital_id UUID NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY,
+    hospital_id TEXT NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
     
     -- Period Details
     period_name TEXT NOT NULL,
@@ -162,12 +162,12 @@ CREATE INDEX IF NOT EXISTS idx_payroll_periods_dates ON payroll_periods(start_da
 -- ============================================
 -- Individual staff earnings per payroll period
 CREATE TABLE IF NOT EXISTS staff_payroll_records (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    payroll_period_id UUID NOT NULL REFERENCES payroll_periods(id) ON DELETE CASCADE,
-    staff_id UUID NOT NULL,
+    id TEXT PRIMARY KEY,
+    payroll_period_id TEXT NOT NULL REFERENCES payroll_periods(id) ON DELETE CASCADE,
+    staff_id TEXT NOT NULL,
     staff_name TEXT NOT NULL,
     staff_role TEXT NOT NULL,
-    hospital_id UUID NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
+    hospital_id TEXT NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
     
     -- Activity Summary
     total_activities INTEGER NOT NULL DEFAULT 0,
@@ -209,14 +209,14 @@ CREATE INDEX IF NOT EXISTS idx_staff_payroll_status ON staff_payroll_records(pay
 -- ============================================
 -- Generated payslips for staff (PDF-ready)
 CREATE TABLE IF NOT EXISTS payslips (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    staff_id UUID NOT NULL,
+    id TEXT PRIMARY KEY,
+    staff_id TEXT NOT NULL,
     staff_name TEXT NOT NULL,
     staff_role TEXT NOT NULL,
-    hospital_id UUID NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
+    hospital_id TEXT NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
     
     -- Period
-    period_id UUID NOT NULL REFERENCES payroll_periods(id) ON DELETE CASCADE,
+    period_id TEXT NOT NULL REFERENCES payroll_periods(id) ON DELETE CASCADE,
     period_name TEXT NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
@@ -261,11 +261,11 @@ CREATE INDEX IF NOT EXISTS idx_payslips_status ON payslips(payment_status);
 -- ============================================
 -- Comprehensive post-operative documentation with WHO compliance
 CREATE TABLE IF NOT EXISTS post_operative_notes (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    surgery_id UUID NOT NULL REFERENCES surgeries(id) ON DELETE CASCADE,
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    hospital_id UUID NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
-    admission_id UUID,
+    id TEXT PRIMARY KEY,
+    surgery_id TEXT NOT NULL REFERENCES surgeries(id) ON DELETE CASCADE,
+    patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    hospital_id TEXT NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
+    admission_id TEXT,
     
     -- Basic Details
     procedure_name TEXT NOT NULL,
@@ -280,19 +280,19 @@ CREATE TABLE IF NOT EXISTS post_operative_notes (
     
     -- Surgical Team
     surgeon TEXT NOT NULL,
-    surgeon_id UUID NOT NULL,
+    surgeon_id TEXT NOT NULL,
     surgeon_fee DECIMAL(10,2) DEFAULT 0,
     assistant TEXT,
-    assistant_id UUID,
+    assistant_id TEXT,
     assistant_fee DECIMAL(10,2),
     anaesthetist TEXT,
-    anaesthetist_id UUID,
+    anaesthetist_id TEXT,
     anaesthesia_type TEXT NOT NULL,
     anaesthesia_fee DECIMAL(10,2),
     scrub_nurse TEXT,
-    scrub_nurse_id UUID,
+    scrub_nurse_id TEXT,
     circulating_nurse TEXT,
-    circulating_nurse_id UUID,
+    circulating_nurse_id TEXT,
     
     -- Operative Details
     pre_operative_diagnosis TEXT NOT NULL,
