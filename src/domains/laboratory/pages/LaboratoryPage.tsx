@@ -24,12 +24,13 @@ import {
   Phone,
   Calendar,
   Droplets,
+  Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
-import { generateLabResultPDF } from '../../../utils/clinicalPdfGenerators';
+import { generateLabResultPDF, generateLabRequestFormPDF } from '../../../utils/clinicalPdfGenerators';
 import type { LabRequest, LabTest, LabCategory } from '../../../types';
 import { PatientSelector } from '../../../components/patient';
 
@@ -442,6 +443,45 @@ export default function LaboratoryPage() {
     }
   };
 
+  const handleDownloadRequestForm = async (request: LabRequest) => {
+    const patient = patientMap.get(request.patientId);
+    if (!patient) {
+      toast.error('Patient information not found');
+      return;
+    }
+
+    try {
+      const requester = await db.users.get(request.requestedBy);
+
+      generateLabRequestFormPDF({
+        requestId: request.id,
+        requestedDate: new Date(request.requestedAt),
+        patient: {
+          name: `${patient.firstName} ${patient.lastName}`,
+          hospitalNumber: patient.hospitalNumber,
+          age: patient.dateOfBirth ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
+          gender: patient.gender,
+          phone: patient.phone,
+        },
+        hospitalName: 'CareBridge Innovations in Healthcare',
+        hospitalPhone: '09028724839',
+        hospitalEmail: 'info.carebridge@gmail.com',
+        requestedBy: requester ? `${requester.firstName} ${requester.lastName}` : 'Unknown',
+        priority: request.priority,
+        tests: request.tests.map(test => ({
+          name: test.name,
+          specimen: test.specimen,
+          category: test.category,
+        })),
+        clinicalInfo: request.clinicalInfo,
+      });
+
+      toast.success('Lab request form downloaded');
+    } catch (error) {
+      console.error('Error generating lab request form PDF:', error);
+      toast.error('Failed to generate PDF');
+    }
+  };
   const stats = useMemo(() => {
     if (!labRequests) return { pending: 0, processing: 0, completed: 0, today: 0 };
     const today = new Date();
@@ -652,6 +692,14 @@ export default function LaboratoryPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1">
+                          {/* Download Request Form - always available */}
+                          <button
+                            onClick={() => handleDownloadRequestForm(request)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Download Lab Request Form"
+                          >
+                            <Download size={18} />
+                          </button>
                           {/* Collect Sample - only for pending requests */}
                           {request.status === 'pending' && (
                             <button
@@ -672,7 +720,7 @@ export default function LaboratoryPage() {
                               <Upload size={18} />
                             </button>
                           )}
-                          {/* Download PDF */}
+                          {/* Download Lab Report PDF - when results are available */}
                           <button
                             onClick={() => handleExportLabReport(request)}
                             className="p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"

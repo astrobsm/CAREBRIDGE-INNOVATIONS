@@ -420,10 +420,13 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
 
     // Upsert in batches of 100
     const batchSize = 100;
+    let successCount = 0;
+    let errorCount = 0;
+    
     for (let i = 0; i < preparedRecords.length; i += batchSize) {
       const batch = preparedRecords.slice(i, i + batchSize);
       
-      const { error } = await supabase
+      const { error, data } = await supabase
         .from(cloudTableName)
         .upsert(batch, {
           onConflict: 'id',
@@ -431,13 +434,40 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
         });
 
       if (error) {
-        console.warn(`[CloudSync] Error pushing to ${cloudTableName}:`, error.message);
+        console.error(`[CloudSync] Error pushing to ${cloudTableName}:`, error.message, error.details, error.hint);
+        errorCount += batch.length;
+        
+        // Try individual records if batch fails (to identify problematic records)
+        if (batch.length > 1) {
+          for (const record of batch) {
+            try {
+              const { error: singleError } = await supabase
+                .from(cloudTableName)
+                .upsert(record, { onConflict: 'id' });
+              
+              if (singleError) {
+                console.error(`[CloudSync] Failed record in ${cloudTableName}:`, (record as any).id, singleError.message);
+              } else {
+                successCount++;
+                errorCount--;
+              }
+            } catch {
+              // Individual record failed
+            }
+          }
+        }
+      } else {
+        successCount += batch.length;
       }
     }
     
-    console.log(`[CloudSync] Pushed ${localRecords.length} records to ${cloudTableName}`);
+    if (errorCount > 0) {
+      console.warn(`[CloudSync] Pushed ${successCount}/${localRecords.length} records to ${cloudTableName} (${errorCount} failed)`);
+    } else {
+      console.log(`[CloudSync] Pushed ${localRecords.length} records to ${cloudTableName}`);
+    }
   } catch (error) {
-    console.warn(`[CloudSync] Failed to push ${localTableName}:`, error);
+    console.error(`[CloudSync] Failed to push ${localTableName}:`, error);
   }
 }
 
@@ -524,6 +554,8 @@ export async function syncRecord(localTableName: string, record: Record<string, 
   try {
     const preparedRecord = convertToSupabase(record);
     
+    console.log(`[CloudSync] Syncing record to ${cloudTableName}:`, (record as any).id);
+    
     const { error } = await supabase
       .from(cloudTableName)
       .upsert(preparedRecord, {
@@ -532,12 +564,14 @@ export async function syncRecord(localTableName: string, record: Record<string, 
       });
 
     if (error) {
-      console.warn(`[CloudSync] Error syncing record to ${cloudTableName}:`, error.message);
+      console.error(`[CloudSync] Error syncing record to ${cloudTableName}:`, error.message, error.details, error.hint);
+      // Log the problematic fields for debugging
+      console.error(`[CloudSync] Record keys:`, Object.keys(preparedRecord));
     } else {
-      console.log(`[CloudSync] Record synced to ${cloudTableName}`);
+      console.log(`[CloudSync] Record synced successfully to ${cloudTableName}:`, (record as any).id);
     }
   } catch (error) {
-    console.warn(`[CloudSync] Failed to sync record:`, error);
+    console.error(`[CloudSync] Failed to sync record:`, error);
   }
 }
 

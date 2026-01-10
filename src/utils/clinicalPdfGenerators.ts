@@ -258,6 +258,245 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
   doc.save(`Lab_Report_${patientName}_${format(requestedDate, 'yyyyMMdd')}.pdf`);
 }
 
+// ==================== LAB REQUEST FORM PDF ====================
+
+export interface LabRequestFormPDFOptions {
+  requestId: string;
+  requestedDate: Date;
+  patient: PDFPatientInfo;
+  hospitalName: string;
+  hospitalPhone?: string;
+  hospitalEmail?: string;
+  requestedBy: string;
+  priority: 'routine' | 'urgent' | 'stat';
+  tests: { name: string; specimen: string; category: string }[];
+  clinicalInfo?: string;
+}
+
+export function generateLabRequestFormPDF(options: LabRequestFormPDFOptions): void {
+  const {
+    requestId,
+    requestedDate,
+    patient,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+    requestedBy,
+    priority,
+    tests,
+    clinicalInfo,
+  } = options;
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  const info: PDFDocumentInfo = {
+    title: 'LABORATORY REQUEST FORM',
+    subtitle: `Request #${requestId.slice(0, 8).toUpperCase()}`,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+  };
+
+  let yPos = addBrandedHeader(doc, info);
+
+  // Priority badge - prominently displayed
+  const priorityColors: Record<string, [number, number, number]> = {
+    routine: [34, 197, 94],
+    urgent: [234, 179, 8],
+    stat: [220, 38, 38],
+  };
+
+  // Large priority indicator
+  doc.setFillColor(...(priorityColors[priority] || PDF_COLORS.gray));
+  doc.roundedRect(pageWidth - 50, yPos - 8, 35, 12, 3, 3, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text(priority.toUpperCase(), pageWidth - 32.5, yPos, { align: 'center' });
+
+  yPos += 8;
+
+  // Patient information box
+  yPos = addPatientInfoBox(doc, yPos, patient);
+  yPos += 5;
+
+  // Request details section
+  doc.setFillColor(240, 249, 255);
+  doc.roundedRect(15, yPos, pageWidth - 30, 20, 3, 3, 'F');
+  doc.setDrawColor(59, 130, 246);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(15, yPos, pageWidth - 30, 20, 3, 3, 'S');
+
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Request Details', 20, yPos + 6);
+
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(`Requested By: ${requestedBy}`, 20, yPos + 13);
+  doc.text(`Date/Time: ${format(requestedDate, 'EEEE, MMMM d, yyyy \'at\' h:mm a')}`, pageWidth / 2 - 10, yPos + 13);
+
+  yPos += 28;
+
+  // Clinical information
+  if (clinicalInfo) {
+    doc.setFillColor(254, 249, 195);
+    doc.roundedRect(15, yPos, pageWidth - 30, 16, 2, 2, 'F');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Clinical Information:', 20, yPos + 6);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(8);
+    const clinicalLines = doc.splitTextToSize(clinicalInfo, pageWidth - 45);
+    doc.text(clinicalLines.slice(0, 2), 20, yPos + 11);
+    yPos += 20;
+  }
+
+  // Requested Tests Section
+  yPos = addSectionTitle(doc, yPos, 'Requested Investigations');
+  yPos += 3;
+
+  // Group tests by category
+  const testsByCategory = new Map<string, { name: string; specimen: string }[]>();
+  tests.forEach(test => {
+    const category = test.category || 'Other';
+    if (!testsByCategory.has(category)) {
+      testsByCategory.set(category, []);
+    }
+    testsByCategory.get(category)!.push({ name: test.name, specimen: test.specimen });
+  });
+
+  // Render tests table with categories
+  const colWidths = [90, 60];
+  const startX = 15;
+
+  // Table header
+  doc.setFillColor(59, 130, 246);
+  doc.rect(startX, yPos, pageWidth - 30, 8, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Investigation', startX + 5, yPos + 5.5);
+  doc.text('Specimen Required', startX + colWidths[0] + 5, yPos + 5.5);
+  yPos += 8;
+
+  let rowIndex = 0;
+  testsByCategory.forEach((categoryTests, category) => {
+    // Category header
+    doc.setFillColor(243, 244, 246);
+    doc.rect(startX, yPos, pageWidth - 30, 7, 'F');
+    doc.setTextColor(59, 130, 246);
+    doc.setFontSize(8);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text(category.charAt(0).toUpperCase() + category.slice(1), startX + 3, yPos + 5);
+    yPos += 7;
+
+    // Tests in this category
+    categoryTests.forEach(test => {
+      // Alternating row colors
+      if (rowIndex % 2 === 0) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(startX, yPos, pageWidth - 30, 7, 'F');
+      }
+
+      // Checkbox
+      doc.setDrawColor(...PDF_COLORS.primary);
+      doc.setLineWidth(0.3);
+      doc.rect(startX + 3, yPos + 1.5, 4, 4, 'S');
+      // Check mark
+      doc.setDrawColor(34, 197, 94);
+      doc.setLineWidth(0.8);
+      doc.line(startX + 3.8, yPos + 3.5, startX + 4.8, yPos + 4.8);
+      doc.line(startX + 4.8, yPos + 4.8, startX + 6.5, yPos + 2.2);
+
+      doc.setTextColor(...PDF_COLORS.dark);
+      doc.setFontSize(8);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.text(test.name, startX + 10, yPos + 5);
+      doc.setTextColor(...PDF_COLORS.gray);
+      doc.text(test.specimen, startX + colWidths[0] + 5, yPos + 5);
+
+      yPos += 7;
+      rowIndex++;
+
+      // Check for page break
+      if (yPos > pageHeight - 60) {
+        addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+        doc.addPage();
+        doc.setFillColor(...PDF_COLORS.white);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
+        yPos = 20;
+      }
+    });
+  });
+
+  // Bottom border for table
+  doc.setDrawColor(...PDF_COLORS.primary);
+  doc.setLineWidth(0.5);
+  doc.line(startX, yPos, pageWidth - 15, yPos);
+
+  yPos += 8;
+
+  // Total tests count
+  doc.setFillColor(240, 253, 244);
+  doc.roundedRect(15, yPos, pageWidth - 30, 10, 2, 2, 'F');
+  doc.setTextColor(34, 197, 94);
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text(`Total Investigations Requested: ${tests.length}`, 20, yPos + 6.5);
+  yPos += 15;
+
+  // Specimen collection section
+  yPos = addSectionTitle(doc, yPos, 'For Laboratory Use Only');
+  yPos += 5;
+
+  doc.setFillColor(250, 250, 250);
+  doc.roundedRect(15, yPos, pageWidth - 30, 35, 3, 3, 'F');
+  doc.setDrawColor(...PDF_COLORS.gray);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(15, yPos, pageWidth - 30, 35, 3, 3, 'S');
+
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(8);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+
+  // Collection fields
+  doc.text('Date/Time Collected: ____________________', 20, yPos + 8);
+  doc.text('Collected By: ____________________', pageWidth / 2, yPos + 8);
+
+  doc.text('Sample ID: ____________________', 20, yPos + 16);
+  doc.text('Sample Condition: ☐ Adequate  ☐ Hemolyzed  ☐ Lipemic  ☐ Clotted', pageWidth / 2, yPos + 16);
+
+  doc.text('Date/Time Received: ____________________', 20, yPos + 24);
+  doc.text('Received By: ____________________', pageWidth / 2, yPos + 24);
+
+  doc.text('Comments: ______________________________________________________________________________', 20, yPos + 32);
+
+  yPos += 42;
+
+  // Instructions box
+  doc.setFillColor(254, 242, 242);
+  doc.roundedRect(15, yPos, pageWidth - 30, 14, 2, 2, 'F');
+  doc.setTextColor(...PDF_COLORS.danger);
+  doc.setFontSize(7);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('IMPORTANT INSTRUCTIONS', 20, yPos + 5);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('• Ensure proper patient identification on all samples  • Label samples immediately after collection  • Transport at appropriate temperature', 20, yPos + 10);
+
+  addBrandedFooter(doc, 1, 1);
+
+  const patientName = patient.name.replace(/\s+/g, '_');
+  doc.save(`Lab_Request_${patientName}_${format(requestedDate, 'yyyyMMdd')}.pdf`);
+}
+
 // ==================== CLINICAL ENCOUNTER PDF ====================
 
 export interface DiagnosisPDF {
