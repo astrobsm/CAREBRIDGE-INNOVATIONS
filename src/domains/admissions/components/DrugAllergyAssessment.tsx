@@ -281,12 +281,12 @@ export default function DrugAllergyAssessment({
     };
   }, [allergies, nkda]);
 
-  // Notify parent
-  useMemo(() => {
+  // Notify parent - call explicitly when allergies change
+  const notifyParent = () => {
     if (onAssessmentComplete) {
       onAssessmentComplete(assessment);
     }
-  }, [assessment, onAssessmentComplete]);
+  };
 
   const addAllergy = () => {
     if (!newAllergy.drugName || !newAllergy.reaction) return;

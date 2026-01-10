@@ -129,29 +129,21 @@ export default function NutritionalRiskAssessment({
     return 0;
   }, [weight, prevWeight]);
 
-  // Auto-calculate BMI score
-  useMemo(() => {
-    if (bmi > 0 && !readOnly) {
-      let bmiScore = 0;
-      if (bmi < 18.5) bmiScore = 2;
-      else if (bmi <= 20) bmiScore = 1;
-      
-      if (categoryScores['bmi-score'] !== bmiScore) {
-        setCategoryScores(prev => ({ ...prev, 'bmi-score': bmiScore }));
-      }
+  // Auto-calculate BMI score - computed value only
+  const suggestedBmiScore = useMemo(() => {
+    if (bmi > 0) {
+      if (bmi < 18.5) return 2;
+      if (bmi <= 20) return 1;
     }
-  }, [bmi, readOnly]);
+    return 0;
+  }, [bmi]);
 
-  // Auto-suggest weight loss score
-  useMemo(() => {
-    if (weightLossPercent > 0 && !readOnly && categoryScores['weight-loss'] === undefined) {
-      let wlScore = 0;
-      if (weightLossPercent > 10) wlScore = 2;
-      else if (weightLossPercent >= 5) wlScore = 1;
-      
-      setCategoryScores(prev => ({ ...prev, 'weight-loss': wlScore }));
-    }
-  }, [weightLossPercent, readOnly]);
+  // Auto-suggest weight loss score - computed value only  
+  const suggestedWeightLossScore = useMemo(() => {
+    if (weightLossPercent > 10) return 2;
+    if (weightLossPercent >= 5) return 1;
+    return 0;
+  }, [weightLossPercent]);
 
   // Calculate assessment results
   const assessment = useMemo((): NutritionalAssessmentResult => {
@@ -262,12 +254,12 @@ export default function NutritionalRiskAssessment({
     };
   }, [categoryScores, bmi, weight]);
 
-  // Notify parent component
-  useMemo(() => {
+  // Notify parent - call when assessment is complete
+  const notifyParent = () => {
     if (onAssessmentComplete && Object.keys(categoryScores).length === mustCategories.length) {
       onAssessmentComplete(assessment);
     }
-  }, [assessment, onAssessmentComplete, categoryScores]);
+  };
 
   const handleScoreChange = (categoryId: string, score: number) => {
     if (readOnly) return;

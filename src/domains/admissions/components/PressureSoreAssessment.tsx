@@ -273,12 +273,12 @@ export default function PressureSoreAssessment({
     };
   }, [categoryScores]);
 
-  // Notify parent component when assessment changes
-  useMemo(() => {
+  // Notify parent - call when all categories are complete
+  const notifyParent = () => {
     if (onAssessmentComplete && Object.keys(categoryScores).length === bradenCategories.length) {
       onAssessmentComplete(assessment);
     }
-  }, [assessment, onAssessmentComplete, categoryScores]);
+  };
 
   const handleScoreChange = (categoryId: string, score: number) => {
     if (readOnly) return;

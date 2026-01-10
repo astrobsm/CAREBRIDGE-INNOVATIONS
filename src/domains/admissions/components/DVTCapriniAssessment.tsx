@@ -118,36 +118,36 @@ export default function DVTCapriniAssessment({
   const [selectedFactors, setSelectedFactors] = useState<string[]>(initialSelectedFactors);
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['1-point', '2-point']);
   const [showRecommendations, setShowRecommendations] = useState(true);
+  const [autoSelectDone, setAutoSelectDone] = useState(false);
 
-  // Auto-select age-related factors
-  useMemo(() => {
-    if (patientAge && !readOnly) {
-      const newFactors = [...selectedFactors];
-      
-      // Remove existing age factors first
-      const filtered = newFactors.filter(f => 
-        !['age-41-60', 'age-61-74', 'age-75'].includes(f)
-      );
-      
-      // Add appropriate age factor
-      if (patientAge >= 75) {
-        if (!filtered.includes('age-75')) filtered.push('age-75');
-      } else if (patientAge >= 61) {
-        if (!filtered.includes('age-61-74')) filtered.push('age-61-74');
-      } else if (patientAge >= 41) {
-        if (!filtered.includes('age-41-60')) filtered.push('age-41-60');
-      }
-      
-      // Check BMI
-      if (patientBMI && patientBMI > 25 && !filtered.includes('bmi-25')) {
-        filtered.push('bmi-25');
-      }
-      
-      if (JSON.stringify(filtered) !== JSON.stringify(selectedFactors)) {
-        setSelectedFactors(filtered);
-      }
+  // Auto-select age-related factors (only once on mount)
+  if (!autoSelectDone && patientAge && !readOnly) {
+    const newFactors = [...initialSelectedFactors];
+    
+    // Remove existing age factors first
+    const filtered = newFactors.filter(f => 
+      !['age-41-60', 'age-61-74', 'age-75'].includes(f)
+    );
+    
+    // Add appropriate age factor
+    if (patientAge >= 75) {
+      if (!filtered.includes('age-75')) filtered.push('age-75');
+    } else if (patientAge >= 61) {
+      if (!filtered.includes('age-61-74')) filtered.push('age-61-74');
+    } else if (patientAge >= 41) {
+      if (!filtered.includes('age-41-60')) filtered.push('age-41-60');
     }
-  }, [patientAge, patientBMI]);
+    
+    // Check BMI
+    if (patientBMI && patientBMI > 25 && !filtered.includes('bmi-25')) {
+      filtered.push('bmi-25');
+    }
+    
+    if (JSON.stringify(filtered) !== JSON.stringify(initialSelectedFactors)) {
+      setSelectedFactors(filtered);
+    }
+    setAutoSelectDone(true);
+  }
 
   // Calculate score and generate recommendations
   const assessment = useMemo((): DVTAssessmentResult => {
@@ -275,12 +275,12 @@ export default function DVTCapriniAssessment({
     };
   }, [selectedFactors]);
 
-  // Notify parent component when assessment changes
-  useMemo(() => {
+  // Notify parent - call explicitly when needed
+  const notifyParent = () => {
     if (onAssessmentComplete) {
       onAssessmentComplete(assessment);
     }
-  }, [assessment, onAssessmentComplete]);
+  };
 
   const toggleFactor = (factorId: string) => {
     if (readOnly) return;
