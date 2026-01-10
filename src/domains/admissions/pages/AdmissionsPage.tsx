@@ -231,6 +231,10 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
 
   // Handle proceeding to risk assessments step
   const handleProceedToAssessments = () => {
+    if (!selectedPatient) {
+      toast.error('Please select a patient first');
+      return;
+    }
     setAdmissionStep('assessments');
   };
 
@@ -705,8 +709,22 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
               )}
 
               {/* Step 2: Risk Assessments */}
-              {admissionStep === 'assessments' && selectedPatient && (
+              {admissionStep === 'assessments' && (
                 <div className="p-6 space-y-6">
+                  {!selectedPatient ? (
+                    <div className="text-center py-8">
+                      <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+                      <p className="text-gray-600 mb-4">Patient data is loading...</p>
+                      <button
+                        type="button"
+                        onClick={handleBackToDetails}
+                        className="btn btn-secondary"
+                      >
+                        Back to Details
+                      </button>
+                    </div>
+                  ) : (
+                    <>
                   {/* Patient Summary */}
                   <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-4">
                     <div className="flex items-center justify-between">
@@ -734,7 +752,7 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
                       age: selectedPatient.dateOfBirth 
                         ? new Date().getFullYear() - new Date(selectedPatient.dateOfBirth).getFullYear() 
                         : 0,
-                      gender: selectedPatient.gender as 'Male' | 'Female',
+                      gender: (selectedPatient.gender === 'male' ? 'Male' : selectedPatient.gender === 'female' ? 'Female' : selectedPatient.gender) as 'Male' | 'Female',
                     }}
                     onAssessmentsComplete={(assessments) => setRiskAssessments(assessments)}
                     initialAssessments={riskAssessments}
@@ -759,6 +777,8 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
                       Complete Admission
                     </button>
                   </div>
+                    </>
+                  )}
                 </div>
               )}
             </motion.div>
