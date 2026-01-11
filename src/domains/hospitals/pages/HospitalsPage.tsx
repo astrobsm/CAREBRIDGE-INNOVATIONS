@@ -201,6 +201,8 @@ export default function HospitalsPage() {
 
       if (editingHospital) {
         await db.hospitals.update(editingHospital.id, hospitalData);
+        const updatedHospital = await db.hospitals.get(editingHospital.id);
+        if (updatedHospital) syncRecord('hospitals', updatedHospital as unknown as Record<string, unknown>);
         toast.success('Hospital updated successfully!');
       } else {
         await db.hospitals.add(hospitalData);

@@ -233,6 +233,8 @@ export default function LaboratoryPage() {
         status: 'collected',
         collectedAt: new Date(),
       });
+      const updatedRequest = await db.labRequests.get(selectedRequest.id);
+      if (updatedRequest) syncRecord('labRequests', updatedRequest as unknown as Record<string, unknown>);
       toast.success('Sample collection recorded successfully!');
       setShowCollectionModal(false);
       setSelectedRequest(null);
@@ -261,6 +263,8 @@ export default function LaboratoryPage() {
         status: allTestsHaveResults ? 'completed' : 'processing',
         completedAt: allTestsHaveResults ? new Date() : undefined,
       });
+      const updatedRequest = await db.labRequests.get(selectedRequest.id);
+      if (updatedRequest) syncRecord('labRequests', updatedRequest as unknown as Record<string, unknown>);
 
       toast.success(allTestsHaveResults ? 'All results uploaded - Request completed!' : 'Results saved successfully!');
       setShowResultModal(false);

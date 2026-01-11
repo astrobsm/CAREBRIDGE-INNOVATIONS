@@ -469,6 +469,12 @@ export async function markReminderSent(
     failureReason,
     updatedAt: now,
   });
+  
+  // Sync the updated reminder to cloud
+  const updatedReminder = await db.appointmentReminders.get(reminderId);
+  if (updatedReminder) {
+    syncRecord('appointmentReminders', updatedReminder as unknown as Record<string, unknown>);
+  }
 }
 
 // ============================================

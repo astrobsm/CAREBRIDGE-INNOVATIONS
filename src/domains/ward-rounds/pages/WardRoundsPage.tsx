@@ -355,6 +355,8 @@ export default function WardRoundsPage() {
         startedAt: new Date(),
         updatedAt: new Date(),
       });
+      const updatedRound = await db.wardRounds.get(round.id);
+      if (updatedRound) syncRecord('wardRounds', updatedRound as unknown as Record<string, unknown>);
       toast.success('Ward round started');
     } catch (error) {
       toast.error('Failed to start ward round');
@@ -369,6 +371,8 @@ export default function WardRoundsPage() {
         completedAt: new Date(),
         updatedAt: new Date(),
       });
+      const updatedRound = await db.wardRounds.get(round.id);
+      if (updatedRound) syncRecord('wardRounds', updatedRound as unknown as Record<string, unknown>);
       toast.success('Ward round completed');
     } catch (error) {
       toast.error('Failed to complete ward round');

@@ -440,6 +440,8 @@ export default function BillingPage() {
         status: newStatus,
         paidAt: newStatus === 'paid' ? new Date() : undefined,
       });
+      const updatedInvoice = await db.invoices.get(selectedInvoice.id);
+      if (updatedInvoice) syncRecord('invoices', updatedInvoice as unknown as Record<string, unknown>);
 
       toast.success(`Payment of ₦${amount.toLocaleString()} recorded!`);
       setShowPaymentModal(false);
