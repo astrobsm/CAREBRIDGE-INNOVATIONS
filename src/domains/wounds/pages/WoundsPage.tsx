@@ -24,7 +24,6 @@ import {
   FileText,
   Camera,
   Target,
-  Download,
   Printer,
 } from 'lucide-react';
 import toast from 'react-hot-toast';

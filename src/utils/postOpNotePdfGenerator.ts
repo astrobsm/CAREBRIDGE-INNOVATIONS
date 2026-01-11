@@ -288,7 +288,8 @@ function addSpecimensSection(doc: jsPDF, y: number, note: PostOperativeNote): nu
 
 // Add post-op orders section
 function addPostOpOrdersSection(doc: jsPDF, y: number, note: PostOperativeNote): number {
-  const pageWidth = doc.internal.pageSize.getWidth();
+  const _pageWidth = doc.internal.pageSize.getWidth();
+  void _pageWidth;
   
   y = addSectionHeader(doc, y, 'Post-Operative Orders');
   

@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   FileText,
   User,
-  Calendar,
   CheckSquare,
   Square,
   Pen,
@@ -102,6 +101,7 @@ export default function AMADischargeForm({ admission, patient, onClose, onComple
   });
 
   const formValues = watch();
+  void formValues; // Reserved for form validation display
 
   const toggleRisk = (risk: string) => {
     const newRisks = selectedRisks.includes(risk)

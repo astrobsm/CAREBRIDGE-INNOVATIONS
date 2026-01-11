@@ -254,7 +254,7 @@ export default function BNFDrugCalculator({ patientInfo }: Props) {
       drug: selectedDrug,
       drugName: drug.name,
       drugClass: drug.class,
-      indication: drug.indications.join(', '),
+      indication: drug.class,
       standardDose: drug.standardDose,
       adjustedDose: isRenalAdjusted || hasHepaticImpairment ? 'See adjustments below' : drug.standardDose,
       maxDose: drug.maxDose,
@@ -455,7 +455,7 @@ export default function BNFDrugCalculator({ patientInfo }: Props) {
               <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r-lg">
                 <h4 className="font-bold text-purple-800 mb-2">Side Effects</h4>
                 <ul className="list-disc ml-6 text-sm text-purple-700">
-                  {result.sideEffects.map((item, index) => (
+                  {result.sideEffects?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}
                 </ul>
@@ -485,7 +485,7 @@ export default function BNFDrugCalculator({ patientInfo }: Props) {
             <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
               <h4 className="font-bold text-green-800 mb-2">Clinical Notes</h4>
               <ul className="list-disc ml-6 text-sm text-green-700">
-                {result.specialNotes.map((item, index) => (
+                {result.specialNotes?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>

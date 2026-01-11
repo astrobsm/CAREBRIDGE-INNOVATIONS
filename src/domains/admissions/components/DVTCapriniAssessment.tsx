@@ -17,7 +17,6 @@ import {
   Activity,
   Droplets,
   Shield,
-  Info,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -281,6 +280,7 @@ export default function DVTCapriniAssessment({
       onAssessmentComplete(assessment);
     }
   };
+  void notifyParent;
 
   const toggleFactor = (factorId: string) => {
     if (readOnly) return;

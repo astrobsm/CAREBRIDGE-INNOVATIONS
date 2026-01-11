@@ -46,7 +46,7 @@ import {
   discountPresets,
 } from '../../../data/nonTheaterServices';
 import { surgicalProcedures, calculateSurgicalFeeEstimate } from '../../../data/surgicalFees';
-import { PatientSelector, PatientDisplay } from '../../../components/patient';
+import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
 import { downloadInvoicePDF, shareInvoiceViaWhatsApp } from '../../../utils/billingPdfGenerator';
 import type { InvoicePDFOptions, InvoiceItemPDF } from '../../../utils/billingPdfGenerator';

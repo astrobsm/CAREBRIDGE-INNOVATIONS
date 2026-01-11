@@ -503,7 +503,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
               {/* Fluid Requirement */}
               <div className="bg-blue-100 rounded-lg p-4 text-center">
                 <Droplets className="w-6 h-6 mx-auto text-blue-600 mb-1" />
-                <p className="text-2xl font-bold">{result.parklandFluid.totalFluid24h.toLocaleString()} mL</p>
+                <p className="text-2xl font-bold">{result.parklandFluid?.totalFluid24h?.toLocaleString() || 0} mL</p>
                 <p className="font-semibold text-sm">24-hour Fluid (Parkland)</p>
                 <p className="text-xs text-gray-600">Ringer's Lactate</p>
               </div>
@@ -518,16 +518,16 @@ export default function BurnsCalculator({ patientInfo }: Props) {
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="font-semibold">First 8 hours:</p>
-                  <p>{result.parklandFluid.first8Hours.toLocaleString()} mL total</p>
+                  <p>{result.parklandFluid?.first8Hours?.toLocaleString() || 0} mL total</p>
                   <p className="text-blue-700 font-medium">
-                    Rate: {result.parklandFluid.hourlyFirst8} mL/hour
+                    Rate: {result.parklandFluid?.hourlyFirst8 || 0} mL/hour
                   </p>
                 </div>
                 <div>
                   <p className="font-semibold">Next 16 hours:</p>
-                  <p>{result.parklandFluid.next16Hours.toLocaleString()} mL total</p>
+                  <p>{result.parklandFluid?.next16Hours?.toLocaleString() || 0} mL total</p>
                   <p className="text-blue-700 font-medium">
-                    Rate: {result.parklandFluid.hourlyNext16} mL/hour
+                    Rate: {result.parklandFluid?.hourlyNext16 || 0} mL/hour
                   </p>
                 </div>
               </div>
@@ -542,11 +542,11 @@ export default function BurnsCalculator({ patientInfo }: Props) {
             </div>
 
             {/* Referral Criteria */}
-            {result.referralCriteria.length > 0 && (
+            {(result.referralCriteria?.length ?? 0) > 0 && (
               <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded-r-lg">
                 <h4 className="font-bold text-red-800 mb-2">⚠️ Burns Centre Referral Criteria Met:</h4>
                 <ul className="list-disc ml-6 text-sm text-red-700">
-                  {result.referralCriteria.map((criteria, index) => (
+                  {result.referralCriteria?.map((criteria, index) => (
                     <li key={index}>{criteria}</li>
                   ))}
                 </ul>
@@ -557,7 +557,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
             <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-green-800 mb-2">Wound Care Protocol:</h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                {result.woundCare.map((item, index) => (
+                {result.woundCare?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>
@@ -567,7 +567,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
             <div className="bg-purple-50 border-l-4 border-purple-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-purple-800 mb-2">Pain Management:</h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                {result.painManagement.map((item, index) => (
+                {result.painManagement?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>
@@ -577,8 +577,8 @@ export default function BurnsCalculator({ patientInfo }: Props) {
             <div className="bg-amber-50 border-l-4 border-amber-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-amber-800 mb-2">Nutritional Requirements:</h4>
               <div className="text-sm text-gray-700">
-                <p><strong>Daily Caloric Needs:</strong> {result.nutritionNeeds.calories.toLocaleString()} kcal/day</p>
-                <p><strong>Daily Protein Needs:</strong> {result.nutritionNeeds.protein} g/day</p>
+                <p><strong>Daily Caloric Needs:</strong> {result.nutritionNeeds?.calories?.toLocaleString() || 0} kcal/day</p>
+                <p><strong>Daily Protein Needs:</strong> {result.nutritionNeeds?.protein || 0} g/day</p>
                 <p className="mt-2 text-xs">
                   Formula: 25 kcal/kg + 40 kcal/%TBSA (calories) | 1.5 g/kg + 3 g/%TBSA (protein)
                 </p>
@@ -601,7 +601,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
             <div className="bg-gray-50 border-l-4 border-gray-600 p-4 rounded-r-lg">
               <h4 className="font-bold text-gray-800 mb-2">Monitoring Parameters:</h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                {result.monitoring.map((item, index) => (
+                {result.monitoring?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>

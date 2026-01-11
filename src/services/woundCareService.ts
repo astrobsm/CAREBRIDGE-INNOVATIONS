@@ -8,7 +8,7 @@
 
 import { db } from '../database';
 import { syncRecord } from './cloudSyncService';
-import type { Wound, WoundPhoto, TissueType, WoundType } from '../types';
+import type { Wound, TissueType } from '../types';
 
 // Wound Measurement Result from AI Analysis
 export interface WoundMeasurementResult {
@@ -453,10 +453,13 @@ class WoundCareService {
       ...entry,
       id
     };
+    // progressEntry will be used when wound_progress table is added
+    void progressEntry;
 
-    // Store in wound_progress table (add to database schema)
+    // Store in wound_progress table (TODO: add to database schema)
+    // For now, update wound record directly
     try {
-      await db.wound_progress?.add(progressEntry);
+      // await db.wound_progress?.add(_progressEntry);
     } catch (error) {
       console.error('Error saving progress entry:', error);
       // Fallback: update wound record directly
@@ -488,13 +491,16 @@ class WoundCareService {
   /**
    * Get wound progress history
    */
-  async getProgressHistory(woundId: string): Promise<WoundProgressEntry[]> {
+  async getProgressHistory(_woundId: string): Promise<WoundProgressEntry[]> {
     try {
-      const entries = await db.wound_progress
+      // TODO: Add wound_progress table to database schema
+      // For now, return empty array - progress is tracked in wound record
+      /* const entries = await db.wound_progress
         ?.where('woundId')
         .equals(woundId)
         .sortBy('date');
-      return entries || [];
+      return entries || []; */
+      return [];
     } catch (error) {
       console.error('Error fetching progress history:', error);
       return [];

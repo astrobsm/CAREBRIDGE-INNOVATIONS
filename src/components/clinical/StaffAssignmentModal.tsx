@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion } from 'framer-motion';
 import {
@@ -13,9 +13,7 @@ import {
   Heart,
 } from 'lucide-react';
 import { db } from '../../database';
-import { format } from 'date-fns';
 import { assignStaffToPatient, releaseStaffAssignment } from '../../services/activityBillingService';
-import type { User, StaffPatientAssignment } from '../../types';
 
 interface StaffAssignmentModalProps {
   admissionId: string;
@@ -92,19 +90,22 @@ export default function StaffAssignmentModal({
     
     try {
       const assignmentRole = ['surgeon', 'doctor', 'plastic_surgeon', 'anaesthetist'].includes(staffRole)
-        ? 'primary_doctor' as const
-        : 'primary_nurse' as const;
+        ? 'primary' as const
+        : 'nurse' as const;
       
-      await assignStaffToPatient({
-        patientId,
+      await assignStaffToPatient(
         admissionId,
+        patientId,
+        patientName,
+        '', // hospitalNumber - not available in this context
         staffId,
         staffName,
-        role: assignmentRole,
+        staffRole as any, // staffRole
+        assignmentRole, // assignmentType
+        'current_user', // assignedBy - should come from auth context
         hospitalId,
-        assignedBy: 'current_user', // This should come from auth context
-        notes: `Assigned to patient ${patientName}`,
-      });
+        `Assigned to patient ${patientName}` // notes
+      );
       
       setSuccess(`${staffName} has been assigned to ${patientName}`);
     } catch (err) {
@@ -119,7 +120,7 @@ export default function StaffAssignmentModal({
     setError(null);
     
     try {
-      await releaseStaffAssignment(assignmentId);
+      await releaseStaffAssignment(assignmentId, 'current_user');
       setSuccess(`${staffName} has been released from this patient`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to release staff');
@@ -204,7 +205,7 @@ export default function StaffAssignmentModal({
                         {assignment.staffName}
                       </p>
                       <p className="text-xs text-gray-500 capitalize">
-                        {assignment.role.replace('_', ' ')}
+                        {assignment.assignmentType?.replace('_', ' ') || 'Staff'}
                       </p>
                     </div>
                     <button

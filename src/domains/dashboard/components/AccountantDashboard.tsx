@@ -109,10 +109,12 @@ export default function AccountantDashboard() {
     return Array.from(staffMap.values()).sort((a, b) => b.earnings - a.earnings);
   }, [billingRecords]);
 
-  // Payroll periods
-  const _payrollPeriods = useLiveQuery(async () => {
+  // Payroll periods - used for future implementation
+  const payrollPeriods = useLiveQuery(async () => {
     return db.payrollPeriods.orderBy('startDate').reverse().limit(6).toArray();
   }, []);
+  // Suppress unused warning
+  void payrollPeriods;
 
   // Pending payroll
   const pendingPayroll = useLiveQuery(async () => {
@@ -131,7 +133,7 @@ export default function AccountantDashboard() {
     // Get billing records for these admissions
     const admissionIds = admissions.map(a => a.id);
     const bills = await db.activityBillingRecords
-      .filter(r => r.admissionId && admissionIds.includes(r.admissionId) && r.paymentStatus === 'pending')
+      .filter(r => Boolean(r.admissionId && admissionIds.includes(r.admissionId) && r.paymentStatus === 'pending'))
       .toArray();
     
     // Group by admission

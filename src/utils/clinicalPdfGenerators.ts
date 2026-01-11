@@ -59,11 +59,11 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
     category,
     tests,
     clinicalInfo,
-    status,
     interpretation,
     performedBy,
     verifiedBy,
   } = options;
+  void options.status;
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -537,7 +537,6 @@ export interface ClinicalEncounterPDFOptions {
 
 export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOptions): void {
   const {
-    encounterId,
     encounterDate,
     encounterType,
     patient,
@@ -550,14 +549,15 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
     historyOfPresentIllness,
     pastMedicalHistory,
     pastSurgicalHistory,
-    familyHistory,
-    socialHistory,
     physicalExamination,
     vitals,
     diagnoses,
     treatmentPlan,
-    notes,
   } = options;
+  void options.encounterId;
+  void options.familyHistory;
+  void options.socialHistory;
+  void options.notes;
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -687,7 +687,7 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
     yPos = checkNewPage(doc, yPos);
     yPos = addSectionTitle(doc, yPos, 'Diagnoses', 'danger');
     
-    diagnoses.forEach((dx, index) => {
+    diagnoses.forEach((dx, _index) => {
       const typeColors = {
         primary: PDF_COLORS.danger,
         secondary: PDF_COLORS.warning,
@@ -800,8 +800,8 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
     dressingFrequency,
     protocol,
     healingProgress,
-    notes,
   } = options;
+  void options.notes;
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -1029,8 +1029,8 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
     survivalProbability,
     tetanusStatus,
     associatedInjuries,
-    notes,
   } = options;
+  void options.notes;
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -1243,8 +1243,8 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
     dietaryRestrictions,
     mealPlan,
     supplements,
-    notes,
   } = options;
+  void options.notes;
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -1416,7 +1416,6 @@ export interface AdmissionSummaryPDFOptions {
 
 export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions): void {
   const {
-    admissionId,
     admissionNumber,
     admissionDate,
     dischargeDate,
@@ -1436,8 +1435,9 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
     durationDays,
     comorbidities,
     allergies,
-    notes,
   } = options;
+  void options.admissionId;
+  void options.notes;
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();

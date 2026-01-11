@@ -385,9 +385,9 @@ export default function MUSTCalculator({ patientInfo }: Props) {
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <h4 className="font-semibold mb-2">Score Breakdown:</h4>
               <ul className="text-sm space-y-1">
-                <li><strong>Step 1 (BMI):</strong> {result.scoreBreakdown.bmi}</li>
-                <li><strong>Step 2 (Weight Loss):</strong> {result.scoreBreakdown.weightLoss}</li>
-                <li><strong>Step 3 (Acute Disease):</strong> {result.scoreBreakdown.acuteDisease}</li>
+                <li><strong>Step 1 (BMI):</strong> {result.scoreBreakdown?.bmi ?? 0}</li>
+                <li><strong>Step 2 (Weight Loss):</strong> {result.scoreBreakdown?.weightLoss ?? 0}</li>
+                <li><strong>Step 3 (Acute Disease):</strong> {result.scoreBreakdown?.acuteDisease ?? 0}</li>
               </ul>
             </div>
 
@@ -401,7 +401,7 @@ export default function MUSTCalculator({ patientInfo }: Props) {
                 Management Plan (Steps 4 & 5):
               </h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                {result.managementPlan.map((item, index) => (
+                {result.managementPlan?.map((item, index) => (
                   <li key={index} className={item.includes('⚠️') ? 'font-semibold text-red-600' : ''}>
                     {item}
                   </li>
@@ -417,7 +417,7 @@ export default function MUSTCalculator({ patientInfo }: Props) {
               <h4 className="font-bold text-blue-800 mb-2">Estimated Daily Requirements:</h4>
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div className="bg-white rounded p-3">
-                  <p className="text-2xl font-bold text-blue-600">{result.estimatedCalories.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-blue-600">{result.estimatedCalories?.toLocaleString() ?? 0}</p>
                   <p className="text-gray-600">kcal/day</p>
                 </div>
                 <div className="bg-white rounded p-3">
@@ -431,18 +431,18 @@ export default function MUSTCalculator({ patientInfo }: Props) {
             <div className="bg-amber-50 border-l-4 border-amber-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-amber-800 mb-2">Dietary Recommendations:</h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                {result.dietaryRecommendations.map((item, index) => (
+                {result.dietaryRecommendations?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>
             </div>
 
             {/* Supplement Recommendations */}
-            {result.supplementRecommendations.length > 0 && (
+            {(result.supplementRecommendations?.length ?? 0) > 0 && (
               <div className="bg-purple-50 border-l-4 border-purple-600 p-4 mb-4 rounded-r-lg">
                 <h4 className="font-bold text-purple-800 mb-2">Supplement Recommendations:</h4>
                 <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                  {result.supplementRecommendations.map((item, index) => (
+                  {result.supplementRecommendations?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}
                 </ul>
@@ -450,11 +450,11 @@ export default function MUSTCalculator({ patientInfo }: Props) {
             )}
 
             {/* Additional Considerations */}
-            {result.additionalConsiderations.length > 0 && (
+            {(result.additionalConsiderations?.length ?? 0) > 0 && (
               <div className="bg-indigo-50 border-l-4 border-indigo-600 p-4 rounded-r-lg">
                 <h4 className="font-bold text-indigo-800 mb-2">Special Considerations:</h4>
                 <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                  {result.additionalConsiderations.map((item, index) => (
+                  {result.additionalConsiderations?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}
                 </ul>

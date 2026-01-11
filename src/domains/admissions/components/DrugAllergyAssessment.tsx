@@ -11,7 +11,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle,
   AlertOctagon,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Download,
@@ -287,6 +286,7 @@ export default function DrugAllergyAssessment({
       onAssessmentComplete(assessment);
     }
   };
+  void notifyParent;
 
   const addAllergy = () => {
     if (!newAllergy.drugName || !newAllergy.reaction) return;

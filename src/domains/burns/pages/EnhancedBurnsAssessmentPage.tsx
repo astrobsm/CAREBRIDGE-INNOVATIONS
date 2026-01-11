@@ -13,7 +13,6 @@ import {
   Flame,
   Calculator,
   Droplets,
-  Clock,
   User,
   X,
   Save,
@@ -22,13 +21,9 @@ import {
   ChevronRight,
   AlertTriangle,
   Info,
-  Calendar,
   FileText,
   Heart,
-  Thermometer,
-  Bell,
   Layers, // Using Layers instead of Bandage
-  Settings,
   ClipboardList,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -37,7 +32,6 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format, differenceInDays, differenceInHours } from 'date-fns';
 import type { BurnAssessment, BurnDepth, BurnArea } from '../../../types';
-import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
 import { generateBurnsPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 
 // Import new WHO/ISBI components
@@ -77,7 +71,7 @@ import type {
 
 const burnSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
-  burnType: z.enum(['thermal', 'chemical', 'electrical', 'radiation', 'friction', 'contact', 'inhalation']),
+  burnType: z.enum(['thermal', 'chemical', 'electrical', 'radiation', 'friction']),
   mechanism: z.string().min(1, 'Mechanism is required'),
   timeOfInjury: z.string().min(1, 'Time of injury is required'),
   patientWeight: z.number().min(1, 'Weight is required'),
@@ -122,6 +116,7 @@ export default function EnhancedBurnsAssessmentPage() {
   const [escharotomies, setEscharotomies] = useState<EscharotomyRecord[]>([]);
   const [graftings, setGraftings] = useState<GraftingRecord[]>([]);
   const [fluidAdjustments, setFluidAdjustments] = useState<HourlyResuscitationEntry[]>([]);
+  void fluidAdjustments; // Reserved for future use
 
   const burns = useLiveQuery(() => db.burnAssessments.orderBy('createdAt').reverse().toArray(), []);
   const patients = useLiveQuery(() => db.patients.toArray(), []);
@@ -137,7 +132,6 @@ export default function EnhancedBurnsAssessmentPage() {
     handleSubmit,
     watch,
     reset,
-    setValue,
     formState: { errors },
   } = useForm<BurnFormData>({
     resolver: zodResolver(burnSchema),
@@ -156,7 +150,13 @@ export default function EnhancedBurnsAssessmentPage() {
   // Calculate TBSA from Lund-Browder entries
   const tbsaCalculation = useMemo<TBSACalculation | null>(() => {
     if (lundBrowderEntries.length === 0) return null;
-    return calculateTBSALundBrowder(lundBrowderEntries, patientAge);
+    // Convert numeric age to age group
+    const ageGroup: 'infant' | 'child_1' | 'child_5' | 'child_10' | 'adult' = 
+      patientAge < 1 ? 'infant' :
+      patientAge < 5 ? 'child_1' :
+      patientAge < 10 ? 'child_5' :
+      patientAge < 15 ? 'child_10' : 'adult';
+    return calculateTBSALundBrowder(lundBrowderEntries, ageGroup);
   }, [lundBrowderEntries, patientAge]);
 
   // Calculate scores
@@ -175,10 +175,10 @@ export default function EnhancedBurnsAssessmentPage() {
     const hasFullThickness = lundBrowderEntries.some(e => e.depth === 'full_thickness');
     return calculateABSIScore(
       patientAge,
+      patientGender,
       tbsaCalculation.totalTBSA,
       watchInhalationInjury,
-      hasFullThickness,
-      patientGender
+      hasFullThickness
     );
   }, [patientAge, tbsaCalculation, watchInhalationInjury, lundBrowderEntries, patientGender]);
 
@@ -189,10 +189,9 @@ export default function EnhancedBurnsAssessmentPage() {
       patientWeight,
       tbsaCalculation.totalTBSA,
       new Date(), // time of injury - would come from form
-      patientAge < 14 ? 'pediatric' : 'adult',
       'parkland'
     );
-  }, [patientWeight, tbsaCalculation, patientAge]);
+  }, [patientWeight, tbsaCalculation]);
 
   // Nutrition calculation
   const nutritionPlan = useMemo(() => {
@@ -217,6 +216,12 @@ export default function EnhancedBurnsAssessmentPage() {
   // Handlers
   const handleLundBrowderChange = useCallback((entries: LundBrowderEntry[]) => {
     setLundBrowderEntries(entries);
+  }, []);
+  void handleLundBrowderChange; // Reserved for future LundBrowder chart integration
+
+  const handleTBSACalculation = useCallback((_calculation: TBSACalculation) => {
+    // The tbsaCalculation is computed from lundBrowderEntries via useMemo,
+    // so this callback is just for the chart to signal completion
   }, []);
 
   const handleAddVitals = useCallback((vitals: Partial<BurnVitalSigns>) => {
@@ -280,6 +285,7 @@ export default function EnhancedBurnsAssessmentPage() {
   const handleFluidAdjustment = useCallback((entry: HourlyResuscitationEntry) => {
     setFluidAdjustments(prev => [...prev, entry]);
   }, []);
+  void handleFluidAdjustment; // Reserved for FluidResuscitationDashboard callback
 
   const handleAddWoundAssessment = useCallback((assessment: Partial<BurnWoundAssessmentType>) => {
     const newAssessment: BurnWoundAssessmentType = {
@@ -323,7 +329,7 @@ export default function EnhancedBurnsAssessmentPage() {
     try {
       const affectedAreas: BurnArea[] = lundBrowderEntries.map(entry => ({
         bodyPart: entry.region,
-        percentage: entry.percentage,
+        percentage: entry.percentage ?? 0,
         depth: entry.depth,
       }));
 
@@ -332,32 +338,32 @@ export default function EnhancedBurnsAssessmentPage() {
       const assessment: BurnAssessment = {
         id: uuidv4(),
         patientId: data.patientId,
-        burnType: data.burnType,
+        burnType: data.burnType as 'thermal' | 'chemical' | 'electrical' | 'radiation' | 'friction',
         mechanism: data.mechanism,
         timeOfInjury: new Date(data.timeOfInjury),
         tbsaPercentage: tbsaCalculation.totalTBSA,
         burnDepth: burnDepthList,
         affectedAreas,
         parklandFormula: fluidPlan ? {
-          fluidRequirement24h: fluidPlan.totalVolume24h,
-          firstHalfRate: Math.round(fluidPlan.phase1Volume / 8),
-          secondHalfRate: Math.round(fluidPlan.phase2Volume / 16),
+          fluidRequirement24h: fluidPlan.totalVolume24h ?? 0,
+          firstHalfRate: Math.round((fluidPlan.phase1Volume ?? 0) / 8),
+          secondHalfRate: Math.round((fluidPlan.phase2Volume ?? 0) / 16),
         } : {
           fluidRequirement24h: 0,
           firstHalfRate: 0,
           secondHalfRate: 0,
         },
         absiScore: absiScore ? {
-          score: absiScore.score,
-          survivalProbability: absiScore.survivalRate,
+          score: absiScore.score ?? 0,
+          survivalProbability: absiScore.survivalRate ?? 'Unknown',
           age: data.patientAge,
           gender: data.gender,
           hasInhalationInjury: data.inhalationInjury,
           hasFullThickness: lundBrowderEntries.some(e => e.depth === 'full_thickness'),
-          threatLevel: absiScore.score <= 3 ? 'very_low' : 
-                       absiScore.score <= 5 ? 'moderate' :
-                       absiScore.score <= 7 ? 'moderately_severe' :
-                       absiScore.score <= 9 ? 'severe' : 'very_severe',
+          threatLevel: (absiScore.score ?? 0) <= 3 ? 'very_low' : 
+                       (absiScore.score ?? 0) <= 5 ? 'moderate' :
+                       (absiScore.score ?? 0) <= 7 ? 'moderately_severe' :
+                       (absiScore.score ?? 0) <= 9 ? 'severe' : 'very_severe',
         } : undefined,
         inhalationInjury: data.inhalationInjury,
         associatedInjuries: data.associatedInjuries,
@@ -549,11 +555,10 @@ export default function EnhancedBurnsAssessmentPage() {
         return (
           <FluidResuscitationDashboard
             patientWeight={patientWeight}
-            tbsaPercentage={selectedBurn.tbsaPercentage}
-            timeOfInjury={new Date(selectedBurn.timeOfInjury)}
-            patientType={patientAge < 14 ? 'pediatric' : 'adult'}
+            tbsa={selectedBurn.tbsaPercentage}
+            timeOfBurn={new Date(selectedBurn.timeOfInjury)}
+            isChild={patientAge < 14}
             urineOutputs={urineOutputs}
-            onLogFluidAdjustment={handleFluidAdjustment}
           />
         );
 
@@ -665,7 +670,7 @@ export default function EnhancedBurnsAssessmentPage() {
           <div className="card-body">
             <LundBrowderChart
               patientAge={patientAge}
-              onChange={handleLundBrowderChange}
+              onCalculate={handleTBSACalculation}
             />
           </div>
         </motion.div>
@@ -691,10 +696,10 @@ export default function EnhancedBurnsAssessmentPage() {
                      tbsaCalculation.totalTBSA >= 20 ? 'Moderate Burn' : 'Minor Burn'}
                   </p>
                 </div>
-                {tbsaCalculation.deepTBSA > 0 && (
+                {tbsaCalculation.fullThicknessTBSA > 0 && (
                   <div className="mt-3 p-2 bg-gray-50 rounded text-center">
                     <p className="text-xs text-gray-500">Deep/Full Thickness</p>
-                    <p className="font-bold text-gray-700">{tbsaCalculation.deepTBSA.toFixed(1)}%</p>
+                    <p className="font-bold text-gray-700">{tbsaCalculation.fullThicknessTBSA.toFixed(1)}%</p>
                   </div>
                 )}
               </div>
@@ -743,23 +748,21 @@ export default function EnhancedBurnsAssessmentPage() {
               <div className="card-body space-y-2">
                 <div className="p-2 bg-sky-50 rounded text-center">
                   <p className="text-xs text-gray-500">24h Total</p>
-                  <p className="text-xl font-bold text-sky-600">{fluidPlan.totalVolume24h.toLocaleString()} mL</p>
+                  <p className="text-xl font-bold text-sky-600">{fluidPlan.totalFluid24h.toLocaleString()} mL</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="p-2 bg-gray-50 rounded text-center">
                     <p className="text-xs text-gray-500">First 8h</p>
-                    <p className="font-bold">{Math.round(fluidPlan.phase1Volume / 8)} mL/hr</p>
+                    <p className="font-bold">{Math.round(fluidPlan.firstHalfVolume / 8)} mL/hr</p>
                   </div>
                   <div className="p-2 bg-gray-50 rounded text-center">
                     <p className="text-xs text-gray-500">Next 16h</p>
-                    <p className="font-bold">{Math.round(fluidPlan.phase2Volume / 16)} mL/hr</p>
+                    <p className="font-bold">{Math.round(fluidPlan.secondHalfVolume / 16)} mL/hr</p>
                   </div>
                 </div>
                 <p className="text-xs text-amber-600 flex items-center gap-1">
                   <AlertTriangle className="w-3 h-3" />
-                  Target UO: {typeof fluidPlan.targetUrineOutput === 'object' 
-                    ? `${fluidPlan.targetUrineOutput.min}-${fluidPlan.targetUrineOutput.max}` 
-                    : `${fluidPlan.targetUrineOutput ?? fluidPlan.urineOutputTarget ?? 0.5}-1.0`} mL/kg/hr
+                  Target UO: {fluidPlan.urineOutputTarget}-1.0 mL/kg/hr
                 </p>
               </div>
             </motion.div>

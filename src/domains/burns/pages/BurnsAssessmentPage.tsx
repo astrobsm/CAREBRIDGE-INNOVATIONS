@@ -32,7 +32,7 @@ import { format, differenceInDays } from 'date-fns';
 import type { BurnAssessment, BurnDepth, BurnArea } from '../../../types';
 import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
 import { generateBurnsPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
-import { PatientSelector, PatientDisplay } from '../../../components/patient';
+import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
 import { AIBurnExpert } from '../components';
 
@@ -139,6 +139,7 @@ export default function BurnsAssessmentPage() {
   const [patientAge, setPatientAge] = useState(30);
   const [patientGender, setPatientGender] = useState<'male' | 'female'>('male');
   const [patientWeightState, setPatientWeightState] = useState(70);
+  void setPatientWeightState; // Reserved for future weight adjustment UI
 
   const burns = useLiveQuery(() => db.burnAssessments.orderBy('createdAt').reverse().toArray(), []);
   

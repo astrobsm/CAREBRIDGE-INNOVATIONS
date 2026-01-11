@@ -4,9 +4,7 @@ import { format } from 'date-fns';
 import {
   FileText,
   Search,
-  Filter,
   ChevronRight,
-  Plus,
   Calendar,
   User,
   Scissors,
@@ -269,7 +267,7 @@ export default function PostOpNotesListPage() {
                     </span>
                     <span>•</span>
                     <span>
-                      {surgery.postOpNote.patientEducation?.length || 0} education item(s)
+                      {surgery.postOpNote.patientEducation ? 'Education provided' : 'No education'}
                     </span>
                     {surgery.postOpNote.educationDeliveredAt && (
                       <>

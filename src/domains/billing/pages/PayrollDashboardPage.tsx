@@ -4,22 +4,14 @@ import { motion } from 'framer-motion';
 import {
   DollarSign,
   Users,
-  Calendar,
-  FileText,
-  Download,
   Check,
   Clock,
-  AlertCircle,
-  ChevronRight,
-  Filter,
   Search,
   CreditCard,
-  TrendingUp,
-  Building2,
 } from 'lucide-react';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { 
   formatCurrency, 
   createPayrollPeriod, 
@@ -27,7 +19,6 @@ import {
   markPayrollAsPaid 
 } from '../../../services/activityBillingService';
 import { REVENUE_SHARE_CONFIG } from '../../../data/billingActivities';
-import type { PayrollPeriod, StaffPayrollRecord } from '../../../types';
 
 export default function PayrollDashboardPage() {
   const { user } = useAuth();
@@ -109,17 +100,17 @@ export default function PayrollDashboardPage() {
       const now = new Date();
       const periodName = format(now, 'MMMM yyyy');
       
-      const periodId = await createPayrollPeriod(
-        startOfMonth(now).toISOString(),
-        endOfMonth(now).toISOString(),
+      const newPeriod = await createPayrollPeriod(
+        user?.hospitalId || '',
         periodName,
-        user?.hospitalId
+        startOfMonth(now),
+        endOfMonth(now)
       );
       
       // Calculate payroll for this period
-      await calculatePayrollForPeriod(periodId);
+      await calculatePayrollForPeriod(newPeriod.id);
       
-      setSelectedPeriod(periodId);
+      setSelectedPeriod(newPeriod.id);
       setShowNewPeriodModal(false);
     } catch (error) {
       console.error('Failed to create payroll period:', error);

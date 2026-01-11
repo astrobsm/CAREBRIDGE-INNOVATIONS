@@ -137,6 +137,7 @@ export default function NutritionalRiskAssessment({
     }
     return 0;
   }, [bmi]);
+  void suggestedBmiScore;
 
   // Auto-suggest weight loss score - computed value only  
   const suggestedWeightLossScore = useMemo(() => {
@@ -144,6 +145,7 @@ export default function NutritionalRiskAssessment({
     if (weightLossPercent >= 5) return 1;
     return 0;
   }, [weightLossPercent]);
+  void suggestedWeightLossScore;
 
   // Calculate assessment results
   const assessment = useMemo((): NutritionalAssessmentResult => {
@@ -260,6 +262,7 @@ export default function NutritionalRiskAssessment({
       onAssessmentComplete(assessment);
     }
   };
+  void notifyParent;
 
   const handleScoreChange = (categoryId: string, score: number) => {
     if (readOnly) return;
@@ -576,6 +579,7 @@ export default function NutritionalRiskAssessment({
       {mustCategories.map(category => {
         const isComplete = categoryScores[category.id] !== undefined;
         const selectedOption = category.options.find(o => o.score === categoryScores[category.id]);
+        void selectedOption;
         const Icon = category.id === 'bmi-score' ? Scale :
                      category.id === 'weight-loss' ? TrendingDown :
                      Stethoscope;

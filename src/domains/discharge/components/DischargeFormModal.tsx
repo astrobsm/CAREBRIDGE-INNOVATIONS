@@ -11,11 +11,9 @@ import { motion } from 'framer-motion';
 import {
   X,
   Save,
-  User,
   FileText,
   Pill,
   Calendar,
-  Phone,
   AlertTriangle,
   Plus,
   Trash2,

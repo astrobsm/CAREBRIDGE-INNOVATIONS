@@ -4,7 +4,7 @@
 // ============================================================
 
 import { db } from '../database/db';
-import { supabase, isSupabaseConfigured, LOCAL_TO_CLOUD_TABLE } from './supabaseClient';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { syncRecord } from './cloudSyncService';
 import type {
   Patient,
@@ -176,7 +176,7 @@ class PatientService {
 
       // Sort
       patients.sort((a, b) => {
-        let valueA: unknown, valueB: unknown;
+        let valueA: string | number, valueB: string | number;
         switch (sortBy) {
           case 'name':
             valueA = `${a.firstName} ${a.lastName}`.toLowerCase();
@@ -424,7 +424,7 @@ class PatientService {
   async getScheduledForSurgery(date?: Date): Promise<PatientWithDetails[]> {
     try {
       let surgeries = await db.surgeries
-        .filter(s => s.status === 'scheduled' || s.status === 'planned')
+        .filter(s => s.status === 'scheduled')
         .toArray();
 
       if (date) {
@@ -514,26 +514,25 @@ class PatientService {
       firstName: data.first_name as string,
       lastName: data.last_name as string,
       middleName: data.middle_name as string | undefined,
-      dateOfBirth: data.date_of_birth ? new Date(data.date_of_birth as string) : undefined,
+      dateOfBirth: data.date_of_birth ? new Date(data.date_of_birth as string) : new Date(),
       gender: data.gender as 'male' | 'female',
       phone: data.phone as string,
       email: data.email as string | undefined,
-      address: data.address as string | undefined,
-      city: data.city as string | undefined,
-      state: data.state as string | undefined,
+      address: data.address as string || '',
+      city: data.city as string || '',
+      state: data.state as string || '',
       occupation: data.occupation as string | undefined,
-      maritalStatus: data.marital_status as string | undefined,
-      bloodGroup: data.blood_group as string | undefined,
-      genotype: data.genotype as string | undefined,
-      allergies: data.allergies as string[] | undefined,
-      emergencyContact: data.emergency_contact as Patient['emergencyContact'] | undefined,
-      nextOfKin: data.next_of_kin as Patient['nextOfKin'] | undefined,
-      insurance: data.insurance as Patient['insurance'] | undefined,
-      registeredHospitalId: data.registered_hospital_id as string | undefined,
-      isActive: data.is_active as boolean,
+      maritalStatus: (data.marital_status as 'single' | 'married' | 'divorced' | 'widowed') || 'single',
+      bloodGroup: data.blood_group as Patient['bloodGroup'] | undefined,
+      genotype: data.genotype as Patient['genotype'] | undefined,
+      allergies: (data.allergies as string[]) || [],
+      chronicConditions: (data.chronic_conditions as string[]) || [],
+      nextOfKin: data.next_of_kin as Patient['nextOfKin'] || { name: '', relationship: '', phone: '' },
+      registeredHospitalId: data.registered_hospital_id as string || '',
+      isActive: data.is_active as boolean ?? true,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),
-    } as Patient;
+    };
   }
 
   /**

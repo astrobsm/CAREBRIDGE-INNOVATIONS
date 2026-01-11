@@ -34,10 +34,12 @@ export default function LabScientistDashboard() {
     }
   }, [user?.id, statsPeriod]);
 
-  // All lab investigations
-  const _allInvestigations = useLiveQuery(async () => {
+  // All lab investigations - used for statistics
+  const allInvestigations = useLiveQuery(async () => {
     return db.investigations.toArray();
   }, []);
+  // Suppress unused warning
+  void allInvestigations;
 
   // Pending investigations (requested but not started)
   const pendingInvestigations = useLiveQuery(async () => {
@@ -73,12 +75,14 @@ export default function LabScientistDashboard() {
       .toArray();
   }, []);
 
-  // Blood typing pending
-  const _bloodTypingPending = useLiveQuery(async () => {
+  // Blood typing pending - used for dashboard stat
+  const bloodTypingPending = useLiveQuery(async () => {
     return db.transfusionMonitoringCharts
       .filter(t => t.status === 'template' || t.status === 'in_progress')
       .count();
   }, []);
+  // Suppress unused warning
+  void bloodTypingPending;
 
   // Get investigations based on filter
   const displayedInvestigations = useLiveQuery(async () => {

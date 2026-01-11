@@ -5,7 +5,7 @@
  * following WHO Surgical Safety Checklist standards.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion } from 'framer-motion';
@@ -16,22 +16,17 @@ import {
   Download,
   Share2,
   ArrowLeft,
-  Clock,
   User,
   Scissors,
   Pill,
   Activity,
   Heart,
   BookOpen,
-  Send,
-  Save,
-  Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
-import type { PostOperativeNote, Surgery, Patient, Hospital } from '../../../types';
 import { downloadPostOpNotePDF, sharePostOpNoteViaWhatsApp } from '../../../utils/postOpNotePdfGenerator';
 import { markPdfGenerated, markSharedViaWhatsApp, markEducationDelivered } from '../../../services/postOperativeNoteService';
 

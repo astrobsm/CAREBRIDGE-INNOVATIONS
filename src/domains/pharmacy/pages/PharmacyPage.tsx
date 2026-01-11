@@ -27,7 +27,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { format } from 'date-fns';
 import { generatePrescriptionPDF, generateDispensingSlipPDF } from '../../../utils/prescriptionPdfGenerator';
 import type { Prescription, Medication, MedicationRoute } from '../../../types';
-import { PatientSelector, PatientDisplay } from '../../../components/patient';
+import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
 
 // BNF-adapted medication database for Africa

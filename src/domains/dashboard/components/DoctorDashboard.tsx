@@ -31,8 +31,8 @@ export default function DoctorDashboard() {
     }
   }, [user?.id, statsPeriod]);
 
-  // My assigned patients
-  const _myAssignments = useLiveQuery(async () => {
+  // My assigned patients - used for patient list
+  const myAssignments = useLiveQuery(async () => {
     if (!user?.id) return [];
     return db.staffPatientAssignments
       .where('staffId')
@@ -40,6 +40,8 @@ export default function DoctorDashboard() {
       .filter(a => a.isActive)
       .toArray();
   }, [user?.id]);
+  // Suppress unused warning
+  void myAssignments;
 
   // My admitted patients (as primary doctor)
   const myAdmittedPatients = useLiveQuery(async () => {

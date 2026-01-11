@@ -17,7 +17,6 @@ import {
   Bed,
   Activity,
   Droplets,
-  Info,
   HeartPulse,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -279,6 +278,7 @@ export default function PressureSoreAssessment({
       onAssessmentComplete(assessment);
     }
   };
+  void notifyParent;
 
   const handleScoreChange = (categoryId: string, score: number) => {
     if (readOnly) return;

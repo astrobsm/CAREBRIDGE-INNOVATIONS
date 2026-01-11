@@ -14,12 +14,9 @@ import {
   AlertTriangle,
   RefreshCw,
   Search,
-  Filter,
   Bell,
-  MessageCircle,
-  ChevronRight,
 } from 'lucide-react';
-import { format, isAfter, isBefore, addDays, differenceInDays } from 'date-fns';
+import { format, isBefore, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
@@ -37,6 +34,7 @@ export default function FollowUpTracker({ onClose }: Props) {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [periodFilter, setPeriodFilter] = useState<FilterPeriod>('week');
   const [selectedSummary, setSelectedSummary] = useState<DischargeSummary | null>(null);
+  void selectedSummary; void setSelectedSummary; // Reserved for detail modal
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   // Fetch data
@@ -197,7 +195,7 @@ export default function FollowUpTracker({ onClose }: Props) {
     }
   };
 
-  const handleSendReminder = async (patientName: string, phone: string, appointmentDate: Date) => {
+  const handleSendReminder = async (patientName: string, phone: string, _appointmentDate: Date) => {
     // In a real app, this would integrate with SMS/notification service
     toast.success(`Reminder sent to ${patientName} at ${phone}`);
   };

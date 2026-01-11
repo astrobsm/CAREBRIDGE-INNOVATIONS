@@ -94,7 +94,8 @@ interface AdmissionsPageProps {
   embedded?: boolean;
 }
 
-export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps) {
+export default function AdmissionsPage({ embedded: _embedded = false }: AdmissionsPageProps) {
+  void _embedded; // Reserved for future embedded mode support
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);

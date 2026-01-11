@@ -19,10 +19,9 @@ import type {
   PostOperativePatientEducation,
   PostOperativeSpecimen,
   PostOperativeLabRequest,
-  PostOperativeMedication,
+  PostoperativeMedication,
   Surgery,
   Patient,
-  AnaesthesiaType,
   SpecimenType,
 } from '../types';
 import { recordBillableActivity } from './activityBillingService';
@@ -261,7 +260,7 @@ const defaultEducationTemplate: PostOperativePatientEducation = {
 // Function to generate patient education based on procedure
 export function generatePatientEducation(
   procedureName: string,
-  surgeonNotes?: string
+  _surgeonNotes?: string
 ): PostOperativePatientEducation {
   const lowerProcedure = procedureName.toLowerCase();
   
@@ -294,7 +293,7 @@ export function generatePatientEducation(
 
 export function generateLabRequestsForSpecimens(
   specimens: PostOperativeSpecimen[],
-  patientId: string,
+  _patientId: string,
   surgeryId: string,
   requestedBy: string
 ): PostOperativeLabRequest[] {
@@ -357,7 +356,7 @@ export async function createPostOperativeNote(
     position: string;
     dietInstructions: string;
     ivFluids?: string;
-    medications: PostOperativeMedication[];
+    medications: PostoperativeMedication[];
     drainCare?: string;
     catheterCare?: string;
   },

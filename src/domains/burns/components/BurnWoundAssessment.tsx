@@ -253,11 +253,11 @@ export default function BurnWoundAssessmentComponent({
                     <h4 className="font-medium text-gray-900">{assessment.region}</h4>
                     <p className="text-sm text-gray-500 flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      {format(new Date(assessment.date), 'dd MMM yyyy HH:mm')}
+                      {assessment.date ? format(new Date(assessment.date), 'dd MMM yyyy HH:mm') : 'No date'}
                     </p>
                   </div>
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${getDepthColor(assessment.depth)}`}>
-                    {assessment.depth.replace(/_/g, ' ')}
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${getDepthColor((assessment.depth || 'superficial') as BurnDepthType)}`}>
+                    {assessment.depth?.replace(/_/g, ' ') || 'Unknown'}
                   </span>
                 </div>
                 
@@ -313,7 +313,7 @@ export default function BurnWoundAssessmentComponent({
                   <div>
                     <h4 className="font-medium text-gray-900">{record.location}</h4>
                     <p className="text-sm text-gray-500">
-                      {format(new Date(record.date), 'dd MMM yyyy HH:mm')}
+                      {record.date ? format(new Date(record.date), 'dd MMM yyyy HH:mm') : 'No date'}
                     </p>
                   </div>
                   <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
@@ -357,7 +357,7 @@ export default function BurnWoundAssessmentComponent({
                       {record.graftType.replace(/_/g, ' ')} Graft
                     </h4>
                     <p className="text-sm text-gray-500">
-                      {format(new Date(record.date), 'dd MMM yyyy')}
+                      {record.date ? format(new Date(record.date), 'dd MMM yyyy') : 'No date'}
                     </p>
                   </div>
                   {record.takePercentage !== undefined && (

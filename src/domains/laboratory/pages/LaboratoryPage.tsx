@@ -157,8 +157,9 @@ const labTests: { category: LabCategory; name: string; tests: { name: string; sp
   },
 ];
 
-// GFR Calculator
-const _calculateGFR = (creatinine: number, age: number, gender: 'male' | 'female', race: 'african' | 'other'): number => {
+// GFR Calculator - Reserved for future clinical use
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const calculateGFR = (creatinine: number, age: number, gender: 'male' | 'female', race: 'african' | 'other'): number => {
   // CKD-EPI equation
   let gfr: number;
   const kappa = gender === 'female' ? 0.7 : 0.9;
@@ -174,6 +175,7 @@ const _calculateGFR = (creatinine: number, age: number, gender: 'male' | 'female
   
   return Math.round(gfr);
 };
+void calculateGFR; // Export reserved for future use
 
 export default function LaboratoryPage() {
   const { user } = useAuth();

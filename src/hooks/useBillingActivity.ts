@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { recordBillableActivity } from '../services/activityBillingService';
 import { billableActivities, REVENUE_SHARE_CONFIG } from '../data/billingActivities';
-import type { BillingCategory, ActivityBillingRecord } from '../types';
+import type { BillingCategory } from '../types';
 
 /**
  * Hook for recording billable activities during clinical workflows.
@@ -34,28 +34,26 @@ export function useBillingActivity() {
     }
 
     const quantity = params.quantity || 1;
-    const unitPrice = params.customAmount || activity.defaultPrice;
+    const unitPrice = params.customAmount || activity.defaultFee;
     const totalAmount = unitPrice * quantity;
     const staffShare = totalAmount * REVENUE_SHARE_CONFIG.staffPercentage;
     const hospitalShare = totalAmount * REVENUE_SHARE_CONFIG.hospitalPercentage;
 
-    await recordBillableActivity({
-      patientId: params.patientId,
-      admissionId: params.admissionId,
-      hospitalId: params.hospitalId,
-      activityCode: activity.code,
-      activityName: activity.name,
-      category: activity.category,
-      performedByUserId: user.id!,
-      performedByName: `${user.firstName} ${user.lastName}`,
-      performedByRole: user.role,
-      quantity,
-      unitPrice,
+    await recordBillableActivity(
+      activity.id,
+      params.patientId,
+      '', // patientName - would need to look up
+      '', // hospitalNumber
+      user.id!,
+      `${user.firstName} ${user.lastName}`,
+      user.role,
+      params.hospitalId,
       totalAmount,
-      staffShare,
-      hospitalShare,
-      notes: params.notes,
-    });
+      {
+        admissionId: params.admissionId,
+        notes: params.notes,
+      }
+    );
 
     return {
       activity,
