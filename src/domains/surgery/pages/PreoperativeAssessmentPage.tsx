@@ -267,7 +267,7 @@ export default function PreoperativeAssessmentPage() {
       };
 
       await db.preoperativeAssessments.add(assessment);
-      await syncRecord('preoperativeAssessments', assessment);
+      await syncRecord('preoperativeAssessments', assessment as unknown as Record<string, unknown>);
       
       toast.success('Preoperative assessment saved successfully');
       setShowModal(false);

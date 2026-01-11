@@ -4003,7 +4003,7 @@ export interface PreoperativeAssessment {
   // VTE Risk (Caprini)
   vteRisk: {
     capriniScore: number;
-    riskCategory: 'low' | 'moderate' | 'high';
+    riskCategory: 'very_low' | 'low' | 'moderate' | 'high';
     prophylaxisRecommendation: string;
     selectedFactors: string[];
   };
