@@ -9,6 +9,7 @@
  */
 
 import { db } from '../database';
+import { syncRecord } from './cloudSyncService';
 import type { 
   Investigation, 
   InvestigationResult, 
@@ -261,6 +262,7 @@ class InvestigationLabService {
     };
 
     await db.investigations.add(investigation);
+    syncRecord('investigations', investigation as unknown as Record<string, unknown>);
     return investigation;
   }
 

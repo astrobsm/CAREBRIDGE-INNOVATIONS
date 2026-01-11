@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../database/db';
 import { syncService } from './syncService';
+import { syncRecord } from './cloudSyncService';
 import type { Patient, Hospital, User } from '../types';
 import { useLiveQuery } from 'dexie-react-hooks';
 
@@ -127,6 +128,7 @@ export function usePatients(hospitalId?: string) {
 
   const createPatient = useCallback(async (patient: Patient) => {
     await db.patients.add(patient);
+    syncRecord('patients', patient as unknown as Record<string, unknown>);
     await syncService.queueChange('patients', patient.id, 'create', patient as unknown as Record<string, unknown>);
     return patient;
   }, []);
@@ -160,6 +162,7 @@ export function useHospitals() {
 
   const createHospital = useCallback(async (hospital: Hospital) => {
     await db.hospitals.add(hospital);
+    syncRecord('hospitals', hospital as unknown as Record<string, unknown>);
     await syncService.queueChange('hospitals', hospital.id, 'create', hospital as unknown as Record<string, unknown>);
     return hospital;
   }, []);
