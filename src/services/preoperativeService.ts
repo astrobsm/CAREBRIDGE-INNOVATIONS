@@ -557,8 +557,6 @@ class PreoperativeService {
     lastSolidsTime?: Date,
     lastClearFluidsTime?: Date
   ): FastingStatus {
-    const now = new Date();
-    
     let fastingAdequate = true;
     const specialInstructions: string[] = [];
 
