@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Patient, Admission, Prescription } from '../../../types';
 import type { 
@@ -170,6 +171,7 @@ export default function MedicationChartPage() {
 
     try {
       await db.table('medicationCharts').add(newChart);
+      syncRecord('medicationCharts', newChart as unknown as Record<string, unknown>);
       setCurrentChart(newChart);
       setMedicationCharts(prev => [...prev, newChart]);
     } catch (error) {
@@ -214,6 +216,7 @@ export default function MedicationChartPage() {
       };
 
       await db.table('medicationCharts').put(updatedChart);
+      syncRecord('medicationCharts', updatedChart as unknown as Record<string, unknown>);
       setCurrentChart(updatedChart);
       setMedicationCharts(prev => prev.map(c => c.id === updatedChart.id ? updatedChart : c));
 

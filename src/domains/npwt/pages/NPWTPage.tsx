@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PatientSelector } from '../../../components/patient';
 import type { Patient } from '../../../types';
@@ -222,6 +223,7 @@ export default function NPWTPage() {
 
       // Save to database
       await db.table('npwtSessions').add(newSession);
+      syncRecord('npwtSessions', newSession as unknown as Record<string, unknown>);
 
       // Schedule notification (would integrate with service worker)
       scheduleNotification(newSession);

@@ -255,6 +255,11 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
         dischargeType: 'routine',
         updatedAt: new Date(),
       });
+      
+      // Sync the updated admission to cloud
+      const updatedAdmission = await db.admissions.get(admission.id);
+      if (updatedAdmission) syncRecord('admissions', updatedAdmission as unknown as Record<string, unknown>);
+      
       toast.success('Patient discharged successfully!');
       setShowDetailModal(false);
       setSelectedAdmission(null);
