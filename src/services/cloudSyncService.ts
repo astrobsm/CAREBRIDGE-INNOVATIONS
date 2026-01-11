@@ -141,6 +141,189 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; mess
   }
 }
 
+// Debug function to diagnose sync issues
+export async function debugUserSync(): Promise<{
+  local: { count: number; users: any[] };
+  cloud: { count: number; users: any[]; error?: string };
+  diagnosis: string[];
+}> {
+  const diagnosis: string[] = [];
+  
+  // Get local users
+  let localUsers: any[] = [];
+  try {
+    localUsers = await db.users.toArray();
+    console.log('[CloudSync Debug] Local users:', localUsers.length, localUsers);
+  } catch (err) {
+    diagnosis.push(`Error reading local users: ${err}`);
+  }
+  
+  // Get cloud users
+  let cloudUsers: any[] = [];
+  let cloudError: string | undefined;
+  
+  if (!isSupabaseConfigured() || !supabase) {
+    cloudError = 'Supabase not configured';
+    diagnosis.push('Supabase is not configured - check environment variables');
+  } else {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.users)
+        .select('*');
+      
+      if (error) {
+        cloudError = `${error.message} (code: ${error.code}, details: ${error.details})`;
+        diagnosis.push(`Cloud query error: ${cloudError}`);
+        
+        if (error.code === '42P01') {
+          diagnosis.push('CRITICAL: The "users" table does not exist in Supabase! Run the supabase-users-sync-fix.sql migration.');
+        }
+      } else {
+        cloudUsers = data || [];
+        console.log('[CloudSync Debug] Cloud users:', cloudUsers.length, cloudUsers);
+      }
+    } catch (err) {
+      cloudError = `Exception: ${err}`;
+      diagnosis.push(`Cloud exception: ${err}`);
+    }
+  }
+  
+  // Compare and diagnose
+  if (localUsers.length > cloudUsers.length) {
+    diagnosis.push(`Local has ${localUsers.length} users but cloud only has ${cloudUsers.length}. Users need to be pushed to cloud.`);
+    
+    // Find missing users
+    const cloudIds = new Set(cloudUsers.map(u => u.id));
+    const missingInCloud = localUsers.filter(u => !cloudIds.has(u.id));
+    diagnosis.push(`Missing in cloud: ${missingInCloud.map(u => u.username || u.email).join(', ')}`);
+  } else if (cloudUsers.length > localUsers.length) {
+    diagnosis.push(`Cloud has ${cloudUsers.length} users but local only has ${localUsers.length}. Users need to be pulled from cloud.`);
+    
+    // Find missing users
+    const localIds = new Set(localUsers.map(u => u.id));
+    const missingLocally = cloudUsers.filter((u: any) => !localIds.has(u.id));
+    diagnosis.push(`Missing locally: ${missingLocally.map((u: any) => u.username || u.email).join(', ')}`);
+  } else if (localUsers.length === cloudUsers.length && localUsers.length > 0) {
+    diagnosis.push(`Both have ${localUsers.length} users - sync appears to be working.`);
+  }
+  
+  if (localUsers.length === 0 && cloudUsers.length === 0) {
+    diagnosis.push('No users in either local or cloud storage.');
+  }
+  
+  return {
+    local: { count: localUsers.length, users: localUsers },
+    cloud: { count: cloudUsers.length, users: cloudUsers, error: cloudError },
+    diagnosis,
+  };
+}
+
+// Expose debug function to window for browser console access
+(window as any).debugUserSync = debugUserSync;
+
+// Force push users to cloud (for debugging)
+export async function forcePushUsers(): Promise<{ success: boolean; message: string; details?: any }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, message: 'Supabase not configured' };
+  }
+  
+  try {
+    const localUsers = await db.users.toArray();
+    console.log('[CloudSync] Force pushing', localUsers.length, 'users to cloud...');
+    
+    if (localUsers.length === 0) {
+      return { success: true, message: 'No local users to push' };
+    }
+    
+    // Convert to Supabase format (cast to any to handle User type)
+    const preparedUsers = localUsers.map((user: any) => convertToSupabase(user as Record<string, unknown>));
+    console.log('[CloudSync] Prepared users for upload:', preparedUsers);
+    
+    const { error, data } = await supabase
+      .from(TABLES.users)
+      .upsert(preparedUsers, { onConflict: 'id', ignoreDuplicates: false });
+    
+    if (error) {
+      console.error('[CloudSync] Force push failed:', error);
+      return { 
+        success: false, 
+        message: `Push failed: ${error.message}`,
+        details: { code: error.code, details: error.details, hint: error.hint }
+      };
+    }
+    
+    console.log('[CloudSync] Force push successful!');
+    return { success: true, message: `Pushed ${localUsers.length} users to cloud`, details: data };
+  } catch (err) {
+    console.error('[CloudSync] Force push exception:', err);
+    return { success: false, message: `Exception: ${err}` };
+  }
+}
+
+// Force pull users from cloud (for debugging)
+export async function forcePullUsers(): Promise<{ success: boolean; message: string; details?: any }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, message: 'Supabase not configured' };
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from(TABLES.users)
+      .select('*');
+    
+    if (error) {
+      return { 
+        success: false, 
+        message: `Pull failed: ${error.message}`,
+        details: { code: error.code, details: error.details }
+      };
+    }
+    
+    if (!data || data.length === 0) {
+      return { success: true, message: 'No users in cloud to pull' };
+    }
+    
+    console.log('[CloudSync] Pulled', data.length, 'users from cloud:', data);
+    
+    // Convert and save locally
+    let added = 0;
+    let updated = 0;
+    
+    for (const cloudRecord of data) {
+      const record = convertFromSupabase(cloudRecord) as any;
+      try {
+        const existing = await db.users.get(record.id as string);
+        if (existing) {
+          await db.users.put(record);
+          updated++;
+        } else {
+          await db.users.add(record);
+          added++;
+        }
+      } catch (err) {
+        try {
+          await db.users.put(record);
+          updated++;
+        } catch {
+          console.error('[CloudSync] Failed to save user:', record.id, err);
+        }
+      }
+    }
+    
+    return { 
+      success: true, 
+      message: `Pulled ${data.length} users: ${added} added, ${updated} updated`,
+      details: { total: data.length, added, updated }
+    };
+  } catch (err) {
+    return { success: false, message: `Exception: ${err}` };
+  }
+}
+
+// Expose force sync functions to window for debugging
+(window as any).forcePushUsers = forcePushUsers;
+(window as any).forcePullUsers = forcePullUsers;
+
 // Full bidirectional sync
 export async function fullSync(): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) {
@@ -387,8 +570,20 @@ async function pullTable(cloudTableName: string, localTableName: string): Promis
       .order('updated_at', { ascending: false });
 
     if (error) {
-      console.warn(`[CloudSync] Error pulling ${cloudTableName}:`, error.message);
+      console.warn(`[CloudSync] Error pulling ${cloudTableName}:`, error.message, error.code, error.details);
+      // For users table, provide more detailed diagnostics
+      if (cloudTableName === 'users') {
+        console.error(`[CloudSync] USERS TABLE PULL FAILED! Error code: ${error.code}`);
+        if (error.code === '42P01') {
+          console.error('[CloudSync] The "users" table does not exist in Supabase! Run supabase-users-sync-fix.sql');
+        }
+      }
       return;
+    }
+
+    // Log even when no data for users table
+    if (cloudTableName === 'users') {
+      console.log(`[CloudSync] Users table pull result: ${data?.length || 0} records from cloud`);
     }
 
     if (data && data.length > 0) {
@@ -396,6 +591,8 @@ async function pullTable(cloudTableName: string, localTableName: string): Promis
       const records = data.map((record: Record<string, unknown>) => convertFromSupabase(record));
 
       // Merge with local data (cloud wins for conflicts based on updated_at)
+      let added = 0, updated = 0, skipped = 0;
+      
       for (const record of records) {
         try {
           const localRecord = await (db as any)[localTableName].get(record.id);
@@ -403,6 +600,7 @@ async function pullTable(cloudTableName: string, localTableName: string): Promis
           if (!localRecord) {
             // Record doesn't exist locally, add it
             await (db as any)[localTableName].add(record);
+            added++;
           } else {
             // Compare updated_at timestamps
             const localUpdated = new Date(String(localRecord.updatedAt || '1970-01-01')).getTime();
@@ -411,19 +609,26 @@ async function pullTable(cloudTableName: string, localTableName: string): Promis
             if (cloudUpdated > localUpdated) {
               // Cloud version is newer, update local
               await (db as any)[localTableName].put(record);
+              updated++;
+            } else {
+              skipped++;
             }
           }
         } catch (err) {
           // If add fails (duplicate), try put
           try {
             await (db as any)[localTableName].put(record);
+            updated++;
           } catch {
             // Ignore errors for individual records
+            if (cloudTableName === 'users') {
+              console.error(`[CloudSync] Failed to save user record:`, record, err);
+            }
           }
         }
       }
       
-      console.log(`[CloudSync] Pulled ${records.length} records from ${cloudTableName}`);
+      console.log(`[CloudSync] Pulled ${records.length} records from ${cloudTableName} (added: ${added}, updated: ${updated}, skipped: ${skipped})`);
     }
   } catch (error) {
     console.warn(`[CloudSync] Failed to pull ${cloudTableName}:`, error);
@@ -438,11 +643,25 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
     const localRecords = await (db as any)[localTableName].toArray();
     
     if (localRecords.length === 0) {
+      // Log when no records for users table
+      if (localTableName === 'users') {
+        console.log('[CloudSync] No local users to push');
+      }
       return;
+    }
+
+    // Enhanced logging for users table
+    if (localTableName === 'users') {
+      console.log(`[CloudSync] Pushing ${localRecords.length} users to cloud:`, localRecords.map((u: any) => u.username || u.email || u.id));
     }
 
     // Convert to Supabase format
     const preparedRecords = localRecords.map((record: Record<string, unknown>) => convertToSupabase(record));
+    
+    // Debug log for users
+    if (localTableName === 'users') {
+      console.log('[CloudSync] Prepared users for upload:', preparedRecords);
+    }
 
     // Upsert in batches of 100
     const batchSize = 100;
@@ -452,7 +671,7 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
     for (let i = 0; i < preparedRecords.length; i += batchSize) {
       const batch = preparedRecords.slice(i, i + batchSize);
       
-      const { error, data } = await supabase
+      const { error } = await supabase
         .from(cloudTableName)
         .upsert(batch, {
           onConflict: 'id',
@@ -460,7 +679,22 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
         });
 
       if (error) {
-        console.error(`[CloudSync] Error pushing to ${cloudTableName}:`, error.message, error.details, error.hint);
+        console.error(`[CloudSync] Error pushing to ${cloudTableName}:`, error.message, error.code, error.details, error.hint);
+        
+        // Specific diagnostic for users table
+        if (cloudTableName === 'users') {
+          console.error('[CloudSync] USERS PUSH FAILED!');
+          if (error.code === '42P01') {
+            console.error('[CloudSync] The "users" table does not exist in Supabase! Run supabase-users-sync-fix.sql');
+          } else if (error.code === '23505') {
+            console.error('[CloudSync] Duplicate key error - some users already exist with conflicting IDs');
+          } else if (error.code === '23502') {
+            console.error('[CloudSync] NOT NULL constraint violation - some required fields are missing');
+          } else if (error.code === '42501') {
+            console.error('[CloudSync] Permission denied - check RLS policies on users table');
+          }
+        }
+        
         errorCount += batch.length;
         
         // Try individual records if batch fails (to identify problematic records)
@@ -472,7 +706,7 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
                 .upsert(record, { onConflict: 'id' });
               
               if (singleError) {
-                console.error(`[CloudSync] Failed record in ${cloudTableName}:`, (record as any).id, singleError.message);
+                console.error(`[CloudSync] Failed record in ${cloudTableName}:`, (record as any).id, singleError.message, singleError.code);
               } else {
                 successCount++;
                 errorCount--;
@@ -484,6 +718,10 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
         }
       } else {
         successCount += batch.length;
+        // Log success for users
+        if (cloudTableName === 'users') {
+          console.log(`[CloudSync] Successfully pushed batch of ${batch.length} users to cloud`);
+        }
       }
     }
     
