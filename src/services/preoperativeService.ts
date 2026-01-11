@@ -13,9 +13,6 @@
  * - Medication Management
  */
 
-import { db } from '../database';
-import type { Patient } from '../types';
-
 // ==================== TYPES ====================
 
 // This interface is for the service-level comprehensive assessment with all nested types
@@ -561,7 +558,6 @@ class PreoperativeService {
     lastClearFluidsTime?: Date
   ): FastingStatus {
     const now = new Date();
-    const hoursToSurgery = (surgeryTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     
     let fastingAdequate = true;
     const specialInstructions: string[] = [];
@@ -703,7 +699,7 @@ class PreoperativeService {
     console.log('Saving preoperative assessment:', assessment);
   }
 
-  async getPatientAssessments(patientId: string): Promise<PreoperativeAssessmentService[]> {
+  async getPatientAssessments(): Promise<PreoperativeAssessmentService[]> {
     // This would fetch from database
     return [];
   }
