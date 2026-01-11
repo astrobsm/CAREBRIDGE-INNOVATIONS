@@ -1,4 +1,4 @@
--- CareBridge Supabase Migration: Add missing patient columns
+-- AstroHEALTH Supabase Migration: Add missing patient columns
 -- Run this SQL in Supabase SQL Editor to add the missing columns
 
 -- Add all missing patient columns

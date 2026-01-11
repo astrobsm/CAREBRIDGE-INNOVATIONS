@@ -1,4 +1,4 @@
-// Clinical Calculator Types for CareBridge
+// Clinical Calculator Types for AstroHEALTH
 // Adapted from Critical Care Calculator - Bonnesante Medicals
 
 export interface PatientCalculatorInfo {

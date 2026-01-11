@@ -1,4 +1,4 @@
--- CareBridge Supabase Database Schema
+-- AstroHEALTH Supabase Database Schema
 -- Run this SQL in your Supabase SQL Editor to create all tables
 
 -- Enable UUID extension

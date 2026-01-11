@@ -1,4 +1,4 @@
-# CareBridge - Interactive Surgical EMR & Patient Management PWA
+# AstroHEALTH - Interactive Surgical EMR & Patient Management PWA
 
 A comprehensive Progressive Web Application for surgical EMR and patient management, designed for African (Nigerian) clinical contexts with WHO-adapted protocols.
 
@@ -27,7 +27,7 @@ npm run preview
 1. Go to [https://supabase.com](https://supabase.com) and sign up/login
 2. Click **"New Project"**
 3. Enter project details:
-   - **Name:** CareBridge
+   - **Name:** AstroHEALTH
    - **Database Password:** (save this securely)
    - **Region:** Choose closest to your users
 4. Wait for project to be created (~2 minutes)

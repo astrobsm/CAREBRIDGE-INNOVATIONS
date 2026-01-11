@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'CareBridge - Innovations in Healthcare',
-        short_name: 'CareBridge',
+        name: 'AstroHEALTH - Innovations in Healthcare',
+        short_name: 'AstroHEALTH',
         description: 'Interactive Surgical EMR & Patient Management System for African Clinical Contexts',
         theme_color: '#1800AC',
         background_color: '#eef2ff',

@@ -37,7 +37,7 @@ export default function OfflinePage({ onRetry }: OfflinePageProps) {
         <div className="flex items-center justify-center gap-3 mb-6">
           <img 
             src="/icons/logo.png" 
-            alt="CareBridge" 
+            alt="AstroHEALTH" 
             className="w-12 h-12 rounded-xl bg-white p-1 shadow-md"
           />
           <span className="text-2xl font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">

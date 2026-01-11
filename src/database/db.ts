@@ -54,7 +54,7 @@ import type {
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 
-export class CareBridgeDatabase extends Dexie {
+export class AstroHEALTHDatabase extends Dexie {
   users!: Table<User, string>;
   hospitals!: Table<Hospital, string>;
   patients!: Table<Patient, string>;
@@ -193,7 +193,7 @@ export class CareBridgeDatabase extends Dexie {
   }
 }
 
-export const db = new CareBridgeDatabase();
+export const db = new AstroHEALTHDatabase();
 
 // Database utility functions
 export async function clearAllData(): Promise<void> {
@@ -233,12 +233,12 @@ export async function initializeDemoData(): Promise<void> {
     // Add demo hospital
     await db.hospitals.add({
       id: 'hospital-1',
-      name: 'CareBridge General Hospital',
+      name: 'AstroHEALTH General Hospital',
       address: '123 Healthcare Avenue',
       city: 'Lagos',
       state: 'Lagos',
-      phone: '09028724839',
-      email: 'info.carebridge@gmail.com',
+      phone: '+234 902 872 4839',
+      email: 'info.astrohealth@gmail.com',
       type: 'tertiary',
       isActive: true,
       createdAt: new Date(),

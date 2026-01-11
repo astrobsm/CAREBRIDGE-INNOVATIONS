@@ -1,4 +1,4 @@
-// Enhanced Cloud Sync Service for CareBridge
+// Enhanced Cloud Sync Service for AstroHEALTH
 // Real-time bidirectional sync between local IndexedDB and Supabase
 // Version 2.0 - Fixed React imports
 

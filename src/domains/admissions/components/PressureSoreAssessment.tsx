@@ -321,7 +321,7 @@ export default function PressureSoreAssessment({
     doc.text('Pressure Sore Risk Assessment', pageWidth / 2, 20, { align: 'center' });
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text('Braden Scale - CareBridge Innovations in Healthcare', pageWidth / 2, 30, { align: 'center' });
+    doc.text('Braden Scale - AstroHEALTH Innovations in Healthcare', pageWidth / 2, 30, { align: 'center' });
     
     yPos = 50;
 

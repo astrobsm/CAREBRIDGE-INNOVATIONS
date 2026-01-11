@@ -313,6 +313,36 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
     const lines = doc.splitTextToSize(paymentInstructions, pageWidth - 30);
     doc.text(lines, 15, yPos);
     yPos += lines.length * 4 + 5;
+  } else {
+    // Default payment instructions with bank details
+    yPos = checkNewPage(doc, yPos, 50);
+    
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.text('Payment Instructions:', 15, yPos);
+    yPos += 6;
+    
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(8);
+    doc.text('Please make payment to:', 15, yPos);
+    yPos += 5;
+    
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setFontSize(9);
+    doc.text('Account Number: 2084929453', 15, yPos);
+    yPos += 5;
+    doc.text('Account Name: NNADI EMMANUEL C', 15, yPos);
+    yPos += 5;
+    doc.text('Bank: ZENITH BANK', 15, yPos);
+    yPos += 8;
+    
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...PDF_COLORS.primary);
+    doc.text('Send payment evidence to: +234 902 872 4839 (WhatsApp)', 15, yPos);
+    doc.setTextColor(...PDF_COLORS.dark);
+    yPos += 10;
   }
 
   // Notes

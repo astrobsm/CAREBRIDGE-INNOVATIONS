@@ -31,7 +31,7 @@ export interface ConflictResolution {
 
 // Get or create device ID
 export function getDeviceId(): string {
-  const storageKey = 'carebridge_device_id';
+  const storageKey = 'astrohealth_device_id';
   let deviceId = localStorage.getItem(storageKey);
   if (!deviceId) {
     deviceId = `device_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
@@ -42,7 +42,7 @@ export function getDeviceId(): string {
 
 // Offline Change Tracker - Uses IndexedDB for persistence
 class OfflineChangeTracker {
-  private dbName = 'CareBridgeOfflineChanges';
+  private dbName = 'AstroHEALTHOfflineChanges';
   private storeName = 'changes';
   private db: IDBDatabase | null = null;
   private initialized = false;
@@ -459,7 +459,7 @@ class OfflineDataManager {
     if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
       try {
         const registration = await navigator.serviceWorker.ready;
-        await (registration as any).sync.register('carebridge-sync');
+        await (registration as any).sync.register('astrohealth-sync');
         console.log('[OfflineManager] Background sync registered');
       } catch (error) {
         console.log('[OfflineManager] Background sync not available:', error);
@@ -482,12 +482,12 @@ class OfflineDataManager {
   }
 
   private getLastSyncTime(): Date | null {
-    const stored = localStorage.getItem('carebridge_last_sync');
+    const stored = localStorage.getItem('astrohealth_last_sync');
     return stored ? new Date(stored) : null;
   }
 
   private setLastSyncTime(date: Date): void {
-    localStorage.setItem('carebridge_last_sync', date.toISOString());
+    localStorage.setItem('astrohealth_last_sync', date.toISOString());
     this.state.lastSyncAt = date;
   }
 

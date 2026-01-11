@@ -1,6 +1,6 @@
 /**
  * Calibration Ruler PDF Generator
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Generates printable calibration rulers on A4 paper for wound measurement
  * Each ruler has 0.5mm grid markings for precise wound measurement
@@ -226,7 +226,7 @@ function drawRuler(
     doc.setTextColor(100, 100, 100);
     doc.text(name, x + width / 2, y + height / 2 - 1, { align: 'center' });
     doc.setFontSize(4);
-    doc.text('CareBridge - Cut along outer border', x + width / 2, y + height / 2 + 2, { align: 'center' });
+    doc.text('AstroHEALTH - Cut along outer border', x + width / 2, y + height / 2 + 2, { align: 'center' });
     
     return { width, height };
   }

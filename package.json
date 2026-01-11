@@ -1,7 +1,7 @@
 {
-  "name": "carebridge",
+  "name": "astrohealth",
   "version": "1.0.0",
-  "description": "CareBridge - Interactive Surgical EMR & Patient Management PWA",
+  "description": "AstroHEALTH - Interactive Surgical EMR & Patient Management PWA",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -211,7 +211,7 @@ const DischargeSummaryDocument = ({
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.hospitalName}>CareBridge Innovations in Healthcare</Text>
+          <Text style={styles.hospitalName}>AstroHEALTH Innovations in Healthcare</Text>
           <Text style={{ textAlign: 'center', fontSize: 9, color: '#6B7280' }}>
             123 Healthcare Avenue, Lagos, Nigeria • Tel: +234 XXX XXX XXXX
           </Text>

@@ -1,10 +1,10 @@
 /**
  * ============================================================
- * CareBridge PDF Configuration - Global Standards
+ * AstroHEALTH PDF Configuration - Global Standards
  * ============================================================
  * 
  * This file defines mandatory standards for ALL PDF generation
- * across the CareBridge application. These rules ensure:
+ * across the AstroHEALTH application. These rules ensure:
  * 
  * 1. Maximum cross-platform compatibility
  * 2. Professional, medical-grade document quality
@@ -157,8 +157,8 @@ export const PDF_COLORS = {
   text: [0, 0, 0] as const,              // #000000 - Black body text
   
   // Brand colors (for headers, accents)
-  primary: [81, 112, 255] as const,      // #5170FF - CareBridge blue
-  primaryDark: [24, 0, 172] as const,    // #1800AC - CareBridge purple
+  primary: [81, 112, 255] as const,      // #5170FF - AstroHEALTH blue
+  primaryDark: [24, 0, 172] as const,    // #1800AC - AstroHEALTH purple
   
   // Semantic colors
   success: [34, 197, 94] as const,       // #22C55E - Green
@@ -204,9 +204,9 @@ export const PDF_TABLE_CONFIG = {
 // ============================================================
 
 export const PDF_METADATA = {
-  creator: 'CareBridge Innovations in Healthcare',
-  producer: 'CareBridge PDF Generator v2.0',
-  keywords: 'healthcare, medical, clinical, carebridge',
+  creator: 'AstroHEALTH Innovations in Healthcare',
+  producer: 'AstroHEALTH PDF Generator v2.0',
+  keywords: 'healthcare, medical, clinical, astrohealth',
 } as const;
 
 // ============================================================
@@ -234,7 +234,7 @@ export function createStandardPDF(options?: {
   
   // Set document properties
   doc.setProperties({
-    title: 'CareBridge Document',
+    title: 'AstroHEALTH Document',
     subject: 'Healthcare Document',
     author: PDF_METADATA.creator,
     creator: PDF_METADATA.producer,

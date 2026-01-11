@@ -1,5 +1,5 @@
 // Prescription PDF Generator
-// Generates professional prescription documents with CareBridge branding
+// Generates professional prescription documents with AstroHEALTH branding
 
 import jsPDF from 'jspdf';
 import { PDF_FONTS } from './pdfConfig';

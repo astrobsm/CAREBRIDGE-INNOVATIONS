@@ -1,7 +1,7 @@
-# CareBridge - Interactive Surgical EMR & Patient Management PWA
+# AstroHEALTH - Interactive Surgical EMR & Patient Management PWA
 
 ## Project Overview
-CareBridge is a comprehensive Progressive Web Application for surgical EMR and patient management, designed for African (Nigerian) clinical contexts with WHO-adapted protocols.
+AstroHEALTH is a comprehensive Progressive Web Application for surgical EMR and patient management, designed for African (Nigerian) clinical contexts with WHO-adapted protocols.
 
 ## Tech Stack
 - **Frontend:** React 18+ with TypeScript

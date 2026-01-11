@@ -1,6 +1,6 @@
 /**
  * Burn Care Service
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive burn management service with:
  * - TBSA Calculation (Lund-Browder, Rule of 9s)

@@ -665,7 +665,7 @@ export default function ChatPage() {
             <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
               <MessageSquare className="w-12 h-12 text-blue-500" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">CareBridge Messaging</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">AstroHEALTH Messaging</h2>
             <p className="text-sm sm:text-base text-gray-500 max-w-md">
               Select a conversation to start messaging or create a new chat to connect with your team.
             </p>

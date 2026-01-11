@@ -300,8 +300,8 @@ export function addBrandedFooter(
   doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(...PDF_COLORS.gray);
   
-  // Left side - CareBridge branding
-  doc.text('CareBridge - Innovations in Healthcare | WHO-Aligned Clinical Protocols', 15, pageHeight - 14);
+  // Left side - AstroHEALTH branding
+  doc.text('AstroHEALTH - Innovations in Healthcare | WHO-Aligned Clinical Protocols', 15, pageHeight - 14);
   
   // Custom text or default
   const footerText = customText || 'This document is computer-generated and valid without signature.';

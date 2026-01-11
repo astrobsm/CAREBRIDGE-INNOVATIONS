@@ -309,7 +309,7 @@ export default function NutritionalRiskAssessment({
     doc.text('Nutritional Risk Assessment', pageWidth / 2, 20, { align: 'center' });
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text('MUST Score - CareBridge Innovations in Healthcare', pageWidth / 2, 30, { align: 'center' });
+    doc.text('MUST Score - AstroHEALTH Innovations in Healthcare', pageWidth / 2, 30, { align: 'center' });
     
     yPos = 50;
 

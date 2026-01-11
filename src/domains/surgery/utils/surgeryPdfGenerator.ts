@@ -41,7 +41,7 @@ function addHeader(doc: jsPDF, title: string, subtitle?: string, hospitalName?: 
   const info: PDFDocumentInfo = {
     title,
     subtitle,
-    hospitalName: hospitalName || 'CareBridge Innovations in Healthcare',
+    hospitalName: hospitalName || 'AstroHEALTH Innovations in Healthcare',
   };
   return addBrandedHeader(doc, info);
 }

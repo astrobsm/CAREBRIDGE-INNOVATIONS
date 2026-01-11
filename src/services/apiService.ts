@@ -114,7 +114,7 @@ interface SyncQueueItem {
 
 class SyncQueue {
   private queue: SyncQueueItem[] = [];
-  private storageKey = 'carebridge_sync_queue';
+  private storageKey = 'astrohealth_sync_queue';
 
   constructor() {
     this.loadFromStorage();

@@ -369,7 +369,7 @@ export default function DrugAllergyAssessment({
     doc.text('Drug Allergy Assessment', pageWidth / 2, 20, { align: 'center' });
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text('CareBridge Innovations in Healthcare', pageWidth / 2, 30, { align: 'center' });
+    doc.text('AstroHEALTH Innovations in Healthcare', pageWidth / 2, 30, { align: 'center' });
 
     yPos = 50;
 

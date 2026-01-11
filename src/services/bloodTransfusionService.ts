@@ -1,6 +1,6 @@
 /**
  * Blood Transfusion Service
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive blood transfusion management including:
  * - Blood typing and crossmatching

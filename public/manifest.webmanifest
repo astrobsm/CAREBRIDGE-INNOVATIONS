@@ -1,6 +1,6 @@
 {
-  "name": "CareBridge - Innovations in Healthcare",
-  "short_name": "CareBridge",
+  "name": "AstroHEALTH - Innovations in Healthcare",
+  "short_name": "AstroHEALTH",
   "description": "Interactive Surgical EMR & Patient Management PWA for African clinical contexts with offline-first capabilities",
   "start_url": "/",
   "scope": "/",
@@ -51,14 +51,14 @@
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "CareBridge Dashboard"
+      "label": "AstroHEALTH Dashboard"
     },
     {
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "CareBridge Mobile"
+      "label": "AstroHEALTH Mobile"
     }
   ],
   "shortcuts": [

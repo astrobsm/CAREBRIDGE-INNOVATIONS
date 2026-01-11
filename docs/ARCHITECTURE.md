@@ -1,12 +1,12 @@
-# CareBridge Application Architecture
+# AstroHEALTH Application Architecture
 
 ## 🏗️ System Overview
 
-CareBridge is an **offline-first Progressive Web Application (PWA)** for surgical EMR and patient management. It uses a dual-database architecture for seamless offline/online operation.
+AstroHEALTH is an **offline-first Progressive Web Application (PWA)** for surgical EMR and patient management. It uses a dual-database architecture for seamless offline/online operation.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CAREBRIDGE PWA                                  │
+│                              ASTROHEALTH PWA                                  │
 │                                                                             │
 │  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌───────────┐ │
 │  │   Browser   │────▶│   React     │────▶│   Dexie     │────▶│ IndexedDB │ │

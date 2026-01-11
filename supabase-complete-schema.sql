@@ -1,4 +1,4 @@
--- CareBridge Complete Supabase Database Schema
+-- AstroHEALTH Complete Supabase Database Schema
 -- This schema uses TEXT IDs to match the local IndexedDB structure
 -- Run this SQL in Supabase SQL Editor to create/recreate all tables
 

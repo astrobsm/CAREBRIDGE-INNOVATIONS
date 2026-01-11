@@ -526,7 +526,7 @@ If you need to reschedule, please call us at least 24 hours before.
 
 Thank you for choosing our services! 🙏
 
-_This is an automated reminder from CareBridge._`;
+_This is an automated reminder from AstroHEALTH._`;
   }
 
   // For same-day reminders (1-2 hours before)
@@ -552,7 +552,7 @@ Please arrive 15 minutes early for check-in.
 
 See you soon! 🙏
 
-_CareBridge Health_`;
+_AstroHEALTH Health_`;
 }
 
 /**

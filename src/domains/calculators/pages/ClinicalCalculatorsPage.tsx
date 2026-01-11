@@ -436,7 +436,7 @@ export default function ClinicalCalculatorsPage() {
       <footer className="bg-gray-800 text-white py-4 sm:py-6 mt-8 sm:mt-16 print:hidden">
         <div className="container mx-auto px-3 sm:px-4 text-center">
           <p className="text-lg font-semibold text-sky-400 mb-3">
-            CAREBRIDGE INNOVATIONS
+            ASTROHEALTH INNOVATIONS
           </p>
           <p className="text-sm italic text-gray-300 mb-4">
             Interactive Surgical EMR & Patient Management

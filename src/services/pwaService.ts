@@ -73,7 +73,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 async function registerBackgroundSync(registration: ServiceWorkerRegistration): Promise<void> {
   if ('sync' in registration) {
     try {
-      await (registration as any).sync.register('carebridge-sync');
+      await (registration as any).sync.register('astrohealth-sync');
       console.log('[PWA] Background sync registered');
     } catch (error) {
       console.log('[PWA] Background sync not available:', error);
@@ -91,7 +91,7 @@ async function registerPeriodicSync(registration: ServiceWorkerRegistration): Pr
       });
       
       if (status.state === 'granted') {
-        await (registration as any).periodicSync.register('carebridge-periodic-sync', {
+        await (registration as any).periodicSync.register('astrohealth-periodic-sync', {
           minInterval: 15 * 60 * 1000, // 15 minutes
         });
         console.log('[PWA] Periodic background sync registered');
@@ -115,7 +115,7 @@ export async function requestBackgroundSync(): Promise<boolean> {
   }
   
   try {
-    await (swRegistration as any).sync.register('carebridge-sync');
+    await (swRegistration as any).sync.register('astrohealth-sync');
     console.log('[PWA] Background sync requested');
     return true;
   } catch (error) {

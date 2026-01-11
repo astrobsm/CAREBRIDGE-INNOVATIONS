@@ -1,5 +1,5 @@
 // Clinical PDF Generators
-// Generates professional clinical documents with CareBridge branding
+// Generates professional clinical documents with AstroHEALTH branding
 
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
@@ -1596,7 +1596,7 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
 
 import type { Wound, BurnAssessment, NutritionAssessment, Admission, ClinicalEncounter, Patient, Diagnosis } from '../types';
 
-const DEFAULT_HOSPITAL = 'CareBridge Innovations in Healthcare';
+const DEFAULT_HOSPITAL = 'AstroHEALTH Innovations in Healthcare';
 
 /**
  * Generate wound assessment PDF from database wound entity

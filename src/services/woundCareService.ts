@@ -1,6 +1,6 @@
 /**
  * Wound Care Service
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive wound care management with AI-powered measurements,
  * healing progress tracking, and treatment recommendations.

@@ -1,6 +1,6 @@
 /**
  * Patient Education PDF Generator
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Generates downloadable PDF documents for patient education materials
  * with clear, readable content following WHO guidelines

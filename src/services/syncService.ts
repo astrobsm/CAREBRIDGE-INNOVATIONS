@@ -1,4 +1,4 @@
-// Cross-Device Sync Service for CareBridge
+// Cross-Device Sync Service for AstroHEALTH
 import { useState, useEffect } from 'react';
 import { db } from '../database/db';
 import type { Patient, Hospital, User } from '../types';
@@ -43,7 +43,7 @@ export function getDeviceId(): string {
 
 // Sync queue stored in IndexedDB
 class SyncQueue {
-  private dbName = 'CareBridgeSyncQueue';
+  private dbName = 'AstroHEALTHSyncQueue';
   private storeName = 'pendingSync';
   private db: IDBDatabase | null = null;
   private initAttempted = false;
