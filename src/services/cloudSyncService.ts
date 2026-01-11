@@ -182,7 +182,8 @@ export async function fullSync(): Promise<void> {
 async function pullAllFromCloud(): Promise<void> {
   console.log('[CloudSync] Pulling data from cloud...');
   
-  // Core tables
+  // Core tables - USERS FIRST for authentication
+  await pullTable(TABLES.users, 'users');
   await pullTable(TABLES.hospitals, 'hospitals');
   await pullTable(TABLES.patients, 'patients');
   
@@ -280,7 +281,8 @@ async function pullAllFromCloud(): Promise<void> {
 async function pushAllToCloud(): Promise<void> {
   console.log('[CloudSync] Pushing data to cloud...');
   
-  // Core tables
+  // Core tables - USERS FIRST for authentication
+  await pushTable('users', TABLES.users);
   await pushTable('hospitals', TABLES.hospitals);
   await pushTable('patients', TABLES.patients);
   
@@ -513,7 +515,8 @@ function setupRealtimeSubscriptions() {
   // Subscribe to key tables for real-time updates
   // COMPREHENSIVE: All synced tables for full cross-device sync
   const tablesToWatch = [
-    // Core tables
+    // Core tables - USERS FIRST for authentication
+    { cloud: TABLES.users, local: 'users' },
     { cloud: TABLES.hospitals, local: 'hospitals' },
     { cloud: TABLES.patients, local: 'patients' },
     
@@ -702,6 +705,7 @@ export async function deleteRecordFromCloud(localTableName: string, recordId: st
 // Get cloud table name from local table name
 function getCloudTableName(localTableName: string): string | null {
   const mapping: Record<string, string> = {
+    users: TABLES.users,
     hospitals: TABLES.hospitals,
     patients: TABLES.patients,
     vitalSigns: TABLES.vitalSigns,

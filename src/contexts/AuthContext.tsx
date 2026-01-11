@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database';
+import { syncRecord } from '../services/cloudSyncService';
 import type { User, UserRole } from '../types';
 import Dexie from 'dexie';
 
@@ -151,6 +152,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           updatedAt: new Date(),
         };
         await db.users.add(newUser);
+        // Sync new user to cloud immediately
+        syncRecord('users', newUser as unknown as Record<string, unknown>);
         setUser(newUser);
         localStorage.setItem('carebridge_user_id', newUser.id);
         return true;
@@ -203,6 +206,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
 
       await db.users.add(newUser);
+      // Sync new user to cloud immediately
+      syncRecord('users', newUser as unknown as Record<string, unknown>);
       setUser(newUser);
       localStorage.setItem('carebridge_user_id', newUser.id);
       return true;
@@ -227,6 +232,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     await db.users.put(updatedUser);
+    // Sync updated user to cloud immediately
+    syncRecord('users', updatedUser as unknown as Record<string, unknown>);
     setUser(updatedUser);
   }, [user]);
 

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import BulkImportModal from '../../../components/common/BulkImportModal';
 import type { User, UserRole, Hospital } from '../../../types';
 
@@ -286,6 +287,11 @@ export default function UsersManagementPage() {
       ...updates,
       updatedAt: new Date().toISOString(),
     });
+    // Sync updated user to cloud
+    const updatedUser = await db.users.get(userId);
+    if (updatedUser) {
+      syncRecord('users', updatedUser as unknown as Record<string, unknown>);
+    }
   };
 
   // Handle user deactivation
@@ -297,6 +303,11 @@ export default function UsersManagementPage() {
         isActive: 0,
         updatedAt: new Date().toISOString(),
       });
+      // Sync deactivated user to cloud
+      const deactivatedUser = await db.users.get(userId);
+      if (deactivatedUser) {
+        syncRecord('users', deactivatedUser as unknown as Record<string, unknown>);
+      }
       toast.success('User deactivated successfully');
     } catch (error) {
       toast.error('Failed to deactivate user');
@@ -343,6 +354,8 @@ export default function UsersManagementPage() {
     };
 
     await db.users.add(newUser);
+    // Sync new user to cloud immediately
+    syncRecord('users', newUser as unknown as Record<string, unknown>);
     toast.success('User added successfully');
     return true;
   };
