@@ -18,6 +18,7 @@ import {
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../database';
+import { syncRecord } from '../../services/cloudSyncService';
 import type { Hospital, User, UserRole } from '../../types';
 
 interface BulkImportModalProps {
@@ -247,6 +248,7 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
             };
 
             await db.hospitals.add(hospital);
+            syncRecord('hospitals', hospital as unknown as Record<string, unknown>);
             successCount++;
           } catch (err) {
             errors.push(`Row ${i + 1}: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -292,6 +294,7 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
             };
 
             await db.users.add(user);
+            syncRecord('users', user as unknown as Record<string, unknown>);
             successCount++;
           } catch (err) {
             errors.push(`Row ${i + 1}: ${err instanceof Error ? err.message : 'Unknown error'}`);

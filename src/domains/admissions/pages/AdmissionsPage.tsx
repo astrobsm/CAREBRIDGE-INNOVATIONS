@@ -29,6 +29,7 @@ import {
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Admission, WardType, AdmissionStatus } from '../../../types';
 import AdmissionDurationClock from '../components/AdmissionDurationClock';
@@ -218,6 +219,7 @@ export default function AdmissionsPage({ embedded = false }: AdmissionsPageProps
       };
 
       await db.admissions.add(admission);
+      syncRecord('admissions', admission as unknown as Record<string, unknown>);
       toast.success(`Patient admitted successfully! Admission #${admission.admissionNumber}`);
       setShowModal(false);
       setAdmissionStep('details');

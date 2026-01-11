@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format, differenceInDays, differenceInHours } from 'date-fns';
 import type { BurnAssessment, BurnDepth, BurnArea } from '../../../types';
@@ -366,6 +367,7 @@ export default function EnhancedBurnsAssessmentPage() {
       };
 
       await db.burnAssessments.add(assessment);
+      syncRecord('burnAssessments', assessment as unknown as Record<string, unknown>);
       toast.success('Burn assessment saved successfully!');
       setShowModal(false);
       setLundBrowderEntries([]);

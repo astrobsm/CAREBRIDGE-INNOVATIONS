@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -413,6 +414,7 @@ export default function BillingPage() {
       };
 
       await db.invoices.add(invoice);
+      syncRecord('invoices', invoice as unknown as Record<string, unknown>);
       toast.success('Invoice created successfully!');
       setShowModal(false);
       setSelectedItems([]);

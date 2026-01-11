@@ -620,6 +620,7 @@ export async function createAppointmentSlot(slot: Omit<AppointmentSlot, 'id' | '
     updatedAt: now,
   };
   await db.appointmentSlots.add(newSlot);
+  syncRecord('appointmentSlots', newSlot as unknown as Record<string, unknown>);
   return newSlot;
 }
 
@@ -687,6 +688,7 @@ export async function createClinicSession(session: Omit<ClinicSession, 'id' | 'c
     updatedAt: now,
   };
   await db.clinicSessions.add(newSession);
+  syncRecord('clinicSessions', newSession as unknown as Record<string, unknown>);
   return newSession;
 }
 

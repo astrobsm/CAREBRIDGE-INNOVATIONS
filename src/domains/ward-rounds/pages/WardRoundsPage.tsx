@@ -27,6 +27,7 @@ import {
 import toast from 'react-hot-toast';
 import { format, isToday, isTomorrow, isPast } from 'date-fns';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { 
   WardRound, 
@@ -258,6 +259,7 @@ export default function WardRoundsPage() {
       };
 
       await db.wardRounds.add(newRound);
+      syncRecord('wardRounds', newRound as unknown as Record<string, unknown>);
       toast.success(`Ward round scheduled for ${hospital?.name}`);
       setShowRoundModal(false);
       roundForm.reset();
@@ -296,6 +298,7 @@ export default function WardRoundsPage() {
       };
 
       await db.doctorAssignments.add(assignment);
+      syncRecord('doctorAssignments', assignment as unknown as Record<string, unknown>);
       toast.success('Doctor assigned to patient');
       setShowDoctorAssignModal(false);
       doctorAssignForm.reset();
@@ -334,6 +337,7 @@ export default function WardRoundsPage() {
       };
 
       await db.nurseAssignments.add(assignment);
+      syncRecord('nurseAssignments', assignment as unknown as Record<string, unknown>);
       toast.success('Nurse assigned to patient');
       setShowNurseAssignModal(false);
       nurseAssignForm.reset();

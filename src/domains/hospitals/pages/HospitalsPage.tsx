@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import BulkImportModal from '../../../components/common/BulkImportModal';
 import type { Hospital } from '../../../types';
@@ -203,6 +204,7 @@ export default function HospitalsPage() {
         toast.success('Hospital updated successfully!');
       } else {
         await db.hospitals.add(hospitalData);
+        syncRecord('hospitals', hospitalData as unknown as Record<string, unknown>);
         toast.success('Hospital added successfully!');
       }
 

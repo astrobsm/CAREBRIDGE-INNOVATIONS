@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { generateLabResultPDF, generateLabRequestFormPDF } from '../../../utils/clinicalPdfGenerators';
@@ -366,6 +367,7 @@ export default function LaboratoryPage() {
       };
 
       await db.labRequests.add(labRequest);
+      syncRecord('labRequests', labRequest as unknown as Record<string, unknown>);
       toast.success('Lab request submitted successfully!');
       setShowModal(false);
       setSelectedTests([]);

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
@@ -375,6 +376,7 @@ export default function SurgeryPlanningPage() {
       };
 
       await db.surgeries.add(surgery);
+      syncRecord('surgeries', surgery as unknown as Record<string, unknown>);
       toast.success('Surgery scheduled successfully!');
       navigate('/surgery');
     } catch (error) {

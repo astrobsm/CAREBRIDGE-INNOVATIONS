@@ -26,6 +26,7 @@ import type {
   SpecimenType,
 } from '../types';
 import { recordBillableActivity } from './activityBillingService';
+import { syncRecord } from './cloudSyncService';
 
 // ============================================
 // PATIENT EDUCATION TEMPLATES BY PROCEDURE TYPE
@@ -490,6 +491,7 @@ export async function createPostOperativeNote(
   };
   
   await db.postOperativeNotes.add(note);
+  syncRecord('postOperativeNotes', note as unknown as Record<string, unknown>);
   return note;
 }
 

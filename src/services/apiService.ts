@@ -4,6 +4,7 @@
 // ============================================================
 
 import { db } from '../database/db';
+import { syncRecord } from './cloudSyncService';
 import { supabase, isSupabaseConfigured, LOCAL_TO_CLOUD_TABLE } from './supabaseClient';
 import type {
   User,
@@ -301,6 +302,7 @@ export const PatientAPI = {
     } as Patient;
     
     await db.patients.add(newPatient);
+    syncRecord('patients', newPatient as unknown as Record<string, unknown>);
     syncToCloud('patients', newPatient as unknown as Record<string, unknown>, 'create');
     return newPatient;
   },
@@ -373,6 +375,7 @@ export const VitalSignsAPI = {
     };
     
     await db.vitalSigns.add(newVitals);
+    syncRecord('vitalSigns', newVitals as unknown as Record<string, unknown>);
     syncToCloud('vitalSigns', newVitals as unknown as Record<string, unknown>, 'create');
     return newVitals;
   },
@@ -431,6 +434,7 @@ export const AdmissionAPI = {
     } as Admission;
     
     await db.admissions.add(newAdmission);
+    syncRecord('admissions', newAdmission as unknown as Record<string, unknown>);
     syncToCloud('admissions', newAdmission as unknown as Record<string, unknown>, 'create');
     return newAdmission;
   },
@@ -505,6 +509,7 @@ export const SurgeryAPI = {
     } as Surgery;
     
     await db.surgeries.add(newSurgery);
+    syncRecord('surgeries', newSurgery as unknown as Record<string, unknown>);
     syncToCloud('surgeries', newSurgery as unknown as Record<string, unknown>, 'create');
     return newSurgery;
   },
@@ -547,6 +552,7 @@ export const BurnAssessmentAPI = {
     } as BurnAssessment;
     
     await db.burnAssessments.add(newAssessment);
+    syncRecord('burnAssessments', newAssessment as unknown as Record<string, unknown>);
     syncToCloud('burnAssessments', newAssessment as unknown as Record<string, unknown>, 'create');
     return newAssessment;
   },
@@ -610,6 +616,7 @@ export const BurnMonitoringAPI = {
     } as BurnMonitoringRecord;
     
     await db.burnMonitoringRecords.add(newRecord);
+    syncRecord('burnMonitoringRecords', newRecord as unknown as Record<string, unknown>);
     syncToCloud('burnMonitoringRecords', newRecord as unknown as Record<string, unknown>, 'create');
     return newRecord;
   },
@@ -664,6 +671,7 @@ export const EscharotomyAPI = {
     } as EscharotomyRecord;
     
     await db.escharotomyRecords.add(newRecord);
+    syncRecord('escharotomyRecords', newRecord as unknown as Record<string, unknown>);
     syncToCloud('escharotomyRecords', newRecord as unknown as Record<string, unknown>, 'create');
     return newRecord;
   },
@@ -718,6 +726,7 @@ export const SkinGraftAPI = {
     } as SkinGraftRecord;
     
     await db.skinGraftRecords.add(newRecord);
+    syncRecord('skinGraftRecords', newRecord as unknown as Record<string, unknown>);
     syncToCloud('skinGraftRecords', newRecord as unknown as Record<string, unknown>, 'create');
     return newRecord;
   },
@@ -779,6 +788,7 @@ export const BurnCarePlanAPI = {
     } as BurnCarePlan;
     
     await db.burnCarePlans.add(newPlan);
+    syncRecord('burnCarePlans', newPlan as unknown as Record<string, unknown>);
     syncToCloud('burnCarePlans', newPlan as unknown as Record<string, unknown>, 'create');
     return newPlan;
   },
@@ -833,6 +843,7 @@ export const InvestigationAPI = {
     } as Investigation;
     
     await db.investigations.add(newInvestigation);
+    syncRecord('investigations', newInvestigation as unknown as Record<string, unknown>);
     syncToCloud('investigations', newInvestigation as unknown as Record<string, unknown>, 'create');
     return newInvestigation;
   },
@@ -881,6 +892,7 @@ export const PrescriptionAPI = {
     };
     
     await db.prescriptions.add(newPrescription);
+    syncRecord('prescriptions', newPrescription as unknown as Record<string, unknown>);
     syncToCloud('prescriptions', newPrescription as unknown as Record<string, unknown>, 'create');
     return newPrescription;
   },
@@ -939,6 +951,7 @@ export const LimbSalvageAPI = {
     } as LimbSalvageAssessment;
     
     await db.limbSalvageAssessments.add(newAssessment);
+    syncRecord('limbSalvageAssessments', newAssessment as unknown as Record<string, unknown>);
     syncToCloud('limbSalvageAssessments', newAssessment as unknown as Record<string, unknown>, 'create');
     return newAssessment;
   },
@@ -977,6 +990,7 @@ export const HospitalAPI = {
     } as Hospital;
     
     await db.hospitals.add(newHospital);
+    syncRecord('hospitals', newHospital as unknown as Record<string, unknown>);
     syncToCloud('hospitals', newHospital as unknown as Record<string, unknown>, 'create');
     return newHospital;
   },
@@ -1035,6 +1049,7 @@ export const UserAPI = {
     } as User;
     
     await db.users.add(newUser);
+    syncRecord('users', newUser as unknown as Record<string, unknown>);
     syncToCloud('users', newUser as unknown as Record<string, unknown>, 'create');
     return newUser;
   },

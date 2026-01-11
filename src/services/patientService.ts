@@ -5,6 +5,7 @@
 
 import { db } from '../database/db';
 import { supabase, isSupabaseConfigured, LOCAL_TO_CLOUD_TABLE } from './supabaseClient';
+import { syncRecord } from './cloudSyncService';
 import type {
   Patient,
   VitalSigns,
@@ -104,6 +105,7 @@ class PatientService {
           patient = this.transformFromCloud(data);
           // Cache locally
           await db.patients.put(patient);
+          syncRecord('patients', patient as unknown as Record<string, unknown>);
         }
       }
       
@@ -479,6 +481,7 @@ class PatientService {
         if (!error && data) {
           const patient = this.transformFromCloud(data);
           await db.patients.put(patient);
+          syncRecord('patients', patient as unknown as Record<string, unknown>);
         }
       } else {
         // Refresh all patients

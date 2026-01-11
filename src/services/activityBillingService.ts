@@ -1,6 +1,7 @@
 // Activity Billing Service - Tracks billable activities and revenue sharing
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database';
+import { syncRecord } from './cloudSyncService';
 import type { 
   ActivityBillingRecord, 
   StaffPatientAssignment, 
@@ -55,6 +56,7 @@ export async function assignStaffToPatient(
   };
 
   await db.staffPatientAssignments.add(assignment);
+  syncRecord('staffPatientAssignments', assignment as unknown as Record<string, unknown>);
   return assignment;
 }
 
@@ -165,6 +167,7 @@ export async function recordBillableActivity(
   };
 
   await db.activityBillingRecords.add(record);
+  syncRecord('activityBillingRecords', record as unknown as Record<string, unknown>);
   return record;
 }
 
@@ -279,6 +282,7 @@ export async function createPayrollPeriod(
   };
 
   await db.payrollPeriods.add(period);
+  syncRecord('payrollPeriods', period as unknown as Record<string, unknown>);
   return period;
 }
 
@@ -348,6 +352,7 @@ export async function calculatePayrollForPeriod(
 
     payrollRecords.push(payrollRecord);
     await db.staffPayrollRecords.add(payrollRecord);
+    syncRecord('staffPayrollRecords', payrollRecord as unknown as Record<string, unknown>);
 
     totalBilled += staffTotalBilled;
     totalPaid += staffTotalPaid;

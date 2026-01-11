@@ -36,6 +36,7 @@ import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
 import { generateWoundPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { generateCalibrationRulerPDF } from '../../../utils/calibrationRulerPdf';
 import { PatientSelector } from '../../../components/patient';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { usePatientMap } from '../../../services/patientHooks';
 import AIWoundPlanimetry from '../components/AIWoundPlanimetry';
 
@@ -225,6 +226,7 @@ export default function WoundsPage() {
       };
 
       await db.wounds.add(wound);
+      syncRecord('wounds', wound as unknown as Record<string, unknown>);
       toast.success('Wound assessment saved successfully!');
       setShowModal(false);
       reset();
