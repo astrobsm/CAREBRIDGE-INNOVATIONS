@@ -7,6 +7,7 @@
  */
 
 import { db } from '../database';
+import { syncRecord } from './cloudSyncService';
 import type { Wound, WoundPhoto, TissueType, WoundType } from '../types';
 
 // Wound Measurement Result from AI Analysis
@@ -476,6 +477,8 @@ class WoundCareService {
           periWoundCondition: entry.periWoundCondition,
           updatedAt: new Date()
         });
+        const updatedWound = await db.wounds.get(entry.woundId);
+        if (updatedWound) syncRecord('wounds', updatedWound as unknown as Record<string, unknown>);
       }
     }
 

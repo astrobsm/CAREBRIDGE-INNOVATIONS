@@ -313,6 +313,8 @@ class InvestigationLabService {
     }
 
     await db.investigations.update(investigationId, updateData);
+    const updated = await db.investigations.get(investigationId);
+    if (updated) syncRecord('investigations', updated as unknown as Record<string, unknown>);
   }
 
   /**
@@ -390,6 +392,8 @@ class InvestigationLabService {
       completedByName: userName,
       updatedAt: new Date(),
     });
+    const updatedInvestigation = await db.investigations.get(investigationId);
+    if (updatedInvestigation) syncRecord('investigations', updatedInvestigation as unknown as Record<string, unknown>);
   }
 
   /**

@@ -503,6 +503,8 @@ export async function updatePostOperativeNote(
     ...updates,
     updatedAt: new Date(),
   });
+  const updated = await db.postOperativeNotes.get(noteId);
+  if (updated) syncRecord('postOperativeNotes', updated as unknown as Record<string, unknown>);
 }
 
 export async function approvePostOperativeNote(
@@ -515,6 +517,8 @@ export async function approvePostOperativeNote(
     approvedAt: new Date(),
     updatedAt: new Date(),
   });
+  const updated = await db.postOperativeNotes.get(noteId);
+  if (updated) syncRecord('postOperativeNotes', updated as unknown as Record<string, unknown>);
 }
 
 export async function getPostOperativeNote(
@@ -621,6 +625,8 @@ export async function markEducationDelivered(
     educationDeliveredAt: new Date(),
     updatedAt: new Date(),
   });
+  const updated = await db.postOperativeNotes.get(noteId);
+  if (updated) syncRecord('postOperativeNotes', updated as unknown as Record<string, unknown>);
 }
 
 // Mark PDF as generated
@@ -633,6 +639,8 @@ export async function markPdfGenerated(
     pdfUrl,
     updatedAt: new Date(),
   });
+  const updated = await db.postOperativeNotes.get(noteId);
+  if (updated) syncRecord('postOperativeNotes', updated as unknown as Record<string, unknown>);
 }
 
 // Mark as shared via WhatsApp
@@ -644,4 +652,6 @@ export async function markSharedViaWhatsApp(
     sharedAt: new Date(),
     updatedAt: new Date(),
   });
+  const updated = await db.postOperativeNotes.get(noteId);
+  if (updated) syncRecord('postOperativeNotes', updated as unknown as Record<string, unknown>);
 }

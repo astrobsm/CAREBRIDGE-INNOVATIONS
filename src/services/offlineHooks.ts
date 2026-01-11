@@ -137,6 +137,7 @@ export function usePatients(hospitalId?: string) {
     await db.patients.update(id, changes);
     const updated = await db.patients.get(id);
     if (updated) {
+      syncRecord('patients', updated as unknown as Record<string, unknown>);
       await syncService.queueChange('patients', id, 'update', updated as unknown as Record<string, unknown>);
     }
     return updated;
@@ -171,6 +172,7 @@ export function useHospitals() {
     await db.hospitals.update(id, changes);
     const updated = await db.hospitals.get(id);
     if (updated) {
+      syncRecord('hospitals', updated as unknown as Record<string, unknown>);
       await syncService.queueChange('hospitals', id, 'update', updated as unknown as Record<string, unknown>);
     }
     return updated;
@@ -203,6 +205,7 @@ export function useCurrentUser(userId?: string) {
     await db.users.update(userId, changes);
     const updated = await db.users.get(userId);
     if (updated) {
+      syncRecord('users', updated as unknown as Record<string, unknown>);
       await syncService.queueChange('users', userId, 'update', updated as unknown as Record<string, unknown>);
     }
     return updated;

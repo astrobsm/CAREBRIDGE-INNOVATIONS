@@ -70,6 +70,8 @@ export async function releaseStaffAssignment(
     relievedBy,
     updatedAt: new Date(),
   });
+  const updated = await db.staffPatientAssignments.get(assignmentId);
+  if (updated) syncRecord('staffPatientAssignments', updated as unknown as Record<string, unknown>);
 }
 
 export async function getActiveAssignmentsForPatient(
@@ -201,6 +203,8 @@ export async function recordPaymentForActivity(
     invoiceItemId,
     updatedAt: new Date(),
   });
+  const updated = await db.activityBillingRecords.get(recordId);
+  if (updated) syncRecord('activityBillingRecords', updated as unknown as Record<string, unknown>);
 }
 
 export async function waiveActivityFee(
@@ -212,6 +216,8 @@ export async function waiveActivityFee(
     notes: notes || 'Fee waived',
     updatedAt: new Date(),
   });
+  const updated = await db.activityBillingRecords.get(recordId);
+  if (updated) syncRecord('activityBillingRecords', updated as unknown as Record<string, unknown>);
 }
 
 export async function getBillingRecordsForPatient(
@@ -368,6 +374,8 @@ export async function calculatePayrollForPeriod(
     status: 'processing',
     updatedAt: new Date(),
   });
+  const updatedPeriod = await db.payrollPeriods.get(payrollPeriodId);
+  if (updatedPeriod) syncRecord('payrollPeriods', updatedPeriod as unknown as Record<string, unknown>);
 
   return payrollRecords;
 }
@@ -382,6 +390,8 @@ export async function closePayrollPeriod(
     closedBy,
     updatedAt: new Date(),
   });
+  const updated = await db.payrollPeriods.get(payrollPeriodId);
+  if (updated) syncRecord('payrollPeriods', updated as unknown as Record<string, unknown>);
 }
 
 export async function markPayrollAsPaid(
@@ -398,6 +408,8 @@ export async function markPayrollAsPaid(
     paymentReference,
     updatedAt: new Date(),
   });
+  const updated = await db.staffPayrollRecords.get(payrollRecordId);
+  if (updated) syncRecord('staffPayrollRecords', updated as unknown as Record<string, unknown>);
 }
 
 // ============================================
