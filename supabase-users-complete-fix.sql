@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   password TEXT,
+  password_hash TEXT,
   first_name TEXT,
   last_name TEXT,
   role TEXT NOT NULL,
@@ -41,6 +42,12 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
     WHERE table_name = 'users' AND column_name = 'password') THEN
     ALTER TABLE users ADD COLUMN password TEXT;
+  END IF;
+  
+  -- Add password_hash column (this is what the app sends)
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'password_hash') THEN
+    ALTER TABLE users ADD COLUMN password_hash TEXT;
   END IF;
   
   -- Add avatar column

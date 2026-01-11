@@ -337,7 +337,7 @@ export default function UsersManagementPage() {
     const newUser: User = {
       id: crypto.randomUUID(),
       email: formData.email,
-      passwordHash: formData.password, // In production, this should be hashed
+      password: formData.password, // Store password (should be hashed in production)
       firstName: formData.firstName,
       lastName: formData.lastName,
       role: formData.role,
@@ -350,7 +350,6 @@ export default function UsersManagementPage() {
       hasAcceptedAgreement: false,
       createdAt: now,
       updatedAt: now,
-      syncedStatus: 0,
     };
 
     await db.users.add(newUser);
