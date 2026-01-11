@@ -18,7 +18,9 @@ import type { Patient } from '../types';
 
 // ==================== TYPES ====================
 
-export interface PreoperativeAssessment {
+// This interface is for the service-level comprehensive assessment with all nested types
+// For the simplified version used by the UI, import PreoperativeAssessment from types/index.ts
+export interface PreoperativeAssessmentService {
   id: string;
   patientId: string;
   surgeryId?: string;
@@ -695,13 +697,13 @@ class PreoperativeService {
 
   // ==================== DATABASE OPERATIONS ====================
 
-  async saveAssessment(assessment: PreoperativeAssessment): Promise<void> {
+  async saveAssessment(assessment: PreoperativeAssessmentService): Promise<void> {
     // This would save to the database
     // For now, we'll use the existing encounters or create a new table
     console.log('Saving preoperative assessment:', assessment);
   }
 
-  async getPatientAssessments(patientId: string): Promise<PreoperativeAssessment[]> {
+  async getPatientAssessments(patientId: string): Promise<PreoperativeAssessmentService[]> {
     // This would fetch from database
     return [];
   }

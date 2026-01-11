@@ -50,6 +50,7 @@ import type {
   StaffPayrollRecord,
   PostOperativeNote,
   Payslip,
+  PreoperativeAssessment,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 
@@ -113,13 +114,15 @@ export class CareBridgeDatabase extends Dexie {
   // Post-Operative Notes & Payslips
   postOperativeNotes!: Table<PostOperativeNote, string>;
   payslips!: Table<Payslip, string>;
+  // Preoperative Assessments
+  preoperativeAssessments!: Table<PreoperativeAssessment, string>;
   // Medication Charts
   medicationCharts!: Table<DailyMedicationChart, string>;
 
   constructor() {
     super('CareBridgeDB');
 
-    this.version(61).stores({
+    this.version(62).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -184,6 +187,8 @@ export class CareBridgeDatabase extends Dexie {
       // Post-Operative Notes & Payslips
       postOperativeNotes: 'id, surgeryId, patientId, hospitalId, admissionId, status, procedureDate, surgeonId, completedBy, createdAt',
       payslips: 'id, staffId, staffRole, hospitalId, periodId, paymentStatus, createdAt',
+      // Preoperative Assessments
+      preoperativeAssessments: 'id, patientId, surgeryName, surgeryType, scheduledDate, asaClass, status, clearanceStatus, assessedBy, createdAt',
     });
   }
 }

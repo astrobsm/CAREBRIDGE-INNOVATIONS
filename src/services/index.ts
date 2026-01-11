@@ -151,7 +151,7 @@ export type { UnifiedCategory, InvestigationPriority, InvestigationStatus, TestD
 export { burnCareService, ruleOfNines, lundBrowderChart } from './burnCareService';
 export type { FluidCalculation, ABSIScore, BurnNutrition, BurnWoundCareProtocol, BurnPrognosisFactors } from './burnCareService';
 export { preoperativeService, asaClassifications, mallampatiScores, capriniRiskFactors, rcriFactors, fastingGuidelines } from './preoperativeService';
-export type { PreoperativeAssessment, ASAClassification, AirwayAssessment, CardiacRiskAssessment, VTERiskAssessment, AnaestheticPlan } from './preoperativeService';
+export type { PreoperativeAssessmentService, ASAClassification, AirwayAssessment, CardiacRiskAssessment, VTERiskAssessment, AnaestheticPlan } from './preoperativeService';
 export { mdtService, specialtyDefinitions } from './mdtService';
 export type { 
   SpecialtyType, 

@@ -884,10 +884,10 @@ export interface ConsentForm {
 }
 
 // ==========================================
-// PREOPERATIVE MODULE
+// PREOPERATIVE MODULE (Legacy - deprecated, use PreoperativeAssessment instead)
 // ==========================================
 
-export interface PreoperativeAssessment {
+export interface PreoperativeAssessmentLegacy {
   id: string;
   patientId: string;
   surgeryId: string;
@@ -3961,6 +3961,72 @@ export interface Payslip {
   // PDF
   pdfGenerated: boolean;
   pdfUrl?: string;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Preoperative Assessment Types
+export interface PreoperativeAssessment {
+  id: string;
+  patientId: string;
+  patientName: string;
+  hospitalNumber: string;
+  
+  // Surgery Details
+  surgeryName: string;
+  surgeryType: 'minor' | 'intermediate' | 'major';
+  scheduledDate: Date;
+  
+  // ASA Classification
+  asaClass: 1 | 2 | 3 | 4 | 5 | 6;
+  asaEmergency: boolean;
+  
+  // Airway Assessment
+  airwayAssessment: {
+    mallampatiScore: 1 | 2 | 3 | 4;
+    mouthOpening: number; // cm
+    thyromentalDistance: number; // cm
+    neckMobility: 'normal' | 'limited' | 'fixed';
+    previousDifficultIntubation: boolean;
+    predictedDifficulty: 'easy' | 'potentially_difficult' | 'anticipated_difficult';
+  };
+  
+  // Cardiac Risk (RCRI)
+  cardiacRisk: {
+    rcriScore: number;
+    rcriRisk: string;
+    selectedFactors: string[];
+    functionalCapacity: number; // METs
+  };
+  
+  // VTE Risk (Caprini)
+  vteRisk: {
+    capriniScore: number;
+    riskCategory: 'low' | 'moderate' | 'high';
+    prophylaxisRecommendation: string;
+    selectedFactors: string[];
+  };
+  
+  // Bleeding Risk
+  bleedingRisk: {
+    onAnticoagulant: boolean;
+    anticoagulantType?: string;
+    bleedingHistory: boolean;
+  };
+  
+  // Status
+  status: 'draft' | 'pending' | 'completed';
+  clearanceStatus: 'pending_review' | 'cleared' | 'deferred';
+  clearanceNotes?: string;
+  
+  // Assessor
+  assessedBy: string;
+  assessedAt?: Date;
+  
+  // Review
+  reviewedBy?: string;
+  reviewedAt?: Date;
   
   createdAt: Date;
   updatedAt: Date;

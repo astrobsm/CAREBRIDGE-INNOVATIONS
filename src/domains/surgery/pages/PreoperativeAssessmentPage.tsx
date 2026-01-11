@@ -34,6 +34,7 @@ import {
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import {
   preoperativeService,
   asaClassifications,
@@ -43,6 +44,7 @@ import {
   fastingGuidelines,
 } from '../../../services/preoperativeService';
 import type { ASAClassification } from '../../../services/preoperativeService';
+import type { PreoperativeAssessment } from '../../../types';
 
 // Form schema
 const assessmentSchema = z.object({
@@ -107,6 +109,12 @@ export default function PreoperativeAssessmentPage() {
   
   // Data queries
   const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
+  
+  // Fetch all preoperative assessments
+  const assessments = useLiveQuery(
+    () => db.preoperativeAssessments.orderBy('createdAt').reverse().toArray(),
+    []
+  );
 
   // Fetch prescriptions for selected patient
   const prescriptions = useLiveQuery(
@@ -207,11 +215,65 @@ export default function PreoperativeAssessmentPage() {
 
   // Handle form submission
   const handleSubmit = async () => {
+    if (!selectedPatientId || !selectedPatient) {
+      toast.error('Please select a patient');
+      return;
+    }
+
     try {
+      const formData = form.getValues();
+      const assessmentId = `preop_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const assessment: PreoperativeAssessment = {
+        id: assessmentId,
+        patientId: selectedPatientId,
+        patientName: `${selectedPatient.firstName} ${selectedPatient.lastName}`,
+        hospitalNumber: selectedPatient.hospitalNumber,
+        surgeryName: formData.surgeryName,
+        surgeryType: formData.surgeryType,
+        scheduledDate: surgeryDateTime ? new Date(surgeryDateTime) : new Date(),
+        asaClass: asaClass as ASAClassification,
+        asaEmergency,
+        airwayAssessment: {
+          mallampatiScore: mallampati,
+          mouthOpening,
+          thyromentalDistance,
+          neckMobility,
+          previousDifficultIntubation: previousDifficult,
+          predictedDifficulty: airwayDifficulty,
+        },
+        cardiacRisk: {
+          rcriScore: rcriResult.score,
+          rcriRisk: rcriResult.risk,
+          selectedFactors: rcriSelectedFactors,
+          functionalCapacity: metsValue,
+        },
+        vteRisk: {
+          capriniScore: capriniResult.capriniScore,
+          riskCategory: capriniResult.riskCategory,
+          prophylaxisRecommendation: capriniResult.prophylaxisRecommendation,
+          selectedFactors: capriniSelectedFactors,
+        },
+        bleedingRisk: {
+          onAnticoagulant,
+          anticoagulantType,
+          bleedingHistory,
+        },
+        status: 'pending',
+        clearanceStatus: 'pending_review',
+        assessedBy: 'current_user',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await db.preoperativeAssessments.add(assessment);
+      await syncRecord('preoperativeAssessments', assessment);
+      
       toast.success('Preoperative assessment saved successfully');
       setShowModal(false);
       resetForm();
     } catch (error) {
+      console.error('Error saving assessment:', error);
       toast.error('Failed to save assessment');
     }
   };
@@ -939,28 +1001,105 @@ export default function PreoperativeAssessmentPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <p className="text-2xl font-bold text-yellow-600">5</p>
+          <p className="text-2xl font-bold text-yellow-600">
+            {assessments?.filter(a => a.clearanceStatus === 'pending_review').length || 0}
+          </p>
           <p className="text-sm text-gray-500">Pending Review</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <p className="text-2xl font-bold text-green-600">12</p>
+          <p className="text-2xl font-bold text-green-600">
+            {assessments?.filter(a => a.clearanceStatus === 'cleared').length || 0}
+          </p>
           <p className="text-sm text-gray-500">Cleared for Surgery</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <p className="text-2xl font-bold text-red-600">2</p>
+          <p className="text-2xl font-bold text-red-600">
+            {assessments?.filter(a => a.clearanceStatus === 'deferred').length || 0}
+          </p>
           <p className="text-sm text-gray-500">Deferred</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <p className="text-2xl font-bold text-blue-600">8</p>
+          <p className="text-2xl font-bold text-blue-600">
+            {assessments?.filter(a => {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const schedDate = new Date(a.scheduledDate);
+              schedDate.setHours(0, 0, 0, 0);
+              return schedDate.getTime() === today.getTime();
+            }).length || 0}
+          </p>
           <p className="text-sm text-gray-500">Today's Surgeries</p>
         </div>
       </div>
 
-      {/* Placeholder for list */}
-      <div className="bg-white rounded-xl shadow-sm border p-8 text-center text-gray-500">
-        <Stethoscope className="mx-auto mb-4 text-gray-300" size={48} />
-        <p>Click "New Assessment" to begin a preoperative evaluation</p>
-      </div>
+      {/* Assessments List */}
+      {!assessments || assessments.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border p-8 text-center text-gray-500">
+          <Stethoscope className="mx-auto mb-4 text-gray-300" size={48} />
+          <p>Click "New Assessment" to begin a preoperative evaluation</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Patient</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Surgery</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Scheduled</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">ASA</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Status</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assessments.map((assessment) => (
+                  <tr key={assessment.id} className="border-b hover:bg-gray-50">
+                    <td className="p-4">
+                      <div>
+                        <p className="font-medium text-gray-900">{assessment.patientName}</p>
+                        <p className="text-sm text-gray-500">{assessment.hospitalNumber}</p>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div>
+                        <p className="text-gray-900">{assessment.surgeryName}</p>
+                        <p className="text-xs text-gray-500 capitalize">{assessment.surgeryType}</p>
+                      </div>
+                    </td>
+                    <td className="p-4 text-sm text-gray-600">
+                      {format(new Date(assessment.scheduledDate), 'MMM d, yyyy h:mm a')}
+                    </td>
+                    <td className="p-4">
+                      <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                        ASA {assessment.asaClass}{assessment.asaEmergency ? 'E' : ''}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                        assessment.clearanceStatus === 'cleared' ? 'bg-green-100 text-green-800' :
+                        assessment.clearanceStatus === 'deferred' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {assessment.clearanceStatus === 'pending_review' ? 'Pending' :
+                         assessment.clearanceStatus === 'cleared' ? 'Cleared' : 'Deferred'}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => navigate(`/surgery/preop/${assessment.id}`)}
+                        className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Assessment Modal */}
       <AnimatePresence>
