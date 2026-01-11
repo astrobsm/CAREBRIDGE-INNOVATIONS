@@ -448,12 +448,65 @@ CREATE POLICY "post_operative_notes_delete" ON post_operative_notes FOR DELETE U
 -- ============================================
 -- ENABLE REALTIME FOR ALL NEW TABLES
 -- ============================================
-ALTER PUBLICATION supabase_realtime ADD TABLE staff_patient_assignments;
-ALTER PUBLICATION supabase_realtime ADD TABLE activity_billing_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE payroll_periods;
-ALTER PUBLICATION supabase_realtime ADD TABLE staff_payroll_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE payslips;
-ALTER PUBLICATION supabase_realtime ADD TABLE post_operative_notes;
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'staff_patient_assignments'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE staff_patient_assignments;
+  END IF;
+END $$;
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'activity_billing_records'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE activity_billing_records;
+  END IF;
+END $$;
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'payroll_periods'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE payroll_periods;
+  END IF;
+END $$;
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'staff_payroll_records'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE staff_payroll_records;
+  END IF;
+END $$;
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'payslips'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE payslips;
+  END IF;
+END $$;
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'post_operative_notes'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE post_operative_notes;
+  END IF;
+END $$;
 
 -- ============================================
 -- VERIFICATION QUERIES
