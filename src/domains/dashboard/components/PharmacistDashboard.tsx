@@ -8,11 +8,8 @@ import {
   Clock,
   Calendar,
   CheckCircle,
-  ChevronRight,
-  ShoppingCart,
   AlertCircle,
   FileText,
-  User,
   Truck,
 } from 'lucide-react';
 import { db } from '../../../database';

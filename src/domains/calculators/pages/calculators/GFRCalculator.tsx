@@ -33,7 +33,6 @@ export default function GFRCalculator({ patientInfo }: Props) {
     // CKD-EPI equation (2021 - race-free version)
     let gfrCKDEPI: number;
     const kappa = gender === 'female' ? 0.7 : 0.9;
-    const alpha = gender === 'female' ? -0.241 : -0.302;
     const crKappa = cr / kappa;
     
     if (gender === 'female') {

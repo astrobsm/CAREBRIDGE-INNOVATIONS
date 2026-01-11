@@ -1,8 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
-  DollarSign,
   TrendingUp,
   TrendingDown,
   Calendar,
@@ -10,7 +9,6 @@ import {
   CreditCard,
   FileText,
   PiggyBank,
-  ChevronRight,
   Clock,
   CheckCircle,
   AlertCircle,
@@ -112,7 +110,7 @@ export default function AccountantDashboard() {
   }, [billingRecords]);
 
   // Payroll periods
-  const payrollPeriods = useLiveQuery(async () => {
+  const _payrollPeriods = useLiveQuery(async () => {
     return db.payrollPeriods.orderBy('startDate').reverse().limit(6).toArray();
   }, []);
 

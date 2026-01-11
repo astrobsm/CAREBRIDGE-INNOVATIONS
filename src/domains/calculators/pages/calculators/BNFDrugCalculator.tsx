@@ -216,7 +216,7 @@ export default function BNFDrugCalculator({ patientInfo }: Props) {
   
   const [result, setResult] = useState<DrugDose | null>(null);
 
-  const filteredDrugs = Object.entries(DRUG_DATABASE).filter(([key, drug]) =>
+  const filteredDrugs = Object.entries(DRUG_DATABASE).filter(([_key, drug]) =>
     drug.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     drug.class.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -251,8 +251,10 @@ export default function BNFDrugCalculator({ patientInfo }: Props) {
     }
 
     const calculationResult: DrugDose = {
+      drug: selectedDrug,
       drugName: drug.name,
       drugClass: drug.class,
+      indication: drug.indications.join(', '),
       standardDose: drug.standardDose,
       adjustedDose: isRenalAdjusted || hasHepaticImpairment ? 'See adjustments below' : drug.standardDose,
       maxDose: drug.maxDose,

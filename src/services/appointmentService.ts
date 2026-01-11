@@ -88,7 +88,7 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
     relatedEncounterId: input.relatedEncounterId,
     relatedSurgeryId: input.relatedSurgeryId,
     relatedWoundId: input.relatedWoundId,
-    clinicianId: input.clinicianId,
+    clinicianId: input.clinicianId || '', // Can be assigned later
     clinicianName: input.clinicianName,
     patientWhatsApp: input.patientWhatsApp,
     patientPhone: input.patientPhone,

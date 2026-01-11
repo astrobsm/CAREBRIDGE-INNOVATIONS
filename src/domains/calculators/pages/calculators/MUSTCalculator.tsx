@@ -58,7 +58,6 @@ export default function MUSTCalculator({ patientInfo }: Props) {
     
     // Risk category
     let riskCategory: 'Low' | 'Medium' | 'High';
-    let riskColor: 'green' | 'yellow' | 'red';
     let managementPlan: string[] = [];
     let monitoringFrequency: string;
     let dietaryRecommendations: string[] = [];
@@ -66,7 +65,6 @@ export default function MUSTCalculator({ patientInfo }: Props) {
     
     if (totalScore === 0) {
       riskCategory = 'Low';
-      riskColor = 'green';
       monitoringFrequency = 'Weekly in hospital, Monthly in community, Annually if outpatient';
       managementPlan = [
         'Routine clinical care',
@@ -82,7 +80,6 @@ export default function MUSTCalculator({ patientInfo }: Props) {
       ];
     } else if (totalScore === 1) {
       riskCategory = 'Medium';
-      riskColor = 'yellow';
       monitoringFrequency = 'Weekly in all settings';
       managementPlan = [
         'Observe and document dietary intake for 3 days',
@@ -104,7 +101,6 @@ export default function MUSTCalculator({ patientInfo }: Props) {
       ];
     } else {
       riskCategory = 'High';
-      riskColor = 'red';
       monitoringFrequency = 'Every 2-3 days initially, then weekly';
       managementPlan = [
         '⚠️ REFER TO DIETITIAN/NUTRITION TEAM',
@@ -164,13 +160,15 @@ export default function MUSTCalculator({ patientInfo }: Props) {
       : Math.round(1.0 * weight); // Normal: 1g/kg
     
     const calculationResult: MUSTResult = {
-      bmi: Math.round(bmi * 10) / 10,
       bmiScore,
-      weightLossPercent: Math.round(weightLossPercent * 10) / 10,
       weightLossScore,
-      acuteDiseaseScore,
+      acuteIllnessScore: acuteDiseaseScore,
       totalScore,
+      riskLevel: riskCategory === 'High' ? 'high' : riskCategory === 'Medium' ? 'medium' : 'low',
       riskCategory,
+      recommendations: managementPlan,
+      referralNeeded: riskCategory === 'High',
+      nutritionalPlan: dietaryRecommendations,
       managementPlan,
       monitoringFrequency,
       dietaryRecommendations,

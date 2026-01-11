@@ -233,8 +233,18 @@ export default function BurnsCalculator({ patientInfo }: Props) {
     const calculationResult: BurnsResult = {
       tbsa,
       severity,
-      parklandFluid: parkland,
+      // Required fields
+      parklandTotal: parkland.totalFluid24h,
+      parklandFirst8Hours: parkland.first8Hours,
+      parklandNext16Hours: parkland.next16Hours,
+      hourlyRateFirst8: parkland.hourlyFirst8,
+      hourlyRateNext16: parkland.hourlyNext16,
       absiScore: absi.score,
+      absiMortality: absi.survivalProbability,
+      recommendations: referralCriteria.length > 0 ? referralCriteria : ['Continue standard burn care'],
+      resuscitationEndpoints: monitoring,
+      // Optional fields
+      parklandFluid: parkland,
       absiSurvival: absi.survivalProbability,
       absiPrognosis: absi.prognosis,
       referralCriteria,

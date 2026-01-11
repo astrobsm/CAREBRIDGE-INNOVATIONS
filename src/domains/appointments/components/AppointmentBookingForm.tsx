@@ -33,7 +33,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { PatientSelector } from '../../../components/patient';
 import { HospitalSelector } from '../../../components/hospital';
 import { createAppointment, getAvailableSlots } from '../../../services/appointmentService';
-import type { AppointmentType, AppointmentPriority, AppointmentLocation, Patient, Hospital } from '../../../types';
+import type { AppointmentType, AppointmentPriority, AppointmentLocation, Patient } from '../../../types';
 
 // Form validation schema
 const appointmentSchema = z.object({

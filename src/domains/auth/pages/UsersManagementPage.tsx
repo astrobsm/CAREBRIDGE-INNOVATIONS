@@ -6,7 +6,6 @@ import {
   UserPlus,
   Upload,
   Search,
-  Filter,
   Edit2,
   Trash2,
   MoreVertical,

@@ -11,7 +11,6 @@ import {
   ChevronRight,
   FileText,
   Droplet,
-  Activity,
   Timer,
   User,
 } from 'lucide-react';
@@ -36,7 +35,7 @@ export default function LabScientistDashboard() {
   }, [user?.id, statsPeriod]);
 
   // All lab investigations
-  const allInvestigations = useLiveQuery(async () => {
+  const _allInvestigations = useLiveQuery(async () => {
     return db.investigations.toArray();
   }, []);
 
@@ -75,7 +74,7 @@ export default function LabScientistDashboard() {
   }, []);
 
   // Blood typing pending
-  const bloodTypingPending = useLiveQuery(async () => {
+  const _bloodTypingPending = useLiveQuery(async () => {
     return db.transfusionMonitoringCharts
       .filter(t => t.status === 'template' || t.status === 'in_progress')
       .count();

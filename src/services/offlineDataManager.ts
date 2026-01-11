@@ -142,7 +142,7 @@ class OfflineChangeTracker {
   async getPendingChanges(): Promise<OfflineChange[]> {
     await this.init();
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       if (!this.db) {
         resolve([]);
         return;
@@ -169,7 +169,7 @@ class OfflineChangeTracker {
   async markAsSynced(id: string): Promise<void> {
     await this.init();
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       if (!this.db) {
         resolve();
         return;
@@ -269,7 +269,7 @@ class OfflineChangeTracker {
   async getSyncedChanges(): Promise<OfflineChange[]> {
     await this.init();
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       if (!this.db) {
         resolve([]);
         return;
