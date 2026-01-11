@@ -21,6 +21,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { syncRecord } from '../../../services/cloudSyncService';
 import type { VitalSigns } from '../../../types';
 import { format } from 'date-fns';
 
@@ -151,6 +152,7 @@ export default function VitalsPage() {
       };
 
       await db.vitalSigns.add(vitals);
+      await syncRecord('vitalSigns', vitals as unknown as Record<string, unknown>);
       toast.success('Vital signs recorded successfully!');
       navigate(`/patients/${patientId}`);
     } catch (error) {

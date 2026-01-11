@@ -21,6 +21,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { syncRecord } from '../../../services/cloudSyncService';
 import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination } from '../../../types';
 
 const encounterSchema = z.object({
@@ -131,6 +132,7 @@ export default function ClinicalEncounterPage() {
       };
 
       await db.clinicalEncounters.add(encounter);
+      await syncRecord('clinicalEncounters', encounter as unknown as Record<string, unknown>);
       toast.success('Clinical encounter saved successfully!');
       navigate(`/patients/${patientId}`);
     } catch (error) {

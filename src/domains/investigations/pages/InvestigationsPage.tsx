@@ -42,6 +42,7 @@ import {
   AreaChart,
 } from 'recharts';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { HospitalSelector } from '../../../components/hospital';
 import type { Investigation, InvestigationResult } from '../../../types';
@@ -260,6 +261,7 @@ export default function InvestigationsPage() {
       };
 
       await db.investigations.add(investigation);
+      syncRecord('investigations', investigation as unknown as Record<string, unknown>);
       toast.success('Investigation requested successfully');
       setShowRequestModal(false);
       requestForm.reset();
@@ -326,6 +328,8 @@ export default function InvestigationsPage() {
         completedAt: new Date(),
         updatedAt: new Date(),
       });
+      const updatedRecord = await db.investigations.get(selectedInvestigation.id);
+      if (updatedRecord) syncRecord('investigations', updatedRecord as unknown as Record<string, unknown>);
 
       toast.success('Results uploaded successfully');
       setShowResultModal(false);
@@ -348,6 +352,8 @@ export default function InvestigationsPage() {
         ...(newStatus === 'sample_collected' ? { collectedAt: new Date() } : {}),
         ...(newStatus === 'processing' ? { processingStartedAt: new Date() } : {}),
       });
+      const updatedStatusRecord = await db.investigations.get(investigation.id);
+      if (updatedStatusRecord) syncRecord('investigations', updatedStatusRecord as unknown as Record<string, unknown>);
       toast.success(`Status updated to ${newStatus.replace('_', ' ')}`);
     } catch (error) {
       toast.error('Failed to update status');

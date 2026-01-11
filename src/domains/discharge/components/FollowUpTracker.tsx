@@ -22,6 +22,7 @@ import {
 import { format, isAfter, isBefore, addDays, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import type { DischargeSummary, FollowUpAppointment, FollowUpTracking } from '../../../types';
 
 interface Props {
@@ -184,6 +185,8 @@ export default function FollowUpTracker({ onClose }: Props) {
         followUpTracking: [...(summary.followUpTracking || []), trackingEntry],
         updatedAt: new Date(),
       });
+      const updatedSummary = await db.dischargeSummaries.get(summaryId);
+      if (updatedSummary) syncRecord('dischargeSummaries', updatedSummary as unknown as Record<string, unknown>);
 
       toast.success(`Appointment marked as ${newStatus}`);
     } catch (error) {

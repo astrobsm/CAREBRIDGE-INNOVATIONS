@@ -20,6 +20,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { format } from 'date-fns';
 import type { NutritionAssessment } from '../../../types';
 import { generateNutritionPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
@@ -291,6 +292,7 @@ export default function NutritionPage() {
       };
 
       await db.nutritionAssessments.add(assessment);
+      await syncRecord('nutritionAssessments', assessment as unknown as Record<string, unknown>);
       toast.success('Nutrition assessment saved!');
       setShowModal(false);
       reset();

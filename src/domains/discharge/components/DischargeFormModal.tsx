@@ -30,6 +30,7 @@ import {
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Admission, Patient, DischargeSummary, DischargeMedication, FollowUpAppointment } from '../../../types';
 import { generateDischargeSummaryPDF } from '../../../utils/dischargePdfGenerator';
@@ -249,6 +250,7 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
 
       // Save discharge summary
       await db.dischargeSummaries.add(summary);
+      syncRecord('dischargeSummaries', summary as unknown as Record<string, unknown>);
 
       // Update admission status
       await db.admissions.update(admission.id, {
@@ -260,6 +262,8 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
         dischargeSummaryId: summaryId,
         updatedAt: new Date(),
       });
+      const updatedAdmission = await db.admissions.get(admission.id);
+      if (updatedAdmission) syncRecord('admissions', updatedAdmission as unknown as Record<string, unknown>);
 
       onComplete();
     } catch (error) {

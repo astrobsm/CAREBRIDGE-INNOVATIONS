@@ -23,6 +23,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { format } from 'date-fns';
 import { generatePrescriptionPDF, generateDispensingSlipPDF } from '../../../utils/prescriptionPdfGenerator';
 import type { Prescription, Medication, MedicationRoute } from '../../../types';
@@ -258,6 +259,7 @@ export default function PharmacyPage() {
       };
 
       await db.prescriptions.add(prescription);
+      await syncRecord('prescriptions', prescription as unknown as Record<string, unknown>);
       toast.success('Prescription created successfully!');
       setShowModal(false);
       setMedications([]);

@@ -25,6 +25,7 @@ import {
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Admission, Patient } from '../../../types';
 
@@ -171,6 +172,8 @@ export default function AMADischargeForm({ admission, patient, onClose, onComple
         amaDocumentation: amaRecord,
         updatedAt: new Date(),
       });
+      const updatedAdmission = await db.admissions.get(admission.id);
+      if (updatedAdmission) syncRecord('admissions', updatedAdmission as unknown as Record<string, unknown>);
 
       toast.success('AMA discharge documented successfully');
       onComplete();

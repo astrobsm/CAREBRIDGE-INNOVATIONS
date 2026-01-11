@@ -27,6 +27,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { format, differenceInDays } from 'date-fns';
 import type { BurnAssessment, BurnDepth, BurnArea } from '../../../types';
 import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
@@ -273,6 +274,7 @@ export default function BurnsAssessmentPage() {
       };
 
       await db.burnAssessments.add(assessment);
+      await syncRecord('burnAssessments', assessment as unknown as Record<string, unknown>);
       toast.success('Burn assessment saved successfully!');
       setShowModal(false);
       setSelectedAreas({});

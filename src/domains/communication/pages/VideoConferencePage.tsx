@@ -45,6 +45,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { syncRecord } from '../../../services/cloudSyncService';
 import type { 
   VideoConference, 
   ConferenceParticipant, 
@@ -471,6 +472,7 @@ export default function VideoConferencePage() {
     };
 
     await db.videoConferences.add(newConference);
+    syncRecord('videoConferences', newConference as unknown as Record<string, unknown>);
     setConference(newConference);
     navigate(`/communication/video/${newConference.id}`, { replace: true });
   };
@@ -509,6 +511,8 @@ export default function VideoConferencePage() {
       actualStart: conference.status === 'waiting' ? new Date() : conference.actualStart,
       updatedAt: new Date(),
     });
+    const updatedConf = await db.videoConferences.get(conference.id);
+    if (updatedConf) syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
 
     setIsJoined(true);
     toast.success('Joined meeting');
@@ -536,6 +540,8 @@ export default function VideoConferencePage() {
       actualEnd: updatedParticipants.every(p => p.leftAt) ? new Date() : undefined,
       updatedAt: new Date(),
     });
+    const updatedConfLeave = await db.videoConferences.get(conference.id);
+    if (updatedConfLeave) syncRecord('videoConferences', updatedConfLeave as unknown as Record<string, unknown>);
 
     setIsJoined(false);
     toast.success('Left meeting');
@@ -657,6 +663,8 @@ export default function VideoConferencePage() {
         },
         updatedAt: new Date(),
       });
+      const updatedConfSlides = await db.videoConferences.get(conference.id);
+      if (updatedConfSlides) syncRecord('videoConferences', updatedConfSlides as unknown as Record<string, unknown>);
     }
 
     toast.success(`${newSlides.length} slide(s) added`);
@@ -672,6 +680,8 @@ export default function VideoConferencePage() {
         'presentation.currentSlideIndex': index,
         updatedAt: new Date(),
       });
+      const updatedConfNav = await db.videoConferences.get(conference.id);
+      if (updatedConfNav) syncRecord('videoConferences', updatedConfNav as unknown as Record<string, unknown>);
     }
   };
 
@@ -697,6 +707,8 @@ export default function VideoConferencePage() {
       chatMessages: updatedMessages,
       updatedAt: new Date(),
     });
+    const updatedConfChat = await db.videoConferences.get(conference.id);
+    if (updatedConfChat) syncRecord('videoConferences', updatedConfChat as unknown as Record<string, unknown>);
   };
 
   // Copy meeting link

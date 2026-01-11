@@ -313,6 +313,7 @@ export const PatientAPI = {
     
     const patient = await db.patients.get(id);
     if (patient) {
+      syncRecord('patients', patient as unknown as Record<string, unknown>);
       syncToCloud('patients', patient as unknown as Record<string, unknown>, 'update');
     }
     return patient;
@@ -322,6 +323,7 @@ export const PatientAPI = {
     await db.patients.update(id, { isActive: false, updatedAt: new Date() });
     const patient = await db.patients.get(id);
     if (patient) {
+      syncRecord('patients', patient as unknown as Record<string, unknown>);
       syncToCloud('patients', patient as unknown as Record<string, unknown>, 'update');
     }
   },
@@ -384,6 +386,7 @@ export const VitalSignsAPI = {
     await db.vitalSigns.update(id, updates);
     const vitals = await db.vitalSigns.get(id);
     if (vitals) {
+      syncRecord('vitalSigns', vitals as unknown as Record<string, unknown>);
       syncToCloud('vitalSigns', vitals as unknown as Record<string, unknown>, 'update');
     }
     return vitals;
@@ -445,6 +448,7 @@ export const AdmissionAPI = {
     
     const admission = await db.admissions.get(id);
     if (admission) {
+      syncRecord('admissions', admission as unknown as Record<string, unknown>);
       syncToCloud('admissions', admission as unknown as Record<string, unknown>, 'update');
     }
     return admission;
@@ -461,6 +465,7 @@ export const AdmissionAPI = {
     
     const admission = await db.admissions.get(id);
     if (admission) {
+      syncRecord('admissions', admission as unknown as Record<string, unknown>);
       syncToCloud('admissions', admission as unknown as Record<string, unknown>, 'update');
     }
     return admission;
@@ -520,6 +525,7 @@ export const SurgeryAPI = {
     
     const surgery = await db.surgeries.get(id);
     if (surgery) {
+      syncRecord('surgeries', surgery as unknown as Record<string, unknown>);
       syncToCloud('surgeries', surgery as unknown as Record<string, unknown>, 'update');
     }
     return surgery;
@@ -563,6 +569,7 @@ export const BurnAssessmentAPI = {
     
     const assessment = await db.burnAssessments.get(id);
     if (assessment) {
+      syncRecord('burnAssessments', assessment as unknown as Record<string, unknown>);
       syncToCloud('burnAssessments', assessment as unknown as Record<string, unknown>, 'update');
     }
     return assessment;
@@ -627,6 +634,7 @@ export const BurnMonitoringAPI = {
     
     const record = await db.burnMonitoringRecords.get(id);
     if (record) {
+      syncRecord('burnMonitoringRecords', record as unknown as Record<string, unknown>);
       syncToCloud('burnMonitoringRecords', record as unknown as Record<string, unknown>, 'update');
     }
     return record;
@@ -682,6 +690,7 @@ export const EscharotomyAPI = {
     
     const record = await db.escharotomyRecords.get(id);
     if (record) {
+      syncRecord('escharotomyRecords', record as unknown as Record<string, unknown>);
       syncToCloud('escharotomyRecords', record as unknown as Record<string, unknown>, 'update');
     }
     return record;
@@ -737,6 +746,7 @@ export const SkinGraftAPI = {
     
     const record = await db.skinGraftRecords.get(id);
     if (record) {
+      syncRecord('skinGraftRecords', record as unknown as Record<string, unknown>);
       syncToCloud('skinGraftRecords', record as unknown as Record<string, unknown>, 'update');
     }
     return record;
@@ -799,6 +809,7 @@ export const BurnCarePlanAPI = {
     
     const plan = await db.burnCarePlans.get(id);
     if (plan) {
+      syncRecord('burnCarePlans', plan as unknown as Record<string, unknown>);
       syncToCloud('burnCarePlans', plan as unknown as Record<string, unknown>, 'update');
     }
     return plan;
@@ -854,6 +865,7 @@ export const InvestigationAPI = {
     
     const investigation = await db.investigations.get(id);
     if (investigation) {
+      syncRecord('investigations', investigation as unknown as Record<string, unknown>);
       syncToCloud('investigations', investigation as unknown as Record<string, unknown>, 'update');
     }
     return investigation;
@@ -902,6 +914,7 @@ export const PrescriptionAPI = {
     
     const prescription = await db.prescriptions.get(id);
     if (prescription) {
+      syncRecord('prescriptions', prescription as unknown as Record<string, unknown>);
       syncToCloud('prescriptions', prescription as unknown as Record<string, unknown>, 'update');
     }
     return prescription;
@@ -962,6 +975,7 @@ export const LimbSalvageAPI = {
     
     const assessment = await db.limbSalvageAssessments.get(id);
     if (assessment) {
+      syncRecord('limbSalvageAssessments', assessment as unknown as Record<string, unknown>);
       syncToCloud('limbSalvageAssessments', assessment as unknown as Record<string, unknown>, 'update');
     }
     return assessment;
@@ -1001,6 +1015,7 @@ export const HospitalAPI = {
     
     const hospital = await db.hospitals.get(id);
     if (hospital) {
+      syncRecord('hospitals', hospital as unknown as Record<string, unknown>);
       syncToCloud('hospitals', hospital as unknown as Record<string, unknown>, 'update');
     }
     return hospital;
@@ -1060,6 +1075,7 @@ export const UserAPI = {
     
     const user = await db.users.get(id);
     if (user) {
+      syncRecord('users', user as unknown as Record<string, unknown>);
       syncToCloud('users', user as unknown as Record<string, unknown>, 'update');
     }
     return user;

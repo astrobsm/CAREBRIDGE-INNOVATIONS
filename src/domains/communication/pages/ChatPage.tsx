@@ -35,6 +35,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { syncRecord } from '../../../services/cloudSyncService';
 import type { ChatRoom, ChatMessage, ChatParticipant, UserRole, ChatRoomType } from '../../../types';
 
 // Room type icons and colors
@@ -150,12 +151,15 @@ export default function ChatPage() {
       };
 
       await db.chatMessages.add(newMessage);
+      syncRecord('chatMessages', newMessage as unknown as Record<string, unknown>);
 
       // Update room's last message time
       await db.chatRooms.update(selectedRoomId, {
         lastMessageAt: new Date(),
         updatedAt: new Date(),
       });
+      const updatedRoom = await db.chatRooms.get(selectedRoomId);
+      if (updatedRoom) syncRecord('chatRooms', updatedRoom as unknown as Record<string, unknown>);
 
       setMessageText('');
       setReplyingTo(null);
@@ -176,6 +180,8 @@ export default function ChatPage() {
         isEdited: true,
         updatedAt: new Date(),
       });
+      const updatedMsg = await db.chatMessages.get(editingMessage.id);
+      if (updatedMsg) syncRecord('chatMessages', updatedMsg as unknown as Record<string, unknown>);
 
       setMessageText('');
       setEditingMessage(null);
@@ -194,6 +200,8 @@ export default function ChatPage() {
         content: 'This message was deleted',
         updatedAt: new Date(),
       });
+      const deletedMsg = await db.chatMessages.get(messageId);
+      if (deletedMsg) syncRecord('chatMessages', deletedMsg as unknown as Record<string, unknown>);
       toast.success('Message deleted');
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -245,6 +253,7 @@ export default function ChatPage() {
       };
 
       await db.chatRooms.add(newRoom);
+      syncRecord('chatRooms', newRoom as unknown as Record<string, unknown>);
       setSelectedRoomId(newRoom.id);
       setShowNewRoomModal(false);
       toast.success('Chat room created');

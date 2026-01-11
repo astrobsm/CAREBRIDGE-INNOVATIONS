@@ -26,6 +26,7 @@ import ScoreSummaryStep from './ScoreSummaryStep';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { calculateLimbSalvageScore, generateRecommendations, recommendAmputationLevel, determineManagement } from '../../../services/limbSalvageService';
+import { syncRecord } from '../../../services/cloudSyncService';
 
 import type { 
   LimbSalvageAssessment,
@@ -294,9 +295,12 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
 
       if (existingAssessment) {
         await db.limbSalvageAssessments.update(existingAssessment.id, assessment);
+        const updatedRecord = await db.limbSalvageAssessments.get(existingAssessment.id);
+        if (updatedRecord) syncRecord('limbSalvageAssessments', updatedRecord as unknown as Record<string, unknown>);
         toast.success('Assessment updated successfully');
       } else {
         await db.limbSalvageAssessments.add(assessment);
+        syncRecord('limbSalvageAssessments', assessment as unknown as Record<string, unknown>);
         toast.success('Assessment saved successfully');
       }
 

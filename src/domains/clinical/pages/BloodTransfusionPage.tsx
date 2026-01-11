@@ -35,6 +35,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
   bloodTransfusionService,
@@ -392,6 +393,7 @@ Note: Uploaded chart stored successfully.
     
     try {
       await db.transfusionMonitoringCharts.add(newChart);
+      syncRecord('transfusionMonitoringCharts', newChart as unknown as Record<string, unknown>);
       toast.success('Chart uploaded successfully');
       setShowChartUploadModal(false);
       resetChartUploadForm();
@@ -469,6 +471,7 @@ Note: Uploaded chart stored successfully.
     
     try {
       await db.transfusionOrders.add(newOrder);
+      syncRecord('transfusionOrders', newOrder as unknown as Record<string, unknown>);
       toast.success('Transfusion order created');
       
       // Auto-generate PDF
