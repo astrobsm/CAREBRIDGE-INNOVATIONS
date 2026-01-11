@@ -128,7 +128,7 @@ export default function WardRoundsPage() {
 
   // Get doctors and nurses
   const doctors = useMemo(() => 
-    users?.filter(u => ['surgeon', 'anaesthetist'].includes(u.role)) || [],
+    users?.filter(u => ['surgeon', 'anaesthetist', 'doctor', 'consultant', 'registrar', 'resident'].includes(u.role)) || [],
     [users]
   );
   const nurses = useMemo(() => 
@@ -868,16 +868,19 @@ export default function WardRoundsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="label">Lead Doctor *</label>
-                      <select {...roundForm.register('leadDoctorId')} className="input">
-                        <option value="">Select lead doctor</option>
+                      <select {...roundForm.register('leadDoctorId')} className="input" disabled={doctors.length === 0}>
+                        <option value="">{doctors.length === 0 ? 'No doctors available' : 'Select lead doctor'}</option>
                         {doctors.map((doctor) => (
                           <option key={doctor.id} value={doctor.id}>
-                            {doctor.firstName} {doctor.lastName}
+                            {doctor.firstName} {doctor.lastName} {doctor.specialization ? `(${doctor.specialization})` : ''}
                           </option>
                         ))}
                       </select>
                       {roundForm.formState.errors.leadDoctorId && (
                         <p className="text-sm text-red-500 mt-1">{roundForm.formState.errors.leadDoctorId.message}</p>
+                      )}
+                      {doctors.length === 0 && (
+                        <p className="text-xs text-amber-600 mt-1">⚠️ No doctors found in the system. Please add doctors first.</p>
                       )}
                     </div>
                     <div>
@@ -900,48 +903,59 @@ export default function WardRoundsPage() {
                   <div className="space-y-3">
                     <div>
                       <label className="label text-xs">Doctors</label>
-                      <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
-                        {doctors.filter(d => d.id !== roundForm.watch('leadDoctorId')).map((doctor) => (
-                          <label key={doctor.id} className="flex items-center gap-1 px-2 py-1 bg-white border rounded cursor-pointer hover:bg-gray-50">
-                            <input
-                              type="checkbox"
-                              checked={selectedTeamMemberIds.includes(doctor.id)}
-                              onChange={(e) => {
-                                const current = selectedTeamMemberIds;
-                                if (e.target.checked) {
-                                  roundForm.setValue('teamMemberIds', [...current, doctor.id]);
-                                } else {
-                                  roundForm.setValue('teamMemberIds', current.filter(id => id !== doctor.id));
-                                }
-                              }}
-                              className="rounded text-emerald-600"
-                            />
-                            <span className="text-xs">{doctor.firstName} {doctor.lastName}</span>
-                          </label>
-                        ))}
+                      <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-2 bg-white rounded border">
+                        {doctors.filter(d => d.id !== roundForm.watch('leadDoctorId')).length > 0 ? (
+                          doctors.filter(d => d.id !== roundForm.watch('leadDoctorId')).map((doctor) => (
+                            <label key={doctor.id} className="flex items-center gap-1 px-2 py-1 bg-gray-50 border rounded cursor-pointer hover:bg-gray-100">
+                              <input
+                                type="checkbox"
+                                checked={selectedTeamMemberIds.includes(doctor.id)}
+                                onChange={(e) => {
+                                  const current = selectedTeamMemberIds;
+                                  if (e.target.checked) {
+                                    roundForm.setValue('teamMemberIds', [...current, doctor.id]);
+                                  } else {
+                                    roundForm.setValue('teamMemberIds', current.filter(id => id !== doctor.id));
+                                  }
+                                }}
+                                className="rounded text-emerald-600"
+                              />
+                              <span className="text-xs font-medium">{doctor.firstName} {doctor.lastName}</span>
+                              {doctor.specialization && (
+                                <span className="text-xs text-gray-500">({doctor.specialization})</span>
+                              )}
+                            </label>
+                          ))
+                        ) : (
+                          <p className="text-xs text-gray-500 py-2">No other doctors available</p>
+                        )}
                       </div>
                     </div>
                     <div>
                       <label className="label text-xs">Nurses</label>
-                      <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
-                        {nurses.map((nurse) => (
-                          <label key={nurse.id} className="flex items-center gap-1 px-2 py-1 bg-white border rounded cursor-pointer hover:bg-gray-50">
-                            <input
-                              type="checkbox"
-                              checked={selectedTeamMemberIds.includes(nurse.id)}
-                              onChange={(e) => {
-                                const current = selectedTeamMemberIds;
-                                if (e.target.checked) {
-                                  roundForm.setValue('teamMemberIds', [...current, nurse.id]);
-                                } else {
-                                  roundForm.setValue('teamMemberIds', current.filter(id => id !== nurse.id));
-                                }
-                              }}
-                              className="rounded text-emerald-600"
-                            />
-                            <span className="text-xs">{nurse.firstName} {nurse.lastName}</span>
-                          </label>
-                        ))}
+                      <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-2 bg-white rounded border">
+                        {nurses.length > 0 ? (
+                          nurses.map((nurse) => (
+                            <label key={nurse.id} className="flex items-center gap-1 px-2 py-1 bg-gray-50 border rounded cursor-pointer hover:bg-gray-100">
+                              <input
+                                type="checkbox"
+                                checked={selectedTeamMemberIds.includes(nurse.id)}
+                                onChange={(e) => {
+                                  const current = selectedTeamMemberIds;
+                                  if (e.target.checked) {
+                                    roundForm.setValue('teamMemberIds', [...current, nurse.id]);
+                                  } else {
+                                    roundForm.setValue('teamMemberIds', current.filter(id => id !== nurse.id));
+                                  }
+                                }}
+                                className="rounded text-emerald-600"
+                              />
+                              <span className="text-xs font-medium">{nurse.firstName} {nurse.lastName}</span>
+                            </label>
+                          ))
+                        ) : (
+                          <p className="text-xs text-gray-500 py-2">No nurses available</p>
+                        )}
                       </div>
                     </div>
                     {selectedTeamMemberIds.length > 0 && (
