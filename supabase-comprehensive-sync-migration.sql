@@ -386,40 +386,64 @@ ALTER TABLE post_operative_notes ENABLE ROW LEVEL SECURITY;
 -- ============================================
 
 -- Staff Patient Assignments Policies
-CREATE POLICY "Enable read access for all users" ON staff_patient_assignments FOR SELECT USING (true);
-CREATE POLICY "Enable insert for all users" ON staff_patient_assignments FOR INSERT WITH CHECK (true);
-CREATE POLICY "Enable update for all users" ON staff_patient_assignments FOR UPDATE USING (true);
-CREATE POLICY "Enable delete for all users" ON staff_patient_assignments FOR DELETE USING (true);
+DROP POLICY IF EXISTS "staff_patient_assignments_select" ON staff_patient_assignments;
+DROP POLICY IF EXISTS "staff_patient_assignments_insert" ON staff_patient_assignments;
+DROP POLICY IF EXISTS "staff_patient_assignments_update" ON staff_patient_assignments;
+DROP POLICY IF EXISTS "staff_patient_assignments_delete" ON staff_patient_assignments;
+CREATE POLICY "staff_patient_assignments_select" ON staff_patient_assignments FOR SELECT USING (true);
+CREATE POLICY "staff_patient_assignments_insert" ON staff_patient_assignments FOR INSERT WITH CHECK (true);
+CREATE POLICY "staff_patient_assignments_update" ON staff_patient_assignments FOR UPDATE USING (true);
+CREATE POLICY "staff_patient_assignments_delete" ON staff_patient_assignments FOR DELETE USING (true);
 
 -- Activity Billing Records Policies
-CREATE POLICY "Enable read access for all users" ON activity_billing_records FOR SELECT USING (true);
-CREATE POLICY "Enable insert for all users" ON activity_billing_records FOR INSERT WITH CHECK (true);
-CREATE POLICY "Enable update for all users" ON activity_billing_records FOR UPDATE USING (true);
-CREATE POLICY "Enable delete for all users" ON activity_billing_records FOR DELETE USING (true);
+DROP POLICY IF EXISTS "activity_billing_records_select" ON activity_billing_records;
+DROP POLICY IF EXISTS "activity_billing_records_insert" ON activity_billing_records;
+DROP POLICY IF EXISTS "activity_billing_records_update" ON activity_billing_records;
+DROP POLICY IF EXISTS "activity_billing_records_delete" ON activity_billing_records;
+CREATE POLICY "activity_billing_records_select" ON activity_billing_records FOR SELECT USING (true);
+CREATE POLICY "activity_billing_records_insert" ON activity_billing_records FOR INSERT WITH CHECK (true);
+CREATE POLICY "activity_billing_records_update" ON activity_billing_records FOR UPDATE USING (true);
+CREATE POLICY "activity_billing_records_delete" ON activity_billing_records FOR DELETE USING (true);
 
 -- Payroll Periods Policies
-CREATE POLICY "Enable read access for all users" ON payroll_periods FOR SELECT USING (true);
-CREATE POLICY "Enable insert for all users" ON payroll_periods FOR INSERT WITH CHECK (true);
-CREATE POLICY "Enable update for all users" ON payroll_periods FOR UPDATE USING (true);
-CREATE POLICY "Enable delete for all users" ON payroll_periods FOR DELETE USING (true);
+DROP POLICY IF EXISTS "payroll_periods_select" ON payroll_periods;
+DROP POLICY IF EXISTS "payroll_periods_insert" ON payroll_periods;
+DROP POLICY IF EXISTS "payroll_periods_update" ON payroll_periods;
+DROP POLICY IF EXISTS "payroll_periods_delete" ON payroll_periods;
+CREATE POLICY "payroll_periods_select" ON payroll_periods FOR SELECT USING (true);
+CREATE POLICY "payroll_periods_insert" ON payroll_periods FOR INSERT WITH CHECK (true);
+CREATE POLICY "payroll_periods_update" ON payroll_periods FOR UPDATE USING (true);
+CREATE POLICY "payroll_periods_delete" ON payroll_periods FOR DELETE USING (true);
 
 -- Staff Payroll Records Policies
-CREATE POLICY "Enable read access for all users" ON staff_payroll_records FOR SELECT USING (true);
-CREATE POLICY "Enable insert for all users" ON staff_payroll_records FOR INSERT WITH CHECK (true);
-CREATE POLICY "Enable update for all users" ON staff_payroll_records FOR UPDATE USING (true);
-CREATE POLICY "Enable delete for all users" ON staff_payroll_records FOR DELETE USING (true);
+DROP POLICY IF EXISTS "staff_payroll_records_select" ON staff_payroll_records;
+DROP POLICY IF EXISTS "staff_payroll_records_insert" ON staff_payroll_records;
+DROP POLICY IF EXISTS "staff_payroll_records_update" ON staff_payroll_records;
+DROP POLICY IF EXISTS "staff_payroll_records_delete" ON staff_payroll_records;
+CREATE POLICY "staff_payroll_records_select" ON staff_payroll_records FOR SELECT USING (true);
+CREATE POLICY "staff_payroll_records_insert" ON staff_payroll_records FOR INSERT WITH CHECK (true);
+CREATE POLICY "staff_payroll_records_update" ON staff_payroll_records FOR UPDATE USING (true);
+CREATE POLICY "staff_payroll_records_delete" ON staff_payroll_records FOR DELETE USING (true);
 
 -- Payslips Policies
-CREATE POLICY "Enable read access for all users" ON payslips FOR SELECT USING (true);
-CREATE POLICY "Enable insert for all users" ON payslips FOR INSERT WITH CHECK (true);
-CREATE POLICY "Enable update for all users" ON payslips FOR UPDATE USING (true);
-CREATE POLICY "Enable delete for all users" ON payslips FOR DELETE USING (true);
+DROP POLICY IF EXISTS "payslips_select" ON payslips;
+DROP POLICY IF EXISTS "payslips_insert" ON payslips;
+DROP POLICY IF EXISTS "payslips_update" ON payslips;
+DROP POLICY IF EXISTS "payslips_delete" ON payslips;
+CREATE POLICY "payslips_select" ON payslips FOR SELECT USING (true);
+CREATE POLICY "payslips_insert" ON payslips FOR INSERT WITH CHECK (true);
+CREATE POLICY "payslips_update" ON payslips FOR UPDATE USING (true);
+CREATE POLICY "payslips_delete" ON payslips FOR DELETE USING (true);
 
 -- Post Operative Notes Policies
-CREATE POLICY "Enable read access for all users" ON post_operative_notes FOR SELECT USING (true);
-CREATE POLICY "Enable insert for all users" ON post_operative_notes FOR INSERT WITH CHECK (true);
-CREATE POLICY "Enable update for all users" ON post_operative_notes FOR UPDATE USING (true);
-CREATE POLICY "Enable delete for all users" ON post_operative_notes FOR DELETE USING (true);
+DROP POLICY IF EXISTS "post_operative_notes_select" ON post_operative_notes;
+DROP POLICY IF EXISTS "post_operative_notes_insert" ON post_operative_notes;
+DROP POLICY IF EXISTS "post_operative_notes_update" ON post_operative_notes;
+DROP POLICY IF EXISTS "post_operative_notes_delete" ON post_operative_notes;
+CREATE POLICY "post_operative_notes_select" ON post_operative_notes FOR SELECT USING (true);
+CREATE POLICY "post_operative_notes_insert" ON post_operative_notes FOR INSERT WITH CHECK (true);
+CREATE POLICY "post_operative_notes_update" ON post_operative_notes FOR UPDATE USING (true);
+CREATE POLICY "post_operative_notes_delete" ON post_operative_notes FOR DELETE USING (true);
 
 -- ============================================
 -- ENABLE REALTIME FOR ALL NEW TABLES
