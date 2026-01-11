@@ -437,114 +437,134 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
   
   let y = 15;
   
-  // Header
-  doc.setFillColor(...PDF_COLORS.primaryDark);
-  doc.rect(0, 0, pageWidth, 25, 'F');
+  // Header - Clean and Professional
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.rect(10, y, pageWidth - 20, 22, 'S');
   
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(14);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('BLOOD TRANSFUSION MONITORING CHART', pageWidth / 2, 12, { align: 'center' });
-  
-  doc.setFontSize(10);
-  doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.text(data.hospitalName, pageWidth / 2, 20, { align: 'center' });
-  
-  y = 35;
-  doc.setTextColor(...PDF_COLORS.text);
-  
-  // Patient Info Section
-  doc.setFillColor(240, 240, 240);
-  doc.rect(10, y, pageWidth - 20, 25, 'F');
+  doc.text('BLOOD TRANSFUSION MONITORING CHART', pageWidth / 2, y + 8, { align: 'center' });
   
   doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(data.hospitalName, pageWidth / 2, y + 15, { align: 'center' });
+  
+  y = 42;
+  doc.setTextColor(...PDF_COLORS.text);
+  
+  // Patient Info Section - Clean Bordered Design
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(10, y, pageWidth - 20, 30, 'S');
+  
+  // Vertical dividers
+  doc.line(95, y, 95, y + 30);
+  doc.line(190, y, 190, y + 30);
+  
+  // Horizontal dividers
+  doc.line(10, y + 10, pageWidth - 10, y + 10);
+  doc.line(10, y + 20, pageWidth - 10, y + 20);
+  
+  doc.setFontSize(8);
   doc.setFont(PDF_FONTS.primary, 'bold');
   
-  const infoX1 = 15;
-  const infoX2 = 100;
-  const infoX3 = 200;
+  const infoX1 = 12;
+  const infoX2 = 97;
+  const infoX3 = 192;
   
   doc.text('Patient Name:', infoX1, y + 7);
   doc.text('Hospital No:', infoX2, y + 7);
   doc.text('Ward/Bed:', infoX3, y + 7);
   
-  doc.text('Date:', infoX1, y + 15);
-  doc.text('Product Type:', infoX2, y + 15);
-  doc.text('Unit Number:', infoX3, y + 15);
+  doc.text('Date:', infoX1, y + 17);
+  doc.text('Product Type:', infoX2, y + 17);
+  doc.text('Unit Number:', infoX3, y + 17);
   
-  doc.text('Start Time:', infoX1, y + 23);
-  doc.text('End Time:', infoX2, y + 23);
-  doc.text('Chart ID:', infoX3, y + 23);
+  doc.text('Start Time:', infoX1, y + 27);
+  doc.text('End Time:', infoX2, y + 27);
+  doc.text('Chart ID:', infoX3, y + 27);
   
   // Fill values if not template
   if (!isTemplate || data.patientName) {
     doc.setFont(PDF_FONTS.primary, 'normal');
-    doc.text(data.patientName || '', infoX1 + 28, y + 7);
-    doc.text(data.hospitalNumber || '', infoX2 + 28, y + 7);
-    doc.text(data.wardBed || '', infoX3 + 22, y + 7);
+    doc.setFontSize(8);
+    doc.text(data.patientName || '', infoX1 + 30, y + 7);
+    doc.text(data.hospitalNumber || '', infoX2 + 30, y + 7);
+    doc.text(data.wardBed || '', infoX3 + 24, y + 7);
     
-    doc.text(format(new Date(data.date), 'dd/MM/yyyy'), infoX1 + 15, y + 15);
-    doc.text(data.productType || '', infoX2 + 30, y + 15);
-    doc.text(data.unitNumber || '', infoX3 + 28, y + 15);
+    doc.text(format(new Date(data.date), 'dd/MM/yyyy'), infoX1 + 15, y + 17);
+    doc.text(data.productType || '', infoX2 + 32, y + 17);
+    doc.text(data.unitNumber || '', infoX3 + 30, y + 17);
     
-    doc.text(data.startTime || '', infoX1 + 24, y + 23);
-    doc.text(data.endTime || '', infoX2 + 24, y + 23);
-    doc.text(data.chartId || '', infoX3 + 20, y + 23);
+    doc.text(data.startTime || '', infoX1 + 26, y + 27);
+    doc.text(data.endTime || '', infoX2 + 24, y + 27);
+    doc.text(data.chartId || '', infoX3 + 22, y + 27);
   }
   
-  y += 32;
+  y += 37;
   
-  // Monitoring Table
-  const colWidths = [25, 25, 25, 35, 25, 25, 30, 60, 25];
-  const headers = ['Time', 'Temp (°C)', 'Pulse (/min)', 'BP (mmHg)', 'RR (/min)', 'SpO2 (%)', 'Vol. (mL)', 'Symptoms/Notes', 'Initials'];
-  const rowHeight = 12;
+  // Monitoring Table - Clean Professional Design
+  const colWidths = [28, 23, 25, 30, 23, 23, 28, 65, 25];
+  const headers = ['Time', 'Temp\n(°C)', 'Pulse\n(/min)', 'BP\n(mmHg)', 'RR\n(/min)', 'SpO2\n(%)', 'Vol.\n(mL)', 'Symptoms/Notes', 'Initials'];
+  const rowHeight = 13;
   
-  // Header row
-  doc.setFillColor(...PDF_COLORS.primary);
+  // Header row with bold border
+  doc.setFillColor(245, 245, 245);
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
   let x = 10;
   headers.forEach((header, i) => {
     doc.rect(x, y, colWidths[i], rowHeight, 'FD');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(7);
     doc.setFont(PDF_FONTS.primary, 'bold');
     const textX = x + colWidths[i] / 2;
-    doc.text(header, textX, y + 8, { align: 'center' });
+    const lines = header.split('\n');
+    if (lines.length > 1) {
+      doc.text(lines[0], textX, y + 5, { align: 'center' });
+      doc.text(lines[1], textX, y + 9, { align: 'center' });
+    } else {
+      doc.text(header, textX, y + 8, { align: 'center' });
+    }
     x += colWidths[i];
   });
   
   doc.setTextColor(...PDF_COLORS.text);
   y += rowHeight;
   
-  // Pre-transfusion row
+  // Pre-transfusion row - Light highlight
   doc.setFillColor(255, 255, 230);
+  doc.setLineWidth(0.3);
   x = 10;
   colWidths.forEach((width) => {
     doc.rect(x, y, width, rowHeight, 'FD');
     x += width;
   });
-  doc.setFont(PDF_FONTS.primary, 'italic');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(7);
-  doc.text('Pre-transfusion (Baseline)', 12, y + 7);
+  doc.text('Pre-transfusion', 12, y + 8);
   y += rowHeight;
   
-  // 15-minute row
-  doc.setFillColor(255, 240, 230);
+  // 15-minute row - Critical monitoring point
+  doc.setFillColor(255, 250, 240);
   x = 10;
   colWidths.forEach((width) => {
     doc.rect(x, y, width, rowHeight, 'FD');
     x += width;
   });
-  doc.setFont(PDF_FONTS.primary, 'italic');
-  doc.text('15 min after start', 12, y + 7);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('15 min after start', 12, y + 8);
   y += rowHeight;
   
-  // Regular monitoring rows
+  // Regular monitoring rows - Clean white/light gray alternating
   const regularRowTimes = isTemplate 
     ? ['30 min', '1 hr', '1.5 hr', '2 hr', '2.5 hr', '3 hr', '3.5 hr', 'End']
     : data.entries.map(e => e.time);
   
   regularRowTimes.forEach((time, rowIdx) => {
-    doc.setFillColor(rowIdx % 2 === 0 ? 255 : 245, rowIdx % 2 === 0 ? 255 : 245, rowIdx % 2 === 0 ? 255 : 245);
+    doc.setFillColor(rowIdx % 2 === 0 ? 255 : 250, rowIdx % 2 === 0 ? 255 : 250, rowIdx % 2 === 0 ? 255 : 250);
     x = 10;
     colWidths.forEach((width, colIdx) => {
       doc.rect(x, y, width, rowHeight, 'FD');
@@ -552,7 +572,7 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
       if (!isTemplate && data.entries[rowIdx]) {
         const entry = data.entries[rowIdx];
         doc.setFont(PDF_FONTS.primary, 'normal');
-        doc.setFontSize(7);
+        doc.setFontSize(8);
         let value = '';
         switch (colIdx) {
           case 0: value = entry.time || time; break;
@@ -565,72 +585,90 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
           case 7: value = entry.symptoms || ''; break;
           case 8: value = entry.nurseInitials || ''; break;
         }
-        doc.text(value, x + width / 2, y + 7, { align: 'center' });
+        doc.text(value, x + width / 2, y + 8, { align: 'center' });
       } else if (isTemplate && colIdx === 0) {
         doc.setFont(PDF_FONTS.primary, 'normal');
-        doc.setFontSize(7);
-        doc.text(time, x + 2, y + 7);
+        doc.setFontSize(8);
+        doc.text(time, x + 3, y + 8);
       }
       
       x += width;
     });
     y += rowHeight;
     
-    if (y > pageHeight - 60) {
+    if (y > pageHeight - 65) {
       doc.addPage('landscape');
       y = 20;
     }
   });
   
-  y += 5;
+  y += 3;
   
-  // Post-transfusion row
-  doc.setFillColor(230, 255, 230);
+  // Post-transfusion row - Light green highlight
+  doc.setFillColor(240, 255, 240);
   x = 10;
   colWidths.forEach((width) => {
     doc.rect(x, y, width, rowHeight, 'FD');
     x += width;
   });
-  doc.setFont(PDF_FONTS.primary, 'italic');
+  doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(7);
-  doc.text('1 hr post-transfusion', 12, y + 7);
-  y += rowHeight + 8;
+  doc.text('1 hr post-transfusion', 12, y + 8);
+  y += rowHeight + 10;
   
-  // Summary section
-  doc.setFillColor(245, 245, 245);
-  doc.rect(10, y, pageWidth - 20, 35, 'FD');
+  // Summary section - Clean bordered design
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.rect(10, y, pageWidth - 20, 32, 'S');
   
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.text('SUMMARY:', 15, y + 8);
   
   doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.text('Total Volume Transfused: _____________ mL', 15, y + 16);
   doc.text('Duration: _____________ hours', 100, y + 16);
   doc.text('Complications: ____________________________________________', 180, y + 16);
   
-  doc.text('Outcome:  ☐ Completed Uneventful    ☐ Completed with Reaction    ☐ Stopped due to Reaction', 15, y + 24);
-  
-  doc.text('Nurse Signature: _______________________', 15, y + 32);
-  doc.text('Doctor Review: _______________________', 150, y + 32);
-  
-  // Reaction reminder box
-  y += 42;
-  doc.setDrawColor(...PDF_COLORS.danger);
-  doc.setFillColor(255, 240, 240);
-  doc.rect(10, y, pageWidth - 20, 25, 'FD');
-  
-  doc.setTextColor(...PDF_COLORS.danger);
-  doc.setFont(PDF_FONTS.primary, 'bold');
+  // Outcome checkboxes with proper square symbols
   doc.setFontSize(9);
-  doc.text('⚠️ IN CASE OF TRANSFUSION REACTION:', 15, y + 7);
+  doc.text('Outcome:', 15, y + 24);
+  
+  // Draw checkbox squares
+  doc.rect(45, y + 20, 4, 4, 'S');
+  doc.rect(130, y + 20, 4, 4, 'S');
+  doc.rect(225, y + 20, 4, 4, 'S');
+  
+  doc.text('Completed Uneventful', 51, y + 24);
+  doc.text('Completed with Reaction', 136, y + 24);
+  doc.text('Stopped due to Reaction', 231, y + 24);
+  
+  // Signature lines with proper spacing
+  doc.line(15, y + 30, 80, y + 30);
+  doc.line(150, y + 30, 215, y + 30);
+  doc.setFontSize(8);
+  doc.text('Nurse Signature', 15, y + 28);
+  doc.text('Doctor Review', 150, y + 28);
+  
+  // Reaction reminder box - Clean warning design
+  y += 38;
+  doc.setDrawColor(200, 0, 0);
+  doc.setLineWidth(1);
+  doc.rect(10, y, pageWidth - 20, 25, 'S');
+  
+  doc.setTextColor(180, 0, 0);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setFontSize(10);
+  doc.text('IN CASE OF TRANSFUSION REACTION:', 15, y + 7);
   
   doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(8);
-  doc.setTextColor(...PDF_COLORS.text);
-  doc.text('1. STOP transfusion immediately  2. Maintain IV access with saline  3. Record vitals  4. Notify doctor & blood bank  5. Keep blood bag for investigation', 15, y + 15);
-  doc.text('Emergency Contact: ____________________    Blood Bank Contact: ____________________', 15, y + 22);
+  doc.setTextColor(0, 0, 0);
+  const reactionSteps = '1. STOP transfusion immediately  |  2. Maintain IV access with saline  |  3. Record vitals  |  4. Notify doctor & blood bank  |  5. Keep blood bag';
+  doc.text(reactionSteps, 15, y + 14);
+  
+  doc.text('Emergency Contact: ____________________    Blood Bank Contact: ____________________', 15, y + 21);
   
   // Footer
   doc.setFontSize(7);
