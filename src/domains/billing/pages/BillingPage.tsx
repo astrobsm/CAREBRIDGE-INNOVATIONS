@@ -197,6 +197,7 @@ export default function BillingPage() {
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -785,7 +786,11 @@ export default function BillingPage() {
                             <Share2 size={16} className="sm:w-[18px] sm:h-[18px]" />
                           </button>
                           <button
-                            className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                            onClick={() => {
+                              setSelectedInvoice(invoice);
+                              setShowDetailsModal(true);
+                            }}
+                            className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                             title="View Details"
                           >
                             <Eye size={16} className="sm:w-[18px] sm:h-[18px]" />
@@ -1207,6 +1212,198 @@ export default function BillingPage() {
                 >
                   <DollarSign size={18} />
                   Record Payment
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Invoice Details Modal */}
+      <AnimatePresence>
+        {showDetailsModal && selectedInvoice && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
+            onClick={() => setShowDetailsModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b bg-gradient-to-r from-purple-50 to-purple-100">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Receipt className="w-6 h-6 text-purple-600" />
+                    Invoice Details
+                  </h2>
+                  <button onClick={() => setShowDetailsModal(false)} className="p-2 hover:bg-white rounded-lg">
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <p className="font-mono text-lg font-bold text-purple-700">{selectedInvoice.invoiceNumber}</p>
+                  {getStatusBadge(selectedInvoice.status)}
+                </div>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)] space-y-6">
+                {/* Patient & Invoice Info */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="card bg-blue-50 p-4">
+                    <p className="text-xs text-blue-600 font-semibold mb-2 flex items-center gap-1">
+                      <User className="w-4 h-4" />
+                      PATIENT INFORMATION
+                    </p>
+                    {patientMap.get(selectedInvoice.patientId) ? (
+                      <div className="space-y-1">
+                        <p className="font-medium text-gray-900">
+                          {patientMap.get(selectedInvoice.patientId)!.firstName} {patientMap.get(selectedInvoice.patientId)!.lastName}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Hospital No: {patientMap.get(selectedInvoice.patientId)!.hospitalNumber || 'N/A'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Phone: {patientMap.get(selectedInvoice.patientId)!.phone || 'N/A'}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-gray-500">Patient not found</p>
+                    )}
+                  </div>
+                  <div className="card bg-purple-50 p-4">
+                    <p className="text-xs text-purple-600 font-semibold mb-2 flex items-center gap-1">
+                      <FileText className="w-4 h-4" />
+                      INVOICE INFORMATION
+                    </p>
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-600">
+                        Date: {format(new Date(selectedInvoice.createdAt), 'MMM d, yyyy')}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Items: {selectedInvoice.items.length}
+                      </p>
+                      {selectedInvoice.notes && (
+                        <p className="text-sm text-gray-600 mt-2">
+                          Notes: {selectedInvoice.notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Invoice Items Table */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Package className="w-5 h-5 text-purple-600" />
+                    Invoice Items ({selectedInvoice.items.length})
+                  </h3>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-purple-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">#</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Description</th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Qty</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Unit Price</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedInvoice.items.map((item, index) => (
+                          <tr key={item.id || index} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm text-gray-500">{index + 1}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-start gap-2">
+                                {getCategoryIcon(item.category)}
+                                <div>
+                                  <p className="font-medium text-gray-900 text-sm">{item.description}</p>
+                                  {item.category && (
+                                    <p className="text-xs text-gray-500 mt-0.5">Category: {item.category}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm text-gray-700">{item.quantity}</td>
+                            <td className="px-4 py-3 text-right text-sm text-gray-700">{formatCurrency(item.unitPrice)}</td>
+                            <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
+                              {formatCurrency(item.amount || item.total || item.quantity * item.unitPrice)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Financial Summary */}
+                <div className="card bg-gradient-to-br from-purple-50 to-purple-100 p-6">
+                  <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-purple-600" />
+                    Financial Summary
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-700">Subtotal:</span>
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency(selectedInvoice.subtotal || selectedInvoice.items.reduce((sum, item) => sum + (item.amount || item.total || item.quantity * item.unitPrice), 0))}
+                      </span>
+                    </div>
+                    {selectedInvoice.discount && selectedInvoice.discount > 0 && (
+                      <div className="flex justify-between items-center text-green-600">
+                        <span className="flex items-center gap-1">
+                          <Percent size={14} />
+                          Discount:
+                        </span>
+                        <span className="font-medium">-{formatCurrency(selectedInvoice.discount)}</span>
+                      </div>
+                    )}
+                    {selectedInvoice.tax && selectedInvoice.tax > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Tax:</span>
+                        <span className="font-medium text-gray-900">{formatCurrency(selectedInvoice.tax)}</span>
+                      </div>
+                    )}
+                    <div className="border-t-2 border-purple-200 pt-3 flex justify-between items-center">
+                      <span className="text-lg font-bold text-gray-900">Total Amount:</span>
+                      <span className="text-2xl font-bold text-purple-700">
+                        {formatCurrency(selectedInvoice.totalAmount || selectedInvoice.total || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-700">Amount Paid:</span>
+                      <span className="font-medium text-green-600">
+                        {formatCurrency(selectedInvoice.paidAmount || selectedInvoice.amountPaid || 0)}
+                      </span>
+                    </div>
+                    <div className="border-t border-purple-200 pt-3 flex justify-between items-center">
+                      <span className="text-lg font-bold text-gray-900">Balance Due:</span>
+                      <span className="text-2xl font-bold text-red-600">
+                        {formatCurrency((selectedInvoice.totalAmount || selectedInvoice.total || 0) - (selectedInvoice.paidAmount || selectedInvoice.amountPaid || 0))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
+                <button onClick={() => setShowDetailsModal(false)} className="btn btn-secondary">
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    handleDownloadInvoice(selectedInvoice);
+                    setShowDetailsModal(false);
+                  }}
+                  className="btn btn-primary"
+                >
+                  <Download size={18} />
+                  Download PDF
                 </button>
               </div>
             </motion.div>

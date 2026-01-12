@@ -278,7 +278,7 @@ export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise
       doc.setTextColor(...PDF_COLORS.text);
       med.whatToAvoid.forEach((avoid) => {
         addNewPageIfNeeded(10);
-        const lines = doc.splitTextToSize(`✗ ${avoid}`, contentWidth - 6);
+        const lines = doc.splitTextToSize(`- ${avoid}`, contentWidth - 6);
         doc.text(lines, margin + 3, yPos);
         yPos += lines.length * 5;
       });
@@ -352,7 +352,7 @@ export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise
   ];
 
   refillGuidelines.forEach((guideline) => {
-    const lines = doc.splitTextToSize(`• ${guideline}`, contentWidth - 6);
+    const lines = doc.splitTextToSize(`- ${guideline}`, contentWidth - 6);
     doc.text(lines, margin + 3, yPos);
     yPos += lines.length * 5.5;
   });

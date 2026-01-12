@@ -163,52 +163,52 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
   doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(...PDF_COLORS.dark);
   
+  const tableStartY = yPos;
+  
   items.forEach((item, index) => {
-    yPos = checkNewPage(doc, yPos, 10);
+    yPos = checkNewPage(doc, yPos, 15);
     
-    // Alternate row colors
-    if (index % 2 === 0) {
-      doc.setFillColor(248, 250, 252);
-      doc.rect(15, yPos, pageWidth - 30, 8, 'F');
-    }
-    
-    xPos = 17;
+    let xPos = 17;
     doc.setFontSize(8);
     
-    // Description (with category if available)
+    // Description - use proper text wrapping for long descriptions
     let description = item.description;
-    if (item.category) {
-      description = `[${item.category}] ${description}`;
+    const maxDescWidth = colWidths[0] - 4;
+    const descLines = doc.splitTextToSize(description, maxDescWidth);
+    
+    // Calculate row height based on number of lines (max 3 lines)
+    const linesToShow = descLines.slice(0, 3);
+    const rowHeight = Math.max(8, linesToShow.length * 4 + 2);
+    
+    // Draw background for this row
+    if (index % 2 === 0) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(15, yPos, pageWidth - 30, rowHeight, 'F');
     }
-    // Truncate if too long
-    if (doc.getTextWidth(description) > colWidths[0] - 4) {
-      while (doc.getTextWidth(description + '...') > colWidths[0] - 4) {
-        description = description.slice(0, -1);
-      }
-      description += '...';
-    }
-    doc.text(description, xPos, yPos + 5.5);
+    
+    // Draw description with multiple lines if needed
+    doc.text(linesToShow, xPos, yPos + 4);
     xPos += colWidths[0];
     
-    // Quantity
-    doc.text(item.quantity.toString(), xPos, yPos + 5.5);
+    // Quantity (vertically centered)
+    doc.text(item.quantity.toString(), xPos, yPos + rowHeight / 2 + 1);
     xPos += colWidths[1];
     
-    // Unit Price
-    doc.text(formatNairaPDF(item.unitPrice), xPos, yPos + 5.5);
+    // Unit Price (vertically centered)
+    doc.text(formatNairaPDF(item.unitPrice), xPos, yPos + rowHeight / 2 + 1);
     xPos += colWidths[2];
     
-    // Total
-    doc.text(formatNairaPDF(item.total), xPos, yPos + 5.5);
+    // Total (vertically centered)
+    doc.text(formatNairaPDF(item.total), xPos, yPos + rowHeight / 2 + 1);
     
-    yPos += 8;
+    yPos += rowHeight;
   });
 
   // Table border
-  const tableHeight = 8 + items.length * 8;
+  const tableHeight = yPos - tableStartY;
   doc.setDrawColor(...PDF_COLORS.lightGray);
   doc.setLineWidth(0.3);
-  doc.rect(15, yPos - tableHeight, pageWidth - 30, tableHeight, 'S');
+  doc.rect(15, tableStartY, pageWidth - 30, tableHeight, 'S');
 
   yPos += 10;
 
