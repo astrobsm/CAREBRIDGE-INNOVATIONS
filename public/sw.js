@@ -6,6 +6,9 @@ const API_CACHE = `carebridge-api-v${CACHE_VERSION}`;
 const OFFLINE_QUEUE_DB = 'carebridge-offline-queue';
 const OFFLINE_QUEUE_STORE = 'pending-requests';
 
+// Workbox manifest injection point
+const manifest = self.__WB_MANIFEST || [];
+
 // Core assets to cache immediately on install (app shell)
 const STATIC_ASSETS = [
   '/',
@@ -15,7 +18,8 @@ const STATIC_ASSETS = [
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/favicon.png',
-  '/offline.html'
+  '/offline.html',
+  ...manifest.map(entry => entry.url)
 ];
 
 // Additional assets to cache after install (lazy cache)

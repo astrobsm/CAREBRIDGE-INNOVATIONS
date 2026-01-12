@@ -444,7 +444,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
           
           {inhalationInjury && (
             <div className="mt-3 p-3 bg-red-100 rounded-lg">
-              <p className="text-sm text-red-800 font-semibold">⚠️ CRITICAL WARNING:</p>
+              <p className="text-sm text-red-800 font-semibold">CRITICAL WARNING:</p>
               <ul className="text-sm text-red-700 list-disc ml-4 mt-1">
                 <li>Secure airway IMMEDIATELY - early intubation recommended</li>
                 <li>High-flow oxygen therapy</li>
@@ -533,7 +533,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
               </div>
               {result.fluidAdjustment && (
                 <p className="mt-2 text-sm bg-yellow-100 p-2 rounded">
-                  ⏰ {result.fluidAdjustment}
+                  TIME ADJUSTMENT: {result.fluidAdjustment}
                 </p>
               )}
               <p className="mt-2 text-xs text-gray-600">
@@ -544,7 +544,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
             {/* Referral Criteria */}
             {(result.referralCriteria?.length ?? 0) > 0 && (
               <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded-r-lg">
-                <h4 className="font-bold text-red-800 mb-2">⚠️ Burns Centre Referral Criteria Met:</h4>
+                <h4 className="font-bold text-red-800 mb-2">WARNING - Burns Centre Referral Criteria Met:</h4>
                 <ul className="list-disc ml-6 text-sm text-red-700">
                   {result.referralCriteria?.map((criteria, index) => (
                     <li key={index}>{criteria}</li>

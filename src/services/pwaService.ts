@@ -28,43 +28,46 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 
   try {
-    const registration = await navigator.serviceWorker.register('/sw.js', {
-      scope: '/',
-      updateViaCache: 'none'
-    });
-
-    swRegistration = registration;
-
-    console.log('[PWA] Service Worker registered:', registration.scope);
-
-    // Check for updates
-    registration.addEventListener('updatefound', () => {
-      const newWorker = registration.installing;
-      if (newWorker) {
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            updateAvailable = true;
-            // Dispatch custom event for update notification
-            window.dispatchEvent(new CustomEvent('pwa-update-available'));
-          }
-        });
-      }
-    });
-
-    // Handle controller change (after update)
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      window.location.reload();
-    });
-
-    // Register for background sync
-    await registerBackgroundSync(registration);
+    // Wait for VitePWA to register the service worker automatically
+    // Check if already registered
+    const registration = await navigator.serviceWorker.getRegistration();
     
-    // Register for periodic background sync (if available)
-    await registerPeriodicSync(registration);
+    if (registration) {
+      swRegistration = registration;
+      console.log('[PWA] Service Worker already registered:', registration.scope);
 
-    return registration;
+      // Check for updates
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              updateAvailable = true;
+              // Dispatch custom event for update notification
+              window.dispatchEvent(new CustomEvent('pwa-update-available'));
+            }
+          });
+        }
+      });
+
+      // Handle controller change (after update)
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
+
+      // Register for background sync
+      await registerBackgroundSync(registration);
+      
+      // Register for periodic background sync (if available)
+      await registerPeriodicSync(registration);
+
+      return registration;
+    }
+
+    console.log('[PWA] No service worker registered yet, VitePWA will handle registration');
+    return null;
   } catch (error) {
-    console.error('[PWA] Service Worker registration failed:', error);
+    console.error('[PWA] Service Worker registration check failed:', error);
     return null;
   }
 }
