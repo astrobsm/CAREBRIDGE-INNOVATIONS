@@ -10,7 +10,8 @@ const OFFLINE_QUEUE_STORE = 'pending-requests';
 const manifest = self.__WB_MANIFEST || [];
 
 // Core assets to cache immediately on install (app shell)
-const STATIC_ASSETS = [
+// Remove duplicates by combining manifest URLs with static assets using Set
+const STATIC_ASSETS = Array.from(new Set([
   '/',
   '/index.html',
   '/manifest.webmanifest',
@@ -20,7 +21,7 @@ const STATIC_ASSETS = [
   '/favicon.png',
   '/offline.html',
   ...manifest.map(entry => entry.url)
-];
+]));
 
 // Additional assets to cache after install (lazy cache)
 const LAZY_CACHE_ASSETS = [
