@@ -76,7 +76,14 @@ export const PatientOps = {
 
   // Create patient
   async create(patient: Patient): Promise<string> {
-    return db.patients.add(patient);
+    try {
+      const id = await db.patients.add(patient);
+      console.log('[DB] Patient created successfully:', id);
+      return id;
+    } catch (error) {
+      console.error('[DB] Error creating patient:', error);
+      throw new Error(`Failed to create patient: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   },
 
   // Update patient

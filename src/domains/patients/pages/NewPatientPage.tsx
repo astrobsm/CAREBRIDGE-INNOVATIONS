@@ -366,16 +366,35 @@ export default function NewPatientPage() {
         updatedAt: new Date(),
       };
 
-      await db.patients.add(patient);
+      // Save to local database first
+      try {
+        await db.patients.add(patient);
+        console.log('[Patient Registration] Patient saved to local database:', patient.id);
+      } catch (dbError) {
+        console.error('[Patient Registration] Database error:', dbError);
+        throw new Error('Failed to save patient to local database');
+      }
       
-      // Sync to cloud immediately
-      await syncRecord('patients', patient as unknown as Record<string, unknown>);
+      // Try to sync to cloud (non-blocking - will sync later if offline)
+      try {
+        if (navigator.onLine) {
+          await syncRecord('patients', patient as unknown as Record<string, unknown>);
+          console.log('[Patient Registration] Patient synced to cloud');
+        } else {
+          console.log('[Patient Registration] Offline - will sync when online');
+        }
+      } catch (syncError) {
+        // Don't fail registration if cloud sync fails - it will sync later
+        console.warn('[Patient Registration] Cloud sync failed (will retry later):', syncError);
+      }
       
-      toast.success('Patient registered successfully!');
+      const syncMessage = navigator.onLine ? 'registered and synced' : 'registered (will sync when online)';
+      toast.success(`Patient ${syncMessage} successfully!`);
       navigate(`/patients/${patient.id}`);
     } catch (error) {
-      console.error('Error registering patient:', error);
-      toast.error('Failed to register patient');
+      console.error('[Patient Registration] Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to register patient';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
