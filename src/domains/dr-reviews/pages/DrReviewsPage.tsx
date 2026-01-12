@@ -7,13 +7,10 @@ import {
   FileText,
   TrendingUp,
   DollarSign,
-  Users,
-  Calendar,
   Star,
   Download,
   Plus,
   Search,
-  Filter,
   BarChart3,
   PieChart,
   Activity
@@ -22,7 +19,6 @@ import { motion } from 'framer-motion';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
-import toast from 'react-hot-toast';
 
 export default function DrReviewsPage() {
   const { user } = useAuth();
@@ -69,8 +65,8 @@ export default function DrReviewsPage() {
       .filter(inv => inv.status === 'paid')
       .reduce((sum, inv) => sum + (inv.totalAmount || inv.total || 0), 0);
     
-    const pendingReviews = encounters.filter(e => !e.completed).length;
-    const completedReviews = encounters.filter(e => e.completed).length;
+    const pendingReviews = encounters.filter(e => !e.completedAt).length;
+    const completedReviews = encounters.filter(e => e.completedAt).length;
 
     return {
       totalReviews,
@@ -291,8 +287,8 @@ export default function DrReviewsPage() {
                       ₦0
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`badge ${encounter.completed ? 'badge-success' : 'badge-warning'}`}>
-                        {encounter.completed ? 'Completed' : 'Pending'}
+                      <span className={`badge ${encounter.completedAt ? 'badge-success' : 'badge-warning'}`}>
+                        {encounter.completedAt ? 'Completed' : 'Pending'}
                       </span>
                     </td>
                     <td className="px-4 py-3">

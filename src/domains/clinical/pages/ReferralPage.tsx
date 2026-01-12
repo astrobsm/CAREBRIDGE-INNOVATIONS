@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  FileText,
   Send,
   AlertTriangle,
   User,
@@ -82,9 +80,6 @@ export default function ReferralPage() {
     },
   });
 
-  const patients = useLiveQuery(() => db.patients.toArray(), []);
-  const hospitals = useLiveQuery(() => db.hospitals.toArray(), []);
-
   const patientId = watch('patientId');
 
   // Load patient data when selected
@@ -94,7 +89,6 @@ export default function ReferralPage() {
       setSelectedPatient(patient);
       
       // Load patient clinical data
-      const encounters = await db.encounters.where('patientId').equals(id).toArray();
       const surgeries = await db.surgeries.where('patientId').equals(id).toArray();
       const prescriptions = await db.prescriptions.where('patientId').equals(id).toArray();
       
