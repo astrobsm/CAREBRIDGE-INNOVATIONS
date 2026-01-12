@@ -6,7 +6,6 @@
  * Generates monthly payslip PDFs for staff showing:
  * - Earnings breakdown by category
  * - Surgery assistant earnings (20% of surgeon fee)
- * - 50% revenue share calculation
  * - Bank account details for payment
  * 
  * PDF Standards: A4, white background, black text, Helvetica font
@@ -412,22 +411,7 @@ export async function generatePayslipPDF(
   
   y += 25;
   
-  // Revenue share note
-  doc.setFillColor(254, 249, 195); // Light yellow
-  doc.roundedRect(15, y, pageWidth - 30, 10, 2, 2, 'F');
-  doc.setFontSize(PDF_FONT_SIZES.footnote);
-  doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.setTextColor(...PDF_COLORS.text);
-  doc.text(
-    '📊 Revenue Share: Staff receive 50% of all billed activities. Surgeon assistants receive 20% of surgeon fee.',
-    pageWidth / 2,
-    y + 6,
-    { align: 'center' }
-  );
-  
-  y += 15;
-  
-  // Activities Earnings Table
+  // Activities Earnings Table (revenue share info removed for privacy)
   y = addSectionHeader(doc, y, 'Earnings by Activity Category');
   y = addEarningsTable(doc, y, payslip);
   

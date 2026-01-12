@@ -249,8 +249,16 @@ export const downloadPatientEducationPDF = (
     y = addSubsectionHeader(doc, 'Medication Instructions', y);
     preop.medications.forEach(med => {
       y = checkPageBreak(doc, y, 8);
-      const instruction = med.instruction === 'stop' ? 'STOP' : 'CONTINUE';
-      const text = `${med.medication}: ${instruction} - ${med.reason}`;
+      // Format instruction clearly with proper action verb
+      let action = '';
+      if (med.instruction.toLowerCase().includes('stop')) {
+        action = 'STOP';
+      } else if (med.instruction.toLowerCase().includes('continue')) {
+        action = 'CONTINUE';
+      } else {
+        action = med.instruction.toUpperCase();
+      }
+      const text = `${med.medication}: ${action} ${med.instruction.toLowerCase().includes('before') ? med.instruction : ''} - ${med.reason}`;
       y = addBulletPoint(doc, text, margin, y, contentWidth);
     });
     y += 5;
