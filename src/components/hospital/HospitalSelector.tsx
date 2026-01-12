@@ -1,5 +1,5 @@
 // ============================================================
-// CareBridge Hospital Selector Component
+// AstroHEALTH Hospital Selector Component
 // Reusable hospital search and selection for all forms
 // With Quick-Add functionality for new hospitals
 // ============================================================

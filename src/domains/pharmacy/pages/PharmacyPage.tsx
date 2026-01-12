@@ -307,9 +307,9 @@ export default function PharmacyPage() {
           phone: patient.phone,
           address: patient.address,
         },
-        hospitalName: 'CareBridge Innovations in Healthcare',
-        hospitalPhone: '09028724839',
-        hospitalEmail: 'info.carebridge@gmail.com',
+        hospitalName: 'AstroHEALTH Innovations in Healthcare',
+        hospitalPhone: '+234 902 872 4839',
+        hospitalEmail: 'info.astrohealth@gmail.com',
         prescribedBy: prescriber ? `${prescriber.firstName} ${prescriber.lastName}`  : 'Unknown',
         prescriberTitle: prescriber?.role || 'Doctor',
         medications: prescription.medications.map(med => ({
@@ -351,7 +351,7 @@ export default function PharmacyPage() {
           name: `${patient.firstName} ${patient.lastName}`,
           hospitalNumber: patient.hospitalNumber,
         },
-        hospitalName: 'CareBridge Innovations in Healthcare',
+        hospitalName: 'AstroHEALTH Innovations in Healthcare',
         prescribedBy: prescriber ? `${prescriber.firstName} ${prescriber.lastName}` : 'Unknown',
         medications: prescription.medications.map(med => ({
           name: med.name,

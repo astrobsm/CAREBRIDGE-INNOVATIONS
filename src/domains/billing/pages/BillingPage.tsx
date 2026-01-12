@@ -475,7 +475,7 @@ export default function BillingPage() {
           age: patient.dateOfBirth ? Math.floor((new Date().getTime() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
           phone: patient.phone,
         },
-        hospitalName: hospital?.name || 'CareBridge Hospital',
+        hospitalName: hospital?.name || 'AstroHEALTH Hospital',
         hospitalAddress: hospital?.address,
         hospitalPhone: hospital?.phone,
         items: invoice.items.map((item): InvoiceItemPDF => ({
@@ -524,7 +524,7 @@ export default function BillingPage() {
           age: patient.dateOfBirth ? Math.floor((new Date().getTime() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
           phone: patient.phone,
         },
-        hospitalName: hospital?.name || 'CareBridge Hospital',
+        hospitalName: hospital?.name || 'AstroHEALTH Hospital',
         hospitalAddress: hospital?.address,
         hospitalPhone: hospital?.phone,
         items: invoice.items.map((item): InvoiceItemPDF => ({

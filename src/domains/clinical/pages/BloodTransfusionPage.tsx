@@ -1,6 +1,6 @@
 /**
  * Blood Transfusion Page
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive blood transfusion management interface
  */
@@ -273,7 +273,7 @@ export default function BloodTransfusionPage() {
       consentWitness: order.consentWitness,
       verifyingNurse1: order.verifyingNurse1,
       verifyingNurse2: order.verifyingNurse2,
-      hospitalName: defaultHospital?.name || 'CareBridge Hospital',
+      hospitalName: defaultHospital?.name || 'AstroHEALTH Hospital',
       hospitalAddress: defaultHospital?.address,
       hospitalPhone: defaultHospital?.phone,
       hospitalEmail: defaultHospital?.email,
@@ -299,7 +299,7 @@ export default function BloodTransfusionPage() {
       productType: '',
       unitNumber: '',
       entries: [],
-      hospitalName: defaultHospital?.name || 'CareBridge Hospital',
+      hospitalName: defaultHospital?.name || 'AstroHEALTH Hospital',
       hospitalAddress: defaultHospital?.address,
       hospitalPhone: defaultHospital?.phone,
       hospitalEmail: defaultHospital?.email,

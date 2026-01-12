@@ -849,7 +849,7 @@ export default function SurgeryPlanningPage() {
                             surgeon: user ? `${user.firstName} ${user.lastName}` : 'Attending Surgeon',
                             anaesthesiaType: anaesthesiaType || 'general',
                             asaScore: asaScore || 1,
-                            hospitalName: 'CareBridge Innovations in Healthcare',
+                            hospitalName: 'AstroHEALTH Innovations in Healthcare',
                           }
                         );
                         toast.success('Fasting Guidelines PDF downloaded!');
@@ -886,7 +886,7 @@ export default function SurgeryPlanningPage() {
                             surgeon: user ? `${user.firstName} ${user.lastName}` : 'Attending Surgeon',
                             anaesthesiaType: anaesthesiaType || 'general',
                             asaScore: asaScore || 1,
-                            hospitalName: 'CareBridge Innovations in Healthcare',
+                            hospitalName: 'AstroHEALTH Innovations in Healthcare',
                           }
                         );
                         toast.success('Informed Consent Form PDF downloaded!');
@@ -1147,7 +1147,7 @@ export default function SurgeryPlanningPage() {
                               anaesthesiaType: watch('anaesthesiaType'),
                               asaScore: watch('asaScore') || 1,
                               capriniScore: calculatedCapriniScore,
-                              hospitalName: 'CareBridge Innovations in Healthcare',
+                              hospitalName: 'AstroHEALTH Innovations in Healthcare',
                             },
                             selectedProcedure,
                             feeEstimate
@@ -1216,7 +1216,7 @@ export default function SurgeryPlanningPage() {
                               anaesthesiaType: watch('anaesthesiaType'),
                               asaScore: watch('asaScore') || 1,
                               capriniScore: calculatedCapriniScore,
-                              hospitalName: 'CareBridge Innovations in Healthcare',
+                              hospitalName: 'AstroHEALTH Innovations in Healthcare',
                             }
                           );
                           toast.success('Pre-Operative Instructions PDF downloaded!');
@@ -1262,7 +1262,7 @@ export default function SurgeryPlanningPage() {
                               anaesthesiaType: watch('anaesthesiaType'),
                               asaScore: watch('asaScore') || 1,
                               capriniScore: calculatedCapriniScore,
-                              hospitalName: 'CareBridge Innovations in Healthcare',
+                              hospitalName: 'AstroHEALTH Innovations in Healthcare',
                             }
                           );
                           toast.success('Post-Operative Instructions PDF downloaded!');
@@ -1309,7 +1309,7 @@ export default function SurgeryPlanningPage() {
                               anaesthesiaType: watch('anaesthesiaType'),
                               asaScore: watch('asaScore') || 1,
                               capriniScore: calculatedCapriniScore,
-                              hospitalName: 'CareBridge Innovations in Healthcare',
+                              hospitalName: 'AstroHEALTH Innovations in Healthcare',
                             }
                           );
                           toast.success('Consent Form PDF downloaded!');
@@ -1351,7 +1351,7 @@ export default function SurgeryPlanningPage() {
                               procedure: education,
                               surgeonName: `${user?.firstName} ${user?.lastName}` || 'Attending Surgeon',
                               surgeonLicense: user?.licenseNumber,
-                              hospitalName: 'CareBridge Innovations in Healthcare',
+                              hospitalName: 'AstroHEALTH Innovations in Healthcare',
                               scheduledDate: watch('scheduledDate') ? new Date(watch('scheduledDate')) : undefined,
                               includeConsentSection: true,
                             });
@@ -1406,7 +1406,7 @@ export default function SurgeryPlanningPage() {
                               anaesthesiaType: watch('anaesthesiaType'),
                               asaScore: watch('asaScore') || 1,
                               capriniScore: calculatedCapriniScore,
-                              hospitalName: 'CareBridge Innovations in Healthcare',
+                              hospitalName: 'AstroHEALTH Innovations in Healthcare',
                             },
                             selectedProcedure,
                             feeEstimate
