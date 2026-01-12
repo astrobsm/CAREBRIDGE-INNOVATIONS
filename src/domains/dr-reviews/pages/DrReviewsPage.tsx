@@ -1,7 +1,8 @@
 // Dr. Nnadi's Reviews & Analytics Dashboard
-// Admin-only access for patient review management and billing analytics
+// Password-protected access for patient review management and billing analytics
+// Access Password: blackvelvet
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   FileText,
@@ -13,33 +14,101 @@ import {
   Search,
   BarChart3,
   PieChart,
-  Activity
+  Activity,
+  Lock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 
+const DR_REVIEWS_PASSWORD = 'blackvelvet';
+const SESSION_KEY = 'dr_reviews_auth';
+
 export default function DrReviewsPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState('all');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
-  // Access control - Check role in case-insensitive manner to handle variations
-  // Supports: "super admin", "SuperAdmin", "System Administrator", "hospital admin", etc.
-  const userRole = user?.role?.toLowerCase().replace(/\s+/g, '') || '';
-  const isAdmin = userRole.includes('superadmin') || 
-                  userRole.includes('systemadmin') || 
-                  userRole.includes('hospitaladmin') ||
-                  userRole === 'admin';
+  // Check session storage for existing authentication
+  useEffect(() => {
+    const sessionAuth = sessionStorage.getItem(SESSION_KEY);
+    if (sessionAuth === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
 
-  if (!isAdmin) {
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === DR_REVIEWS_PASSWORD) {
+      setIsAuthenticated(true);
+      sessionStorage.setItem(SESSION_KEY, 'true');
+      setPasswordError('');
+    } else {
+      setPasswordError('Incorrect password. Please try again.');
+      setPasswordInput('');
+    }
+  };
+
+  // Password authentication screen
+  if (!isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h2>
-          <p className="text-gray-600">This module is only accessible to administrators.</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-200"
+        >
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-full mb-4">
+              <Lock className="w-8 h-8 text-indigo-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">Dr. Nnadi's Reviews</h2>
+            <p className="text-gray-600">Enter password to access analytics dashboard</p>
+          </div>
+
+          <form onSubmit={handlePasswordSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                Access Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900"
+                placeholder="Enter password"
+                autoFocus
+              />
+              {passwordError && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mt-2 text-sm text-red-600 font-medium"
+                >
+                  {passwordError}
+                </motion.p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition-colors shadow-lg hover:shadow-xl"
+            >
+              Access Dashboard
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-xs text-gray-500">
+              Logged in as: <span className="font-semibold">{user?.name || 'Unknown'}</span>
+            </p>
+          </div>
+        </motion.div>
       </div>
     );
   }
