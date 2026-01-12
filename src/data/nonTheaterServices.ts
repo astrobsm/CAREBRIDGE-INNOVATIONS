@@ -73,6 +73,18 @@ export const serviceCategories: ServiceCategory[] = [
     icon: 'Syringe',
   },
   {
+    id: 'theatre-usage',
+    name: 'Theatre Usage Fees',
+    description: 'Operating theatre utilization charges',
+    icon: 'Building',
+  },
+  {
+    id: 'histology',
+    name: 'Histology & Pathology',
+    description: 'Tissue examination and pathology services',
+    icon: 'Microscope',
+  },
+  {
     id: 'nursing',
     name: 'Nursing Services',
     description: 'Daily nursing care and ward services',
@@ -404,11 +416,22 @@ export const nonTheaterServices: NonTheaterService[] = [
     category: 'anaesthesia',
     name: 'Local Anaesthesia',
     complexity: 'basic',
-    minFee: 30000,
-    maxFee: 60000,
+    minFee: 10000,
+    maxFee: 10000,
     description: 'Local anaesthetic administration for minor procedures',
     duration: '15-30 minutes',
     notes: 'Includes infiltration and nerve blocks',
+  },
+  {
+    id: 'ANES-001A',
+    category: 'anaesthesia',
+    name: 'WALANT Anaesthesia',
+    complexity: 'basic',
+    minFee: 25000,
+    maxFee: 25000,
+    description: 'Wide Awake Local Anaesthesia No Tourniquet technique for hand surgery',
+    duration: '30-60 minutes',
+    notes: 'Lidocaine with epinephrine for hand and finger procedures',
   },
   {
     id: 'ANES-002',
@@ -466,7 +489,66 @@ export const nonTheaterServices: NonTheaterService[] = [
     notes: 'Complex, major, or microsurgical procedures',
   },
 
-  // 9. NURSING SERVICES
+  // 9. THEATRE USAGE FEES
+  {
+    id: 'THEAT-001',
+    category: 'theatre-usage',
+    name: 'Use of Theatre - Minor',
+    complexity: 'basic',
+    minFee: 30000,
+    maxFee: 30000,
+    description: 'Operating theatre usage for minor procedures',
+    duration: '<1 hour',
+    notes: 'Basic theatre overhead for minor surgical procedures',
+  },
+  {
+    id: 'THEAT-002',
+    category: 'theatre-usage',
+    name: 'Use of Theatre - Intermediate',
+    complexity: 'intermediate',
+    minFee: 40000,
+    maxFee: 40000,
+    description: 'Operating theatre usage for intermediate procedures',
+    duration: '1-2 hours',
+    notes: 'Standard theatre overhead for intermediate complexity',
+  },
+  {
+    id: 'THEAT-003',
+    category: 'theatre-usage',
+    name: 'Use of Theatre - Major',
+    complexity: 'advanced',
+    minFee: 50000,
+    maxFee: 50000,
+    description: 'Operating theatre usage for major procedures',
+    duration: '>2 hours',
+    notes: 'Extended theatre overhead for major surgical procedures',
+  },
+
+  // 10. HISTOLOGY & PATHOLOGY
+  {
+    id: 'HISTO-001',
+    category: 'histology',
+    name: 'Histology Test - Normal Processing',
+    complexity: 'intermediate',
+    minFee: 25000,
+    maxFee: 25000,
+    description: 'Standard histopathology examination of tissue specimen',
+    duration: '5-7 days',
+    notes: 'Routine processing, H&E staining, microscopic examination',
+  },
+  {
+    id: 'HISTO-002',
+    category: 'histology',
+    name: 'Histology Test - Urgent Processing',
+    complexity: 'advanced',
+    minFee: 65000,
+    maxFee: 65000,
+    description: 'Expedited histopathology examination with rapid turnaround',
+    duration: '24-48 hours',
+    notes: 'Priority processing, expedited reporting for urgent cases',
+  },
+
+  // 11. NURSING SERVICES
   {
     id: 'NURS-001',
     category: 'nursing',
@@ -523,7 +605,7 @@ export const nonTheaterServices: NonTheaterService[] = [
     notes: 'Per night',
   },
 
-  // 10. DAILY HOSPITAL CHARGES
+  // 12. DAILY HOSPITAL CHARGES
   {
     id: 'DAILY-001',
     category: 'daily-charges',
