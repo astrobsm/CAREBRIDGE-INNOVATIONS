@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   FileText,
   Send,
@@ -13,6 +14,7 @@ import {
   Download,
   Plus,
   X,
+  UserPlus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -59,6 +61,7 @@ const subspecialties = [
 
 export default function ReferralPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [pastMedicalHistory, setPastMedicalHistory] = useState<string[]>([]);
   const [pastSurgicalHistory, setPastSurgicalHistory] = useState<string[]>([]);
@@ -273,13 +276,24 @@ export default function ReferralPage() {
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="label">Select Patient *</label>
+                <button
+                  type="button"
+                  onClick={() => navigate('/patients/new', { state: { returnTo: '/referrals' } })}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                >
+                  <UserPlus size={16} />
+                  New Patient
+                </button>
+              </div>
               <PatientSelector
                 value={patientId}
                 onChange={(id) => {
                   setValue('patientId', id || '');
                   if (id) loadPatientData(id);
                 }}
-                label="Select Patient"
+                label=""
                 required
                 error={errors.patientId?.message}
               />
