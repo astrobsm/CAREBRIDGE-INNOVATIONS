@@ -174,17 +174,17 @@ export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise
     doc.setFontSize(PDF_FONT_SIZES.body);
     doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setTextColor(...PDF_COLORS.text);
-    doc.text(`• Dosage: ${med.dosage}`, margin + 3, yPos);
+    doc.text(`- Dosage: ${med.dosage}`, margin + 3, yPos);
     yPos += 5;
-    doc.text(`• Route: ${med.route}`, margin + 3, yPos);
+    doc.text(`- Route: ${med.route}`, margin + 3, yPos);
     yPos += 5;
-    doc.text(`• Frequency: ${med.frequency}`, margin + 3, yPos);
+    doc.text(`- Frequency: ${med.frequency}`, margin + 3, yPos);
     yPos += 5;
     if (med.duration) {
-      doc.text(`• Duration: ${med.duration}`, margin + 3, yPos);
+      doc.text(`- Duration: ${med.duration}`, margin + 3, yPos);
       yPos += 5;
     }
-    doc.text(`• Indication: ${med.indication}`, margin + 3, yPos);
+    doc.text(`- Indication: ${med.indication}`, margin + 3, yPos);
     yPos += 10;
 
     // Instructions
@@ -199,7 +199,7 @@ export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise
       doc.setTextColor(...PDF_COLORS.text);
       med.howToTake.forEach((instruction) => {
         addNewPageIfNeeded(10);
-        const lines = doc.splitTextToSize(`• ${instruction}`, contentWidth - 6);
+        const lines = doc.splitTextToSize(`- ${instruction}`, contentWidth - 6);
         doc.text(lines, margin + 3, yPos);
         yPos += lines.length * 5;
       });
@@ -218,7 +218,7 @@ export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise
       doc.setTextColor(...PDF_COLORS.text);
       med.commonSideEffects.forEach((effect) => {
         addNewPageIfNeeded(8);
-        doc.text(`• ${effect}`, margin + 3, yPos);
+        doc.text(`- ${effect}`, margin + 3, yPos);
         yPos += 5;
       });
       yPos += 5;
@@ -241,7 +241,7 @@ export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise
       doc.setFont(PDF_FONTS.primary, 'normal');
       doc.setTextColor(...PDF_COLORS.text);
       med.seriousSideEffects.forEach((effect) => {
-        doc.text(`• ${effect}`, margin + 6, yPos);
+        doc.text(`- ${effect}`, margin + 3, yPos);
         yPos += 5;
       });
       yPos += 10;
@@ -259,7 +259,7 @@ export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise
       doc.setTextColor(...PDF_COLORS.text);
       med.warnings.forEach((warning) => {
         addNewPageIfNeeded(10);
-        const lines = doc.splitTextToSize(`⚠ ${warning}`, contentWidth - 6);
+        const lines = doc.splitTextToSize(`WARNING: ${warning}`, contentWidth - 6);
         doc.text(lines, margin + 3, yPos);
         yPos += lines.length * 5;
       });
@@ -296,13 +296,13 @@ export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise
 
       doc.setFont(PDF_FONTS.primary, 'bold');
       doc.setTextColor(...PDF_COLORS.danger);
-      doc.text('🚨 SEEK IMMEDIATE MEDICAL ATTENTION IF:', margin + 3, yPos + 5);
+      doc.text('SEEK IMMEDIATE MEDICAL ATTENTION IF:', margin + 3, yPos + 5);
       yPos += 10;
 
       doc.setFont(PDF_FONTS.primary, 'normal');
       doc.setTextColor(...PDF_COLORS.text);
       med.whenToSeekHelp.forEach((help) => {
-        doc.text(`• ${help}`, margin + 6, yPos);
+        doc.text(`- ${help}`, margin + 6, yPos);
         yPos += 5;
       });
       yPos += 10;
