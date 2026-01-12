@@ -75,6 +75,15 @@ const npwtFormSchema = z.object({
   foamsUsed: z.number().min(0),
   opsiteFilmsUsed: z.number().min(0),
   otherMaterials: z.string().optional(),
+  // Consumables tracking
+  npwtPackQty: z.number().min(0).optional().default(0),
+  clingFilmQty: z.number().min(0).optional().default(0),
+  opsiteQty: z.number().min(0).optional().default(0),
+  dressingPackQty: z.number().min(0).optional().default(0),
+  ngTubeQty: z.number().min(0).optional().default(0),
+  crepeBandageQty: z.number().min(0).optional().default(0),
+  surgicalBladeQty: z.number().min(0).optional().default(0),
+  surgicalGlovesQty: z.number().min(0).optional().default(0),
 });
 
 type NPWTFormData = z.infer<typeof npwtFormSchema>;
@@ -111,7 +120,7 @@ export default function NPWTPage() {
     watch,
     formState: { errors },
   } = useForm<NPWTFormData>({
-    resolver: zodResolver(npwtFormSchema),
+    resolver: zodResolver(npwtFormSchema) as any,
     defaultValues: {
       cycleType: '4_day',
       cycleNumber: 1,
@@ -123,6 +132,15 @@ export default function NPWTPage() {
       granulationPercent: 50,
       foamsUsed: 1,
       opsiteFilmsUsed: 1,
+      // Consumables defaults
+      npwtPackQty: 0,
+      clingFilmQty: 0,
+      opsiteQty: 0,
+      dressingPackQty: 0,
+      ngTubeQty: 0,
+      crepeBandageQty: 0,
+      surgicalBladeQty: 0,
+      surgicalGlovesQty: 0,
     },
   });
 
@@ -206,6 +224,27 @@ export default function NPWTPage() {
           foamsUsed: data.foamsUsed,
           opsiteFilmsUsed: data.opsiteFilmsUsed,
           otherMaterials: data.otherMaterials,
+        },
+        // Consumables tracking with costs
+        consumables: {
+          npwtPackQty: data.npwtPackQty || 0,
+          clingFilmQty: data.clingFilmQty || 0,
+          opsiteQty: data.opsiteQty || 0,
+          suctionCannulaQty: data.dressingPackQty || 0,
+          drainsQty: data.ngTubeQty || 0,
+          foamDressingQty: data.foamsUsed || 0,
+          silverDressingQty: data.crepeBandageQty || 0,
+          surgicalGlovesQty: data.surgicalGlovesQty || 0,
+          totalCost: (
+            (data.npwtPackQty || 0) * 5000 +
+            (data.clingFilmQty || 0) * 1000 +
+            (data.opsiteQty || 0) * 10000 +
+            (data.dressingPackQty || 0) * 1000 +
+            (data.ngTubeQty || 0) * 500 +
+            (data.crepeBandageQty || 0) * 1200 +
+            (data.surgicalBladeQty || 0) * 100 +
+            (data.surgicalGlovesQty || 0) * 500
+          ),
         },
         imageBase64: imagePreview || undefined,
         woundCondition: data.woundCondition,
@@ -828,6 +867,127 @@ export default function NPWTPage() {
                   </div>
 
                   {/* Materials Count */}
+                  <div className="mt-4">
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                      <Package size={16} />
+                      Consumables Used & Costing
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="label">NPWT Pack</label>
+                        <input
+                          type="number"
+                          {...register('npwtPackQty', { valueAsNumber: true })}
+                          className="input"
+                          min="0"
+                          placeholder="Quantity"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">₦5,000 each</p>
+                      </div>
+                      <div>
+                        <label className="label">Cling Film</label>
+                        <input
+                          type="number"
+                          {...register('clingFilmQty', { valueAsNumber: true })}
+                          className="input"
+                          min="0"
+                          placeholder="Quantity"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">₦1,000 each</p>
+                      </div>
+                      <div>
+                        <label className="label">Opsite</label>
+                        <input
+                          type="number"
+                          {...register('opsiteQty', { valueAsNumber: true })}
+                          className="input"
+                          min="0"
+                          placeholder="Quantity"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">₦10,000 each</p>
+                      </div>
+                      <div>
+                        <label className="label">Dressing Pack</label>
+                        <input
+                          type="number"
+                          {...register('dressingPackQty', { valueAsNumber: true })}
+                          className="input"
+                          min="0"
+                          placeholder="Quantity"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">₦1,000 each</p>
+                      </div>
+                      <div>
+                        <label className="label">NG Tube</label>
+                        <input
+                          type="number"
+                          {...register('ngTubeQty', { valueAsNumber: true })}
+                          className="input"
+                          min="0"
+                          placeholder="Quantity"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">₦500 each</p>
+                      </div>
+                      <div>
+                        <label className="label">Crepe Bandage</label>
+                        <input
+                          type="number"
+                          {...register('crepeBandageQty', { valueAsNumber: true })}
+                          className="input"
+                          min="0"
+                          placeholder="Quantity"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">₦1,200 each</p>
+                      </div>
+                      <div>
+                        <label className="label">Surgical Blade</label>
+                        <input
+                          type="number"
+                          {...register('surgicalBladeQty', { valueAsNumber: true })}
+                          className="input"
+                          min="0"
+                          placeholder="Quantity"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">₦100 each</p>
+                      </div>
+                      <div>
+                        <label className="label">Surgical Gloves</label>
+                        <input
+                          type="number"
+                          {...register('surgicalGlovesQty', { valueAsNumber: true })}
+                          className="input"
+                          min="0"
+                          placeholder="Quantity (pairs)"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">₦500 per pair</p>
+                      </div>
+                    </div>
+                    
+                    {/* Total Cost Display */}
+                    <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-900">Session Consumables Cost:</span>
+                        <span className="text-lg font-bold text-green-700">
+                          ₦{(() => {
+                            const costs = {
+                              npwtPack: (watch('npwtPackQty') || 0) * 5000,
+                              clingFilm: (watch('clingFilmQty') || 0) * 1000,
+                              opsite: (watch('opsiteQty') || 0) * 10000,
+                              dressingPack: (watch('dressingPackQty') || 0) * 1000,
+                              ngTube: (watch('ngTubeQty') || 0) * 500,
+                              crepeBandage: (watch('crepeBandageQty') || 0) * 1200,
+                              surgicalBlade: (watch('surgicalBladeQty') || 0) * 100,
+                              surgicalGloves: (watch('surgicalGlovesQty') || 0) * 500,
+                            };
+                            const total = Object.values(costs).reduce((sum, val) => sum + val, 0);
+                            return total.toLocaleString();
+                          })()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Legacy Materials Count (kept for backward compatibility) */}
                   <div className="grid grid-cols-3 gap-4 mt-4">
                     <div>
                       <label className="label">Number of Foams Used</label>

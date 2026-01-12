@@ -5,7 +5,7 @@
  * Comprehensive preoperative anaesthetic review for surgical patients
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -116,6 +116,40 @@ export default function PreoperativeAssessmentPage() {
     []
   );
 
+  // Fetch current user
+  const user = useLiveQuery(() => db.users.get('current-user'), []);
+  
+  // Fetch all users for mapping
+  const users = useLiveQuery(() => db.users.toArray(), []);
+  
+  // Fetch booked surgical cases assigned to current user as anaesthetist
+  const bookedCases = useLiveQuery(
+    () => {
+      if (!user) return [];
+      return db.surgeries
+        .filter(surgery => 
+          surgery.status === 'scheduled' && 
+          (surgery.anaesthetist === user.id || surgery.anaesthetistId === user.id)
+        )
+        .toArray();
+    },
+    [user]
+  );
+  
+  // State for selected surgery from booked cases
+  const [selectedSurgery, setSelectedSurgery] = useState<any>(null);
+  
+  // Create maps for quick lookups
+  const patientsMap = useMemo(() => {
+    if (!patients) return new Map();
+    return new Map(patients.map(p => [p.id, p]));
+  }, [patients]);
+  
+  const usersMap = useMemo(() => {
+    if (!users) return new Map();
+    return new Map(users.map(u => [u.id, u]));
+  }, [users]);
+
   // Fetch prescriptions for selected patient
   const prescriptions = useLiveQuery(
     () => {
@@ -183,6 +217,27 @@ export default function PreoperativeAssessmentPage() {
     if (!surgeryDateTime) return [];
     return preoperativeService.generateFastingInstructions(new Date(surgeryDateTime));
   }, [surgeryDateTime]);
+
+  // Pre-fill form when a booked surgery is selected
+  useEffect(() => {
+    if (selectedSurgery && patients) {
+      const patient = patientsMap.get(selectedSurgery.patientId);
+      if (patient) {
+        setSelectedPatientId(selectedSurgery.patientId);
+        setSurgeryDateTime(new Date(selectedSurgery.scheduledDate).toISOString().slice(0, 16));
+        form.setValue('surgeryName', selectedSurgery.procedureName);
+        form.setValue('surgeryType', selectedSurgery.category === 'major' ? 'major' : 'intermediate');
+        form.setValue('scheduledDate', new Date(selectedSurgery.scheduledDate).toISOString().slice(0, 16));
+        
+        // Pre-fill ASA score if available
+        if (selectedSurgery.preOperativeAssessment?.asaScore) {
+          const asaScore = selectedSurgery.preOperativeAssessment.asaScore;
+          setAsaClass(asaScore);
+          form.setValue('asaClass', asaScore);
+        }
+      }
+    }
+  }, [selectedSurgery, patients, patientsMap, form]);
 
   // Handle step navigation
   const goToNextStep = () => {
@@ -281,6 +336,7 @@ export default function PreoperativeAssessmentPage() {
   const resetForm = () => {
     setCurrentStep('basic');
     setSelectedPatientId('');
+    setSelectedSurgery(null);
     setAsaClass(1);
     setAsaEmergency(false);
     setMallampati(1);
@@ -1031,6 +1087,95 @@ export default function PreoperativeAssessmentPage() {
           <p className="text-sm text-gray-500">Today's Surgeries</p>
         </div>
       </div>
+
+      {/* Booked Cases Section */}
+      {bookedCases && bookedCases.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border-b px-4 sm:px-6 py-4">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Calendar size={20} className="text-teal-600" />
+              Booked Surgical Cases Assigned to You
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {bookedCases.length} {bookedCases.length === 1 ? 'case' : 'cases'} require preoperative assessment
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Patient</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Surgery</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Scheduled</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Surgeon</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Type</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Status</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bookedCases.map((surgery) => {
+                  const patient = patientsMap.get(surgery.patientId);
+                  const surgeonUser = usersMap.get(surgery.surgeon);
+                  
+                  return (
+                    <tr key={surgery.id} className="border-b hover:bg-teal-50 cursor-pointer transition-colors">
+                      <td className="p-4">
+                        {patient ? (
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {patient.firstName} {patient.lastName}
+                            </p>
+                            <p className="text-sm text-gray-500">{patient.hospitalNumber}</p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500">Loading...</p>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <div>
+                          <p className="text-gray-900">{surgery.procedureName}</p>
+                          <p className="text-xs text-gray-500 capitalize">{surgery.category}</p>
+                        </div>
+                      </td>
+                      <td className="p-4 text-sm text-gray-600">
+                        {format(new Date(surgery.scheduledDate), 'MMM d, yyyy h:mm a')}
+                      </td>
+                      <td className="p-4 text-sm text-gray-600">
+                        {surgeonUser ? `${surgeonUser.firstName} ${surgeonUser.lastName}` : surgery.surgeon}
+                      </td>
+                      <td className="p-4">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          surgery.type === 'emergency' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {surgery.type}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                          Awaiting Assessment
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <button
+                          onClick={() => {
+                            setSelectedSurgery(surgery);
+                            setShowModal(true);
+                          }}
+                          className="text-teal-600 hover:text-teal-700 font-medium text-sm flex items-center gap-1"
+                        >
+                          <Plus size={16} />
+                          Assess
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Assessments List */}
       {!assessments || assessments.length === 0 ? (

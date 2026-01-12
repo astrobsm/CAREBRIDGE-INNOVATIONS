@@ -143,12 +143,6 @@ const navigation: NavItem[] = [
     permission: 'view_labs',
   },
   { 
-    name: 'Laboratory', 
-    href: '/laboratory', 
-    icon: <FlaskConical size={20} />,
-    permission: 'view_labs',
-  },
-  { 
     name: 'Pharmacy', 
     href: '/pharmacy', 
     icon: <Pill size={20} />,

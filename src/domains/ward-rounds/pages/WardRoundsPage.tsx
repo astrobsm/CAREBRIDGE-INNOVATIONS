@@ -127,9 +127,9 @@ export default function WardRoundsPage() {
   const doctorAssignments = useLiveQuery(() => db.doctorAssignments.where('status').equals('active').toArray(), []);
   const nurseAssignments = useLiveQuery(() => db.nurseAssignments.where('status').equals('active').toArray(), []);
 
-  // Get doctors and nurses
+  // Get surgeons only for ward rounds
   const doctors = useMemo(() => 
-    users?.filter(u => ['surgeon', 'anaesthetist', 'doctor', 'consultant', 'registrar', 'resident'].includes(u.role)) || [],
+    users?.filter(u => u.role === 'surgeon') || [],
     [users]
   );
   const nurses = useMemo(() => 
@@ -894,7 +894,7 @@ export default function WardRoundsPage() {
                         <p className="text-sm text-red-500 mt-1">{roundForm.formState.errors.leadDoctorId.message}</p>
                       )}
                       {doctors.length === 0 && (
-                        <p className="text-xs text-amber-600 mt-1">⚠️ No doctors found in the system. Please add doctors first.</p>
+                        <p className="text-xs text-amber-600 mt-1">⚠️ No surgeons found in the system. Please add surgeons first.</p>
                       )}
                     </div>
                     <div>

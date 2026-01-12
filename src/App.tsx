@@ -19,6 +19,7 @@ import SurgeryPlanningPage from './domains/surgery/pages/SurgeryPlanningPage';
 import PreoperativeAssessmentPage from './domains/surgery/pages/PreoperativeAssessmentPage';
 import PostOperativeNotePage from './domains/surgery/pages/PostOperativeNotePage';
 import PostOpNotesListPage from './domains/surgery/pages/PostOpNotesListPage';
+import PostOpNoteFormPage from './domains/surgery/pages/PostOpNoteFormPage';
 import WoundsPage from './domains/wounds/pages/WoundsPage';
 import BurnsAssessmentPage from './domains/burns/pages/BurnsAssessmentPage';
 import LaboratoryPage from './domains/laboratory/pages/LaboratoryPage';
@@ -105,6 +106,7 @@ function App() {
           <Route path="planning/:patientId" element={<SurgeryPlanningPage />} />
           <Route path="preoperative" element={<PreoperativeAssessmentPage />} />
           <Route path="post-op-notes" element={<PostOpNotesListPage />} />
+          <Route path="post-op-note/create/:surgeryId" element={<PostOpNoteFormPage />} />
           <Route path="post-op-note/:surgeryId" element={<PostOperativeNotePage />} />
         </Route>
 

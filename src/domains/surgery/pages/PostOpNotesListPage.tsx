@@ -11,7 +11,10 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
+  Edit,
+  Eye,
 } from 'lucide-react';
+import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../database/db';
 import type { Surgery, Patient, PostOperativeNote } from '../../../types';
 
@@ -22,6 +25,7 @@ interface SurgeryWithPatient extends Surgery {
 
 export default function PostOpNotesListPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [surgeries, setSurgeries] = useState<SurgeryWithPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -231,8 +235,7 @@ export default function PostOpNotesListPage() {
             {filteredSurgeries.map((surgery) => (
               <div
                 key={surgery.id}
-                onClick={() => navigate(`/surgery/post-op-note/${surgery.id}`)}
-                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                className="p-4 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -257,6 +260,37 @@ export default function PostOpNotesListPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     {getStatusBadge(surgery)}
+                    
+                    {/* Action Buttons */}
+                    {!surgery.postOpNote && user?.role === 'surgeon' && (
+                      <button
+                        onClick={() => navigate(`/surgery/post-op-note/create/${surgery.id}`)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
+                      >
+                        <Edit size={14} />
+                        Write Note
+                      </button>
+                    )}
+                    
+                    {surgery.postOpNote && (
+                      <button
+                        onClick={() => navigate(`/surgery/post-op-note/${surgery.id}`)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                      >
+                        {user?.role === 'surgeon' ? (
+                          <>
+                            <Edit size={14} />
+                            Edit Note
+                          </>
+                        ) : (
+                          <>
+                            <Eye size={14} />
+                            View Note
+                          </>
+                        )}
+                      </button>
+                    )}
+                    
                     <ChevronRight className="h-5 w-5 text-gray-400" />
                   </div>
                 </div>

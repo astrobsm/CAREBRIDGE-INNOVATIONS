@@ -81,6 +81,19 @@ export interface NPWTSession {
   cleaningAgents: CleaningAgentsUsed;
   materials: NPWTMaterials;
   
+  // Consumables Tracking (for billing)
+  consumables?: {
+    npwtPackQty: number;
+    clingFilmQty: number;
+    opsiteQty: number;
+    suctionCannulaQty: number;
+    drainsQty: number;
+    foamDressingQty: number;
+    silverDressingQty: number;
+    surgicalGlovesQty: number;
+    totalCost: number;
+  };
+  
   // Progress Tracking
   imageUrl?: string;
   imageBase64?: string;

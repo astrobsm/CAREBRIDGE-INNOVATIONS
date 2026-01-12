@@ -22,6 +22,7 @@ import {
   Activity,
   Heart,
   BookOpen,
+  Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -37,6 +38,10 @@ export default function PostOperativeNotePage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [activeTab, setActiveTab] = useState<'summary' | 'education' | 'specimens'>('summary');
+  
+  // Check user role for access control
+  const canEdit = user?.role === 'surgeon';
+  const canView = user?.role === 'surgeon' || user?.role === 'nurse';
 
   // Fetch surgery
   const surgery = useLiveQuery(async () => {
@@ -139,6 +144,22 @@ export default function PostOperativeNotePage() {
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-20">
+      {/* Nurse View-Only Notice */}
+      {!canEdit && canView && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Eye className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div>
+              <h3 className="font-medium text-blue-900">View-Only Access</h3>
+              <p className="text-sm text-blue-700 mt-1">
+                You are viewing this post-operative note in read-only mode. 
+                Only surgeons can create or edit post-operative notes.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">

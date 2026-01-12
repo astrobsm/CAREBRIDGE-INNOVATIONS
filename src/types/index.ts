@@ -2292,6 +2292,49 @@ export interface TransfusionVitals {
   notes?: string;
 }
 
+// Transfusion Record (for tracking actual transfusion process)
+export interface TransfusionRecord {
+  id: string;
+  requestId: string;
+  patientId: string;
+  patientName: string;
+  unitId: string;
+  productType: string;
+  productName: string;
+  
+  // Pre-transfusion
+  preVitals: TransfusionVitals;
+  verifiedBy: { nurse1: string; nurse2: string };
+  startTime: Date;
+  
+  // During transfusion
+  flowRate: number; // mL/hr
+  duringVitals: TransfusionVitals[];
+  vitals?: TransfusionVitals[]; // Alias for duringVitals for backward compatibility
+  
+  // Post-transfusion
+  endTime?: Date;
+  postVitals?: TransfusionVitals;
+  volumeTransfused: number;
+  
+  // Outcome
+  status: 'in_progress' | 'completed' | 'stopped';
+  reaction?: {
+    id: string;
+    transfusionId: string;
+    detectedAt: Date;
+    type: string;
+    severity: string;
+    symptoms: string[];
+    vitalsAtReaction: TransfusionVitals;
+    transfusionStopped: boolean;
+    stoppedAt?: Date;
+    interventions: string[];
+    outcome: string;
+  };
+  notes?: string;
+}
+
 // ==========================================
 // MDT (MULTIDISCIPLINARY TEAM) MEETING MODULE
 // ==========================================
@@ -3569,11 +3612,20 @@ export interface ActivityBillingRecord {
   
   // Billing Details
   fee: number;
+  originalFee?: number;          // Fee before discount (for billing transparency)
+  discountAmount?: number;       // Amount discounted
+  discountRate?: number;         // Discount percentage applied
   staffShare: number;           // 50% of fee
   hospitalShare: number;        // 50% of fee
   
+  // Additional Service Links
+  npwtSessionId?: string;       // If activity is NPWT-related
+  transfusionId?: string;       // If activity is transfusion-related
+  
   // Payment Status
   paymentStatus: 'pending' | 'partial' | 'paid' | 'waived';
+  paymentMethod?: 'cash' | 'card' | 'transfer' | 'insurance';
+  paymentEvidenceUrl?: string;  // Receipt/proof of payment
   amountPaid: number;
   staffAmountPaid: number;      // 50% of amount paid
   hospitalAmountPaid: number;   // 50% of amount paid

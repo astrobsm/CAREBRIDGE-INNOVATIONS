@@ -346,6 +346,15 @@ export function generateLabRequestFormPDF(options: LabRequestFormPDFOptions): vo
 
   // Clinical information
   if (clinicalInfo) {
+    // Check for page break
+    if (yPos > pageHeight - 80) {
+      addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+      doc.addPage();
+      doc.setFillColor(...PDF_COLORS.white);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      yPos = 20;
+    }
+
     doc.setFillColor(254, 249, 195);
     doc.roundedRect(15, yPos, pageWidth - 30, 16, 2, 2, 'F');
     doc.setTextColor(...PDF_COLORS.dark);
@@ -356,12 +365,21 @@ export function generateLabRequestFormPDF(options: LabRequestFormPDFOptions): vo
     doc.setFontSize(8);
     const clinicalLines = doc.splitTextToSize(clinicalInfo, pageWidth - 45);
     doc.text(clinicalLines.slice(0, 2), 20, yPos + 11);
-    yPos += 20;
+    yPos += 22;
+  }
+
+  // Check page space before tests section
+  if (yPos > pageHeight - 80) {
+    addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+    doc.addPage();
+    doc.setFillColor(...PDF_COLORS.white);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    yPos = 20;
   }
 
   // Requested Tests Section
   yPos = addSectionTitle(doc, yPos, 'Requested Investigations');
-  yPos += 3;
+  yPos += 5;
 
   // Group tests by category
   const testsByCategory = new Map<string, { name: string; specimen: string }[]>();
@@ -389,6 +407,25 @@ export function generateLabRequestFormPDF(options: LabRequestFormPDFOptions): vo
 
   let rowIndex = 0;
   testsByCategory.forEach((categoryTests, category) => {
+    // Check for page break before category header
+    if (yPos > pageHeight - 70) {
+      addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+      doc.addPage();
+      doc.setFillColor(...PDF_COLORS.white);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      yPos = 20;
+      
+      // Re-add table header on new page
+      doc.setFillColor(59, 130, 246);
+      doc.rect(startX, yPos, pageWidth - 30, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Investigation', startX + 5, yPos + 5.5);
+      doc.text('Specimen Required', startX + colWidths[0] + 5, yPos + 5.5);
+      yPos += 8;
+    }
+
     // Category header
     doc.setFillColor(243, 244, 246);
     doc.rect(startX, yPos, pageWidth - 30, 7, 'F');
@@ -400,6 +437,25 @@ export function generateLabRequestFormPDF(options: LabRequestFormPDFOptions): vo
 
     // Tests in this category
     categoryTests.forEach(test => {
+      // Check for page break before adding test row
+      if (yPos > pageHeight - 60) {
+        addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+        doc.addPage();
+        doc.setFillColor(...PDF_COLORS.white);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
+        yPos = 20;
+        
+        // Re-add table header
+        doc.setFillColor(59, 130, 246);
+        doc.rect(startX, yPos, pageWidth - 30, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont(PDF_FONTS.primary, 'bold');
+        doc.text('Investigation', startX + 5, yPos + 5.5);
+        doc.text('Specimen Required', startX + colWidths[0] + 5, yPos + 5.5);
+        yPos += 8;
+      }
+
       // Alternating row colors
       if (rowIndex % 2 === 0) {
         doc.setFillColor(250, 250, 250);
@@ -425,15 +481,6 @@ export function generateLabRequestFormPDF(options: LabRequestFormPDFOptions): vo
 
       yPos += 7;
       rowIndex++;
-
-      // Check for page break
-      if (yPos > pageHeight - 60) {
-        addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
-        doc.addPage();
-        doc.setFillColor(...PDF_COLORS.white);
-        doc.rect(0, 0, pageWidth, pageHeight, 'F');
-        yPos = 20;
-      }
     });
   });
 
@@ -442,18 +489,34 @@ export function generateLabRequestFormPDF(options: LabRequestFormPDFOptions): vo
   doc.setLineWidth(0.5);
   doc.line(startX, yPos, pageWidth - 15, yPos);
 
-  yPos += 8;
+  yPos += 10;
 
   // Total tests count
+  if (yPos > pageHeight - 90) {
+    addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+    doc.addPage();
+    doc.setFillColor(...PDF_COLORS.white);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    yPos = 20;
+  }
+
   doc.setFillColor(240, 253, 244);
   doc.roundedRect(15, yPos, pageWidth - 30, 10, 2, 2, 'F');
   doc.setTextColor(34, 197, 94);
   doc.setFontSize(9);
   doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(`Total Investigations Requested: ${tests.length}`, 20, yPos + 6.5);
-  yPos += 15;
+  yPos += 18;
 
   // Specimen collection section
+  if (yPos > pageHeight - 90) {
+    addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+    doc.addPage();
+    doc.setFillColor(...PDF_COLORS.white);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    yPos = 20;
+  }
+
   yPos = addSectionTitle(doc, yPos, 'For Laboratory Use Only');
   yPos += 5;
 

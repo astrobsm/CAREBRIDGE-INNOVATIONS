@@ -131,8 +131,10 @@ export interface TransfusionRecord {
   id: string;
   requestId: string;
   patientId: string;
+  patientName: string;
   unitId: string;
   productType: BloodProduct;
+  productName: string;
   
   // Pre-transfusion
   preVitals: TransfusionVitals;
@@ -142,6 +144,7 @@ export interface TransfusionRecord {
   // During transfusion
   flowRate: number; // mL/hr
   duringVitals: TransfusionVitals[];
+  vitals?: TransfusionVitals[]; // Alias for duringVitals for backward compatibility
   
   // Post-transfusion
   endTime?: Date;
@@ -843,8 +846,10 @@ class BloodTransfusionService {
       id: uuidv4(),
       requestId,
       patientId,
+      patientName: '', // To be filled by caller
       unitId,
       productType,
+      productName: bloodProductInfo[productType]?.name || productType,
       preVitals,
       verifiedBy,
       startTime: new Date(),

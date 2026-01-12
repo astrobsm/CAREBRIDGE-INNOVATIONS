@@ -84,6 +84,8 @@ export default function BloodTransfusionPage() {
   const [showStartModal, setShowStartModal] = useState(false);
   const [showReactionModal, setShowReactionModal] = useState(false);
   const [showChartUploadModal, setShowChartUploadModal] = useState(false);
+  const [showVitalsModal, setShowVitalsModal] = useState(false);
+  const [selectedTransfusionForVitals, setSelectedTransfusionForVitals] = useState<TransfusionRecord | null>(null);
   const [selectedOrderForView, setSelectedOrderForView] = useState<TransfusionOrder | null>(null);
   const [selectedChartForView, setSelectedChartForView] = useState<TransfusionMonitoringChart | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -760,7 +762,20 @@ Note: Uploaded chart stored successfully.
                         <AlertTriangle size={16} />
                         Report Reaction
                       </button>
-                      <button className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedTransfusionForVitals(transfusion);
+                          setPreVitals({
+                            temperature: 36.5,
+                            pulse: 80,
+                            bloodPressure: { systolic: 120, diastolic: 80 },
+                            respiratoryRate: 16,
+                            oxygenSaturation: 98,
+                          });
+                          setShowVitalsModal(true);
+                        }}
+                        className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
+                      >
                         <RefreshCw size={16} />
                         Record Vitals
                       </button>
@@ -2116,6 +2131,159 @@ Note: Uploaded chart stored successfully.
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
                 >
                   Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Vitals Recording Modal */}
+      <AnimatePresence>
+        {showVitalsModal && selectedTransfusionForVitals && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && setShowVitalsModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl shadow-xl w-full max-w-md"
+            >
+              <div className="flex items-center justify-between p-4 border-b">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Activity className="text-blue-600" />
+                  Record Transfusion Vitals
+                </h2>
+                <button onClick={() => setShowVitalsModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    Patient: <strong>{selectedTransfusionForVitals.patientName}</strong>
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Product: {selectedTransfusionForVitals.productName}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Temperature (°C)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={preVitals.temperature || ''}
+                      onChange={(e) => setPreVitals({ ...preVitals, temperature: parseFloat(e.target.value) || 36.5 })}
+                      className="input"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Pulse (bpm)</label>
+                    <input
+                      type="number"
+                      value={preVitals.pulse || ''}
+                      onChange={(e) => setPreVitals({ ...preVitals, pulse: parseInt(e.target.value) || 80 })}
+                      className="input"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Systolic BP</label>
+                    <input
+                      type="number"
+                      value={preVitals.bloodPressure?.systolic || ''}
+                      onChange={(e) => setPreVitals({
+                        ...preVitals,
+                        bloodPressure: {
+                          systolic: parseInt(e.target.value) || 120,
+                          diastolic: preVitals.bloodPressure?.diastolic || 80,
+                        },
+                      })}
+                      className="input"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Diastolic BP</label>
+                    <input
+                      type="number"
+                      value={preVitals.bloodPressure?.diastolic || ''}
+                      onChange={(e) => setPreVitals({
+                        ...preVitals,
+                        bloodPressure: {
+                          systolic: preVitals.bloodPressure?.systolic || 120,
+                          diastolic: parseInt(e.target.value) || 80,
+                        },
+                      })}
+                      className="input"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Respiratory Rate</label>
+                    <input
+                      type="number"
+                      value={preVitals.respiratoryRate || ''}
+                      onChange={(e) => setPreVitals({ ...preVitals, respiratoryRate: parseInt(e.target.value) || 16 })}
+                      className="input"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">SpO2 (%)</label>
+                    <input
+                      type="number"
+                      value={preVitals.oxygenSaturation || ''}
+                      onChange={(e) => setPreVitals({ ...preVitals, oxygenSaturation: parseInt(e.target.value) || 98 })}
+                      className="input"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
+                <button
+                  onClick={() => setShowVitalsModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      // Update transfusion record with new vitals
+                      await db.bloodTransfusions.update(selectedTransfusionForVitals.id, {
+                        vitals: [
+                          ...(selectedTransfusionForVitals.vitals || []),
+                          {
+                            recordedAt: new Date(),
+                            ...preVitals,
+                          } as TransfusionVitals,
+                        ],
+                        updatedAt: new Date(),
+                      });
+                      
+                      toast.success('Vitals recorded successfully');
+                      setShowVitalsModal(false);
+                      setSelectedTransfusionForVitals(null);
+                    } catch (error) {
+                      console.error('Error recording vitals:', error);
+                      toast.error('Failed to record vitals');
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Save Vitals
                 </button>
               </div>
             </motion.div>
