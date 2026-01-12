@@ -348,9 +348,10 @@ export function addWrappedText(
 
 /**
  * Format currency in Nigerian Naira
+ * Using "N" instead of ₦ symbol for PDF compatibility with Helvetica font
  */
 export function formatNaira(amount: number): string {
-  return `₦${amount.toLocaleString('en-NG', { 
+  return `N ${amount.toLocaleString('en-US', { 
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   })}`;

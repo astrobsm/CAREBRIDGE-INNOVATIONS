@@ -986,15 +986,15 @@ export function shareInvoiceViaWhatsApp(
   
   // Format balance if applicable
   const balance = options.totalAmount - (options.paidAmount || 0);
-  const balanceText = balance > 0 ? `\nBalance Due: ₦${balance.toLocaleString()}` : '';
+  const balanceText = balance > 0 ? `\nBalance Due: N ${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
   
   // Create WhatsApp message
   const message = encodeURIComponent(
     `📋 *Invoice #${options.invoiceNumber}*\n\n` +
     `Patient: ${patientName}\n` +
     `Date: ${format(options.invoiceDate, 'dd MMMM yyyy')}\n` +
-    `Total Amount: ₦${options.totalAmount.toLocaleString()}\n` +
-    `Amount Paid: ₦${(options.paidAmount || 0).toLocaleString()}` +
+    `Total Amount: N ${options.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+    `Amount Paid: N ${(options.paidAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` +
     balanceText + `\n\n` +
     `Status: ${options.status.toUpperCase()}\n\n` +
     `Please find the invoice PDF attached.`

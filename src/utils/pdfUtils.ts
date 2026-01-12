@@ -445,8 +445,13 @@ export function addSimpleTable(
 }
 
 // Format currency for Nigerian Naira
+// Using "N" instead of ₦ symbol for PDF compatibility with Helvetica font
 export function formatNairaPDF(amount: number): string {
-  return `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatted = amount.toLocaleString('en-US', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  });
+  return `N ${formatted}`;
 }
 
 // Check if we need a new page
