@@ -44,6 +44,7 @@ import PatientEducationPage from './domains/patient-education/pages/PatientEduca
 import ChatPage from './domains/communication/pages/ChatPage';
 import VideoConferencePage from './domains/communication/pages/VideoConferencePage';
 import AppointmentsPage from './domains/appointments/pages/AppointmentsPage';
+import DrReviewsPage from './domains/dr-reviews/pages/DrReviewsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
 import InstallPrompt from './components/pwa/InstallPrompt';
@@ -133,6 +134,7 @@ function App() {
         <Route path="billing" element={<BillingPage />} />
         <Route path="billing/payroll" element={<PayrollDashboardPage />} />
         <Route path="calculators" element={<ClinicalCalculatorsPage />} />
+        <Route path="dr-reviews" element={<DrReviewsPage />} />
         <Route path="hospitals" element={<HospitalsPage />} />
         <Route path="users" element={<UsersManagementPage />} />
         <Route path="settings" element={<SettingsPage />} />

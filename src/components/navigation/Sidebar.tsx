@@ -201,6 +201,12 @@ const navigation: NavItem[] = [
     icon: <BookOpen size={20} />,
   },
   { 
+    name: 'Dr. Reviews', 
+    href: '/dr-reviews', 
+    icon: <FileText size={20} />,
+    permission: 'manage_hospital', // Admin only
+  },
+  { 
     name: 'Hospitals', 
     href: '/hospitals', 
     icon: <Building2 size={20} />,
