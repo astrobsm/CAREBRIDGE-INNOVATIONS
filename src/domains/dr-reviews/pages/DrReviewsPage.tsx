@@ -33,6 +33,19 @@ export default function DrReviewsPage() {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
+  // IMPORTANT: All hooks must be called before any conditional returns
+  // Fetch clinical encounters for reviews
+  const encounters = useLiveQuery(() => 
+    db.clinicalEncounters.orderBy('createdAt').reverse().toArray(),
+    []
+  );
+
+  // Fetch invoices for billing analytics
+  const invoices = useLiveQuery(() => 
+    db.invoices.orderBy('createdAt').reverse().toArray(),
+    []
+  );
+
   // Check session storage for existing authentication
   useEffect(() => {
     const sessionAuth = sessionStorage.getItem(SESSION_KEY);
@@ -112,18 +125,6 @@ export default function DrReviewsPage() {
       </div>
     );
   }
-
-  // Fetch clinical encounters for reviews
-  const encounters = useLiveQuery(() => 
-    db.clinicalEncounters.orderBy('createdAt').reverse().toArray(),
-    []
-  );
-
-  // Fetch invoices for billing analytics
-  const invoices = useLiveQuery(() => 
-    db.invoices.orderBy('createdAt').reverse().toArray(),
-    []
-  );
 
   // Calculate analytics
   const analytics = useMemo(() => {
