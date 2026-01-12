@@ -14,6 +14,7 @@ import PatientClinicalSummaryPage from './domains/clinical/pages/PatientClinical
 import VitalsPage from './domains/clinical/pages/VitalsPage';
 import MDTPage from './domains/clinical/pages/MDTPage';
 import BloodTransfusionPage from './domains/clinical/pages/BloodTransfusionPage';
+import ReferralPage from './domains/clinical/pages/ReferralPage';
 import SurgeryListPage from './domains/surgery/pages/SurgeryListPage';
 import SurgeryPlanningPage from './domains/surgery/pages/SurgeryPlanningPage';
 import PreoperativeAssessmentPage from './domains/surgery/pages/PreoperativeAssessmentPage';
@@ -118,6 +119,7 @@ function App() {
         <Route path="ward-rounds" element={<WardRoundsPage />} />
         <Route path="mdt" element={<MDTPage />} />
         <Route path="blood-transfusion" element={<BloodTransfusionPage />} />
+        <Route path="referrals" element={<ReferralPage />} />
         <Route path="investigations" element={<UnifiedLabPage />} />
         <Route path="wounds" element={<WoundsPage />} />
         <Route path="burns" element={<BurnsAssessmentPage />} />

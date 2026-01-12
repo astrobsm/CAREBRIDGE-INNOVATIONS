@@ -119,7 +119,7 @@ export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise
   doc.setFontSize(PDF_FONT_SIZES.caption);
   doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(120, 70, 0);
-  doc.text('⚠ IMPORTANT NOTICE', margin + 3, yPos);
+  doc.text('IMPORTANT NOTICE', margin + 3, yPos);
   
   yPos += 5;
   doc.setFont(PDF_FONTS.primary, 'normal');
@@ -235,7 +235,7 @@ export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise
 
       doc.setFont(PDF_FONTS.primary, 'bold');
       doc.setTextColor(...PDF_COLORS.danger);
-      doc.text('⚠ SERIOUS SIDE EFFECTS - SEEK MEDICAL HELP:', margin + 3, yPos + 5);
+      doc.text('SERIOUS SIDE EFFECTS - SEEK MEDICAL HELP IMMEDIATELY:', margin + 3, yPos + 5);
       yPos += 10;
 
       doc.setFont(PDF_FONTS.primary, 'normal');
@@ -343,16 +343,16 @@ export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise
   doc.setTextColor(...PDF_COLORS.text);
 
   const refillGuidelines = [
-    '❌ DO NOT refill your medications without review by your doctor',
-    '✓ Schedule a follow-up appointment before your medication runs out',
-    '✓ Inform your doctor of any side effects or concerns',
-    '✓ Bring this sheet and your empty medication containers to your appointment',
-    '✓ Your doctor will reassess your condition and adjust treatment if needed',
-    '⚠ Unauthorized refills may be harmful or counterproductive',
+    'DO NOT refill your medications without review by your doctor',
+    'Schedule a follow-up appointment before your medication runs out',
+    'Inform your doctor of any side effects or concerns',
+    'Bring this sheet and your empty medication containers to your appointment',
+    'Your doctor will reassess your condition and adjust treatment if needed',
+    'WARNING: Unauthorized refills may be harmful or counterproductive',
   ];
 
   refillGuidelines.forEach((guideline) => {
-    const lines = doc.splitTextToSize(guideline, contentWidth - 6);
+    const lines = doc.splitTextToSize(`• ${guideline}`, contentWidth - 6);
     doc.text(lines, margin + 3, yPos);
     yPos += lines.length * 5.5;
   });

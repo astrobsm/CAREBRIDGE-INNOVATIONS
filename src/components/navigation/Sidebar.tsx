@@ -30,6 +30,7 @@ import {
   CalendarDays,
   Wallet,
   FileText,
+  Send,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -83,6 +84,12 @@ const navigation: NavItem[] = [
     name: 'Blood Bank', 
     href: '/blood-transfusion', 
     icon: <Droplets size={20} />,
+    permission: 'create_encounters',
+  },
+  { 
+    name: 'Referrals', 
+    href: '/referrals', 
+    icon: <Send size={20} />,
     permission: 'create_encounters',
   },
   { 
