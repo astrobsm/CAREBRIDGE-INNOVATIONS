@@ -374,7 +374,11 @@ export default function BillingPage() {
   };
 
   const removeItem = (id: string) => {
+    const itemToRemove = selectedItems.find(item => item.id === id);
     setSelectedItems(selectedItems.filter(item => item.id !== id));
+    if (itemToRemove) {
+      toast.success(`Removed ${itemToRemove.description}`);
+    }
   };
 
   const generateInvoiceNumber = () => {
@@ -971,7 +975,24 @@ export default function BillingPage() {
 
                     {/* Selected Items */}
                     <div>
-                      <h3 className="font-semibold text-gray-900 mb-3">Invoice Items ({selectedItems.length})</h3>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-gray-900">Invoice Items ({selectedItems.length})</h3>
+                        {selectedItems.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm('Remove all items from invoice?')) {
+                                setSelectedItems([]);
+                                toast.success('All items removed');
+                              }
+                            }}
+                            className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded transition-colors flex items-center gap-1"
+                          >
+                            <X size={14} />
+                            Clear All
+                          </button>
+                        )}
+                      </div>
                       {selectedItems.length > 0 ? (
                         <div className="border rounded-lg overflow-hidden">
                           <table className="w-full">
@@ -1037,10 +1058,15 @@ export default function BillingPage() {
                                   <td className="px-4 py-3 text-right">
                                     <button
                                       type="button"
-                                      onClick={() => removeItem(item.id)}
-                                      className="text-red-500 hover:text-red-700"
+                                      onClick={() => {
+                                        if (window.confirm(`Remove ${item.description} from invoice?`)) {
+                                          removeItem(item.id);
+                                        }
+                                      }}
+                                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded transition-colors"
+                                      title="Remove item"
                                     >
-                                      <X size={16} />
+                                      <X size={18} />
                                     </button>
                                   </td>
                                 </tr>
