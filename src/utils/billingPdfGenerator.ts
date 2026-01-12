@@ -298,51 +298,82 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
     yPos += 32;
   }
 
-  // Payment instructions
+  // Payment instructions - ALWAYS SHOW BANK DETAILS
+  yPos = checkNewPage(doc, yPos, 80);
+  
+  // Big prominent payment section
+  doc.setFillColor(240, 253, 244); // Light green background
+  doc.roundedRect(15, yPos, pageWidth - 30, 70, 3, 3, 'F');
+  doc.setDrawColor(34, 197, 94); // Green border
+  doc.setLineWidth(1);
+  doc.roundedRect(15, yPos, pageWidth - 30, 70, 3, 3, 'S');
+  
+  yPos += 8;
+  
+  // Payment Instructions Title
+  doc.setFontSize(12);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(22, 101, 52); // Dark green
+  doc.text('💳 PAYMENT INSTRUCTIONS', 20, yPos);
+  yPos += 10;
+  
+  // Bank Details Box
+  doc.setFillColor(255, 255, 255); // White box
+  doc.roundedRect(20, yPos, pageWidth - 40, 35, 2, 2, 'F');
+  doc.setDrawColor(34, 197, 94);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(20, yPos, pageWidth - 40, 35, 2, 2, 'S');
+  
+  yPos += 8;
+  
+  // Bank details
+  doc.setFontSize(11);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text('Bank:', 25, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('ZENITH BANK', 60, yPos);
+  yPos += 7;
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Account Name:', 25, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('NNADI EMMANUEL C', 60, yPos);
+  yPos += 7;
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Account Number:', 25, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(13);
+  doc.setTextColor(22, 101, 52);
+  doc.text('2084929453', 60, yPos);
+  yPos += 12;
+  
+  // Evidence submission instruction
+  doc.setFillColor(254, 249, 195); // Light yellow
+  doc.roundedRect(20, yPos, pageWidth - 40, 15, 2, 2, 'F');
+  
+  yPos += 6;
+  doc.setFontSize(10);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(161, 98, 7); // Dark yellow/brown
+  doc.text('📱 Send Payment Evidence To:', 25, yPos);
+  yPos += 6;
+  
+  doc.setFontSize(11);
+  doc.setTextColor(22, 101, 52);
+  doc.text('+234 902 872 4839 (WhatsApp)', 25, yPos);
+  
+  yPos += 15;
+  
+  // Custom payment instructions if provided
   if (paymentInstructions) {
-    yPos = checkNewPage(doc, yPos, 30);
-    
-    doc.setFontSize(9);
-    doc.setFont(PDF_FONTS.primary, 'bold');
-    doc.setTextColor(...PDF_COLORS.dark);
-    doc.text('Payment Instructions:', 15, yPos);
-    yPos += 6;
-    
-    doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(8);
-    const lines = doc.splitTextToSize(paymentInstructions, pageWidth - 30);
-    doc.text(lines, 15, yPos);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setTextColor(...PDF_COLORS.dark);
+    const lines = doc.splitTextToSize(paymentInstructions, pageWidth - 40);
+    doc.text(lines, 20, yPos);
     yPos += lines.length * 4 + 5;
-  } else {
-    // Default payment instructions with bank details
-    yPos = checkNewPage(doc, yPos, 50);
-    
-    doc.setFontSize(9);
-    doc.setFont(PDF_FONTS.primary, 'bold');
-    doc.setTextColor(...PDF_COLORS.dark);
-    doc.text('Payment Instructions:', 15, yPos);
-    yPos += 6;
-    
-    doc.setFont(PDF_FONTS.primary, 'normal');
-    doc.setFontSize(8);
-    doc.text('Please make payment to:', 15, yPos);
-    yPos += 5;
-    
-    doc.setFont(PDF_FONTS.primary, 'bold');
-    doc.setFontSize(9);
-    doc.text('Account Number: 2084929453', 15, yPos);
-    yPos += 5;
-    doc.text('Account Name: NNADI EMMANUEL C', 15, yPos);
-    yPos += 5;
-    doc.text('Bank: ZENITH BANK', 15, yPos);
-    yPos += 8;
-    
-    doc.setFont(PDF_FONTS.primary, 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(...PDF_COLORS.primary);
-    doc.text('Send payment evidence to: +234 902 872 4839 (WhatsApp)', 15, yPos);
-    doc.setTextColor(...PDF_COLORS.dark);
-    yPos += 10;
   }
 
   // Notes
@@ -543,7 +574,53 @@ export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
     doc.setFont(PDF_FONTS.primary, 'italic');
     doc.setTextColor(...PDF_COLORS.gray);
     doc.text('Note: ' + notes, 15, yPos);
+    yPos += 10;
   }
+
+  // Payment Details Section for Estimates
+  yPos += 10;
+  doc.setFillColor(240, 253, 244); // Light green background
+  doc.roundedRect(15, yPos, pageWidth - 30, 55, 3, 3, 'F');
+  doc.setDrawColor(34, 197, 94); // Green border
+  doc.setLineWidth(1);
+  doc.roundedRect(15, yPos, pageWidth - 30, 55, 3, 3, 'S');
+  
+  yPos += 8;
+  
+  doc.setFontSize(11);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(22, 101, 52);
+  doc.text('💳 PAYMENT DETAILS', 20, yPos);
+  yPos += 8;
+  
+  doc.setFontSize(10);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text('Bank:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('ZENITH BANK', 55, yPos);
+  yPos += 6;
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Account Name:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('NNADI EMMANUEL C', 55, yPos);
+  yPos += 6;
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Account Number:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(12);
+  doc.setTextColor(22, 101, 52);
+  doc.text('2084929453', 55, yPos);
+  yPos += 10;
+  
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(161, 98, 7);
+  doc.text('📱 Send Payment Evidence To: +234 902 872 4839 (WhatsApp)', 20, yPos);
+  
+  yPos += 15;
 
   // Disclaimer
   yPos = doc.internal.pageSize.getHeight() - 40;
