@@ -120,7 +120,7 @@ export class AstroHEALTHDatabase extends Dexie {
   medicationCharts!: Table<DailyMedicationChart, string>;
 
   constructor() {
-    super('CareBridgeDB');
+    super('AstroHEALTHDB');
 
     this.version(62).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',

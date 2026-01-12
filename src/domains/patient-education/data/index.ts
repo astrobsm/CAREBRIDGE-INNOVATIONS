@@ -1,7 +1,7 @@
 /**
  * Patient Education Content Index
  * Categories A, B, C, D, E, F & G - Patient Education Module
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Combines all educational content for burns, wounds, pressure injuries, reconstructive surgery, hernia, pediatric surgery, and vascular conditions
  */

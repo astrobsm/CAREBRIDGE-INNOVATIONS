@@ -2,7 +2,7 @@
  * Patient Education Content - Category E: Hernia
  * Part 1: Inguinal Hernia and Umbilical Hernia
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and European Hernia Society Guidelines
  */
 

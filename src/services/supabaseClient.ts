@@ -1,4 +1,4 @@
-// Supabase Client Configuration for CareBridge
+// Supabase Client Configuration for AstroHEALTH
 // This provides cloud sync capabilities for the offline-first PWA
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';

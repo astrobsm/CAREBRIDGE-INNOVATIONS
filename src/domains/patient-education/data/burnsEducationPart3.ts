@@ -2,7 +2,7 @@
  * Burns Educational Content - Part 3
  * Friction Burns, Radiation Burns, Inhalation Injury, Burn Contractures
  * Category A - Patient Education Module
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  */
 
 import type { EducationCondition } from '../types';

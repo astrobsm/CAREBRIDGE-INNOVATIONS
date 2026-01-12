@@ -1,5 +1,5 @@
 // ============================================================
-// CareBridge Patient Hooks
+// AstroHEALTH Patient Hooks
 // React hooks for universal patient data access
 // ============================================================
 

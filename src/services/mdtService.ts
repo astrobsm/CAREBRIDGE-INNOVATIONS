@@ -1,6 +1,6 @@
 /**
  * MDT (Multidisciplinary Team) Service
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Manages MDT meetings, team contributions, treatment plan harmonization,
  * and consultant approval workflows

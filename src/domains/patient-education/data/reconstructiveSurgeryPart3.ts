@@ -2,7 +2,7 @@
  * Patient Education Content - Category D: Reconstructive Surgery
  * Part 3: Hand Surgery and Microsurgery
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Surgical Best Practices
  */
 

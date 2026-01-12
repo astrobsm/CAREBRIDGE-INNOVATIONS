@@ -84,14 +84,14 @@ export default function RegisterPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
           </svg>
         </div>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">CareBridge</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">ASTROHEALTH</h1>
         <p className="text-sm sm:text-base text-gray-500">Surgical EMR System</p>
       </div>
 
       <div className="card p-4 sm:p-6 lg:p-8">
         <div className="mb-6 sm:mb-8">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Create Account</h2>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Join CareBridge to get started</p>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Join AstroHEALTH to get started</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-5">

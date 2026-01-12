@@ -1,6 +1,6 @@
 /**
  * Patient Education Module Index
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Exports all components, types, and utilities for the patient education module
  */

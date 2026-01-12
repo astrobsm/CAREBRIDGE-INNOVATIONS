@@ -17,11 +17,11 @@ export default function LoadingScreen() {
           <div className="absolute inset-0 bg-white rounded-2xl blur-md opacity-30" />
           <img 
             src="/icons/logo.png" 
-            alt="CareBridge" 
+            alt="AstroHEALTH" 
             className="relative w-24 h-24 rounded-2xl object-contain bg-white p-3 shadow-2xl ring-2 ring-white/30"
           />
         </motion.div>
-        <h1 className="text-3xl font-bold text-white mb-2">CareBridge</h1>
+        <h1 className="text-3xl font-bold text-white mb-2">AstroHEALTH</h1>
         <p className="text-indigo-100 font-medium">Innovations in Healthcare</p>
         <motion.div
           className="mt-6 h-1.5 bg-white/20 rounded-full overflow-hidden w-48 mx-auto"

@@ -146,7 +146,7 @@ export default function UserAgreementPage() {
               <Shield className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">CAREBRIDGE EMR</h1>
+              <h1 className="text-xl font-bold text-gray-900">AstroHEALTH EMR</h1>
               <p className="text-sm text-gray-500">User Agreement & Professional Conduct Code</p>
             </div>
           </div>
@@ -219,7 +219,7 @@ export default function UserAgreementPage() {
             className="p-6 max-h-[500px] overflow-y-auto prose prose-sm max-w-none"
           >
             <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">CAREBRIDGE EMR</h1>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">AstroHEALTH EMR</h1>
               <h2 className="text-lg font-semibold text-gray-700">
                 USER AGREEMENT, PROFESSIONAL CONDUCT CODE & MEDICO-LEGAL CONSENT
               </h2>
@@ -232,7 +232,7 @@ export default function UserAgreementPage() {
 
             <h3 className="text-lg font-bold text-gray-900 mt-6">1. PREAMBLE</h3>
             <p className="text-gray-700">
-              CAREBRIDGE EMR ("the Platform") is a professional electronic medical record, care coordination, 
+              AstroHEALTH EMR ("the Platform") is a professional electronic medical record, care coordination, 
               and service-tracking system designed to support safe, ethical, diligent, and patient-centred 
               surgical and peri-operative care across multiple hospitals and home-care environments.
             </p>
@@ -248,7 +248,7 @@ export default function UserAgreementPage() {
 
             <h3 className="text-lg font-bold text-gray-900 mt-6">2. DEFINITIONS</h3>
             <ul className="list-disc pl-6 text-gray-700">
-              <li><strong>Platform:</strong> CAREBRIDGE EMR and all associated applications.</li>
+              <li><strong>Platform:</strong> AstroHEALTH EMR and all associated applications.</li>
               <li><strong>User:</strong> Any registered professional granted access.</li>
               <li><strong>Patient:</strong> Any individual whose data is accessed or recorded.</li>
               <li><strong>Services Rendered:</strong> Clinical, professional, or supportive services documented on the Platform.</li>
@@ -396,7 +396,7 @@ export default function UserAgreementPage() {
             </ul>
 
             <h3 className="text-lg font-bold text-gray-900 mt-6">13. LIMITATION OF PLATFORM LIABILITY</h3>
-            <p className="text-gray-700">CAREBRIDGE EMR:</p>
+            <p className="text-gray-700">AstroHEALTH EMR:</p>
             <ul className="list-disc pl-6 text-gray-700">
               <li>Is not a substitute for professional judgment</li>
               <li>Is not responsible for clinical negligence</li>
@@ -433,7 +433,7 @@ export default function UserAgreementPage() {
               <p className="text-blue-800 font-medium text-center text-lg">
                 I CONFIRM THAT I HAVE READ, UNDERSTOOD, AND AGREED TO ABIDE BY ALL TERMS OF THIS 
                 USER AGREEMENT, AND I ACCEPT FULL PROFESSIONAL AND LEGAL RESPONSIBILITY FOR MY USE 
-                OF THE CAREBRIDGE EMR PLATFORM.
+                OF THE AstroHEALTH EMR PLATFORM.
               </p>
             </div>
 
@@ -516,7 +516,7 @@ export default function UserAgreementPage() {
                   <p className="text-sm text-gray-600 mt-1">
                     I confirm that I have read, understood, and agreed to abide by all terms of this 
                     User Agreement, and I accept full professional and legal responsibility for my 
-                    use of the CAREBRIDGE EMR Platform.
+                    use of the AstroHEALTH EMR Platform.
                   </p>
                 </div>
               </label>
@@ -665,7 +665,7 @@ export default function UserAgreementPage() {
 
         {/* Footer */}
         <div className="text-center mt-8 text-sm text-gray-500">
-          <p>© {new Date().getFullYear()} CareBridge Innovations. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} ASTROHEALTH Innovations. All rights reserved.</p>
           <p className="mt-1">
             By using this platform, you agree to our terms and accept responsibility for your professional actions.
           </p>

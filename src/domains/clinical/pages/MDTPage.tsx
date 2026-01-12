@@ -1,6 +1,6 @@
 /**
  * MDT (Multidisciplinary Team) Page
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive MDT management with treatment harmonization and approval workflows
  */
@@ -346,7 +346,7 @@ export default function MDTPage() {
     // Add agenda and meeting details
     newMeeting.agenda = agendaItems;
     newMeeting.location = meetingLocation === 'in-person' ? 'Conference Room' : undefined;
-    newMeeting.virtualLink = meetingLocation === 'virtual' ? 'https://meet.carebridge.com/' + newMeeting.id : undefined;
+    newMeeting.virtualLink = meetingLocation === 'virtual' ? 'https://meet.astrohealth.com/' + newMeeting.id : undefined;
     (newMeeting as any).objectives = meetingObjectives;
     (newMeeting as any).patientSummary = summaryText;
 

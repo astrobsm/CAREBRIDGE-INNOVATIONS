@@ -2,7 +2,7 @@
  * Patient Education Content - Category I: Cosmetic and Elective Reconstructive Procedures
  * Part 1: Rhinoplasty and Blepharoplasty
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Plastic Surgery Best Practices
  */
 

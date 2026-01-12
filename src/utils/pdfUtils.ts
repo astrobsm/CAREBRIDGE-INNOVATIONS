@@ -1,10 +1,10 @@
 /**
  * ============================================================
- * CareBridge PDF Utilities - Branded Document Generation
+ * AstroHEALTH PDF Utilities - Branded Document Generation
  * ============================================================
  * 
  * This file provides shared utilities for PDF generation with
- * CareBridge branding. All PDFs use standardized settings from
+ * AstroHEALTH branding. All PDFs use standardized settings from
  * pdfConfig.ts to ensure consistency, cross-platform compatibility,
  * and professional medical-grade document quality.
  * 
@@ -165,7 +165,7 @@ export function addBrandedHeader(
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(PDF_FONT_SIZES.title);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('CareBridge', 40, y + 10);
+  doc.text('AstroHEALTH', 40, y + 10);
   
   // Tagline
   doc.setFontSize(8);

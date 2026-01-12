@@ -2,7 +2,7 @@
  * Patient Education Content - Category J: Genital and Perineal Reconstruction
  * Part 3: Anal Reconstruction and Rectovaginal Fistula Repair
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Colorectal Surgery Best Practices
  */
 

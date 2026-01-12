@@ -1,6 +1,6 @@
 /**
  * Medication Chart (MAR) Types
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  */
 
 export type AdministrationRoute = 

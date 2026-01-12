@@ -1,6 +1,6 @@
 /**
  * Enhanced Nutrition Planner Page
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive nutrition assessment and meal planning with African foods
  */

@@ -1,6 +1,6 @@
 /**
  * Patient Education Page
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Main page for accessing and downloading patient education materials
  * organized by surgical categories with WHO-aligned guidelines

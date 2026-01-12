@@ -1,5 +1,5 @@
 // Invoice and Billing PDF Generator
-// Generates professional invoices and bill estimates with CareBridge branding
+// Generates professional invoices and bill estimates with AstroHEALTH branding
 // CRITICAL: All PDFs use white background (#FFFFFF), black text (#000000),
 // and Helvetica font (PDF_FONTS.primary) for maximum cross-platform compatibility
 

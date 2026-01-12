@@ -1,5 +1,5 @@
 -- ============================================================
--- CareBridge Limb Salvage Table - Add Missing Columns Migration
+-- AstroHEALTH Limb Salvage Table - Add Missing Columns Migration
 -- Run this if you already have the limb_salvage_assessments table
 -- and don't want to DROP it (to preserve existing data)
 -- ============================================================

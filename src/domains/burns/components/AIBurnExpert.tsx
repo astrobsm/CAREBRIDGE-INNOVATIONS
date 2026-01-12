@@ -1,6 +1,6 @@
 /**
  * AI Burn Expert - Intelligent Burn Assessment System
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Advanced AI-powered burn assessment using:
  * - Image analysis for burn area detection

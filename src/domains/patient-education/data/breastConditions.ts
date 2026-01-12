@@ -2,7 +2,7 @@
  * Patient Education Content - Category H: Breast Conditions
  * Part 1: Breast Cancer and Fibroadenoma
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Breast Surgery Standards
  */
 

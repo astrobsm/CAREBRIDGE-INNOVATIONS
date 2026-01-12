@@ -95,7 +95,7 @@ export default function InstallPrompt() {
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <RefreshCw className="w-5 h-5 animate-spin" />
-                <span className="text-sm font-medium">A new version of CareBridge is available!</span>
+                <span className="text-sm font-medium">A new version of AstroHEALTH is available!</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -142,11 +142,11 @@ export default function InstallPrompt() {
                   <div className="flex items-center gap-3">
                     <img 
                       src="/icons/logo.png" 
-                      alt="CareBridge" 
+                      alt="AstroHEALTH" 
                       className="w-12 h-12 rounded-xl bg-white p-1 shadow-lg"
                     />
                     <div>
-                      <h3 className="font-bold text-lg">Install CareBridge</h3>
+                      <h3 className="font-bold text-lg">Install AstroHEALTH</h3>
                       <p className="text-indigo-100 text-sm">Get the full app experience</p>
                     </div>
                   </div>
@@ -217,7 +217,7 @@ export default function InstallPrompt() {
             </div>
             <div>
               <p className="font-medium text-gray-900">App Installed!</p>
-              <p className="text-sm text-gray-500">CareBridge is ready to use</p>
+              <p className="text-sm text-gray-500">AstroHEALTH is ready to use</p>
             </div>
           </motion.div>
         )}

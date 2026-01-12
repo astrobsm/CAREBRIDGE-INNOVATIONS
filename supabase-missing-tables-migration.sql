@@ -1,5 +1,5 @@
 -- ============================================================
--- CareBridge Missing Tables Migration
+-- AstroHEALTH Missing Tables Migration
 -- Run this SQL in Supabase SQL Editor to fix 404 errors
 -- Tables: appointments, appointment_reminders, appointment_slots,
 --         clinic_sessions, npwt_sessions, npwt_notifications,

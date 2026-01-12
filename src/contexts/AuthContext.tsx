@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // If database fails to open (version conflict), delete and recreate
         if (error instanceof Dexie.VersionError || error instanceof Dexie.UpgradeError) {
           console.log('[Auth] Deleting old database due to version conflict...');
-          await Dexie.delete('CareBridgeDB');
+          await Dexie.delete('AstroHEALTHDB');
           // Reload the page to reinitialize with fresh database
           window.location.reload();
           return;
@@ -99,18 +99,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const storedUserId = localStorage.getItem('carebridge_user_id');
+        const storedUserId = localStorage.getItem('AstroHEALTH_user_id');
         if (storedUserId) {
           const storedUser = await db.users.get(storedUserId);
           if (storedUser && storedUser.isActive) {
             setUser(storedUser);
           } else {
-            localStorage.removeItem('carebridge_user_id');
+            localStorage.removeItem('AstroHEALTH_user_id');
           }
         }
       } catch (error) {
         console.error('Auth check failed:', error);
-        localStorage.removeItem('carebridge_user_id');
+        localStorage.removeItem('AstroHEALTH_user_id');
       } finally {
         setIsLoading(false);
       }
@@ -134,16 +134,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (foundUser && foundUser.isActive) {
         setUser(foundUser);
-        localStorage.setItem('carebridge_user_id', foundUser.id);
+        localStorage.setItem('AstroHEALTH_user_id', foundUser.id);
         return true;
       }
 
       // For demo: create a default admin user if none exists
       const userCount = await db.users.count();
-      if (userCount === 0 && email.toLowerCase() === 'admin@carebridge.ng') {
+      if (userCount === 0 && email.toLowerCase() === 'admin@astrohealth.ng') {
         const newUser: User = {
           id: uuidv4(),
-          email: 'admin@carebridge.ng',
+          email: 'admin@astrohealth.ng',
           firstName: 'System',
           lastName: 'Administrator',
           role: 'super_admin',
@@ -155,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Sync new user to cloud immediately
         syncRecord('users', newUser as unknown as Record<string, unknown>);
         setUser(newUser);
-        localStorage.setItem('carebridge_user_id', newUser.id);
+        localStorage.setItem('AstroHEALTH_user_id', newUser.id);
         return true;
       }
 
@@ -166,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error instanceof Dexie.DexieError) {
         console.warn('[Auth] Database error during login, attempting recovery...');
         try {
-          await Dexie.delete('CareBridgeDB');
+          await Dexie.delete('AstroHEALTHDB');
           window.location.reload();
         } catch {
           // Ignore deletion errors
@@ -209,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Sync new user to cloud immediately
       syncRecord('users', newUser as unknown as Record<string, unknown>);
       setUser(newUser);
-      localStorage.setItem('carebridge_user_id', newUser.id);
+      localStorage.setItem('AstroHEALTH_user_id', newUser.id);
       return true;
     } catch (error) {
       console.error('Registration failed:', error);
@@ -219,7 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     setUser(null);
-    localStorage.removeItem('carebridge_user_id');
+    localStorage.removeItem('AstroHEALTH_user_id');
   }, []);
 
   const updateUser = useCallback(async (updates: Partial<User>) => {

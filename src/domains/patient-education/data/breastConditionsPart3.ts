@@ -2,7 +2,7 @@
  * Patient Education Content - Category H: Breast Conditions
  * Part 3: Breast Reconstruction and Gynecomastia
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Breast Surgery Standards
  */
 

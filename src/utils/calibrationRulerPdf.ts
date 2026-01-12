@@ -277,7 +277,7 @@ function generate15cmRulersPage(doc: jsPDF): void {
   // Footer
   doc.setFontSize(6);
   doc.setTextColor(150, 150, 150);
-  doc.text(`CareBridge Innovations in Healthcare • Generated: ${new Date().toLocaleDateString()}`, A4_WIDTH / 2, A4_HEIGHT - 5, { align: 'center' });
+  doc.text(`AstroHEALTH Innovations in Healthcare • Generated: ${new Date().toLocaleDateString()}`, A4_WIDTH / 2, A4_HEIGHT - 5, { align: 'center' });
 }
 
 // Generate 10cm compact rulers page
@@ -321,7 +321,7 @@ function generate10cmRulersPage(doc: jsPDF): void {
   // Footer
   doc.setFontSize(6);
   doc.setTextColor(150, 150, 150);
-  doc.text(`CareBridge Innovations in Healthcare • Generated: ${new Date().toLocaleDateString()}`, A4_WIDTH / 2, A4_HEIGHT - 5, { align: 'center' });
+  doc.text(`AstroHEALTH Innovations in Healthcare • Generated: ${new Date().toLocaleDateString()}`, A4_WIDTH / 2, A4_HEIGHT - 5, { align: 'center' });
 }
 
 // Generate 5cm mini rulers page
@@ -365,7 +365,7 @@ function generate5cmRulersPage(doc: jsPDF): void {
   // Footer
   doc.setFontSize(6);
   doc.setTextColor(150, 150, 150);
-  doc.text(`CareBridge Innovations in Healthcare • Generated: ${new Date().toLocaleDateString()}`, A4_WIDTH / 2, A4_HEIGHT - 5, { align: 'center' });
+  doc.text(`AstroHEALTH Innovations in Healthcare • Generated: ${new Date().toLocaleDateString()}`, A4_WIDTH / 2, A4_HEIGHT - 5, { align: 'center' });
 }
 
 // Generate L-shaped rulers page
@@ -442,7 +442,7 @@ function generateLShapedRulersPage(doc: jsPDF): void {
   // Footer
   doc.setFontSize(6);
   doc.setTextColor(150, 150, 150);
-  doc.text(`CareBridge Innovations in Healthcare • Generated: ${new Date().toLocaleDateString()}`, A4_WIDTH / 2, A4_HEIGHT - 5, { align: 'center' });
+  doc.text(`AstroHEALTH Innovations in Healthcare • Generated: ${new Date().toLocaleDateString()}`, A4_WIDTH / 2, A4_HEIGHT - 5, { align: 'center' });
 }
 
 // Generate grid reference page (pure 0.5mm grid for calibration verification)
@@ -540,7 +540,7 @@ function generateGridReferencePage(doc: jsPDF): void {
   // Footer
   doc.setFontSize(6);
   doc.setTextColor(150, 150, 150);
-  doc.text(`CareBridge Innovations in Healthcare • Generated: ${new Date().toLocaleDateString()}`, A4_WIDTH / 2, A4_HEIGHT - 5, { align: 'center' });
+  doc.text(`AstroHEALTH Innovations in Healthcare • Generated: ${new Date().toLocaleDateString()}`, A4_WIDTH / 2, A4_HEIGHT - 5, { align: 'center' });
 }
 
 // Main export function to generate complete calibration ruler PDF
@@ -578,7 +578,7 @@ export function generateCalibrationRulerPDF(): void {
   generateGridReferencePage(doc);
   
   // Save the PDF
-  doc.save('CareBridge_Wound_Calibration_Rulers.pdf');
+  doc.save('AstroHEALTH_Wound_Calibration_Rulers.pdf');
 }
 
 // Export individual page generators for specific needs

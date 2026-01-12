@@ -2,7 +2,7 @@
  * Burns Educational Content - Part 2
  * Chemical Burns, Electrical Burns, Radiation Burns
  * Category A - Patient Education Module
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  */
 
 import type { EducationCondition } from '../types';

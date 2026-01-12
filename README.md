@@ -124,7 +124,7 @@ src/
 ## 🔐 Demo Login
 
 After deployment, use these credentials:
-- **Email:** `admin@carebridge.ng`
+- **Email:** `admin@astrohealth.ng`
 - **Password:** (any password for demo)
 
 ## 📱 Features

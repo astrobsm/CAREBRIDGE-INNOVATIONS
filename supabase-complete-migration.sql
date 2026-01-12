@@ -1,8 +1,8 @@
 -- =====================================================
--- CareBridge Complete Supabase Migration
+-- AstroHEALTH Complete Supabase Migration
 -- =====================================================
 -- This migration creates ALL tables needed for the
--- CareBridge application with proper schemas matching
+-- AstroHEALTH application with proper schemas matching
 -- the TypeScript types and IndexedDB structure.
 -- 
 -- Run this in Supabase SQL Editor to set up the database.

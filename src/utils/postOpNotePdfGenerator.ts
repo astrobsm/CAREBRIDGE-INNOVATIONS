@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * CareBridge Post-Operative Note PDF Generator
+ * AstroHEALTH Post-Operative Note PDF Generator
  * ============================================================
  * 
  * Generates comprehensive post-operative note PDFs following

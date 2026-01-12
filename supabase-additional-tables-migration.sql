@@ -1,5 +1,5 @@
 -- ============================================================
--- CareBridge Additional Tables Migration
+-- AstroHEALTH Additional Tables Migration
 -- Run this SQL in Supabase SQL Editor
 -- Adds: Appointments, NPWT, Medication Charts, Transfusion Orders
 -- ============================================================

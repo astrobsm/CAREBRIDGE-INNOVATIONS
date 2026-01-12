@@ -1,6 +1,6 @@
 // Discharge Module Components Index
 // Export all discharge-related components
-// CareBridge Innovations in Healthcare
+// AstroHEALTH Innovations in Healthcare
 
 // Existing Discharge Components
 export { default as DischargeFormModal } from './DischargeFormModal';

@@ -1,6 +1,6 @@
 /**
  * Pressure Sore Risk Assessment Component (Braden Scale)
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive Braden Scale scoring for pressure ulcer risk
  * For use in patient admission workflow

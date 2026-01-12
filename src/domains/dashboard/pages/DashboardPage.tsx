@@ -128,7 +128,7 @@ export default function DashboardPage() {
             Good {getGreeting()}, {user?.firstName}!
           </h1>
           <p className="page-subtitle">
-            Here's what's happening at CareBridge today.
+            Here's what's happening at AstroHEALTH today.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-500">

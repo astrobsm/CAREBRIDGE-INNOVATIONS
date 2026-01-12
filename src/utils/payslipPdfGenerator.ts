@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * CareBridge Payslip PDF Generator
+ * AstroHEALTH Payslip PDF Generator
  * ============================================================
  * 
  * Generates monthly payslip PDFs for staff showing:

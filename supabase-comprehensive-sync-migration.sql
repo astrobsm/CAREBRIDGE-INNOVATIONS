@@ -1,5 +1,5 @@
 -- ============================================
--- CareBridge Comprehensive Sync Migration
+-- AstroHEALTH Comprehensive Sync Migration
 -- ============================================
 -- This migration adds all missing tables required for
 -- complete 2-way cross-device synchronization

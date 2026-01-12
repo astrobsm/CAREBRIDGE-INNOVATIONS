@@ -87,11 +87,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <div className="flex items-center gap-2 lg:hidden">
             <img 
               src="/icons/logo.png" 
-              alt="CareBridge" 
+              alt="AstroHEALTH" 
               className="w-8 h-8 rounded-lg object-contain bg-gradient-to-br from-indigo-50 to-blue-50 p-0.5 shadow-sm ring-1 ring-indigo-100"
             />
             <span className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent hidden xs:block">
-              CareBridge
+              AstroHEALTH
             </span>
           </div>
 

@@ -1,5 +1,5 @@
 // ============================================================
-// CareBridge Sync-Aware Data Hooks
+// AstroHEALTH Sync-Aware Data Hooks
 // React hooks for offline-first data operations with automatic sync
 // ============================================================
 

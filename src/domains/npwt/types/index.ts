@@ -1,6 +1,6 @@
 /**
  * NPWT (Negative Pressure Wound Therapy) Types
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  */
 
 export type WoundType = 

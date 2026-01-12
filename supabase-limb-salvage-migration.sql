@@ -1,5 +1,5 @@
 -- ============================================================
--- CareBridge Limb Salvage Assessment Table Migration
+-- AstroHEALTH Limb Salvage Assessment Table Migration
 -- Run this SQL in Supabase SQL Editor
 -- Version 2.0 - Updated to match full LimbSalvageAssessment interface
 -- ============================================================

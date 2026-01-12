@@ -1,5 +1,5 @@
 // ============================================================
-// CareBridge Patient Service
+// AstroHEALTH Patient Service
 // Universal offline-first patient fetching with cloud sync
 // ============================================================
 

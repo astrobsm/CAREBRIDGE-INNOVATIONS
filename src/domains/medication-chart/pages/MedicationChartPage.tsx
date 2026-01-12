@@ -1,6 +1,6 @@
 /**
  * Medication Chart (MAR) Page
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive medication administration record for nurses
  * to track and document medication administration.

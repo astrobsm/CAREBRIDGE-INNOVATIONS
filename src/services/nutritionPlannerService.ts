@@ -1,6 +1,6 @@
 /**
  * Nutrition Planner Service
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive nutrition assessment and meal planning
  * Based on African Food Composition Tables and WHO guidelines

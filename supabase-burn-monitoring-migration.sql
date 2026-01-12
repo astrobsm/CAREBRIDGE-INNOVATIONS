@@ -1,5 +1,5 @@
 -- ============================================================
--- CareBridge Burn Monitoring Tables Migration
+-- AstroHEALTH Burn Monitoring Tables Migration
 -- Run this SQL in Supabase SQL Editor to add burn monitoring tables
 -- ============================================================
 

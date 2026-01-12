@@ -1,6 +1,6 @@
 /**
  * 7-Day Meal Plan Generator Component
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Generates personalized meal plans using African Food Composition Database
  * For Nigerian patients based on nutritional requirements
@@ -340,7 +340,7 @@ export default function MealPlanGenerator({
     doc.text('7-Day Nigerian Meal Plan', pageWidth / 2, 20, { align: 'center' });
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text('CareBridge Innovations in Healthcare', pageWidth / 2, 30, { align: 'center' });
+    doc.text('AstroHEALTH Innovations in Healthcare', pageWidth / 2, 30, { align: 'center' });
 
     yPos = 50;
 

@@ -2,7 +2,7 @@
  * Patient Education Content - Category G: Vascular Conditions
  * Part 3: Carotid Artery Disease and Arteriovenous Fistula
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Vascular Surgery Guidelines
  */
 

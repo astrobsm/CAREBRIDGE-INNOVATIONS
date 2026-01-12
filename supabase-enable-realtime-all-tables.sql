@@ -1,5 +1,5 @@
 -- ============================================
--- CareBridge Enable Realtime for ALL Tables
+-- AstroHEALTH Enable Realtime for ALL Tables
 -- ============================================
 -- This migration enables real-time subscriptions for all
 -- existing tables that were previously only using periodic sync.

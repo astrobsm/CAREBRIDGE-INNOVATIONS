@@ -497,7 +497,7 @@ const DischargeSummaryDocument = ({
               Generated: {format(new Date(), 'dd MMM yyyy, HH:mm')}
             </Text>
             <Text style={styles.footerText}>
-              CareBridge Innovations in Healthcare
+              AstroHEALTH Innovations in Healthcare
             </Text>
             <Text style={styles.footerText}>
               Page 2 of 2

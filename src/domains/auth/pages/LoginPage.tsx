@@ -54,10 +54,10 @@ export default function LoginPage() {
       <div className="lg:hidden text-center mb-8">
         <img 
           src="/icons/logo.png" 
-          alt="CareBridge" 
+          alt="AstroHEALTH" 
           className="w-20 h-20 mx-auto mb-4 rounded-2xl object-contain"
         />
-        <h1 className="text-2xl font-bold text-gray-900">CareBridge</h1>
+        <h1 className="text-2xl font-bold text-gray-900">AstroHEALTH</h1>
         <p className="text-gray-500">Surgical EMR System</p>
       </div>
 

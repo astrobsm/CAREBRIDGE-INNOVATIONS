@@ -1,6 +1,6 @@
 /**
  * Integrated Risk Assessments for Admission Form
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Combines all risk assessments into a tabbed interface for the admission form:
  * - DVT (Caprini)

@@ -2,7 +2,7 @@
  * Patient Education Content - Category C: Pressure Injuries
  * Part 2: Stage 3 and Stage 4 Pressure Injuries
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and NPUAP/EPUAP Classifications
  */
 

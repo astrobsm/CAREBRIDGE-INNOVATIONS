@@ -2,7 +2,7 @@
  * Patient Education Content - Category G: Vascular Conditions
  * Part 1: Peripheral Arterial Disease and Abdominal Aortic Aneurysm
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Vascular Surgery Guidelines
  */
 

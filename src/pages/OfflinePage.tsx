@@ -41,7 +41,7 @@ export default function OfflinePage({ onRetry }: OfflinePageProps) {
             className="w-12 h-12 rounded-xl bg-white p-1 shadow-md"
           />
           <span className="text-2xl font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">
-            CareBridge
+            AstroHEALTH
           </span>
         </div>
 
@@ -51,7 +51,7 @@ export default function OfflinePage({ onRetry }: OfflinePageProps) {
         </h1>
         <p className="text-gray-600 mb-8 leading-relaxed">
           It looks like you've lost your internet connection. Don't worry - 
-          CareBridge works offline! Your data is safely stored on this device.
+          AstroHEALTH works offline! Your data is safely stored on this device.
         </p>
 
         {/* Features */}

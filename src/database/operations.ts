@@ -1,5 +1,5 @@
 // ============================================================
-// CareBridge Database Operations
+// AstroHEALTH Database Operations
 // Comprehensive data access functions for all modules
 // ============================================================
 

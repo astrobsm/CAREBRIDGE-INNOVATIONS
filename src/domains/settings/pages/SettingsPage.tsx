@@ -168,7 +168,7 @@ export default function SettingsPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `carebridge-export-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `astrohealth-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
 
@@ -721,7 +721,7 @@ export default function SettingsPage() {
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="font-medium text-blue-800 mb-2">Offline-First Mode</h4>
               <p className="text-sm text-blue-700">
-                CareBridge works fully offline. All your data is stored locally on your device and will 
+                AstroHEALTH works fully offline. All your data is stored locally on your device and will 
                 automatically sync to the cloud when you're connected to the internet. You can continue 
                 working even without an internet connection.
               </p>

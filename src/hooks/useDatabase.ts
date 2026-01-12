@@ -1,5 +1,5 @@
 // ============================================================
-// CareBridge Database Hooks
+// AstroHEALTH Database Hooks
 // React hooks for easy data fetching from IndexedDB
 // ============================================================
 

@@ -1,5 +1,5 @@
 -- =====================================================
--- CareBridge Users Table Complete Fix
+-- AstroHEALTH Users Table Complete Fix
 -- =====================================================
 -- This migration ensures the users table has ALL columns
 -- matching the local User type for proper sync

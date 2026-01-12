@@ -244,12 +244,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl blur-sm opacity-30" />
           <img 
             src="/icons/logo.png" 
-            alt="CareBridge" 
+            alt="AstroHEALTH" 
             className="relative w-11 h-11 rounded-xl object-contain bg-white p-1 shadow-md ring-1 ring-indigo-100"
           />
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">CareBridge</h1>
+          <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">AstroHEALTH</h1>
           <p className="text-xs text-indigo-600 font-medium">Innovations in Healthcare</p>
         </div>
         <button

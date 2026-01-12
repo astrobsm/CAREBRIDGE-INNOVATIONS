@@ -1,5 +1,5 @@
 // ============================================================
-// CareBridge Patient Selector Component
+// AstroHEALTH Patient Selector Component
 // Reusable patient search and selection for all forms
 // With Quick-Add functionality for new patients
 // ============================================================

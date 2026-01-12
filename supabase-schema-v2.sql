@@ -1,5 +1,5 @@
 -- ============================================================
--- CareBridge Complete Supabase Database Schema v2.0
+-- AstroHEALTH Complete Supabase Database Schema v2.0
 -- This schema includes ALL tables for the complete application
 -- Run this SQL in Supabase SQL Editor to create/recreate all tables
 -- ============================================================

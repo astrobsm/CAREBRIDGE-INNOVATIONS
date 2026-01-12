@@ -1,6 +1,6 @@
 /**
  * Patient Education Module Types
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive educational content following WHO guidelines
  */

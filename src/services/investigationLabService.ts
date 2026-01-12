@@ -1,6 +1,6 @@
 /**
  * Unified Investigation & Laboratory Service
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * This service merges the Laboratory and Investigation modules into a single,
  * cohesive system with professional workflow management:

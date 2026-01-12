@@ -1,6 +1,6 @@
 /**
  * Admission Risk Assessment Components Index
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  */
 
 // Individual Assessment Components

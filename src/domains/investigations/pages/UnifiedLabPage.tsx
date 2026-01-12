@@ -1,6 +1,6 @@
 /**
  * Unified Laboratory & Investigations Page
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Combines laboratory requests and investigations into a single professional workflow
  */

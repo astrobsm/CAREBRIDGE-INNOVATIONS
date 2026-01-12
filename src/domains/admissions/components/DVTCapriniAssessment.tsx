@@ -1,6 +1,6 @@
 /**
  * DVT Risk Assessment Component (Caprini Score)
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive Caprini DVT risk scoring with recommendations
  * For use in patient admission workflow

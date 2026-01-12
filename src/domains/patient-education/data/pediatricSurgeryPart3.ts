@@ -2,7 +2,7 @@
  * Patient Education Content - Category F: Pediatric Surgical Conditions
  * Part 3: Pediatric Inguinal Hernia and Hirschsprung Disease
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Pediatric Surgery Guidelines
  */
 

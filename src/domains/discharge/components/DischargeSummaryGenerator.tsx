@@ -1,6 +1,6 @@
 /**
  * Discharge Summary Generator Component
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Auto-generates comprehensive discharge documentation including:
  * - Discharge Summary
@@ -245,7 +245,7 @@ export default function DischargeSummaryGenerator({
     doc.text('Confidential Medical Document', pageWidth / 2, 28, { align: 'center' });
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('CareBridge Innovations in Healthcare', pageWidth / 2, 38, { align: 'center' });
+    doc.text('AstroHEALTH Innovations in Healthcare', pageWidth / 2, 38, { align: 'center' });
 
     yPos = 55;
 
@@ -471,7 +471,7 @@ export default function DischargeSummaryGenerator({
     doc.text('For Discharge from Inpatient Care', pageWidth / 2, 25, { align: 'center' });
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text('CareBridge Innovations in Healthcare', pageWidth / 2, 34, { align: 'center' });
+    doc.text('AstroHEALTH Innovations in Healthcare', pageWidth / 2, 34, { align: 'center' });
 
     yPos = 50;
 
@@ -576,7 +576,7 @@ export default function DischargeSummaryGenerator({
     doc.setFontSize(8);
     doc.setTextColor(128, 128, 128);
     doc.text('This document is valid for medical-legal purposes', pageWidth / 2, 280, { align: 'center' });
-    doc.text('CareBridge Innovations in Healthcare - Confidential Medical Document', pageWidth / 2, 286, { align: 'center' });
+    doc.text('AstroHEALTH Innovations in Healthcare - Confidential Medical Document', pageWidth / 2, 286, { align: 'center' });
 
     doc.save(`Medical-Fitness-Report-${localData.patientInfo.hospitalNumber}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
@@ -599,7 +599,7 @@ export default function DischargeSummaryGenerator({
     if (localData.isMDTPatient) {
       doc.text('MDT Harmonized Prescriptions', pageWidth / 2, 24, { align: 'center' });
     }
-    doc.text('CareBridge Innovations in Healthcare', pageWidth / 2, 31, { align: 'center' });
+    doc.text('AstroHEALTH Innovations in Healthcare', pageWidth / 2, 31, { align: 'center' });
 
     yPos = 45;
 

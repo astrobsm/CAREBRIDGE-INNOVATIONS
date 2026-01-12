@@ -1,5 +1,5 @@
 -- ============================================
--- CareBridge Users Table Sync Fix
+-- AstroHEALTH Users Table Sync Fix
 -- ============================================
 -- This migration ensures the users table exists with
 -- proper schema, RLS policies, and real-time enabled

@@ -2,7 +2,7 @@
  * Patient Education Content - Category D: Reconstructive Surgery
  * Part 2: Tissue Expansion and Scar Revision
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Plastic Surgery Best Practices
  */
 

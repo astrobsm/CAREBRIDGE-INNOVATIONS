@@ -2,7 +2,7 @@
  * Patient Education Content - Category J: Genital and Perineal Reconstruction
  * Part 2: Vaginal Reconstruction and Penile Reconstruction
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Reconstructive Surgery Best Practices
  */
 

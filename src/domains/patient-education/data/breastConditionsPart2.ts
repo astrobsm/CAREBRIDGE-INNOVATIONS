@@ -2,7 +2,7 @@
  * Patient Education Content - Category H: Breast Conditions
  * Part 2: Breast Abscess and Mastitis
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Breast Surgery Standards
  */
 

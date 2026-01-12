@@ -2,7 +2,7 @@
  * Patient Education Content - Category J: Genital and Perineal Reconstruction
  * Part 1: Hypospadias Repair and Epispadias Repair
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Urological Surgery Best Practices
  */
 

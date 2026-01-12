@@ -2,7 +2,7 @@
  * Patient Education Content - Category B: Wounds - Acute & Chronic
  * Part 1: Lacerations and Abrasions
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Evidence-Based Practice
  */
 

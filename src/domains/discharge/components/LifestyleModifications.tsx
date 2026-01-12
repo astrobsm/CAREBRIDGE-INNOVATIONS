@@ -1,6 +1,6 @@
 /**
  * Lifestyle Modifications Generator Component
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Auto-generates personalized lifestyle modification recommendations
  * based on patient's comorbidities and surgical history
@@ -616,7 +616,7 @@ export default function LifestyleModifications({
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     doc.text('Personalized recommendations for your health', pageWidth / 2, 25, { align: 'center' });
-    doc.text('CareBridge Innovations in Healthcare', pageWidth / 2, 33, { align: 'center' });
+    doc.text('AstroHEALTH Innovations in Healthcare', pageWidth / 2, 33, { align: 'center' });
 
     yPos = 50;
 

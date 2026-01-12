@@ -1,6 +1,6 @@
 /**
  * NPWT (Negative Pressure Wound Therapy) Page
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive NPWT tracking with cycle management,
  * material tracking, and progress monitoring.

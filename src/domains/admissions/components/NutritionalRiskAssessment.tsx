@@ -1,6 +1,6 @@
 /**
  * Nutritional Risk Assessment Component (MUST Score)
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Malnutrition Universal Screening Tool (MUST)
  * For use in patient admission workflow

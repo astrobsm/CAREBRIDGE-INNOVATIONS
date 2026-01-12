@@ -363,7 +363,7 @@ export default function PatientClinicalSummaryPage() {
 
       // Footer
       doc.setFontSize(8);
-      doc.text(`Generated on ${format(new Date(), 'dd MMM yyyy HH:mm')} | CareBridge EMR`, margin, 290);
+      doc.text(`Generated on ${format(new Date(), 'dd MMM yyyy HH:mm')} | AstroHEALTH EMR`, margin, 290);
 
       // Save PDF
       doc.save(`Clinical_Summary_${patient.hospitalNumber}_${format(new Date(), 'yyyyMMdd')}.pdf`);

@@ -2,7 +2,7 @@
  * Patient Education Content - Category K: Reconstructive Techniques and Procedures
  * Part 3: Bone Reconstruction and Nerve Repair
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Surgical Best Practices
  */
 

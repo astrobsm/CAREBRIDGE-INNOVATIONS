@@ -19,12 +19,12 @@ export default function AuthLayout() {
                 <div className="absolute inset-0 bg-white rounded-2xl blur-md opacity-40" />
                 <img 
                   src="/icons/logo.png" 
-                  alt="CareBridge" 
+                  alt="AstroHEALTH" 
                   className="relative w-16 h-16 rounded-2xl object-contain bg-white p-2 shadow-xl ring-2 ring-white/30"
                 />
               </div>
               <div>
-                <span className="text-3xl font-bold text-white block">CareBridge</span>
+                <span className="text-3xl font-bold text-white block">AstroHEALTH</span>
                 <span className="text-sm text-indigo-100 font-medium">Innovations in Healthcare</span>
               </div>
             </div>

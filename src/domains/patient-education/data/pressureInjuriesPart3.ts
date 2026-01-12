@@ -2,7 +2,7 @@
  * Patient Education Content - Category C: Pressure Injuries
  * Part 3: Unstageable Pressure Injury and Deep Tissue Pressure Injury
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and NPUAP/EPUAP Classifications
  */
 

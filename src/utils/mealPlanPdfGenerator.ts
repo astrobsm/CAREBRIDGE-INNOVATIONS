@@ -235,7 +235,7 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
         y = 20;
         colY = y;
         col = 0;
-        addBrandedFooter(doc, doc.getNumberOfPages(), undefined, 'CareBridge Innovations - Nutrition Department');
+        addBrandedFooter(doc, doc.getNumberOfPages(), undefined, 'AstroHEALTH Innovations - Nutrition Department');
       }
     }
     
@@ -367,7 +367,7 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
   }
 
   // Add footer
-  addBrandedFooter(doc, 1, 1, 'CareBridge Innovations in Healthcare - Nutrition Department');
+  addBrandedFooter(doc, 1, 1, 'AstroHEALTH Innovations in Healthcare - Nutrition Department');
 
   return doc;
 }
@@ -388,7 +388,7 @@ export function downloadMealPlanPDF(options: MealPlanPDFOptions): void {
   const patientName = options.patientName?.replace(/\s+/g, '_') || 'Patient';
   const date = format(new Date(), 'yyyy-MM-dd');
   
-  doc.save(`CareBridge_${planName}_${patientName}_${date}.pdf`);
+  doc.save(`AstroHEALTH_${planName}_${patientName}_${date}.pdf`);
 }
 
 // ==================== WHATSAPP SHARE FUNCTION ====================

@@ -1,6 +1,6 @@
 /**
  * Drug Allergy & Adverse Reaction Assessment Component
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive documentation of drug allergies, sensitivities, and adverse reactions
  * For use in patient admission workflow

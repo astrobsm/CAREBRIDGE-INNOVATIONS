@@ -2,7 +2,7 @@
  * Patient Education Content - Category K: Reconstructive Techniques and Procedures
  * Part 1: Skin Grafting and Tissue Expansion
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Plastic Surgery Best Practices
  */
 

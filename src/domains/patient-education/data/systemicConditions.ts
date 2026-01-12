@@ -2,7 +2,7 @@
  * Patient Education Content - Category L: Systemic and Complicating Conditions
  * Part 1: Diabetes and Surgery, Malnutrition and Surgery
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Perioperative Best Practices
  */
 

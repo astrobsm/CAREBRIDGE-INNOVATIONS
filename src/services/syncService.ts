@@ -33,10 +33,10 @@ export interface SyncRecord {
 
 // Generate unique device ID
 export function getDeviceId(): string {
-  let deviceId = localStorage.getItem('carebridge_device_id');
+  let deviceId = localStorage.getItem('AstroHEALTH_device_id');
   if (!deviceId) {
     deviceId = `device_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-    localStorage.setItem('carebridge_device_id', deviceId);
+    localStorage.setItem('AstroHEALTH_device_id', deviceId);
   }
   return deviceId;
 }

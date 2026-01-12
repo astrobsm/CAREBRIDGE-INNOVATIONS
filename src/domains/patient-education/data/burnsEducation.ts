@@ -1,7 +1,7 @@
 /**
  * Burns and Burn-Related Conditions Educational Content
  * Category A - Patient Education Module
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Based on WHO Guidelines for Burn Care
  */

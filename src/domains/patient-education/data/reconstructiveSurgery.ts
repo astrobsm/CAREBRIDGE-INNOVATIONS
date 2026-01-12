@@ -2,7 +2,7 @@
  * Patient Education Content - Category D: Reconstructive Surgery
  * Part 1: Skin Grafts and Flaps
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Plastic Surgery Best Practices
  */
 

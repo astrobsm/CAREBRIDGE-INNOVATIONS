@@ -1,6 +1,6 @@
 /**
  * Preoperative Assessment Page
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * Comprehensive preoperative anaesthetic review for surgical patients
  */

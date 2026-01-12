@@ -1,6 +1,6 @@
 /**
  * Pre-Discharge Readiness Assessment Component
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * 
  * WHO-adapted safe discharge scoring for inpatient care
  * Determines discharge status: Normal, On Request, Against Medical Advice
@@ -422,7 +422,7 @@ export default function PreDischargeAssessment({
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     doc.text('WHO-Adapted Safe Discharge Criteria', pageWidth / 2, 28, { align: 'center' });
-    doc.text('CareBridge Innovations in Healthcare', pageWidth / 2, 36, { align: 'center' });
+    doc.text('AstroHEALTH Innovations in Healthcare', pageWidth / 2, 36, { align: 'center' });
 
     yPos = 50;
 

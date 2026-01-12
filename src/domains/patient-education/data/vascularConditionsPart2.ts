@@ -2,7 +2,7 @@
  * Patient Education Content - Category G: Vascular Conditions
  * Part 2: Varicose Veins and Deep Vein Thrombosis
  * 
- * CareBridge Innovations in Healthcare
+ * AstroHEALTH Innovations in Healthcare
  * Content aligned with WHO Guidelines and Vascular Surgery Guidelines
  */
 
