@@ -26,6 +26,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { format } from 'date-fns';
 import { generatePrescriptionPDF, generateDispensingSlipPDF } from '../../../utils/prescriptionPdfGenerator';
+import { downloadDrugInformationPDF } from '../../../utils/drugInformationPdfGenerator';
 import type { Prescription, Medication, MedicationRoute } from '../../../types';
 import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
@@ -376,6 +377,364 @@ export default function PharmacyPage() {
     }
   };
 
+  const handleExportDrugInformation = async (prescription: Prescription) => {
+    const patient = patientMap.get(prescription.patientId);
+    if (!patient) {
+      toast.error('Patient information not found');
+      return;
+    }
+
+    try {
+      const prescriber = await db.users.get(prescription.prescribedBy);
+      
+      // Build comprehensive drug information data
+      await downloadDrugInformationPDF({
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        hospitalNumber: patient.hospitalNumber,
+        hospitalName: 'AstroHEALTH Innovations in Healthcare',
+        prescribedBy: prescriber ? `${prescriber.firstName} ${prescriber.lastName}` : 'Unknown',
+        prescriptionDate: new Date(prescription.prescribedAt),
+        medications: prescription.medications.map(med => ({
+          genericName: (med.genericName || med.name) as string,
+          brandName: med.name,
+          dosage: med.dosage,
+          route: med.route,
+          frequency: med.frequency,
+          duration: med.duration || 'As directed',
+          indication: med.instructions || 'As prescribed by your doctor',
+          
+          // Common side effects based on medication category
+          commonSideEffects: getCommonSideEffects(med.name),
+          
+          // Serious side effects that require immediate medical attention
+          seriousSideEffects: getSeriousSideEffects(med.name),
+          
+          // Warnings and precautions
+          warnings: getWarnings(med.name),
+          precautions: getPrecautions(med.name),
+          contraindications: getContraindications(med.name),
+          
+          // Drug and food interactions
+          drugInteractions: getDrugInteractions(med.name),
+          foodInteractions: getFoodInteractions(med.name),
+          
+          // Patient instructions
+          howToTake: getHowToTake(med.route, med.name),
+          whatToAvoid: getWhatToAvoid(med.name),
+          whenToSeekHelp: getWhenToSeekHelp(med.name),
+          
+          // Storage instructions
+          storage: getStorageInstructions(med.name),
+          
+          // Refill guidelines
+          refillGuidelines: [
+            'Do not refill without consulting your doctor',
+            'Schedule follow-up before medication runs out',
+            'Report any side effects to your healthcare provider',
+            'Bring empty containers to your appointment',
+          ],
+        })),
+      });
+
+      toast.success('Drug information sheet downloaded successfully');
+    } catch (error) {
+      console.error('Error generating drug information PDF:', error);
+      toast.error('Failed to generate drug information sheet');
+    }
+  };
+
+  // Helper functions for drug information
+  const getCommonSideEffects = (medicationName: string): string[] => {
+    const lowerName = medicationName.toLowerCase();
+    
+    if (lowerName.includes('paracetamol') || lowerName.includes('acetaminophen')) {
+      return ['Mild nausea', 'Stomach upset (rare)'];
+    } else if (lowerName.includes('ibuprofen') || lowerName.includes('diclofenac')) {
+      return ['Stomach upset', 'Heartburn', 'Nausea', 'Dizziness', 'Headache'];
+    } else if (lowerName.includes('tramadol')) {
+      return ['Dizziness', 'Drowsiness', 'Nausea', 'Constipation', 'Headache', 'Dry mouth'];
+    } else if (lowerName.includes('morphine')) {
+      return ['Drowsiness', 'Constipation', 'Nausea', 'Vomiting', 'Dizziness'];
+    } else if (lowerName.includes('amoxicillin') || lowerName.includes('clavulanate')) {
+      return ['Diarrhea', 'Nausea', 'Skin rash', 'Stomach upset'];
+    } else if (lowerName.includes('ceftriaxone') || lowerName.includes('cefuroxime')) {
+      return ['Diarrhea', 'Nausea', 'Injection site reactions', 'Headache'];
+    } else if (lowerName.includes('ciprofloxacin')) {
+      return ['Nausea', 'Diarrhea', 'Dizziness', 'Headache', 'Trouble sleeping'];
+    } else if (lowerName.includes('metronidazole')) {
+      return ['Metallic taste', 'Nausea', 'Loss of appetite', 'Headache'];
+    } else if (lowerName.includes('gentamicin')) {
+      return ['Injection site pain', 'Nausea', 'Vomiting'];
+    } else if (lowerName.includes('azithromycin')) {
+      return ['Diarrhea', 'Nausea', 'Abdominal pain', 'Headache'];
+    } else if (lowerName.includes('prednisolone') || lowerName.includes('dexamethasone')) {
+      return ['Increased appetite', 'Weight gain', 'Mood changes', 'Insomnia', 'Indigestion'];
+    } else if (lowerName.includes('omeprazole') || lowerName.includes('pantoprazole')) {
+      return ['Headache', 'Nausea', 'Diarrhea', 'Abdominal pain'];
+    } else if (lowerName.includes('metoclopramide')) {
+      return ['Drowsiness', 'Fatigue', 'Restlessness'];
+    } else if (lowerName.includes('ondansetron')) {
+      return ['Headache', 'Constipation', 'Dizziness'];
+    } else if (lowerName.includes('enoxaparin') || lowerName.includes('heparin')) {
+      return ['Injection site reactions', 'Easy bruising', 'Minor bleeding'];
+    } else if (lowerName.includes('warfarin')) {
+      return ['Easy bruising', 'Minor bleeding from gums or nose'];
+    }
+    
+    return ['Nausea', 'Headache', 'Dizziness', 'Stomach upset'];
+  };
+
+  const getSeriousSideEffects = (medicationName: string): string[] => {
+    const lowerName = medicationName.toLowerCase();
+    
+    if (lowerName.includes('paracetamol') || lowerName.includes('acetaminophen')) {
+      return [
+        'Severe skin reactions (rash, blistering)',
+        'Yellowing of skin or eyes (jaundice)',
+        'Dark urine or pale stools',
+        'Severe abdominal pain',
+      ];
+    } else if (lowerName.includes('ibuprofen') || lowerName.includes('diclofenac')) {
+      return [
+        'Severe stomach pain or black/tarry stools',
+        'Chest pain or difficulty breathing',
+        'Severe allergic reaction (swelling, difficulty breathing)',
+        'Unusual bleeding or bruising',
+      ];
+    } else if (lowerName.includes('tramadol') || lowerName.includes('morphine')) {
+      return [
+        'Slow or difficult breathing',
+        'Severe drowsiness or confusion',
+        'Seizures',
+        'Severe allergic reaction',
+      ];
+    } else if (lowerName.includes('amoxicillin') || lowerName.includes('clavulanate') || lowerName.includes('ceftriaxone')) {
+      return [
+        'Severe allergic reaction (difficulty breathing, swelling)',
+        'Severe diarrhea or bloody stools',
+        'Severe skin rash or blistering',
+        'Yellowing of skin or eyes',
+      ];
+    } else if (lowerName.includes('ciprofloxacin')) {
+      return [
+        'Tendon pain or swelling',
+        'Severe joint or muscle pain',
+        'Irregular heartbeat',
+        'Severe allergic reaction',
+        'Confusion or mood changes',
+      ];
+    } else if (lowerName.includes('metronidazole')) {
+      return [
+        'Numbness or tingling in hands/feet',
+        'Seizures',
+        'Severe dizziness',
+        'Unusual weakness',
+      ];
+    } else if (lowerName.includes('gentamicin')) {
+      return [
+        'Hearing loss or ringing in ears',
+        'Dizziness or balance problems',
+        'Decreased urination',
+        'Severe allergic reaction',
+      ];
+    } else if (lowerName.includes('prednisolone') || lowerName.includes('dexamethasone') || lowerName.includes('hydrocortisone')) {
+      return [
+        'Severe mood changes or depression',
+        'Vision problems',
+        'Severe swelling',
+        'Unusual weight gain',
+        'Signs of infection (fever, persistent sore throat)',
+      ];
+    } else if (lowerName.includes('warfarin') || lowerName.includes('enoxaparin') || lowerName.includes('heparin')) {
+      return [
+        'Severe bleeding (coughing blood, vomit that looks like coffee grounds)',
+        'Severe headache or dizziness',
+        'Black or bloody stools',
+        'Unusual bruising or prolonged bleeding',
+      ];
+    }
+    
+    return [
+      'Severe allergic reaction (difficulty breathing, swelling)',
+      'Severe skin rash or blistering',
+      'Unusual bleeding or bruising',
+      'Severe dizziness or fainting',
+    ];
+  };
+
+  const getWarnings = (medicationName: string): string[] => {
+    const lowerName = medicationName.toLowerCase();
+    
+    if (lowerName.includes('paracetamol')) {
+      return ['Do not exceed 4g (4000mg) in 24 hours', 'Overdose can cause severe liver damage'];
+    } else if (lowerName.includes('ibuprofen') || lowerName.includes('diclofenac')) {
+      return ['May increase risk of heart attack or stroke', 'Can cause stomach ulcers', 'Not recommended in late pregnancy'];
+    } else if (lowerName.includes('tramadol') || lowerName.includes('morphine')) {
+      return ['Risk of addiction and dependence', 'Can cause drowsiness - do not drive', 'May cause constipation'];
+    } else if (lowerName.includes('warfarin')) {
+      return ['Regular blood tests required', 'Many drug and food interactions', 'Increased bleeding risk'];
+    } else if (lowerName.includes('metronidazole')) {
+      return ['AVOID ALCOHOL - causes severe reaction', 'Complete full course'];
+    } else if (lowerName.includes('ciprofloxacin')) {
+      return ['May cause tendon damage', 'Avoid excessive sun exposure', 'Can affect blood sugar in diabetics'];
+    } else if (lowerName.includes('prednisolone') || lowerName.includes('dexamethasone')) {
+      return ['Do not stop suddenly', 'May mask signs of infection', 'Can affect blood sugar'];
+    }
+    
+    return ['Take exactly as prescribed', 'Do not share with others', 'Store safely away from children'];
+  };
+
+  const getPrecautions = (medicationName: string): string[] => {
+    const lowerName = medicationName.toLowerCase();
+    
+    const precautions: string[] = [];
+    
+    if (lowerName.includes('ibuprofen') || lowerName.includes('diclofenac')) {
+      precautions.push('Take with food to reduce stomach upset', 'Inform doctor if you have kidney problems');
+    }
+    
+    if (lowerName.includes('tramadol') || lowerName.includes('morphine')) {
+      precautions.push('Do not drive or operate machinery', 'Avoid alcohol');
+    }
+    
+    if (lowerName.includes('antibiotic') || lowerName.includes('cillin') || lowerName.includes('mycin')) {
+      precautions.push('Complete the full course', 'Take at evenly spaced intervals');
+    }
+    
+    if (lowerName.includes('warfarin')) {
+      precautions.push('Maintain consistent vitamin K intake', 'Inform all healthcare providers');
+    }
+    
+    if (precautions.length === 0) {
+      precautions.push('Inform doctor of all medications you are taking', 'Report any unusual symptoms');
+    }
+    
+    return precautions;
+  };
+
+  const getContraindications = (medicationName: string): string[] => {
+    const lowerName = medicationName.toLowerCase();
+    
+    if (lowerName.includes('ibuprofen') || lowerName.includes('diclofenac')) {
+      return ['History of stomach ulcers', 'Severe heart failure', 'Severe kidney disease', 'Allergy to NSAIDs'];
+    } else if (lowerName.includes('amoxicillin') || lowerName.includes('penicillin')) {
+      return ['Allergy to penicillin antibiotics'];
+    } else if (lowerName.includes('warfarin')) {
+      return ['Active bleeding', 'Recent surgery', 'Severe liver disease'];
+    }
+    
+    return ['Allergy to this medication', 'Pregnancy (consult doctor)', 'Breastfeeding (consult doctor)'];
+  };
+
+  const getDrugInteractions = (medicationName: string): string[] => {
+    const lowerName = medicationName.toLowerCase();
+    
+    if (lowerName.includes('warfarin')) {
+      return ['Many antibiotics', 'NSAIDs (aspirin, ibuprofen)', 'Other blood thinners', 'Some vitamins'];
+    } else if (lowerName.includes('metronidazole')) {
+      return ['Warfarin', 'Lithium', 'Alcohol (severe reaction)'];
+    } else if (lowerName.includes('ciprofloxacin')) {
+      return ['Antacids', 'Iron supplements', 'Dairy products', 'Caffeine'];
+    }
+    
+    return ['Inform doctor of ALL medications including over-the-counter drugs and supplements'];
+  };
+
+  const getFoodInteractions = (medicationName: string): string[] => {
+    const lowerName = medicationName.toLowerCase();
+    
+    if (lowerName.includes('ciprofloxacin')) {
+      return ['Avoid taking with dairy products', 'Limit caffeine intake'];
+    } else if (lowerName.includes('metronidazole')) {
+      return ['AVOID ALCOHOL completely during treatment and for 48 hours after'];
+    } else if (lowerName.includes('warfarin')) {
+      return ['Maintain consistent intake of leafy green vegetables', 'Limit alcohol'];
+    } else if (lowerName.includes('paracetamol')) {
+      return ['Avoid excessive alcohol'];
+    }
+    
+    return ['Can be taken with or without food unless otherwise directed'];
+  };
+
+  const getHowToTake = (route: string, medicationName: string): string[] => {
+    const instructions: string[] = [];
+    const lowerName = medicationName.toLowerCase();
+    
+    if (route === 'oral') {
+      instructions.push('Swallow tablet/capsule whole with water');
+      
+      if (lowerName.includes('ibuprofen') || lowerName.includes('diclofenac')) {
+        instructions.push('Take with food or milk to reduce stomach upset');
+      }
+      
+      if (lowerName.includes('antibiotic') || lowerName.includes('cillin')) {
+        instructions.push('Take at evenly spaced times (e.g., 8am, 4pm, 12am for 8-hourly)');
+        instructions.push('Complete the full course even if you feel better');
+      }
+    } else if (route === 'intravenous' || route === 'intramuscular') {
+      instructions.push('Will be administered by healthcare professional');
+    } else if (route === 'subcutaneous') {
+      instructions.push('Inject under the skin as demonstrated by your nurse');
+      instructions.push('Rotate injection sites');
+    } else if (route === 'topical') {
+      instructions.push('Apply to clean, dry affected area');
+      instructions.push('Wash hands before and after application');
+    }
+    
+    return instructions;
+  };
+
+  const getWhatToAvoid = (medicationName: string): string[] => {
+    const lowerName = medicationName.toLowerCase();
+    const toAvoid: string[] = [];
+    
+    if (lowerName.includes('tramadol') || lowerName.includes('morphine')) {
+      toAvoid.push('Do not drive or operate heavy machinery');
+      toAvoid.push('Avoid alcohol');
+    }
+    
+    if (lowerName.includes('metronidazole')) {
+      toAvoid.push('STRICTLY AVOID ALCOHOL');
+    }
+    
+    if (lowerName.includes('ibuprofen') || lowerName.includes('diclofenac')) {
+      toAvoid.push('Avoid taking other NSAIDs simultaneously');
+    }
+    
+    if (lowerName.includes('ciprofloxacin')) {
+      toAvoid.push('Avoid excessive sun exposure');
+    }
+    
+    if (toAvoid.length === 0) {
+      toAvoid.push('Follow your doctor\'s instructions carefully');
+    }
+    
+    return toAvoid;
+  };
+
+  const getWhenToSeekHelp = (_medicationName: string): string[] => {
+    return [
+      'Difficulty breathing or swallowing',
+      'Severe skin rash or itching',
+      'Swelling of face, lips, or tongue',
+      'Signs of severe allergic reaction',
+      'Symptoms that worsen or don\'t improve',
+      'Any unexpected severe side effects',
+    ];
+  };
+
+  const getStorageInstructions = (medicationName: string): string => {
+    const lowerName = medicationName.toLowerCase();
+    
+    if (lowerName.includes('insulin')) {
+      return 'Store in refrigerator (2-8°C). Do not freeze. Once in use, can be kept at room temperature for up to 28 days.';
+    } else if (lowerName.includes('liquid') || lowerName.includes('suspension')) {
+      return 'Store at room temperature. Shake well before use. Discard after expiry date.';
+    }
+    
+    return 'Store at room temperature (15-30°C) away from heat, moisture, and direct sunlight. Keep out of reach of children.';
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
@@ -478,6 +837,13 @@ export default function PharmacyPage() {
                             title="Download Prescription PDF"
                           >
                             <FileText size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleExportDrugInformation(rx)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Download Drug Information Sheet (Side Effects & Warnings)"
+                          >
+                            <Info size={18} />
                           </button>
                           {(rx.status === 'dispensed' || rx.status === 'partially_dispensed') && (
                             <button
