@@ -29,8 +29,15 @@ export default function DrReviewsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState('all');
 
-  // Redirect if not admin
-  if (user?.role !== 'SuperAdmin' && user?.role !== 'Hospital Admin') {
+  // Access control - Check role in case-insensitive manner to handle variations
+  // Supports: "super admin", "SuperAdmin", "System Administrator", "hospital admin", etc.
+  const userRole = user?.role?.toLowerCase().replace(/\s+/g, '') || '';
+  const isAdmin = userRole.includes('superadmin') || 
+                  userRole.includes('systemadmin') || 
+                  userRole.includes('hospitaladmin') ||
+                  userRole === 'admin';
+
+  if (!isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
