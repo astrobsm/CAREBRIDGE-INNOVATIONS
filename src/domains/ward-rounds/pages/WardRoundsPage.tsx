@@ -116,6 +116,7 @@ export default function WardRoundsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedHospital, setSelectedHospital] = useState<string>('all');
   const [, setSelectedRound] = useState<WardRound | null>(null);
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
 
   // Fetch data
   const hospitals = useLiveQuery(() => db.hospitals.where('isActive').equals(1).toArray(), []);
@@ -145,6 +146,17 @@ export default function WardRoundsPage() {
       admission: admissionMap.get(p.id),
     }));
   }, [patients, admissions]);
+
+  // Filter patients by search query
+  const filteredPatients = useMemo(() => {
+    if (!patientSearchQuery.trim()) return admittedPatients;
+    const query = patientSearchQuery.toLowerCase();
+    return admittedPatients.filter(p => 
+      `${p.firstName} ${p.lastName}`.toLowerCase().includes(query) ||
+      p.hospitalNumber.toLowerCase().includes(query) ||
+      p.admission?.wardName?.toLowerCase().includes(query)
+    );
+  }, [admittedPatients, patientSearchQuery]);
 
   // Filter based on search and hospital
   const filteredRounds = useMemo(() => {
@@ -301,6 +313,7 @@ export default function WardRoundsPage() {
       syncRecord('doctorAssignments', assignment as unknown as Record<string, unknown>);
       toast.success('Doctor assigned to patient');
       setShowDoctorAssignModal(false);
+      setPatientSearchQuery('');
       doctorAssignForm.reset();
     } catch (error) {
       console.error('Error assigning doctor:', error);
@@ -340,6 +353,7 @@ export default function WardRoundsPage() {
       syncRecord('nurseAssignments', assignment as unknown as Record<string, unknown>);
       toast.success('Nurse assigned to patient');
       setShowNurseAssignModal(false);
+      setPatientSearchQuery('');
       nurseAssignForm.reset();
     } catch (error) {
       console.error('Error assigning nurse:', error);
@@ -994,7 +1008,10 @@ export default function WardRoundsPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowDoctorAssignModal(false)}
+            onClick={() => {
+              setShowDoctorAssignModal(false);
+              setPatientSearchQuery('');
+            }}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -1005,7 +1022,13 @@ export default function WardRoundsPage() {
             >
               <div className="p-6 border-b flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">Assign Doctor to Patient</h2>
-                <button onClick={() => setShowDoctorAssignModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button 
+                  onClick={() => {
+                    setShowDoctorAssignModal(false);
+                    setPatientSearchQuery('');
+                  }} 
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
                   <X size={20} />
                 </button>
               </div>
@@ -1041,14 +1064,52 @@ export default function WardRoundsPage() {
 
                 <div>
                   <label className="label">Patient</label>
-                  <select {...doctorAssignForm.register('patientId')} className="input">
-                    <option value="">Select patient</option>
-                    {admittedPatients.map((patient) => (
-                      <option key={patient.id} value={patient.id}>
-                        {patient.firstName} {patient.lastName} - {patient.hospitalNumber} ({patient.admission?.wardName})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search patients..."
+                      value={patientSearchQuery}
+                      onChange={(e) => setPatientSearchQuery(e.target.value)}
+                      className="input pl-9 mb-2"
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                    {filteredPatients.length > 0 ? (
+                      filteredPatients.map((patient) => (
+                        <label
+                          key={patient.id}
+                          className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                        >
+                          <input
+                            type="radio"
+                            value={patient.id}
+                            {...doctorAssignForm.register('patientId')}
+                            className="w-4 h-4 text-sky-600"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">
+                              {patient.firstName} {patient.lastName}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {patient.hospitalNumber} • {patient.admission?.wardName || 'No Ward'} 
+                              {patient.admission?.bedNumber ? ` • Bed ${patient.admission.bedNumber}` : ''}
+                            </p>
+                          </div>
+                        </label>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-gray-500">
+                        <p className="text-sm">No patients found</p>
+                        <p className="text-xs mt-1">
+                          {patientSearchQuery ? 'Try a different search term' : 'No admitted patients available'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {doctorAssignForm.formState.errors.patientId && (
+                    <p className="text-sm text-red-500 mt-1">{doctorAssignForm.formState.errors.patientId.message}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1077,7 +1138,14 @@ export default function WardRoundsPage() {
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setShowDoctorAssignModal(false)} className="btn btn-secondary flex-1">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setShowDoctorAssignModal(false);
+                      setPatientSearchQuery('');
+                    }} 
+                    className="btn btn-secondary flex-1"
+                  >
                     Cancel
                   </button>
                   <button type="submit" className="btn btn-primary flex-1">
@@ -1099,7 +1167,10 @@ export default function WardRoundsPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowNurseAssignModal(false)}
+            onClick={() => {
+              setShowNurseAssignModal(false);
+              setPatientSearchQuery('');
+            }}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -1110,7 +1181,13 @@ export default function WardRoundsPage() {
             >
               <div className="p-6 border-b flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">Assign Nurse to Patient</h2>
-                <button onClick={() => setShowNurseAssignModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button 
+                  onClick={() => {
+                    setShowNurseAssignModal(false);
+                    setPatientSearchQuery('');
+                  }} 
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
                   <X size={20} />
                 </button>
               </div>
@@ -1146,14 +1223,52 @@ export default function WardRoundsPage() {
 
                 <div>
                   <label className="label">Patient</label>
-                  <select {...nurseAssignForm.register('patientId')} className="input">
-                    <option value="">Select patient</option>
-                    {admittedPatients.map((patient) => (
-                      <option key={patient.id} value={patient.id}>
-                        {patient.firstName} {patient.lastName} - {patient.hospitalNumber} ({patient.admission?.wardName})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search patients..."
+                      value={patientSearchQuery}
+                      onChange={(e) => setPatientSearchQuery(e.target.value)}
+                      className="input pl-9 mb-2"
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                    {filteredPatients.length > 0 ? (
+                      filteredPatients.map((patient) => (
+                        <label
+                          key={patient.id}
+                          className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                        >
+                          <input
+                            type="radio"
+                            value={patient.id}
+                            {...nurseAssignForm.register('patientId')}
+                            className="w-4 h-4 text-sky-600"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">
+                              {patient.firstName} {patient.lastName}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {patient.hospitalNumber} • {patient.admission?.wardName || 'No Ward'} 
+                              {patient.admission?.bedNumber ? ` • Bed ${patient.admission.bedNumber}` : ''}
+                            </p>
+                          </div>
+                        </label>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-gray-500">
+                        <p className="text-sm">No patients found</p>
+                        <p className="text-xs mt-1">
+                          {patientSearchQuery ? 'Try a different search term' : 'No admitted patients available'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {nurseAssignForm.formState.errors.patientId && (
+                    <p className="text-sm text-red-500 mt-1">{nurseAssignForm.formState.errors.patientId.message}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1181,7 +1296,14 @@ export default function WardRoundsPage() {
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setShowNurseAssignModal(false)} className="btn btn-secondary flex-1">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setShowNurseAssignModal(false);
+                      setPatientSearchQuery('');
+                    }} 
+                    className="btn btn-secondary flex-1"
+                  >
                     Cancel
                   </button>
                   <button type="submit" className="btn btn-primary flex-1">
