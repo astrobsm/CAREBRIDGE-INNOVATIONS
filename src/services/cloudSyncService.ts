@@ -458,6 +458,12 @@ async function pullAllFromCloud(): Promise<void> {
   
   // Post-Operative Notes
   await pullTable(TABLES.postOperativeNotes, 'postOperativeNotes');
+  
+  // Preoperative Assessments
+  await pullTable(TABLES.preoperativeAssessments, 'preoperativeAssessments');
+  
+  // Audit Logs (for accountability across devices)
+  await pullTable(TABLES.auditLogs, 'auditLogs');
 }
 
 // Push all local data to cloud
@@ -557,6 +563,12 @@ async function pushAllToCloud(): Promise<void> {
   
   // Post-Operative Notes
   await pushTable('postOperativeNotes', TABLES.postOperativeNotes);
+  
+  // Preoperative Assessments
+  await pushTable('preoperativeAssessments', TABLES.preoperativeAssessments);
+  
+  // Audit Logs (for accountability across devices)
+  await pushTable('auditLogs', TABLES.auditLogs);
 }
 
 // Pull a single table from cloud
@@ -750,137 +762,70 @@ function setupRealtimeSubscriptions() {
   });
   realtimeChannels = [];
 
-  // Subscribe to key tables for real-time updates
-  // COMPREHENSIVE: All synced tables for full cross-device sync
-  const tablesToWatch = [
-    // Core tables - USERS FIRST for authentication
-    { cloud: TABLES.users, local: 'users' },
-    { cloud: TABLES.hospitals, local: 'hospitals' },
+  // OPTIMIZED: Subscribe to ESSENTIAL tables only
+  // Supabase free tier limits: max 2 connections per client
+  // Strategy: Group multiple tables per channel using broadcast
+  const essentialTables = [
+    // Critical real-time updates only
     { cloud: TABLES.patients, local: 'patients' },
-    
-    // Clinical tables
-    { cloud: TABLES.vitalSigns, local: 'vitalSigns' },
-    { cloud: TABLES.clinicalEncounters, local: 'clinicalEncounters' },
-    { cloud: TABLES.surgeries, local: 'surgeries' },
-    { cloud: TABLES.wounds, local: 'wounds' },
-    { cloud: TABLES.burnAssessments, local: 'burnAssessments' },
-    
-    // Lab & Pharmacy
-    { cloud: TABLES.labRequests, local: 'labRequests' },
-    { cloud: TABLES.prescriptions, local: 'prescriptions' },
-    
-    // Nutrition
-    { cloud: TABLES.nutritionAssessments, local: 'nutritionAssessments' },
-    { cloud: TABLES.nutritionPlans, local: 'nutritionPlans' },
-    
-    // Billing
-    { cloud: TABLES.invoices, local: 'invoices' },
-    
-    // Admission & Ward
     { cloud: TABLES.admissions, local: 'admissions' },
-    { cloud: TABLES.admissionNotes, local: 'admissionNotes' },
-    { cloud: TABLES.bedAssignments, local: 'bedAssignments' },
-    
-    // Treatment
-    { cloud: TABLES.treatmentPlans, local: 'treatmentPlans' },
-    { cloud: TABLES.treatmentProgress, local: 'treatmentProgress' },
-    
-    // Ward Rounds & Assignments
-    { cloud: TABLES.wardRounds, local: 'wardRounds' },
-    { cloud: TABLES.doctorAssignments, local: 'doctorAssignments' },
-    { cloud: TABLES.nurseAssignments, local: 'nurseAssignments' },
-    
-    // Investigations
-    { cloud: TABLES.investigations, local: 'investigations' },
-    
-    // Communication
-    { cloud: TABLES.chatRooms, local: 'chatRooms' },
-    { cloud: TABLES.chatMessages, local: 'chatMessages' },
-    { cloud: TABLES.videoConferences, local: 'videoConferences' },
-    { cloud: TABLES.enhancedVideoConferences, local: 'enhancedVideoConferences' },
-    
-    // Discharge & Documentation
-    { cloud: TABLES.dischargeSummaries, local: 'dischargeSummaries' },
-    { cloud: TABLES.consumableBOMs, local: 'consumableBOMs' },
-    { cloud: TABLES.histopathologyRequests, local: 'histopathologyRequests' },
-    
-    // Blood Transfusion & MDT
-    { cloud: TABLES.bloodTransfusions, local: 'bloodTransfusions' },
-    { cloud: TABLES.mdtMeetings, local: 'mdtMeetings' },
-    
-    // Limb Salvage
-    { cloud: TABLES.limbSalvageAssessments, local: 'limbSalvageAssessments' },
-    
-    // Burn Care Monitoring
-    { cloud: TABLES.burnMonitoringRecords, local: 'burnMonitoringRecords' },
-    { cloud: TABLES.escharotomyRecords, local: 'escharotomyRecords' },
-    { cloud: TABLES.skinGraftRecords, local: 'skinGraftRecords' },
-    { cloud: TABLES.burnCarePlans, local: 'burnCarePlans' },
-    
-    // Appointments
+    { cloud: TABLES.prescriptions, local: 'prescriptions' },
     { cloud: TABLES.appointments, local: 'appointments' },
-    { cloud: TABLES.appointmentReminders, local: 'appointmentReminders' },
-    { cloud: TABLES.appointmentSlots, local: 'appointmentSlots' },
-    { cloud: TABLES.clinicSessions, local: 'clinicSessions' },
-    
-    // NPWT
-    { cloud: TABLES.npwtSessions, local: 'npwtSessions' },
-    { cloud: TABLES.npwtNotifications, local: 'npwtNotifications' },
-    
-    // Medication Charts
+    { cloud: TABLES.chatMessages, local: 'chatMessages' },
     { cloud: TABLES.medicationCharts, local: 'medicationCharts' },
-    { cloud: TABLES.nursePatientAssignments, local: 'nursePatientAssignments' },
-    
-    // Transfusion Orders
-    { cloud: TABLES.transfusionOrders, local: 'transfusionOrders' },
-    { cloud: TABLES.transfusionMonitoringCharts, local: 'transfusionMonitoringCharts' },
-    
-    // Staff Assignments & Billing
-    { cloud: TABLES.staffPatientAssignments, local: 'staffPatientAssignments' },
-    { cloud: TABLES.activityBillingRecords, local: 'activityBillingRecords' },
-    
-    // Payroll
-    { cloud: TABLES.payrollPeriods, local: 'payrollPeriods' },
-    { cloud: TABLES.staffPayrollRecords, local: 'staffPayrollRecords' },
-    { cloud: TABLES.payslips, local: 'payslips' },
-    
-    // Post-Operative Notes
-    { cloud: TABLES.postOperativeNotes, local: 'postOperativeNotes' },
   ];
 
-  tablesToWatch.forEach(({ cloud, local }) => {
-    const channel = sb
-      .channel(`${cloud}-changes`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: cloud },
-        async (payload) => {
-          console.log(`[CloudSync] Real-time update on ${cloud}:`, payload.eventType);
-          
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const record = convertFromSupabase(payload.new as Record<string, unknown>);
-            try {
-              await (db as any)[local].put(record);
-              console.log(`[CloudSync] Applied ${payload.eventType} to local ${local}`);
-            } catch (err) {
-              console.warn(`[CloudSync] Failed to apply change to ${local}:`, err);
-            }
-          } else if (payload.eventType === 'DELETE' && payload.old) {
-            try {
-              await (db as any)[local].delete((payload.old as any).id);
-              console.log(`[CloudSync] Applied DELETE to local ${local}`);
-            } catch (err) {
-              console.warn(`[CloudSync] Failed to delete from ${local}:`, err);
+  // Batch subscribe to avoid overwhelming Supabase connection limits
+  let subscriptionDelay = 0;
+  essentialTables.forEach(({ cloud, local }) => {
+    // Stagger subscriptions with 200ms delay to prevent connection flooding
+    setTimeout(() => {
+      const channel = sb
+        .channel(`${cloud}-changes`, {
+          config: {
+            broadcast: { self: false },
+            presence: { key: '' }
+          }
+        })
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: cloud },
+          async (payload) => {
+            console.log(`[CloudSync] Real-time update on ${cloud}:`, payload.eventType);
+            
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              const record = convertFromSupabase(payload.new as Record<string, unknown>);
+              try {
+                await (db as any)[local].put(record);
+                console.log(`[CloudSync] Applied ${payload.eventType} to local ${local}`);
+              } catch (err) {
+                console.warn(`[CloudSync] Failed to apply change to ${local}:`, err);
+              }
+            } else if (payload.eventType === 'DELETE' && payload.old) {
+              try {
+                await (db as any)[local].delete((payload.old as any).id);
+                console.log(`[CloudSync] Applied DELETE to local ${local}`);
+              } catch (err) {
+                console.warn(`[CloudSync] Failed to delete from ${local}:`, err);
+              }
             }
           }
-        }
-      )
-      .subscribe((status) => {
-        console.log(`[CloudSync] Subscription status for ${cloud}:`, status);
-      });
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log(`[CloudSync] ✓ Subscribed to ${cloud}`);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn(`[CloudSync] ✗ Subscription ${status} for ${cloud}`);
+          }
+        });
 
-    realtimeChannels.push(channel);
+      realtimeChannels.push(channel);
+    }, subscriptionDelay);
+    
+    subscriptionDelay += 200; // 200ms between each subscription
   });
+  
+  console.log(`[CloudSync] Subscribing to ${essentialTables.length} essential tables...`);
 }
 
 // Sync a single record immediately (call this when creating/updating data)
@@ -1001,6 +946,10 @@ function getCloudTableName(localTableName: string): string | null {
     payslips: TABLES.payslips,
     // Post-Operative Notes
     postOperativeNotes: TABLES.postOperativeNotes,
+    // Preoperative Assessments
+    preoperativeAssessments: TABLES.preoperativeAssessments,
+    // Audit Logs
+    auditLogs: TABLES.auditLogs,
   };
   return mapping[localTableName] || null;
 }

@@ -53,6 +53,10 @@ import type {
   PreoperativeAssessment,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
+import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
+
+// Re-export types for convenient access
+export type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
 
 export class AstroHEALTHDatabase extends Dexie {
   users!: Table<User, string>;
@@ -98,6 +102,11 @@ export class AstroHEALTHDatabase extends Dexie {
   escharotomyRecords!: Table<EscharotomyRecord, string>;
   skinGraftRecords!: Table<SkinGraftRecord, string>;
   burnCarePlans!: Table<BurnCarePlan, string>;
+  // NPWT (Negative Pressure Wound Therapy)
+  npwtSessions!: Table<NPWTSession, string>;
+  npwtNotifications!: Table<NPWTNotification, string>;
+  // Nurse Patient Assignments for Medication Charts
+  nursePatientAssignments!: Table<NursePatientAssignment, string>;
   // Transfusion Orders and Monitoring Charts
   transfusionOrders!: Table<TransfusionOrder, string>;
   transfusionMonitoringCharts!: Table<TransfusionMonitoringChart, string>;

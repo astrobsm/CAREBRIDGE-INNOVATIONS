@@ -130,6 +130,9 @@ export const TABLES = {
   
   // Post-Operative Notes
   postOperativeNotes: 'post_operative_notes',
+  
+  // Preoperative Assessments
+  preoperativeAssessments: 'preoperative_assessments',
 } as const;
 
 // Local to cloud table name mapping
@@ -195,6 +198,8 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   payslips: 'payslips',
   // Post-Operative Notes
   postOperativeNotes: 'post_operative_notes',
+  // Preoperative Assessments
+  preoperativeAssessments: 'preoperative_assessments',
 };
 
 // Type for sync status

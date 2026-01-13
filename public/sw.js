@@ -138,17 +138,26 @@ self.addEventListener('install', (event) => {
   console.log('[SW] Installing Service Worker v2.0.0...');
   event.waitUntil(
     caches.open(STATIC_CACHE)
-      .then((cache) => {
+      .then(async (cache) => {
         console.log('[SW] Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
+        // Cache files individually to avoid failures from missing files
+        const cachePromises = STATIC_ASSETS.map(async (url) => {
+          try {
+            await cache.add(url);
+          } catch (error) {
+            console.warn('[SW] Failed to cache:', url, error.message);
+            // Continue caching other assets even if one fails
+          }
+        });
+        await Promise.allSettled(cachePromises);
+        console.log('[SW] Static assets cached successfully');
       })
       .then(() => {
-        console.log('[SW] Static assets cached, skipping waiting');
+        console.log('[SW] Skipping waiting');
         return self.skipWaiting();
       })
       .catch((error) => {
-        console.error('[SW] Failed to cache static assets:', error);
-        // Still skip waiting even if caching fails
+        console.error('[SW] Cache initialization error:', error);
         return self.skipWaiting();
       })
   );

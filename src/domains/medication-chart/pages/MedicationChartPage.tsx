@@ -6,7 +6,8 @@
  * to track and document medication administration.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
@@ -54,10 +55,7 @@ const MEDICATION_TIMES = [
 
 export default function MedicationChartPage() {
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [admittedPatients, setAdmittedPatients] = useState<(Patient & { admission?: Admission })[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<(Patient & { admission?: Admission }) | null>(null);
-  const [medicationCharts, setMedicationCharts] = useState<DailyMedicationChart[]>([]);
   const [currentChart, setCurrentChart] = useState<DailyMedicationChart | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -71,43 +69,52 @@ export default function MedicationChartPage() {
   const [adminNotes, setAdminNotes] = useState('');
   const [reasonNotGiven, setReasonNotGiven] = useState('');
 
-  // Fetch data on mount
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get admitted patients
-        const admissions = await db.admissions.filter(a => a.status === 'active').toArray();
-        const patientIds = admissions.map(a => a.patientId);
-        
-        const patients = await db.patients.filter(p => patientIds.includes(p.id)).toArray();
-        
-        const patientsWithAdmissions = patients.map(p => ({
-          ...p,
-          admission: admissions.find(a => a.patientId === p.id),
-        }));
-        
-        setAdmittedPatients(patientsWithAdmissions);
+  // Use useLiveQuery for reactive data - admitted patients
+  const activeAdmissions = useLiveQuery(
+    () => db.admissions.filter(a => a.status === 'active').toArray(),
+    []
+  );
 
-        // Fetch medication charts
-        const charts = await db.table('medicationCharts').toArray();
-        setMedicationCharts(charts as DailyMedicationChart[]);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  const patientIds = useMemo(
+    () => activeAdmissions?.map(a => a.patientId) || [],
+    [activeAdmissions]
+  );
+
+  const patients = useLiveQuery(
+    async () => {
+      if (patientIds.length === 0) return [];
+      return db.patients.filter(p => patientIds.includes(p.id)).toArray();
+    },
+    [patientIds]
+  );
+
+  // Combine patients with their admissions reactively
+  const admittedPatients = useMemo(() => {
+    if (!patients || !activeAdmissions) return [];
+    return patients.map((p: Patient) => ({
+      ...p,
+      admission: activeAdmissions.find(a => a.patientId === p.id),
+    }));
+  }, [patients, activeAdmissions]);
+
+  // Use useLiveQuery for medication charts - reactive updates
+  const medicationCharts = useLiveQuery(
+    () => db.medicationCharts.toArray(),
+    []
+  );
+
+  const isLoading = activeAdmissions === undefined || patients === undefined || medicationCharts === undefined;
 
   // Fetch prescriptions when patient is selected
   useEffect(() => {
-    if (selectedPatient) {
+    if (selectedPatient && medicationCharts) {
       fetchPatientPrescriptions(selectedPatient.id);
     }
-  }, [selectedPatient]);
+  }, [selectedPatient, medicationCharts]);
 
   const fetchPatientPrescriptions = async (patientId: string) => {
+    if (!medicationCharts) return;
+    
     try {
       const patientPrescriptions = await db.prescriptions
         .filter(p => p.patientId === patientId && p.status !== 'cancelled')
@@ -170,10 +177,10 @@ export default function MedicationChartPage() {
     };
 
     try {
-      await db.table('medicationCharts').add(newChart);
+      await db.medicationCharts.add(newChart);
       syncRecord('medicationCharts', newChart as unknown as Record<string, unknown>);
       setCurrentChart(newChart);
-      setMedicationCharts(prev => [...prev, newChart]);
+      // useLiveQuery automatically updates medicationCharts when db changes
     } catch (error) {
       console.error('Error creating chart:', error);
     }
@@ -215,10 +222,10 @@ export default function MedicationChartPage() {
         updatedAt: new Date(),
       };
 
-      await db.table('medicationCharts').put(updatedChart);
+      await db.medicationCharts.put(updatedChart);
       syncRecord('medicationCharts', updatedChart as unknown as Record<string, unknown>);
       setCurrentChart(updatedChart);
-      setMedicationCharts(prev => prev.map(c => c.id === updatedChart.id ? updatedChart : c));
+      // useLiveQuery automatically updates medicationCharts when db changes
 
       toast.success('Medication administration recorded');
       closeAdminModal();

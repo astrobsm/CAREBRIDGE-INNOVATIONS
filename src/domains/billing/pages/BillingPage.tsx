@@ -46,99 +46,80 @@ import {
   discountPresets,
 } from '../../../data/nonTheaterServices';
 import { surgicalProcedures, calculateSurgicalFeeEstimate } from '../../../data/surgicalFees';
+import { billableActivities, type BillableActivity, type BillingCategory } from '../../../data/billingActivities';
+import { surgicalConsumables, type SurgicalConsumable } from '../../../data/surgicalConsumables';
 import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
 import { downloadInvoicePDF, shareInvoiceViaWhatsApp } from '../../../utils/billingPdfGenerator';
 import type { InvoicePDFOptions, InvoiceItemPDF } from '../../../utils/billingPdfGenerator';
 
-// Procedure pricing matrix (Nigerian Naira - NGN)
-const procedurePricing = {
-  consultation: [
-    { code: 'CON001', name: 'General Consultation', price: 5000 },
-    { code: 'CON002', name: 'Specialist Consultation', price: 15000 },
-    { code: 'CON003', name: 'Emergency Consultation', price: 10000 },
-    { code: 'CON004', name: 'Follow-up Visit', price: 3000 },
-    { code: 'CON005', name: 'Telemedicine Consultation', price: 5000 },
-  ],
-  surgery: [
-    { code: 'SUR001', name: 'Minor Surgery (Local)', price: 50000 },
-    { code: 'SUR002', name: 'Intermediate Surgery', price: 150000 },
-    { code: 'SUR003', name: 'Major Surgery', price: 500000 },
-    { code: 'SUR004', name: 'Complex/Specialized Surgery', price: 1000000 },
-    { code: 'SUR005', name: 'Emergency Surgery', price: 300000 },
-    { code: 'SUR006', name: 'Laparoscopic Surgery', price: 400000 },
-  ],
-  laboratory: [
-    { code: 'LAB001', name: 'Full Blood Count (FBC)', price: 5000 },
-    { code: 'LAB002', name: 'Urinalysis', price: 2000 },
-    { code: 'LAB003', name: 'Liver Function Test (LFT)', price: 8000 },
-    { code: 'LAB004', name: 'Renal Function Test (RFT)', price: 8000 },
-    { code: 'LAB005', name: 'Lipid Profile', price: 6000 },
-    { code: 'LAB006', name: 'Blood Glucose (Fasting)', price: 2500 },
-    { code: 'LAB007', name: 'HbA1c', price: 8000 },
-    { code: 'LAB008', name: 'HIV Screening', price: 3000 },
-    { code: 'LAB009', name: 'Malaria Parasite (MP)', price: 1500 },
-    { code: 'LAB010', name: 'Widal Test', price: 2500 },
-    { code: 'LAB011', name: 'Blood Culture', price: 15000 },
-    { code: 'LAB012', name: 'Histopathology', price: 25000 },
-  ],
-  imaging: [
-    { code: 'IMG001', name: 'Chest X-Ray', price: 8000 },
-    { code: 'IMG002', name: 'Abdominal X-Ray', price: 10000 },
-    { code: 'IMG003', name: 'Ultrasound Scan (Abdominal)', price: 15000 },
-    { code: 'IMG004', name: 'Ultrasound Scan (Pelvic)', price: 15000 },
-    { code: 'IMG005', name: 'CT Scan', price: 80000 },
-    { code: 'IMG006', name: 'MRI Scan', price: 150000 },
-    { code: 'IMG007', name: 'Echocardiography', price: 35000 },
-    { code: 'IMG008', name: 'Mammography', price: 25000 },
-  ],
-  admission: [
-    { code: 'ADM001', name: 'General Ward (per day)', price: 15000 },
-    { code: 'ADM002', name: 'Private Ward (per day)', price: 30000 },
-    { code: 'ADM003', name: 'ICU (per day)', price: 100000 },
-    { code: 'ADM004', name: 'Recovery Room (per hour)', price: 5000 },
-    { code: 'ADM005', name: 'Observation Ward (per day)', price: 10000 },
-  ],
-  procedures: [
-    { code: 'PRO001', name: 'Wound Dressing (Minor)', price: 5000 },
-    { code: 'PRO002', name: 'Wound Dressing (Major)', price: 15000 },
-    { code: 'PRO003', name: 'IV Cannulation', price: 3000 },
-    { code: 'PRO004', name: 'Catheterization', price: 10000 },
-    { code: 'PRO005', name: 'NGT Insertion', price: 8000 },
-    { code: 'PRO006', name: 'Suturing', price: 15000 },
-    { code: 'PRO007', name: 'Incision & Drainage', price: 25000 },
-    { code: 'PRO008', name: 'Debridement', price: 35000 },
-    { code: 'PRO009', name: 'Skin Grafting', price: 200000 },
-  ],
-  consumables: [
-    { code: 'CSM001', name: 'IV Fluids (Normal Saline)', price: 1500 },
-    { code: 'CSM002', name: 'IV Fluids (Dextrose)', price: 1500 },
-    { code: 'CSM003', name: 'Blood Transfusion (per unit)', price: 30000 },
-    { code: 'CSM004', name: 'Surgical Gloves (pair)', price: 500 },
-    { code: 'CSM005', name: 'Dressing Pack', price: 2000 },
-    { code: 'CSM006', name: 'Suture Material', price: 3000 },
-    { code: 'CSM007', name: 'Urinary Catheter', price: 5000 },
-    { code: 'CSM008', name: 'IV Giving Set', price: 1000 },
-  ],
+// Map billingActivities categories to service category keys
+const billingCategoryMapping: Record<string, BillingCategory> = {
+  'ba-consultation': 'doctor_consultation',
+  'ba-surgeon-review': 'surgeon_review',
+  'ba-plastic-surgeon': 'plastic_surgeon_review',
+  'ba-wound-care': 'wound_care',
+  'ba-nursing': 'nursing_service',
+  'ba-laboratory': 'laboratory',
+  'ba-pharmacy': 'pharmacy',
+  'ba-physiotherapy': 'physiotherapy',
+  'ba-dietetics': 'dietetics',
+  'ba-anaesthesia': 'anaesthesia',
+  'ba-procedure': 'procedure',
+  'ba-ward-round': 'ward_round',
+  'ba-home-care': 'home_care',
+  'ba-administrative': 'administrative',
+};
+
+// Get billable activities by category
+const getBillableActivitiesByCategory = (category: BillingCategory): BillableActivity[] => {
+  return billableActivities.filter(a => a.category === category);
+};
+
+// Get consumables by category
+const getConsumablesByCategory = (categoryId: string): SurgicalConsumable[] => {
+  return surgicalConsumables.filter(c => c.category === categoryId);
 };
 
 const serviceCategories = [
-  { value: 'consultation', label: 'Consultation', icon: 'Stethoscope' },
-  { value: 'surgery', label: 'Surgery', icon: 'Scissors' },
-  { value: 'laboratory', label: 'Laboratory', icon: 'Activity' },
-  { value: 'imaging', label: 'Imaging', icon: 'Eye' },
-  { value: 'admission', label: 'Admission', icon: 'User' },
-  { value: 'procedures', label: 'Procedures', icon: 'Package' },
-  { value: 'consumables', label: 'Consumables', icon: 'Package' },
-  // Non-theater specialist services
-  { value: 'nt-consultation', label: 'Specialist Consultation', icon: 'Award' },
-  { value: 'nt-wound-review', label: 'Wound Care Reviews', icon: 'Eye' },
-  { value: 'nt-debridement', label: 'Bedside Debridement', icon: 'Scissors' },
-  { value: 'nt-npwt', label: 'NPWT Services', icon: 'Wind' },
-  { value: 'nt-burn-dressing', label: 'Burn Dressings', icon: 'Flame' },
-  { value: 'nt-package', label: 'Care Packages', icon: 'Package' },
-  { value: 'nt-specialist-service', label: 'Specialist Services', icon: 'Award' },
-  { value: 'surgical-procedures', label: 'Surgical Procedures', icon: 'Scissors' },
+  // Billable Activities Categories
+  { value: 'ba-consultation', label: 'Doctor Consultation', icon: 'Stethoscope', group: 'services' },
+  { value: 'ba-surgeon-review', label: 'Surgeon Review', icon: 'Scissors', group: 'services' },
+  { value: 'ba-plastic-surgeon', label: 'Plastic Surgeon Review', icon: 'Award', group: 'services' },
+  { value: 'ba-wound-care', label: 'Wound Care', icon: 'Eye', group: 'services' },
+  { value: 'ba-nursing', label: 'Nursing Services', icon: 'Heart', group: 'services' },
+  { value: 'ba-laboratory', label: 'Laboratory Services', icon: 'Activity', group: 'services' },
+  { value: 'ba-pharmacy', label: 'Pharmacy Services', icon: 'Pill', group: 'services' },
+  { value: 'ba-physiotherapy', label: 'Physiotherapy', icon: 'Dumbbell', group: 'services' },
+  { value: 'ba-dietetics', label: 'Dietetics & Nutrition', icon: 'Apple', group: 'services' },
+  { value: 'ba-anaesthesia', label: 'Anaesthesia Services', icon: 'Syringe', group: 'services' },
+  { value: 'ba-procedure', label: 'Procedures', icon: 'Scissors', group: 'services' },
+  { value: 'ba-ward-round', label: 'Ward Rounds', icon: 'ClipboardList', group: 'services' },
+  { value: 'ba-home-care', label: 'Home Care', icon: 'Home', group: 'services' },
+  { value: 'ba-administrative', label: 'Administrative', icon: 'FileText', group: 'services' },
+  
+  // Non-theater Specialist Services
+  { value: 'nt-consultation', label: 'Specialist Consultation', icon: 'Award', group: 'specialist' },
+  { value: 'nt-wound-review', label: 'Wound Care Reviews', icon: 'Eye', group: 'specialist' },
+  { value: 'nt-debridement', label: 'Bedside Debridement', icon: 'Scissors', group: 'specialist' },
+  { value: 'nt-npwt', label: 'NPWT Services', icon: 'Wind', group: 'specialist' },
+  { value: 'nt-burn-dressing', label: 'Burn Dressings', icon: 'Flame', group: 'specialist' },
+  { value: 'nt-package', label: 'Care Packages', icon: 'Package', group: 'specialist' },
+  { value: 'nt-specialist-service', label: 'Specialist Services', icon: 'Award', group: 'specialist' },
+  
+  // Surgical Procedures
+  { value: 'surgical-procedures', label: 'Surgical Procedures', icon: 'Scissors', group: 'surgical' },
+  
+  // Consumable Categories
+  { value: 'cons-dressings', label: 'Wound Dressings & Films', icon: 'Bandage', group: 'consumables' },
+  { value: 'cons-sutures', label: 'Sutures & Needles', icon: 'Activity', group: 'consumables' },
+  { value: 'cons-drains', label: 'Drains & Tubes', icon: 'Droplets', group: 'consumables' },
+  { value: 'cons-gloves', label: 'Gloves & PPE', icon: 'Hand', group: 'consumables' },
+  { value: 'cons-instruments', label: 'Disposable Instruments', icon: 'Scissors', group: 'consumables' },
+  { value: 'cons-antiseptics', label: 'Antiseptics & Solutions', icon: 'Droplet', group: 'consumables' },
+  { value: 'cons-packs', label: 'Surgical Packs', icon: 'Package', group: 'consumables' },
+  { value: 'cons-npwt', label: 'NPWT Supplies', icon: 'Wind', group: 'consumables' },
+  { value: 'cons-general', label: 'General Consumables', icon: 'Box', group: 'consumables' },
 ];
 
 const paymentMethods = [
@@ -226,10 +207,77 @@ export default function BillingPage() {
   });
 
   const availableServices = useMemo(() => {
+    // Check if it's a billable activity category
+    if (activeCategory.startsWith('ba-')) {
+      const baCategory = billingCategoryMapping[activeCategory];
+      if (baCategory) {
+        let activities = getBillableActivitiesByCategory(baCategory);
+        if (serviceSearchQuery) {
+          activities = activities.filter(a =>
+            a.name.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
+            a.code.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
+            a.description.toLowerCase().includes(serviceSearchQuery.toLowerCase())
+          );
+        }
+        return activities.map(a => {
+          // Calculate fee based on feeLevel
+          let baseFee = a.defaultFee;
+          if (feeLevel === 'min') baseFee = a.minFee;
+          else if (feeLevel === 'max') baseFee = a.maxFee;
+          
+          const discountedFee = Math.round(baseFee * (1 - globalDiscount / 100));
+          return {
+            code: a.code,
+            name: a.name,
+            price: discountedFee,
+            originalPrice: baseFee,
+            maxPrice: a.maxFee,
+            complexity: undefined,
+            description: a.description,
+            duration: a.duration,
+            isBillableActivity: true,
+          };
+        });
+      }
+    }
+    
+    // Check if it's a consumables category
+    if (activeCategory.startsWith('cons-')) {
+      const consCategory = activeCategory.replace('cons-', '');
+      let consumables = getConsumablesByCategory(consCategory);
+      if (serviceSearchQuery) {
+        consumables = consumables.filter(c =>
+          c.name.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
+          c.id.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
+          c.description.toLowerCase().includes(serviceSearchQuery.toLowerCase())
+        );
+      }
+      return consumables.map(c => {
+        const discountedFee = Math.round(c.unitPrice * (1 - globalDiscount / 100));
+        return {
+          code: c.id,
+          name: c.name,
+          price: discountedFee,
+          originalPrice: c.unitPrice,
+          complexity: undefined,
+          description: `${c.description} (${c.unit})`,
+          unit: c.unit,
+          isConsumable: true,
+        };
+      });
+    }
+    
     // Check if it's a non-theater category
     if (activeCategory.startsWith('nt-')) {
       const ntCategory = activeCategory.replace('nt-', '');
-      const services = nonTheaterServices.filter(s => s.category === ntCategory);
+      let services = nonTheaterServices.filter(s => s.category === ntCategory);
+      if (serviceSearchQuery) {
+        services = services.filter(s =>
+          s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
+          s.id.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
+          (s.description && s.description.toLowerCase().includes(serviceSearchQuery.toLowerCase()))
+        );
+      }
       return services.map(s => {
         const { finalFee } = calculateServiceFee(s, feeLevel, globalDiscount);
         return {
@@ -255,7 +303,7 @@ export default function BillingPage() {
           (p.icdCode && p.icdCode.toLowerCase().includes(serviceSearchQuery.toLowerCase()))
         );
       }
-      return procedures.slice(0, 50).map(p => {
+      return procedures.slice(0, 100).map(p => {
         const estimate = calculateSurgicalFeeEstimate(p);
         const discountedFee = estimate.surgeonFee * (1 - globalDiscount / 100);
         return {
@@ -264,20 +312,14 @@ export default function BillingPage() {
           price: Math.round(discountedFee),
           originalPrice: estimate.surgeonFee,
           complexity: p.complexity,
-          description: `${p.category}${p.icdCode ? ` - ${p.icdCode}` : ''}`,
+          description: `${p.complexityLabel || p.category}${p.icdCode ? ` - ${p.icdCode}` : ''}`,
           isSurgical: true,
         };
       });
     }
     
-    // Standard categories
-    const services = procedurePricing[activeCategory as keyof typeof procedurePricing] || [];
-    return services.map(s => ({
-      ...s,
-      price: Math.round(s.price * (1 - globalDiscount / 100)),
-      originalPrice: s.price,
-      complexity: undefined as string | undefined,
-    }));
+    // If no matching category, return empty array
+    return [];
   }, [activeCategory, feeLevel, globalDiscount, serviceSearchQuery]);
 
   const invoiceTotal = useMemo(() => {

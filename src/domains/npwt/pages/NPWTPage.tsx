@@ -6,7 +6,8 @@
  * material tracking, and progress monitoring.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -90,15 +91,26 @@ type NPWTFormData = z.infer<typeof npwtFormSchema>;
 
 export default function NPWTPage() {
   const { user } = useAuth();
-  const [sessions, setSessions] = useState<NPWTSession[]>([]);
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [showNewSession, setShowNewSession] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCycle, setFilterCycle] = useState<'all' | '4_day' | '7_day'>('all');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showPatientSelector, setShowPatientSelector] = useState(false);
+
+  // Use useLiveQuery for reactive data - NPWT sessions
+  const sessions = useLiveQuery(
+    () => db.npwtSessions.toArray(),
+    []
+  );
+
+  // Use useLiveQuery for reactive data - active patients
+  const patients = useLiveQuery(
+    () => db.patients.filter(p => p.isActive === true).toArray(),
+    []
+  );
+
+  const isLoading = sessions === undefined || patients === undefined;
 
   // Agents checkboxes state
   const [agentsUsed, setAgentsUsed] = useState<NPWTAgentsUsed>({
@@ -145,26 +157,6 @@ export default function NPWTPage() {
   });
 
   const cycleType = watch('cycleType');
-
-  // Fetch data on mount
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch NPWT sessions from IndexedDB
-        const allSessions = await db.table('npwtSessions').toArray();
-        setSessions(allSessions as NPWTSession[]);
-
-        // Fetch active patients
-        const activePatients = await db.patients.filter(p => p.isActive === true).toArray();
-        setPatients(activePatients);
-      } catch (error) {
-        console.error('Error fetching NPWT data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
 
   // Handle image upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -261,13 +253,13 @@ export default function NPWTPage() {
       };
 
       // Save to database
-      await db.table('npwtSessions').add(newSession);
+      await db.npwtSessions.add(newSession);
       syncRecord('npwtSessions', newSession as unknown as Record<string, unknown>);
 
       // Schedule notification (would integrate with service worker)
       scheduleNotification(newSession);
 
-      setSessions(prev => [newSession, ...prev]);
+      // useLiveQuery automatically updates when db changes
       toast.success('NPWT session recorded successfully!');
       resetForm();
     } catch (error) {
@@ -309,9 +301,9 @@ export default function NPWTPage() {
     setShowNewSession(false);
   };
 
-  // Filter sessions
-  const filteredSessions = sessions.filter(session => {
-    const patient = patients.find(p => p.id === session.patientId);
+  // Filter sessions (with null safety for useLiveQuery)
+  const filteredSessions = (sessions || []).filter(session => {
+    const patient = (patients || []).find(p => p.id === session.patientId);
     const matchesSearch = !searchTerm || 
       patient?.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       patient?.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -321,7 +313,7 @@ export default function NPWTPage() {
   });
 
   // Get upcoming changes (within 48 hours)
-  const upcomingChanges = sessions.filter(session => {
+  const upcomingChanges = (sessions || []).filter(session => {
     const now = new Date();
     const changeDate = new Date(session.nextChangeDate);
     const hoursUntilChange = (changeDate.getTime() - now.getTime()) / (1000 * 60 * 60);
@@ -329,7 +321,7 @@ export default function NPWTPage() {
   });
 
   // Get overdue changes
-  const overdueChanges = sessions.filter(session => {
+  const overdueChanges = (sessions || []).filter(session => {
     const now = new Date();
     const changeDate = new Date(session.nextChangeDate);
     return changeDate < now;
