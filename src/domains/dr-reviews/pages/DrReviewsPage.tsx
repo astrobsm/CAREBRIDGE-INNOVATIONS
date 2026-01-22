@@ -118,7 +118,7 @@ export default function DrReviewsPage() {
 
           <div className="mt-6 text-center">
             <p className="text-xs text-gray-500">
-              Logged in as: <span className="font-semibold">{user?.name || 'Unknown'}</span>
+              Logged in as: <span className="font-semibold">{user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Unknown'}</span>
             </p>
           </div>
         </motion.div>

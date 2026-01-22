@@ -12,6 +12,7 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  extraDebugInfo: string | null;
 }
 
 class ErrorBoundary extends Component<Props, State> {
@@ -19,18 +20,39 @@ class ErrorBoundary extends Component<Props, State> {
     hasError: false,
     error: null,
     errorInfo: null,
+    extraDebugInfo: null,
   };
 
-  public static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): Partial<State> {
+    // Try to extract more info from the error message for React #310 errors
+    let extraDebugInfo: string | null = null;
+    
+    if (error?.message?.includes('Objects are not valid as a React child')) {
+      // Try to extract the object type from the error message
+      extraDebugInfo = `React Error #310 detected. This usually means a Date, Map, or plain object is being rendered directly. Check components that use useMemo or useLiveQuery hooks. Current URL: ${window.location.pathname}`;
+    }
+    
     return {
       hasError: true,
       error,
       errorInfo: null,
+      extraDebugInfo,
     };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[ErrorBoundary] Uncaught error:', error, errorInfo);
+    console.error('[ErrorBoundary] Component Stack:', errorInfo.componentStack);
+    
+    // Log additional context for React #310 errors
+    if (error?.message?.includes('Objects are not valid as a React child')) {
+      console.error('[ErrorBoundary] React #310 Error - Possible causes:');
+      console.error('  1. Rendering a Date object directly (use format() from date-fns)');
+      console.error('  2. Rendering a Map or Set object directly');
+      console.error('  3. Rendering a nested object without accessing its properties');
+      console.error('  4. Check the component stack above to find the source');
+    }
+    
     this.setState({
       error,
       errorInfo,
@@ -42,6 +64,7 @@ class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
+      extraDebugInfo: null,
     });
   };
 
@@ -79,10 +102,20 @@ class ErrorBoundary extends Component<Props, State> {
                   </p>
                 </div>
 
-                {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+                {/* Extra debug info for React #310 errors */}
+                {this.state.extraDebugInfo && (
+                  <div className="mt-4 bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p className="text-sm font-semibold text-amber-800 mb-2">Debug Info:</p>
+                    <p className="text-sm text-amber-700">
+                      {this.state.extraDebugInfo}
+                    </p>
+                  </div>
+                )}
+
+                {this.state.errorInfo && (
                   <details className="mt-4">
                     <summary className="cursor-pointer text-sm font-semibold text-gray-700 hover:text-gray-900">
-                      Stack Trace (Development Only)
+                      Stack Trace
                     </summary>
                     <pre className="mt-2 text-xs bg-gray-100 p-4 rounded overflow-auto max-h-64">
                       {this.state.errorInfo.componentStack}

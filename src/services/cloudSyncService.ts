@@ -969,10 +969,11 @@ function convertFromSupabase(record: Record<string, unknown>): Record<string, un
     
     let value = record[key];
     
-    // Convert date strings to Date objects
-    if (typeof value === 'string' && isDateField(camelKey)) {
-      value = new Date(value);
-    }
+    // NOTE: We intentionally do NOT convert date strings to Date objects here.
+    // Date strings are kept as ISO strings for consistency across the app.
+    // Components should use new Date(stringDate) when they need to format dates.
+    // This prevents React error #310 ("Objects are not valid as a React child")
+    // if a Date object accidentally gets rendered directly.
     
     result[camelKey] = value;
   }
