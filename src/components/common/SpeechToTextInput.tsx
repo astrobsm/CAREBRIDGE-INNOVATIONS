@@ -18,57 +18,12 @@ import {
   AlertCircle,
   X,
 } from 'lucide-react';
-
-// Web Speech API types
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-  resultIndex: number;
-}
-
-interface SpeechRecognitionResultList {
-  length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionResult {
-  isFinal: boolean;
-  length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-  message: string;
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  maxAlternatives: number;
-  onstart: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onend: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void) | null;
-  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void) | null;
-  onspeechend: ((this: SpeechRecognition, ev: Event) => void) | null;
-  start(): void;
-  stop(): void;
-  abort(): void;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition: new () => SpeechRecognition;
-    webkitSpeechRecognition: new () => SpeechRecognition;
-  }
-}
+import type { 
+  SpeechRecognition, 
+  SpeechRecognitionEvent, 
+  SpeechRecognitionErrorEvent 
+} from '../../types/webSpeech';
+import { isSpeechRecognitionSupported, getSpeechRecognitionConstructor } from '../../types/webSpeech';
 
 interface SpeechToTextInputProps {
   /** Current value of the text field */
@@ -102,12 +57,6 @@ interface SpeechToTextInputProps {
   /** Auto-restart recording when it stops */
   autoRestart?: boolean;
 }
-
-// Check if speech recognition is available
-const isSpeechRecognitionSupported = () => {
-  return typeof window !== 'undefined' && 
-    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
-};
 
 export interface SpeechToTextInputRef {
   startListening: () => void;
@@ -167,7 +116,9 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     if (isInitializedRef.current) return;
     isInitializedRef.current = true;
 
-    const SpeechRecognitionConstructor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognitionConstructor = getSpeechRecognitionConstructor();
+    if (!SpeechRecognitionConstructor) return;
+    
     const recognition = new SpeechRecognitionConstructor();
     
     recognition.continuous = true;

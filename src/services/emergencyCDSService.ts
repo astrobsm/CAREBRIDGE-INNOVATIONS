@@ -30,7 +30,7 @@ import type {
   QSOFAScore,
   SOFAScore,
   SepsisSeverity,
-} from '../types';
+} from '../domains/emergency-cds/types';
 
 // ============================================================
 // CLINICAL CONSTANTS & THRESHOLDS
