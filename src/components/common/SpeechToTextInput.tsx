@@ -134,19 +134,29 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
 }, ref) => {
   // Use refs to store values that need to persist across renders
   const currentValueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isInitializedRef = useRef(false);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoRestartRef = useRef(autoRestart);
   
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
   const [recognitionError, setRecognitionError] = useState<string | null>(null);
 
-  // Keep the ref in sync with the value prop
+  // Keep refs in sync with latest props
   useEffect(() => {
     currentValueRef.current = value;
   }, [value]);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    autoRestartRef.current = autoRestart;
+  }, [autoRestart]);
 
   // Initialize speech recognition
   useEffect(() => {
@@ -168,6 +178,8 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     recognition.onstart = () => {
       setIsListening(true);
       setRecognitionError(null);
+      // Sync the current value ref when starting - this is critical!
+      // The value might have changed since last recognition
     };
 
     recognition.onend = () => {
@@ -175,19 +187,20 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
       // Commit any pending interim transcript
       setInterimTranscript(prev => {
         if (prev) {
-          const spacer = currentValueRef.current && 
-            !currentValueRef.current.endsWith(' ') && 
-            !currentValueRef.current.endsWith('.') && 
-            !currentValueRef.current.endsWith(',') ? ' ' : '';
-          const newValue = currentValueRef.current + spacer + prev;
+          const currentVal = currentValueRef.current || '';
+          const spacer = currentVal && 
+            !currentVal.endsWith(' ') && 
+            !currentVal.endsWith('.') && 
+            !currentVal.endsWith(',') ? ' ' : '';
+          const newValue = currentVal + spacer + prev;
           currentValueRef.current = newValue;
-          onChange(newValue);
+          onChangeRef.current(newValue);
         }
         return '';
       });
       
       // Auto-restart if enabled and no error
-      if (autoRestart && recognitionRef.current) {
+      if (autoRestartRef.current && recognitionRef.current) {
         restartTimeoutRef.current = setTimeout(() => {
           try {
             recognitionRef.current?.start();
@@ -244,13 +257,14 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
 
       if (finalTranscript) {
         // Immediately append final transcript to the stored value
-        const spacer = currentValueRef.current && 
-          !currentValueRef.current.endsWith(' ') && 
-          !currentValueRef.current.endsWith('.') && 
-          !currentValueRef.current.endsWith(',') ? ' ' : '';
-        const newValue = currentValueRef.current + spacer + finalTranscript;
+        const currentVal = currentValueRef.current || '';
+        const spacer = currentVal && 
+          !currentVal.endsWith(' ') && 
+          !currentVal.endsWith('.') && 
+          !currentVal.endsWith(',') ? ' ' : '';
+        const newValue = currentVal + spacer + finalTranscript;
         currentValueRef.current = newValue;
-        onChange(newValue);
+        onChangeRef.current(newValue);
       }
       
       setInterimTranscript(interim);
@@ -270,7 +284,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         }
       }
     };
-  }, [onChange, autoRestart]);
+  }, []); // No dependencies - uses refs for all dynamic values
 
   // Start/stop listening
   const startListening = useCallback(() => {
