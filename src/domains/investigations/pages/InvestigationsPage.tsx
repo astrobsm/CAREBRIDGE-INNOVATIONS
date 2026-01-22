@@ -28,6 +28,7 @@ import {
   ChevronDown,
   ChevronUp,
   FlaskConical,
+  Scan,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -45,6 +46,7 @@ import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { HospitalSelector } from '../../../components/hospital';
+import { OCRScanner } from '../../../components/common';
 import type { Investigation, InvestigationResult } from '../../../types';
 
 // Investigation category type for type safety
@@ -167,6 +169,8 @@ export default function InvestigationsPage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [resultValues, setResultValues] = useState<Record<string, string>>({});
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [showOCRScanner, setShowOCRScanner] = useState(false);
+  const [ocrExtractedText, setOcrExtractedText] = useState<string>('');
 
   // Fetch data
   const hospitals = useLiveQuery(() => db.hospitals.where('isActive').equals(1).toArray(), []);
@@ -968,9 +972,58 @@ export default function InvestigationsPage() {
               </div>
 
               <div className="p-6 space-y-6">
+                {/* OCR Scanner Toggle */}
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-gray-900">Enter Results</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowOCRScanner(!showOCRScanner)}
+                    className="btn btn-sm btn-secondary flex items-center gap-2"
+                  >
+                    <Scan size={16} />
+                    {showOCRScanner ? 'Hide Scanner' : 'Scan Report'}
+                  </button>
+                </div>
+                
+                {/* OCR Scanner for Imaging/Lab Reports */}
+                {showOCRScanner && (
+                  <div className="mb-4">
+                    <OCRScanner
+                      onTextExtracted={(text) => {
+                        setOcrExtractedText(text);
+                        toast.success('Report scanned successfully! Review the extracted text below.');
+                      }}
+                      documentType={selectedInvestigation.category === 'imaging' ? 'imaging_report' : 'lab_report'}
+                    />
+                    {ocrExtractedText && (
+                      <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-gray-900">Extracted Report Text</h4>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOcrExtractedText('');
+                              setShowOCRScanner(false);
+                            }}
+                            className="text-sm text-gray-500 hover:text-gray-700"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                        <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono bg-white p-3 rounded border max-h-40 overflow-y-auto">
+                          {ocrExtractedText}
+                        </pre>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Copy values from the extracted text above to fill in the result fields below.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Parameter Inputs */}
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-3">Enter Results</h3>
+                  <h3 className="font-medium text-gray-900 mb-3">Result Values</h3>
                   <div className="grid grid-cols-2 gap-3">
                     {investigationCategories
                       .find(c => c.category === selectedInvestigation.category)

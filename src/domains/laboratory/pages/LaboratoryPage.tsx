@@ -25,6 +25,7 @@ import {
   Calendar,
   Droplets,
   Download,
+  Scan,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -32,6 +33,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { generateLabResultPDF, generateLabRequestFormPDF } from '../../../utils/clinicalPdfGenerators';
+import { OCRScanner } from '../../../components/common';
 import type { LabRequest, LabTest, LabCategory } from '../../../types';
 import { PatientSelector } from '../../../components/patient';
 
@@ -192,6 +194,8 @@ export default function LaboratoryPage() {
   const [selectedRequest, setSelectedRequest] = useState<LabRequest | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { result: string; isAbnormal: boolean; notes?: string }>>({});
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+  const [showOCRScanner, setShowOCRScanner] = useState(false);
+  const [ocrExtractedText, setOcrExtractedText] = useState<string>('');
 
   const labRequests = useLiveQuery(() => db.labRequests.orderBy('requestedAt').reverse().toArray(), []);
   const patients = useLiveQuery(() => db.patients.toArray(), []);
@@ -1089,10 +1093,56 @@ export default function LaboratoryPage() {
 
                 {/* Test Results Form */}
                 <div className="space-y-4">
-                  <h3 className="font-medium text-gray-900 flex items-center gap-2">
-                    <TestTube className="w-4 h-4 text-purple-500" />
-                    Enter Results for Each Test
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                      <TestTube className="w-4 h-4 text-purple-500" />
+                      Enter Results for Each Test
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowOCRScanner(!showOCRScanner)}
+                      className="btn btn-sm btn-secondary flex items-center gap-2"
+                    >
+                      <Scan size={16} />
+                      {showOCRScanner ? 'Hide Scanner' : 'Scan Lab Report'}
+                    </button>
+                  </div>
+                  
+                  {/* OCR Scanner for Lab Reports */}
+                  {showOCRScanner && (
+                    <div className="mb-4">
+                      <OCRScanner
+                        onTextExtracted={(text) => {
+                          setOcrExtractedText(text);
+                          toast.success('Lab report scanned! Review the extracted text below.');
+                        }}
+                        documentType="lab_report"
+                      />
+                      {ocrExtractedText && (
+                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium text-gray-900">Extracted Lab Results</h4>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOcrExtractedText('');
+                                setShowOCRScanner(false);
+                              }}
+                              className="text-sm text-gray-500 hover:text-gray-700"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono bg-white p-3 rounded border max-h-40 overflow-y-auto">
+                            {ocrExtractedText}
+                          </pre>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Copy values from the extracted text above to fill in the test results below.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   
                   {selectedRequest.tests.map((test) => (
                     <div key={test.id} className="p-4 border rounded-lg bg-white hover:bg-gray-50">

@@ -12,6 +12,7 @@ import {
   addSectionTitle,
   formatNairaPDF,
   checkNewPage,
+  addLogoWatermark,
   PDF_COLORS,
   type PDFDocumentInfo,
   type PDFPatientInfo,
@@ -77,6 +78,13 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background for the entire page
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // Add logo watermark
+  addLogoWatermark(doc, 0.06);
 
   // CRITICAL: Ensure white background for the entire page
   doc.setFillColor(...PDF_COLORS.white);

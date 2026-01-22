@@ -462,8 +462,8 @@ async function pullAllFromCloud(): Promise<void> {
   // Preoperative Assessments
   await pullTable(TABLES.preoperativeAssessments, 'preoperativeAssessments');
   
-  // Audit Logs (for accountability across devices)
-  await pullTable(TABLES.auditLogs, 'auditLogs');
+  // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
+  await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
 }
 
 // Push all local data to cloud
@@ -572,14 +572,14 @@ async function pushAllToCloud(): Promise<void> {
 }
 
 // Pull a single table from cloud
-async function pullTable(cloudTableName: string, localTableName: string): Promise<void> {
+async function pullTable(cloudTableName: string, localTableName: string, orderColumn: string = 'updated_at'): Promise<void> {
   if (!supabase) return;
 
   try {
     const { data, error } = await supabase
       .from(cloudTableName)
       .select('*')
-      .order('updated_at', { ascending: false });
+      .order(orderColumn, { ascending: false });
 
     if (error) {
       console.warn(`[CloudSync] Error pulling ${cloudTableName}:`, error.message, error.code, error.details);

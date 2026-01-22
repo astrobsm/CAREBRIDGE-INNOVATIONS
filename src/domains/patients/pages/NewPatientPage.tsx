@@ -102,18 +102,18 @@ const patientSchema = z.object({
   phone: z.string().min(10, 'Phone number must be at least 10 digits'),
   alternatePhone: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
-  address: z.string().min(5, 'Address is required'),
-  city: z.string().min(2, 'City is required'),
-  state: z.string().min(2, 'State is required'),
+  address: z.string().optional(), // Made optional
+  city: z.string().optional(), // Made optional
+  state: z.string().optional(), // Made optional
   occupation: z.string().optional(),
   religion: z.string().optional(),
   tribe: z.string().optional(),
   allergies: z.string().optional(),
   chronicConditions: z.string().optional(),
-  nextOfKinName: z.string().min(2, 'Next of kin name is required'),
-  nextOfKinRelationship: z.string().min(2, 'Relationship is required'),
-  nextOfKinPhone: z.string().min(10, 'Next of kin phone number is required'),
-  nextOfKinAddress: z.string().min(5, 'Next of kin address is required'),
+  nextOfKinName: z.string().optional(), // Made optional
+  nextOfKinRelationship: z.string().optional(), // Made optional
+  nextOfKinPhone: z.string().optional(), // Made optional
+  nextOfKinAddress: z.string().optional(), // Made optional
   // Care type and hospital fields
   careType: z.enum(['home_care', 'hospital']),
   hospitalId: z.string().optional(),
@@ -283,14 +283,9 @@ export default function NewPatientPage() {
     };
   };
 
-  // Validate risk assessments before submit
+  // Validate risk assessments before submit - now optional
   const validateRiskAssessments = (): boolean => {
-    // Check if Braden scores are all filled
-    const bradenComplete = Object.values(bradenScores).every(score => score > 0);
-    if (!bradenComplete) {
-      toast.error('Please complete all Pressure Sore Risk Assessment (Braden Scale) fields');
-      return false;
-    }
+    // Risk assessments are now optional, no validation required
     return true;
   };
 
@@ -630,27 +625,25 @@ export default function NewPatientPage() {
           <div className="card-header flex items-center gap-3">
             <MapPin className="w-5 h-5 text-sky-500" />
             <h2 className="font-semibold text-gray-900">Address</h2>
+            <span className="text-xs text-gray-500">(Optional)</span>
           </div>
           <div className="card-body form-grid-2">
             <div className="sm:col-span-2">
-              <label className="label">Street Address *</label>
-              <input {...register('address')} className={`input ${errors.address ? 'input-error' : ''}`} />
-              {errors.address && <p className="text-sm text-red-500 mt-1">{errors.address.message}</p>}
+              <label className="label">Street Address</label>
+              <input {...register('address')} className="input" />
             </div>
             <div>
-              <label className="label">City *</label>
-              <input {...register('city')} className={`input ${errors.city ? 'input-error' : ''}`} />
-              {errors.city && <p className="text-sm text-red-500 mt-1">{errors.city.message}</p>}
+              <label className="label">City</label>
+              <input {...register('city')} className="input" />
             </div>
             <div>
-              <label className="label">State *</label>
-              <select {...register('state')} className={`input ${errors.state ? 'input-error' : ''}`}>
+              <label className="label">State</label>
+              <select {...register('state')} className="input">
                 <option value="">Select state</option>
                 {nigerianStates.map((state) => (
                   <option key={state} value={state}>{state}</option>
                 ))}
               </select>
-              {errors.state && <p className="text-sm text-red-500 mt-1">{errors.state.message}</p>}
             </div>
           </div>
         </motion.div>
@@ -680,12 +673,12 @@ export default function NewPatientPage() {
           </div>
         </motion.div>
 
-        {/* DVT Risk Assessment (Caprini Score) - COMPULSORY */}
+        {/* DVT Risk Assessment (Caprini Score) - OPTIONAL */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
-          className="card card-compact border-2 border-orange-200"
+          className="card card-compact border border-orange-200"
         >
           <div 
             className="card-header flex items-center justify-between cursor-pointer"
@@ -694,8 +687,8 @@ export default function NewPatientPage() {
             <div className="flex items-center gap-3">
               <Activity className="w-5 h-5 text-orange-500" />
               <div>
-                <h2 className="font-semibold text-gray-900">DVT Risk Assessment (Caprini Score) *</h2>
-                <p className="text-xs text-gray-500">Required for all patients</p>
+                <h2 className="font-semibold text-gray-900">DVT Risk Assessment (Caprini Score)</h2>
+                <p className="text-xs text-gray-500">Optional - Recommended for surgical patients</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -791,12 +784,12 @@ export default function NewPatientPage() {
           )}
         </motion.div>
 
-        {/* Pressure Sore Risk Assessment (Braden Scale) - COMPULSORY */}
+        {/* Pressure Sore Risk Assessment (Braden Scale) - OPTIONAL */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="card card-compact border-2 border-purple-200"
+          className="card card-compact border border-purple-200"
         >
           <div 
             className="card-header flex items-center justify-between cursor-pointer"
@@ -805,8 +798,8 @@ export default function NewPatientPage() {
             <div className="flex items-center gap-3">
               <ShieldAlert className="w-5 h-5 text-purple-500" />
               <div>
-                <h2 className="font-semibold text-gray-900">Pressure Sore Risk (Braden Scale) *</h2>
-                <p className="text-xs text-gray-500">Required for all patients</p>
+                <h2 className="font-semibold text-gray-900">Pressure Sore Risk (Braden Scale)</h2>
+                <p className="text-xs text-gray-500">Optional - Recommended for bedridden patients</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -971,12 +964,12 @@ export default function NewPatientPage() {
           )}
         </motion.div>
 
-        {/* Comorbidities - COMPULSORY */}
+        {/* Comorbidities - OPTIONAL */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45 }}
-          className="card card-compact border-2 border-blue-200"
+          className="card card-compact border border-blue-200"
         >
           <div 
             className="card-header flex items-center justify-between cursor-pointer"
@@ -985,8 +978,8 @@ export default function NewPatientPage() {
             <div className="flex items-center gap-3">
               <Stethoscope className="w-5 h-5 text-blue-500" />
               <div>
-                <h2 className="font-semibold text-gray-900">Comorbidities *</h2>
-                <p className="text-xs text-gray-500">Select all existing medical conditions</p>
+                <h2 className="font-semibold text-gray-900">Comorbidities</h2>
+                <p className="text-xs text-gray-500">Optional - Select pre-existing medical conditions</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -1082,7 +1075,7 @@ export default function NewPatientPage() {
           )}
         </motion.div>
 
-        {/* Next of Kin */}
+        {/* Next of Kin - OPTIONAL */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1092,27 +1085,24 @@ export default function NewPatientPage() {
           <div className="card-header flex items-center gap-3">
             <Heart className="w-5 h-5 text-sky-500" />
             <h2 className="font-semibold text-gray-900">Next of Kin</h2>
+            <span className="text-xs text-gray-500">(Optional)</span>
           </div>
           <div className="card-body form-grid-2">
             <div>
-              <label className="label">Full Name *</label>
-              <input {...register('nextOfKinName')} className={`input ${errors.nextOfKinName ? 'input-error' : ''}`} />
-              {errors.nextOfKinName && <p className="text-sm text-red-500 mt-1">{errors.nextOfKinName.message}</p>}
+              <label className="label">Full Name</label>
+              <input {...register('nextOfKinName')} className="input" />
             </div>
             <div>
-              <label className="label">Relationship *</label>
-              <input {...register('nextOfKinRelationship')} className={`input ${errors.nextOfKinRelationship ? 'input-error' : ''}`} placeholder="e.g., Spouse, Parent, Sibling" />
-              {errors.nextOfKinRelationship && <p className="text-sm text-red-500 mt-1">{errors.nextOfKinRelationship.message}</p>}
+              <label className="label">Relationship</label>
+              <input {...register('nextOfKinRelationship')} className="input" placeholder="e.g., Spouse, Parent, Sibling" />
             </div>
             <div>
-              <label className="label">Phone Number *</label>
-              <input {...register('nextOfKinPhone')} type="tel" className={`input ${errors.nextOfKinPhone ? 'input-error' : ''}`} />
-              {errors.nextOfKinPhone && <p className="text-sm text-red-500 mt-1">{errors.nextOfKinPhone.message}</p>}
+              <label className="label">Phone Number</label>
+              <input {...register('nextOfKinPhone')} type="tel" className="input" />
             </div>
             <div className="sm:col-span-2">
-              <label className="label">Address *</label>
-              <input {...register('nextOfKinAddress')} className={`input ${errors.nextOfKinAddress ? 'input-error' : ''}`} />
-              {errors.nextOfKinAddress && <p className="text-sm text-red-500 mt-1">{errors.nextOfKinAddress.message}</p>}
+              <label className="label">Address</label>
+              <input {...register('nextOfKinAddress')} className="input" />
             </div>
           </div>
         </motion.div>

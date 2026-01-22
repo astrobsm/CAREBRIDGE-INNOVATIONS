@@ -26,6 +26,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
+import { VoiceDictation } from '../../../components/common';
 import type { Admission, Patient } from '../../../types';
 
 const amaFormSchema = z.object({
@@ -102,6 +103,12 @@ export default function AMADischargeForm({ admission, patient, onClose, onComple
 
   const formValues = watch();
   void formValues; // Reserved for form validation display
+  
+  // Watch values for VoiceDictation
+  const patientStatement = watch('patientStatement') || '';
+  const reasonsForLeaving = watch('reasonsForLeaving') || '';
+  const alternativesOffered = watch('alternativesOffered') || '';
+  const followUpInstructions = watch('followUpInstructions') || '';
 
   const toggleRisk = (risk: string) => {
     const newRisks = selectedRisks.includes(risk)
@@ -266,15 +273,15 @@ export default function AMADischargeForm({ admission, patient, onClose, onComple
                 <FileText size={16} className="text-gray-500" />
                 Patient's Statement *
               </label>
-              <textarea
-                {...register('patientStatement')}
-                className="input w-full"
-                rows={3}
+              <VoiceDictation
+                value={patientStatement}
+                onChange={(value) => setValue('patientStatement', value)}
                 placeholder="I, [patient name], hereby state that I have decided to leave [hospital name] against the advice of my doctors..."
+                rows={3}
+                medicalContext="clinical_notes"
+                showAIEnhance={true}
+                error={errors.patientStatement?.message}
               />
-              {errors.patientStatement && (
-                <p className="text-red-500 text-sm">{errors.patientStatement.message}</p>
-              )}
             </div>
 
             {/* Reasons for Leaving */}
@@ -283,15 +290,15 @@ export default function AMADischargeForm({ admission, patient, onClose, onComple
                 <User size={16} className="text-gray-500" />
                 Reasons for Leaving Against Medical Advice *
               </label>
-              <textarea
-                {...register('reasonsForLeaving')}
-                className="input w-full"
-                rows={2}
+              <VoiceDictation
+                value={reasonsForLeaving}
+                onChange={(value) => setValue('reasonsForLeaving', value)}
                 placeholder="Document patient's stated reasons for leaving..."
+                rows={2}
+                medicalContext="clinical_notes"
+                showAIEnhance={true}
+                error={errors.reasonsForLeaving?.message}
               />
-              {errors.reasonsForLeaving && (
-                <p className="text-red-500 text-sm">{errors.reasonsForLeaving.message}</p>
-              )}
             </div>
 
             {/* Risks Explained */}
@@ -349,15 +356,15 @@ export default function AMADischargeForm({ admission, patient, onClose, onComple
                 <Shield size={16} className="text-gray-500" />
                 Alternatives Offered to Patient *
               </label>
-              <textarea
-                {...register('alternativesOffered')}
-                className="input w-full"
-                rows={2}
+              <VoiceDictation
+                value={alternativesOffered}
+                onChange={(value) => setValue('alternativesOffered', value)}
                 placeholder="Document alternatives offered (e.g., continued hospitalization, outpatient treatment, transfer to another facility)..."
+                rows={2}
+                medicalContext="clinical_notes"
+                showAIEnhance={true}
+                error={errors.alternativesOffered?.message}
               />
-              {errors.alternativesOffered && (
-                <p className="text-red-500 text-sm">{errors.alternativesOffered.message}</p>
-              )}
             </div>
 
             {/* Acknowledgments */}
@@ -473,11 +480,13 @@ export default function AMADischargeForm({ admission, patient, onClose, onComple
             {/* Follow-up Instructions */}
             <div className="space-y-2">
               <label className="label">Follow-up Instructions (if accepted by patient)</label>
-              <textarea
-                {...register('followUpInstructions')}
-                className="input w-full"
-                rows={2}
+              <VoiceDictation
+                value={followUpInstructions}
+                onChange={(value) => setValue('followUpInstructions', value)}
                 placeholder="Any follow-up care instructions provided to the patient..."
+                rows={2}
+                medicalContext="discharge"
+                showAIEnhance={true}
               />
             </div>
 

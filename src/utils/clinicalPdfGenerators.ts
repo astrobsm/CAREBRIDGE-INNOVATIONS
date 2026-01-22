@@ -10,6 +10,8 @@ import {
   addPatientInfoBox,
   addSectionTitle,
   checkNewPage,
+  addLogoWatermark,
+  addWatermarkToAllPages,
   PDF_COLORS,
   type PDFDocumentInfo,
   type PDFPatientInfo,
@@ -72,6 +74,9 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
   // CRITICAL: Ensure white background
   doc.setFillColor(...PDF_COLORS.white);
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // Add logo watermark
+  addLogoWatermark(doc, 0.06);
 
   const info: PDFDocumentInfo = {
     title: 'LABORATORY REPORT',

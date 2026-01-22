@@ -27,6 +27,7 @@ import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { createPostOperativeNote } from '../../../services/postOperativeNoteService';
 import { syncRecord } from '../../../services/cloudSyncService';
+import { VoiceDictation } from '../../../components/common';
 import type { PostoperativeMedication } from '../../../types';
 
 // Form schema
@@ -124,6 +125,7 @@ export default function PostOpNoteFormPage() {
     handleSubmit,
     control,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<PostOpNoteFormData>({
     resolver: zodResolver(postOpNoteSchema),
@@ -169,6 +171,14 @@ export default function PostOpNoteFormPage() {
   const monitoringInstructions = watch('monitoringInstructions') || [];
   const warningSigns = watch('warningSigns') || [];
   const whenToSeekHelp = watch('whenToSeekHelp') || [];
+  
+  // Watch values for VoiceDictation
+  const indication = watch('indication') || '';
+  const procedurePerformed = watch('procedurePerformed') || '';
+  const findings = watch('findings') || '';
+  const drainCare = watch('drainCare') || '';
+  const catheterCare = watch('catheterCare') || '';
+  const followUpInstructions = watch('followUpInstructions') || '';
 
   // Harmonize medications with existing chart
   const harmonizeMedications = async (postOpMedications: PostoperativeMedication[]) => {
@@ -401,27 +411,39 @@ export default function PostOpNoteFormPage() {
               )}
             </div>
             <div className="md:col-span-2">
-              <label className="label">Indication *</label>
-              <textarea
-                {...register('indication')}
+              <VoiceDictation
+                label="Indication *"
+                value={indication}
+                onChange={(value) => setValue('indication', value)}
+                placeholder="Indicate reason for surgery..."
                 rows={2}
-                className={`input ${errors.indication ? 'input-error' : ''}`}
+                medicalContext="surgical_notes"
+                showAIEnhance={true}
+                error={errors.indication?.message}
               />
             </div>
             <div className="md:col-span-2">
-              <label className="label">Procedure Performed *</label>
-              <textarea
-                {...register('procedurePerformed')}
+              <VoiceDictation
+                label="Procedure Performed *"
+                value={procedurePerformed}
+                onChange={(value) => setValue('procedurePerformed', value)}
+                placeholder="Describe the procedure performed..."
                 rows={2}
-                className={`input ${errors.procedurePerformed ? 'input-error' : ''}`}
+                medicalContext="intraoperative"
+                showAIEnhance={true}
+                error={errors.procedurePerformed?.message}
               />
             </div>
             <div className="md:col-span-2">
-              <label className="label">Intraoperative Findings *</label>
-              <textarea
-                {...register('findings')}
+              <VoiceDictation
+                label="Intraoperative Findings *"
+                value={findings}
+                onChange={(value) => setValue('findings', value)}
+                placeholder="Describe surgical findings..."
                 rows={3}
-                className={`input ${errors.findings ? 'input-error' : ''}`}
+                medicalContext="intraoperative"
+                showAIEnhance={true}
+                error={errors.findings?.message}
               />
             </div>
             <div>
@@ -602,12 +624,26 @@ export default function PostOpNoteFormPage() {
               <input {...register('ivFluids')} className="input" placeholder="e.g., Normal Saline 1L over 8 hours" />
             </div>
             <div className="md:col-span-2">
-              <label className="label">Drain Care</label>
-              <textarea {...register('drainCare')} rows={2} className="input" />
+              <VoiceDictation
+                label="Drain Care"
+                value={drainCare}
+                onChange={(value) => setValue('drainCare', value)}
+                placeholder="Describe drain care instructions..."
+                rows={2}
+                medicalContext="postoperative"
+                showAIEnhance={true}
+              />
             </div>
             <div className="md:col-span-2">
-              <label className="label">Catheter Care</label>
-              <textarea {...register('catheterCare')} rows={2} className="input" />
+              <VoiceDictation
+                label="Catheter Care"
+                value={catheterCare}
+                onChange={(value) => setValue('catheterCare', value)}
+                placeholder="Describe catheter care instructions..."
+                rows={2}
+                medicalContext="postoperative"
+                showAIEnhance={true}
+              />
             </div>
           </div>
 
@@ -758,8 +794,15 @@ export default function PostOpNoteFormPage() {
               <input type="date" {...register('followUpDate')} className="input" />
             </div>
             <div className="md:col-span-2">
-              <label className="label">Follow-up Instructions</label>
-              <textarea {...register('followUpInstructions')} rows={2} className="input" />
+              <VoiceDictation
+                label="Follow-up Instructions"
+                value={followUpInstructions}
+                onChange={(value) => setValue('followUpInstructions', value)}
+                placeholder="Describe follow-up care instructions..."
+                rows={2}
+                medicalContext="postoperative"
+                showAIEnhance={true}
+              />
             </div>
             <div>
               <label className="label">Suture Removal Date</label>

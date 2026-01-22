@@ -30,6 +30,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
+import { VoiceDictation } from '../../../components/common';
 import type { Admission, Patient, DischargeSummary, DischargeMedication, FollowUpAppointment } from '../../../types';
 import { generateDischargeSummaryPDF } from '../../../utils/dischargePdfGenerator';
 
@@ -124,6 +125,7 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
     handleSubmit,
     control,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<DischargeFormData>({
     resolver: zodResolver(dischargeFormSchema),
@@ -162,6 +164,14 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
   });
 
   const formValues = watch();
+  
+  // Watch values for VoiceDictation
+  const hospitalCourse = watch('hospitalCourse') || '';
+  const proceduresPerformed = watch('proceduresPerformed') || '';
+  const dietaryInstructions = watch('dietaryInstructions') || '';
+  const activityRestrictions = watch('activityRestrictions') || '';
+  const woundCareInstructions = watch('woundCareInstructions') || '';
+  const warningSignsToWatch = watch('warningSignsToWatch') || '';
 
   const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 6));
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
@@ -459,24 +469,26 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
 
                 <div>
                   <label className="label">Hospital Course Summary *</label>
-                  <textarea
-                    {...register('hospitalCourse')}
-                    className="input w-full"
-                    rows={6}
+                  <VoiceDictation
+                    value={hospitalCourse}
+                    onChange={(value) => setValue('hospitalCourse', value)}
                     placeholder="Detailed summary of patient's hospital stay, treatments given, response to treatment, complications if any..."
+                    rows={6}
+                    medicalContext="discharge"
+                    showAIEnhance={true}
+                    error={errors.hospitalCourse?.message}
                   />
-                  {errors.hospitalCourse && (
-                    <p className="text-red-500 text-sm mt-1">{errors.hospitalCourse.message}</p>
-                  )}
                 </div>
 
                 <div>
                   <label className="label">Procedures Performed (one per line)</label>
-                  <textarea
-                    {...register('proceduresPerformed')}
-                    className="input w-full"
-                    rows={3}
+                  <VoiceDictation
+                    value={proceduresPerformed}
+                    onChange={(value) => setValue('proceduresPerformed', value)}
                     placeholder="List any surgeries or procedures performed..."
+                    rows={3}
+                    medicalContext="surgical_notes"
+                    showAIEnhance={true}
                   />
                 </div>
 
@@ -630,51 +642,53 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
 
                 <div>
                   <label className="label">Dietary Instructions *</label>
-                  <textarea
-                    {...register('dietaryInstructions')}
-                    className="input w-full"
-                    rows={2}
+                  <VoiceDictation
+                    value={dietaryInstructions}
+                    onChange={(value) => setValue('dietaryInstructions', value)}
                     placeholder="Specific dietary recommendations or restrictions"
+                    rows={2}
+                    medicalContext="discharge"
+                    showAIEnhance={true}
+                    error={errors.dietaryInstructions?.message}
                   />
-                  {errors.dietaryInstructions && (
-                    <p className="text-red-500 text-sm mt-1">{errors.dietaryInstructions.message}</p>
-                  )}
                 </div>
 
                 <div>
                   <label className="label">Activity Restrictions *</label>
-                  <textarea
-                    {...register('activityRestrictions')}
-                    className="input w-full"
-                    rows={2}
+                  <VoiceDictation
+                    value={activityRestrictions}
+                    onChange={(value) => setValue('activityRestrictions', value)}
                     placeholder="Physical activity guidelines and restrictions"
+                    rows={2}
+                    medicalContext="discharge"
+                    showAIEnhance={true}
+                    error={errors.activityRestrictions?.message}
                   />
-                  {errors.activityRestrictions && (
-                    <p className="text-red-500 text-sm mt-1">{errors.activityRestrictions.message}</p>
-                  )}
                 </div>
 
                 <div>
                   <label className="label">Wound Care Instructions</label>
-                  <textarea
-                    {...register('woundCareInstructions')}
-                    className="input w-full"
-                    rows={2}
+                  <VoiceDictation
+                    value={woundCareInstructions}
+                    onChange={(value) => setValue('woundCareInstructions', value)}
                     placeholder="Instructions for wound care if applicable"
+                    rows={2}
+                    medicalContext="wound_assessment"
+                    showAIEnhance={true}
                   />
                 </div>
 
                 <div>
                   <label className="label">Warning Signs to Watch For * (comma-separated)</label>
-                  <textarea
-                    {...register('warningSignsToWatch')}
-                    className="input w-full"
-                    rows={2}
+                  <VoiceDictation
+                    value={warningSignsToWatch}
+                    onChange={(value) => setValue('warningSignsToWatch', value)}
                     placeholder="Symptoms that require immediate medical attention"
+                    rows={2}
+                    medicalContext="discharge"
+                    showAIEnhance={true}
+                    error={errors.warningSignsToWatch?.message}
                   />
-                  {errors.warningSignsToWatch && (
-                    <p className="text-red-500 text-sm mt-1">{errors.warningSignsToWatch.message}</p>
-                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

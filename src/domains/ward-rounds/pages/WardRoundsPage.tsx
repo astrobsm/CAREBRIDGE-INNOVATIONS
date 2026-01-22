@@ -29,6 +29,7 @@ import { format, isToday, isTomorrow, isPast } from 'date-fns';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
+import { VoiceDictation } from '../../../components/common';
 import type { 
   WardRound, 
   DoctorPatientAssignment, 
@@ -208,6 +209,9 @@ export default function WardRoundsPage() {
   
   // Watch selected team members
   const selectedTeamMemberIds = roundForm.watch('teamMemberIds') || [];
+  
+  // Watch notes for VoiceDictation
+  const roundNotes = roundForm.watch('notes') || '';
 
   const doctorAssignForm = useForm<DoctorAssignmentFormData>({
     resolver: zodResolver(doctorAssignmentSchema),
@@ -216,6 +220,9 @@ export default function WardRoundsPage() {
       priority: 'routine',
     },
   });
+  
+  // Watch notes for VoiceDictation
+  const doctorAssignNotes = doctorAssignForm.watch('notes') || '';
 
   const nurseAssignForm = useForm<NurseAssignmentFormData>({
     resolver: zodResolver(nurseAssignmentSchema),
@@ -224,6 +231,9 @@ export default function WardRoundsPage() {
       careLevel: 'routine',
     },
   });
+  
+  // Watch notes for VoiceDictation
+  const nurseAssignNotes = nurseAssignForm.watch('notes') || '';
 
   // Handle creating ward round
   const handleCreateRound = async (data: WardRoundFormData) => {
@@ -982,7 +992,14 @@ export default function WardRoundsPage() {
 
                 <div>
                   <label className="label">Notes (Optional)</label>
-                  <textarea {...roundForm.register('notes')} className="input" rows={3} />
+                  <VoiceDictation
+                    value={roundNotes}
+                    onChange={(value) => roundForm.setValue('notes', value)}
+                    placeholder="Enter ward round notes..."
+                    rows={3}
+                    medicalContext="ward_round"
+                    showAIEnhance={true}
+                  />
                 </div>
 
                 <div className="flex gap-3 pt-4">
@@ -1134,7 +1151,14 @@ export default function WardRoundsPage() {
 
                 <div>
                   <label className="label">Notes (Optional)</label>
-                  <textarea {...doctorAssignForm.register('notes')} className="input" rows={2} />
+                  <VoiceDictation
+                    value={doctorAssignNotes}
+                    onChange={(value) => doctorAssignForm.setValue('notes', value)}
+                    placeholder="Enter assignment notes..."
+                    rows={2}
+                    medicalContext="clinical_notes"
+                    showAIEnhance={true}
+                  />
                 </div>
 
                 <div className="flex gap-3 pt-4">
@@ -1292,7 +1316,14 @@ export default function WardRoundsPage() {
 
                 <div>
                   <label className="label">Notes (Optional)</label>
-                  <textarea {...nurseAssignForm.register('notes')} className="input" rows={2} />
+                  <VoiceDictation
+                    value={nurseAssignNotes}
+                    onChange={(value) => nurseAssignForm.setValue('notes', value)}
+                    placeholder="Enter nursing notes..."
+                    rows={2}
+                    medicalContext="clinical_notes"
+                    showAIEnhance={true}
+                  />
                 </div>
 
                 <div className="flex gap-3 pt-4">

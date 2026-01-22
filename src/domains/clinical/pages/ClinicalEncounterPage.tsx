@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
+import { VoiceDictation } from '../../../components/common';
 import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination } from '../../../types';
 
 const encounterSchema = z.object({
@@ -72,6 +73,8 @@ export default function ClinicalEncounterPage() {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<EncounterFormData>({
     resolver: zodResolver(encounterSchema),
@@ -79,6 +82,16 @@ export default function ClinicalEncounterPage() {
       type: 'outpatient',
     },
   });
+
+  // Watch form values for VoiceDictation
+  const chiefComplaint = watch('chiefComplaint') || '';
+  const historyOfPresentIllness = watch('historyOfPresentIllness') || '';
+  const pastMedicalHistory = watch('pastMedicalHistory') || '';
+  const pastSurgicalHistory = watch('pastSurgicalHistory') || '';
+  const familyHistory = watch('familyHistory') || '';
+  const socialHistory = watch('socialHistory') || '';
+  const treatmentPlan = watch('treatmentPlan') || '';
+  const notes = watch('notes') || '';
 
   const addDiagnosis = () => {
     if (newDiagnosis.description.trim()) {
@@ -252,16 +265,17 @@ export default function ClinicalEncounterPage() {
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label className="label">Chief Complaint *</label>
-                <textarea
-                  {...register('chiefComplaint')}
-                  rows={2}
-                  className={`input ${errors.chiefComplaint ? 'input-error' : ''}`}
+                <VoiceDictation
+                  label="Chief Complaint *"
+                  value={chiefComplaint}
+                  onChange={(value) => setValue('chiefComplaint', value)}
                   placeholder="What brings the patient in today?"
+                  rows={2}
+                  medicalContext="clinical_notes"
+                  showAIEnhance={true}
+                  required={true}
+                  error={errors.chiefComplaint?.message}
                 />
-                {errors.chiefComplaint && (
-                  <p className="text-sm text-red-500 mt-1">{errors.chiefComplaint.message}</p>
-                )}
               </div>
             </div>
           </div>
@@ -315,51 +329,51 @@ export default function ClinicalEncounterPage() {
               <h2 className="font-semibold text-gray-900">Clinical History</h2>
             </div>
             <div className="card-body space-y-4">
-              <div>
-                <label className="label">History of Present Illness</label>
-                <textarea
-                  {...register('historyOfPresentIllness')}
-                  rows={4}
-                  className="input"
-                  placeholder="Describe the onset, duration, character, and progression of symptoms..."
-                />
-              </div>
-              <div>
-                <label className="label">Past Medical History</label>
-                <textarea
-                  {...register('pastMedicalHistory')}
-                  rows={3}
-                  className="input"
-                  placeholder="Previous medical conditions, hospitalizations, chronic diseases..."
-                />
-              </div>
-              <div>
-                <label className="label">Past Surgical History</label>
-                <textarea
-                  {...register('pastSurgicalHistory')}
-                  rows={2}
-                  className="input"
-                  placeholder="Previous surgeries with dates and outcomes..."
-                />
-              </div>
-              <div>
-                <label className="label">Family History</label>
-                <textarea
-                  {...register('familyHistory')}
-                  rows={2}
-                  className="input"
-                  placeholder="Relevant family medical history..."
-                />
-              </div>
-              <div>
-                <label className="label">Social History</label>
-                <textarea
-                  {...register('socialHistory')}
-                  rows={2}
-                  className="input"
-                  placeholder="Smoking, alcohol, occupation, living situation..."
-                />
-              </div>
+              <VoiceDictation
+                label="History of Present Illness"
+                value={historyOfPresentIllness}
+                onChange={(value) => setValue('historyOfPresentIllness', value)}
+                placeholder="Describe the onset, duration, character, and progression of symptoms..."
+                rows={4}
+                medicalContext="patient_history"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Past Medical History"
+                value={pastMedicalHistory}
+                onChange={(value) => setValue('pastMedicalHistory', value)}
+                placeholder="Previous medical conditions, hospitalizations, chronic diseases..."
+                rows={3}
+                medicalContext="patient_history"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Past Surgical History"
+                value={pastSurgicalHistory}
+                onChange={(value) => setValue('pastSurgicalHistory', value)}
+                placeholder="Previous surgeries with dates and outcomes..."
+                rows={2}
+                medicalContext="patient_history"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Family History"
+                value={familyHistory}
+                onChange={(value) => setValue('familyHistory', value)}
+                placeholder="Relevant family medical history..."
+                rows={2}
+                medicalContext="patient_history"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Social History"
+                value={socialHistory}
+                onChange={(value) => setValue('socialHistory', value)}
+                placeholder="Smoking, alcohol, occupation, living situation..."
+                rows={2}
+                medicalContext="patient_history"
+                showAIEnhance={true}
+              />
             </div>
           </motion.div>
         )}
@@ -375,106 +389,96 @@ export default function ClinicalEncounterPage() {
               <h2 className="font-semibold text-gray-900">Physical Examination</h2>
             </div>
             <div className="card-body grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label">General Appearance</label>
-                <textarea
-                  value={physicalExam.generalAppearance || ''}
-                  onChange={(e) => updatePhysicalExam('generalAppearance', e.target.value)}
-                  rows={2}
-                  className="input"
-                  placeholder="Alert, oriented, well-nourished..."
-                />
-              </div>
-              <div>
-                <label className="label">Head/HEENT</label>
-                <textarea
-                  value={physicalExam.head || ''}
-                  onChange={(e) => updatePhysicalExam('head', e.target.value)}
-                  rows={2}
-                  className="input"
-                  placeholder="Normocephalic, atraumatic..."
-                />
-              </div>
-              <div>
-                <label className="label">Neck</label>
-                <textarea
-                  value={physicalExam.neck || ''}
-                  onChange={(e) => updatePhysicalExam('neck', e.target.value)}
-                  rows={2}
-                  className="input"
-                  placeholder="Supple, no lymphadenopathy..."
-                />
-              </div>
-              <div>
-                <label className="label">Chest/Respiratory</label>
-                <textarea
-                  value={physicalExam.chest || ''}
-                  onChange={(e) => updatePhysicalExam('chest', e.target.value)}
-                  rows={2}
-                  className="input"
-                  placeholder="Clear to auscultation bilaterally..."
-                />
-              </div>
-              <div>
-                <label className="label">Cardiovascular</label>
-                <textarea
-                  value={physicalExam.cardiovascular || ''}
-                  onChange={(e) => updatePhysicalExam('cardiovascular', e.target.value)}
-                  rows={2}
-                  className="input"
-                  placeholder="Regular rate and rhythm, no murmurs..."
-                />
-              </div>
-              <div>
-                <label className="label">Abdomen</label>
-                <textarea
-                  value={physicalExam.abdomen || ''}
-                  onChange={(e) => updatePhysicalExam('abdomen', e.target.value)}
-                  rows={2}
-                  className="input"
-                  placeholder="Soft, non-tender, no masses..."
-                />
-              </div>
-              <div>
-                <label className="label">Musculoskeletal</label>
-                <textarea
-                  value={physicalExam.musculoskeletal || ''}
-                  onChange={(e) => updatePhysicalExam('musculoskeletal', e.target.value)}
-                  rows={2}
-                  className="input"
-                  placeholder="Full range of motion, no deformities..."
-                />
-              </div>
-              <div>
-                <label className="label">Neurological</label>
-                <textarea
-                  value={physicalExam.neurological || ''}
-                  onChange={(e) => updatePhysicalExam('neurological', e.target.value)}
-                  rows={2}
-                  className="input"
-                  placeholder="Alert, oriented x3, cranial nerves intact..."
-                />
-              </div>
-              <div>
-                <label className="label">Skin</label>
-                <textarea
-                  value={physicalExam.skin || ''}
-                  onChange={(e) => updatePhysicalExam('skin', e.target.value)}
-                  rows={2}
-                  className="input"
-                  placeholder="Warm, dry, no rashes or lesions..."
-                />
-              </div>
-              <div>
-                <label className="label">Additional Findings</label>
-                <textarea
-                  value={physicalExam.additionalFindings || ''}
-                  onChange={(e) => updatePhysicalExam('additionalFindings', e.target.value)}
-                  rows={2}
-                  className="input"
-                  placeholder="Any other relevant findings..."
-                />
-              </div>
+              <VoiceDictation
+                label="General Appearance"
+                value={physicalExam.generalAppearance || ''}
+                onChange={(value) => updatePhysicalExam('generalAppearance', value)}
+                placeholder="Alert, oriented, well-nourished..."
+                rows={2}
+                medicalContext="examination"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Head/HEENT"
+                value={physicalExam.head || ''}
+                onChange={(value) => updatePhysicalExam('head', value)}
+                placeholder="Normocephalic, atraumatic..."
+                rows={2}
+                medicalContext="examination"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Neck"
+                value={physicalExam.neck || ''}
+                onChange={(value) => updatePhysicalExam('neck', value)}
+                placeholder="Supple, no lymphadenopathy..."
+                rows={2}
+                medicalContext="examination"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Chest/Respiratory"
+                value={physicalExam.chest || ''}
+                onChange={(value) => updatePhysicalExam('chest', value)}
+                placeholder="Clear to auscultation bilaterally..."
+                rows={2}
+                medicalContext="examination"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Cardiovascular"
+                value={physicalExam.cardiovascular || ''}
+                onChange={(value) => updatePhysicalExam('cardiovascular', value)}
+                placeholder="Regular rate and rhythm, no murmurs..."
+                rows={2}
+                medicalContext="examination"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Abdomen"
+                value={physicalExam.abdomen || ''}
+                onChange={(value) => updatePhysicalExam('abdomen', value)}
+                placeholder="Soft, non-tender, no masses..."
+                rows={2}
+                medicalContext="examination"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Musculoskeletal"
+                value={physicalExam.musculoskeletal || ''}
+                onChange={(value) => updatePhysicalExam('musculoskeletal', value)}
+                placeholder="Full range of motion, no deformities..."
+                rows={2}
+                medicalContext="examination"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Neurological"
+                value={physicalExam.neurological || ''}
+                onChange={(value) => updatePhysicalExam('neurological', value)}
+                placeholder="Alert, oriented x3, cranial nerves intact..."
+                rows={2}
+                medicalContext="examination"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Skin"
+                value={physicalExam.skin || ''}
+                onChange={(value) => updatePhysicalExam('skin', value)}
+                placeholder="Warm, dry, no rashes or lesions..."
+                rows={2}
+                medicalContext="examination"
+                showAIEnhance={true}
+              />
+              <VoiceDictation
+                label="Additional Findings"
+                value={physicalExam.additionalFindings || ''}
+                onChange={(value) => updatePhysicalExam('additionalFindings', value)}
+                placeholder="Any other relevant findings..."
+                rows={2}
+                medicalContext="examination"
+                showAIEnhance={true}
+              />
             </div>
           </motion.div>
         )}
@@ -562,24 +566,24 @@ export default function ClinicalEncounterPage() {
                 <h2 className="font-semibold text-gray-900">Treatment Plan</h2>
               </div>
               <div className="card-body space-y-4">
-                <div>
-                  <label className="label">Treatment Plan</label>
-                  <textarea
-                    {...register('treatmentPlan')}
-                    rows={4}
-                    className="input"
-                    placeholder="Medications, procedures, referrals, follow-up instructions..."
-                  />
-                </div>
-                <div>
-                  <label className="label">Additional Notes</label>
-                  <textarea
-                    {...register('notes')}
-                    rows={3}
-                    className="input"
-                    placeholder="Any additional clinical notes..."
-                  />
-                </div>
+                <VoiceDictation
+                  label="Treatment Plan"
+                  value={treatmentPlan}
+                  onChange={(value) => setValue('treatmentPlan', value)}
+                  placeholder="Medications, procedures, referrals, follow-up instructions..."
+                  rows={4}
+                  medicalContext="treatment_plan"
+                  showAIEnhance={true}
+                />
+                <VoiceDictation
+                  label="Additional Notes"
+                  value={notes}
+                  onChange={(value) => setValue('notes', value)}
+                  placeholder="Any additional clinical notes..."
+                  rows={3}
+                  medicalContext="clinical_notes"
+                  showAIEnhance={true}
+                />
               </div>
             </div>
           </motion.div>

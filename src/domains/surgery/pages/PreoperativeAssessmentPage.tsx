@@ -35,6 +35,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
+import { VoiceDictation } from '../../../components/common';
 import {
   preoperativeService,
   asaClassifications,
@@ -103,6 +104,10 @@ export default function PreoperativeAssessmentPage() {
   
   // Fasting state
   const [surgeryDateTime, setSurgeryDateTime] = useState('');
+  
+  // Medication notes state
+  const [patientAllergies, setPatientAllergies] = useState('');
+  const [medicationNotes, setMedicationNotes] = useState('');
   
   // Navigation
   const navigate = useNavigate();
@@ -945,19 +950,25 @@ export default function PreoperativeAssessmentPage() {
 
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-2">Patient Allergies</h4>
-              <textarea
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg"
-                rows={2}
+              <VoiceDictation
+                value={patientAllergies}
+                onChange={setPatientAllergies}
                 placeholder="List any known allergies..."
+                rows={2}
+                medicalContext="preoperative"
+                showAIEnhance={true}
               />
             </div>
 
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-2">Current Medications</h4>
-              <textarea
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg"
-                rows={4}
+              <VoiceDictation
+                value={medicationNotes}
+                onChange={setMedicationNotes}
                 placeholder="List current medications with doses..."
+                rows={4}
+                medicalContext="preoperative"
+                showAIEnhance={true}
               />
             </div>
           </div>

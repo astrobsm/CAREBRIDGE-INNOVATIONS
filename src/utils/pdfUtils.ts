@@ -94,6 +94,55 @@ function getCachedLogo(): string | null {
   return cachedLogoBase64;
 }
 
+/**
+ * Add watermark logo to PDF pages
+ * This function adds a semi-transparent logo watermark to the center of the page
+ * CRITICAL: Should be called before adding content to ensure watermark is behind text
+ */
+export function addLogoWatermark(doc: jsPDF, opacity: number = 0.08): void {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const logoBase64 = getCachedLogo();
+  
+  if (logoBase64) {
+    try {
+      // Save current graphics state
+      doc.saveGraphicsState();
+      
+      // Set opacity for watermark (semi-transparent)
+      const gState = doc.GState({ opacity: opacity });
+      doc.setGState(gState);
+      
+      // Calculate center position for watermark
+      const watermarkSize = 100; // Size of watermark in mm
+      const x = (pageWidth - watermarkSize) / 2;
+      const y = (pageHeight - watermarkSize) / 2;
+      
+      // Add watermark image
+      doc.addImage(logoBase64, 'PNG', x, y, watermarkSize, watermarkSize);
+      
+      // Restore graphics state
+      doc.restoreGraphicsState();
+    } catch (err) {
+      // Silently fail if watermark can't be added
+      console.warn('Failed to add watermark:', err);
+    }
+  }
+}
+
+/**
+ * Add watermark to all pages of a PDF document
+ * Call this after the document is complete but before saving
+ */
+export function addWatermarkToAllPages(doc: jsPDF, opacity: number = 0.08): void {
+  const totalPages = doc.getNumberOfPages();
+  
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    addLogoWatermark(doc, opacity);
+  }
+}
+
 // Add a text placeholder when logo can't be loaded
 // Uses white background and safe fonts
 function addLogoPlaceholder(doc: jsPDF, y: number): void {
@@ -317,17 +366,25 @@ export function addBrandedFooter(
 
 // Create a new branded PDF document
 // CRITICAL: This function ensures white background for entire page
+// Now includes watermark functionality
 export function createBrandedPDF(
   info: PDFDocumentInfo,
-  patientInfo?: PDFPatientInfo
+  patientInfo?: PDFPatientInfo,
+  options?: { includeWatermark?: boolean }
 ): { doc: jsPDF; yPos: number } {
   const doc = new jsPDF('p', 'mm', 'a4');
+  const { includeWatermark = true } = options || {};
   
   // CRITICAL: Ensure white background for the entire page
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   doc.setFillColor(...PDF_COLORS.white);
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
+  // Add watermark first so it appears behind content
+  if (includeWatermark) {
+    addLogoWatermark(doc, 0.06);
+  }
   
   let yPos = addBrandedHeader(doc, info);
   
@@ -455,8 +512,8 @@ export function formatNairaPDF(amount: number): string {
 }
 
 // Check if we need a new page
-// CRITICAL: Ensures white background on new pages
-export function checkNewPage(doc: jsPDF, yPos: number, requiredSpace: number = 30): number {
+// CRITICAL: Ensures white background and watermark on new pages
+export function checkNewPage(doc: jsPDF, yPos: number, requiredSpace: number = 30, includeWatermark: boolean = true): number {
   const pageHeight = doc.internal.pageSize.getHeight();
   
   if (yPos + requiredSpace > pageHeight - 25) {
@@ -465,6 +522,12 @@ export function checkNewPage(doc: jsPDF, yPos: number, requiredSpace: number = 3
     const pageWidth = doc.internal.pageSize.getWidth();
     doc.setFillColor(...PDF_COLORS.white);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    
+    // Add watermark to new page
+    if (includeWatermark) {
+      addLogoWatermark(doc, 0.06);
+    }
+    
     return 20;
   }
   

@@ -10,6 +10,7 @@ import {
   addPatientInfoBox,
   addSectionTitle,
   checkNewPage,
+  addLogoWatermark,
   PDF_COLORS,
   type PDFDocumentInfo,
   type PDFPatientInfo,
@@ -69,6 +70,9 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
   // CRITICAL: Ensure white background
   doc.setFillColor(...PDF_COLORS.white);
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // Add logo watermark
+  addLogoWatermark(doc, 0.06);
 
   // Add branded header
   const info: PDFDocumentInfo = {
