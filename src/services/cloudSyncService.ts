@@ -969,6 +969,13 @@ function convertFromSupabase(record: Record<string, unknown>): Record<string, un
     
     let value = record[key];
     
+    // SAFETY CHECK: If a value is a Date object (shouldn't happen from Supabase,
+    // but just in case), convert it to an ISO string to prevent React error #310
+    if (value instanceof Date) {
+      console.warn(`[CloudSync] Warning: Received Date object for field ${key}, converting to string`);
+      value = value.toISOString();
+    }
+    
     // NOTE: We intentionally do NOT convert date strings to Date objects here.
     // Date strings are kept as ISO strings for consistency across the app.
     // Components should use new Date(stringDate) when they need to format dates.
