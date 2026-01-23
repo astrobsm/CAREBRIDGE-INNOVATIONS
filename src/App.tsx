@@ -18,6 +18,7 @@ import ReferralPage from './domains/clinical/pages/ReferralPage';
 import SurgeryListPage from './domains/surgery/pages/SurgeryListPage';
 import SurgeryPlanningPage from './domains/surgery/pages/SurgeryPlanningPage';
 import PreoperativeAssessmentPage from './domains/surgery/pages/PreoperativeAssessmentPage';
+import PreoperativeAssessmentDetailsPage from './domains/surgery/pages/PreoperativeAssessmentDetailsPage';
 import PostOperativeNotePage from './domains/surgery/pages/PostOperativeNotePage';
 import PostOpNotesListPage from './domains/surgery/pages/PostOpNotesListPage';
 import PostOpNoteFormPage from './domains/surgery/pages/PostOpNoteFormPage';
@@ -108,6 +109,7 @@ function App() {
           <Route index element={<SurgeryListPage />} />
           <Route path="planning/:patientId" element={<SurgeryPlanningPage />} />
           <Route path="preoperative" element={<PreoperativeAssessmentPage />} />
+          <Route path="preop/:assessmentId" element={<PreoperativeAssessmentDetailsPage />} />
           <Route path="post-op-notes" element={<PostOpNotesListPage />} />
           <Route path="post-op-note/create/:surgeryId" element={<PostOpNoteFormPage />} />
           <Route path="post-op-note/:surgeryId" element={<PostOperativeNotePage />} />
