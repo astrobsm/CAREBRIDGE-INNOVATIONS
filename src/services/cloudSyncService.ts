@@ -55,11 +55,154 @@ function updateSyncState(updates: Partial<CloudSyncState>) {
   notifySyncListeners();
 }
 
+// Migration key to track if we've sanitized the database
+const SANITIZE_MIGRATION_KEY = 'astrohealth_db_sanitized_v2';
+
+/**
+ * Sanitizes a single value, converting Date objects and other problematic types to strings.
+ * This is a simpler version for migrating existing data.
+ */
+function sanitizeExistingValue(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  
+  // Date objects -> ISO strings
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : value.toISOString();
+  }
+  
+  // Map -> plain object
+  if (value instanceof Map) {
+    const obj: Record<string, unknown> = {};
+    value.forEach((v, k) => {
+      obj[String(k)] = sanitizeExistingValue(v);
+    });
+    return obj;
+  }
+  
+  // Set -> array
+  if (value instanceof Set) {
+    return Array.from(value).map(sanitizeExistingValue);
+  }
+  
+  // Arrays
+  if (Array.isArray(value)) {
+    return value.map(sanitizeExistingValue);
+  }
+  
+  // Objects
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    
+    // Check for Firestore timestamps
+    if (keys.includes('seconds') && typeof (obj as any).seconds === 'number') {
+      return new Date((obj as any).seconds * 1000).toISOString();
+    }
+    
+    const result: Record<string, unknown> = {};
+    for (const key of keys) {
+      result[key] = sanitizeExistingValue(obj[key]);
+    }
+    return result;
+  }
+  
+  return value;
+}
+
+/**
+ * One-time migration to sanitize existing IndexedDB data.
+ * Converts all Date objects to ISO strings to prevent React #310 errors.
+ */
+async function sanitizeExistingData(): Promise<void> {
+  // Check if we've already run this migration
+  if (localStorage.getItem(SANITIZE_MIGRATION_KEY)) {
+    console.log('[CloudSync] Database already sanitized, skipping migration');
+    return;
+  }
+  
+  console.log('[CloudSync] Starting database sanitization migration...');
+  
+  // Tables that are most likely to have Date objects
+  const tablesToSanitize = [
+    'patients',
+    'admissions', 
+    'appointments',
+    'prescriptions',
+    'chatMessages',
+    'chatRooms',
+    'medicationCharts',
+    'clinicalEncounters',
+    'vitalSigns',
+    'surgeries',
+    'wounds',
+    'labRequests',
+    'investigations',
+    'invoices',
+    'treatmentPlans',
+    'wardRounds',
+  ];
+  
+  let totalSanitized = 0;
+  
+  for (const tableName of tablesToSanitize) {
+    try {
+      const table = (db as any)[tableName];
+      if (!table) continue;
+      
+      const records = await table.toArray();
+      let sanitizedCount = 0;
+      
+      for (const record of records) {
+        let needsUpdate = false;
+        const sanitizedRecord: Record<string, unknown> = {};
+        
+        for (const key in record) {
+          const originalValue = record[key];
+          const sanitizedValue = sanitizeExistingValue(originalValue);
+          
+          // Check if value changed (Date was converted)
+          if (originalValue instanceof Date || 
+              (originalValue instanceof Map) || 
+              (originalValue instanceof Set) ||
+              JSON.stringify(originalValue) !== JSON.stringify(sanitizedValue)) {
+            needsUpdate = true;
+          }
+          
+          sanitizedRecord[key] = sanitizedValue;
+        }
+        
+        if (needsUpdate) {
+          await table.put(sanitizedRecord);
+          sanitizedCount++;
+        }
+      }
+      
+      if (sanitizedCount > 0) {
+        console.log(`[CloudSync] Sanitized ${sanitizedCount} records in ${tableName}`);
+        totalSanitized += sanitizedCount;
+      }
+    } catch (err) {
+      console.warn(`[CloudSync] Failed to sanitize ${tableName}:`, err);
+    }
+  }
+  
+  console.log(`[CloudSync] Database sanitization complete. Total records sanitized: ${totalSanitized}`);
+  localStorage.setItem(SANITIZE_MIGRATION_KEY, new Date().toISOString());
+}
+
 // Initialize cloud sync with real-time subscriptions
 export function initCloudSync() {
   console.log('[CloudSync] Initializing cloud sync...');
   console.log('[CloudSync] Supabase configured:', isSupabaseConfigured());
   console.log('[CloudSync] Online:', navigator.onLine);
+  
+  // Run database sanitization migration FIRST to fix any existing Date objects
+  // This prevents React #310 errors from data stored before the fix
+  sanitizeExistingData().then(() => {
+    console.log('[CloudSync] Database sanitization check complete');
+  }).catch(err => {
+    console.warn('[CloudSync] Database sanitization failed:', err);
+  });
   
   // Expose test function to browser console for debugging
   (window as any).testSupabaseConnection = testSupabaseConnection;
