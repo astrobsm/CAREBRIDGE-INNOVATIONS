@@ -271,4 +271,5 @@ export const EDUCATION_CATEGORIES = [
   { code: 'J', name: 'Genital and Perineal Reconstruction', color: 'amber' },
   { code: 'K', name: 'Reconstructive Techniques and Procedures', color: 'emerald' },
   { code: 'L', name: 'Systemic/Complicating Conditions', color: 'slate' },
+  { code: 'M', name: 'Dr Nnadi-Burns Comprehensive Patient Education', color: 'cyan' },
 ] as const;

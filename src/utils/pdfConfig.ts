@@ -82,10 +82,13 @@ export function getContentHeight(pageHeight: number = PDF_PAGE_SIZES.A4.height):
  * - Thin, Light, Condensed, Variable fonts
  * - Decorative or handwritten fonts
  * - System-dependent fonts not embedded in PDF
+ * 
+ * NOTE: Times Roman (times) is used as primary font for better readability
+ * and closer appearance to Georgia font which is not available in jsPDF.
  */
 export const PDF_FONTS = {
-  primary: 'helvetica',
-  fallback: 'times',
+  primary: 'times',     // Times Roman - closest to Georgia in jsPDF
+  fallback: 'helvetica',
   monospace: 'courier',
 } as const;
 

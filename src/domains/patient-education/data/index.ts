@@ -42,6 +42,17 @@ import { reconstructiveTechniquesPart3 } from './reconstructiveTechniquesPart3';
 import { systemicConditionsPart1 } from './systemicConditions';
 import { systemicConditionsPart2 } from './systemicConditionsPart2';
 import { systemicConditionsPart3 } from './systemicConditionsPart3';
+
+// Dr Nnadi-Burns Comprehensive Patient Education Content (Category M)
+import { generalCareEducationList } from './generalCareEducation';
+import { acuteBurnEducationList } from './acuteBurnEducation';
+import { burnGraftingEducationList } from './burnGraftingEducation';
+import { flapSurgeryEducationList } from './flapSurgeryEducation';
+import { contractureReleaseEducationList } from './contractureReleaseEducation';
+import { cleftLipPalateEducationList } from './cleftLipPalateEducation';
+import { specializedEducationList } from './specializedEducation';
+import { supportiveCareEducationList } from './supportiveCareEducation';
+
 import type { EducationCondition, EducationCategory } from '../types';
 import { EDUCATION_CATEGORIES } from '../types';
 
@@ -127,6 +138,18 @@ export const allSystemicConditions: EducationCondition[] = [
   ...systemicConditionsPart1,
   ...systemicConditionsPart2,
   ...systemicConditionsPart3
+];
+
+// Combine all Dr Nnadi-Burns Comprehensive Education (Category M)
+export const allDrNnadiBurnsEducation: EducationCondition[] = [
+  ...generalCareEducationList,
+  ...acuteBurnEducationList,
+  ...burnGraftingEducationList,
+  ...flapSurgeryEducationList,
+  ...contractureReleaseEducationList,
+  ...cleftLipPalateEducationList,
+  ...specializedEducationList,
+  ...supportiveCareEducationList,
 ];
 
 // Get the burns category with its conditions
@@ -273,6 +296,18 @@ export const getSystemicConditionsCategory = (): EducationCategory => {
   };
 };
 
+// Get the Dr Nnadi-Burns Comprehensive Education category with its conditions
+export const getDrNnadiBurnsCategory = (): EducationCategory => {
+  const category = EDUCATION_CATEGORIES.find(c => c.code === 'M');
+  if (!category) {
+    throw new Error('Dr Nnadi-Burns Comprehensive Education category not found');
+  }
+  return {
+    ...category,
+    conditions: allDrNnadiBurnsEducation
+  };
+};
+
 // Get all available categories with their conditions
 export const getAllEducationCategories = (): EducationCategory[] => {
   return [
@@ -287,7 +322,8 @@ export const getAllEducationCategories = (): EducationCategory[] => {
     getCosmeticCategory(),
     getGenitalReconstructionCategory(),
     getReconstructiveTechniquesCategory(),
-    getSystemicConditionsCategory()
+    getSystemicConditionsCategory(),
+    getDrNnadiBurnsCategory()
   ];
 };
 
@@ -329,6 +365,16 @@ export { systemicConditionsPart1 } from './systemicConditions';
 export { systemicConditionsPart2 } from './systemicConditionsPart2';
 export { systemicConditionsPart3 } from './systemicConditionsPart3';
 
+// Dr Nnadi-Burns Comprehensive Patient Education exports
+export { generalCareEducationList, generalPrePostOpCare } from './generalCareEducation';
+export { acuteBurnEducationList, acuteBurnInjuries } from './acuteBurnEducation';
+export { burnGraftingEducationList, burnGraftingEducation } from './burnGraftingEducation';
+export { flapSurgeryEducationList, flapSurgeryEducation } from './flapSurgeryEducation';
+export { contractureReleaseEducationList, contractureReleaseEducation } from './contractureReleaseEducation';
+export { cleftLipPalateEducationList, cleftLipPalateEducation } from './cleftLipPalateEducation';
+export { specializedEducationList, breastReconstructionEducation, cosmeticProceduresEducation, keloidManagementEducation, infectedWoundsEducation, handSurgeryEducation } from './specializedEducation';
+export { supportiveCareEducationList, pressureSoreEducation, prostheticsAmputationEducation, minorProceduresEducation, painManagementEducation, nutritionDiabetesEducation, infectionPreventionEducation, culturalPsychosocialEducation, followUpPlanEducation } from './supportiveCareEducation';
+
 export default {
   allBurnsConditions,
   allWoundsConditions,
@@ -342,6 +388,7 @@ export default {
   allGenitalReconstructionConditions,
   allReconstructiveTechniquesConditions,
   allSystemicConditions,
+  allDrNnadiBurnsEducation,
   getBurnsCategory,
   getWoundsCategory,
   getPressureInjuriesCategory,
@@ -354,5 +401,6 @@ export default {
   getGenitalReconstructionCategory,
   getReconstructiveTechniquesCategory,
   getSystemicConditionsCategory,
+  getDrNnadiBurnsCategory,
   getAllEducationCategories
 };
