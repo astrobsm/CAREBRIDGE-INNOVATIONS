@@ -30,13 +30,9 @@ export async function generateExternalReviewPDF(
   doc.rect(0, 0, 210, 40, 'F');
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(24);
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('ASTROHEALTH', 14, 20);
-  
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.text('External Review Report', 14, 30);
+  doc.text('DR NNADI-BURNS, PLASTIC AND RECONSTRUCTIVE SURGERY SERVICES', 14, 25);
   
   // Date and filters info
   doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
