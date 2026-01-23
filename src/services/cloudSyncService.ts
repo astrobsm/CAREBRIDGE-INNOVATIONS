@@ -969,18 +969,45 @@ function convertFromSupabase(record: Record<string, unknown>): Record<string, un
     
     let value = record[key];
     
-    // SAFETY CHECK: If a value is a Date object (shouldn't happen from Supabase,
-    // but just in case), convert it to an ISO string to prevent React error #310
+    // SAFETY CHECKS: Ensure values are safe for React rendering
+    // to prevent React error #310 ("Objects are not valid as a React child")
+    
+    // 1. Date objects -> ISO strings
     if (value instanceof Date) {
-      console.warn(`[CloudSync] Warning: Received Date object for field ${key}, converting to string`);
+      console.warn(`[CloudSync] Converting Date object to string: ${key}`);
       value = value.toISOString();
+    }
+    // 2. Map objects -> JSON (shouldn't happen from Supabase)
+    else if (value instanceof Map) {
+      console.warn(`[CloudSync] Converting Map to object: ${key}`);
+      value = Object.fromEntries(value);
+    }
+    // 3. Set objects -> Array (shouldn't happen from Supabase)
+    else if (value instanceof Set) {
+      console.warn(`[CloudSync] Converting Set to array: ${key}`);
+      value = Array.from(value);
+    }
+    // 4. Check for any other problematic object types
+    // (but allow plain objects, arrays, and null)
+    else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      // This is a plain object - could be nested data from Supabase JSONB column
+      // Log for debugging but don't convert - it might be valid nested data
+      const objKeys = Object.keys(value);
+      // Check if any keys look like they could be Date objects that were improperly converted
+      if (objKeys.some(k => k === 'seconds' || k === 'nanoseconds')) {
+        console.warn(`[CloudSync] Suspicious timestamp object detected in ${key}:`, value);
+        // Try to convert Firestore-style timestamp to ISO string
+        const ts = value as { seconds?: number; nanoseconds?: number };
+        if (typeof ts.seconds === 'number') {
+          value = new Date(ts.seconds * 1000).toISOString();
+          console.warn(`[CloudSync] Converted timestamp to string for ${key}`);
+        }
+      }
     }
     
     // NOTE: We intentionally do NOT convert date strings to Date objects here.
     // Date strings are kept as ISO strings for consistency across the app.
     // Components should use new Date(stringDate) when they need to format dates.
-    // This prevents React error #310 ("Objects are not valid as a React child")
-    // if a Date object accidentally gets rendered directly.
     
     result[camelKey] = value;
   }

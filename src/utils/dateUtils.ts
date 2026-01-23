@@ -80,10 +80,65 @@ export function isValidDate(value: Date | string | number | null | undefined): b
 }
 
 /**
- * Converts a date value to an ISO string.
+ * Safely converts a value to an ISO string for storage.
  * Returns null if the date is invalid.
  */
 export function toISOString(value: Date | string | number | null | undefined): string | null {
   const date = toDate(value);
   return date ? date.toISOString() : null;
+}
+
+/**
+ * Ensures a value is safe to render as a React child.
+ * Converts Date objects, Maps, Sets, and other objects to strings.
+ * This prevents React error #310 ("Objects are not valid as a React child").
+ * 
+ * @param value - Any value that might be rendered
+ * @param fallback - Fallback string for invalid values
+ * @returns A string or number that's safe to render
+ */
+export function safeRender(value: unknown, fallback: string = ''): string | number {
+  // Null/undefined -> fallback
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+  
+  // Primitives are safe
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'boolean') return String(value);
+  
+  // Date objects -> formatted string
+  if (value instanceof Date) {
+    console.warn('[safeRender] Caught Date object being rendered directly');
+    return isValid(value) ? format(value, 'PPP') : fallback;
+  }
+  
+  // Map -> JSON string
+  if (value instanceof Map) {
+    console.warn('[safeRender] Caught Map being rendered directly');
+    return JSON.stringify(Object.fromEntries(value));
+  }
+  
+  // Set -> JSON array string
+  if (value instanceof Set) {
+    console.warn('[safeRender] Caught Set being rendered directly');
+    return JSON.stringify(Array.from(value));
+  }
+  
+  // Arrays are generally safe, but log for debugging
+  if (Array.isArray(value)) {
+    console.warn('[safeRender] Array being rendered - this may cause issues');
+    return JSON.stringify(value);
+  }
+  
+  // Plain objects -> JSON string
+  if (typeof value === 'object') {
+    console.warn('[safeRender] Caught object being rendered directly:', Object.keys(value));
+    return JSON.stringify(value);
+  }
+  
+  // Symbol, function, etc -> fallback
+  console.warn('[safeRender] Unknown value type being rendered:', typeof value);
+  return fallback;
 }
