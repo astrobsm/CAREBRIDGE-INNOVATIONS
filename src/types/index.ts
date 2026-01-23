@@ -4083,3 +4083,22 @@ export interface PreoperativeAssessment {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// External Review - Admin only module for tracking external patient services
+export interface ExternalReview {
+  id: string;
+  patientId: string;
+  patientName: string; // Denormalized for reporting
+  hospitalId: string;
+  hospitalName: string; // Denormalized for reporting
+  folderNumber: string;
+  servicesRendered: string;
+  fee: number;
+  serviceDate: string; // ISO date string
+  notes?: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  syncStatus?: 'synced' | 'pending' | 'error';
+}

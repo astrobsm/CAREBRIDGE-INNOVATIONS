@@ -51,6 +51,7 @@ import type {
   PostOperativeNote,
   Payslip,
   PreoperativeAssessment,
+  ExternalReview,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -127,11 +128,13 @@ export class AstroHEALTHDatabase extends Dexie {
   preoperativeAssessments!: Table<PreoperativeAssessment, string>;
   // Medication Charts
   medicationCharts!: Table<DailyMedicationChart, string>;
+  // External Reviews (Admin only)
+  externalReviews!: Table<ExternalReview, string>;
 
   constructor() {
     super('AstroHEALTHDB');
 
-    this.version(62).stores({
+    this.version(63).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -198,6 +201,8 @@ export class AstroHEALTHDatabase extends Dexie {
       payslips: 'id, staffId, staffRole, hospitalId, periodId, paymentStatus, createdAt',
       // Preoperative Assessments
       preoperativeAssessments: 'id, patientId, surgeryName, surgeryType, scheduledDate, asaClass, status, clearanceStatus, assessedBy, createdAt',
+      // External Reviews (Admin only)
+      externalReviews: 'id, patientId, hospitalId, folderNumber, serviceDate, createdBy, createdAt',
     });
   }
 }

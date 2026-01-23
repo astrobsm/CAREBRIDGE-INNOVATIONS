@@ -207,6 +207,12 @@ const navigation: NavItem[] = [
     permission: 'manage_hospital', // Admin only
   },
   { 
+    name: 'External Review', 
+    href: '/external-review', 
+    icon: <FileText size={20} />,
+    permission: 'manage_hospital', // Admin only
+  },
+  { 
     name: 'Hospitals', 
     href: '/hospitals', 
     icon: <Building2 size={20} />,

@@ -133,6 +133,9 @@ export const TABLES = {
   
   // Preoperative Assessments
   preoperativeAssessments: 'preoperative_assessments',
+  
+  // External Reviews (Admin only)
+  externalReviews: 'external_reviews',
 } as const;
 
 // Local to cloud table name mapping
@@ -200,6 +203,8 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   postOperativeNotes: 'post_operative_notes',
   // Preoperative Assessments
   preoperativeAssessments: 'preoperative_assessments',
+  // External Reviews (Admin only)
+  externalReviews: 'external_reviews',
 };
 
 // Type for sync status
