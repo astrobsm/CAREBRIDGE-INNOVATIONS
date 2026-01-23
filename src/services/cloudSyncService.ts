@@ -955,6 +955,70 @@ function getCloudTableName(localTableName: string): string | null {
 }
 
 // Convert record from Supabase format (snake_case) to local format (camelCase)
+/**
+ * Recursively sanitizes any value from Supabase to ensure it's safe for React rendering.
+ * Converts Date objects, Firestore timestamps, and other problematic types to strings.
+ * Recursively processes nested objects and arrays.
+ */
+function sanitizeValue(value: unknown, path: string = ''): unknown {
+  // Null/undefined pass through
+  if (value === null || value === undefined) {
+    return value;
+  }
+  
+  // Date objects -> ISO strings
+  if (value instanceof Date) {
+    console.warn(`[CloudSync] Converting Date object to string at ${path}`);
+    return value.toISOString();
+  }
+  
+  // Map objects -> plain objects
+  if (value instanceof Map) {
+    console.warn(`[CloudSync] Converting Map to object at ${path}`);
+    return sanitizeValue(Object.fromEntries(value), path);
+  }
+  
+  // Set objects -> arrays
+  if (value instanceof Set) {
+    console.warn(`[CloudSync] Converting Set to array at ${path}`);
+    return sanitizeValue(Array.from(value), path);
+  }
+  
+  // Arrays - recursively sanitize each element
+  if (Array.isArray(value)) {
+    return value.map((item, index) => sanitizeValue(item, `${path}[${index}]`));
+  }
+  
+  // Objects - recursively sanitize each property
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    
+    // Check for Firestore-style timestamp objects {seconds, nanoseconds}
+    if (keys.includes('seconds') || keys.includes('nanoseconds')) {
+      const ts = obj as { seconds?: number; nanoseconds?: number };
+      if (typeof ts.seconds === 'number') {
+        console.warn(`[CloudSync] Converting Firestore timestamp to string at ${path}`);
+        return new Date(ts.seconds * 1000).toISOString();
+      }
+    }
+    
+    // Recursively sanitize each property
+    const result: Record<string, unknown> = {};
+    for (const key of keys) {
+      result[key] = sanitizeValue(obj[key], `${path}.${key}`);
+    }
+    return result;
+  }
+  
+  // Primitives pass through (string, number, boolean)
+  return value;
+}
+
+/**
+ * Convert record from Supabase format (snake_case) to local format (camelCase).
+ * Also recursively sanitizes all values to ensure they're safe for React rendering.
+ */
 function convertFromSupabase(record: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   
@@ -967,47 +1031,8 @@ function convertFromSupabase(record: Record<string, unknown>): Record<string, un
       camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
     }
     
-    let value = record[key];
-    
-    // SAFETY CHECKS: Ensure values are safe for React rendering
-    // to prevent React error #310 ("Objects are not valid as a React child")
-    
-    // 1. Date objects -> ISO strings
-    if (value instanceof Date) {
-      console.warn(`[CloudSync] Converting Date object to string: ${key}`);
-      value = value.toISOString();
-    }
-    // 2. Map objects -> JSON (shouldn't happen from Supabase)
-    else if (value instanceof Map) {
-      console.warn(`[CloudSync] Converting Map to object: ${key}`);
-      value = Object.fromEntries(value);
-    }
-    // 3. Set objects -> Array (shouldn't happen from Supabase)
-    else if (value instanceof Set) {
-      console.warn(`[CloudSync] Converting Set to array: ${key}`);
-      value = Array.from(value);
-    }
-    // 4. Check for any other problematic object types
-    // (but allow plain objects, arrays, and null)
-    else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      // This is a plain object - could be nested data from Supabase JSONB column
-      // Log for debugging but don't convert - it might be valid nested data
-      const objKeys = Object.keys(value);
-      // Check if any keys look like they could be Date objects that were improperly converted
-      if (objKeys.some(k => k === 'seconds' || k === 'nanoseconds')) {
-        console.warn(`[CloudSync] Suspicious timestamp object detected in ${key}:`, value);
-        // Try to convert Firestore-style timestamp to ISO string
-        const ts = value as { seconds?: number; nanoseconds?: number };
-        if (typeof ts.seconds === 'number') {
-          value = new Date(ts.seconds * 1000).toISOString();
-          console.warn(`[CloudSync] Converted timestamp to string for ${key}`);
-        }
-      }
-    }
-    
-    // NOTE: We intentionally do NOT convert date strings to Date objects here.
-    // Date strings are kept as ISO strings for consistency across the app.
-    // Components should use new Date(stringDate) when they need to format dates.
+    // Recursively sanitize the value to ensure it's safe for React
+    const value = sanitizeValue(record[key], camelKey);
     
     result[camelKey] = value;
   }
@@ -1056,19 +1081,7 @@ function convertToSupabase(record: Record<string, unknown>): Record<string, unkn
   return result;
 }
 
-// Check if a field is a date field
-function isDateField(fieldName: string): boolean {
-  const dateFields = [
-    'createdAt', 'updatedAt', 'startDate', 'endDate', 'date',
-    'recordedAt', 'scheduledDate', 'admissionDate', 'dischargeDate',
-    'requestedAt', 'completedAt', 'collectedAt', 'prescribedAt',
-    'dispensedAt', 'assessedAt', 'startedAt', 'completedAt',
-    'actualStartTime', 'actualEndTime', 'expectedDischargeDate',
-    'actualDischargeDate', 'expectedEndDate', 'actualEndDate',
-    'agreementAcceptedAt', 'lastMessageAt', 'dateOfBirth', 'roundDate'
-  ];
-  return dateFields.includes(fieldName);
-}
+
 
 // Export sync state getter
 export function getSyncState(): CloudSyncState {
