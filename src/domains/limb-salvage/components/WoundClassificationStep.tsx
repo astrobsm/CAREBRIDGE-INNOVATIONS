@@ -1,15 +1,70 @@
 // Step 2: Wound Classification (Wagner, Texas, WIfI, SINBAD)
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Info, Plus, Trash2, Copy } from 'lucide-react';
 import type { WagnerGrade, TexasClassification, WIFIClassification, SINBADScore } from '../../../types';
+
+// Wound shape types for area calculation
+type WoundShape = 'rectangle' | 'ellipse' | 'circle' | 'irregular';
+
+// Single wound entry
+export interface WoundEntry {
+  id: string;
+  location: string;
+  shape: WoundShape;
+  length: number;
+  width: number;
+  depth: number;
+  area: number;
+  duration: number;
+}
+
+// Area calculation formulas for each shape
+const woundShapeInfo: Record<WoundShape, { label: string; formula: string; description: string }> = {
+  rectangle: {
+    label: 'Rectangle/Square',
+    formula: 'L × W',
+    description: 'For rectangular or square wounds with straight edges',
+  },
+  ellipse: {
+    label: 'Ellipse/Oval',
+    formula: 'π × (L/2) × (W/2)',
+    description: 'For oval-shaped wounds (most common for chronic wounds)',
+  },
+  circle: {
+    label: 'Circle',
+    formula: 'π × (D/2)²',
+    description: 'For circular wounds - uses length as diameter',
+  },
+  irregular: {
+    label: 'Irregular',
+    formula: '0.785 × L × W',
+    description: 'Approximation for irregular wounds using elliptical formula',
+  },
+};
+
+// Helper to create a new wound entry
+const createNewWound = (): WoundEntry => ({
+  id: `wound-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+  location: '',
+  shape: 'ellipse',
+  length: 0,
+  width: 0,
+  depth: 0,
+  area: 0,
+  duration: 0,
+});
 
 interface WoundClassificationStepProps {
   wagnerGrade: WagnerGrade;
   texasClassification: TexasClassification;
   wifiClassification: WIFIClassification;
   sinbadScore: SINBADScore;
-  woundLocation: string;
-  woundSize: { length: number; width: number; depth: number; area: number };
-  woundDuration: number;
+  // Legacy single wound fields (for backward compatibility)
+  woundLocation?: string;
+  woundSize?: { length: number; width: number; depth: number; area: number };
+  woundShape?: WoundShape;
+  woundDuration?: number;
+  // New multi-wound support
+  wounds?: WoundEntry[];
   previousDebridement: boolean;
   debridementCount: number;
   onUpdate: (data: Partial<{
@@ -19,7 +74,9 @@ interface WoundClassificationStepProps {
     sinbadScore: SINBADScore;
     woundLocation: string;
     woundSize: { length: number; width: number; depth: number; area: number };
+    woundShape: WoundShape;
     woundDuration: number;
+    wounds: WoundEntry[];
     previousDebridement: boolean;
     debridementCount: number;
   }>) => void;
@@ -57,17 +114,141 @@ export default function WoundClassificationStep({
   sinbadScore,
   woundLocation,
   woundSize,
+  woundShape = 'ellipse',
   woundDuration,
+  wounds: propWounds,
   previousDebridement,
   debridementCount,
   onUpdate,
 }: WoundClassificationStepProps) {
 
-  // Calculate wound area
-  const updateWoundSize = (field: string, value: number) => {
-    const newSize = { ...woundSize, [field]: value };
-    newSize.area = parseFloat((newSize.length * newSize.width).toFixed(2));
-    onUpdate({ woundSize: newSize });
+  // Initialize wounds array from props or convert legacy single wound
+  const getInitialWounds = (): WoundEntry[] => {
+    if (propWounds && propWounds.length > 0) {
+      return propWounds;
+    }
+    // Convert legacy single wound to array format
+    if (woundLocation || (woundSize && (woundSize.length > 0 || woundSize.width > 0))) {
+      return [{
+        id: 'wound-legacy-1',
+        location: woundLocation || '',
+        shape: woundShape,
+        length: woundSize?.length || 0,
+        width: woundSize?.width || 0,
+        depth: woundSize?.depth || 0,
+        area: woundSize?.area || 0,
+        duration: woundDuration || 0,
+      }];
+    }
+    // Start with one empty wound
+    return [createNewWound()];
+  };
+
+  const wounds = getInitialWounds();
+
+  // Calculate wound area based on shape
+  const calculateArea = (length: number, width: number, shape: WoundShape): number => {
+    switch (shape) {
+      case 'rectangle':
+        return length * width;
+      case 'ellipse':
+        // π × (L/2) × (W/2) = π/4 × L × W ≈ 0.785 × L × W
+        return Math.PI * (length / 2) * (width / 2);
+      case 'circle':
+        // π × (D/2)² where D = length (uses length as diameter)
+        return Math.PI * Math.pow(length / 2, 2);
+      case 'irregular':
+        // Approximate using elliptical formula
+        return 0.785 * length * width;
+      default:
+        return length * width;
+    }
+  };
+
+  // Calculate total area from all wounds
+  const totalArea = wounds.reduce((sum, wound) => sum + wound.area, 0);
+
+  // Update a single wound
+  const updateWound = (woundId: string, updates: Partial<WoundEntry>) => {
+    const newWounds = wounds.map(wound => {
+      if (wound.id !== woundId) return wound;
+      
+      const updatedWound = { ...wound, ...updates };
+      
+      // Recalculate area if dimensions or shape changed
+      if ('length' in updates || 'width' in updates || 'shape' in updates) {
+        const shape = updates.shape || wound.shape;
+        const length = updates.length ?? wound.length;
+        let width = updates.width ?? wound.width;
+        
+        // For circle, width = length
+        if (shape === 'circle') {
+          width = length;
+          updatedWound.width = length;
+        }
+        
+        updatedWound.area = parseFloat(calculateArea(length, width, shape).toFixed(2));
+      }
+      
+      return updatedWound;
+    });
+    
+    // Update both new wounds array and legacy fields for backward compatibility
+    const primaryWound = newWounds[0];
+    onUpdate({ 
+      wounds: newWounds,
+      woundLocation: primaryWound?.location || '',
+      woundSize: primaryWound ? {
+        length: primaryWound.length,
+        width: primaryWound.width,
+        depth: primaryWound.depth,
+        area: newWounds.reduce((sum, w) => sum + w.area, 0), // Total area in legacy field
+      } : { length: 0, width: 0, depth: 0, area: 0 },
+      woundShape: primaryWound?.shape || 'ellipse',
+      woundDuration: primaryWound?.duration || 0,
+    });
+  };
+
+  // Add a new wound
+  const addWound = () => {
+    const newWounds = [...wounds, createNewWound()];
+    onUpdate({ wounds: newWounds });
+  };
+
+  // Remove a wound
+  const removeWound = (woundId: string) => {
+    if (wounds.length <= 1) return; // Keep at least one wound
+    const newWounds = wounds.filter(w => w.id !== woundId);
+    
+    // Update legacy fields with first wound
+    const primaryWound = newWounds[0];
+    onUpdate({ 
+      wounds: newWounds,
+      woundLocation: primaryWound?.location || '',
+      woundSize: primaryWound ? {
+        length: primaryWound.length,
+        width: primaryWound.width,
+        depth: primaryWound.depth,
+        area: newWounds.reduce((sum, w) => sum + w.area, 0),
+      } : { length: 0, width: 0, depth: 0, area: 0 },
+      woundShape: primaryWound?.shape || 'ellipse',
+      woundDuration: primaryWound?.duration || 0,
+    });
+  };
+
+  // Duplicate a wound
+  const duplicateWound = (woundId: string) => {
+    const woundToDupe = wounds.find(w => w.id === woundId);
+    if (!woundToDupe) return;
+    
+    const newWound: WoundEntry = {
+      ...woundToDupe,
+      id: `wound-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      location: woundToDupe.location ? `${woundToDupe.location} (copy)` : '',
+    };
+    
+    const newWounds = [...wounds, newWound];
+    onUpdate({ wounds: newWounds });
   };
 
   // Update SINBAD total
@@ -82,94 +263,197 @@ export default function WoundClassificationStep({
     <div className="space-y-6">
       <div className="text-center mb-6">
         <h3 className="text-lg font-semibold text-gray-900">Step 2: Wound Classification</h3>
-        <p className="text-sm text-gray-600">Score the wound using validated classification systems</p>
+        <p className="text-sm text-gray-600">Score the wound(s) using validated classification systems</p>
       </div>
 
-      {/* Wound Location & Size */}
+      {/* Multiple Wounds Section */}
       <div className="bg-gray-50 p-4 rounded-lg">
-        <h4 className="font-medium text-gray-900 mb-3">Wound Details</h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-            <input
-              type="text"
-              value={woundLocation}
-              onChange={(e) => onUpdate({ woundLocation: e.target.value })}
-              placeholder="e.g., Plantar 1st MTP"
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Length (cm)</label>
-            <input
-              type="number"
-              step="0.1"
-              value={woundSize.length}
-              onChange={(e) => updateWoundSize('length', parseFloat(e.target.value) || 0)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
+            <h4 className="font-medium text-gray-900">Wound Details</h4>
+            <p className="text-sm text-gray-500">
+              {wounds.length} wound{wounds.length > 1 ? 's' : ''} • Total Area: <span className="font-semibold text-blue-600">{totalArea.toFixed(2)} cm²</span>
+            </p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Width (cm)</label>
-            <input
-              type="number"
-              step="0.1"
-              value={woundSize.width}
-              onChange={(e) => updateWoundSize('width', parseFloat(e.target.value) || 0)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Depth (cm)</label>
-            <input
-              type="number"
-              step="0.1"
-              value={woundSize.depth}
-              onChange={(e) => updateWoundSize('depth', parseFloat(e.target.value) || 0)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Area (cm²)</label>
-            <input
-              type="number"
-              value={woundSize.area}
-              readOnly
-              className="w-full px-3 py-2 border rounded-lg bg-gray-100"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Duration (days)</label>
-            <input
-              type="number"
-              value={woundDuration}
-              onChange={(e) => onUpdate({ woundDuration: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div className="flex items-center gap-4 col-span-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={previousDebridement}
-                onChange={(e) => onUpdate({ previousDebridement: e.target.checked })}
-                className="w-4 h-4 text-blue-600 rounded"
-              />
-              <span className="text-sm">Previous Debridement</span>
-            </label>
-            {previousDebridement && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Count:</span>
-                <input
-                  type="number"
-                  min="1"
-                  value={debridementCount}
-                  onChange={(e) => onUpdate({ debridementCount: parseInt(e.target.value) || 0 })}
-                  className="w-16 px-2 py-1 border rounded"
-                />
+          <button
+            type="button"
+            onClick={addWound}
+            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={16} />
+            Add Wound
+          </button>
+        </div>
+
+        {/* Wound Cards */}
+        <div className="space-y-4">
+          {wounds.map((wound, index) => (
+            <div key={wound.id} className="bg-white border rounded-lg p-4 relative">
+              {/* Wound Header */}
+              <div className="flex items-center justify-between mb-3 pb-2 border-b">
+                <span className="font-medium text-gray-800">
+                  Wound #{index + 1}
+                  {wound.location && <span className="text-gray-500 font-normal ml-2">— {wound.location}</span>}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                    {wound.area.toFixed(2)} cm²
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => duplicateWound(wound.id)}
+                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                    title="Duplicate wound"
+                  >
+                    <Copy size={16} />
+                  </button>
+                  {wounds.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeWound(wound.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Remove wound"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Wound Fields */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={wound.location}
+                    onChange={(e) => updateWound(wound.id, { location: e.target.value })}
+                    placeholder="e.g., Plantar 1st MTP"
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Shape</label>
+                  <select
+                    value={wound.shape}
+                    onChange={(e) => updateWound(wound.id, { shape: e.target.value as WoundShape })}
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    {Object.entries(woundShapeInfo).map(([key, info]) => (
+                      <option key={key} value={key}>{info.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Length (cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={wound.length || ''}
+                    onChange={(e) => updateWound(wound.id, { length: parseFloat(e.target.value) || 0 })}
+                    placeholder="0"
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {wound.shape === 'circle' ? 'Diameter (cm)' : 'Width (cm)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={wound.shape === 'circle' ? wound.length || '' : wound.width || ''}
+                    onChange={(e) => {
+                      if (wound.shape === 'circle') {
+                        const diameter = parseFloat(e.target.value) || 0;
+                        updateWound(wound.id, { length: diameter, width: diameter });
+                      } else {
+                        updateWound(wound.id, { width: parseFloat(e.target.value) || 0 });
+                      }
+                    }}
+                    placeholder="0"
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                    disabled={wound.shape === 'circle'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Depth (cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={wound.depth || ''}
+                    onChange={(e) => updateWound(wound.id, { depth: parseFloat(e.target.value) || 0 })}
+                    placeholder="0"
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1">
+                    Area (cm²)
+                    <span className="group relative">
+                      <Info size={12} className="text-gray-400 cursor-help" />
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity z-10">
+                        {woundShapeInfo[wound.shape].formula}
+                      </span>
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={wound.area}
+                      readOnly
+                      className="w-full px-3 py-2 border rounded-lg text-sm bg-blue-50 font-semibold text-blue-700"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-500">
+                      auto
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Duration (days)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={wound.duration || ''}
+                    onChange={(e) => updateWound(wound.id, { duration: parseInt(e.target.value) || 0 })}
+                    placeholder="0"
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              
+              {/* Shape description */}
+              <p className="text-xs text-gray-500 mt-2">{woundShapeInfo[wound.shape].description}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Debridement Section */}
+        <div className="mt-4 pt-4 border-t flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={previousDebridement}
+              onChange={(e) => onUpdate({ previousDebridement: e.target.checked })}
+              className="w-4 h-4 text-blue-600 rounded"
+            />
+            <span className="text-sm">Previous Debridement</span>
+          </label>
+          {previousDebridement && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Count:</span>
+              <input
+                type="number"
+                min="1"
+                value={debridementCount}
+                onChange={(e) => onUpdate({ debridementCount: parseInt(e.target.value) || 0 })}
+                className="w-16 px-2 py-1 border rounded text-sm"
+              />
+            </div>
+          )}
         </div>
       </div>
 

@@ -62,7 +62,9 @@ const getInitialFormData = (): Partial<LimbSalvageAssessment> => ({
   sinbadScore: { site: 0, ischemia: 0, neuropathy: 0, bacterialInfection: 0, area: 0, depth: 0, total: 0 } as SINBADScore,
   woundLocation: '',
   woundSize: { length: 0, width: 0, depth: 0, area: 0 },
+  woundShape: 'ellipse' as const,
   woundDuration: 0,
+  wounds: [], // Multiple wounds support
   previousDebridement: false,
   debridementCount: 0,
   dopplerFindings: {
@@ -390,7 +392,9 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
               sinbadScore={formData.sinbadScore || { site: 0, ischemia: 0, neuropathy: 0, bacterialInfection: 0, area: 0, depth: 0, total: 0 }}
               woundLocation={formData.woundLocation || ''}
               woundSize={formData.woundSize || { length: 0, width: 0, depth: 0, area: 0 }}
+              woundShape={formData.woundShape || 'ellipse'}
               woundDuration={formData.woundDuration || 0}
+              wounds={formData.wounds || []}
               previousDebridement={formData.previousDebridement || false}
               debridementCount={formData.debridementCount || 0}
               onUpdate={updateFormData}

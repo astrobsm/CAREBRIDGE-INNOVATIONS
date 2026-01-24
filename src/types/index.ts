@@ -3092,7 +3092,18 @@ export interface LimbSalvageAssessment {
     depth: number;
     area: number;
   };
+  woundShape?: 'rectangle' | 'ellipse' | 'circle' | 'irregular';
   woundDuration: number; // days
+  wounds?: Array<{
+    id: string;
+    location: string;
+    shape: 'rectangle' | 'ellipse' | 'circle' | 'irregular';
+    length: number;
+    width: number;
+    depth: number;
+    area: number;
+    duration: number;
+  }>;
   previousDebridement: boolean;
   debridementCount?: number;
   woundPhotos?: string[];
