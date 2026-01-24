@@ -12,23 +12,34 @@ import {
   Trash2,
   Target,
   Activity,
+  FileText,
+  Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 // Auth context available if needed
+import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 import type { LimbSalvageAssessment } from '../../../types';
 import LimbSalvageForm from '../components/LimbSalvageForm';
+import { generateLimbSalvageInvestigationPDF } from '../../../utils/clinicalPdfGenerators';
 
 export default function LimbSalvagePage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState<LimbSalvageAssessment | undefined>();
   const [viewAssessment, setViewAssessment] = useState<LimbSalvageAssessment | null>(null);
+  const { user } = useAuth();
 
   // Fetch patients
   const patients = useLiveQuery(
     () => db.patients.filter(p => p.isActive === true).toArray(),
     []
+  );
+
+  // Fetch hospital info
+  const hospital = useLiveQuery(
+    () => user?.hospitalId ? db.hospitals.get(user.hospitalId) : undefined,
+    [user?.hospitalId]
   );
 
   // Fetch all limb salvage assessments
@@ -70,6 +81,73 @@ export default function LimbSalvagePage() {
   const handleEdit = (assessment: LimbSalvageAssessment) => {
     setSelectedAssessment(assessment);
     setShowForm(true);
+  };
+
+  // Handle download investigation request PDF
+  const handleDownloadInvestigationPDF = async (assessment: LimbSalvageAssessment) => {
+    try {
+      const patient = patients?.find(p => p.id === assessment.patientId);
+      if (!patient) {
+        toast.error('Patient not found');
+        return;
+      }
+
+      // Build clinical indication from assessment data
+      const indications: string[] = [];
+      indications.push(`Diabetic foot ulcer - Wagner Grade ${assessment.wagnerGrade}`);
+      if (assessment.texasClassification) {
+        indications.push(`Texas ${assessment.texasClassification.grade}${assessment.texasClassification.stage}`);
+      }
+      if (assessment.wifiClassification) {
+        indications.push(`WIfI: W${assessment.wifiClassification.wound}I${assessment.wifiClassification.ischemia}fI${assessment.wifiClassification.footInfection}`);
+      }
+      if (assessment.limbSalvageScore?.riskCategory) {
+        indications.push(`Limb salvage risk: ${assessment.limbSalvageScore.riskCategory.replace('_', ' ')}`);
+      }
+
+      // Determine if osteomyelitis/PAD suspected based on assessment
+      const suspectedOsteomyelitis = (assessment.wagnerGrade && assessment.wagnerGrade >= 3) || 
+        assessment.texasClassification?.stage === 'B' || 
+        assessment.texasClassification?.stage === 'D';
+      
+      const suspectedPAD = (assessment.wifiClassification?.ischemia && assessment.wifiClassification.ischemia >= 2) ||
+        assessment.texasClassification?.stage === 'C' ||
+        assessment.texasClassification?.stage === 'D';
+
+      generateLimbSalvageInvestigationPDF({
+        requestDate: new Date(),
+        patient: {
+          name: `${patient.firstName} ${patient.lastName}`,
+          hospitalNumber: patient.hospitalId || patient.id.slice(0, 8).toUpperCase(),
+          age: assessment.patientAge,
+          gender: patient.gender || 'Not specified',
+          phone: patient.phone,
+        },
+        hospitalName: hospital?.name || 'AstroHEALTH Facility',
+        hospitalPhone: hospital?.phone,
+        hospitalEmail: hospital?.email,
+        requestedBy: user ? `${user.firstName} ${user.lastName}` : 'Attending Physician',
+        clinicalIndication: indications.join('. '),
+        affectedSide: assessment.affectedSide || 'right',
+        woundLocation: assessment.woundLocation,
+        wagnerGrade: assessment.wagnerGrade,
+        suspectedOsteomyelitis,
+        suspectedPAD,
+        diabetesDuration: assessment.comorbidities?.diabetesDuration,
+        additionalNotes: assessment.recommendedManagement ? 
+          `Recommended management: ${assessment.recommendedManagement.replace(/_/g, ' ')}. ${
+            assessment.recommendedAmputationLevel && assessment.recommendedAmputationLevel !== 'none' 
+              ? `Potential amputation level: ${assessment.recommendedAmputationLevel.replace(/_/g, ' ')}.` 
+              : ''
+          } Salvage probability: ${assessment.limbSalvageScore?.salvageProbability || 'N/A'}.` 
+          : undefined,
+      });
+
+      toast.success('Investigation request PDF downloaded');
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error('Failed to generate PDF');
+    }
   };
 
   // Stats
@@ -203,6 +281,13 @@ export default function LimbSalvagePage() {
                         <Eye className="h-5 w-5" />
                       </button>
                       <button
+                        onClick={() => handleDownloadInvestigationPDF(assessment)}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded"
+                        title="Download Investigation Request"
+                      >
+                        <FileText className="h-5 w-5" />
+                      </button>
+                      <button
                         onClick={() => handleEdit(assessment)}
                         className="p-2 text-gray-600 hover:bg-gray-100 rounded"
                         title="Edit"
@@ -255,12 +340,22 @@ export default function LimbSalvagePage() {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-bold">Assessment Details</h2>
-              <button
-                onClick={() => setViewAssessment(null)}
-                className="p-2 hover:bg-gray-100 rounded-full text-2xl"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownloadInvestigationPDF(viewAssessment)}
+                  className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                  title="Download Investigation Request PDF"
+                >
+                  <Download className="h-4 w-4" />
+                  Investigation Request
+                </button>
+                <button
+                  onClick={() => setViewAssessment(null)}
+                  className="p-2 hover:bg-gray-100 rounded-full text-2xl"
+                >
+                  ×
+                </button>
+              </div>
             </div>
             <div className="p-6 space-y-6">
               {/* Patient Info */}

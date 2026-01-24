@@ -1947,3 +1947,399 @@ function determineWoundPhase(tissueTypes: string[]): string {
   }
   return 'assessment';
 }
+
+// ==================== LIMB SALVAGE INVESTIGATION REQUEST PDF ====================
+
+export interface LimbSalvageInvestigationOptions {
+  requestId?: string;
+  requestDate: Date;
+  patient: PDFPatientInfo;
+  hospitalName: string;
+  hospitalPhone?: string;
+  hospitalEmail?: string;
+  requestedBy: string;
+  clinicalIndication: string;
+  affectedSide: 'left' | 'right' | 'bilateral';
+  woundLocation?: string;
+  wagnerGrade?: number;
+  suspectedOsteomyelitis?: boolean;
+  suspectedPAD?: boolean;
+  diabetesDuration?: number;
+  additionalNotes?: string;
+}
+
+/**
+ * Generate comprehensive investigation request PDF for Limb Salvage Assessment
+ * Includes all laboratory, imaging, and vascular investigations needed
+ */
+export function generateLimbSalvageInvestigationPDF(options: LimbSalvageInvestigationOptions): void {
+  const {
+    requestId = `LSI-${Date.now().toString(36).toUpperCase()}`,
+    requestDate,
+    patient,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+    requestedBy,
+    clinicalIndication,
+    affectedSide,
+    woundLocation,
+    wagnerGrade,
+    suspectedOsteomyelitis,
+    suspectedPAD,
+    diabetesDuration,
+    additionalNotes,
+  } = options;
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // Add logo watermark
+  addLogoWatermark(doc, 0.06);
+
+  const info: PDFDocumentInfo = {
+    title: 'LIMB SALVAGE INVESTIGATION REQUEST',
+    subtitle: `Request #${requestId}`,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+  };
+
+  let yPos = addBrandedHeader(doc, info);
+
+  // Urgent badge
+  doc.setFillColor(...PDF_COLORS.danger);
+  doc.roundedRect(pageWidth - 40, yPos - 5, 25, 8, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(7);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('URGENT', pageWidth - 27.5, yPos - 0.5, { align: 'center' });
+
+  yPos += 5;
+  yPos = addPatientInfoBox(doc, yPos, patient);
+  yPos += 5;
+
+  // Clinical Indication Box
+  doc.setFillColor(254, 243, 199); // Amber light
+  doc.roundedRect(15, yPos, pageWidth - 30, 25, 2, 2, 'F');
+  
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Clinical Indication:', 20, yPos + 6);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  
+  const indicationLines = doc.splitTextToSize(clinicalIndication, pageWidth - 50);
+  indicationLines.slice(0, 2).forEach((line: string, idx: number) => {
+    doc.text(line, 20, yPos + 12 + idx * 5);
+  });
+
+  // Clinical details
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Affected Side:', 110, yPos + 6);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(affectedSide.charAt(0).toUpperCase() + affectedSide.slice(1), 140, yPos + 6);
+  
+  if (woundLocation) {
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Location:', 110, yPos + 12);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.text(woundLocation.substring(0, 25), 130, yPos + 12);
+  }
+  
+  if (wagnerGrade !== undefined) {
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Wagner Grade:', 110, yPos + 18);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.text(`Grade ${wagnerGrade}`, 140, yPos + 18);
+  }
+
+  yPos += 32;
+
+  // SECTION 1: LABORATORY INVESTIGATIONS
+  yPos = addSectionTitle(doc, yPos, 'LABORATORY INVESTIGATIONS', 'info');
+  
+  const labInvestigations = [
+    { category: 'Hematology', tests: [
+      'Full Blood Count (FBC)',
+      'ESR (Erythrocyte Sedimentation Rate)',
+      'C-Reactive Protein (CRP)',
+      'Procalcitonin (if sepsis suspected)',
+      'Blood Group & Cross-match',
+      'Coagulation Profile (PT, INR, APTT)',
+    ]},
+    { category: 'Biochemistry', tests: [
+      'Fasting Blood Glucose',
+      'HbA1c (Glycated Hemoglobin)',
+      'Electrolytes, Urea, Creatinine (E/U/Cr)',
+      'eGFR Calculation',
+      'Liver Function Tests (LFTs)',
+      'Serum Albumin & Total Protein',
+      'Serum Prealbumin (nutritional status)',
+      'Lipid Profile (TC, TG, LDL, HDL)',
+    ]},
+    { category: 'Infection Markers', tests: [
+      'Blood Culture (Aerobic & Anaerobic)',
+      'Wound Swab MCS (if wound present)',
+      'Deep Tissue/Bone Biopsy Culture (if osteomyelitis suspected)',
+      'Urinalysis & Urine MCS',
+    ]},
+    { category: 'Specialized Tests', tests: [
+      'Serum Lactate',
+      'D-Dimer (if DVT suspected)',
+      'Pro-BNP (if cardiac involvement)',
+      'Vitamin B12 & Folate (neuropathy)',
+      'Thyroid Function Tests',
+    ]},
+  ];
+
+  labInvestigations.forEach(({ category, tests }) => {
+    yPos = checkNewPage(doc, yPos, 30);
+    
+    doc.setFillColor(243, 244, 246);
+    doc.roundedRect(15, yPos, pageWidth - 30, 7, 1, 1, 'F');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text(category, 20, yPos + 5);
+    yPos += 10;
+
+    tests.forEach((test) => {
+      yPos = checkNewPage(doc, yPos, 8);
+      doc.setFontSize(8);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.setTextColor(...PDF_COLORS.dark);
+      
+      // Checkbox
+      doc.rect(20, yPos - 3, 4, 4);
+      doc.text(test, 28, yPos);
+      
+      // Line for result
+      doc.setDrawColor(200, 200, 200);
+      doc.line(100, yPos, pageWidth - 20, yPos);
+      
+      yPos += 6;
+    });
+    yPos += 3;
+  });
+
+  // SECTION 2: IMAGING INVESTIGATIONS
+  yPos = checkNewPage(doc, yPos, 50);
+  yPos = addSectionTitle(doc, yPos, 'IMAGING INVESTIGATIONS', 'warning');
+  
+  const imagingInvestigations = [
+    { category: 'Plain Radiography', tests: [
+      `X-Ray ${affectedSide} Foot AP & Oblique`,
+      `X-Ray ${affectedSide} Ankle AP & Lateral`,
+      `X-Ray ${affectedSide} Tibia/Fibula (if indicated)`,
+      'Chest X-Ray PA (pre-operative assessment)',
+    ]},
+    { category: 'Advanced Imaging (Osteomyelitis)', tests: [
+      `MRI ${affectedSide} Foot with Contrast`,
+      'Bone Scan (Tc-99m if MRI contraindicated)',
+      'PET-CT (if available, for extent of infection)',
+      'CT Foot (for surgical planning)',
+    ], condition: suspectedOsteomyelitis },
+    { category: 'Vascular Imaging', tests: [
+      `Arterial Duplex Ultrasound ${affectedSide} Lower Limb`,
+      'CT Angiography (CTA) Lower Limbs',
+      'MR Angiography (MRA) - if CKD/contrast allergy',
+      'Digital Subtraction Angiography (DSA) - if intervention planned',
+      'Transcutaneous Oxygen Pressure (TcPO2)',
+      'Toe Pressure Measurement',
+    ], condition: suspectedPAD !== false },
+    { category: 'Venous Imaging (if indicated)', tests: [
+      `Venous Duplex Ultrasound ${affectedSide} Lower Limb`,
+      'CT Venography (if DVT suspected)',
+    ]},
+    { category: 'Cardiac Assessment', tests: [
+      'Echocardiogram (2D Echo)',
+      'ECG (12-lead)',
+      'Stress Test / Dobutamine Echo (if revascularization planned)',
+    ]},
+  ];
+
+  imagingInvestigations.forEach(({ category, tests, condition }) => {
+    if (condition === false) return; // Skip if explicitly false
+    
+    yPos = checkNewPage(doc, yPos, 30);
+    
+    doc.setFillColor(254, 252, 232);
+    doc.roundedRect(15, yPos, pageWidth - 30, 7, 1, 1, 'F');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text(category, 20, yPos + 5);
+    yPos += 10;
+
+    tests.forEach((test) => {
+      yPos = checkNewPage(doc, yPos, 8);
+      doc.setFontSize(8);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.setTextColor(...PDF_COLORS.dark);
+      
+      // Checkbox
+      doc.rect(20, yPos - 3, 4, 4);
+      doc.text(test, 28, yPos);
+      
+      yPos += 6;
+    });
+    yPos += 3;
+  });
+
+  // SECTION 3: SPECIALIZED ASSESSMENTS
+  yPos = checkNewPage(doc, yPos, 50);
+  yPos = addSectionTitle(doc, yPos, 'SPECIALIZED ASSESSMENTS', 'success');
+  
+  const specializedAssessments = [
+    { category: 'Vascular Assessment', tests: [
+      'Ankle-Brachial Index (ABI) Measurement',
+      'Toe-Brachial Index (TBI) - if calcified vessels',
+      'Segmental Limb Pressures',
+      'Pulse Volume Recording (PVR)',
+    ]},
+    { category: 'Neuropathy Assessment', tests: [
+      'Monofilament Testing (10g Semmes-Weinstein)',
+      'Vibration Sense (128Hz Tuning Fork)',
+      'Nerve Conduction Studies (NCS)',
+      'Quantitative Sensory Testing',
+    ]},
+    { category: 'Wound Assessment', tests: [
+      'Wound Planimetry (surface area measurement)',
+      'Wound Photography (baseline documentation)',
+      'Probe-to-Bone Test (if osteomyelitis suspected)',
+      'Wound Tissue Biopsy (for culture & histology)',
+    ]},
+    { category: 'Nutritional & Metabolic', tests: [
+      'MUST Score (Malnutrition Universal Screening Tool)',
+      'Body Mass Index (BMI)',
+      'Dietary Assessment',
+      'Vitamin D Level (25-OH Vitamin D)',
+    ]},
+    { category: 'Pre-Operative Assessment', tests: [
+      'ASA Classification',
+      'Cardiovascular Risk Assessment (RCRI)',
+      'Pulmonary Function Tests (if indicated)',
+      'Anesthesia Consultation',
+      'Vascular Surgery Consultation',
+      'Infectious Disease Consultation (if complex)',
+    ]},
+  ];
+
+  specializedAssessments.forEach(({ category, tests }) => {
+    yPos = checkNewPage(doc, yPos, 30);
+    
+    doc.setFillColor(240, 253, 244);
+    doc.roundedRect(15, yPos, pageWidth - 30, 7, 1, 1, 'F');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text(category, 20, yPos + 5);
+    yPos += 10;
+
+    tests.forEach((test) => {
+      yPos = checkNewPage(doc, yPos, 8);
+      doc.setFontSize(8);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.setTextColor(...PDF_COLORS.dark);
+      
+      // Checkbox
+      doc.rect(20, yPos - 3, 4, 4);
+      doc.text(test, 28, yPos);
+      
+      yPos += 6;
+    });
+    yPos += 3;
+  });
+
+  // Additional Notes Section
+  if (additionalNotes) {
+    yPos = checkNewPage(doc, yPos, 30);
+    yPos = addSectionTitle(doc, yPos, 'ADDITIONAL NOTES');
+    
+    doc.setFillColor(249, 250, 251);
+    const notesLines = doc.splitTextToSize(additionalNotes, pageWidth - 50);
+    const notesHeight = Math.max(20, notesLines.length * 5 + 10);
+    doc.roundedRect(15, yPos, pageWidth - 30, notesHeight, 2, 2, 'F');
+    
+    doc.setFontSize(8);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setTextColor(...PDF_COLORS.dark);
+    notesLines.forEach((line: string, idx: number) => {
+      doc.text(line, 20, yPos + 6 + idx * 5);
+    });
+    
+    yPos += notesHeight + 5;
+  }
+
+  // Clinical History Summary
+  yPos = checkNewPage(doc, yPos, 40);
+  doc.setFillColor(239, 246, 255);
+  doc.roundedRect(15, yPos, pageWidth - 30, 35, 2, 2, 'F');
+  
+  doc.setTextColor(...PDF_COLORS.primary);
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Clinical Summary for Requesting Physicians:', 20, yPos + 7);
+  
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(8);
+  
+  let summaryY = yPos + 14;
+  if (diabetesDuration) {
+    doc.text(`• Diabetes Duration: ${diabetesDuration} years`, 25, summaryY);
+    summaryY += 5;
+  }
+  if (wagnerGrade !== undefined) {
+    doc.text(`• Wound Severity: Wagner Grade ${wagnerGrade}`, 25, summaryY);
+    summaryY += 5;
+  }
+  if (suspectedOsteomyelitis) {
+    doc.text('• Osteomyelitis: Clinically Suspected - Priority MRI recommended', 25, summaryY);
+    summaryY += 5;
+  }
+  if (suspectedPAD) {
+    doc.text('• PAD: Clinically Suspected - Vascular imaging priority', 25, summaryY);
+  }
+
+  yPos += 42;
+
+  // Signature Section
+  yPos = checkNewPage(doc, yPos, 40);
+  
+  doc.setDrawColor(...PDF_COLORS.gray);
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLORS.dark);
+  
+  // Requesting Physician
+  doc.text('Requesting Physician:', 20, yPos);
+  doc.line(20, yPos + 12, 80, yPos + 12);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text(requestedBy, 50, yPos + 18, { align: 'center' });
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('Signature & Date', 50, yPos + 23, { align: 'center' });
+  
+  // Received By
+  doc.text('Received By (Lab):', 100, yPos);
+  doc.line(100, yPos + 12, 160, yPos + 12);
+  doc.text('Name & Date', 130, yPos + 18, { align: 'center' });
+
+  // Request date
+  doc.setFontSize(7);
+  doc.setTextColor(...PDF_COLORS.gray);
+  doc.text(`Request Date: ${format(requestDate, 'dd MMM yyyy HH:mm')}`, 20, yPos + 30);
+
+  // Add watermark to all pages
+  addWatermarkToAllPages(doc, 0.06);
+  addBrandedFooter(doc, 1, doc.getNumberOfPages());
+
+  // Save
+  const patientName = patient.name.replace(/\s+/g, '_');
+  doc.save(`Limb_Salvage_Investigation_Request_${patientName}_${format(requestDate, 'yyyyMMdd')}.pdf`);
+}
