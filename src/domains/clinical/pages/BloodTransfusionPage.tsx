@@ -30,6 +30,8 @@ import {
   FileUp,
   ClipboardList,
   Eye,
+  BarChart3,
+  PlusCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -55,7 +57,8 @@ import {
   type TransfusionOrderData,
   type TransfusionMonitoringChartData,
 } from '../../../utils/transfusionPdfGenerator';
-import type { TransfusionOrder, TransfusionMonitoringChart, Patient } from '../../../types';
+import TransfusionMonitoringChartView from '../components/TransfusionMonitoringChartView';
+import type { TransfusionOrder, TransfusionMonitoringChart, TransfusionMonitoringEntry, Patient } from '../../../types';
 
 type TabType = 'requests' | 'active' | 'orders' | 'charts' | 'inventory' | 'reactions' | 'mtp';
 
@@ -104,6 +107,15 @@ export default function BloodTransfusionPage() {
   const [chartOcrText, setChartOcrText] = useState('');
   const [isProcessingOcr, setIsProcessingOcr] = useState(false);
   const [selectedPatientForChart, setSelectedPatientForChart] = useState<Patient | null>(null);
+  
+  // Digital monitoring chart states
+  const [showCreateDigitalChartModal, setShowCreateDigitalChartModal] = useState(false);
+  const [showDigitalChartView, setShowDigitalChartView] = useState(false);
+  const [selectedDigitalChart, setSelectedDigitalChart] = useState<TransfusionMonitoringChart | null>(null);
+  const [digitalChartPatientId, setDigitalChartPatientId] = useState('');
+  const [digitalChartProductType, setDigitalChartProductType] = useState('');
+  const [digitalChartUnitNumber, setDigitalChartUnitNumber] = useState('');
+  const [digitalChartWardBed, setDigitalChartWardBed] = useState('');
 
   // Form states
   const [patientBloodType, setPatientBloodType] = useState<BloodType>('O+');
@@ -410,6 +422,111 @@ Note: Uploaded chart stored successfully.
     setChartUploadPreview('');
     setChartOcrText('');
     setSelectedPatientForChart(null);
+  };
+  
+  // Create a new digital monitoring chart
+  const handleCreateDigitalChart = async () => {
+    const patient = patients?.find(p => p.id === digitalChartPatientId);
+    if (!patient) {
+      toast.error('Please select a patient');
+      return;
+    }
+    
+    if (!digitalChartProductType) {
+      toast.error('Please enter the blood product type');
+      return;
+    }
+    
+    const newChart: TransfusionMonitoringChart = {
+      id: uuidv4(),
+      chartId: `CHART-${Date.now()}`,
+      patientId: patient.id,
+      hospitalId: defaultHospital?.id,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      hospitalNumber: patient.hospitalNumber,
+      wardBed: digitalChartWardBed || '',
+      chartDate: new Date(),
+      productType: digitalChartProductType,
+      unitNumber: digitalChartUnitNumber,
+      startTime: format(new Date(), 'HH:mm'),
+      entries: [],
+      status: 'in_progress',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    try {
+      await db.transfusionMonitoringCharts.add(newChart);
+      syncRecord('transfusionMonitoringCharts', newChart as unknown as Record<string, unknown>);
+      toast.success('Digital monitoring chart created');
+      setShowCreateDigitalChartModal(false);
+      setDigitalChartPatientId('');
+      setDigitalChartProductType('');
+      setDigitalChartUnitNumber('');
+      setDigitalChartWardBed('');
+      
+      // Open the chart for monitoring
+      setSelectedDigitalChart(newChart);
+      setShowDigitalChartView(true);
+    } catch (error) {
+      console.error('Error creating digital chart:', error);
+      toast.error('Failed to create monitoring chart');
+    }
+  };
+  
+  // Add monitoring entry to digital chart
+  const handleAddMonitoringEntry = async (entry: TransfusionMonitoringEntry) => {
+    if (!selectedDigitalChart) return;
+    
+    const updatedEntries = [...(selectedDigitalChart.entries || []), entry];
+    const totalVolume = updatedEntries.reduce((sum, e) => sum + (e.volumeInfused || 0), 0);
+    
+    try {
+      await db.transfusionMonitoringCharts.update(selectedDigitalChart.id, {
+        entries: updatedEntries,
+        totalVolumeTransfused: totalVolume,
+        updatedAt: new Date(),
+      });
+      
+      // Refresh the chart
+      const updatedChart = await db.transfusionMonitoringCharts.get(selectedDigitalChart.id);
+      if (updatedChart) {
+        setSelectedDigitalChart(updatedChart);
+      }
+      
+      toast.success('Monitoring record added');
+    } catch (error) {
+      console.error('Error adding monitoring entry:', error);
+      toast.error('Failed to add monitoring record');
+    }
+  };
+  
+  // Complete the monitoring chart
+  const handleCompleteDigitalChart = async (
+    outcome: 'completed_uneventful' | 'completed_with_reaction' | 'stopped_due_to_reaction',
+    complications?: string
+  ) => {
+    if (!selectedDigitalChart) return;
+    
+    try {
+      await db.transfusionMonitoringCharts.update(selectedDigitalChart.id, {
+        status: 'completed',
+        outcome,
+        complications,
+        endTime: format(new Date(), 'HH:mm'),
+        updatedAt: new Date(),
+      });
+      
+      const updatedChart = await db.transfusionMonitoringCharts.get(selectedDigitalChart.id);
+      if (updatedChart) {
+        setSelectedDigitalChart(updatedChart);
+      }
+      
+      toast.success('Transfusion monitoring completed');
+    } catch (error) {
+      console.error('Error completing chart:', error);
+      toast.error('Failed to complete monitoring chart');
+    }
   };
   
   // Create transfusion order from request
@@ -1042,6 +1159,13 @@ Note: Uploaded chart stored successfully.
                   Download Template
                 </button>
                 <button
+                  onClick={() => setShowCreateDigitalChartModal(true)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg flex items-center gap-2 hover:bg-purple-700"
+                >
+                  <PlusCircle size={18} />
+                  New Digital Chart
+                </button>
+                <button
                   onClick={() => setShowChartUploadModal(true)}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2 hover:bg-green-700"
                 >
@@ -1051,17 +1175,45 @@ Note: Uploaded chart stored successfully.
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <h4 className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
-                <FileText size={18} />
-                How to Use Monitoring Charts
-              </h4>
-              <ol className="text-sm space-y-1 list-decimal list-inside text-blue-800">
-                <li>Download the blank monitoring chart template</li>
-                <li>Print and fill during transfusion (record vitals at each interval)</li>
-                <li>After completion, scan or photograph the filled chart</li>
-                <li>Upload here for digital storage and optional OCR text extraction</li>
-              </ol>
+            {/* Two options info boxes */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                <h4 className="font-semibold text-purple-700 mb-2 flex items-center gap-2">
+                  <BarChart3 size={18} />
+                  Digital Monitoring (Recommended)
+                </h4>
+                <ul className="text-sm space-y-1 list-disc list-inside text-purple-800">
+                  <li>Record vitals directly in the app</li>
+                  <li>View real-time vital signs graphs</li>
+                  <li>Automatic trend analysis and alerts</li>
+                  <li>Export completed chart with graphs as PDF</li>
+                </ul>
+                <button
+                  onClick={() => setShowCreateDigitalChartModal(true)}
+                  className="mt-3 w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                >
+                  Start Digital Monitoring
+                </button>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <h4 className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                  <FileText size={18} />
+                  Paper-Based Workflow
+                </h4>
+                <ol className="text-sm space-y-1 list-decimal list-inside text-blue-800">
+                  <li>Download the blank monitoring chart template</li>
+                  <li>Print and fill during transfusion</li>
+                  <li>Scan or photograph the filled chart</li>
+                  <li>Upload here for digital storage</li>
+                </ol>
+                <button
+                  onClick={handleGenerateChartTemplate}
+                  className="mt-3 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                >
+                  Download Template
+                </button>
+              </div>
             </div>
 
             {!transfusionCharts || transfusionCharts.length === 0 ? (
@@ -1088,23 +1240,44 @@ Note: Uploaded chart stored successfully.
                         />
                       </div>
                     )}
+                    {/* Show monitoring entries count for digital charts */}
+                    {!chart.uploadedChartBase64 && chart.entries && chart.entries.length > 0 && (
+                      <div className="h-32 bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+                        <div className="text-center">
+                          <BarChart3 className="mx-auto text-purple-500 mb-2" size={32} />
+                          <p className="text-sm font-medium text-purple-700">{chart.entries.length} Records</p>
+                          <p className="text-xs text-purple-500">Digital Chart</p>
+                        </div>
+                      </div>
+                    )}
                     <div className="p-4">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium">{chart.chartId}</h4>
                         <span className={`px-2 py-0.5 rounded text-xs ${
                           chart.status === 'completed' ? 'bg-green-100 text-green-700' :
+                          chart.status === 'in_progress' ? 'bg-purple-100 text-purple-700' :
                           chart.status === 'uploaded' ? 'bg-blue-100 text-blue-700' :
                           'bg-gray-100 text-gray-600'
                         }`}>
-                          {chart.status}
+                          {chart.status === 'in_progress' ? 'In Progress' : chart.status}
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mt-1">
                         {chart.patientName} ({chart.hospitalNumber})
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
+                        {chart.productType && <span className="mr-2">Product: {chart.productType}</span>}
                         Date: {format(new Date(chart.chartDate), 'dd/MM/yyyy')}
                       </p>
+                      
+                      {chart.entries && chart.entries.length > 0 && (
+                        <div className="mt-2 p-2 bg-purple-50 rounded text-xs">
+                          <p className="font-medium text-purple-700">
+                            {chart.entries.length} monitoring records
+                            {chart.totalVolumeTransfused && ` • ${chart.totalVolumeTransfused} mL total`}
+                          </p>
+                        </div>
+                      )}
                       
                       {chart.ocrText && (
                         <div className="mt-2 p-2 bg-gray-50 rounded text-xs max-h-20 overflow-y-auto">
@@ -1113,14 +1286,41 @@ Note: Uploaded chart stored successfully.
                         </div>
                       )}
                       
+                      {chart.outcome && (
+                        <div className={`mt-2 p-2 rounded text-xs ${
+                          chart.outcome === 'completed_uneventful' ? 'bg-green-50 text-green-700' :
+                          chart.outcome === 'completed_with_reaction' ? 'bg-yellow-50 text-yellow-700' :
+                          'bg-red-50 text-red-700'
+                        }`}>
+                          <p className="font-medium">
+                            {chart.outcome === 'completed_uneventful' ? '✓ Completed Uneventful' :
+                             chart.outcome === 'completed_with_reaction' ? '⚠ Completed with Reaction' :
+                             '✕ Stopped due to Reaction'}
+                          </p>
+                        </div>
+                      )}
+                      
                       <div className="mt-3 flex gap-2">
-                        <button
-                          onClick={() => setSelectedChartForView(chart)}
-                          className="px-3 py-1 border border-gray-300 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-50"
-                        >
-                          <Eye size={14} />
-                          View
-                        </button>
+                        {(chart.entries && chart.entries.length > 0) || chart.status === 'in_progress' ? (
+                          <button
+                            onClick={() => {
+                              setSelectedDigitalChart(chart);
+                              setShowDigitalChartView(true);
+                            }}
+                            className="px-3 py-1 bg-purple-600 text-white rounded-lg text-sm flex items-center gap-1 hover:bg-purple-700"
+                          >
+                            <BarChart3 size={14} />
+                            {chart.status === 'in_progress' ? 'Continue' : 'View Charts'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setSelectedChartForView(chart)}
+                            className="px-3 py-1 border border-gray-300 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-50"
+                          >
+                            <Eye size={14} />
+                            View
+                          </button>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -2290,6 +2490,128 @@ Note: Uploaded chart stored successfully.
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Create Digital Monitoring Chart Modal */}
+      <AnimatePresence>
+        {showCreateDigitalChartModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && setShowCreateDigitalChartModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl shadow-xl w-full max-w-md"
+            >
+              <div className="flex items-center justify-between p-4 border-b bg-purple-50">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <BarChart3 className="text-purple-600" />
+                  New Digital Monitoring Chart
+                </h2>
+                <button onClick={() => setShowCreateDigitalChartModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm text-purple-800">
+                    Create a digital monitoring chart to record vital signs directly in the app with real-time graphs and PDF export.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Patient *</label>
+                  <select
+                    value={digitalChartPatientId}
+                    onChange={(e) => setDigitalChartPatientId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                  >
+                    <option value="">Select patient</option>
+                    {patients?.map(patient => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Blood Product Type *</label>
+                  <select
+                    value={digitalChartProductType}
+                    onChange={(e) => setDigitalChartProductType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                  >
+                    <option value="">Select product type</option>
+                    <option value="Packed Red Blood Cells (PRBC)">Packed Red Blood Cells (PRBC)</option>
+                    <option value="Fresh Frozen Plasma (FFP)">Fresh Frozen Plasma (FFP)</option>
+                    <option value="Platelets">Platelets</option>
+                    <option value="Cryoprecipitate">Cryoprecipitate</option>
+                    <option value="Whole Blood">Whole Blood</option>
+                    <option value="Albumin">Albumin</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Unit/Bag Number</label>
+                  <input
+                    type="text"
+                    value={digitalChartUnitNumber}
+                    onChange={(e) => setDigitalChartUnitNumber(e.target.value)}
+                    placeholder="e.g., UNIT-12345"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Ward/Bed</label>
+                  <input
+                    type="text"
+                    value={digitalChartWardBed}
+                    onChange={(e) => setDigitalChartWardBed(e.target.value)}
+                    placeholder="e.g., Ward A, Bed 5"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
+                <button
+                  onClick={() => setShowCreateDigitalChartModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateDigitalChart}
+                  disabled={!digitalChartPatientId || !digitalChartProductType}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                >
+                  Create & Start Monitoring
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Digital Chart View with Graphs */}
+      {showDigitalChartView && selectedDigitalChart && (
+        <TransfusionMonitoringChartView
+          chart={selectedDigitalChart}
+          onAddEntry={handleAddMonitoringEntry}
+          onCompleteChart={handleCompleteDigitalChart}
+          onClose={() => {
+            setShowDigitalChartView(false);
+            setSelectedDigitalChart(null);
+          }}
+        />
+      )}
     </div>
   );
 }

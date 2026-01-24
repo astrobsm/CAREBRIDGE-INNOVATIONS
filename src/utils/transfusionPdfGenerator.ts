@@ -668,11 +668,14 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
   const reactionSteps = '1. STOP transfusion immediately  |  2. Maintain IV access with saline  |  3. Record vitals  |  4. Notify doctor & blood bank  |  5. Keep blood bag';
   doc.text(reactionSteps, 15, y + 14);
   
+  doc.setTextColor(0, 0, 0); // Reset text color to black
   doc.text('Emergency Contact: ____________________    Blood Bank Contact: ____________________', 15, y + 21);
   
-  // Footer
+  // Footer - Reset colors before footer
+  doc.setFillColor(255, 255, 255); // Ensure white background
+  doc.setTextColor(0, 0, 0); // Reset to black first
   doc.setFontSize(7);
-  doc.setTextColor(...PDF_COLORS.lightGray);
+  doc.setTextColor(150, 150, 150); // Use explicit gray instead of PDF_COLORS.lightGray
   doc.text(`AstroHEALTH EMR | ${data.hospitalName} | Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pageWidth / 2, pageHeight - 5, { align: 'center' });
   
   return doc;
