@@ -120,17 +120,17 @@ export default function WardRoundsPage() {
   const [patientSearchQuery, setPatientSearchQuery] = useState('');
 
   // Fetch data
-  const hospitals = useLiveQuery(() => db.hospitals.where('isActive').equals(1).toArray(), []);
+  const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive === true).toArray(), []);
   const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
   const admissions = useLiveQuery(() => db.admissions.where('status').equals('active').toArray(), []);
-  const users = useLiveQuery(() => db.users.where('isActive').equals(1).toArray(), []);
+  const users = useLiveQuery(() => db.users.filter(u => u.isActive === true).toArray(), []);
   const wardRounds = useLiveQuery(() => db.wardRounds.orderBy('roundDate').reverse().toArray(), []);
   const doctorAssignments = useLiveQuery(() => db.doctorAssignments.where('status').equals('active').toArray(), []);
   const nurseAssignments = useLiveQuery(() => db.nurseAssignments.where('status').equals('active').toArray(), []);
 
-  // Get surgeons only for ward rounds
+  // Get all doctors (surgeons, doctors, plastic surgeons, anaesthetists) for ward rounds
   const doctors = useMemo(() => 
-    users?.filter(u => u.role === 'surgeon') || [],
+    users?.filter(u => ['surgeon', 'doctor', 'plastic_surgeon', 'anaesthetist'].includes(u.role)) || [],
     [users]
   );
   const nurses = useMemo(() => 
@@ -904,7 +904,7 @@ export default function WardRoundsPage() {
                         <p className="text-sm text-red-500 mt-1">{roundForm.formState.errors.leadDoctorId.message}</p>
                       )}
                       {doctors.length === 0 && (
-                        <p className="text-xs text-amber-600 mt-1">⚠️ No surgeons found in the system. Please add surgeons first.</p>
+                        <p className="text-xs text-amber-600 mt-1">⚠️ No doctors found in the system. Please add doctors first.</p>
                       )}
                     </div>
                     <div>

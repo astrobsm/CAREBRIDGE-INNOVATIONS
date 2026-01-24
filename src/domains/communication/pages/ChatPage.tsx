@@ -111,7 +111,7 @@ export default function ChatPage() {
   }, [chatRooms, selectedRoomId]);
 
   // Fetch all users for creating new rooms
-  const allUsers = useLiveQuery(() => db.users.where('isActive').equals(1).toArray());
+  const allUsers = useLiveQuery(() => db.users.filter(u => u.isActive === true).toArray());
 
   // Scroll to bottom when messages change
   useEffect(() => {
