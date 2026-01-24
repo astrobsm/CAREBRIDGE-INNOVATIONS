@@ -168,6 +168,12 @@ const navigation: NavItem[] = [
     permission: 'view_invoices',
   },
   { 
+    name: 'Surgical Estimate', 
+    href: '/billing/surgical-estimate', 
+    icon: <Calculator size={20} />,
+    permission: 'view_invoices',
+  },
+  { 
     name: 'Payroll', 
     href: '/billing/payroll', 
     icon: <Wallet size={20} />,

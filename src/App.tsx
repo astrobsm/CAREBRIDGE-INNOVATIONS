@@ -29,6 +29,7 @@ import PharmacyPage from './domains/pharmacy/pages/PharmacyPage';
 import NutritionPlannerPage from './domains/nutrition/pages/NutritionPlannerPage';
 import BillingPage from './domains/billing/pages/BillingPage';
 import PayrollDashboardPage from './domains/billing/pages/PayrollDashboardPage';
+import SurgicalEstimatePage from './domains/billing/pages/SurgicalEstimatePage';
 import HospitalsPage from './domains/hospitals/pages/HospitalsPage';
 import SettingsPage from './domains/settings/pages/SettingsPage';
 import UsersManagementPage from './domains/auth/pages/UsersManagementPage';
@@ -136,6 +137,7 @@ function App() {
         <Route path="nutrition" element={<NutritionPlannerPage />} />
         <Route path="billing" element={<BillingPage />} />
         <Route path="billing/payroll" element={<PayrollDashboardPage />} />
+        <Route path="billing/surgical-estimate" element={<SurgicalEstimatePage />} />
         <Route path="calculators" element={<ClinicalCalculatorsPage />} />
         <Route path="dr-reviews" element={<DrReviewsPage />} />
         <Route path="external-review" element={
