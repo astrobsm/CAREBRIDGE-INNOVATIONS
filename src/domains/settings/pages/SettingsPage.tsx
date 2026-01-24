@@ -24,6 +24,10 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
+  Volume2,
+  VolumeX,
+  Calendar,
+  Stethoscope,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -31,6 +35,17 @@ import { db } from '../../../database';
 import { useOfflineState, offlineDataManager } from '../../../services/offlineDataManager';
 import { fullSync } from '../../../services/cloudSyncService';
 import { requestBackgroundSync, clearServiceWorkerCache } from '../../../services/pwaService';
+import {
+  isPushSupported,
+  requestNotificationPermission,
+  getNotificationPermission,
+} from '../../../services/appointmentNotificationService';
+import {
+  isVoiceEnabled,
+  setVoiceEnabled as setVoiceEnabledGlobal,
+  playVoiceAlarm,
+  scheduleAllUpcomingNotifications,
+} from '../../../services/scheduledNotificationService';
 
 const settingsTabs = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -306,6 +321,89 @@ export default function SettingsPage() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
+            {/* Push Notification & Voice Alarm Settings */}
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Bell className="w-5 h-5 text-purple-600" />
+                Push Notifications & Voice Alarms
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">Push Notifications Status</p>
+                    <p className="text-sm text-gray-500">
+                      {isPushSupported() 
+                        ? getNotificationPermission() === 'granted' 
+                          ? '✅ Notifications are enabled'
+                          : getNotificationPermission() === 'denied'
+                            ? '❌ Notifications are blocked'
+                            : '⚠️ Permission not requested'
+                        : '❌ Not supported in this browser'}
+                    </p>
+                  </div>
+                  {isPushSupported() && getNotificationPermission() !== 'granted' && (
+                    <button
+                      onClick={async () => {
+                        const result = await requestNotificationPermission();
+                        if (result === 'granted') {
+                          toast.success('Notifications enabled!');
+                          scheduleAllUpcomingNotifications();
+                        }
+                      }}
+                      className="btn btn-primary btn-sm"
+                    >
+                      Enable Notifications
+                    </button>
+                  )}
+                </div>
+                
+                <label className="flex items-center justify-between p-4 bg-white rounded-lg cursor-pointer border">
+                  <div className="flex items-center gap-3">
+                    {isVoiceEnabled() ? (
+                      <Volume2 className="w-5 h-5 text-blue-600" />
+                    ) : (
+                      <VolumeX className="w-5 h-5 text-gray-400" />
+                    )}
+                    <div>
+                      <p className="font-medium text-gray-900">Voice Alarms</p>
+                      <p className="text-sm text-gray-500">Speak reminders aloud for upcoming events</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={isVoiceEnabled()}
+                    onChange={(e) => {
+                      setVoiceEnabledGlobal(e.target.checked);
+                      if (e.target.checked) {
+                        playVoiceAlarm('Voice alarms are now enabled.', 'low');
+                      }
+                      toast.success(e.target.checked ? 'Voice alarms enabled' : 'Voice alarms disabled');
+                    }}
+                    className="w-5 h-5 text-violet-600 rounded"
+                  />
+                </label>
+              </div>
+              
+              {/* Event Types */}
+              <div className="mt-4 pt-4 border-t border-purple-200">
+                <p className="text-sm font-medium text-gray-700 mb-2">Reminder timings:</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg">
+                    <Stethoscope className="w-4 h-4 text-blue-600" />
+                    <span><strong>Surgeries:</strong> 24h, 2h, 1h, 30m, 15m, 5m</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg">
+                    <Calendar className="w-4 h-4 text-purple-600" />
+                    <span><strong>Appointments:</strong> 24h, 2h, 30m, 15m</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg">
+                    <Bell className="w-4 h-4 text-green-600" />
+                    <span><strong>Treatments:</strong> 1h, 30m, 15m</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Notification Channels</h3>
               <div className="space-y-4">

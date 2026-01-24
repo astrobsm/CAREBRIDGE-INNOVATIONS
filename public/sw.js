@@ -635,20 +635,157 @@ self.addEventListener('message', (event) => {
         })
       );
       break;
+      
+    case 'ENABLE_NOTIFICATION_CHECKS':
+      // Enable periodic notification checks
+      notificationChecksEnabled = true;
+      console.log('[SW] Notification checks enabled');
+      break;
+      
+    case 'CHECK_SCHEDULED_EVENTS':
+      // Trigger notification check in all clients
+      event.waitUntil(
+        self.clients.matchAll().then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: 'CHECK_NOTIFICATIONS' });
+          });
+        })
+      );
+      break;
   }
 });
 
-// Periodic background sync for data freshness
+// Flag for notification checks
+let notificationChecksEnabled = false;
+
+// Periodic background sync for data freshness and notifications
 self.addEventListener('periodicsync', (event) => {
   if (event.tag === 'sync-data' || event.tag === 'carebridge-periodic-sync') {
     event.waitUntil(processPendingQueue());
   }
+  
+  if (event.tag === 'carebridge-notification-sync') {
+    event.waitUntil(checkAndSendNotifications());
+  }
 });
+
+// Check and send scheduled notifications
+async function checkAndSendNotifications() {
+  try {
+    // Notify clients to check for pending notifications
+    const clients = await self.clients.matchAll();
+    
+    if (clients.length > 0) {
+      // If app is open, let the app handle it
+      clients.forEach((client) => {
+        client.postMessage({ type: 'CHECK_NOTIFICATIONS' });
+      });
+    } else {
+      // App is closed - check from service worker directly
+      await checkNotificationsFromSW();
+    }
+  } catch (error) {
+    console.error('[SW] Error checking notifications:', error);
+  }
+}
+
+// Check notifications directly from service worker when app is closed
+async function checkNotificationsFromSW() {
+  const NOTIFICATION_DB = 'carebridge-notifications';
+  const NOTIFICATION_STORE = 'scheduled-notifications';
+  
+  try {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open(NOTIFICATION_DB, 2);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+    
+    const pending = await new Promise((resolve, reject) => {
+      const transaction = db.transaction([NOTIFICATION_STORE], 'readonly');
+      const store = transaction.objectStore(NOTIFICATION_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const now = new Date();
+        const pendingNotifications = req.result.filter(s => 
+          !s.notified && new Date(s.scheduledTime) <= now
+        );
+        resolve(pendingNotifications);
+      };
+      req.onerror = () => reject(req.error);
+    });
+    
+    for (const schedule of pending) {
+      // Show a generic notification since we can't access Dexie from SW
+      const eventType = schedule.eventType || 'event';
+      const emoji = eventType === 'surgery' ? '🏥' : eventType === 'appointment' ? '📅' : '💊';
+      const label = eventType === 'surgery' ? 'Surgery' : eventType === 'appointment' ? 'Appointment' : 'Treatment';
+      
+      await self.registration.showNotification(`${emoji} ${label} Reminder`, {
+        body: `You have a scheduled ${label.toLowerCase()} coming up soon. Open AstroHEALTH for details.`,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-72x72.png',
+        vibrate: [200, 100, 200],
+        tag: `carebridge-${eventType}-${schedule.eventId}`,
+        requireInteraction: schedule.minutesBefore <= 15,
+        data: {
+          type: eventType,
+          eventId: schedule.eventId,
+          url: '/',
+        },
+        actions: [
+          { action: 'open', title: 'Open App' },
+          { action: 'dismiss', title: 'Dismiss' }
+        ]
+      });
+      
+      // Mark as notified
+      await new Promise((resolve, reject) => {
+        const transaction = db.transaction([NOTIFICATION_STORE], 'readwrite');
+        const store = transaction.objectStore(NOTIFICATION_STORE);
+        const getReq = store.get(schedule.id);
+        getReq.onsuccess = () => {
+          const data = getReq.result;
+          if (data) {
+            data.notified = true;
+            store.put(data);
+          }
+          resolve();
+        };
+        getReq.onerror = () => reject(getReq.error);
+      });
+    }
+    
+    db.close();
+  } catch (error) {
+    console.error('[SW] Error checking notifications from SW:', error);
+  }
+}
+
+// Set up periodic notification check timer (fallback for when periodic sync is not available)
+let notificationCheckTimer = null;
+
+function startNotificationTimer() {
+  if (notificationCheckTimer) return;
+  
+  // Check every minute
+  notificationCheckTimer = setInterval(() => {
+    if (notificationChecksEnabled) {
+      checkAndSendNotifications();
+    }
+  }, 60000);
+  
+  console.log('[SW] Notification timer started');
+}
+
+// Start timer when SW activates
+startNotificationTimer();
 
 // Handle app lifecycle events
 self.addEventListener('online', () => {
   console.log('[SW] Device came online');
   processPendingQueue();
+  checkAndSendNotifications();
 });
 
-console.log('[SW] Service Worker v2.0.0 loaded - Offline-First PWA ready');
+console.log('[SW] Service Worker v2.0.0 loaded - Offline-First PWA with Notifications ready');

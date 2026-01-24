@@ -9,6 +9,8 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import initPWA from './services/pwaService';
 import { initCloudSync, fullSync } from './services/cloudSyncService';
 import { initializeDemoData } from './database';
+import { startNotificationScheduler, initVoiceAlarm } from './services/scheduledNotificationService';
+import { requestNotificationPermission, startReminderScheduler, setupNotificationClickHandler } from './services/appointmentNotificationService';
 import './index.css';
 
 // Global error handler for React #310 debugging
@@ -140,4 +142,31 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 // This prevents state updates from happening before React is ready
 setTimeout(() => {
   initCloudSync();
+  
+  // Initialize notification system
+  initVoiceAlarm();
+  
+  // Request notification permission and start schedulers
+  requestNotificationPermission().then((permission) => {
+    if (permission === 'granted') {
+      console.log('[App] Notification permission granted');
+      // Start the scheduled notification service (surgeries, appointments, treatment plans)
+      startNotificationScheduler();
+      // Start appointment reminder scheduler
+      startReminderScheduler();
+      // Setup notification click handlers
+      setupNotificationClickHandler();
+      
+      toast.success('Notifications enabled! You\'ll receive reminders for upcoming events.', {
+        icon: '🔔',
+        duration: 4000
+      });
+    } else {
+      console.log('[App] Notification permission:', permission);
+      toast('Enable notifications to receive reminders for surgeries and appointments', {
+        icon: '🔔',
+        duration: 5000
+      });
+    }
+  });
 }, 100);

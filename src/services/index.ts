@@ -203,3 +203,52 @@ export type {
   MealItem,
   NutritionSupplement 
 } from './nutritionPlannerService';
+
+// Scheduled Notification Service (Push notifications with voice alarms)
+export {
+  startNotificationScheduler,
+  stopNotificationScheduler,
+  scheduleAllUpcomingNotifications,
+  processScheduledNotifications,
+  setVoiceEnabled,
+  isVoiceEnabled,
+  playVoiceAlarm,
+  initVoiceAlarm,
+  showPushNotification,
+  // Immediate notification triggers for submissions
+  notifyInvestigationRequest,
+  notifyLabRequest,
+  notifyPrescription,
+  notifyNewTreatmentPlan,
+  notifyInvestigationResults,
+  notifyLabResults,
+  notifyPrescriptionReady,
+} from './scheduledNotificationService';
+export type { ScheduledEvent, NotificationSchedule } from './scheduledNotificationService';
+
+// Appointment Notification Service
+export {
+  isPushSupported,
+  requestNotificationPermission,
+  getNotificationPermission,
+  showLocalNotification,
+  showAppointmentReminder,
+  processPendingReminders,
+  startReminderScheduler,
+  stopReminderScheduler,
+  checkUpcomingAppointments,
+  setupNotificationClickHandler,
+} from './appointmentNotificationService';
+
+// Clinical Submission Service (with automatic notifications)
+export {
+  submitInvestigationRequest,
+  completeInvestigationWithResults,
+  submitLabRequest,
+  completeLabWithResults,
+  submitPrescription,
+  markPrescriptionDispensed,
+  createTreatmentPlan,
+  bookSurgery,
+  bookAppointment,
+} from './clinicalSubmissionService';
