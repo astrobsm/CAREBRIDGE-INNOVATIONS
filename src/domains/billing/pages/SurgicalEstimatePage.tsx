@@ -527,7 +527,9 @@ export default function SurgicalEstimatePage() {
     );
 
     // Save PDF
-    doc.save(`Surgical_Estimate_${selectedPatient.hospitalNumber}_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
+    // Generate patient name for filename (remove special characters)
+    const patientNameForFile = `${selectedPatient.firstName}_${selectedPatient.lastName}`.replace(/[^a-zA-Z0-9_]/g, '');
+    doc.save(`Surgical_Estimate_${patientNameForFile}_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
     toast.success('Estimate PDF downloaded');
   };
 
