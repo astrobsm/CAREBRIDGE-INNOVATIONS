@@ -1004,18 +1004,35 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
     yPos = checkNewPage(doc, yPos);
     yPos = addSectionTitle(doc, yPos, 'Dressing Protocol', 'success');
     
-    doc.setFillColor(240, 253, 244);
-    doc.roundedRect(15, yPos, pageWidth - 30, protocol.length * 6 + 10, 2, 2, 'F');
+    // Calculate wrapped lines for each protocol step
+    const maxStepWidth = pageWidth - 28 - 15; // From x=28 to right margin (15mm)
+    let totalLines = 0;
+    const wrappedProtocol: { stepNum: number; lines: string[] }[] = [];
     
     protocol.forEach((step, index) => {
       doc.setFontSize(8);
-      doc.setTextColor(...PDF_COLORS.success);
-      doc.text(`${index + 1}.`, 20, yPos + 6 + index * 6);
-      doc.setTextColor(...PDF_COLORS.dark);
-      doc.text(step, 28, yPos + 6 + index * 6);
+      const lines = doc.splitTextToSize(step, maxStepWidth) as string[];
+      wrappedProtocol.push({ stepNum: index + 1, lines });
+      totalLines += lines.length;
     });
     
-    yPos += protocol.length * 6 + 15;
+    const boxHeight = totalLines * 5 + 10;
+    doc.setFillColor(240, 253, 244);
+    doc.roundedRect(15, yPos, pageWidth - 30, boxHeight, 2, 2, 'F');
+    
+    let lineY = yPos + 6;
+    wrappedProtocol.forEach(({ stepNum, lines }) => {
+      doc.setFontSize(8);
+      doc.setTextColor(...PDF_COLORS.success);
+      doc.text(`${stepNum}.`, 20, lineY);
+      doc.setTextColor(...PDF_COLORS.dark);
+      lines.forEach((line: string, lineIndex: number) => {
+        doc.text(line, 28, lineY + lineIndex * 5);
+      });
+      lineY += lines.length * 5;
+    });
+    
+    yPos += boxHeight + 5;
   }
 
   // Dressing info
@@ -1024,8 +1041,17 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
     doc.setFont(PDF_FONTS.primary, 'bold');
     doc.text('Current Dressing:', 20, yPos);
     doc.setFont(PDF_FONTS.primary, 'normal');
-    doc.text(`${dressingType || 'Standard'} - ${dressingFrequency || 'As needed'}`, 55, yPos);
-    yPos += 10;
+    
+    // Wrap long dressing instructions to fit within page margins
+    const dressingText = `${dressingType || 'Standard'} - ${dressingFrequency || 'As needed'}`;
+    const maxDressingWidth = pageWidth - 55 - 15; // From x=55 to right margin (15mm)
+    const dressingLines = doc.splitTextToSize(dressingText, maxDressingWidth);
+    
+    dressingLines.forEach((line: string, index: number) => {
+      doc.text(line, 55, yPos + (index * 5));
+    });
+    
+    yPos += Math.max(10, dressingLines.length * 5 + 5);
   }
 
   // Signature
