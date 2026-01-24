@@ -88,9 +88,9 @@ export default function WhatsAppReminder({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full">
+    <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
       {/* Header */}
-      <div className="bg-gradient-to-r from-green-500 to-green-600 px-6 py-4 rounded-t-2xl">
+      <div className="bg-gradient-to-r from-green-500 to-green-600 px-6 py-4 rounded-t-2xl flex-shrink-0">
         <h3 className="text-lg font-bold text-white flex items-center gap-2">
           <MessageCircle className="w-5 h-5" />
           WhatsApp Reminder
@@ -100,6 +100,8 @@ export default function WhatsAppReminder({
         </p>
       </div>
 
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto">
       {/* Appointment Summary */}
       <div className="p-4 bg-green-50 border-b">
         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -188,9 +190,10 @@ export default function WhatsAppReminder({
           </div>
         )}
       </div>
+      </div>
 
-      {/* Actions */}
-      <div className="px-6 pb-6 space-y-3">
+      {/* Actions - Fixed Footer */}
+      <div className="px-6 pb-6 pt-4 space-y-3 flex-shrink-0 border-t bg-white rounded-b-2xl">
         <div className="flex gap-3">
           <motion.button
             whileHover={{ scale: 1.02 }}
@@ -220,19 +223,17 @@ export default function WhatsAppReminder({
           <Phone className="w-4 h-4" />
           Call Patient Instead
         </button>
-      </div>
 
-      {/* Close Button */}
-      {onClose && (
-        <div className="px-6 pb-4 border-t pt-4">
+        {/* Close Button */}
+        {onClose && (
           <button
             onClick={onClose}
             className="w-full py-2 text-gray-500 hover:text-gray-700 font-medium"
           >
             Close
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
