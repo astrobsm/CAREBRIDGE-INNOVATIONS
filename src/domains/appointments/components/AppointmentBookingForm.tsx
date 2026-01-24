@@ -340,12 +340,21 @@ export default function AppointmentBookingForm({
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+      onClick={(e) => {
+        // Only close if clicking directly on the backdrop, not on children
+        if (e.target === e.currentTarget) {
+          // Don't close on backdrop click - user must use Cancel or X button
+        }
+      }}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex-shrink-0 bg-gradient-to-r from-emerald-600 to-teal-600 px-4 sm:px-6 py-3 sm:py-4">
@@ -362,6 +371,8 @@ export default function AppointmentBookingForm({
             <button
               onClick={onClose}
               className="text-white/80 hover:text-white p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
+              title="Close"
+              aria-label="Close booking form"
             >
               <X className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
@@ -934,7 +945,15 @@ export default function AppointmentBookingForm({
           <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t flex items-center justify-between">
             <button
               type="button"
-              onClick={step === 1 ? onClose : prevStep}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (step === 1) {
+                  onClose();
+                } else {
+                  prevStep();
+                }
+              }}
               className="px-3 sm:px-4 py-2 text-gray-600 hover:text-gray-800 font-medium text-sm sm:text-base"
             >
               {step === 1 ? 'Cancel' : '← Back'}
@@ -944,7 +963,11 @@ export default function AppointmentBookingForm({
               {step < 3 ? (
                 <button
                   type="button"
-                  onClick={nextStep}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    nextStep();
+                  }}
                   className="px-4 sm:px-6 py-2 sm:py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base"
                 >
                   Next
