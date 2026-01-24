@@ -2343,3 +2343,569 @@ export function generateLimbSalvageInvestigationPDF(options: LimbSalvageInvestig
   const patientName = patient.name.replace(/\s+/g, '_');
   doc.save(`Limb_Salvage_Investigation_Request_${patientName}_${format(requestDate, 'yyyyMMdd')}.pdf`);
 }
+
+// ==================== WHO PATHOLOGY REQUEST PDF ====================
+
+export interface PathologyRequestPDFOptions {
+  requestId?: string;
+  requestDate: Date;
+  patient: PDFPatientInfo;
+  hospitalName: string;
+  hospitalPhone?: string;
+  hospitalEmail?: string;
+  requestedBy: string;
+  requestingDepartment: string;
+  priority: 'routine' | 'urgent' | 'frozen_section';
+  
+  // Clinical Information
+  clinicalHistory: string;
+  clinicalDiagnosis: string;
+  relevantInvestigations?: string;
+  previousBiopsies?: string;
+  familyHistory?: string;
+  riskFactors?: string[];
+  
+  // Specimen Details
+  specimenType: string;
+  specimenSite: string;
+  specimenLaterality?: string;
+  specimenSize?: string;
+  specimenWeight?: string;
+  numberOfSpecimens?: number;
+  specimenOrientation?: string;
+  
+  // Collection Details
+  collectionMethod: string;
+  collectionDate: string;
+  collectionTime: string;
+  collector: string;
+  
+  // Fixation
+  fixative: string;
+  fixationTime?: string;
+  
+  // Special Studies
+  specialStains?: string[];
+  immunohistochemistry?: string[];
+  molecularStudies?: string[];
+  electronMicroscopy?: boolean;
+  frozenSection?: boolean;
+  
+  // Operative Findings
+  operativeFindings?: string;
+  surgicalMargins?: string;
+  lymphNodesSubmitted?: number;
+  
+  // Treatment History
+  tumorMarkers?: string[];
+  stagingInfo?: string;
+  treatmentHistory?: string;
+  radiationHistory?: string;
+  chemotherapyHistory?: string;
+}
+
+/**
+ * Generate WHO Standard Pathology/Histopathology Request PDF
+ */
+export function generatePathologyRequestPDF(options: PathologyRequestPDFOptions): void {
+  const {
+    requestId = `PATH-${Date.now().toString(36).toUpperCase()}`,
+    requestDate,
+    patient,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+    requestedBy,
+    requestingDepartment,
+    priority,
+    clinicalHistory,
+    clinicalDiagnosis,
+    relevantInvestigations,
+    previousBiopsies,
+    familyHistory,
+    riskFactors,
+    specimenType,
+    specimenSite,
+    specimenLaterality,
+    specimenSize,
+    specimenWeight,
+    numberOfSpecimens,
+    specimenOrientation,
+    collectionMethod,
+    collectionDate,
+    collectionTime,
+    collector,
+    fixative,
+    fixationTime,
+    specialStains,
+    immunohistochemistry,
+    molecularStudies,
+    electronMicroscopy,
+    frozenSection,
+    operativeFindings,
+    surgicalMargins,
+    lymphNodesSubmitted,
+    tumorMarkers,
+    stagingInfo,
+    treatmentHistory,
+    radiationHistory,
+    chemotherapyHistory,
+  } = options;
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // Add logo watermark
+  addLogoWatermark(doc, 0.06);
+
+  const info: PDFDocumentInfo = {
+    title: 'HISTOPATHOLOGY / CYTOLOGY REQUEST FORM',
+    subtitle: `Request #${requestId}`,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+  };
+
+  let yPos = addBrandedHeader(doc, info);
+
+  // Priority badge
+  const priorityColors: Record<string, [number, number, number]> = {
+    routine: [34, 197, 94],      // green
+    urgent: [249, 115, 22],     // orange
+    frozen_section: [239, 68, 68], // red
+  };
+  const priorityLabels: Record<string, string> = {
+    routine: 'ROUTINE',
+    urgent: 'URGENT',
+    frozen_section: 'FROZEN SECTION',
+  };
+  
+  doc.setFillColor(...(priorityColors[priority] || priorityColors.routine));
+  doc.roundedRect(pageWidth - 50, yPos - 5, 35, 8, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(7);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text(priorityLabels[priority] || 'ROUTINE', pageWidth - 32.5, yPos - 0.5, { align: 'center' });
+
+  yPos += 5;
+  yPos = addPatientInfoBox(doc, yPos, patient);
+  yPos += 3;
+
+  // Requesting Clinician Box
+  doc.setFillColor(240, 249, 255);
+  doc.roundedRect(15, yPos, pageWidth - 30, 15, 2, 2, 'F');
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(8);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Requesting Clinician:', 20, yPos + 5);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(requestedBy, 55, yPos + 5);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Department:', 110, yPos + 5);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(requestingDepartment, 135, yPos + 5);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Date/Time:', 20, yPos + 11);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(format(requestDate, 'dd MMM yyyy HH:mm'), 42, yPos + 11);
+  
+  yPos += 20;
+
+  // SECTION 1: Clinical Information
+  yPos = addSectionTitle(doc, yPos, 'CLINICAL INFORMATION', 'info');
+  
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLORS.dark);
+  
+  // Clinical History
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Clinical History:', 20, yPos + 5);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  const historyLines = doc.splitTextToSize(clinicalHistory || 'Not provided', pageWidth - 50);
+  historyLines.slice(0, 3).forEach((line: string, idx: number) => {
+    doc.text(line, 25, yPos + 10 + idx * 4);
+  });
+  yPos += 10 + Math.min(historyLines.length, 3) * 4 + 3;
+  
+  // Clinical Diagnosis
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Clinical/Provisional Diagnosis:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  const diagnosisLines = doc.splitTextToSize(clinicalDiagnosis || 'Not provided', pageWidth - 50);
+  diagnosisLines.slice(0, 2).forEach((line: string, idx: number) => {
+    doc.text(line, 25, yPos + 5 + idx * 4);
+  });
+  yPos += 5 + Math.min(diagnosisLines.length, 2) * 4 + 3;
+  
+  // Two-column layout for other clinical info
+  const leftCol = 20;
+  const rightCol = 110;
+  
+  if (relevantInvestigations) {
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Relevant Investigations:', leftCol, yPos);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    const invLines = doc.splitTextToSize(relevantInvestigations, 80);
+    invLines.slice(0, 2).forEach((line: string, idx: number) => {
+      doc.text(line, leftCol + 5, yPos + 4 + idx * 4);
+    });
+  }
+  
+  if (previousBiopsies) {
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Previous Biopsies:', rightCol, yPos);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    const biopLines = doc.splitTextToSize(previousBiopsies, 70);
+    biopLines.slice(0, 2).forEach((line: string, idx: number) => {
+      doc.text(line, rightCol + 5, yPos + 4 + idx * 4);
+    });
+  }
+  yPos += 15;
+  
+  if (familyHistory) {
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Family History:', leftCol, yPos);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.text(familyHistory.substring(0, 60), leftCol + 5, yPos + 4);
+    yPos += 10;
+  }
+  
+  if (riskFactors && riskFactors.length > 0) {
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Risk Factors:', leftCol, yPos);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.text(riskFactors.join(', ').substring(0, 100), leftCol + 5, yPos + 4);
+    yPos += 10;
+  }
+  
+  yPos += 3;
+  
+  // SECTION 2: Specimen Details
+  yPos = checkNewPage(doc, yPos, 50);
+  yPos = addSectionTitle(doc, yPos, 'SPECIMEN DETAILS', 'warning');
+  
+  // Specimen info in a table format
+  doc.setFillColor(254, 252, 232);
+  doc.roundedRect(15, yPos, pageWidth - 30, 40, 2, 2, 'F');
+  
+  doc.setFontSize(8);
+  const specLeftCol = 20;
+  const specMidCol = 75;
+  const specRightCol = 130;
+  
+  // Row 1
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Specimen Type:', specLeftCol, yPos + 6);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(specimenType || '-', specLeftCol + 25, yPos + 6);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Site/Organ:', specMidCol, yPos + 6);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text((specimenSite || '-').substring(0, 30), specMidCol + 20, yPos + 6);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Laterality:', specRightCol, yPos + 6);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(specimenLaterality?.replace('_', ' ') || 'N/A', specRightCol + 18, yPos + 6);
+  
+  // Row 2
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('No. of Specimens:', specLeftCol, yPos + 14);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(String(numberOfSpecimens || 1), specLeftCol + 32, yPos + 14);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Size (cm):', specMidCol, yPos + 14);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(specimenSize || '-', specMidCol + 18, yPos + 14);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Weight (g):', specRightCol, yPos + 14);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(specimenWeight || '-', specRightCol + 20, yPos + 14);
+  
+  // Row 3
+  if (specimenOrientation) {
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Orientation:', specLeftCol, yPos + 22);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    const orientLines = doc.splitTextToSize(specimenOrientation, 140);
+    doc.text(orientLines[0] || '-', specLeftCol + 22, yPos + 22);
+  }
+  
+  // Row 4 - Collection
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Collection Method:', specLeftCol, yPos + 30);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(collectionMethod?.replace('_', ' ') || '-', specLeftCol + 35, yPos + 30);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Collected By:', specMidCol, yPos + 30);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text((collector || '-').substring(0, 25), specMidCol + 22, yPos + 30);
+  
+  // Row 5 - Date/Time
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Collection Date/Time:', specLeftCol, yPos + 38);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(`${collectionDate || '-'} ${collectionTime || ''}`, specLeftCol + 38, yPos + 38);
+  
+  yPos += 48;
+  
+  // SECTION 3: Fixation Details
+  yPos = checkNewPage(doc, yPos, 30);
+  yPos = addSectionTitle(doc, yPos, 'FIXATION DETAILS', 'success');
+  
+  doc.setFillColor(240, 253, 244);
+  doc.roundedRect(15, yPos, pageWidth - 30, 15, 2, 2, 'F');
+  
+  const fixativeLabels: Record<string, string> = {
+    formalin_10: '10% Neutral Buffered Formalin',
+    formalin_buffered: 'Buffered Formalin',
+    alcohol: 'Alcohol',
+    fresh: 'Fresh (Unfixed)',
+    other: 'Other',
+  };
+  
+  doc.setFontSize(8);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Fixative Used:', 20, yPos + 6);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(fixativeLabels[fixative] || fixative || '-', 50, yPos + 6);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Fixation Time:', 110, yPos + 6);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(fixationTime || 'Not specified', 138, yPos + 6);
+  
+  if (frozenSection) {
+    doc.setFillColor(239, 68, 68);
+    doc.roundedRect(20, yPos + 9, 60, 5, 1, 1, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('⚠ FROZEN SECTION REQUIRED', 50, yPos + 12.5, { align: 'center' });
+    doc.setTextColor(...PDF_COLORS.dark);
+  }
+  
+  yPos += 22;
+  
+  // SECTION 4: Special Studies
+  const hasSpecialStudies = (specialStains && specialStains.length > 0) || 
+    (immunohistochemistry && immunohistochemistry.length > 0) || 
+    (molecularStudies && molecularStudies.length > 0) ||
+    electronMicroscopy;
+    
+  if (hasSpecialStudies) {
+    yPos = checkNewPage(doc, yPos, 50);
+    yPos = addSectionTitle(doc, yPos, 'SPECIAL STUDIES REQUESTED', 'info');
+    
+    if (specialStains && specialStains.length > 0) {
+      doc.setFontSize(8);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Special Stains:', 20, yPos);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      const stainText = doc.splitTextToSize(specialStains.join(', '), pageWidth - 50);
+      stainText.forEach((line: string, idx: number) => {
+        doc.text(line, 25, yPos + 4 + idx * 4);
+      });
+      yPos += 4 + stainText.length * 4 + 3;
+    }
+    
+    if (immunohistochemistry && immunohistochemistry.length > 0) {
+      yPos = checkNewPage(doc, yPos, 15);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Immunohistochemistry (IHC):', 20, yPos);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      const ihcText = doc.splitTextToSize(immunohistochemistry.join(', '), pageWidth - 50);
+      ihcText.forEach((line: string, idx: number) => {
+        doc.text(line, 25, yPos + 4 + idx * 4);
+      });
+      yPos += 4 + ihcText.length * 4 + 3;
+    }
+    
+    if (molecularStudies && molecularStudies.length > 0) {
+      yPos = checkNewPage(doc, yPos, 15);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Molecular Studies:', 20, yPos);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      const molText = doc.splitTextToSize(molecularStudies.join(', '), pageWidth - 50);
+      molText.forEach((line: string, idx: number) => {
+        doc.text(line, 25, yPos + 4 + idx * 4);
+      });
+      yPos += 4 + molText.length * 4 + 3;
+    }
+    
+    if (electronMicroscopy) {
+      yPos = checkNewPage(doc, yPos, 10);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.setTextColor(139, 92, 246);
+      doc.text('☑ Electron Microscopy Required', 20, yPos);
+      doc.setTextColor(...PDF_COLORS.dark);
+      yPos += 8;
+    }
+  }
+  
+  // SECTION 5: Operative Findings (if provided)
+  if (operativeFindings || surgicalMargins || lymphNodesSubmitted) {
+    yPos = checkNewPage(doc, yPos, 40);
+    yPos = addSectionTitle(doc, yPos, 'OPERATIVE FINDINGS', 'warning');
+    
+    if (operativeFindings) {
+      doc.setFontSize(8);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Intraoperative Findings:', 20, yPos);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      const opLines = doc.splitTextToSize(operativeFindings, pageWidth - 50);
+      opLines.slice(0, 4).forEach((line: string, idx: number) => {
+        doc.text(line, 25, yPos + 4 + idx * 4);
+      });
+      yPos += 4 + Math.min(opLines.length, 4) * 4 + 3;
+    }
+    
+    if (surgicalMargins) {
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Surgical Margins:', 20, yPos);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.text(surgicalMargins, 52, yPos);
+      yPos += 8;
+    }
+    
+    if (lymphNodesSubmitted && lymphNodesSubmitted > 0) {
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Lymph Nodes Submitted:', 20, yPos);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.text(String(lymphNodesSubmitted), 60, yPos);
+      yPos += 8;
+    }
+  }
+  
+  // SECTION 6: Treatment History (if oncology case)
+  const hasOncologyInfo = treatmentHistory || radiationHistory || chemotherapyHistory || 
+    stagingInfo || (tumorMarkers && tumorMarkers.length > 0);
+    
+  if (hasOncologyInfo) {
+    yPos = checkNewPage(doc, yPos, 40);
+    yPos = addSectionTitle(doc, yPos, 'ONCOLOGY HISTORY', 'danger');
+    
+    doc.setFontSize(8);
+    
+    if (stagingInfo) {
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Clinical Staging:', 20, yPos);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.text(stagingInfo, 52, yPos);
+      yPos += 6;
+    }
+    
+    if (tumorMarkers && tumorMarkers.length > 0) {
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Tumor Markers:', 20, yPos);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.text(tumorMarkers.join(', ').substring(0, 80), 50, yPos);
+      yPos += 6;
+    }
+    
+    if (treatmentHistory) {
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Previous Treatment:', 20, yPos);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      const txLines = doc.splitTextToSize(treatmentHistory, pageWidth - 55);
+      txLines.slice(0, 2).forEach((line: string, idx: number) => {
+        doc.text(line, 52, yPos + idx * 4);
+      });
+      yPos += Math.min(txLines.length, 2) * 4 + 3;
+    }
+    
+    if (radiationHistory) {
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Radiation:', 20, yPos);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.text(radiationHistory.substring(0, 70), 40, yPos);
+      yPos += 6;
+    }
+    
+    if (chemotherapyHistory) {
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Chemotherapy:', 20, yPos);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.text(chemotherapyHistory.substring(0, 70), 48, yPos);
+      yPos += 6;
+    }
+  }
+  
+  // SECTION 7: Laboratory Use Only
+  yPos = checkNewPage(doc, yPos, 50);
+  yPos += 5;
+  
+  doc.setFillColor(249, 250, 251);
+  doc.roundedRect(15, yPos, pageWidth - 30, 40, 2, 2, 'F');
+  doc.setDrawColor(...PDF_COLORS.gray);
+  doc.roundedRect(15, yPos, pageWidth - 30, 40, 2, 2, 'S');
+  
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(...PDF_COLORS.gray);
+  doc.text('FOR LABORATORY USE ONLY', pageWidth / 2, yPos + 6, { align: 'center' });
+  
+  doc.setFontSize(7);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  
+  // Lab fields
+  doc.text('Lab Accession No:', 20, yPos + 14);
+  doc.line(55, yPos + 14, 90, yPos + 14);
+  
+  doc.text('Received Date/Time:', 100, yPos + 14);
+  doc.line(140, yPos + 14, 180, yPos + 14);
+  
+  doc.text('Received By:', 20, yPos + 22);
+  doc.line(45, yPos + 22, 90, yPos + 22);
+  
+  doc.text('Specimen Condition:', 100, yPos + 22);
+  doc.line(140, yPos + 22, 180, yPos + 22);
+  
+  doc.text('No. of Blocks:', 20, yPos + 30);
+  doc.line(48, yPos + 30, 70, yPos + 30);
+  
+  doc.text('No. of Slides:', 75, yPos + 30);
+  doc.line(102, yPos + 30, 125, yPos + 30);
+  
+  doc.text('Gross Exam By:', 130, yPos + 30);
+  doc.line(158, yPos + 30, 180, yPos + 30);
+  
+  yPos += 48;
+  
+  // Signature Section
+  yPos = checkNewPage(doc, yPos, 30);
+  
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(8);
+  
+  // Requesting Clinician
+  doc.text('Requesting Clinician:', 20, yPos);
+  doc.line(20, yPos + 10, 70, yPos + 10);
+  doc.text('Signature', 45, yPos + 14, { align: 'center' });
+  
+  // Date
+  doc.text('Date:', 80, yPos);
+  doc.line(80, yPos + 10, 110, yPos + 10);
+  
+  // Pathologist
+  doc.text('Pathologist:', 125, yPos);
+  doc.line(125, yPos + 10, 175, yPos + 10);
+  doc.text('Signature', 150, yPos + 14, { align: 'center' });
+
+  // Add watermark to all pages
+  addWatermarkToAllPages(doc, 0.06);
+  addBrandedFooter(doc, 1, doc.getNumberOfPages());
+
+  // Save
+  const patientNameClean = patient.name.replace(/\s+/g, '_');
+  doc.save(`Pathology_Request_${patientNameClean}_${format(requestDate, 'yyyyMMdd')}.pdf`);
+}

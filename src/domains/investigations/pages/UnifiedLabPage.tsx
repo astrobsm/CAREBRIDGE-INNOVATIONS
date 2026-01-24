@@ -31,6 +31,7 @@ import {
   FlaskConical,
   AlertTriangle,
   Printer,
+  Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -53,6 +54,11 @@ import {
   referenceRanges,
   type UnifiedCategory 
 } from '../../../services/investigationLabService';
+import PathologyRequestForm, { 
+  PathologyFormData, 
+  defaultPathologyFormData 
+} from '../components/PathologyRequestForm';
+import { generatePathologyRequestPDF } from '../../../utils/clinicalPdfGenerators';
 import type { Investigation } from '../../../types';
 
 // Form schemas
@@ -534,6 +540,7 @@ export default function UnifiedLabPage() {
             toggleCategory={toggleCategory}
             toggleTest={toggleTest}
             selectAllInCategory={selectAllInCategory}
+            user={user}
           />
         )}
       </AnimatePresence>
@@ -819,9 +826,10 @@ function RequestModal({
   toggleCategory,
   toggleTest,
   selectAllInCategory,
+  user,
 }: {
   form: any;
-  onSubmit: (data: RequestFormData) => void;
+  onSubmit: (data: RequestFormData, pathologyData?: PathologyFormData) => void;
   onClose: () => void;
   patients: any[];
   hospitals: any[];
@@ -832,7 +840,24 @@ function RequestModal({
   toggleCategory: (cat: string) => void;
   toggleTest: (test: string) => void;
   selectAllInCategory: (cat: UnifiedCategory) => void;
+  user: any;
 }) {
+  // Pathology form state
+  const [pathologyFormData, setPathologyFormData] = React.useState<PathologyFormData>({
+    ...defaultPathologyFormData,
+    collectionDate: format(new Date(), 'yyyy-MM-dd'),
+    collectionTime: format(new Date(), 'HH:mm'),
+    collector: user ? `${user.firstName} ${user.lastName}` : '',
+  });
+
+  // Check if pathology tests are selected
+  const pathologyTests = [
+    'Tissue Biopsy', 'Fine Needle Aspiration Cytology (FNAC)', 'Frozen Section',
+    'Pap Smear', 'Fluid Cytology', 'Immunohistochemistry',
+    'Histology', 'Cytology', 'Autopsy'
+  ];
+  const hasPathologySelected = selectedTests.some(t => pathologyTests.includes(t));
+  
   // Watch for patient selection changes
   const selectedPatientId = form.watch('patientId');
   const selectedPatient = useMemo(() => {
@@ -1067,6 +1092,9 @@ function RequestModal({
                       <span className="flex items-center gap-2 font-medium">
                         <span>{cat.icon}</span>
                         {cat.label}
+                        {(cat.category === 'histopathology' || cat.category === 'pathology') && (
+                          <span className="ml-1 px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded">WHO Form</span>
+                        )}
                       </span>
                       {expandedCategories.has(cat.category) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
@@ -1102,12 +1130,64 @@ function RequestModal({
                 ))}
               </div>
             </div>
+
+            {/* WHO Pathology Request Form - Shows when pathology tests selected */}
+            {hasPathologySelected && (
+              <PathologyRequestForm
+                formData={pathologyFormData}
+                onChange={(updates) => setPathologyFormData(prev => ({ ...prev, ...updates }))}
+                selectedTests={selectedTests}
+              />
+            )}
           </div>
 
           <div className="flex justify-end gap-3 p-4 border-t bg-gray-50">
             <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
               Cancel
             </button>
+            {hasPathologySelected && (
+              <button
+                type="button"
+                onClick={() => {
+                  const patient = patients.find(p => p.id === form.getValues('patientId'));
+                  const hospital = hospitals.find(h => h.id === form.getValues('hospitalId'));
+                  if (!patient) {
+                    toast.error('Please select a patient first');
+                    return;
+                  }
+                  if (!pathologyFormData.clinicalHistory || !pathologyFormData.clinicalDiagnosis) {
+                    toast.error('Please fill in required pathology fields (Clinical History and Diagnosis)');
+                    return;
+                  }
+                  if (!pathologyFormData.specimenSite) {
+                    toast.error('Please specify the specimen site');
+                    return;
+                  }
+                  generatePathologyRequestPDF({
+                    requestDate: new Date(),
+                    patient: {
+                      name: `${patient.firstName} ${patient.lastName}`,
+                      hospitalNumber: patient.hospitalNumber || patient.id.slice(0, 8).toUpperCase(),
+                      age: patient.dateOfBirth ? Math.floor((new Date().getTime() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
+                      gender: patient.gender,
+                      phone: patient.phone,
+                    },
+                    hospitalName: hospital?.name || 'AstroHEALTH Facility',
+                    hospitalPhone: hospital?.phone,
+                    hospitalEmail: hospital?.email,
+                    requestedBy: user ? `${user.firstName} ${user.lastName}` : 'Requesting Clinician',
+                    requestingDepartment: user?.specialization || 'Surgery',
+                    priority: form.getValues('priority') === 'stat' ? 'frozen_section' : form.getValues('priority'),
+                    ...pathologyFormData,
+                  });
+                  toast.success('Pathology request PDF downloaded');
+                }}
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center gap-2"
+              >
+                <Download size={16} />
+                Download PDF
+              </button>
+            )}
             <button type="submit" className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2">
               <Save size={16} />
               Submit Request
