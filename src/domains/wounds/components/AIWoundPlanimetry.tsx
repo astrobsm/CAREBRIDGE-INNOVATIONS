@@ -66,6 +66,7 @@ export default function AIWoundPlanimetry({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [pendingStream, setPendingStream] = useState<MediaStream | null>(null);
 
   // Load TensorFlow.js model
   useEffect(() => {
@@ -93,16 +94,26 @@ export default function AIWoundPlanimetry({
     };
   }, []);
 
+  // Attach pending stream to video element when it becomes available
+  useEffect(() => {
+    if (pendingStream && videoRef.current && isCameraActive) {
+      videoRef.current.srcObject = pendingStream;
+      videoRef.current.play().catch(err => {
+        console.error('Error playing video:', err);
+      });
+      setPendingStream(null);
+    }
+  }, [pendingStream, isCameraActive]);
+
   // Start camera
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsCameraActive(true);
-      }
+      // Store stream and activate camera - the useEffect will attach it when video element mounts
+      setPendingStream(stream);
+      setIsCameraActive(true);
     } catch (error) {
       console.error('Camera access error:', error);
       toast.error('Unable to access camera. Please upload an image instead.');
@@ -546,6 +557,10 @@ export default function AIWoundPlanimetry({
                         if (videoRef.current?.srcObject) {
                           const stream = videoRef.current.srcObject as MediaStream;
                           stream.getTracks().forEach(track => track.stop());
+                        }
+                        if (pendingStream) {
+                          pendingStream.getTracks().forEach(track => track.stop());
+                          setPendingStream(null);
                         }
                         setIsCameraActive(false);
                       }}
