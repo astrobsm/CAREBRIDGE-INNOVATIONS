@@ -280,6 +280,14 @@ export default function SurgicalEstimatePage() {
     }).format(amount);
   };
 
+  // Format currency for PDF (uses N prefix to avoid encoding issues)
+  const formatCurrencyPDF = (amount: number) => {
+    return 'N' + new Intl.NumberFormat('en-NG', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   // Generate PDF
   const generatePDF = async () => {
     if (!selectedPatient || !selectedProcedure || lineItems.length === 0) {
@@ -303,20 +311,21 @@ export default function SurgicalEstimatePage() {
     doc.line(10, y + 18, pageWidth - 10, y + 18);
 
     doc.setTextColor(0, 51, 102);
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setFont('times', 'bold');
     doc.text('SURGICAL PROCEDURE ESTIMATE', pageWidth / 2, y + 8, { align: 'center' });
 
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(11);
+    doc.setFont('times', 'normal');
+    doc.setTextColor(60, 60, 60);
     const hospitalNameForPdf = customHospitalName || defaultHospital?.name || 'Hospital Name';
     doc.text(hospitalNameForPdf, pageWidth / 2, y + 14, { align: 'center' });
     
     // Hospital address and phone if provided
     if (hospitalAddress || hospitalPhone) {
       y += 5;
-      doc.setFontSize(8);
+      doc.setFontSize(9);
+      doc.setFont('times', 'normal');
       const contactInfo = [hospitalAddress, hospitalPhone].filter(Boolean).join(' | ');
       doc.text(contactInfo, pageWidth / 2, y + 14, { align: 'center' });
     }
@@ -330,8 +339,8 @@ export default function SurgicalEstimatePage() {
     doc.rect(10, y, pageWidth - 20, 35, 'FD');
 
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setFont('times', 'bold');
 
     const col1 = 15;
     const col2 = 110;
@@ -345,7 +354,7 @@ export default function SurgicalEstimatePage() {
     doc.text('Valid Until:', col2, y + 16);
     doc.text('Estimate No:', col2, y + 24);
 
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('times', 'normal');
     doc.text(`${selectedPatient.firstName} ${selectedPatient.lastName}`, col1 + 35, y + 8);
     doc.text(selectedPatient.hospitalNumber || 'N/A', col1 + 40, y + 16);
     doc.text(selectedProcedure.name, col1 + 25, y + 24);
@@ -362,18 +371,18 @@ export default function SurgicalEstimatePage() {
     doc.rect(10, y, pageWidth - 20, 8, 'F');
 
     doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(10);
     doc.text('Description', 15, y + 6);
-    doc.text('Qty', 120, y + 6);
-    doc.text('Unit Price (₦)', 135, y + 6);
-    doc.text('Total (₦)', 175, y + 6);
+    doc.text('Qty', 125, y + 6);
+    doc.text('Unit Price', 140, y + 6);
+    doc.text('Total', 178, y + 6);
 
     y += 10;
 
     doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setFont('times', 'normal');
+    doc.setFontSize(9);
 
     const categoryOrder = ['surgeon_fee', 'assistant_fee', 'anaesthesia_fee', 'theatre_fee', 'consumable', 'other'];
     const categoryLabels: Record<string, string> = {
@@ -397,13 +406,13 @@ export default function SurgicalEstimatePage() {
         currentCategory = catLabel;
         doc.setFillColor(240, 245, 250);
         doc.rect(10, y, pageWidth - 20, 6, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
+        doc.setFont('times', 'bold');
+        doc.setFontSize(9);
         doc.setTextColor(0, 51, 102);
-        doc.text(catLabel, 12, y + 4);
+        doc.text(catLabel, 12, y + 4.5);
         y += 7;
         doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('times', 'normal');
       }
 
       // Alternate row colors
@@ -415,11 +424,12 @@ export default function SurgicalEstimatePage() {
       doc.rect(10, y, pageWidth - 20, 7, 'F');
 
       // Item details
-      const descText = item.description.length > 50 ? item.description.substring(0, 47) + '...' : item.description;
+      const descText = item.description.length > 45 ? item.description.substring(0, 42) + '...' : item.description;
+      doc.setFontSize(9);
       doc.text(descText, 12, y + 5);
-      doc.text(item.quantity.toString(), 122, y + 5);
-      doc.text(formatCurrency(item.unitPrice).replace('NGN', '').trim(), 137, y + 5);
-      doc.text(formatCurrency(item.totalPrice).replace('NGN', '').trim(), 177, y + 5);
+      doc.text(item.quantity.toString(), 127, y + 5);
+      doc.text(formatCurrencyPDF(item.unitPrice), 140, y + 5);
+      doc.text(formatCurrencyPDF(item.totalPrice), 178, y + 5);
 
       y += 8;
 
@@ -438,70 +448,77 @@ export default function SurgicalEstimatePage() {
     doc.line(120, y, pageWidth - 10, y);
 
     y += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
     doc.text('TOTAL ESTIMATE:', 120, y);
     doc.setTextColor(0, 102, 51);
-    doc.text(formatCurrency(totals.total), 175, y);
+    doc.text(formatCurrencyPDF(totals.total), 170, y);
 
     // Disclaimer Box
     y += 15;
     doc.setFillColor(255, 250, 240);
     doc.setDrawColor(255, 180, 100);
     doc.setLineWidth(0.5);
-    doc.rect(10, y, pageWidth - 20, 45, 'FD');
+    doc.rect(10, y, pageWidth - 20, 48, 'FD');
 
     doc.setTextColor(180, 100, 0);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(10);
     doc.text('IMPORTANT NOTICE', 15, y + 7);
 
-    doc.setTextColor(80, 60, 40);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setTextColor(60, 40, 20);
+    doc.setFont('times', 'normal');
+    doc.setFontSize(9);
 
     const disclaimerLines = [
       'This estimate is purely for the surgical/procedure costs and INCLUDES:',
-      '• Surgeon\'s professional fee and clinical services for the first one (1) week post-procedure',
-      '• Surgical assistant fee • Anaesthesia fee • Surgical consumables • Use of theatre/operating room',
+      '- Surgeon\'s professional fee and clinical services for the first one (1) week post-procedure',
+      '- Surgical assistant fee, Anaesthesia fee, Surgical consumables, Use of theatre/operating room',
       '',
       'This estimate DOES NOT cover:',
-      '• Post-operative medications • Hospital admission/bed charges (if required)',
-      '• Laboratory assessment/histopathology of any specimen • Pre-operative investigations',
-      '• Blood/blood products • Implants (if not listed) • Complications requiring additional care',
+      '- Post-operative medications, Hospital admission/bed charges (if required)',
+      '- Laboratory assessment/histopathology of any specimen, Pre-operative investigations',
+      '- Blood/blood products, Implants (if not listed), Complications requiring additional care',
     ];
 
-    let disclaimerY = y + 13;
+    let disclaimerY = y + 14;
     disclaimerLines.forEach(line => {
       doc.text(line, 15, disclaimerY);
       disclaimerY += 5;
     });
 
     // Signature section
-    y += 52;
+    y += 55;
     doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.setFont('times', 'normal');
+    doc.setFontSize(10);
 
     doc.text('Prepared By:', 15, y);
-    doc.line(40, y, 100, y);
+    doc.line(45, y, 100, y);
     if (preparedBy) {
-      doc.text(preparedBy, 42, y - 1);
+      doc.setFont('times', 'bold');
+      doc.text(preparedBy, 47, y - 1);
+      doc.setFont('times', 'normal');
     }
 
     doc.text('Designation:', 110, y);
-    doc.line(135, y, pageWidth - 15, y);
+    doc.line(140, y, pageWidth - 15, y);
     if (preparedByDesignation) {
-      doc.text(preparedByDesignation, 137, y - 1);
+      doc.setFont('times', 'bold');
+      doc.text(preparedByDesignation, 142, y - 1);
+      doc.setFont('times', 'normal');
     }
 
-    y += 8;
+    y += 10;
     doc.text('Date:', 15, y);
+    doc.setFont('times', 'bold');
     doc.text(format(new Date(), 'dd/MM/yyyy'), 30, y);
 
     // Footer
-    doc.setFontSize(7);
-    doc.setTextColor(150, 150, 150);
+    doc.setFont('times', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
     doc.text(
       `Generated by AstroHEALTH EMR | ${hospitalNameForPdf} | ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
       pageWidth / 2,
