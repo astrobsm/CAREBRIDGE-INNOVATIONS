@@ -2920,8 +2920,9 @@ export interface LimbSalvageMinimumInvestigationOptions {
 }
 
 /**
- * Generate a blank/template Minimum Investigation & Imaging Request Form 
- * for Limb Salvage Assessment - can be printed and filled manually
+ * Generate a multi-page Minimum Investigation & Imaging Request Form 
+ * for Limb Salvage Assessment - Each test category on a separate page
+ * in standard clinical request format with patient details on each page
  */
 export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvageMinimumInvestigationOptions): void {
   const {
@@ -2937,405 +2938,737 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
   const margin = 15;
   const contentWidth = pageWidth - (margin * 2);
 
-  // Helper function for new page
-  const checkNewPage = (currentY: number, neededSpace: number): number => {
-    if (currentY + neededSpace > pageHeight - 25) {
-      doc.addPage();
-      doc.setFillColor(...PDF_COLORS.white);
-      doc.rect(0, 0, pageWidth, pageHeight, 'F');
-      addLogoWatermark(doc, 0.06);
-      return 20;
-    }
-    return currentY;
-  };
+  // Helper function to add patient info box at top of each page
+  const addPatientInfoHeader = (requestTitle: string): number => {
+    // White background
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    addLogoWatermark(doc, 0.06);
 
-  // Helper function for section title
-  const addSectionHeader = (title: string, y: number): number => {
-    y = checkNewPage(y, 15);
-    doc.setFillColor(59, 130, 246); // Blue
-    doc.roundedRect(margin, y, contentWidth, 8, 1, 1, 'F');
+    // Hospital header
+    doc.setFillColor(37, 99, 235); // Blue header bar
+    doc.rect(0, 0, pageWidth, 25, 'F');
+    
     doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('times', 'bold');
+    doc.text(hospitalName.toUpperCase(), pageWidth / 2, 10, { align: 'center' });
+    
+    doc.setFontSize(9);
+    doc.setFont('times', 'normal');
+    const contactInfo: string[] = [];
+    if (hospitalPhone) contactInfo.push('Tel: ' + hospitalPhone);
+    if (hospitalEmail) contactInfo.push('Email: ' + hospitalEmail);
+    if (contactInfo.length > 0) {
+      doc.text(contactInfo.join('  |  '), pageWidth / 2, 17, { align: 'center' });
+    }
+
+    // Request Type Title
+    doc.setFontSize(12);
+    doc.setFont('times', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text(requestTitle, pageWidth / 2, 23, { align: 'center' });
+
+    let yPos = 32;
+
+    // Patient Information Box
+    doc.setFillColor(250, 250, 250);
+    doc.setDrawColor(100, 100, 100);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, yPos, contentWidth, 45, 2, 2, 'FD');
+    
     doc.setFontSize(10);
-    doc.setFont(PDF_FONTS.primary, 'bold');
-    doc.text(title, margin + 4, y + 5.5);
-    doc.setTextColor(...PDF_COLORS.dark);
-    return y + 12;
+    doc.setFont('times', 'bold');
+    doc.setTextColor(37, 99, 235);
+    doc.text('PATIENT INFORMATION', margin + 4, yPos + 7);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    doc.setFont('times', 'normal');
+    
+    // Row 1
+    doc.text('Patient Name:', margin + 4, yPos + 15);
+    doc.setDrawColor(150, 150, 150);
+    doc.line(margin + 35, yPos + 15, margin + 100, yPos + 15);
+    
+    doc.text('Hospital No:', margin + 105, yPos + 15);
+    doc.line(margin + 130, yPos + 15, margin + contentWidth - 4, yPos + 15);
+    
+    // Row 2
+    doc.text('Age:', margin + 4, yPos + 23);
+    doc.line(margin + 15, yPos + 23, margin + 35, yPos + 23);
+    
+    doc.text('Sex:', margin + 40, yPos + 23);
+    doc.text('M / F', margin + 50, yPos + 23);
+    
+    doc.text('Date of Birth:', margin + 70, yPos + 23);
+    doc.line(margin + 95, yPos + 23, margin + 130, yPos + 23);
+    
+    doc.text('Phone:', margin + 135, yPos + 23);
+    doc.line(margin + 150, yPos + 23, margin + contentWidth - 4, yPos + 23);
+    
+    // Row 3
+    doc.text('Ward/Clinic:', margin + 4, yPos + 31);
+    doc.line(margin + 30, yPos + 31, margin + 70, yPos + 31);
+    
+    doc.text('Consultant:', margin + 75, yPos + 31);
+    doc.line(margin + 100, yPos + 31, margin + contentWidth - 4, yPos + 31);
+    
+    // Row 4 - Clinical Information
+    doc.text('Diagnosis:', margin + 4, yPos + 39);
+    doc.line(margin + 25, yPos + 39, margin + 100, yPos + 39);
+    
+    doc.text('Affected Side:', margin + 105, yPos + 39);
+    doc.text('L / R / Bilateral', margin + 135, yPos + 39);
+
+    return yPos + 52;
   };
 
-  // Helper function for checkbox item
-  const addCheckboxItem = (text: string, x: number, y: number, _width: number = 85): void => {
-    doc.setDrawColor(...PDF_COLORS.gray);
-    doc.rect(x, y - 3, 4, 4);
-    doc.setFontSize(8);
-    doc.setFont(PDF_FONTS.primary, 'normal');
-    doc.setTextColor(...PDF_COLORS.dark);
+  // Helper function for checkbox item with proper text rendering
+  const addCheckboxItem = (text: string, x: number, y: number, checked: boolean = false): void => {
+    doc.setDrawColor(80, 80, 80);
+    doc.setLineWidth(0.3);
+    doc.rect(x, y - 3.5, 4, 4);
+    if (checked) {
+      doc.setFont('times', 'bold');
+      doc.text('X', x + 0.8, y - 0.3);
+    }
+    doc.setFontSize(9);
+    doc.setFont('times', 'normal');
+    doc.setTextColor(0, 0, 0);
     doc.text(text, x + 6, y);
   };
 
-  // Helper for blank line
-  const addBlankLine = (label: string, x: number, y: number, lineWidth: number): void => {
-    doc.setFontSize(8);
-    doc.setFont(PDF_FONTS.primary, 'normal');
+  // Helper for input field with label
+  const addInputField = (label: string, x: number, y: number, fieldWidth: number): void => {
+    doc.setFontSize(9);
+    doc.setFont('times', 'normal');
+    doc.setTextColor(0, 0, 0);
     doc.text(label, x, y);
     const labelWidth = doc.getTextWidth(label) + 2;
-    doc.setDrawColor(...PDF_COLORS.gray);
-    doc.line(x + labelWidth, y, x + labelWidth + lineWidth, y);
+    doc.setDrawColor(150, 150, 150);
+    doc.line(x + labelWidth, y, x + labelWidth + fieldWidth, y);
   };
 
-  // PAGE 1: Header and Patient Info
-  doc.setFillColor(...PDF_COLORS.white);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
-  addLogoWatermark(doc, 0.06);
-
-  // Header
-  const info: PDFDocumentInfo = {
-    title: 'LIMB SALVAGE MINIMUM INVESTIGATION REQUEST',
-    subtitle: 'Diabetic Foot Assessment Protocol',
-    hospitalName,
-    hospitalPhone,
-    hospitalEmail,
+  // Helper for section title within page
+  const addSectionTitle = (title: string, y: number): number => {
+    doc.setFillColor(37, 99, 235);
+    doc.roundedRect(margin, y, contentWidth, 8, 1, 1, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont('times', 'bold');
+    doc.text(title, margin + 4, y + 5.5);
+    doc.setTextColor(0, 0, 0);
+    return y + 12;
   };
 
-  let yPos = addBrandedHeader(doc, info);
+  // Helper for subsection header
+  const addSubsectionHeader = (title: string, y: number, bgColor: [number, number, number]): number => {
+    doc.setFillColor(...bgColor);
+    doc.roundedRect(margin, y, contentWidth, 7, 1, 1, 'F');
+    doc.setFontSize(9);
+    doc.setFont('times', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text(title, margin + 4, y + 5);
+    return y + 10;
+  };
 
-  // Urgent Badge
-  doc.setFillColor(220, 38, 38); // Red
-  doc.roundedRect(pageWidth - 45, yPos - 5, 30, 8, 2, 2, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(7);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('URGENT', pageWidth - 30, yPos - 0.5, { align: 'center' });
+  // Helper for signature section
+  const addSignatureSection = (y: number): void => {
+    doc.setDrawColor(100, 100, 100);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, contentWidth, 35, 2, 2, 'S');
+    
+    doc.setFontSize(9);
+    doc.setFont('times', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('REQUESTING CLINICIAN', margin + 4, y + 7);
+    
+    doc.setFont('times', 'normal');
+    addInputField('Name:', margin + 4, y + 15, 50);
+    addInputField('Designation:', margin + 70, y + 15, 45);
+    addInputField('Bleep/Ext:', margin + 130, y + 15, 30);
+    
+    addInputField('Signature:', margin + 4, y + 25, 40);
+    addInputField('Date:', margin + 60, y + 25, 25);
+    addInputField('Time:', margin + 100, y + 25, 20);
+    
+    // Urgency checkboxes
+    doc.setFont('times', 'bold');
+    doc.text('Priority:', margin + 4, y + 33);
+    doc.setFont('times', 'normal');
+    addCheckboxItem('STAT', margin + 25, y + 33);
+    addCheckboxItem('Urgent (<24hrs)', margin + 50, y + 33);
+    addCheckboxItem('Routine', margin + 95, y + 33);
+  };
 
-  yPos += 5;
-
-  // Patient Information Box
-  doc.setFillColor(248, 250, 252); // Light gray
-  doc.roundedRect(margin, yPos, contentWidth, 35, 2, 2, 'F');
-  doc.setDrawColor(...PDF_COLORS.primary);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(margin, yPos, contentWidth, 35, 2, 2, 'S');
+  // ==================== PAGE 1: LABORATORY REQUEST - HEMATOLOGY ====================
+  let yPos = addPatientInfoHeader('LABORATORY REQUEST - HEMATOLOGY');
   
-  doc.setFontSize(9);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.setTextColor(...PDF_COLORS.primary);
-  doc.text('PATIENT INFORMATION', margin + 4, yPos + 6);
+  yPos = addSectionTitle('HEMATOLOGY INVESTIGATIONS', yPos);
   
-  doc.setTextColor(...PDF_COLORS.dark);
-  doc.setFontSize(8);
-  
-  // Row 1
-  addBlankLine('Patient Name:', margin + 4, yPos + 14, 55);
-  addBlankLine('Hospital No:', margin + 80, yPos + 14, 35);
-  addBlankLine('Date:', margin + 130, yPos + 14, 25);
-  
-  // Row 2
-  addBlankLine('Age:', margin + 4, yPos + 22, 15);
-  addBlankLine('Sex: M / F', margin + 40, yPos + 22, 0);
-  addBlankLine('Ward/Clinic:', margin + 70, yPos + 22, 35);
-  addBlankLine('Phone:', margin + 120, yPos + 22, 35);
-  
-  // Row 3
-  addBlankLine('Diagnosis:', margin + 4, yPos + 30, 60);
-  addBlankLine('Affected Side: L / R / Bilateral', margin + 90, yPos + 30, 0);
-
-  yPos += 42;
-
-  // Clinical Indication Box
-  yPos = checkNewPage(yPos, 25);
-  doc.setFillColor(254, 243, 199); // Amber light
-  doc.roundedRect(margin, yPos, contentWidth, 20, 2, 2, 'F');
-  
-  doc.setFontSize(9);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.setTextColor(...PDF_COLORS.dark);
-  doc.text('Clinical Indication / Presenting Complaint:', margin + 4, yPos + 6);
-  
-  // Blank lines for writing
-  doc.setDrawColor(...PDF_COLORS.gray);
-  doc.line(margin + 4, yPos + 12, margin + contentWidth - 4, yPos + 12);
-  doc.line(margin + 4, yPos + 17, margin + contentWidth - 4, yPos + 17);
-
-  yPos += 26;
-
-  // ==================== SECTION 1: LABORATORY INVESTIGATIONS ====================
-  yPos = addSectionHeader('A. LABORATORY INVESTIGATIONS (MINIMUM REQUIRED)', yPos);
-
-  // Hematology
-  doc.setFillColor(239, 246, 255); // Light blue
-  doc.roundedRect(margin, yPos, contentWidth, 28, 1, 1, 'F');
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('1. HEMATOLOGY', margin + 3, yPos + 5);
-  
-  addCheckboxItem('Full Blood Count (FBC)', margin + 3, yPos + 12);
-  addCheckboxItem('ESR', margin + 60, yPos + 12);
-  addCheckboxItem('C-Reactive Protein (CRP)', margin + 90, yPos + 12);
-  addCheckboxItem('Blood Group & Cross-match', margin + 3, yPos + 20);
-  addCheckboxItem('Coagulation Profile (PT/INR/APTT)', margin + 60, yPos + 20);
-  addCheckboxItem('Procalcitonin', margin + 130, yPos + 20);
-
-  yPos += 32;
-
-  // Biochemistry
-  yPos = checkNewPage(yPos, 35);
-  doc.setFillColor(240, 253, 244); // Light green
-  doc.roundedRect(margin, yPos, contentWidth, 36, 1, 1, 'F');
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('2. BIOCHEMISTRY', margin + 3, yPos + 5);
-  
-  addCheckboxItem('Fasting Blood Glucose', margin + 3, yPos + 12);
-  addCheckboxItem('HbA1c (Glycated Hemoglobin)', margin + 60, yPos + 12);
-  addCheckboxItem('Random Blood Sugar', margin + 130, yPos + 12);
-  addCheckboxItem('Electrolytes, Urea & Creatinine', margin + 3, yPos + 20);
-  addCheckboxItem('eGFR', margin + 70, yPos + 20);
-  addCheckboxItem('Liver Function Tests', margin + 100, yPos + 20);
-  addCheckboxItem('Serum Albumin', margin + 3, yPos + 28);
-  addCheckboxItem('Lipid Profile', margin + 50, yPos + 28);
-  addCheckboxItem('Serum Lactate', margin + 95, yPos + 28);
-  addCheckboxItem('Vitamin B12/Folate', margin + 140, yPos + 28);
-
-  yPos += 40;
-
-  // Microbiology
-  yPos = checkNewPage(yPos, 28);
-  doc.setFillColor(254, 242, 242); // Light red
-  doc.roundedRect(margin, yPos, contentWidth, 24, 1, 1, 'F');
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('3. MICROBIOLOGY / INFECTION MARKERS', margin + 3, yPos + 5);
-  
-  addCheckboxItem('Blood Culture (Aerobic & Anaerobic)', margin + 3, yPos + 12);
-  addCheckboxItem('Wound Swab MCS', margin + 80, yPos + 12);
-  addCheckboxItem('Urinalysis & Urine MCS', margin + 130, yPos + 12);
-  addCheckboxItem('Deep Tissue/Bone Biopsy Culture', margin + 3, yPos + 20);
-  addCheckboxItem('Sensitivity Pattern Requested', margin + 80, yPos + 20);
-
-  yPos += 30;
-
-  // ==================== SECTION 2: IMAGING INVESTIGATIONS ====================
-  yPos = addSectionHeader('B. IMAGING INVESTIGATIONS (MINIMUM REQUIRED)', yPos);
-
-  // Plain Radiography
-  yPos = checkNewPage(yPos, 28);
-  doc.setFillColor(254, 249, 195); // Light yellow
-  doc.roundedRect(margin, yPos, contentWidth, 24, 1, 1, 'F');
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('1. PLAIN RADIOGRAPHY', margin + 3, yPos + 5);
-  
-  addCheckboxItem('X-ray Foot (AP & Lateral)', margin + 3, yPos + 12);
-  addCheckboxItem('X-ray Ankle (AP & Lateral)', margin + 60, yPos + 12);
-  addCheckboxItem('X-ray Tibia/Fibula', margin + 120, yPos + 12);
-  addCheckboxItem('Chest X-ray', margin + 3, yPos + 20);
-  addCheckboxItem('Other:', margin + 50, yPos + 20);
-  doc.line(margin + 65, yPos + 20, margin + 120, yPos + 20);
-
-  yPos += 28;
-
-  // Advanced Imaging
-  yPos = checkNewPage(yPos, 28);
-  doc.setFillColor(243, 232, 255); // Light purple
-  doc.roundedRect(margin, yPos, contentWidth, 28, 1, 1, 'F');
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('2. ADVANCED IMAGING (If Osteomyelitis Suspected)', margin + 3, yPos + 5);
-  
-  addCheckboxItem('MRI Foot/Ankle with Contrast', margin + 3, yPos + 12);
-  addCheckboxItem('CT Foot/Ankle', margin + 70, yPos + 12);
-  addCheckboxItem('Nuclear Bone Scan', margin + 120, yPos + 12);
-  addCheckboxItem('WBC-Labeled Scan (Indium-111)', margin + 3, yPos + 20);
-  addCheckboxItem('PET-CT (if available)', margin + 80, yPos + 20);
-
-  yPos += 34;
-
-  // ==================== SECTION 3: VASCULAR INVESTIGATIONS ====================
-  yPos = addSectionHeader('C. VASCULAR INVESTIGATIONS (ESSENTIAL FOR PAD ASSESSMENT)', yPos);
-
-  // Non-invasive vascular
-  yPos = checkNewPage(yPos, 35);
-  doc.setFillColor(236, 253, 245); // Light teal
-  doc.roundedRect(margin, yPos, contentWidth, 32, 1, 1, 'F');
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('1. NON-INVASIVE VASCULAR STUDIES', margin + 3, yPos + 5);
-  
-  addCheckboxItem('Ankle-Brachial Index (ABI)', margin + 3, yPos + 12);
-  addCheckboxItem('Toe-Brachial Index (TBI)', margin + 65, yPos + 12);
-  addCheckboxItem('Arterial Doppler', margin + 125, yPos + 12);
-  addCheckboxItem('Duplex Ultrasound Scan (Lower Limb Arteries)', margin + 3, yPos + 20);
-  addCheckboxItem('Transcutaneous Oxygen (TcPO2)', margin + 95, yPos + 20);
-  addCheckboxItem('Venous Doppler (if venous disease suspected)', margin + 3, yPos + 28);
-  addCheckboxItem('Pulse Volume Recording (PVR)', margin + 95, yPos + 28);
-
+  // Full Blood Count section
+  yPos = addSubsectionHeader('Complete Blood Count (CBC/FBC)', yPos, [239, 246, 255]);
+  addCheckboxItem('Full Blood Count (FBC) with Differential', margin + 4, yPos + 5);
+  addCheckboxItem('Hemoglobin (Hb)', margin + 4, yPos + 13);
+  addCheckboxItem('Packed Cell Volume (PCV/HCT)', margin + 80, yPos + 13);
+  addCheckboxItem('Platelet Count', margin + 4, yPos + 21);
+  addCheckboxItem('White Cell Count (WBC)', margin + 80, yPos + 21);
+  addCheckboxItem('Red Cell Indices (MCV, MCH, MCHC)', margin + 4, yPos + 29);
+  addCheckboxItem('Peripheral Blood Film', margin + 100, yPos + 29);
   yPos += 38;
 
-  // Invasive/Advanced Vascular
-  yPos = checkNewPage(yPos, 22);
-  doc.setFillColor(254, 226, 226); // Light coral
-  doc.roundedRect(margin, yPos, contentWidth, 18, 1, 1, 'F');
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('2. ADVANCED VASCULAR IMAGING (If Revascularization Planned)', margin + 3, yPos + 5);
+  // Coagulation section
+  yPos = addSubsectionHeader('Coagulation Studies', yPos, [254, 243, 199]);
+  addCheckboxItem('Prothrombin Time (PT)', margin + 4, yPos + 5);
+  addCheckboxItem('INR', margin + 70, yPos + 5);
+  addCheckboxItem('Activated Partial Thromboplastin Time (APTT)', margin + 100, yPos + 5);
+  addCheckboxItem('Bleeding Time', margin + 4, yPos + 13);
+  addCheckboxItem('Clotting Time', margin + 70, yPos + 13);
+  addCheckboxItem('D-Dimer', margin + 120, yPos + 13);
+  addCheckboxItem('Fibrinogen', margin + 4, yPos + 21);
+  yPos += 30;
+
+  // Blood Grouping
+  yPos = addSubsectionHeader('Blood Grouping & Compatibility', yPos, [254, 226, 226]);
+  addCheckboxItem('Blood Group (ABO)', margin + 4, yPos + 5);
+  addCheckboxItem('Rhesus Factor', margin + 70, yPos + 5);
+  addCheckboxItem('Cross-Match (_____ units)', margin + 120, yPos + 5);
+  addCheckboxItem('Antibody Screen', margin + 4, yPos + 13);
+  addCheckboxItem('Direct Coombs Test', margin + 70, yPos + 13);
+  yPos += 22;
+
+  // Inflammatory Markers
+  yPos = addSubsectionHeader('Inflammatory Markers', yPos, [240, 253, 244]);
+  addCheckboxItem('Erythrocyte Sedimentation Rate (ESR)', margin + 4, yPos + 5);
+  addCheckboxItem('C-Reactive Protein (CRP)', margin + 90, yPos + 5);
+  addCheckboxItem('Procalcitonin', margin + 4, yPos + 13);
+  addCheckboxItem('Ferritin', margin + 70, yPos + 13);
+  yPos += 22;
+
+  // Clinical Notes
+  doc.setFillColor(255, 255, 240);
+  doc.roundedRect(margin, yPos, contentWidth, 25, 2, 2, 'F');
+  doc.setFont('times', 'bold');
+  doc.text('Clinical Notes / Reason for Request:', margin + 4, yPos + 7);
+  doc.setDrawColor(150, 150, 150);
+  doc.line(margin + 4, yPos + 14, margin + contentWidth - 4, yPos + 14);
+  doc.line(margin + 4, yPos + 21, margin + contentWidth - 4, yPos + 21);
+  yPos += 30;
+
+  addSignatureSection(yPos);
+
+  // ==================== PAGE 2: LABORATORY REQUEST - BIOCHEMISTRY ====================
+  doc.addPage();
+  yPos = addPatientInfoHeader('LABORATORY REQUEST - BIOCHEMISTRY');
   
-  addCheckboxItem('CT Angiography (CTA) Lower Limbs', margin + 3, yPos + 12);
-  addCheckboxItem('MR Angiography (MRA)', margin + 75, yPos + 12);
-  addCheckboxItem('Digital Subtraction Angiography', margin + 130, yPos + 12);
-
-  yPos += 24;
-
-  // ==================== SECTION 4: CARDIAC & ADDITIONAL ====================
-  yPos = addSectionHeader('D. CARDIAC & PRE-OPERATIVE WORKUP', yPos);
-
-  yPos = checkNewPage(yPos, 24);
-  doc.setFillColor(255, 237, 213); // Light orange
-  doc.roundedRect(margin, yPos, contentWidth, 22, 1, 1, 'F');
+  yPos = addSectionTitle('BIOCHEMISTRY INVESTIGATIONS', yPos);
   
-  addCheckboxItem('ECG (12-lead)', margin + 3, yPos + 6);
-  addCheckboxItem('Echocardiogram', margin + 50, yPos + 6);
-  addCheckboxItem('Chest X-ray (PA)', margin + 100, yPos + 6);
-  addCheckboxItem('Exercise Stress Test', margin + 3, yPos + 14);
-  addCheckboxItem('Cardiac Clearance Required', margin + 60, yPos + 14);
-  addCheckboxItem('Pro-BNP', margin + 130, yPos + 14);
+  // Glucose/Diabetic
+  yPos = addSubsectionHeader('Glucose & Diabetic Profile', yPos, [254, 243, 199]);
+  addCheckboxItem('Fasting Blood Glucose (FBG)', margin + 4, yPos + 5);
+  addCheckboxItem('Random Blood Glucose (RBG)', margin + 80, yPos + 5);
+  addCheckboxItem('2-Hour Post Prandial Glucose', margin + 4, yPos + 13);
+  addCheckboxItem('HbA1c (Glycated Hemoglobin)', margin + 80, yPos + 13);
+  addCheckboxItem('Oral Glucose Tolerance Test (OGTT)', margin + 4, yPos + 21);
+  addCheckboxItem('Fructosamine', margin + 100, yPos + 21);
+  yPos += 30;
 
-  yPos += 28;
+  // Renal Function
+  yPos = addSubsectionHeader('Renal Function Tests', yPos, [239, 246, 255]);
+  addCheckboxItem('Electrolytes (Na+, K+, Cl-, HCO3-)', margin + 4, yPos + 5);
+  addCheckboxItem('Urea', margin + 90, yPos + 5);
+  addCheckboxItem('Creatinine', margin + 120, yPos + 5);
+  addCheckboxItem('eGFR (Estimated Glomerular Filtration Rate)', margin + 4, yPos + 13);
+  addCheckboxItem('BUN (Blood Urea Nitrogen)', margin + 100, yPos + 13);
+  addCheckboxItem('Uric Acid', margin + 4, yPos + 21);
+  addCheckboxItem('Calcium', margin + 60, yPos + 21);
+  addCheckboxItem('Phosphate', margin + 110, yPos + 21);
+  addCheckboxItem('Magnesium', margin + 4, yPos + 29);
+  yPos += 38;
 
-  // ==================== SECTION 5: SPECIALTY CONSULTATIONS ====================
-  yPos = addSectionHeader('E. SPECIALTY CONSULTATIONS REQUIRED', yPos);
+  // Liver Function
+  yPos = addSubsectionHeader('Liver Function Tests', yPos, [240, 253, 244]);
+  addCheckboxItem('Total Bilirubin', margin + 4, yPos + 5);
+  addCheckboxItem('Direct Bilirubin', margin + 60, yPos + 5);
+  addCheckboxItem('Indirect Bilirubin', margin + 120, yPos + 5);
+  addCheckboxItem('ALT (SGPT)', margin + 4, yPos + 13);
+  addCheckboxItem('AST (SGOT)', margin + 60, yPos + 13);
+  addCheckboxItem('ALP (Alkaline Phosphatase)', margin + 110, yPos + 13);
+  addCheckboxItem('GGT (Gamma GT)', margin + 4, yPos + 21);
+  addCheckboxItem('Total Protein', margin + 70, yPos + 21);
+  addCheckboxItem('Serum Albumin', margin + 130, yPos + 21);
+  yPos += 30;
 
-  yPos = checkNewPage(yPos, 24);
+  // Lipid Profile
+  yPos = addSubsectionHeader('Lipid Profile', yPos, [243, 232, 255]);
+  addCheckboxItem('Total Cholesterol', margin + 4, yPos + 5);
+  addCheckboxItem('Triglycerides', margin + 60, yPos + 5);
+  addCheckboxItem('HDL Cholesterol', margin + 110, yPos + 5);
+  addCheckboxItem('LDL Cholesterol', margin + 4, yPos + 13);
+  addCheckboxItem('VLDL Cholesterol', margin + 60, yPos + 13);
+  yPos += 22;
+
+  // Other Biochemistry
+  yPos = addSubsectionHeader('Other Biochemistry', yPos, [254, 226, 226]);
+  addCheckboxItem('Serum Lactate', margin + 4, yPos + 5);
+  addCheckboxItem('Amylase', margin + 60, yPos + 5);
+  addCheckboxItem('Lipase', margin + 100, yPos + 5);
+  addCheckboxItem('Vitamin B12', margin + 4, yPos + 13);
+  addCheckboxItem('Folate', margin + 60, yPos + 13);
+  addCheckboxItem('Vitamin D (25-OH)', margin + 100, yPos + 13);
+  yPos += 22;
+
+  addSignatureSection(yPos);
+
+  // ==================== PAGE 3: LABORATORY REQUEST - MICROBIOLOGY ====================
+  doc.addPage();
+  yPos = addPatientInfoHeader('LABORATORY REQUEST - MICROBIOLOGY');
+  
+  yPos = addSectionTitle('MICROBIOLOGY / INFECTION INVESTIGATIONS', yPos);
+  
+  // Blood Culture
+  yPos = addSubsectionHeader('Blood Culture', yPos, [254, 226, 226]);
+  addCheckboxItem('Blood Culture - Aerobic', margin + 4, yPos + 5);
+  addCheckboxItem('Blood Culture - Anaerobic', margin + 80, yPos + 5);
+  addCheckboxItem('Blood Culture x 2 Sets', margin + 4, yPos + 13);
+  addCheckboxItem('Fungal Blood Culture', margin + 80, yPos + 13);
+  yPos += 22;
+
+  // Wound/Tissue
+  yPos = addSubsectionHeader('Wound & Tissue Samples', yPos, [254, 243, 199]);
+  addCheckboxItem('Wound Swab - Microscopy, Culture & Sensitivity (MCS)', margin + 4, yPos + 5);
+  addCheckboxItem('Deep Tissue Biopsy for Culture', margin + 4, yPos + 13);
+  addCheckboxItem('Bone Biopsy for Culture', margin + 90, yPos + 13);
+  addCheckboxItem('Pus for MCS', margin + 4, yPos + 21);
+  addCheckboxItem('Aspirate for MCS', margin + 60, yPos + 21);
+  addCheckboxItem('Gram Stain', margin + 120, yPos + 21);
+  addInputField('Specimen Site:', margin + 4, yPos + 30, 60);
+  yPos += 40;
+
+  // Urine
+  yPos = addSubsectionHeader('Urine Analysis', yPos, [239, 246, 255]);
+  addCheckboxItem('Urinalysis (Dipstick)', margin + 4, yPos + 5);
+  addCheckboxItem('Urine Microscopy', margin + 70, yPos + 5);
+  addCheckboxItem('Urine Culture & Sensitivity', margin + 4, yPos + 13);
+  addCheckboxItem('24-Hour Urine Protein', margin + 80, yPos + 13);
+  addCheckboxItem('Urine Albumin/Creatinine Ratio (ACR)', margin + 4, yPos + 21);
+  yPos += 30;
+
+  // Special Microbiology
+  yPos = addSubsectionHeader('Special Microbiology Tests', yPos, [240, 253, 244]);
+  addCheckboxItem('AFB Smear (TB)', margin + 4, yPos + 5);
+  addCheckboxItem('TB Culture', margin + 60, yPos + 5);
+  addCheckboxItem('GeneXpert MTB/RIF', margin + 110, yPos + 5);
+  addCheckboxItem('HIV Screening', margin + 4, yPos + 13);
+  addCheckboxItem('Hepatitis B (HBsAg)', margin + 60, yPos + 13);
+  addCheckboxItem('Hepatitis C (Anti-HCV)', margin + 120, yPos + 13);
+  addCheckboxItem('VDRL/RPR (Syphilis)', margin + 4, yPos + 21);
+  yPos += 30;
+
+  // Specimen Details
+  doc.setFillColor(255, 255, 240);
+  doc.roundedRect(margin, yPos, contentWidth, 30, 2, 2, 'F');
+  doc.setFont('times', 'bold');
+  doc.text('Specimen Details:', margin + 4, yPos + 7);
+  doc.setFont('times', 'normal');
+  addInputField('Type:', margin + 4, yPos + 15, 40);
+  addInputField('Site:', margin + 60, yPos + 15, 40);
+  addInputField('Date Collected:', margin + 115, yPos + 15, 35);
+  addInputField('Time Collected:', margin + 4, yPos + 23, 30);
+  addInputField('Collected By:', margin + 60, yPos + 23, 50);
+  yPos += 35;
+
+  addSignatureSection(yPos);
+
+  // ==================== PAGE 4: RADIOLOGY REQUEST - PLAIN X-RAY ====================
+  doc.addPage();
+  yPos = addPatientInfoHeader('RADIOLOGY REQUEST - PLAIN RADIOGRAPHY');
+  
+  yPos = addSectionTitle('PLAIN X-RAY INVESTIGATIONS', yPos);
+  
+  // Lower Limb X-rays
+  yPos = addSubsectionHeader('Lower Limb Radiographs', yPos, [254, 249, 195]);
+  addCheckboxItem('X-ray Foot - AP View', margin + 4, yPos + 5);
+  addCheckboxItem('X-ray Foot - Lateral View', margin + 70, yPos + 5);
+  addCheckboxItem('X-ray Foot - Oblique View', margin + 140, yPos + 5);
+  addCheckboxItem('X-ray Ankle - AP View', margin + 4, yPos + 13);
+  addCheckboxItem('X-ray Ankle - Lateral View', margin + 70, yPos + 13);
+  addCheckboxItem('X-ray Ankle - Mortise View', margin + 140, yPos + 13);
+  addCheckboxItem('X-ray Tibia/Fibula - AP & Lateral', margin + 4, yPos + 21);
+  addCheckboxItem('X-ray Knee - AP & Lateral', margin + 90, yPos + 21);
+  addCheckboxItem('X-ray Femur', margin + 4, yPos + 29);
+  addCheckboxItem('X-ray Pelvis/Hip', margin + 70, yPos + 29);
+  yPos += 40;
+
+  // Side Selection
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(margin, yPos, contentWidth, 22, 1, 1, 'F');
-  
-  addCheckboxItem('Vascular Surgery', margin + 3, yPos + 6);
-  addCheckboxItem('Plastic Surgery', margin + 50, yPos + 6);
-  addCheckboxItem('Endocrinology', margin + 95, yPos + 6);
-  addCheckboxItem('Cardiology', margin + 145, yPos + 6);
-  addCheckboxItem('Infectious Disease', margin + 3, yPos + 14);
-  addCheckboxItem('Nephrology', margin + 55, yPos + 14);
-  addCheckboxItem('Orthopaedics', margin + 100, yPos + 14);
-  addCheckboxItem('Wound Care Nurse', margin + 145, yPos + 14);
+  doc.roundedRect(margin, yPos, contentWidth, 12, 1, 1, 'F');
+  doc.setFont('times', 'bold');
+  doc.text('Side:', margin + 4, yPos + 8);
+  doc.setFont('times', 'normal');
+  addCheckboxItem('Left', margin + 25, yPos + 8);
+  addCheckboxItem('Right', margin + 55, yPos + 8);
+  addCheckboxItem('Bilateral', margin + 90, yPos + 8);
+  yPos += 18;
 
-  yPos += 28;
+  // Chest/Other X-rays
+  yPos = addSubsectionHeader('Chest & Other Radiographs', yPos, [239, 246, 255]);
+  addCheckboxItem('Chest X-ray - PA View', margin + 4, yPos + 5);
+  addCheckboxItem('Chest X-ray - Lateral View', margin + 70, yPos + 5);
+  addCheckboxItem('Chest X-ray - AP (Portable)', margin + 140, yPos + 5);
+  addCheckboxItem('Abdominal X-ray', margin + 4, yPos + 13);
+  addCheckboxItem('Spine X-ray', margin + 70, yPos + 13);
+  yPos += 22;
 
-  // ==================== SECTION 6: WOUND CLASSIFICATION ====================
-  yPos = addSectionHeader('F. WOUND CLASSIFICATION (To Be Completed After Examination)', yPos);
+  // Clinical Information
+  doc.setFillColor(255, 255, 240);
+  doc.roundedRect(margin, yPos, contentWidth, 45, 2, 2, 'F');
+  doc.setFont('times', 'bold');
+  doc.text('Clinical Information (Essential for Radiologist):', margin + 4, yPos + 7);
+  doc.setFont('times', 'normal');
+  doc.text('Indication:', margin + 4, yPos + 15);
+  doc.setDrawColor(150, 150, 150);
+  doc.line(margin + 25, yPos + 15, margin + contentWidth - 4, yPos + 15);
+  doc.line(margin + 4, yPos + 22, margin + contentWidth - 4, yPos + 22);
+  
+  doc.text('Specific Area of Interest:', margin + 4, yPos + 30);
+  doc.line(margin + 50, yPos + 30, margin + contentWidth - 4, yPos + 30);
+  
+  addCheckboxItem('? Osteomyelitis', margin + 4, yPos + 40);
+  addCheckboxItem('? Fracture', margin + 55, yPos + 40);
+  addCheckboxItem('? Gas in Tissues', margin + 100, yPos + 40);
+  addCheckboxItem('? Foreign Body', margin + 150, yPos + 40);
+  yPos += 50;
 
-  yPos = checkNewPage(yPos, 40);
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(...PDF_COLORS.gray);
-  doc.roundedRect(margin, yPos, contentWidth, 38, 1, 1, 'S');
-  
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('Wagner Grade:', margin + 4, yPos + 8);
-  doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.text('□ 0 (At risk)  □ 1 (Superficial)  □ 2 (Deep)  □ 3 (Osteomyelitis)  □ 4 (Partial gangrene)  □ 5 (Extensive gangrene)', margin + 35, yPos + 8);
-  
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('Texas Classification:', margin + 4, yPos + 16);
-  doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.text('Grade: □ 0  □ 1  □ 2  □ 3     Stage: □ A (No infection/ischemia)  □ B (Infection)  □ C (Ischemia)  □ D (Both)', margin + 45, yPos + 16);
-  
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('WIfI Score:', margin + 4, yPos + 24);
-  doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.text('Wound: □ 0  □ 1  □ 2  □ 3     Ischemia: □ 0  □ 1  □ 2  □ 3     Foot Infection: □ 0  □ 1  □ 2  □ 3', margin + 30, yPos + 24);
-  
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('SINBAD Score:', margin + 4, yPos + 32);
-  addBlankLine('', margin + 35, yPos + 32, 20);
-  doc.text('/6', margin + 58, yPos + 32);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('PEDIS Classification:', margin + 75, yPos + 32);
-  addBlankLine('', margin + 115, yPos + 32, 50);
+  addSignatureSection(yPos);
 
-  yPos += 44;
+  // ==================== PAGE 5: RADIOLOGY REQUEST - ADVANCED IMAGING ====================
+  doc.addPage();
+  yPos = addPatientInfoHeader('RADIOLOGY REQUEST - ADVANCED IMAGING');
+  
+  yPos = addSectionTitle('ADVANCED IMAGING INVESTIGATIONS', yPos);
+  
+  // CT Scan
+  yPos = addSubsectionHeader('Computed Tomography (CT)', yPos, [243, 232, 255]);
+  addCheckboxItem('CT Foot', margin + 4, yPos + 5);
+  addCheckboxItem('CT Ankle', margin + 50, yPos + 5);
+  addCheckboxItem('CT Lower Limb', margin + 100, yPos + 5);
+  addCheckboxItem('With IV Contrast', margin + 4, yPos + 13);
+  addCheckboxItem('Without Contrast', margin + 60, yPos + 13);
+  addCheckboxItem('3D Reconstruction', margin + 120, yPos + 13);
+  yPos += 22;
 
-  // ==================== URGENCY & SIGNATURES ====================
-  yPos = checkNewPage(yPos, 45);
-  
-  // Urgency box
-  doc.setFillColor(254, 226, 226); // Light red
-  doc.roundedRect(margin, yPos, contentWidth / 2 - 5, 20, 1, 1, 'F');
-  doc.setFontSize(9);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('URGENCY:', margin + 4, yPos + 8);
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.text('□ STAT  □ Urgent (<24hrs)  □ Routine', margin + 4, yPos + 15);
-  
-  // Priority box
-  doc.setFillColor(254, 249, 195); // Light yellow
-  doc.roundedRect(margin + contentWidth / 2, yPos, contentWidth / 2, 20, 1, 1, 'F');
-  doc.setFontSize(9);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('CLINICAL PRIORITY:', margin + contentWidth / 2 + 4, yPos + 8);
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.text('□ Limb-threatening  □ Life-threatening  □ Elective', margin + contentWidth / 2 + 4, yPos + 15);
+  // MRI
+  yPos = addSubsectionHeader('Magnetic Resonance Imaging (MRI)', yPos, [254, 226, 226]);
+  addCheckboxItem('MRI Foot', margin + 4, yPos + 5);
+  addCheckboxItem('MRI Ankle', margin + 50, yPos + 5);
+  addCheckboxItem('MRI Lower Limb', margin + 100, yPos + 5);
+  addCheckboxItem('With Gadolinium Contrast', margin + 4, yPos + 13);
+  addCheckboxItem('Without Contrast', margin + 75, yPos + 13);
+  addCheckboxItem('? Osteomyelitis Protocol', margin + 4, yPos + 21);
+  addCheckboxItem('? Soft Tissue Infection', margin + 75, yPos + 21);
+  yPos += 30;
 
-  yPos += 26;
+  // Nuclear Medicine
+  yPos = addSubsectionHeader('Nuclear Medicine / Bone Scan', yPos, [254, 243, 199]);
+  addCheckboxItem('Tc-99m Bone Scan (3-Phase)', margin + 4, yPos + 5);
+  addCheckboxItem('WBC-Labeled Scan (Indium-111)', margin + 80, yPos + 5);
+  addCheckboxItem('PET-CT Scan', margin + 4, yPos + 13);
+  addCheckboxItem('Gallium-67 Scan', margin + 70, yPos + 13);
+  yPos += 22;
 
-  // Signature section
-  yPos = checkNewPage(yPos, 30);
-  doc.setDrawColor(...PDF_COLORS.gray);
-  doc.roundedRect(margin, yPos, contentWidth, 28, 1, 1, 'S');
-  
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('Requesting Clinician:', margin + 4, yPos + 8);
-  doc.line(margin + 45, yPos + 8, margin + 90, yPos + 8);
-  
-  doc.text('Designation:', margin + 95, yPos + 8);
-  doc.line(margin + 120, yPos + 8, margin + 165, yPos + 8);
-  
-  doc.text('Signature:', margin + 4, yPos + 18);
-  doc.line(margin + 30, yPos + 18, margin + 70, yPos + 18);
-  
-  doc.text('Date:', margin + 75, yPos + 18);
-  doc.line(margin + 88, yPos + 18, margin + 115, yPos + 18);
-  
-  doc.text('Time:', margin + 120, yPos + 18);
-  doc.line(margin + 132, yPos + 18, margin + 165, yPos + 18);
-  
-  doc.text('Contact Phone:', margin + 4, yPos + 25);
-  doc.line(margin + 35, yPos + 25, margin + 80, yPos + 25);
-  
-  doc.text('Bleep/Ext:', margin + 85, yPos + 25);
-  doc.line(margin + 105, yPos + 25, margin + 130, yPos + 25);
+  // Ultrasound
+  yPos = addSubsectionHeader('Ultrasound', yPos, [240, 253, 244]);
+  addCheckboxItem('Ultrasound Soft Tissue (Foot/Ankle)', margin + 4, yPos + 5);
+  addCheckboxItem('Ultrasound-Guided Aspiration', margin + 90, yPos + 5);
+  addCheckboxItem('Doppler Ultrasound', margin + 4, yPos + 13);
+  yPos += 22;
 
-  yPos += 34;
+  // Contraindications
+  doc.setFillColor(254, 226, 226);
+  doc.roundedRect(margin, yPos, contentWidth, 30, 2, 2, 'F');
+  doc.setFont('times', 'bold');
+  doc.text('Contraindications / Safety Checklist:', margin + 4, yPos + 7);
+  doc.setFont('times', 'normal');
+  addCheckboxItem('Pacemaker/ICD', margin + 4, yPos + 15);
+  addCheckboxItem('Metal Implants', margin + 60, yPos + 15);
+  addCheckboxItem('Cochlear Implant', margin + 120, yPos + 15);
+  addCheckboxItem('Contrast Allergy', margin + 4, yPos + 23);
+  addCheckboxItem('Renal Impairment (eGFR <30)', margin + 60, yPos + 23);
+  addCheckboxItem('Claustrophobia', margin + 140, yPos + 23);
+  yPos += 35;
 
-  // Additional notes
-  yPos = checkNewPage(yPos, 22);
+  addSignatureSection(yPos);
+
+  // ==================== PAGE 6: VASCULAR STUDIES REQUEST ====================
+  doc.addPage();
+  yPos = addPatientInfoHeader('VASCULAR STUDIES REQUEST');
+  
+  yPos = addSectionTitle('VASCULAR INVESTIGATIONS', yPos);
+  
+  // Non-invasive
+  yPos = addSubsectionHeader('Non-Invasive Vascular Studies', yPos, [236, 253, 245]);
+  addCheckboxItem('Ankle-Brachial Index (ABI)', margin + 4, yPos + 5);
+  addCheckboxItem('Toe-Brachial Index (TBI)', margin + 80, yPos + 5);
+  addCheckboxItem('Arterial Doppler - Lower Limbs', margin + 4, yPos + 13);
+  addCheckboxItem('Venous Doppler - Lower Limbs', margin + 80, yPos + 13);
+  addCheckboxItem('Duplex Ultrasound - Lower Limb Arteries', margin + 4, yPos + 21);
+  addCheckboxItem('Duplex Ultrasound - Lower Limb Veins', margin + 90, yPos + 21);
+  addCheckboxItem('Transcutaneous Oxygen (TcPO2)', margin + 4, yPos + 29);
+  addCheckboxItem('Pulse Volume Recording (PVR)', margin + 90, yPos + 29);
+  addCheckboxItem('Segmental Pressures', margin + 4, yPos + 37);
+  yPos += 46;
+
+  // CT/MR Angiography
+  yPos = addSubsectionHeader('Angiography Studies', yPos, [254, 226, 226]);
+  addCheckboxItem('CT Angiography (CTA) - Lower Limbs', margin + 4, yPos + 5);
+  addCheckboxItem('CT Angiography - Aorto-iliac', margin + 90, yPos + 5);
+  addCheckboxItem('MR Angiography (MRA) - Lower Limbs', margin + 4, yPos + 13);
+  addCheckboxItem('Digital Subtraction Angiography (DSA)', margin + 90, yPos + 13);
+  yPos += 22;
+
+  // Side
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(margin, yPos, contentWidth, 18, 1, 1, 'F');
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('Additional Notes / Special Instructions:', margin + 4, yPos + 6);
-  doc.setDrawColor(...PDF_COLORS.gray);
-  doc.line(margin + 4, yPos + 12, margin + contentWidth - 4, yPos + 12);
-  doc.line(margin + 4, yPos + 16, margin + contentWidth - 4, yPos + 16);
+  doc.roundedRect(margin, yPos, contentWidth, 12, 1, 1, 'F');
+  doc.setFont('times', 'bold');
+  doc.text('Side:', margin + 4, yPos + 8);
+  doc.setFont('times', 'normal');
+  addCheckboxItem('Left', margin + 25, yPos + 8);
+  addCheckboxItem('Right', margin + 55, yPos + 8);
+  addCheckboxItem('Bilateral', margin + 90, yPos + 8);
+  yPos += 18;
 
-  // Footer note
-  yPos = checkNewPage(yPos + 24, 12);
-  doc.setFillColor(239, 246, 255);
-  doc.roundedRect(margin, yPos, contentWidth, 10, 1, 1, 'F');
-  doc.setFontSize(7);
-  doc.setFont(PDF_FONTS.primary, 'italic');
-  doc.setTextColor(...PDF_COLORS.gray);
-  doc.text('Note: This form represents the MINIMUM investigations required for comprehensive limb salvage assessment.', margin + 4, yPos + 4);
-  doc.text('Additional investigations may be ordered based on clinical findings.', margin + 4, yPos + 8);
+  // Clinical Information
+  doc.setFillColor(255, 255, 240);
+  doc.roundedRect(margin, yPos, contentWidth, 40, 2, 2, 'F');
+  doc.setFont('times', 'bold');
+  doc.text('Clinical Information:', margin + 4, yPos + 7);
+  doc.setFont('times', 'normal');
+  addCheckboxItem('Claudication', margin + 4, yPos + 15);
+  addCheckboxItem('Rest Pain', margin + 55, yPos + 15);
+  addCheckboxItem('Non-healing Ulcer', margin + 100, yPos + 15);
+  addCheckboxItem('Gangrene', margin + 150, yPos + 15);
+  addCheckboxItem('Absent Pulses', margin + 4, yPos + 23);
+  addCheckboxItem('Prior Revascularization', margin + 60, yPos + 23);
+  addCheckboxItem('Diabetes', margin + 130, yPos + 23);
+  addInputField('Claudication Distance:', margin + 4, yPos + 33, 30);
+  addInputField('Duration of Symptoms:', margin + 70, yPos + 33, 30);
+  yPos += 45;
+
+  addSignatureSection(yPos);
+
+  // ==================== PAGE 7: CARDIAC & PRE-OPERATIVE WORKUP ====================
+  doc.addPage();
+  yPos = addPatientInfoHeader('CARDIAC & PRE-OPERATIVE WORKUP');
+  
+  yPos = addSectionTitle('CARDIAC INVESTIGATIONS', yPos);
+  
+  // ECG
+  yPos = addSubsectionHeader('Electrocardiography', yPos, [255, 237, 213]);
+  addCheckboxItem('ECG (12-Lead)', margin + 4, yPos + 5);
+  addCheckboxItem('ECG (Rhythm Strip)', margin + 60, yPos + 5);
+  addCheckboxItem('Holter Monitor (24hr)', margin + 120, yPos + 5);
+  addCheckboxItem('Exercise ECG / Stress Test', margin + 4, yPos + 13);
+  yPos += 22;
+
+  // Echocardiography
+  yPos = addSubsectionHeader('Echocardiography', yPos, [239, 246, 255]);
+  addCheckboxItem('Transthoracic Echocardiogram (TTE)', margin + 4, yPos + 5);
+  addCheckboxItem('Transesophageal Echocardiogram (TEE)', margin + 90, yPos + 5);
+  addCheckboxItem('Stress Echocardiogram', margin + 4, yPos + 13);
+  addCheckboxItem('Dobutamine Stress Echo', margin + 80, yPos + 13);
+  yPos += 22;
+
+  // Cardiac Biomarkers
+  yPos = addSubsectionHeader('Cardiac Biomarkers', yPos, [254, 226, 226]);
+  addCheckboxItem('Troponin I / T', margin + 4, yPos + 5);
+  addCheckboxItem('Pro-BNP / NT-proBNP', margin + 60, yPos + 5);
+  addCheckboxItem('CK-MB', margin + 130, yPos + 5);
+  yPos += 14;
+
+  // Pre-operative
+  yPos = addSectionTitle('PRE-OPERATIVE ASSESSMENT', yPos);
+  
+  yPos = addSubsectionHeader('Pre-Operative Tests', yPos, [240, 253, 244]);
+  addCheckboxItem('Chest X-ray (PA)', margin + 4, yPos + 5);
+  addCheckboxItem('ECG (12-Lead)', margin + 60, yPos + 5);
+  addCheckboxItem('FBC', margin + 110, yPos + 5);
+  addCheckboxItem('E/U/Cr', margin + 140, yPos + 5);
+  addCheckboxItem('LFT', margin + 4, yPos + 13);
+  addCheckboxItem('Blood Glucose', margin + 40, yPos + 13);
+  addCheckboxItem('Coagulation Profile', margin + 100, yPos + 13);
+  addCheckboxItem('Group & Save', margin + 4, yPos + 21);
+  addCheckboxItem('Cross-Match (_____ units)', margin + 60, yPos + 21);
+  addCheckboxItem('Urinalysis', margin + 130, yPos + 21);
+  yPos += 30;
+
+  // Consultations Requested
+  yPos = addSubsectionHeader('Consultations Requested', yPos, [248, 250, 252]);
+  addCheckboxItem('Cardiology Clearance', margin + 4, yPos + 5);
+  addCheckboxItem('Anesthesia Review', margin + 70, yPos + 5);
+  addCheckboxItem('Pulmonology', margin + 130, yPos + 5);
+  addCheckboxItem('Nephrology', margin + 4, yPos + 13);
+  addCheckboxItem('Endocrinology', margin + 60, yPos + 13);
+  addCheckboxItem('Other:', margin + 120, yPos + 13);
+  doc.line(margin + 138, yPos + 13, margin + contentWidth - 4, yPos + 13);
+  yPos += 22;
+
+  addSignatureSection(yPos);
+
+  // ==================== PAGE 8: SPECIALTY CONSULTATIONS ====================
+  doc.addPage();
+  yPos = addPatientInfoHeader('SPECIALTY CONSULTATION REQUEST');
+  
+  yPos = addSectionTitle('CONSULTATION REQUESTS', yPos);
+  
+  // Surgical Specialties
+  yPos = addSubsectionHeader('Surgical Specialties', yPos, [243, 232, 255]);
+  addCheckboxItem('Vascular Surgery', margin + 4, yPos + 5);
+  addCheckboxItem('Plastic Surgery', margin + 70, yPos + 5);
+  addCheckboxItem('Orthopaedic Surgery', margin + 130, yPos + 5);
+  addCheckboxItem('General Surgery', margin + 4, yPos + 13);
+  addCheckboxItem('Podiatric Surgery', margin + 70, yPos + 13);
+  yPos += 22;
+
+  // Medical Specialties
+  yPos = addSubsectionHeader('Medical Specialties', yPos, [254, 243, 199]);
+  addCheckboxItem('Endocrinology / Diabetology', margin + 4, yPos + 5);
+  addCheckboxItem('Nephrology', margin + 80, yPos + 5);
+  addCheckboxItem('Cardiology', margin + 130, yPos + 5);
+  addCheckboxItem('Infectious Disease', margin + 4, yPos + 13);
+  addCheckboxItem('Internal Medicine', margin + 70, yPos + 13);
+  addCheckboxItem('Hematology', margin + 130, yPos + 13);
+  addCheckboxItem('Rheumatology', margin + 4, yPos + 21);
+  addCheckboxItem('Neurology', margin + 60, yPos + 21);
+  yPos += 30;
+
+  // Allied Health
+  yPos = addSubsectionHeader('Allied Health & Support Services', yPos, [240, 253, 244]);
+  addCheckboxItem('Wound Care Nurse', margin + 4, yPos + 5);
+  addCheckboxItem('Diabetes Educator', margin + 70, yPos + 5);
+  addCheckboxItem('Dietitian / Nutritionist', margin + 140, yPos + 5);
+  addCheckboxItem('Physiotherapy', margin + 4, yPos + 13);
+  addCheckboxItem('Occupational Therapy', margin + 60, yPos + 13);
+  addCheckboxItem('Prosthetics/Orthotics', margin + 130, yPos + 13);
+  addCheckboxItem('Social Work', margin + 4, yPos + 21);
+  addCheckboxItem('Pain Management', margin + 60, yPos + 21);
+  addCheckboxItem('Psychiatry/Psychology', margin + 130, yPos + 21);
+  yPos += 30;
+
+  // Reason for Consultation
+  doc.setFillColor(255, 255, 240);
+  doc.roundedRect(margin, yPos, contentWidth, 50, 2, 2, 'F');
+  doc.setFont('times', 'bold');
+  doc.text('Reason for Consultation:', margin + 4, yPos + 7);
+  doc.setDrawColor(150, 150, 150);
+  doc.line(margin + 4, yPos + 14, margin + contentWidth - 4, yPos + 14);
+  doc.line(margin + 4, yPos + 22, margin + contentWidth - 4, yPos + 22);
+  doc.line(margin + 4, yPos + 30, margin + contentWidth - 4, yPos + 30);
+  
+  doc.setFont('times', 'bold');
+  doc.text('Specific Questions for Consultant:', margin + 4, yPos + 38);
+  doc.line(margin + 4, yPos + 45, margin + contentWidth - 4, yPos + 45);
+  yPos += 55;
+
+  addSignatureSection(yPos);
+
+  // ==================== PAGE 9: WOUND CLASSIFICATION ====================
+  doc.addPage();
+  yPos = addPatientInfoHeader('WOUND CLASSIFICATION & STAGING');
+  
+  yPos = addSectionTitle('DIABETIC FOOT WOUND CLASSIFICATION SYSTEMS', yPos);
+  
+  // Wagner Classification
+  yPos = addSubsectionHeader('Wagner Classification', yPos, [254, 243, 199]);
+  addCheckboxItem('Grade 0 - High risk foot, no ulceration', margin + 4, yPos + 5);
+  addCheckboxItem('Grade 1 - Superficial ulcer, no infection', margin + 4, yPos + 13);
+  addCheckboxItem('Grade 2 - Deep ulcer (tendon, joint, bone)', margin + 4, yPos + 21);
+  addCheckboxItem('Grade 3 - Deep ulcer with abscess/osteomyelitis', margin + 4, yPos + 29);
+  addCheckboxItem('Grade 4 - Partial foot gangrene', margin + 4, yPos + 37);
+  addCheckboxItem('Grade 5 - Extensive gangrene (whole foot)', margin + 4, yPos + 45);
+  yPos += 54;
+
+  // Texas Classification
+  yPos = addSubsectionHeader('University of Texas Classification', yPos, [239, 246, 255]);
+  doc.setFont('times', 'bold');
+  doc.text('Grade:', margin + 4, yPos + 5);
+  doc.setFont('times', 'normal');
+  addCheckboxItem('0 - Pre/Post ulcerative', margin + 25, yPos + 5);
+  addCheckboxItem('1 - Superficial', margin + 80, yPos + 5);
+  addCheckboxItem('2 - Tendon/Capsule', margin + 125, yPos + 5);
+  addCheckboxItem('3 - Bone/Joint', margin + 4, yPos + 13);
+  
+  doc.setFont('times', 'bold');
+  doc.text('Stage:', margin + 4, yPos + 21);
+  doc.setFont('times', 'normal');
+  addCheckboxItem('A - No infection, no ischemia', margin + 25, yPos + 21);
+  addCheckboxItem('B - Infection present', margin + 100, yPos + 21);
+  addCheckboxItem('C - Ischemia present', margin + 4, yPos + 29);
+  addCheckboxItem('D - Both infection AND ischemia', margin + 70, yPos + 29);
+  yPos += 38;
+
+  // WIfI Classification
+  yPos = addSubsectionHeader('WIfI Classification (Wound, Ischemia, foot Infection)', yPos, [254, 226, 226]);
+  doc.setFont('times', 'bold');
+  doc.text('Wound (W):', margin + 4, yPos + 5);
+  doc.setFont('times', 'normal');
+  addCheckboxItem('0', margin + 35, yPos + 5);
+  addCheckboxItem('1', margin + 50, yPos + 5);
+  addCheckboxItem('2', margin + 65, yPos + 5);
+  addCheckboxItem('3', margin + 80, yPos + 5);
+  
+  doc.setFont('times', 'bold');
+  doc.text('Ischemia (If):', margin + 100, yPos + 5);
+  doc.setFont('times', 'normal');
+  addCheckboxItem('0', margin + 135, yPos + 5);
+  addCheckboxItem('1', margin + 150, yPos + 5);
+  addCheckboxItem('2', margin + 165, yPos + 5);
+  addCheckboxItem('3', margin + 180, yPos + 5);
+  
+  doc.setFont('times', 'bold');
+  doc.text('foot Infection (fI):', margin + 4, yPos + 13);
+  doc.setFont('times', 'normal');
+  addCheckboxItem('0', margin + 50, yPos + 13);
+  addCheckboxItem('1', margin + 65, yPos + 13);
+  addCheckboxItem('2', margin + 80, yPos + 13);
+  addCheckboxItem('3', margin + 95, yPos + 13);
+  yPos += 22;
+
+  // SINBAD & PEDIS
+  yPos = addSubsectionHeader('SINBAD & PEDIS Scores', yPos, [240, 253, 244]);
+  addInputField('SINBAD Score:', margin + 4, yPos + 5, 20);
+  doc.text('/6', margin + 55, yPos + 5);
+  addInputField('PEDIS Classification:', margin + 80, yPos + 5, 40);
+  yPos += 14;
+
+  // Wound Measurements
+  yPos = addSubsectionHeader('Wound Measurements', yPos, [248, 250, 252]);
+  addInputField('Length (cm):', margin + 4, yPos + 5, 20);
+  addInputField('Width (cm):', margin + 55, yPos + 5, 20);
+  addInputField('Depth (cm):', margin + 100, yPos + 5, 20);
+  addInputField('Area (cm2):', margin + 145, yPos + 5, 20);
+  addInputField('Location:', margin + 4, yPos + 13, 40);
+  addCheckboxItem('Undermining Present', margin + 70, yPos + 13);
+  addCheckboxItem('Tunneling Present', margin + 130, yPos + 13);
+  yPos += 22;
+
+  addSignatureSection(yPos);
 
   // Add watermark and footer to all pages
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    addBrandedFooter(doc, i, totalPages);
+    // Footer
+    doc.setFontSize(8);
+    doc.setFont('times', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text('Page ' + i + ' of ' + totalPages, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    doc.text('AstroHEALTH - Limb Salvage Assessment', margin, pageHeight - 10);
+    doc.text(format(new Date(), 'dd/MM/yyyy'), pageWidth - margin, pageHeight - 10, { align: 'right' });
   }
   addWatermarkToAllPages(doc, 0.06);
 
   // Save
-  doc.save(`Limb_Salvage_Minimum_Investigation_Request_${format(new Date(), 'yyyyMMdd')}.pdf`);
+  doc.save('Limb_Salvage_Investigation_Request_' + format(new Date(), 'yyyyMMdd') + '.pdf');
 }
