@@ -1044,14 +1044,16 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
     
     // Wrap long dressing instructions to fit within page margins
     const dressingText = `${dressingType || 'Standard'} - ${dressingFrequency || 'As needed'}`;
-    const maxDressingWidth = pageWidth - 55 - 15; // From x=55 to right margin (15mm)
+    const maxDressingWidth = pageWidth - 20 - 15; // From x=20 to right margin (15mm) - full width for wrapped text
     const dressingLines = doc.splitTextToSize(dressingText, maxDressingWidth);
     
+    // Start dressing text on next line below the label
+    const dressingStartY = yPos + 6;
     dressingLines.forEach((line: string, index: number) => {
-      doc.text(line, 55, yPos + (index * 5));
+      doc.text(line, 20, dressingStartY + (index * 5));
     });
     
-    yPos += Math.max(10, dressingLines.length * 5 + 5);
+    yPos = dressingStartY + Math.max(5, dressingLines.length * 5) + 5;
   }
 
   // Signature
