@@ -27,11 +27,12 @@ import {
   Users,
   Flame,
   Droplets,
-  Scissors
+  Scissors,
+  GraduationCap
 } from 'lucide-react';
 import { EDUCATION_CATEGORIES } from '../types';
 import type { EducationCondition, EducationCategory } from '../types';
-import { allBurnsConditions, allWoundsConditions, allPressureInjuriesConditions, allReconstructiveSurgeryConditions, allHerniaConditions, allPediatricSurgeryConditions, allVascularConditions, allBreastConditions, allCosmeticConditions, allGenitalReconstructionConditions, allReconstructiveTechniquesConditions, allSystemicConditions } from '../data';
+import { allBurnsConditions, allWoundsConditions, allPressureInjuriesConditions, allReconstructiveSurgeryConditions, allHerniaConditions, allPediatricSurgeryConditions, allVascularConditions, allBreastConditions, allCosmeticConditions, allGenitalReconstructionConditions, allReconstructiveTechniquesConditions, allSystemicConditions, allDrNnadiBurnsEducation } from '../data';
 import { downloadPatientEducationPDF, downloadCategorySummaryPDF } from '../../../utils/educationPdfGenerator';
 
 // Get icon for category
@@ -48,7 +49,8 @@ const getCategoryIcon = (code: string) => {
     'I': <Stethoscope className="h-5 w-5" />,
     'J': <FileText className="h-5 w-5" />,
     'K': <BookOpen className="h-5 w-5" />,
-    'L': <AlertCircle className="h-5 w-5" />
+    'L': <AlertCircle className="h-5 w-5" />,
+    'M': <GraduationCap className="h-5 w-5" />
   };
   return icons[code] || <BookOpen className="h-5 w-5" />;
 };
@@ -101,6 +103,9 @@ const PatientEducationPage: React.FC = () => {
           break;
         case 'L':
           conditions = allSystemicConditions;
+          break;
+        case 'M':
+          conditions = allDrNnadiBurnsEducation;
           break;
         default:
           conditions = [];
