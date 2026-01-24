@@ -22,7 +22,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 import type { LimbSalvageAssessment } from '../../../types';
 import LimbSalvageForm from '../components/LimbSalvageForm';
-import { generateLimbSalvageInvestigationPDF } from '../../../utils/clinicalPdfGenerators';
+import { generateLimbSalvageInvestigationPDF, generateLimbSalvageMinimumInvestigationPDF } from '../../../utils/clinicalPdfGenerators';
 
 export default function LimbSalvagePage() {
   const [showForm, setShowForm] = useState(false);
@@ -170,16 +170,35 @@ export default function LimbSalvagePage() {
             Comprehensive scoring and decision support for diabetic foot management
           </p>
         </div>
-        <button
-          onClick={() => {
-            setSelectedAssessment(undefined);
-            setShowForm(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 w-full sm:w-auto justify-center"
-        >
-          <Plus className="h-5 w-5" />
-          New Assessment
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => {
+              generateLimbSalvageMinimumInvestigationPDF({
+                hospitalName: hospital?.name || 'AstroHEALTH Facility',
+                hospitalPhone: hospital?.phone,
+                hospitalEmail: hospital?.email,
+                hospitalAddress: hospital?.address,
+              });
+              toast.success('Minimum Investigation Request form downloaded');
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 w-full sm:w-auto justify-center"
+            title="Download blank investigation & imaging request form"
+          >
+            <Download className="h-5 w-5" />
+            <span className="hidden sm:inline">Min. Investigation Request</span>
+            <span className="sm:hidden">Investigation Form</span>
+          </button>
+          <button
+            onClick={() => {
+              setSelectedAssessment(undefined);
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 w-full sm:w-auto justify-center"
+          >
+            <Plus className="h-5 w-5" />
+            New Assessment
+          </button>
+        </div>
       </div>
 
       {/* Statistics Cards */}

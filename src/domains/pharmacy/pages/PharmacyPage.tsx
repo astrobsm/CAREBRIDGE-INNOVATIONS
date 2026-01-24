@@ -31,89 +31,448 @@ import type { Prescription, Medication, MedicationRoute } from '../../../types';
 import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
 
-// BNF-adapted medication database for Africa
+// Comprehensive Nigerian medication database (BNF & NAFDAC-adapted)
 const medicationDatabase = {
   analgesics: [
-    { name: 'Paracetamol', genericName: 'Acetaminophen', doses: ['500mg', '1g'], routes: ['oral', 'intravenous', 'rectal'], frequency: ['6 hourly', '8 hourly'], maxDaily: '4g', renalAdjust: false },
-    { name: 'Ibuprofen', genericName: 'Ibuprofen', doses: ['200mg', '400mg', '600mg'], routes: ['oral'], frequency: ['8 hourly', '12 hourly'], maxDaily: '2.4g', renalAdjust: true },
-    { name: 'Diclofenac', genericName: 'Diclofenac Sodium', doses: ['25mg', '50mg', '75mg'], routes: ['oral', 'intramuscular', 'rectal'], frequency: ['8 hourly', '12 hourly'], maxDaily: '150mg', renalAdjust: true },
-    { name: 'Tramadol', genericName: 'Tramadol HCl', doses: ['50mg', '100mg'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['6 hourly', '8 hourly'], maxDaily: '400mg', renalAdjust: true },
-    { name: 'Morphine', genericName: 'Morphine Sulphate', doses: ['5mg', '10mg', '15mg'], routes: ['oral', 'intravenous', 'subcutaneous', 'intramuscular'], frequency: ['4 hourly', '6 hourly'], maxDaily: 'Titrate', renalAdjust: true },
-    { name: 'Pentazocine', genericName: 'Pentazocine', doses: ['30mg', '60mg'], routes: ['intramuscular', 'intravenous'], frequency: ['4 hourly', '6 hourly'], maxDaily: '360mg', renalAdjust: true },
+    { name: 'Paracetamol', genericName: 'Acetaminophen', doses: ['500mg', '1g'], routes: ['oral', 'intravenous', 'rectal'], frequency: ['4 hourly', '6 hourly', '8 hourly'], maxDaily: '4g', renalAdjust: false },
+    { name: 'Ibuprofen', genericName: 'Ibuprofen', doses: ['200mg', '400mg', '600mg', '800mg'], routes: ['oral'], frequency: ['6 hourly', '8 hourly', '12 hourly'], maxDaily: '2.4g', renalAdjust: true },
+    { name: 'Diclofenac', genericName: 'Diclofenac Sodium', doses: ['25mg', '50mg', '75mg', '100mg'], routes: ['oral', 'intramuscular', 'rectal'], frequency: ['8 hourly', '12 hourly'], maxDaily: '150mg', renalAdjust: true },
+    { name: 'Tramadol', genericName: 'Tramadol HCl', doses: ['50mg', '100mg', '200mg SR'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['4 hourly', '6 hourly', '8 hourly', '12 hourly'], maxDaily: '400mg', renalAdjust: true },
+    { name: 'Morphine', genericName: 'Morphine Sulphate', doses: ['5mg', '10mg', '15mg', '30mg'], routes: ['oral', 'intravenous', 'subcutaneous', 'intramuscular'], frequency: ['4 hourly', '6 hourly'], maxDaily: 'Titrate', renalAdjust: true },
+    { name: 'Pentazocine', genericName: 'Pentazocine', doses: ['30mg', '60mg'], routes: ['intramuscular', 'intravenous', 'oral'], frequency: ['4 hourly', '6 hourly'], maxDaily: '360mg', renalAdjust: true },
+    { name: 'Piroxicam', genericName: 'Piroxicam', doses: ['10mg', '20mg'], routes: ['oral', 'intramuscular'], frequency: ['Once daily', '12 hourly'], maxDaily: '40mg', renalAdjust: true },
+    { name: 'Naproxen', genericName: 'Naproxen', doses: ['250mg', '500mg'], routes: ['oral'], frequency: ['8 hourly', '12 hourly'], maxDaily: '1.5g', renalAdjust: true },
+    { name: 'Meloxicam', genericName: 'Meloxicam', doses: ['7.5mg', '15mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '15mg', renalAdjust: true },
+    { name: 'Etoricoxib', genericName: 'Etoricoxib', doses: ['60mg', '90mg', '120mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '120mg', renalAdjust: true },
+    { name: 'Ketorolac', genericName: 'Ketorolac', doses: ['10mg', '30mg'], routes: ['oral', 'intramuscular', 'intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '90mg', renalAdjust: true },
+    { name: 'Pethidine', genericName: 'Meperidine', doses: ['50mg', '100mg'], routes: ['intramuscular', 'intravenous'], frequency: ['4 hourly', '6 hourly'], maxDaily: '600mg', renalAdjust: true },
+    { name: 'Fentanyl', genericName: 'Fentanyl', doses: ['25mcg', '50mcg', '100mcg'], routes: ['intravenous', 'transdermal'], frequency: ['PRN', '72 hourly patch'], maxDaily: 'Titrate', renalAdjust: false },
+    { name: 'Codeine Phosphate', genericName: 'Codeine', doses: ['15mg', '30mg', '60mg'], routes: ['oral'], frequency: ['4 hourly', '6 hourly'], maxDaily: '240mg', renalAdjust: true },
+    { name: 'Celecoxib', genericName: 'Celecoxib', doses: ['100mg', '200mg'], routes: ['oral'], frequency: ['12 hourly', 'Once daily'], maxDaily: '400mg', renalAdjust: true },
   ],
   antibiotics: [
-    { name: 'Amoxicillin', genericName: 'Amoxicillin', doses: ['250mg', '500mg', '1g'], routes: ['oral'], frequency: ['8 hourly'], maxDaily: '3g', renalAdjust: true },
-    { name: 'Amoxicillin-Clavulanate', genericName: 'Co-Amoxiclav', doses: ['375mg', '625mg', '1.2g'], routes: ['oral', 'intravenous'], frequency: ['8 hourly', '12 hourly'], maxDaily: '6g', renalAdjust: true },
-    { name: 'Ceftriaxone', genericName: 'Ceftriaxone', doses: ['1g', '2g'], routes: ['intravenous', 'intramuscular'], frequency: ['24 hourly', '12 hourly'], maxDaily: '4g', renalAdjust: false },
-    { name: 'Ciprofloxacin', genericName: 'Ciprofloxacin', doses: ['250mg', '500mg', '750mg', '400mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly'], maxDaily: '1.5g PO, 800mg IV', renalAdjust: true },
-    { name: 'Metronidazole', genericName: 'Metronidazole', doses: ['200mg', '400mg', '500mg'], routes: ['oral', 'intravenous'], frequency: ['8 hourly'], maxDaily: '4g', renalAdjust: false },
-    { name: 'Gentamicin', genericName: 'Gentamicin', doses: ['80mg', '5-7mg/kg'], routes: ['intravenous', 'intramuscular'], frequency: ['24 hourly', '8 hourly'], maxDaily: '7mg/kg', renalAdjust: true },
+    { name: 'Amoxicillin', genericName: 'Amoxicillin', doses: ['250mg', '500mg', '1g'], routes: ['oral'], frequency: ['8 hourly', '12 hourly'], maxDaily: '3g', renalAdjust: true },
+    { name: 'Amoxicillin-Clavulanate', genericName: 'Co-Amoxiclav', doses: ['375mg', '625mg', '1g', '1.2g'], routes: ['oral', 'intravenous'], frequency: ['8 hourly', '12 hourly'], maxDaily: '6g', renalAdjust: true },
+    { name: 'Ampicillin', genericName: 'Ampicillin', doses: ['250mg', '500mg', '1g', '2g'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['6 hourly', '8 hourly'], maxDaily: '12g', renalAdjust: true },
+    { name: 'Ampicillin-Cloxacillin', genericName: 'Ampiclox', doses: ['250mg', '500mg'], routes: ['oral', 'intramuscular'], frequency: ['6 hourly', '8 hourly'], maxDaily: '4g', renalAdjust: true },
+    { name: 'Flucloxacillin', genericName: 'Flucloxacillin', doses: ['250mg', '500mg', '1g'], routes: ['oral', 'intravenous'], frequency: ['6 hourly'], maxDaily: '8g', renalAdjust: true },
+    { name: 'Ceftriaxone', genericName: 'Ceftriaxone', doses: ['500mg', '1g', '2g'], routes: ['intravenous', 'intramuscular'], frequency: ['12 hourly', '24 hourly'], maxDaily: '4g', renalAdjust: false },
     { name: 'Cefuroxime', genericName: 'Cefuroxime', doses: ['250mg', '500mg', '750mg', '1.5g'], routes: ['oral', 'intravenous'], frequency: ['8 hourly', '12 hourly'], maxDaily: '6g', renalAdjust: true },
-    { name: 'Azithromycin', genericName: 'Azithromycin', doses: ['250mg', '500mg'], routes: ['oral', 'intravenous'], frequency: ['24 hourly'], maxDaily: '500mg', renalAdjust: false },
+    { name: 'Ceftazidime', genericName: 'Ceftazidime', doses: ['500mg', '1g', '2g'], routes: ['intravenous', 'intramuscular'], frequency: ['8 hourly', '12 hourly'], maxDaily: '6g', renalAdjust: true },
+    { name: 'Cefixime', genericName: 'Cefixime', doses: ['200mg', '400mg'], routes: ['oral'], frequency: ['12 hourly', '24 hourly'], maxDaily: '400mg', renalAdjust: true },
+    { name: 'Cefpodoxime', genericName: 'Cefpodoxime', doses: ['100mg', '200mg'], routes: ['oral'], frequency: ['12 hourly'], maxDaily: '400mg', renalAdjust: true },
+    { name: 'Ciprofloxacin', genericName: 'Ciprofloxacin', doses: ['250mg', '500mg', '750mg', '200mg IV', '400mg IV'], routes: ['oral', 'intravenous'], frequency: ['12 hourly'], maxDaily: '1.5g PO, 800mg IV', renalAdjust: true },
+    { name: 'Levofloxacin', genericName: 'Levofloxacin', doses: ['250mg', '500mg', '750mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly', '24 hourly'], maxDaily: '750mg', renalAdjust: true },
+    { name: 'Ofloxacin', genericName: 'Ofloxacin', doses: ['200mg', '400mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly'], maxDaily: '800mg', renalAdjust: true },
+    { name: 'Moxifloxacin', genericName: 'Moxifloxacin', doses: ['400mg'], routes: ['oral', 'intravenous'], frequency: ['24 hourly'], maxDaily: '400mg', renalAdjust: false },
+    { name: 'Metronidazole', genericName: 'Metronidazole', doses: ['200mg', '400mg', '500mg'], routes: ['oral', 'intravenous'], frequency: ['8 hourly'], maxDaily: '4g', renalAdjust: false },
+    { name: 'Tinidazole', genericName: 'Tinidazole', doses: ['500mg', '1g', '2g'], routes: ['oral'], frequency: ['12 hourly', '24 hourly'], maxDaily: '2g', renalAdjust: false },
+    { name: 'Gentamicin', genericName: 'Gentamicin', doses: ['80mg', '120mg', '5-7mg/kg'], routes: ['intravenous', 'intramuscular'], frequency: ['8 hourly', '24 hourly'], maxDaily: '7mg/kg', renalAdjust: true },
+    { name: 'Amikacin', genericName: 'Amikacin', doses: ['250mg', '500mg', '15mg/kg'], routes: ['intravenous', 'intramuscular'], frequency: ['12 hourly', '24 hourly'], maxDaily: '15mg/kg', renalAdjust: true },
+    { name: 'Azithromycin', genericName: 'Azithromycin', doses: ['250mg', '500mg', '1g'], routes: ['oral', 'intravenous'], frequency: ['24 hourly'], maxDaily: '500mg', renalAdjust: false },
+    { name: 'Clarithromycin', genericName: 'Clarithromycin', doses: ['250mg', '500mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly'], maxDaily: '1g', renalAdjust: true },
+    { name: 'Erythromycin', genericName: 'Erythromycin', doses: ['250mg', '500mg'], routes: ['oral', 'intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '4g', renalAdjust: false },
     { name: 'Clindamycin', genericName: 'Clindamycin', doses: ['150mg', '300mg', '600mg', '900mg'], routes: ['oral', 'intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '4.8g', renalAdjust: false },
+    { name: 'Doxycycline', genericName: 'Doxycycline', doses: ['100mg', '200mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly', '24 hourly'], maxDaily: '200mg', renalAdjust: false },
+    { name: 'Tetracycline', genericName: 'Tetracycline', doses: ['250mg', '500mg'], routes: ['oral'], frequency: ['6 hourly'], maxDaily: '2g', renalAdjust: true },
     { name: 'Meropenem', genericName: 'Meropenem', doses: ['500mg', '1g', '2g'], routes: ['intravenous'], frequency: ['8 hourly'], maxDaily: '6g', renalAdjust: true },
+    { name: 'Imipenem-Cilastatin', genericName: 'Imipenem', doses: ['250mg', '500mg', '1g'], routes: ['intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '4g', renalAdjust: true },
+    { name: 'Vancomycin', genericName: 'Vancomycin', doses: ['500mg', '1g', '15-20mg/kg'], routes: ['intravenous'], frequency: ['8 hourly', '12 hourly'], maxDaily: '4g', renalAdjust: true },
+    { name: 'Piperacillin-Tazobactam', genericName: 'Piptaz', doses: ['2.25g', '4.5g'], routes: ['intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '18g', renalAdjust: true },
+    { name: 'Co-trimoxazole', genericName: 'Sulfamethoxazole-Trimethoprim', doses: ['480mg', '960mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly'], maxDaily: '1920mg', renalAdjust: true },
+    { name: 'Nitrofurantoin', genericName: 'Nitrofurantoin', doses: ['50mg', '100mg'], routes: ['oral'], frequency: ['6 hourly', '12 hourly'], maxDaily: '400mg', renalAdjust: true },
   ],
   antiinflammatories: [
-    { name: 'Prednisolone', genericName: 'Prednisolone', doses: ['5mg', '10mg', '20mg', '40mg'], routes: ['oral'], frequency: ['Once daily', 'Divided doses'], maxDaily: '60mg', renalAdjust: false },
-    { name: 'Hydrocortisone', genericName: 'Hydrocortisone', doses: ['100mg', '200mg'], routes: ['intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '400mg', renalAdjust: false },
-    { name: 'Dexamethasone', genericName: 'Dexamethasone', doses: ['4mg', '8mg'], routes: ['oral', 'intravenous'], frequency: ['Once daily', '12 hourly'], maxDaily: '16mg', renalAdjust: false },
-    { name: 'Celecoxib', genericName: 'Celecoxib', doses: ['100mg', '200mg'], routes: ['oral'], frequency: ['12 hourly', '24 hourly'], maxDaily: '400mg', renalAdjust: true },
+    { name: 'Prednisolone', genericName: 'Prednisolone', doses: ['5mg', '10mg', '20mg', '40mg', '60mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly', 'Divided doses'], maxDaily: '60mg', renalAdjust: false },
+    { name: 'Hydrocortisone', genericName: 'Hydrocortisone', doses: ['50mg', '100mg', '200mg', '500mg'], routes: ['intravenous', 'intramuscular'], frequency: ['6 hourly', '8 hourly'], maxDaily: '400mg', renalAdjust: false },
+    { name: 'Dexamethasone', genericName: 'Dexamethasone', doses: ['0.5mg', '2mg', '4mg', '8mg'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['Once daily', '12 hourly'], maxDaily: '16mg', renalAdjust: false },
+    { name: 'Methylprednisolone', genericName: 'Methylprednisolone', doses: ['40mg', '125mg', '500mg', '1g'], routes: ['intravenous', 'intramuscular'], frequency: ['Once daily', '6 hourly'], maxDaily: '1g', renalAdjust: false },
+    { name: 'Betamethasone', genericName: 'Betamethasone', doses: ['0.5mg', '4mg', '6mg', '12mg'], routes: ['oral', 'intramuscular'], frequency: ['Once daily', '12 hourly'], maxDaily: '12mg', renalAdjust: false },
+    { name: 'Triamcinolone', genericName: 'Triamcinolone', doses: ['4mg', '10mg', '40mg'], routes: ['oral', 'intramuscular', 'intra-articular'], frequency: ['Once daily', 'Weekly'], maxDaily: '48mg', renalAdjust: false },
   ],
   vitamins: [
-    { name: 'Vitamin C', genericName: 'Ascorbic Acid', doses: ['500mg', '1000mg'], routes: ['oral', 'intravenous'], frequency: ['Once daily', '12 hourly'], maxDaily: '2g', renalAdjust: false },
-    { name: 'Vitamin B Complex', genericName: 'Vitamin B Complex', doses: ['1 tablet'], routes: ['oral', 'intramuscular'], frequency: ['Once daily'], maxDaily: '2 tablets', renalAdjust: false },
-    { name: 'Folic Acid', genericName: 'Folic Acid', doses: ['5mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '15mg', renalAdjust: false },
-    { name: 'Vitamin D3', genericName: 'Cholecalciferol', doses: ['1000IU', '50000IU'], routes: ['oral'], frequency: ['Once daily', 'Weekly'], maxDaily: '4000IU daily', renalAdjust: false },
-    { name: 'Ferrous Sulphate', genericName: 'Iron', doses: ['200mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly', '8 hourly'], maxDaily: '600mg', renalAdjust: false },
-    { name: 'Zinc Sulphate', genericName: 'Zinc', doses: ['20mg', '220mg'], routes: ['oral'], frequency: ['Once daily', '8 hourly'], maxDaily: '660mg', renalAdjust: true },
+    { name: 'Vitamin C', genericName: 'Ascorbic Acid', doses: ['100mg', '250mg', '500mg', '1000mg'], routes: ['oral', 'intravenous'], frequency: ['Once daily', '12 hourly', '8 hourly'], maxDaily: '2g', renalAdjust: false },
+    { name: 'Vitamin B Complex', genericName: 'Vitamin B Complex', doses: ['1 tablet', '2 tablets'], routes: ['oral', 'intramuscular'], frequency: ['Once daily', '12 hourly'], maxDaily: '3 tablets', renalAdjust: false },
+    { name: 'Vitamin B1 (Thiamine)', genericName: 'Thiamine', doses: ['50mg', '100mg', '300mg'], routes: ['oral', 'intramuscular', 'intravenous'], frequency: ['Once daily', '8 hourly'], maxDaily: '300mg', renalAdjust: false },
+    { name: 'Vitamin B6 (Pyridoxine)', genericName: 'Pyridoxine', doses: ['25mg', '50mg', '100mg'], routes: ['oral', 'intramuscular'], frequency: ['Once daily', '8 hourly'], maxDaily: '200mg', renalAdjust: false },
+    { name: 'Vitamin B12', genericName: 'Cyanocobalamin', doses: ['50mcg', '100mcg', '1000mcg'], routes: ['oral', 'intramuscular'], frequency: ['Once daily', 'Weekly', 'Monthly'], maxDaily: '1000mcg', renalAdjust: false },
+    { name: 'Folic Acid', genericName: 'Folic Acid', doses: ['400mcg', '1mg', '5mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '15mg', renalAdjust: false },
+    { name: 'Vitamin D3', genericName: 'Cholecalciferol', doses: ['400IU', '1000IU', '5000IU', '50000IU'], routes: ['oral'], frequency: ['Once daily', 'Weekly'], maxDaily: '4000IU daily', renalAdjust: false },
+    { name: 'Vitamin E', genericName: 'Alpha-Tocopherol', doses: ['100IU', '200IU', '400IU'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '1000IU', renalAdjust: false },
+    { name: 'Vitamin K (Phytomenadione)', genericName: 'Vitamin K1', doses: ['1mg', '5mg', '10mg'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['Once daily', 'Once only'], maxDaily: '40mg', renalAdjust: false },
+    { name: 'Ferrous Sulphate', genericName: 'Iron', doses: ['200mg', '300mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly', '8 hourly'], maxDaily: '600mg', renalAdjust: false },
+    { name: 'Ferrous Gluconate', genericName: 'Iron', doses: ['300mg', '600mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '1200mg', renalAdjust: false },
+    { name: 'Ferrous Fumarate', genericName: 'Iron', doses: ['200mg', '322mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '966mg', renalAdjust: false },
+    { name: 'Iron Sucrose', genericName: 'Iron Sucrose', doses: ['100mg', '200mg'], routes: ['intravenous'], frequency: ['Once weekly', 'Twice weekly'], maxDaily: '200mg', renalAdjust: true },
+    { name: 'Zinc Sulphate', genericName: 'Zinc', doses: ['20mg', '50mg', '220mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly', '8 hourly'], maxDaily: '660mg', renalAdjust: true },
+    { name: 'Calcium Carbonate', genericName: 'Calcium', doses: ['500mg', '600mg', '1000mg', '1250mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly', '8 hourly'], maxDaily: '2500mg', renalAdjust: true },
+    { name: 'Calcium Gluconate', genericName: 'Calcium', doses: ['500mg', '1g', '10ml'], routes: ['oral', 'intravenous'], frequency: ['Once daily', '8 hourly'], maxDaily: '3g', renalAdjust: true },
+    { name: 'Magnesium Sulphate', genericName: 'Magnesium', doses: ['1g', '2g', '4g'], routes: ['intravenous', 'intramuscular'], frequency: ['Once only', '4 hourly'], maxDaily: '40g', renalAdjust: true },
+    { name: 'Multivitamin', genericName: 'Multivitamins', doses: ['1 tablet', '2 tablets'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '2 tablets', renalAdjust: false },
   ],
   anticoagulants: [
-    { name: 'Enoxaparin', genericName: 'Enoxaparin', doses: ['40mg', '60mg', '80mg', '1mg/kg'], routes: ['subcutaneous'], frequency: ['Once daily', '12 hourly'], maxDaily: '2mg/kg', renalAdjust: true },
-    { name: 'Heparin', genericName: 'Unfractionated Heparin', doses: ['5000units', '80units/kg'], routes: ['subcutaneous', 'intravenous'], frequency: ['8 hourly', '12 hourly', 'Infusion'], maxDaily: 'Titrate to APTT', renalAdjust: false },
-    { name: 'Warfarin', genericName: 'Warfarin', doses: ['1mg', '2mg', '3mg', '5mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: 'Titrate to INR', renalAdjust: false },
-    { name: 'Rivaroxaban', genericName: 'Rivaroxaban', doses: ['10mg', '15mg', '20mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '20mg', renalAdjust: true },
-    { name: 'Aspirin', genericName: 'Acetylsalicylic Acid', doses: ['75mg', '100mg', '300mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '300mg', renalAdjust: true },
+    { name: 'Enoxaparin', genericName: 'Enoxaparin', doses: ['20mg', '40mg', '60mg', '80mg', '1mg/kg', '1.5mg/kg'], routes: ['subcutaneous'], frequency: ['Once daily', '12 hourly'], maxDaily: '2mg/kg', renalAdjust: true },
+    { name: 'Heparin', genericName: 'Unfractionated Heparin', doses: ['5000units', '10000units', '80units/kg'], routes: ['subcutaneous', 'intravenous'], frequency: ['8 hourly', '12 hourly', 'Infusion'], maxDaily: 'Titrate to APTT', renalAdjust: false },
+    { name: 'Warfarin', genericName: 'Warfarin', doses: ['1mg', '2mg', '2.5mg', '3mg', '5mg', '10mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: 'Titrate to INR', renalAdjust: false },
+    { name: 'Rivaroxaban', genericName: 'Rivaroxaban', doses: ['2.5mg', '10mg', '15mg', '20mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '20mg', renalAdjust: true },
+    { name: 'Apixaban', genericName: 'Apixaban', doses: ['2.5mg', '5mg'], routes: ['oral'], frequency: ['12 hourly'], maxDaily: '10mg', renalAdjust: true },
+    { name: 'Dabigatran', genericName: 'Dabigatran', doses: ['75mg', '110mg', '150mg'], routes: ['oral'], frequency: ['12 hourly'], maxDaily: '300mg', renalAdjust: true },
+    { name: 'Aspirin', genericName: 'Acetylsalicylic Acid', doses: ['75mg', '100mg', '150mg', '300mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '300mg', renalAdjust: true },
+    { name: 'Clopidogrel', genericName: 'Clopidogrel', doses: ['75mg', '300mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '75mg maintenance', renalAdjust: false },
+    { name: 'Ticagrelor', genericName: 'Ticagrelor', doses: ['60mg', '90mg'], routes: ['oral'], frequency: ['12 hourly'], maxDaily: '180mg', renalAdjust: false },
+    { name: 'Dipyridamole', genericName: 'Dipyridamole', doses: ['25mg', '75mg', '200mg MR'], routes: ['oral'], frequency: ['8 hourly', '12 hourly'], maxDaily: '600mg', renalAdjust: false },
   ],
   antipyretics: [
-    { name: 'Paracetamol', genericName: 'Acetaminophen', doses: ['500mg', '1g'], routes: ['oral', 'intravenous', 'rectal'], frequency: ['6 hourly', '8 hourly'], maxDaily: '4g', renalAdjust: false },
+    { name: 'Paracetamol', genericName: 'Acetaminophen', doses: ['500mg', '1g', '120mg/5ml', '250mg/5ml'], routes: ['oral', 'intravenous', 'rectal'], frequency: ['4 hourly', '6 hourly', '8 hourly'], maxDaily: '4g', renalAdjust: false },
+    { name: 'Aspirin', genericName: 'Acetylsalicylic Acid', doses: ['300mg', '600mg'], routes: ['oral'], frequency: ['4 hourly', '6 hourly'], maxDaily: '4g', renalAdjust: true },
   ],
   antifungals: [
-    { name: 'Fluconazole', genericName: 'Fluconazole', doses: ['50mg', '100mg', '150mg', '200mg', '400mg'], routes: ['oral', 'intravenous'], frequency: ['Once daily'], maxDaily: '400mg', renalAdjust: true },
-    { name: 'Clotrimazole', genericName: 'Clotrimazole', doses: ['1% cream', '100mg pessary', '500mg pessary'], routes: ['topical'], frequency: ['12 hourly', 'Once daily'], maxDaily: 'As directed', renalAdjust: false },
-    { name: 'Nystatin', genericName: 'Nystatin', doses: ['100000units/ml'], routes: ['oral'], frequency: ['6 hourly'], maxDaily: '6ml QDS', renalAdjust: false },
+    { name: 'Fluconazole', genericName: 'Fluconazole', doses: ['50mg', '100mg', '150mg', '200mg', '400mg'], routes: ['oral', 'intravenous'], frequency: ['Once daily', '12 hourly'], maxDaily: '800mg', renalAdjust: true },
     { name: 'Itraconazole', genericName: 'Itraconazole', doses: ['100mg', '200mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '400mg', renalAdjust: false },
+    { name: 'Ketoconazole', genericName: 'Ketoconazole', doses: ['200mg', '400mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '400mg', renalAdjust: false },
+    { name: 'Voriconazole', genericName: 'Voriconazole', doses: ['200mg', '300mg', '400mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly'], maxDaily: '600mg', renalAdjust: true },
+    { name: 'Amphotericin B', genericName: 'Amphotericin B', doses: ['0.5mg/kg', '1mg/kg'], routes: ['intravenous'], frequency: ['Once daily'], maxDaily: '1.5mg/kg', renalAdjust: true },
+    { name: 'Clotrimazole', genericName: 'Clotrimazole', doses: ['1% cream', '10mg lozenge', '100mg pessary', '500mg pessary'], routes: ['topical', 'vaginal', 'oral'], frequency: ['12 hourly', 'Once daily'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Miconazole', genericName: 'Miconazole', doses: ['2% cream', '100mg pessary', '200mg pessary'], routes: ['topical', 'vaginal'], frequency: ['12 hourly', 'Once daily'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Nystatin', genericName: 'Nystatin', doses: ['100000units/ml', '500000units tablet'], routes: ['oral', 'topical'], frequency: ['6 hourly', '8 hourly'], maxDaily: '6ml QDS', renalAdjust: false },
+    { name: 'Terbinafine', genericName: 'Terbinafine', doses: ['250mg', '1% cream'], routes: ['oral', 'topical'], frequency: ['Once daily', '12 hourly'], maxDaily: '250mg', renalAdjust: true },
+    { name: 'Griseofulvin', genericName: 'Griseofulvin', doses: ['125mg', '250mg', '500mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '1g', renalAdjust: false },
   ],
   antihistamines: [
-    { name: 'Chlorpheniramine', genericName: 'Chlorpheniramine', doses: ['4mg', '10mg'], routes: ['oral', 'intramuscular', 'intravenous'], frequency: ['8 hourly', '6 hourly'], maxDaily: '24mg', renalAdjust: false },
+    { name: 'Chlorpheniramine', genericName: 'Chlorpheniramine', doses: ['4mg', '10mg'], routes: ['oral', 'intramuscular', 'intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '24mg', renalAdjust: false },
     { name: 'Loratadine', genericName: 'Loratadine', doses: ['10mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '10mg', renalAdjust: false },
-    { name: 'Cetirizine', genericName: 'Cetirizine', doses: ['10mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '10mg', renalAdjust: true },
-    { name: 'Promethazine', genericName: 'Promethazine', doses: ['25mg', '50mg'], routes: ['oral', 'intramuscular'], frequency: ['8 hourly', '12 hourly'], maxDaily: '100mg', renalAdjust: false },
+    { name: 'Cetirizine', genericName: 'Cetirizine', doses: ['5mg', '10mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '10mg', renalAdjust: true },
+    { name: 'Fexofenadine', genericName: 'Fexofenadine', doses: ['60mg', '120mg', '180mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '180mg', renalAdjust: true },
+    { name: 'Desloratadine', genericName: 'Desloratadine', doses: ['5mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '5mg', renalAdjust: false },
+    { name: 'Levocetirizine', genericName: 'Levocetirizine', doses: ['5mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '5mg', renalAdjust: true },
+    { name: 'Promethazine', genericName: 'Promethazine', doses: ['10mg', '25mg', '50mg'], routes: ['oral', 'intramuscular', 'intravenous'], frequency: ['6 hourly', '8 hourly', '12 hourly'], maxDaily: '100mg', renalAdjust: false },
+    { name: 'Diphenhydramine', genericName: 'Diphenhydramine', doses: ['25mg', '50mg'], routes: ['oral', 'intramuscular', 'intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '300mg', renalAdjust: false },
+    { name: 'Hydroxyzine', genericName: 'Hydroxyzine', doses: ['10mg', '25mg', '50mg'], routes: ['oral', 'intramuscular'], frequency: ['6 hourly', '8 hourly'], maxDaily: '100mg', renalAdjust: true },
+    { name: 'Cyproheptadine', genericName: 'Cyproheptadine', doses: ['4mg'], routes: ['oral'], frequency: ['8 hourly', '12 hourly'], maxDaily: '32mg', renalAdjust: false },
   ],
   antacids: [
-    { name: 'Omeprazole', genericName: 'Omeprazole', doses: ['20mg', '40mg'], routes: ['oral', 'intravenous'], frequency: ['Once daily', '12 hourly'], maxDaily: '40mg', renalAdjust: false },
+    { name: 'Omeprazole', genericName: 'Omeprazole', doses: ['10mg', '20mg', '40mg'], routes: ['oral', 'intravenous'], frequency: ['Once daily', '12 hourly'], maxDaily: '80mg', renalAdjust: false },
     { name: 'Pantoprazole', genericName: 'Pantoprazole', doses: ['20mg', '40mg'], routes: ['oral', 'intravenous'], frequency: ['Once daily', '12 hourly'], maxDaily: '80mg', renalAdjust: false },
-    { name: 'Ranitidine', genericName: 'Ranitidine', doses: ['150mg', '300mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly'], maxDaily: '300mg', renalAdjust: true },
+    { name: 'Esomeprazole', genericName: 'Esomeprazole', doses: ['20mg', '40mg'], routes: ['oral', 'intravenous'], frequency: ['Once daily', '12 hourly'], maxDaily: '80mg', renalAdjust: false },
+    { name: 'Lansoprazole', genericName: 'Lansoprazole', doses: ['15mg', '30mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '60mg', renalAdjust: false },
+    { name: 'Rabeprazole', genericName: 'Rabeprazole', doses: ['10mg', '20mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '40mg', renalAdjust: false },
+    { name: 'Ranitidine', genericName: 'Ranitidine', doses: ['150mg', '300mg', '50mg IV'], routes: ['oral', 'intravenous'], frequency: ['12 hourly', '24 hourly'], maxDaily: '300mg', renalAdjust: true },
+    { name: 'Famotidine', genericName: 'Famotidine', doses: ['20mg', '40mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly', '24 hourly'], maxDaily: '80mg', renalAdjust: true },
+    { name: 'Cimetidine', genericName: 'Cimetidine', doses: ['200mg', '400mg', '800mg'], routes: ['oral', 'intravenous'], frequency: ['6 hourly', '12 hourly'], maxDaily: '2.4g', renalAdjust: true },
+    { name: 'Sucralfate', genericName: 'Sucralfate', doses: ['1g'], routes: ['oral'], frequency: ['6 hourly', '8 hourly'], maxDaily: '8g', renalAdjust: false },
+    { name: 'Misoprostol', genericName: 'Misoprostol', doses: ['200mcg'], routes: ['oral'], frequency: ['6 hourly', '8 hourly'], maxDaily: '800mcg', renalAdjust: false },
+    { name: 'Magnesium Trisilicate', genericName: 'Antacid', doses: ['500mg', '10ml'], routes: ['oral'], frequency: ['6 hourly', '8 hourly', 'PRN'], maxDaily: '4g', renalAdjust: true },
+    { name: 'Aluminium Hydroxide', genericName: 'Antacid', doses: ['500mg', '10ml'], routes: ['oral'], frequency: ['6 hourly', '8 hourly', 'PRN'], maxDaily: '3.84g', renalAdjust: true },
   ],
   antiemetics: [
-    { name: 'Metoclopramide', genericName: 'Metoclopramide', doses: ['10mg'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['8 hourly'], maxDaily: '30mg', renalAdjust: true },
-    { name: 'Ondansetron', genericName: 'Ondansetron', doses: ['4mg', '8mg'], routes: ['oral', 'intravenous'], frequency: ['8 hourly', '12 hourly'], maxDaily: '24mg', renalAdjust: false },
-    { name: 'Prochlorperazine', genericName: 'Prochlorperazine', doses: ['5mg', '12.5mg'], routes: ['oral', 'intramuscular'], frequency: ['8 hourly'], maxDaily: '40mg', renalAdjust: false },
+    { name: 'Metoclopramide', genericName: 'Metoclopramide', doses: ['10mg'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['6 hourly', '8 hourly'], maxDaily: '30mg', renalAdjust: true },
+    { name: 'Ondansetron', genericName: 'Ondansetron', doses: ['4mg', '8mg'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['8 hourly', '12 hourly'], maxDaily: '24mg', renalAdjust: false },
+    { name: 'Granisetron', genericName: 'Granisetron', doses: ['1mg', '2mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly', '24 hourly'], maxDaily: '9mg', renalAdjust: false },
+    { name: 'Domperidone', genericName: 'Domperidone', doses: ['10mg', '20mg'], routes: ['oral'], frequency: ['6 hourly', '8 hourly'], maxDaily: '30mg', renalAdjust: false },
+    { name: 'Prochlorperazine', genericName: 'Prochlorperazine', doses: ['5mg', '10mg', '12.5mg'], routes: ['oral', 'intramuscular'], frequency: ['6 hourly', '8 hourly'], maxDaily: '40mg', renalAdjust: false },
+    { name: 'Promethazine', genericName: 'Promethazine', doses: ['12.5mg', '25mg'], routes: ['oral', 'intramuscular', 'intravenous'], frequency: ['8 hourly', '12 hourly'], maxDaily: '100mg', renalAdjust: false },
+    { name: 'Cyclizine', genericName: 'Cyclizine', doses: ['50mg'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['8 hourly'], maxDaily: '150mg', renalAdjust: false },
+    { name: 'Dimenhydrinate', genericName: 'Dimenhydrinate', doses: ['50mg'], routes: ['oral', 'intramuscular', 'intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '400mg', renalAdjust: false },
   ],
-  others: [],
+  antihypertensives: [
+    { name: 'Amlodipine', genericName: 'Amlodipine', doses: ['2.5mg', '5mg', '10mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '10mg', renalAdjust: false },
+    { name: 'Nifedipine', genericName: 'Nifedipine', doses: ['10mg', '20mg', '30mg', '60mg'], routes: ['oral', 'sublingual'], frequency: ['8 hourly', '12 hourly', 'Once daily'], maxDaily: '120mg', renalAdjust: false },
+    { name: 'Felodipine', genericName: 'Felodipine', doses: ['2.5mg', '5mg', '10mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '10mg', renalAdjust: false },
+    { name: 'Lisinopril', genericName: 'Lisinopril', doses: ['2.5mg', '5mg', '10mg', '20mg', '40mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '80mg', renalAdjust: true },
+    { name: 'Enalapril', genericName: 'Enalapril', doses: ['2.5mg', '5mg', '10mg', '20mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '40mg', renalAdjust: true },
+    { name: 'Ramipril', genericName: 'Ramipril', doses: ['1.25mg', '2.5mg', '5mg', '10mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '10mg', renalAdjust: true },
+    { name: 'Captopril', genericName: 'Captopril', doses: ['6.25mg', '12.5mg', '25mg', '50mg'], routes: ['oral', 'sublingual'], frequency: ['8 hourly', '12 hourly'], maxDaily: '150mg', renalAdjust: true },
+    { name: 'Losartan', genericName: 'Losartan', doses: ['25mg', '50mg', '100mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '100mg', renalAdjust: false },
+    { name: 'Valsartan', genericName: 'Valsartan', doses: ['40mg', '80mg', '160mg', '320mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '320mg', renalAdjust: false },
+    { name: 'Irbesartan', genericName: 'Irbesartan', doses: ['75mg', '150mg', '300mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '300mg', renalAdjust: false },
+    { name: 'Telmisartan', genericName: 'Telmisartan', doses: ['20mg', '40mg', '80mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '80mg', renalAdjust: false },
+    { name: 'Atenolol', genericName: 'Atenolol', doses: ['25mg', '50mg', '100mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '100mg', renalAdjust: true },
+    { name: 'Metoprolol', genericName: 'Metoprolol', doses: ['25mg', '50mg', '100mg', '200mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly', 'Once daily'], maxDaily: '400mg', renalAdjust: false },
+    { name: 'Bisoprolol', genericName: 'Bisoprolol', doses: ['1.25mg', '2.5mg', '5mg', '10mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '20mg', renalAdjust: true },
+    { name: 'Carvedilol', genericName: 'Carvedilol', doses: ['3.125mg', '6.25mg', '12.5mg', '25mg'], routes: ['oral'], frequency: ['12 hourly'], maxDaily: '50mg', renalAdjust: false },
+    { name: 'Propranolol', genericName: 'Propranolol', doses: ['10mg', '20mg', '40mg', '80mg', '160mg'], routes: ['oral', 'intravenous'], frequency: ['6 hourly', '8 hourly', '12 hourly'], maxDaily: '320mg', renalAdjust: false },
+    { name: 'Labetalol', genericName: 'Labetalol', doses: ['100mg', '200mg', '400mg'], routes: ['oral', 'intravenous'], frequency: ['8 hourly', '12 hourly'], maxDaily: '2.4g', renalAdjust: false },
+    { name: 'Hydrochlorothiazide', genericName: 'Hydrochlorothiazide', doses: ['12.5mg', '25mg', '50mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '50mg', renalAdjust: true },
+    { name: 'Furosemide', genericName: 'Furosemide', doses: ['20mg', '40mg', '80mg', '250mg'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['Once daily', '12 hourly', '8 hourly'], maxDaily: '600mg', renalAdjust: true },
+    { name: 'Spironolactone', genericName: 'Spironolactone', doses: ['25mg', '50mg', '100mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '400mg', renalAdjust: true },
+    { name: 'Indapamide', genericName: 'Indapamide', doses: ['1.5mg', '2.5mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '2.5mg', renalAdjust: true },
+    { name: 'Methyldopa', genericName: 'Methyldopa', doses: ['250mg', '500mg'], routes: ['oral'], frequency: ['8 hourly', '12 hourly'], maxDaily: '3g', renalAdjust: true },
+    { name: 'Hydralazine', genericName: 'Hydralazine', doses: ['10mg', '25mg', '50mg'], routes: ['oral', 'intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '300mg', renalAdjust: true },
+  ],
+  antidiabetics: [
+    { name: 'Metformin', genericName: 'Metformin', doses: ['500mg', '850mg', '1000mg'], routes: ['oral'], frequency: ['12 hourly', '8 hourly', 'Once daily'], maxDaily: '3g', renalAdjust: true },
+    { name: 'Glibenclamide', genericName: 'Glibenclamide', doses: ['2.5mg', '5mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '15mg', renalAdjust: true },
+    { name: 'Glimepiride', genericName: 'Glimepiride', doses: ['1mg', '2mg', '3mg', '4mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '8mg', renalAdjust: true },
+    { name: 'Gliclazide', genericName: 'Gliclazide', doses: ['30mg MR', '40mg', '60mg MR', '80mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '320mg', renalAdjust: true },
+    { name: 'Pioglitazone', genericName: 'Pioglitazone', doses: ['15mg', '30mg', '45mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '45mg', renalAdjust: false },
+    { name: 'Sitagliptin', genericName: 'Sitagliptin', doses: ['25mg', '50mg', '100mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '100mg', renalAdjust: true },
+    { name: 'Linagliptin', genericName: 'Linagliptin', doses: ['5mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '5mg', renalAdjust: false },
+    { name: 'Empagliflozin', genericName: 'Empagliflozin', doses: ['10mg', '25mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '25mg', renalAdjust: true },
+    { name: 'Dapagliflozin', genericName: 'Dapagliflozin', doses: ['5mg', '10mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '10mg', renalAdjust: true },
+    { name: 'Insulin Regular', genericName: 'Soluble Insulin', doses: ['4units', '6units', '8units', '10units', '12units', '16units', '20units'], routes: ['subcutaneous', 'intravenous'], frequency: ['Before meals', '6 hourly', '8 hourly'], maxDaily: 'Titrate', renalAdjust: true },
+    { name: 'Insulin NPH', genericName: 'Isophane Insulin', doses: ['10units', '12units', '16units', '20units', '24units', '30units'], routes: ['subcutaneous'], frequency: ['Once daily', '12 hourly'], maxDaily: 'Titrate', renalAdjust: true },
+    { name: 'Insulin Glargine', genericName: 'Insulin Glargine', doses: ['10units', '14units', '20units', '30units', '40units'], routes: ['subcutaneous'], frequency: ['Once daily'], maxDaily: 'Titrate', renalAdjust: true },
+    { name: 'Insulin Aspart', genericName: 'Insulin Aspart', doses: ['4units', '6units', '8units', '10units'], routes: ['subcutaneous'], frequency: ['Before meals'], maxDaily: 'Titrate', renalAdjust: true },
+    { name: 'Mixed Insulin 30/70', genericName: 'Biphasic Insulin', doses: ['10units', '16units', '20units', '30units'], routes: ['subcutaneous'], frequency: ['12 hourly', 'Before meals'], maxDaily: 'Titrate', renalAdjust: true },
+  ],
+  laxatives: [
+    { name: 'Lactulose', genericName: 'Lactulose', doses: ['10ml', '15ml', '20ml', '30ml'], routes: ['oral'], frequency: ['12 hourly', '8 hourly', 'Once daily'], maxDaily: '60ml', renalAdjust: false },
+    { name: 'Bisacodyl', genericName: 'Bisacodyl', doses: ['5mg', '10mg'], routes: ['oral', 'rectal'], frequency: ['Once daily', 'At night'], maxDaily: '20mg', renalAdjust: false },
+    { name: 'Senna', genericName: 'Senna', doses: ['7.5mg', '15mg'], routes: ['oral'], frequency: ['Once daily', 'At night'], maxDaily: '30mg', renalAdjust: false },
+    { name: 'Glycerol Suppository', genericName: 'Glycerol', doses: ['1 suppository', '2 suppository'], routes: ['rectal'], frequency: ['PRN', 'Once daily'], maxDaily: '2 suppositories', renalAdjust: false },
+    { name: 'Liquid Paraffin', genericName: 'Mineral Oil', doses: ['10ml', '15ml', '30ml'], routes: ['oral'], frequency: ['Once daily', 'At night'], maxDaily: '45ml', renalAdjust: false },
+    { name: 'Macrogol (Movicol)', genericName: 'Polyethylene Glycol', doses: ['1 sachet', '2 sachets', '3 sachets'], routes: ['oral'], frequency: ['Once daily', '12 hourly', '8 hourly'], maxDaily: '8 sachets', renalAdjust: false },
+    { name: 'Docusate Sodium', genericName: 'Docusate', doses: ['100mg', '200mg'], routes: ['oral'], frequency: ['12 hourly', '8 hourly'], maxDaily: '500mg', renalAdjust: false },
+  ],
+  antidiarrheals: [
+    { name: 'Loperamide', genericName: 'Loperamide', doses: ['2mg'], routes: ['oral'], frequency: ['After each loose stool', '8 hourly'], maxDaily: '16mg', renalAdjust: false },
+    { name: 'ORS (Oral Rehydration Salts)', genericName: 'ORS', doses: ['1 sachet in 1L water'], routes: ['oral'], frequency: ['After each stool', 'PRN'], maxDaily: 'As needed', renalAdjust: false },
+    { name: 'Diphenoxylate-Atropine', genericName: 'Lomotil', doses: ['2.5mg/0.025mg'], routes: ['oral'], frequency: ['6 hourly', '8 hourly'], maxDaily: '20mg', renalAdjust: false },
+    { name: 'Racecadotril', genericName: 'Racecadotril', doses: ['100mg'], routes: ['oral'], frequency: ['8 hourly'], maxDaily: '400mg', renalAdjust: false },
+  ],
+  bronchodilators: [
+    { name: 'Salbutamol', genericName: 'Salbutamol/Albuterol', doses: ['2mg', '4mg', '100mcg inhaler', '2.5mg nebules', '5mg nebules'], routes: ['oral', 'inhalation'], frequency: ['6 hourly', '8 hourly', 'PRN'], maxDaily: '32mg oral, 800mcg inhaled', renalAdjust: false },
+    { name: 'Ipratropium', genericName: 'Ipratropium Bromide', doses: ['20mcg', '40mcg', '250mcg nebules', '500mcg nebules'], routes: ['inhalation'], frequency: ['6 hourly', '8 hourly'], maxDaily: '2mg nebulized', renalAdjust: false },
+    { name: 'Aminophylline', genericName: 'Aminophylline', doses: ['100mg', '225mg', '250mg', '500mg'], routes: ['oral', 'intravenous'], frequency: ['8 hourly', '12 hourly'], maxDaily: '900mg', renalAdjust: true },
+    { name: 'Theophylline', genericName: 'Theophylline', doses: ['100mg', '200mg', '300mg', '400mg'], routes: ['oral'], frequency: ['12 hourly'], maxDaily: '900mg', renalAdjust: true },
+    { name: 'Formoterol', genericName: 'Formoterol', doses: ['12mcg', '24mcg'], routes: ['inhalation'], frequency: ['12 hourly'], maxDaily: '48mcg', renalAdjust: false },
+    { name: 'Salmeterol', genericName: 'Salmeterol', doses: ['25mcg', '50mcg'], routes: ['inhalation'], frequency: ['12 hourly'], maxDaily: '100mcg', renalAdjust: false },
+    { name: 'Tiotropium', genericName: 'Tiotropium', doses: ['18mcg', '5mcg'], routes: ['inhalation'], frequency: ['Once daily'], maxDaily: '18mcg', renalAdjust: false },
+  ],
+  inhaled_steroids: [
+    { name: 'Beclometasone', genericName: 'Beclometasone', doses: ['50mcg', '100mcg', '200mcg', '250mcg'], routes: ['inhalation'], frequency: ['12 hourly'], maxDaily: '2000mcg', renalAdjust: false },
+    { name: 'Budesonide', genericName: 'Budesonide', doses: ['100mcg', '200mcg', '400mcg'], routes: ['inhalation'], frequency: ['12 hourly', 'Once daily'], maxDaily: '1600mcg', renalAdjust: false },
+    { name: 'Fluticasone', genericName: 'Fluticasone', doses: ['50mcg', '125mcg', '250mcg', '500mcg'], routes: ['inhalation'], frequency: ['12 hourly'], maxDaily: '2000mcg', renalAdjust: false },
+    { name: 'Seretide (Fluticasone/Salmeterol)', genericName: 'Fluticasone-Salmeterol', doses: ['100/50mcg', '250/50mcg', '500/50mcg'], routes: ['inhalation'], frequency: ['12 hourly'], maxDaily: '1000/100mcg', renalAdjust: false },
+    { name: 'Symbicort (Budesonide/Formoterol)', genericName: 'Budesonide-Formoterol', doses: ['80/4.5mcg', '160/4.5mcg', '320/9mcg'], routes: ['inhalation'], frequency: ['12 hourly'], maxDaily: '640/18mcg', renalAdjust: false },
+  ],
+  antimalarials: [
+    { name: 'Artemether-Lumefantrine', genericName: 'Coartem', doses: ['20/120mg', '40/240mg'], routes: ['oral'], frequency: ['At 0, 8, 24, 36, 48, 60 hours'], maxDaily: '6 doses', renalAdjust: false },
+    { name: 'Artesunate', genericName: 'Artesunate', doses: ['50mg', '60mg', '120mg', '2.4mg/kg'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['At 0, 12, 24 hours then daily'], maxDaily: '7 days course', renalAdjust: false },
+    { name: 'Quinine', genericName: 'Quinine', doses: ['300mg', '600mg', '10mg/kg'], routes: ['oral', 'intravenous'], frequency: ['8 hourly'], maxDaily: '1.8g', renalAdjust: true },
+    { name: 'Chloroquine', genericName: 'Chloroquine', doses: ['150mg base', '300mg base'], routes: ['oral'], frequency: ['Weekly prophylaxis', 'Treatment course'], maxDaily: '300mg weekly', renalAdjust: true },
+    { name: 'Mefloquine', genericName: 'Mefloquine', doses: ['250mg'], routes: ['oral'], frequency: ['Weekly'], maxDaily: '250mg weekly', renalAdjust: false },
+    { name: 'Sulfadoxine-Pyrimethamine', genericName: 'Fansidar', doses: ['500/25mg'], routes: ['oral'], frequency: ['Single dose'], maxDaily: '3 tablets', renalAdjust: true },
+    { name: 'Proguanil', genericName: 'Proguanil', doses: ['100mg', '200mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '200mg', renalAdjust: true },
+    { name: 'Atovaquone-Proguanil', genericName: 'Malarone', doses: ['250/100mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '1 tablet', renalAdjust: true },
+  ],
+  antiparasitics: [
+    { name: 'Albendazole', genericName: 'Albendazole', doses: ['200mg', '400mg'], routes: ['oral'], frequency: ['Once only', '12 hourly'], maxDaily: '800mg', renalAdjust: false },
+    { name: 'Mebendazole', genericName: 'Mebendazole', doses: ['100mg', '500mg'], routes: ['oral'], frequency: ['12 hourly', 'Once only'], maxDaily: '1g', renalAdjust: false },
+    { name: 'Ivermectin', genericName: 'Ivermectin', doses: ['3mg', '6mg', '12mg', '200mcg/kg'], routes: ['oral'], frequency: ['Once only', 'Weekly'], maxDaily: '12mg', renalAdjust: false },
+    { name: 'Praziquantel', genericName: 'Praziquantel', doses: ['600mg', '40mg/kg'], routes: ['oral'], frequency: ['Single dose', '8 hourly'], maxDaily: '60mg/kg', renalAdjust: false },
+    { name: 'Levamisole', genericName: 'Levamisole', doses: ['40mg', '150mg'], routes: ['oral'], frequency: ['Once only'], maxDaily: '150mg', renalAdjust: false },
+    { name: 'Niclosamide', genericName: 'Niclosamide', doses: ['500mg', '1g', '2g'], routes: ['oral'], frequency: ['Single dose'], maxDaily: '2g', renalAdjust: false },
+    { name: 'Permethrin', genericName: 'Permethrin', doses: ['5% cream', '1% lotion'], routes: ['topical'], frequency: ['Once only', 'Repeat after 7 days'], maxDaily: 'As directed', renalAdjust: false },
+  ],
+  antiretrovirals: [
+    { name: 'TLD (Tenofovir/Lamivudine/Dolutegravir)', genericName: 'TDF/3TC/DTG', doses: ['300/300/50mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '1 tablet', renalAdjust: true },
+    { name: 'Tenofovir/Lamivudine', genericName: 'TDF/3TC', doses: ['300/300mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '1 tablet', renalAdjust: true },
+    { name: 'Tenofovir/Emtricitabine', genericName: 'TDF/FTC', doses: ['300/200mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '1 tablet', renalAdjust: true },
+    { name: 'Efavirenz', genericName: 'Efavirenz', doses: ['200mg', '400mg', '600mg'], routes: ['oral'], frequency: ['Once daily at night'], maxDaily: '600mg', renalAdjust: false },
+    { name: 'Nevirapine', genericName: 'Nevirapine', doses: ['200mg'], routes: ['oral'], frequency: ['12 hourly', 'Once daily lead-in'], maxDaily: '400mg', renalAdjust: false },
+    { name: 'Atazanavir/Ritonavir', genericName: 'ATV/r', doses: ['300/100mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '1 tablet', renalAdjust: false },
+    { name: 'Lopinavir/Ritonavir', genericName: 'LPV/r', doses: ['200/50mg', '400/100mg'], routes: ['oral'], frequency: ['12 hourly'], maxDaily: '800/200mg', renalAdjust: false },
+    { name: 'Dolutegravir', genericName: 'Dolutegravir', doses: ['50mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '100mg', renalAdjust: false },
+    { name: 'Abacavir/Lamivudine', genericName: 'ABC/3TC', doses: ['600/300mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '1 tablet', renalAdjust: false },
+    { name: 'Zidovudine/Lamivudine', genericName: 'AZT/3TC', doses: ['300/150mg'], routes: ['oral'], frequency: ['12 hourly'], maxDaily: '2 tablets', renalAdjust: true },
+  ],
+  antituberculosis: [
+    { name: 'Rifampicin', genericName: 'Rifampicin', doses: ['150mg', '300mg', '450mg', '600mg'], routes: ['oral', 'intravenous'], frequency: ['Once daily'], maxDaily: '600mg', renalAdjust: false },
+    { name: 'Isoniazid', genericName: 'Isoniazid', doses: ['100mg', '300mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '300mg', renalAdjust: false },
+    { name: 'Pyrazinamide', genericName: 'Pyrazinamide', doses: ['400mg', '500mg', '750mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '2g', renalAdjust: true },
+    { name: 'Ethambutol', genericName: 'Ethambutol', doses: ['400mg', '800mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '1.6g', renalAdjust: true },
+    { name: 'RHZE (Fixed Dose)', genericName: '4-drug combo', doses: ['150/75/400/275mg'], routes: ['oral'], frequency: ['Once daily by weight'], maxDaily: 'Weight-based', renalAdjust: true },
+    { name: 'RH (Fixed Dose)', genericName: '2-drug combo', doses: ['150/75mg', '300/150mg'], routes: ['oral'], frequency: ['Once daily by weight'], maxDaily: 'Weight-based', renalAdjust: false },
+    { name: 'Streptomycin', genericName: 'Streptomycin', doses: ['750mg', '1g', '15mg/kg'], routes: ['intramuscular'], frequency: ['Once daily'], maxDaily: '1g', renalAdjust: true },
+  ],
+  sedatives: [
+    { name: 'Diazepam', genericName: 'Diazepam', doses: ['2mg', '5mg', '10mg'], routes: ['oral', 'intravenous', 'intramuscular', 'rectal'], frequency: ['6 hourly', '8 hourly', '12 hourly', 'PRN'], maxDaily: '40mg', renalAdjust: false },
+    { name: 'Lorazepam', genericName: 'Lorazepam', doses: ['0.5mg', '1mg', '2mg', '4mg'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['8 hourly', '12 hourly', 'PRN'], maxDaily: '10mg', renalAdjust: false },
+    { name: 'Midazolam', genericName: 'Midazolam', doses: ['1mg', '2mg', '5mg', '7.5mg', '15mg'], routes: ['oral', 'intravenous', 'intramuscular', 'intranasal'], frequency: ['PRN', 'Once only'], maxDaily: '15mg', renalAdjust: true },
+    { name: 'Clonazepam', genericName: 'Clonazepam', doses: ['0.25mg', '0.5mg', '1mg', '2mg'], routes: ['oral'], frequency: ['8 hourly', '12 hourly'], maxDaily: '20mg', renalAdjust: false },
+    { name: 'Zolpidem', genericName: 'Zolpidem', doses: ['5mg', '10mg'], routes: ['oral'], frequency: ['At night'], maxDaily: '10mg', renalAdjust: false },
+    { name: 'Zopiclone', genericName: 'Zopiclone', doses: ['3.75mg', '7.5mg'], routes: ['oral'], frequency: ['At night'], maxDaily: '7.5mg', renalAdjust: true },
+    { name: 'Nitrazepam', genericName: 'Nitrazepam', doses: ['5mg', '10mg'], routes: ['oral'], frequency: ['At night'], maxDaily: '10mg', renalAdjust: false },
+    { name: 'Phenobarbital', genericName: 'Phenobarbital', doses: ['30mg', '60mg', '100mg', '200mg'], routes: ['oral', 'intravenous', 'intramuscular'], frequency: ['Once daily', '12 hourly'], maxDaily: '300mg', renalAdjust: true },
+  ],
+  antipsychotics: [
+    { name: 'Haloperidol', genericName: 'Haloperidol', doses: ['0.5mg', '1.5mg', '5mg', '10mg'], routes: ['oral', 'intramuscular', 'intravenous'], frequency: ['8 hourly', '12 hourly', 'Once daily'], maxDaily: '100mg', renalAdjust: false },
+    { name: 'Chlorpromazine', genericName: 'Chlorpromazine', doses: ['25mg', '50mg', '100mg'], routes: ['oral', 'intramuscular'], frequency: ['6 hourly', '8 hourly'], maxDaily: '1g', renalAdjust: false },
+    { name: 'Risperidone', genericName: 'Risperidone', doses: ['0.5mg', '1mg', '2mg', '3mg', '4mg'], routes: ['oral'], frequency: ['12 hourly', 'Once daily'], maxDaily: '16mg', renalAdjust: true },
+    { name: 'Olanzapine', genericName: 'Olanzapine', doses: ['2.5mg', '5mg', '10mg', '15mg', '20mg'], routes: ['oral', 'intramuscular'], frequency: ['Once daily'], maxDaily: '20mg', renalAdjust: false },
+    { name: 'Quetiapine', genericName: 'Quetiapine', doses: ['25mg', '50mg', '100mg', '200mg', '300mg'], routes: ['oral'], frequency: ['12 hourly', 'Once daily'], maxDaily: '800mg', renalAdjust: false },
+    { name: 'Aripiprazole', genericName: 'Aripiprazole', doses: ['5mg', '10mg', '15mg', '30mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '30mg', renalAdjust: false },
+  ],
+  antidepressants: [
+    { name: 'Amitriptyline', genericName: 'Amitriptyline', doses: ['10mg', '25mg', '50mg', '75mg'], routes: ['oral'], frequency: ['Once daily at night', '12 hourly'], maxDaily: '200mg', renalAdjust: false },
+    { name: 'Imipramine', genericName: 'Imipramine', doses: ['10mg', '25mg', '50mg'], routes: ['oral'], frequency: ['8 hourly', '12 hourly'], maxDaily: '300mg', renalAdjust: false },
+    { name: 'Fluoxetine', genericName: 'Fluoxetine', doses: ['10mg', '20mg', '40mg', '60mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '80mg', renalAdjust: false },
+    { name: 'Sertraline', genericName: 'Sertraline', doses: ['25mg', '50mg', '100mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '200mg', renalAdjust: false },
+    { name: 'Escitalopram', genericName: 'Escitalopram', doses: ['5mg', '10mg', '20mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '20mg', renalAdjust: false },
+    { name: 'Paroxetine', genericName: 'Paroxetine', doses: ['10mg', '20mg', '40mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '60mg', renalAdjust: true },
+    { name: 'Citalopram', genericName: 'Citalopram', doses: ['10mg', '20mg', '40mg'], routes: ['oral'], frequency: ['Once daily'], maxDaily: '40mg', renalAdjust: false },
+    { name: 'Venlafaxine', genericName: 'Venlafaxine', doses: ['37.5mg', '75mg', '150mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '375mg', renalAdjust: true },
+    { name: 'Mirtazapine', genericName: 'Mirtazapine', doses: ['15mg', '30mg', '45mg'], routes: ['oral'], frequency: ['Once daily at night'], maxDaily: '45mg', renalAdjust: true },
+  ],
+  anticonvulsants: [
+    { name: 'Phenytoin', genericName: 'Phenytoin', doses: ['50mg', '100mg', '300mg', '15-20mg/kg loading'], routes: ['oral', 'intravenous'], frequency: ['8 hourly', '12 hourly', 'Once daily'], maxDaily: '600mg', renalAdjust: false },
+    { name: 'Carbamazepine', genericName: 'Carbamazepine', doses: ['100mg', '200mg', '400mg'], routes: ['oral'], frequency: ['8 hourly', '12 hourly'], maxDaily: '1.6g', renalAdjust: false },
+    { name: 'Sodium Valproate', genericName: 'Valproic Acid', doses: ['200mg', '300mg', '500mg'], routes: ['oral', 'intravenous'], frequency: ['8 hourly', '12 hourly'], maxDaily: '2.5g', renalAdjust: false },
+    { name: 'Levetiracetam', genericName: 'Levetiracetam', doses: ['250mg', '500mg', '750mg', '1000mg'], routes: ['oral', 'intravenous'], frequency: ['12 hourly'], maxDaily: '3g', renalAdjust: true },
+    { name: 'Lamotrigine', genericName: 'Lamotrigine', doses: ['25mg', '50mg', '100mg', '200mg'], routes: ['oral'], frequency: ['Once daily', '12 hourly'], maxDaily: '400mg', renalAdjust: false },
+    { name: 'Topiramate', genericName: 'Topiramate', doses: ['25mg', '50mg', '100mg', '200mg'], routes: ['oral'], frequency: ['12 hourly'], maxDaily: '400mg', renalAdjust: true },
+    { name: 'Gabapentin', genericName: 'Gabapentin', doses: ['100mg', '300mg', '400mg', '600mg'], routes: ['oral'], frequency: ['8 hourly'], maxDaily: '3.6g', renalAdjust: true },
+    { name: 'Pregabalin', genericName: 'Pregabalin', doses: ['25mg', '50mg', '75mg', '150mg', '300mg'], routes: ['oral'], frequency: ['12 hourly', '8 hourly'], maxDaily: '600mg', renalAdjust: true },
+    { name: 'Clonazepam', genericName: 'Clonazepam', doses: ['0.5mg', '1mg', '2mg'], routes: ['oral'], frequency: ['8 hourly', '12 hourly'], maxDaily: '20mg', renalAdjust: false },
+  ],
+  muscleTissue: [
+    { name: 'Baclofen', genericName: 'Baclofen', doses: ['5mg', '10mg', '25mg'], routes: ['oral'], frequency: ['8 hourly'], maxDaily: '100mg', renalAdjust: true },
+    { name: 'Tizanidine', genericName: 'Tizanidine', doses: ['2mg', '4mg'], routes: ['oral'], frequency: ['6 hourly', '8 hourly'], maxDaily: '36mg', renalAdjust: true },
+    { name: 'Carisoprodol', genericName: 'Carisoprodol', doses: ['250mg', '350mg'], routes: ['oral'], frequency: ['8 hourly'], maxDaily: '1400mg', renalAdjust: false },
+    { name: 'Orphenadrine', genericName: 'Orphenadrine', doses: ['100mg'], routes: ['oral'], frequency: ['12 hourly'], maxDaily: '200mg', renalAdjust: false },
+    { name: 'Methocarbamol', genericName: 'Methocarbamol', doses: ['500mg', '750mg', '1g', '1.5g'], routes: ['oral', 'intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '4g oral, 3g IV', renalAdjust: false },
+    { name: 'Dantrolene', genericName: 'Dantrolene', doses: ['25mg', '50mg', '100mg'], routes: ['oral', 'intravenous'], frequency: ['6 hourly', '8 hourly'], maxDaily: '400mg', renalAdjust: false },
+    { name: 'Tolperisone', genericName: 'Tolperisone', doses: ['50mg', '150mg'], routes: ['oral'], frequency: ['8 hourly'], maxDaily: '450mg', renalAdjust: true },
+    { name: 'Eperisone', genericName: 'Eperisone', doses: ['50mg'], routes: ['oral'], frequency: ['8 hourly'], maxDaily: '150mg', renalAdjust: false },
+  ],
+  eyePreparations: [
+    { name: 'Chloramphenicol Eye Drops', genericName: 'Chloramphenicol', doses: ['0.5%'], routes: ['ophthalmic'], frequency: ['2 hourly', '4 hourly', '6 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Ciprofloxacin Eye Drops', genericName: 'Ciprofloxacin', doses: ['0.3%'], routes: ['ophthalmic'], frequency: ['2 hourly', '4 hourly', '6 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Moxifloxacin Eye Drops', genericName: 'Moxifloxacin', doses: ['0.5%'], routes: ['ophthalmic'], frequency: ['8 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Ofloxacin Eye Drops', genericName: 'Ofloxacin', doses: ['0.3%'], routes: ['ophthalmic'], frequency: ['4 hourly', '6 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Gentamicin Eye Drops', genericName: 'Gentamicin', doses: ['0.3%'], routes: ['ophthalmic'], frequency: ['4 hourly', '6 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Prednisolone Eye Drops', genericName: 'Prednisolone', doses: ['0.5%', '1%'], routes: ['ophthalmic'], frequency: ['4 hourly', '6 hourly', '2 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Dexamethasone Eye Drops', genericName: 'Dexamethasone', doses: ['0.1%'], routes: ['ophthalmic'], frequency: ['4 hourly', '6 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Timolol Eye Drops', genericName: 'Timolol', doses: ['0.25%', '0.5%'], routes: ['ophthalmic'], frequency: ['12 hourly'], maxDaily: '1 drop each eye BD', renalAdjust: false },
+    { name: 'Latanoprost Eye Drops', genericName: 'Latanoprost', doses: ['0.005%'], routes: ['ophthalmic'], frequency: ['Once daily at night'], maxDaily: '1 drop each eye', renalAdjust: false },
+    { name: 'Atropine Eye Drops', genericName: 'Atropine', doses: ['0.5%', '1%'], routes: ['ophthalmic'], frequency: ['12 hourly', '8 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Tropicamide Eye Drops', genericName: 'Tropicamide', doses: ['0.5%', '1%'], routes: ['ophthalmic'], frequency: ['PRN', 'For examination'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Artificial Tears', genericName: 'Hypromellose', doses: ['0.3%', '0.5%'], routes: ['ophthalmic'], frequency: ['PRN', '4 hourly', '6 hourly'], maxDaily: 'As needed', renalAdjust: false },
+  ],
+  topicalAgents: [
+    { name: 'Fusidic Acid Cream', genericName: 'Fusidic Acid', doses: ['2%'], routes: ['topical'], frequency: ['8 hourly', '12 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Mupirocin Ointment', genericName: 'Mupirocin', doses: ['2%'], routes: ['topical'], frequency: ['8 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Silver Sulfadiazine Cream', genericName: 'Silver Sulfadiazine', doses: ['1%'], routes: ['topical'], frequency: ['Once daily', '12 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Neomycin-Bacitracin Ointment', genericName: 'Neomycin-Bacitracin', doses: ['1 application'], routes: ['topical'], frequency: ['8 hourly', '12 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Betamethasone Cream', genericName: 'Betamethasone Valerate', doses: ['0.025%', '0.1%'], routes: ['topical'], frequency: ['12 hourly', 'Once daily'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Hydrocortisone Cream', genericName: 'Hydrocortisone', doses: ['0.5%', '1%', '2.5%'], routes: ['topical'], frequency: ['12 hourly', '8 hourly'], maxDaily: 'As directed', renalAdjust: false },
+    { name: 'Clobetasol Cream', genericName: 'Clobetasol Propionate', doses: ['0.05%'], routes: ['topical'], frequency: ['12 hourly'], maxDaily: '50g per week', renalAdjust: false },
+    { name: 'Calamine Lotion', genericName: 'Calamine', doses: ['1 application'], routes: ['topical'], frequency: ['PRN', '6 hourly'], maxDaily: 'As needed', renalAdjust: false },
+    { name: 'Zinc Oxide Ointment', genericName: 'Zinc Oxide', doses: ['15%', '25%'], routes: ['topical'], frequency: ['PRN', '8 hourly'], maxDaily: 'As needed', renalAdjust: false },
+    { name: 'Povidone-Iodine', genericName: 'Povidone-Iodine', doses: ['5%', '10%'], routes: ['topical'], frequency: ['PRN', 'Before procedures'], maxDaily: 'As needed', renalAdjust: false },
+    { name: 'Chlorhexidine', genericName: 'Chlorhexidine Gluconate', doses: ['0.5%', '4%'], routes: ['topical'], frequency: ['PRN', 'Before procedures'], maxDaily: 'As needed', renalAdjust: false },
+  ],
+  others: [
+    { name: 'Adrenaline (Epinephrine)', genericName: 'Epinephrine', doses: ['0.5mg', '1mg', '1:1000', '1:10000'], routes: ['intramuscular', 'intravenous', 'subcutaneous'], frequency: ['PRN', 'Every 3-5 mins'], maxDaily: 'Titrate', renalAdjust: false },
+    { name: 'Atropine', genericName: 'Atropine', doses: ['0.5mg', '1mg', '0.6mg'], routes: ['intravenous', 'intramuscular'], frequency: ['PRN', 'Every 3-5 mins'], maxDaily: '3mg', renalAdjust: false },
+    { name: 'Dopamine', genericName: 'Dopamine', doses: ['2-20mcg/kg/min'], routes: ['intravenous'], frequency: ['Continuous infusion'], maxDaily: 'Titrate', renalAdjust: true },
+    { name: 'Dobutamine', genericName: 'Dobutamine', doses: ['2.5-20mcg/kg/min'], routes: ['intravenous'], frequency: ['Continuous infusion'], maxDaily: 'Titrate', renalAdjust: false },
+    { name: 'Noradrenaline', genericName: 'Norepinephrine', doses: ['0.05-0.5mcg/kg/min'], routes: ['intravenous'], frequency: ['Continuous infusion'], maxDaily: 'Titrate', renalAdjust: false },
+    { name: 'Sodium Chloride 0.9%', genericName: 'Normal Saline', doses: ['500ml', '1000ml'], routes: ['intravenous'], frequency: ['As prescribed'], maxDaily: 'As needed', renalAdjust: true },
+    { name: 'Ringer Lactate', genericName: 'Lactated Ringers', doses: ['500ml', '1000ml'], routes: ['intravenous'], frequency: ['As prescribed'], maxDaily: 'As needed', renalAdjust: true },
+    { name: 'Dextrose 5%', genericName: '5% Dextrose', doses: ['500ml', '1000ml'], routes: ['intravenous'], frequency: ['As prescribed'], maxDaily: 'As needed', renalAdjust: false },
+    { name: 'Dextrose Saline', genericName: '4.3% Dextrose in 0.18% Saline', doses: ['500ml', '1000ml'], routes: ['intravenous'], frequency: ['As prescribed'], maxDaily: 'As needed', renalAdjust: false },
+    { name: 'Mannitol', genericName: 'Mannitol', doses: ['20%', '0.5-1g/kg'], routes: ['intravenous'], frequency: ['6 hourly', '8 hourly', 'Once'], maxDaily: '2g/kg', renalAdjust: true },
+    { name: 'Tranexamic Acid', genericName: 'Tranexamic Acid', doses: ['500mg', '1g'], routes: ['oral', 'intravenous'], frequency: ['8 hourly', '12 hourly'], maxDaily: '4g', renalAdjust: true },
+    { name: 'Oxytocin', genericName: 'Oxytocin', doses: ['5units', '10units', '20units'], routes: ['intramuscular', 'intravenous'], frequency: ['PRN', 'Infusion'], maxDaily: 'Titrate', renalAdjust: false },
+    { name: 'Misoprostol (Obstetric)', genericName: 'Misoprostol', doses: ['200mcg', '400mcg', '600mcg', '800mcg'], routes: ['oral', 'sublingual', 'rectal', 'vaginal'], frequency: ['Single dose', 'Every 4 hours'], maxDaily: '800mcg', renalAdjust: false },
+    { name: 'Ergometrine', genericName: 'Ergometrine', doses: ['0.2mg', '0.5mg'], routes: ['intramuscular', 'intravenous'], frequency: ['PRN'], maxDaily: '1mg', renalAdjust: false },
+    { name: 'Naloxone', genericName: 'Naloxone', doses: ['0.4mg', '0.8mg', '2mg'], routes: ['intravenous', 'intramuscular', 'subcutaneous', 'intranasal'], frequency: ['Every 2-3 mins PRN'], maxDaily: 'Titrate', renalAdjust: false },
+    { name: 'Flumazenil', genericName: 'Flumazenil', doses: ['0.2mg', '0.5mg', '1mg'], routes: ['intravenous'], frequency: ['Every 1 min PRN'], maxDaily: '5mg', renalAdjust: false },
+    { name: 'Neostigmine', genericName: 'Neostigmine', doses: ['0.5mg', '2.5mg'], routes: ['intravenous', 'intramuscular'], frequency: ['PRN'], maxDaily: '5mg', renalAdjust: true },
+    { name: 'Pyridostigmine', genericName: 'Pyridostigmine', doses: ['60mg'], routes: ['oral'], frequency: ['6 hourly', '8 hourly'], maxDaily: '360mg', renalAdjust: true },
+    { name: 'Potassium Chloride', genericName: 'Potassium Chloride', doses: ['600mg', '10mEq', '20mEq', '40mEq'], routes: ['oral', 'intravenous'], frequency: ['8 hourly', '12 hourly', 'Infusion'], maxDaily: '200mEq', renalAdjust: true },
+    { name: 'Sodium Bicarbonate', genericName: 'Sodium Bicarbonate', doses: ['500mg', '1mEq/kg', '8.4%'], routes: ['oral', 'intravenous'], frequency: ['PRN', '6 hourly'], maxDaily: 'Titrate to pH', renalAdjust: true },
+  ],
+};
+
+// Helper function to calculate doses per day from frequency
+const getFrequencyMultiplier = (frequency: string): number => {
+  const freq = frequency.toLowerCase();
+  if (freq.includes('4 hourly') || freq.includes('qid') || freq.includes('q4h')) return 6;
+  if (freq.includes('6 hourly') || freq.includes('qds') || freq.includes('q6h')) return 4;
+  if (freq.includes('8 hourly') || freq.includes('tds') || freq.includes('tid') || freq.includes('q8h')) return 3;
+  if (freq.includes('12 hourly') || freq.includes('bd') || freq.includes('bid') || freq.includes('q12h')) return 2;
+  if (freq.includes('once daily') || freq.includes('od') || freq.includes('daily') || freq.includes('24 hourly') || freq.includes('at night')) return 1;
+  if (freq.includes('weekly') || freq.includes('once weekly')) return 0.14; // ~1/7 per day
+  if (freq.includes('monthly')) return 0.03; // ~1/30 per day
+  if (freq.includes('prn') || freq.includes('stat') || freq.includes('once only') || freq.includes('single dose')) return 1; // default to 1 for PRN
+  if (freq.includes('before meals')) return 3; // TID before meals
+  if (freq.includes('after each') || freq.includes('after each stool')) return 4; // estimate 4 times
+  // Default: try to extract from pattern like "3 times daily"
+  const match = freq.match(/(\d+)\s*(times|x)/i);
+  if (match) return parseInt(match[1]);
+  return 1; // default
+};
+
+// Helper function to parse duration into days
+const getDurationInDays = (duration: string): number => {
+  const dur = duration.toLowerCase().trim();
+  
+  // Match patterns like "5 days", "5days", "5 day", "5day"
+  const dayMatch = dur.match(/^(\d+)\s*days?$/i);
+  if (dayMatch) return parseInt(dayMatch[1]);
+  
+  // Match patterns like "1 week", "2 weeks"
+  const weekMatch = dur.match(/^(\d+)\s*weeks?$/i);
+  if (weekMatch) return parseInt(weekMatch[1]) * 7;
+  
+  // Match patterns like "1 month", "2 months"
+  const monthMatch = dur.match(/^(\d+)\s*months?$/i);
+  if (monthMatch) return parseInt(monthMatch[1]) * 30;
+  
+  // Single words
+  if (dur === 'stat' || dur === 'once' || dur === 'single dose' || dur === 'once only') return 1;
+  if (dur === 'continuous' || dur === 'ongoing' || dur === 'long-term') return 30;
+  
+  // Try to extract just a number (assume days)
+  const numMatch = dur.match(/^(\d+)$/);
+  if (numMatch) return parseInt(numMatch[1]);
+  
+  return 0; // Return 0 if can't parse (user should enter quantity manually)
+};
+
+// Calculate quantity automatically
+const calculateQuantity = (frequency: string, duration: string): number => {
+  const dosesPerDay = getFrequencyMultiplier(frequency);
+  const days = getDurationInDays(duration);
+  
+  if (dosesPerDay === 0 || days === 0) return 0;
+  
+  const calculated = Math.ceil(dosesPerDay * days);
+  return calculated > 0 ? calculated : 1;
 };
 
 const medicationCategories = [
-  { value: 'analgesics', label: 'Analgesics' },
+  { value: 'analgesics', label: 'Analgesics/Pain Relief' },
   { value: 'antibiotics', label: 'Antibiotics' },
-  { value: 'antiinflammatories', label: 'Anti-inflammatory' },
+  { value: 'antiinflammatories', label: 'Anti-inflammatory/Steroids' },
   { value: 'vitamins', label: 'Vitamins & Minerals' },
-  { value: 'anticoagulants', label: 'Anticoagulants' },
+  { value: 'anticoagulants', label: 'Anticoagulants/Antiplatelets' },
   { value: 'antipyretics', label: 'Antipyretics' },
   { value: 'antifungals', label: 'Antifungals' },
-  { value: 'antihistamines', label: 'Antihistamines' },
-  { value: 'antacids', label: 'Antacids/PPIs' },
+  { value: 'antihistamines', label: 'Antihistamines/Allergy' },
+  { value: 'antacids', label: 'Antacids/PPIs/H2 Blockers' },
   { value: 'antiemetics', label: 'Antiemetics' },
-  { value: 'others', label: 'Others' },
+  { value: 'antihypertensives', label: 'Antihypertensives/Cardiac' },
+  { value: 'antidiabetics', label: 'Antidiabetics/Insulin' },
+  { value: 'laxatives', label: 'Laxatives' },
+  { value: 'antidiarrheals', label: 'Antidiarrheals' },
+  { value: 'bronchodilators', label: 'Bronchodilators/Respiratory' },
+  { value: 'inhaled_steroids', label: 'Inhaled Steroids/Combinations' },
+  { value: 'antimalarials', label: 'Antimalarials' },
+  { value: 'antiparasitics', label: 'Antiparasitics/Anthelmintics' },
+  { value: 'antiretrovirals', label: 'Antiretrovirals (ARVs)' },
+  { value: 'antituberculosis', label: 'Anti-TB Drugs' },
+  { value: 'sedatives', label: 'Sedatives/Anxiolytics' },
+  { value: 'antipsychotics', label: 'Antipsychotics' },
+  { value: 'antidepressants', label: 'Antidepressants' },
+  { value: 'anticonvulsants', label: 'Anticonvulsants/Epilepsy' },
+  { value: 'muscleTissue', label: 'Muscle Relaxants' },
+  { value: 'eyePreparations', label: 'Eye Preparations' },
+  { value: 'topicalAgents', label: 'Topical Agents/Skin' },
+  { value: 'others', label: 'Others/IV Fluids/Emergency' },
 ];
 
 const routes: { value: MedicationRoute; label: string }[] = [
@@ -972,7 +1331,16 @@ export default function PharmacyPage() {
                         {selectedMedInfo ? (
                           <select
                             value={currentMed.frequency || ''}
-                            onChange={(e) => setCurrentMed({ ...currentMed, frequency: e.target.value })}
+                            onChange={(e) => {
+                              const newFrequency = e.target.value;
+                              const newDuration = currentMed.duration || '';
+                              const autoQty = calculateQuantity(newFrequency, newDuration);
+                              setCurrentMed({ 
+                                ...currentMed, 
+                                frequency: newFrequency,
+                                quantity: autoQty > 0 ? autoQty : currentMed.quantity
+                              });
+                            }}
                             className="input text-sm"
                           >
                             <option value="">Select...</option>
@@ -983,7 +1351,16 @@ export default function PharmacyPage() {
                         ) : (
                           <input
                             value={currentMed.frequency || ''}
-                            onChange={(e) => setCurrentMed({ ...currentMed, frequency: e.target.value })}
+                            onChange={(e) => {
+                              const newFrequency = e.target.value;
+                              const newDuration = currentMed.duration || '';
+                              const autoQty = calculateQuantity(newFrequency, newDuration);
+                              setCurrentMed({ 
+                                ...currentMed, 
+                                frequency: newFrequency,
+                                quantity: autoQty > 0 ? autoQty : currentMed.quantity
+                              });
+                            }}
                             className="input text-sm"
                             placeholder="e.g., 8 hourly"
                           />
@@ -1005,13 +1382,22 @@ export default function PharmacyPage() {
                         <label className="label text-xs">Duration</label>
                         <input
                           value={currentMed.duration || ''}
-                          onChange={(e) => setCurrentMed({ ...currentMed, duration: e.target.value })}
+                          onChange={(e) => {
+                            const newDuration = e.target.value;
+                            const newFrequency = currentMed.frequency || '';
+                            const autoQty = calculateQuantity(newFrequency, newDuration);
+                            setCurrentMed({ 
+                              ...currentMed, 
+                              duration: newDuration,
+                              quantity: autoQty > 0 ? autoQty : currentMed.quantity
+                            });
+                          }}
                           className="input text-sm"
                           placeholder="e.g., 5 days"
                         />
                       </div>
                       <div>
-                        <label className="label text-xs">Quantity</label>
+                        <label className="label text-xs">Quantity {currentMed.frequency && currentMed.duration && <span className="text-violet-600 font-normal">(auto-calculated)</span>}</label>
                         <input
                           type="number"
                           value={currentMed.quantity || ''}
