@@ -33,6 +33,7 @@ import {
 import { db } from '../../../database';
 import { surgicalProcedures, complexityLevels } from '../../../data/surgicalFees';
 import { surgicalConsumables } from '../../../data/surgicalConsumables';
+import { numberToWords } from '../../../utils/pdfUtils';
 import type { Patient } from '../../../types';
 
 // Estimate Line Item Interface
@@ -455,8 +456,26 @@ export default function SurgicalEstimatePage() {
     doc.setTextColor(0, 102, 51);
     doc.text(formatCurrencyPDF(totals.total), 170, y);
 
+    // Amount in words
+    y += 10;
+    doc.setFillColor(248, 250, 252);
+    doc.rect(10, y, pageWidth - 20, 14, 'F');
+    doc.setFontSize(9);
+    doc.setFont('times', 'bold');
+    doc.setTextColor(0, 51, 102);
+    doc.text('Amount in Words:', 15, y + 5);
+    doc.setFont('times', 'italic');
+    doc.setTextColor(0, 0, 0);
+    const amountInWords = numberToWords(totals.total);
+    const wordsWidth = pageWidth - 60;
+    const wordsLines = doc.splitTextToSize(amountInWords, wordsWidth);
+    doc.text(wordsLines[0], 55, y + 5);
+    if (wordsLines.length > 1) {
+      doc.text(wordsLines[1], 15, y + 11);
+    }
+
     // Disclaimer Box
-    y += 15;
+    y += 20;
     doc.setFillColor(255, 250, 240);
     doc.setDrawColor(255, 180, 100);
     doc.setLineWidth(0.5);

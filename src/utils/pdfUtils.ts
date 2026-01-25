@@ -511,6 +511,100 @@ export function formatNairaPDF(amount: number): string {
   return `N ${formatted}`;
 }
 
+/**
+ * Convert a number to words (Nigerian Naira format)
+ * Handles amounts up to 999 trillion with Kobo (cents)
+ * Example: 15750.50 => "Fifteen Thousand, Seven Hundred and Fifty Naira, Fifty Kobo Only"
+ */
+export function numberToWords(amount: number): string {
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const scales = ['', 'Thousand', 'Million', 'Billion', 'Trillion'];
+
+  if (amount === 0) return 'Zero Naira Only';
+  if (amount < 0) return 'Negative ' + numberToWords(Math.abs(amount));
+
+  // Handle decimal places (Kobo)
+  const parts = amount.toFixed(2).split('.');
+  const nairaAmount = parseInt(parts[0], 10);
+  const koboAmount = parseInt(parts[1], 10);
+
+  // Convert number under 1000 to words
+  const convertHundreds = (num: number): string => {
+    if (num === 0) return '';
+    
+    let result = '';
+    
+    if (num >= 100) {
+      result += ones[Math.floor(num / 100)] + ' Hundred';
+      num %= 100;
+      if (num > 0) result += ' and ';
+    }
+    
+    if (num >= 20) {
+      result += tens[Math.floor(num / 10)];
+      num %= 10;
+      if (num > 0) result += '-' + ones[num];
+    } else if (num > 0) {
+      result += ones[num];
+    }
+    
+    return result;
+  };
+
+  // Convert the main Naira amount
+  const convertToWords = (num: number): string => {
+    if (num === 0) return '';
+    
+    let result = '';
+    let scaleIndex = 0;
+    
+    while (num > 0) {
+      const chunk = num % 1000;
+      if (chunk > 0) {
+        const chunkWords = convertHundreds(chunk);
+        if (result) {
+          result = chunkWords + ' ' + scales[scaleIndex] + ', ' + result;
+        } else {
+          result = chunkWords + (scales[scaleIndex] ? ' ' + scales[scaleIndex] : '');
+        }
+      }
+      num = Math.floor(num / 1000);
+      scaleIndex++;
+    }
+    
+    return result;
+  };
+
+  let result = '';
+  
+  // Naira part
+  if (nairaAmount > 0) {
+    result = convertToWords(nairaAmount) + ' Naira';
+  }
+  
+  // Kobo part
+  if (koboAmount > 0) {
+    if (result) {
+      result += ', ';
+    }
+    result += convertHundreds(koboAmount) + ' Kobo';
+  } else if (nairaAmount === 0) {
+    return 'Zero Naira Only';
+  }
+  
+  return result + ' Only';
+}
+
+/**
+ * Format amount in words for invoice display
+ * Returns a properly formatted string for PDF display
+ */
+export function formatAmountInWords(amount: number): string {
+  return numberToWords(amount);
+}
+
 // Check if we need a new page
 // CRITICAL: Ensures white background and watermark on new pages
 export function checkNewPage(doc: jsPDF, yPos: number, requiredSpace: number = 30, includeWatermark: boolean = true): number {

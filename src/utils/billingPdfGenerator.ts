@@ -14,6 +14,7 @@ import {
   checkNewPage,
   addLogoWatermark,
   PDF_COLORS,
+  numberToWords,
   type PDFDocumentInfo,
   type PDFPatientInfo,
 } from './pdfUtils';
@@ -264,6 +265,23 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
   doc.setTextColor(255, 255, 255);
   doc.text('TOTAL:', summaryX, yPos + 6);
   doc.text(formatNairaPDF(totalAmount), pageWidth - 20, yPos + 6, { align: 'right' });
+  yPos += 18;
+
+  // Amount in words
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(15, yPos, pageWidth - 30, 14, 2, 2, 'F');
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(...PDF_COLORS.primaryDark);
+  doc.text('Amount in Words:', 20, yPos + 5);
+  doc.setFont(PDF_FONTS.primary, 'italic');
+  doc.setTextColor(...PDF_COLORS.dark);
+  const amountWords = numberToWords(totalAmount);
+  const wordsLines = doc.splitTextToSize(amountWords, pageWidth - 60);
+  doc.text(wordsLines[0], 60, yPos + 5);
+  if (wordsLines.length > 1) {
+    doc.text(wordsLines[1], 20, yPos + 10);
+  }
   yPos += 18;
 
   // Paid amount & balance (if applicable)
@@ -562,7 +580,24 @@ export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
   doc.text('ESTIMATED TOTAL:', summaryX, yPos + 6);
   doc.text(formatNairaPDF(totalAmount), pageWidth - 20, yPos + 6, { align: 'right' });
   
-  yPos += 20;
+  yPos += 18;
+
+  // Amount in words
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(15, yPos, pageWidth - 30, 14, 2, 2, 'F');
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(...PDF_COLORS.primaryDark);
+  doc.text('Amount in Words:', 20, yPos + 5);
+  doc.setFont(PDF_FONTS.primary, 'italic');
+  doc.setTextColor(...PDF_COLORS.dark);
+  const estimateAmountWords = numberToWords(totalAmount);
+  const estimateWordsLines = doc.splitTextToSize(estimateAmountWords, pageWidth - 60);
+  doc.text(estimateWordsLines[0], 60, yPos + 5);
+  if (estimateWordsLines.length > 1) {
+    doc.text(estimateWordsLines[1], 20, yPos + 10);
+  }
+  yPos += 18;
 
   // Validity notice
   if (validUntil) {
