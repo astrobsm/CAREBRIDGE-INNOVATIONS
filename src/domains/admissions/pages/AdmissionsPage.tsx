@@ -3,6 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -97,6 +98,7 @@ interface AdmissionsPageProps {
 export default function AdmissionsPage({ embedded: _embedded = false }: AdmissionsPageProps) {
   void _embedded; // Reserved for future embedded mode support
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -981,7 +983,7 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-3 pt-4 border-t">
                   <button
-                    onClick={() => window.location.href = `/treatment-plans/new?admissionId=${selectedAdmission.id}`}
+                    onClick={() => navigate(`/treatment-plans/new?admissionId=${selectedAdmission.id}`)}
                     className="btn btn-primary flex items-center gap-2"
                   >
                     <ClipboardList size={18} />
