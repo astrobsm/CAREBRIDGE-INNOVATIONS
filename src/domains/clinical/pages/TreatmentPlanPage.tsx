@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
-import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
+import EnhancedTreatmentPlanCard from '../../../components/clinical/EnhancedTreatmentPlanCard';
 import LoadingScreen from '../../../components/common/LoadingScreen';
 
 export default function TreatmentPlanPage() {
@@ -13,23 +12,24 @@ export default function TreatmentPlanPage() {
   const { user } = useAuth();
 
   const admissionId = searchParams.get('admissionId');
-  const patientId = searchParams.get('patientId');
+  const patientIdParam = searchParams.get('patientId');
   const woundId = searchParams.get('woundId');
   const burnId = searchParams.get('burnId');
   const surgeryId = searchParams.get('surgeryId');
 
-  // Get patient information
+  // Get admission information
   const admission = useLiveQuery(
-    () => admissionId ? db.admissions.get(admissionId) : Promise.resolve(undefined),
+    async () => admissionId ? await db.admissions.get(admissionId) : undefined,
     [admissionId]
   );
 
+  // Get patient information
   const patient = useLiveQuery(
-    () => {
-      const pid = patientId || admission?.patientId;
-      return pid ? db.patients.get(pid) : Promise.resolve(undefined);
+    async () => {
+      const pid = patientIdParam || admission?.patientId;
+      return pid ? await db.patients.get(pid) : undefined;
     },
-    [patientId, admission]
+    [patientIdParam, admission?.patientId]
   );
 
   // Determine related entity
@@ -61,11 +61,13 @@ export default function TreatmentPlanPage() {
             <button
               onClick={() => navigate(-1)}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Go back"
+              aria-label="Go back"
             >
               <ArrowLeft size={20} />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Create Treatment Plan</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Treatment Plan</h1>
               <p className="text-sm text-gray-600 mt-1">
                 Patient: {patient.firstName} {patient.lastName}
                 {admission && ` • Admission: ${admission.admissionNumber}`}
@@ -77,12 +79,14 @@ export default function TreatmentPlanPage() {
 
       {/* Treatment Plan Form */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <TreatmentPlanCard
+        <EnhancedTreatmentPlanCard
           patientId={patient.id}
-          relatedEntityId={relatedEntityId}
+          admissionId={admissionId ?? undefined}
+          relatedEntityId={relatedEntityId ?? undefined}
           relatedEntityType={relatedEntityType as 'wound' | 'burn' | 'surgery' | 'general'}
           clinicianId={user.id}
           clinicianName={`${user.firstName} ${user.lastName}`}
+          hospitalId={user.hospitalId || admission?.hospitalId || ''}
         />
       </div>
     </div>
