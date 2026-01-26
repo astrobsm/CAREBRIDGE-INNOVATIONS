@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -348,10 +348,52 @@ export default function EnhancedTreatmentPlanCard({
   }, [users]);
 
   // Forms
-  const { register: registerMed, handleSubmit: handleSubmitMed, reset: resetMed, formState: { errors: medErrors }, setValue: setMedValue } = useForm<MedicationFormData>({
+  const { register: registerMed, handleSubmit: handleSubmitMed, reset: resetMed, formState: { errors: medErrors }, setValue: setMedValue, watch: watchMed } = useForm<MedicationFormData>({
     resolver: zodResolver(medicationSchema),
     defaultValues: { quantity: 1 },
   });
+
+  // Watch frequency and duration for auto-calculation
+  const watchedFrequency = watchMed('frequency');
+  const watchedDuration = watchMed('duration');
+
+  // Helper function to get doses per day from frequency
+  const getDosesPerDay = (frequency: string): number => {
+    const freqLower = frequency?.toLowerCase() || '';
+    if (freqLower.includes('once daily') || freqLower.includes('at bedtime') || freqLower.includes('weekly')) return 1;
+    if (freqLower.includes('twice daily') || freqLower.includes('every 12 hours')) return 2;
+    if (freqLower.includes('three times daily') || freqLower.includes('every 8 hours')) return 3;
+    if (freqLower.includes('four times daily') || freqLower.includes('every 6 hours')) return 4;
+    if (freqLower.includes('every 4 hours')) return 6;
+    if (freqLower.includes('once only')) return 1;
+    if (freqLower.includes('alternate days')) return 0.5;
+    if (freqLower.includes('before meals') || freqLower.includes('after meals')) return 3;
+    return 1; // Default
+  };
+
+  // Parse duration to get number of days
+  const parseDurationToDays = (duration: string): number => {
+    if (!duration) return 0;
+    const match = duration.match(/(\d+)/);
+    if (!match) return 0;
+    const num = parseInt(match[1], 10);
+    const durLower = duration.toLowerCase();
+    if (durLower.includes('week')) return num * 7;
+    if (durLower.includes('month')) return num * 30;
+    return num; // Assume days by default
+  };
+
+  // Auto-calculate quantity when frequency or duration changes
+  useEffect(() => {
+    if (watchedFrequency && watchedDuration) {
+      const dosesPerDay = getDosesPerDay(watchedFrequency);
+      const days = parseDurationToDays(watchedDuration);
+      if (dosesPerDay > 0 && days > 0) {
+        const calculatedQuantity = Math.ceil(dosesPerDay * days);
+        setMedValue('quantity', calculatedQuantity);
+      }
+    }
+  }, [watchedFrequency, watchedDuration, setMedValue]);
 
   const { register: registerInv, handleSubmit: handleSubmitInv, reset: resetInv, formState: { errors: invErrors } } = useForm<InvestigationFormData>({
     resolver: zodResolver(investigationSchema),
@@ -1350,8 +1392,8 @@ export default function EnhancedTreatmentPlanCard({
                       <input {...registerMed('duration')} className={`input ${medErrors.duration ? 'input-error' : ''}`} placeholder="e.g., 5 days" />
                     </div>
                     <div>
-                      <label className="label">Quantity *</label>
-                      <input type="number" {...registerMed('quantity', { valueAsNumber: true })} className={`input ${medErrors.quantity ? 'input-error' : ''}`} min={1} />
+                      <label className="label">Quantity * <span className="text-xs text-gray-500">(auto-calculated)</span></label>
+                      <input type="number" {...registerMed('quantity', { valueAsNumber: true })} className={`input ${medErrors.quantity ? 'input-error' : ''} bg-gray-50`} min={1} readOnly title="Auto-calculated from frequency and duration" />
                     </div>
                   </div>
 
