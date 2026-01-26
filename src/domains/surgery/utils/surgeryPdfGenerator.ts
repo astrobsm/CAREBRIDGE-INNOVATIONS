@@ -158,6 +158,8 @@ function addBulletList(doc: jsPDF, yPos: number, items: string[], maxWidth: numb
 }
 
 // Helper to add section title with high contrast
+// NOTE: This function leaves text color as WHITE after execution
+// Callers MUST reset text color to black after calling this function
 function addSectionTitle(doc: jsPDF, yPos: number, title: string): number {
   doc.setFillColor(24, 0, 172); // Dark purple for better contrast
   doc.roundedRect(15, yPos, 180, 10, 2, 2, 'F');
@@ -165,6 +167,11 @@ function addSectionTitle(doc: jsPDF, yPos: number, title: string): number {
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255); // White text on dark background
   doc.text(title, 20, yPos + 7);
+  
+  // CRITICAL: Reset to black text after section title for subsequent content
+  doc.setTextColor(0, 0, 0);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  
   return yPos + 16;
 }
 
@@ -642,44 +649,95 @@ export function generateConsentFormPDF(patient: PatientInfo, surgery: SurgeryInf
   
   let yPos = addHeader(doc, 'Informed Consent for Surgery', 'Patient Authorization Form');
   
-  // Patient Details
-  doc.setFillColor(240, 249, 255);
-  doc.roundedRect(15, yPos, 180, 35, 3, 3, 'F');
+  // Patient Details - light background with visible border
+  doc.setFillColor(250, 252, 255);
+  doc.roundedRect(15, yPos, 180, 38, 3, 3, 'F');
+  doc.setDrawColor(100, 130, 200);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(15, yPos, 180, 38, 3, 3, 'S');
   
-  doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
+  // CRITICAL: Set font and ensure BLACK text for maximum visibility
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0); // Pure black for visibility
   
   const leftCol = 20;
   const rightCol = 110;
   
-  doc.text(`Patient Name: ${patient.name}`, leftCol, yPos + 10);
-  doc.text(`Hospital No: ${patient.hospitalNumber}`, rightCol, yPos + 10);
-  doc.text(`Date of Birth: ___________________`, leftCol, yPos + 20);
-  doc.text(`Gender: ${patient.gender || '___________'}`, rightCol, yPos + 20);
-  doc.text(`Address: ${patient.address || '______________________________________'}`, leftCol, yPos + 30);
-  yPos += 45;
+  doc.text('Patient Name:', leftCol, yPos + 10);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(patient.name, leftCol + 32, yPos + 10);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Hospital No:', rightCol, yPos + 10);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(patient.hospitalNumber, rightCol + 28, yPos + 10);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Date of Birth:', leftCol, yPos + 20);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('___________________', leftCol + 32, yPos + 20);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Gender:', rightCol, yPos + 20);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(patient.gender || '___________', rightCol + 18, yPos + 20);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Address:', leftCol, yPos + 30);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(patient.address || '______________________________________', leftCol + 20, yPos + 30);
+  yPos += 48;
   
   // Procedure Details
   yPos = addSectionTitle(doc, yPos, 'PROCEDURE DETAILS');
   
+  // CRITICAL: Reset to black text after section title (which uses white text)
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Proposed Procedure:', 20, yPos);
   doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.setFontSize(10);
-  doc.text(`Proposed Procedure: ${surgery.procedureName}`, 20, yPos);
-  yPos += 8;
-  doc.text(`Procedure Code: ${surgery.procedureCode || 'N/A'}`, 20, yPos);
-  doc.text(`Scheduled Date: ${new Date(surgery.scheduledDate).toLocaleDateString('en-GB')}`, 110, yPos);
-  yPos += 8;
-  doc.text(`Surgeon: ${surgery.surgeon}`, 20, yPos);
-  doc.text(`Anaesthetist: ${surgery.anaesthetist || 'To be assigned'}`, 110, yPos);
-  yPos += 8;
-  doc.text(`Anaesthesia Type: ${surgery.anaesthesiaType || 'To be determined'}`, 20, yPos);
+  doc.text(surgery.procedureName, 58, yPos);
+  yPos += 9;
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Procedure Code:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(surgery.procedureCode || 'N/A', 52, yPos);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Scheduled Date:', 110, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(new Date(surgery.scheduledDate).toLocaleDateString('en-GB'), 144, yPos);
+  yPos += 9;
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Surgeon:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(surgery.surgeon, 40, yPos);
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Anaesthetist:', 110, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(surgery.anaesthetist || 'To be assigned', 138, yPos);
+  yPos += 9;
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Anaesthesia Type:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(surgery.anaesthesiaType || 'To be determined', 56, yPos);
   yPos += 15;
   
   // Consent Statements
   yPos = addSectionTitle(doc, yPos, 'PATIENT CONSENT');
   
-  doc.setFontSize(9);
+  // CRITICAL: Reset to black text and increase font size for readability
+  doc.setTextColor(0, 0, 0);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(10); // Increased from 9 for better visibility
+  
   const consentStatements = [
     'I confirm that I have been explained the nature and purpose of the proposed operation/procedure.',
     'I understand the potential risks, benefits, and alternatives to this procedure.',
@@ -694,22 +752,31 @@ export function generateConsentFormPDF(patient: PatientInfo, surgery: SurgeryInf
   ];
   
   consentStatements.forEach((statement, index) => {
-    const lines = doc.splitTextToSize(`${index + 1}. ${statement}`, 170);
+    doc.setTextColor(0, 0, 0); // Ensure black text for each statement
+    const lines = doc.splitTextToSize(`${index + 1}. ${statement}`, 165);
     lines.forEach((line: string) => {
-      doc.text(line, 25, yPos);
-      yPos += 5;
+      doc.text(line, 22, yPos);
+      yPos += 5.5; // Slightly increased line spacing
     });
     yPos += 2;
   });
   
   // Add new page for signatures
   doc.addPage();
+  
+  // CRITICAL: Ensure white background on new page
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
   yPos = 25;
   
   // Risks Section
   yPos = addSectionTitle(doc, yPos, 'GENERAL SURGICAL RISKS');
   
-  doc.setFontSize(9);
+  // CRITICAL: Reset to black text after section title
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10); // Increased from 9 for better visibility
+  
   const risks = [
     'Bleeding requiring blood transfusion',
     'Infection at the surgical site or elsewhere',
@@ -726,44 +793,80 @@ export function generateConsentFormPDF(patient: PatientInfo, surgery: SurgeryInf
   // Signature Section
   yPos = addSectionTitle(doc, yPos, 'SIGNATURES');
   
+  // CRITICAL: Reset to black text after section title for visibility
+  doc.setTextColor(0, 0, 0);
   doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(11); // Increased for better visibility
   
   // Patient Signature
-  doc.text('Patient/Guardian Signature: _________________________________', 20, yPos);
-  doc.text('Date: ________________', 140, yPos);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Patient/Guardian Signature:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('_________________________________', 70, yPos);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Date:', 140, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('________________', 152, yPos);
   yPos += 15;
   
-  doc.text('Print Name: ________________________________________________', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Print Name:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('________________________________________________', 46, yPos);
   yPos += 15;
   
-  doc.text('Relationship (if guardian): ___________________________________', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Relationship (if guardian):', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('___________________________________', 70, yPos);
   yPos += 20;
   
   // Witness Signature
-  doc.text('Witness Signature: __________________________________________', 20, yPos);
-  doc.text('Date: ________________', 140, yPos);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Witness Signature:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('__________________________________________', 58, yPos);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Date:', 140, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('________________', 152, yPos);
   yPos += 15;
   
-  doc.text('Print Name: ________________________________________________', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Print Name:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('________________________________________________', 46, yPos);
   yPos += 20;
   
-  // Surgeon Statement
-  doc.setFillColor(240, 249, 255);
-  doc.roundedRect(15, yPos, 180, 45, 3, 3, 'F');
+  // Surgeon Statement - with visible border for clarity
+  doc.setFillColor(250, 252, 255);
+  doc.roundedRect(15, yPos, 180, 50, 3, 3, 'F');
+  doc.setDrawColor(100, 130, 200);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(15, yPos, 180, 50, 3, 3, 'S');
   
+  // CRITICAL: Set black text color for visibility
+  doc.setTextColor(0, 0, 0);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('SURGEON\'S DECLARATION', 20, yPos + 10);
+  doc.setFontSize(12);
+  doc.text('SURGEON\'S DECLARATION', 20, yPos + 12);
   
   doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(10); // Increased from 9 for better visibility
+  doc.setTextColor(0, 0, 0); // Ensure black text
   const surgeonStatement = 'I confirm that I have explained the procedure, its risks, benefits, and alternatives to the patient/guardian. I have answered all questions to their satisfaction.';
-  const surgeonLines = doc.splitTextToSize(surgeonStatement, 170);
-  doc.text(surgeonLines, 20, yPos + 18);
+  const surgeonLines = doc.splitTextToSize(surgeonStatement, 165);
+  doc.text(surgeonLines, 20, yPos + 22);
   
-  doc.setFontSize(10);
-  doc.text('Surgeon Signature: _____________________', 20, yPos + 35);
-  doc.text('Date: ____________', 140, yPos + 35);
+  doc.setFontSize(11);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Surgeon Signature:', 20, yPos + 40);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('_____________________', 58, yPos + 40);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Date:', 140, yPos + 40);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('____________', 152, yPos + 40);
   
   addFooter(doc, 1);
   doc.setPage(1);
