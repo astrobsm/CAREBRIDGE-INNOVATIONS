@@ -526,7 +526,19 @@ export type MedicationRoute =
   | 'inhalation'
   | 'sublingual'
   | 'ophthalmic'
-  | 'otic';
+  | 'otic'
+  | 'nasal'
+  | 'transdermal'
+  | 'epidural'
+  | 'spinal'
+  | 'intrathecal'
+  | 'nebulizer'
+  | 'vaginal'
+  | 'buccal'
+  | 'intradermal'
+  | 'intranasal'
+  | 'intravesical'
+  | 'intraarticular';
 
 // Nutrition
 export interface NutritionAssessment {
