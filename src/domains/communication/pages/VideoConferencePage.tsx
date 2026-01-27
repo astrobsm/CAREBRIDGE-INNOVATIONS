@@ -62,6 +62,13 @@ import {
   LayoutGrid,
   LayoutList,
   PictureInPicture2,
+  Circle,
+  Radio,
+  Paperclip,
+  File,
+  ExternalLink,
+  Eye,
+  StopCircle,
 } from 'lucide-react';
 import {
   useMediaDevices,
@@ -1084,6 +1091,17 @@ export default function VideoConferencePage() {
   // Private Chat State
   const [privateChatRecipient, setPrivateChatRecipient] = useState<ConferenceParticipant | null>(null);
   const [showPrivateChatList, setShowPrivateChatList] = useState(false);
+
+  // Live Streaming State
+  const [isLiveStreaming, setIsLiveStreaming] = useState(false);
+  const [streamViewers, setStreamViewers] = useState(0);
+  const [liveStreamUrl, setLiveStreamUrl] = useState<string | null>(null);
+  const [showLiveStreamSettings, setShowLiveStreamSettings] = useState(false);
+
+  // File Sharing in Chat
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Enhanced features hooks
   const {
@@ -2236,6 +2254,131 @@ export default function VideoConferencePage() {
     ));
   };
 
+  // Live Streaming Functions
+  const startLiveStream = async (streamKey?: string, platform?: string) => {
+    if (!isHostOrCoHost()) {
+      toast.error('Only host or co-host can start live streaming');
+      return;
+    }
+
+    try {
+      setIsLiveStreaming(true);
+      setStreamViewers(0);
+      
+      // Generate a unique stream URL for viewers
+      const streamId = uuidv4();
+      const viewerUrl = `${window.location.origin}/stream/${streamId}`;
+      setLiveStreamUrl(viewerUrl);
+      
+      // Update conference with streaming status
+      if (conference) {
+        await db.videoConferences.update(conference.id, {
+          settings: {
+            ...conference.settings,
+            isLiveStreaming: true,
+            liveStreamUrl: viewerUrl,
+            liveStreamStartedAt: new Date(),
+          },
+          updatedAt: new Date(),
+        });
+        const updatedConf = await db.videoConferences.get(conference.id);
+        if (updatedConf) syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
+      }
+
+      toast.success('Live stream started!');
+      
+      // In a real implementation, you would:
+      // 1. Connect to a streaming server (e.g., RTMP)
+      // 2. Send video/audio to platforms like YouTube, Twitch, etc.
+      console.log(`Live stream started with key: ${streamKey} on platform: ${platform}`);
+    } catch (error) {
+      console.error('Failed to start live stream:', error);
+      toast.error('Failed to start live stream');
+      setIsLiveStreaming(false);
+    }
+  };
+
+  const stopLiveStream = async () => {
+    setIsLiveStreaming(false);
+    setStreamViewers(0);
+    setLiveStreamUrl(null);
+
+    if (conference) {
+      await db.videoConferences.update(conference.id, {
+        settings: {
+          ...conference.settings,
+          isLiveStreaming: false,
+          liveStreamUrl: undefined,
+        },
+        updatedAt: new Date(),
+      });
+      const updatedConf = await db.videoConferences.get(conference.id);
+      if (updatedConf) syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
+    }
+
+    toast.success('Live stream ended');
+  };
+
+  // File Sharing in Chat
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (max 25MB)
+      if (file.size > 25 * 1024 * 1024) {
+        toast.error('File size must be less than 25MB');
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const uploadAndShareFile = async () => {
+    if (!selectedFile || !user || !conference) return;
+
+    setIsUploadingFile(true);
+
+    try {
+      // In production, upload to cloud storage (e.g., Supabase Storage)
+      // For now, create a local blob URL
+      const fileUrl = URL.createObjectURL(selectedFile);
+      
+      const fileMessage: ConferenceChatMessage = {
+        id: uuidv4(),
+        conferenceId: conference.id,
+        senderId: user.id,
+        senderName: `${user.firstName} ${user.lastName}`,
+        type: 'file',
+        content: `📎 ${selectedFile.name}`,
+        fileUrl,
+        fileName: selectedFile.name,
+        fileSize: selectedFile.size,
+        createdAt: new Date(),
+      };
+
+      setChatMessages(prev => [...prev, fileMessage]);
+      setSelectedFile(null);
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      toast.success('File shared!');
+    } catch (error) {
+      console.error('Failed to share file:', error);
+      toast.error('Failed to share file');
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  // Format file size for display
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   // Leave conference
   const handleLeaveConference = async () => {
     if (!user || !conference) return;
@@ -3245,39 +3388,105 @@ export default function VideoConferencePage() {
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
                         {msg.senderName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-white text-sm font-medium">
                             {msg.senderName}
                           </span>
+                          {msg.type === 'private' && (
+                            <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded">
+                              Private
+                            </span>
+                          )}
                           <span className="text-gray-500 text-xs">
                             {format(new Date(msg.createdAt), 'HH:mm')}
                           </span>
                         </div>
-                        <p className="text-gray-300 text-sm">{msg.content}</p>
+                        {msg.type === 'file' && msg.fileUrl ? (
+                          <a
+                            href={msg.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 flex items-center gap-2 px-3 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors group"
+                          >
+                            <File size={20} className="text-blue-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white text-sm truncate group-hover:text-blue-400">
+                                {msg.fileName || 'File'}
+                              </p>
+                              {msg.fileSize && (
+                                <p className="text-gray-500 text-xs">
+                                  {formatFileSize(msg.fileSize)}
+                                </p>
+                              )}
+                            </div>
+                            <ExternalLink size={14} className="text-gray-400 flex-shrink-0" />
+                          </a>
+                        ) : (
+                          <p className="text-gray-300 text-sm break-words">{msg.content}</p>
+                        )}
                       </div>
                     </div>
                   ))
                 )}
               </div>
 
+              {/* Selected file preview */}
+              {selectedFile && (
+                <div className="mx-4 mb-2 px-3 py-2 bg-gray-700 rounded-lg flex items-center gap-2">
+                  <File size={16} className="text-blue-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm truncate">{selectedFile.name}</p>
+                    <p className="text-gray-500 text-xs">{formatFileSize(selectedFile.size)}</p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedFile(null)}
+                    className="p-1 hover:bg-gray-600 rounded"
+                  >
+                    <X size={14} className="text-gray-400" />
+                  </button>
+                </div>
+              )}
+
               {/* Chat input */}
               <div className="p-4 border-t border-gray-700">
                 <div className="flex gap-2">
+                  {/* Hidden file input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  />
+                  
+                  {/* File attachment button */}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 bg-gray-700 text-gray-400 rounded-lg hover:bg-gray-600 hover:text-white transition-colors"
+                    title="Attach file"
+                  >
+                    <Paperclip size={18} />
+                  </button>
+
                   <input
                     type="text"
                     value={chatMessage}
                     onChange={(e) => setChatMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                    onKeyDown={(e) => e.key === 'Enter' && (selectedFile ? uploadAndShareFile() : handleSendChatMessage())}
                     placeholder="Type a message..."
                     className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
-                    onClick={handleSendChatMessage}
-                    disabled={!chatMessage.trim()}
+                    onClick={selectedFile ? uploadAndShareFile : handleSendChatMessage}
+                    disabled={!chatMessage.trim() && !selectedFile}
                     className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Send size={18} />
+                    {isUploadingFile ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Send size={18} />
+                    )}
                   </button>
                 </div>
               </div>
@@ -3649,6 +3858,72 @@ export default function VideoConferencePage() {
             onDownload={downloadRecording}
             formatDuration={formatDuration}
           />
+
+          {/* Live Streaming Control (Host/Co-Host only) */}
+          {isHostOrCoHost() && (
+            <div className="relative">
+              <button
+                onClick={() => isLiveStreaming ? stopLiveStream() : setShowLiveStreamSettings(true)}
+                className={`p-4 rounded-full transition-colors relative ${
+                  isLiveStreaming 
+                    ? 'bg-red-500 hover:bg-red-600' 
+                    : 'bg-gray-700 hover:bg-gray-600'
+                }`}
+                title={isLiveStreaming ? 'Stop live stream' : 'Start live stream'}
+              >
+                <Radio size={22} className="text-white" />
+                {isLiveStreaming && (
+                  <span className="absolute -top-1 -right-1 flex items-center gap-1 px-1.5 py-0.5 bg-red-600 text-white text-xs rounded-full">
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                    LIVE
+                  </span>
+                )}
+              </button>
+
+              {/* Live Stream Settings Modal */}
+              <AnimatePresence>
+                {showLiveStreamSettings && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="absolute bottom-full mb-2 right-0 bg-gray-800 rounded-xl shadow-xl p-4 min-w-[280px] z-50"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-white">Live Streaming</h4>
+                      <button
+                        onClick={() => setShowLiveStreamSettings(false)}
+                        className="p-1 hover:bg-gray-700 rounded"
+                      >
+                        <X size={16} className="text-gray-400" />
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-3">
+                      Start a live stream for viewers to watch in real-time.
+                    </p>
+                    <button
+                      onClick={() => {
+                        startLiveStream();
+                        setShowLiveStreamSettings(false);
+                      }}
+                      className="w-full py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Radio size={18} />
+                      Go Live
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Live Stream Viewers Count (when streaming) */}
+          {isLiveStreaming && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-700 rounded-lg">
+              <Eye size={16} className="text-gray-400" />
+              <span className="text-white text-sm">{streamViewers} viewers</span>
+            </div>
+          )}
 
           {/* Live Transcription Toggle */}
           <button
