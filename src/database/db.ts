@@ -149,7 +149,7 @@ export class AstroHEALTHDatabase extends Dexie {
   constructor() {
     super('AstroHEALTHDB');
 
-    this.version(64).stores({
+    this.version(65).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -172,7 +172,7 @@ export class AstroHEALTHDatabase extends Dexie {
       chatRooms: 'id, type, hospitalId, patientId, lastMessageAt, createdBy, createdAt, isArchived',
       chatMessages: 'id, roomId, senderId, type, createdAt',
       videoConferences: 'id, hostId, status, roomCode, scheduledStart, hospitalId, patientId, createdAt',
-      wardRounds: 'id, hospitalId, wardName, roundDate, roundType, status, leadDoctorId, createdAt',
+      wardRounds: 'id, patientId, hospitalId, wardName, roundDate, roundType, status, leadDoctorId, createdAt',
       doctorAssignments: 'id, hospitalId, doctorId, patientId, assignmentType, status, assignedAt, createdAt',
       nurseAssignments: 'id, hospitalId, nurseId, patientId, shiftType, assignmentDate, status, createdAt',
       investigations: 'id, patientId, hospitalId, type, category, status, requestedBy, requestedAt, createdAt',
