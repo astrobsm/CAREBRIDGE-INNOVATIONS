@@ -360,6 +360,12 @@ export default function VideoConferencePage() {
   const [participants, setParticipants] = useState<ConferenceParticipant[]>([]);
   const [chatMessages, setChatMessages] = useState<ConferenceChatMessage[]>([]);
 
+  // Join with Code State
+  const [showJoinWithCode, setShowJoinWithCode] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [isJoiningWithCode, setIsJoiningWithCode] = useState(false);
+  const [joinCodeError, setJoinCodeError] = useState('');
+
   // Meeting Minutes & Transcription State
   const [meetingMinutes, setMeetingMinutes] = useState<MeetingMinutes | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -886,6 +892,69 @@ export default function VideoConferencePage() {
     toast.success('Meeting link copied!');
   };
 
+  // Join meeting with room code
+  const joinWithRoomCode = async () => {
+    if (!joinCode.trim()) {
+      setJoinCodeError('Please enter a meeting code');
+      return;
+    }
+
+    setIsJoiningWithCode(true);
+    setJoinCodeError('');
+
+    try {
+      // Normalize the code (remove spaces, dashes, convert to uppercase)
+      const normalizedCode = joinCode.trim().toUpperCase().replace(/[\s-]/g, '');
+      
+      // Try different formats
+      const codeFormats = [
+        normalizedCode,
+        // Try with dashes (XXX-XXXX-XXX format)
+        normalizedCode.length === 10 
+          ? `${normalizedCode.slice(0, 3)}-${normalizedCode.slice(3, 7)}-${normalizedCode.slice(7)}`
+          : normalizedCode,
+      ];
+
+      let foundConference: VideoConference | undefined;
+      
+      for (const code of codeFormats) {
+        foundConference = await db.videoConferences.where('roomCode').equals(code).first();
+        if (foundConference) break;
+      }
+
+      if (foundConference) {
+        // Navigate to the found conference
+        navigate(`/communication/video/${foundConference.id}`);
+        toast.success('Meeting found! Joining...');
+      } else {
+        setJoinCodeError('Invalid meeting code. Please check and try again.');
+      }
+    } catch (error) {
+      console.error('Error joining with code:', error);
+      setJoinCodeError('Failed to find meeting. Please try again.');
+    } finally {
+      setIsJoiningWithCode(false);
+    }
+  };
+
+  // Format room code as user types (add dashes)
+  const handleJoinCodeChange = (value: string) => {
+    // Remove any non-alphanumeric characters
+    const cleaned = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    
+    // Format with dashes: XXX-XXXX-XXX
+    let formatted = cleaned;
+    if (cleaned.length > 3) {
+      formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
+    }
+    if (cleaned.length > 7) {
+      formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7, 10)}`;
+    }
+    
+    setJoinCode(formatted);
+    setJoinCodeError('');
+  };
+
   // Pre-join screen
   if (!isJoined) {
     return (
@@ -1039,21 +1108,85 @@ export default function VideoConferencePage() {
                 <Video size={20} />
                 Join Meeting
               </button>
+            ) : showJoinWithCode ? (
+              /* Join with Code Form */
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm text-gray-600 mb-2 block">Enter Meeting Code</label>
+                  <input
+                    type="text"
+                    value={joinCode}
+                    onChange={(e) => handleJoinCodeChange(e.target.value)}
+                    placeholder="XXX-XXXX-XXX"
+                    maxLength={12}
+                    className={`w-full px-4 py-3 border rounded-lg text-center font-mono text-lg tracking-wider uppercase ${
+                      joinCodeError ? 'border-red-500' : 'border-gray-300'
+                    } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                    onKeyDown={(e) => e.key === 'Enter' && joinWithRoomCode()}
+                    autoFocus
+                  />
+                  {joinCodeError && (
+                    <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {joinCodeError}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={joinWithRoomCode}
+                  disabled={isJoiningWithCode || joinCode.length < 10}
+                  className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isJoiningWithCode ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      Finding Meeting...
+                    </>
+                  ) : (
+                    <>
+                      <Video size={20} />
+                      Join Meeting
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowJoinWithCode(false);
+                    setJoinCode('');
+                    setJoinCodeError('');
+                  }}
+                  className="w-full py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Back
+                </button>
+              </div>
             ) : (
+              /* Default: Start or Join options */
+              <>
+                <button
+                  onClick={handleCreateConference}
+                  className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus size={20} />
+                  Start New Meeting
+                </button>
+                <button
+                  onClick={() => setShowJoinWithCode(true)}
+                  className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Link2 size={20} />
+                  Join with Code
+                </button>
+              </>
+            )}
+            {!showJoinWithCode && (
               <button
-                onClick={handleCreateConference}
-                className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                onClick={() => navigate('/communication/chat')}
+                className="w-full py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
               >
-                <Plus size={20} />
-                Start Meeting
+                Cancel
               </button>
             )}
-            <button
-              onClick={() => navigate('/communication/chat')}
-              className="w-full py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
           </div>
         </motion.div>
       </div>
