@@ -33,7 +33,8 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../database';
 import { useOfflineState, offlineDataManager } from '../../../services/offlineDataManager';
-import { fullSync } from '../../../services/cloudSyncService';
+import { fullSync, testSupabaseConnection } from '../../../services/cloudSyncService';
+import { isSupabaseConfigured } from '../../../services/supabaseClient';
 import { requestBackgroundSync, clearServiceWorkerCache } from '../../../services/pwaService';
 import {
   isPushSupported,
@@ -62,6 +63,17 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const offlineState = useOfflineState();
   const [storageUsage, setStorageUsage] = useState({ used: 0, quota: 0 });
+  const [syncDebugInfo, setSyncDebugInfo] = useState<{
+    supabaseConfigured: boolean;
+    connectionTest: { success: boolean; message: string } | null;
+    localCounts: Record<string, number>;
+    testing: boolean;
+  }>({
+    supabaseConfigured: isSupabaseConfigured(),
+    connectionTest: null,
+    localCounts: {},
+    testing: false,
+  });
 
   // Get storage usage on mount
   useEffect(() => {
@@ -162,6 +174,47 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Sync failed:', error);
       toast.error('Sync failed. Will retry automatically.', { id: 'sync-toast' });
+    }
+  };
+
+  const handleTestSyncConnection = async () => {
+    setSyncDebugInfo(prev => ({ ...prev, testing: true }));
+    
+    try {
+      // Get local record counts
+      const counts: Record<string, number> = {};
+      counts.patients = await db.patients.count();
+      counts.admissions = await db.admissions.count();
+      counts.users = await db.users.count();
+      counts.hospitals = await db.hospitals.count();
+      counts.surgeries = await db.surgeries.count();
+      counts.encounters = await db.clinicalEncounters.count();
+      counts.wardRounds = await db.wardRounds.count();
+      counts.vitals = await db.vitalSigns.count();
+      
+      // Test Supabase connection
+      const connectionTest = await testSupabaseConnection();
+      
+      setSyncDebugInfo({
+        supabaseConfigured: isSupabaseConfigured(),
+        connectionTest,
+        localCounts: counts,
+        testing: false,
+      });
+      
+      if (connectionTest.success) {
+        toast.success('Supabase connection successful!');
+      } else {
+        toast.error(`Connection failed: ${connectionTest.message}`);
+      }
+    } catch (error) {
+      console.error('Sync test failed:', error);
+      setSyncDebugInfo(prev => ({
+        ...prev,
+        testing: false,
+        connectionTest: { success: false, message: error instanceof Error ? error.message : 'Unknown error' }
+      }));
+      toast.error('Failed to test connection');
     }
   };
 
@@ -823,6 +876,88 @@ export default function SettingsPage() {
                 automatically sync to the cloud when you're connected to the internet. You can continue 
                 working even without an internet connection.
               </p>
+            </div>
+
+            {/* Sync Debug Section */}
+            <div className="card border p-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Database className="w-5 h-5 text-purple-600" />
+                Sync Diagnostics
+              </h3>
+              
+              {/* Supabase Configuration Status */}
+              <div className="mb-4 p-3 rounded-lg border" style={{
+                backgroundColor: syncDebugInfo.supabaseConfigured ? '#f0fdf4' : '#fef2f2',
+                borderColor: syncDebugInfo.supabaseConfigured ? '#86efac' : '#fecaca'
+              }}>
+                <div className="flex items-center gap-2">
+                  {syncDebugInfo.supabaseConfigured ? (
+                    <>
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <span className="font-medium text-green-800">Supabase Configured</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-5 h-5 text-red-600" />
+                      <span className="font-medium text-red-800">Supabase NOT Configured</span>
+                    </>
+                  )}
+                </div>
+                {!syncDebugInfo.supabaseConfigured && (
+                  <p className="text-sm text-red-700 mt-2">
+                    Environment variables VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are not set. 
+                    Data will NOT sync between devices. Add these to Vercel Environment Variables.
+                  </p>
+                )}
+              </div>
+              
+              {/* Connection Test Result */}
+              {syncDebugInfo.connectionTest && (
+                <div className="mb-4 p-3 rounded-lg border" style={{
+                  backgroundColor: syncDebugInfo.connectionTest.success ? '#f0fdf4' : '#fef2f2',
+                  borderColor: syncDebugInfo.connectionTest.success ? '#86efac' : '#fecaca'
+                }}>
+                  <p className="font-medium" style={{ 
+                    color: syncDebugInfo.connectionTest.success ? '#166534' : '#991b1b' 
+                  }}>
+                    {syncDebugInfo.connectionTest.message}
+                  </p>
+                </div>
+              )}
+              
+              {/* Local Data Counts */}
+              {Object.keys(syncDebugInfo.localCounts).length > 0 && (
+                <div className="mb-4">
+                  <h4 className="font-medium text-gray-700 mb-2">Local Data Counts:</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {Object.entries(syncDebugInfo.localCounts).map(([table, count]) => (
+                      <div key={table} className="p-2 bg-gray-50 rounded text-center">
+                        <p className="text-xs text-gray-500 capitalize">{table}</p>
+                        <p className="font-bold text-gray-900">{count}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Test Connection Button */}
+              <button
+                onClick={handleTestSyncConnection}
+                disabled={syncDebugInfo.testing}
+                className="btn btn-secondary w-full"
+              >
+                {syncDebugInfo.testing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Testing Connection...
+                  </>
+                ) : (
+                  <>
+                    <Stethoscope className="w-4 h-4" />
+                    Test Sync Connection
+                  </>
+                )}
+              </button>
             </div>
           </motion.div>
         );
