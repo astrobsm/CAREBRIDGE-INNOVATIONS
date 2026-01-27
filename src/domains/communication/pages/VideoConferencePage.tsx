@@ -41,6 +41,10 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
+  UserCheck,
+  UserX,
+  Bell,
+  DoorOpen,
 } from 'lucide-react';
 import {
   useMediaDevices,
@@ -55,6 +59,7 @@ import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import MeetingMinutesService from '../../../services/meetingMinutesService';
+import WebRTCSignalingService from '../../../services/webrtcSignalingService';
 import type { 
   VideoConference,
   MeetingMinutes,
@@ -62,7 +67,23 @@ import type {
   ConferenceParticipant, 
   PresentationSlide,
   ConferenceChatMessage,
+  RTCSignalingMessage,
 } from '../../../types';
+
+// Supabase client for real-time subscriptions
+let supabaseClient: ReturnType<typeof import('@supabase/supabase-js').createClient> | null = null;
+
+// Initialize Supabase client dynamically
+const getSupabaseClient = async () => {
+  if (supabaseClient) return supabaseClient;
+  try {
+    const { supabase } = await import('../../../services/supabaseClient');
+    supabaseClient = supabase;
+    return supabase;
+  } catch {
+    return null;
+  }
+};
 
 // Simulated participant video component with real video stream support
 function ParticipantVideo({ 
@@ -375,6 +396,16 @@ export default function VideoConferencePage() {
   const [isGeneratingMinutes, setIsGeneratingMinutes] = useState(false);
   const [minutesGenerated, setMinutesGenerated] = useState(false);
 
+  // WebRTC & Remote Streams State
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [isWebRTCInitialized, setIsWebRTCInitialized] = useState(false);
+
+  // Waiting Room State
+  const [isInWaitingRoom, setIsInWaitingRoom] = useState(false);
+  const [waitingParticipants, setWaitingParticipants] = useState<ConferenceParticipant[]>([]);
+  const [showWaitingRoom, setShowWaitingRoom] = useState(false);
+  const [waitingRoomNotification, setWaitingRoomNotification] = useState(false);
+
   // Enhanced features hooks
   const {
     videoDevices,
@@ -456,6 +487,12 @@ export default function VideoConferencePage() {
             setCurrentSlideIndex(conf.presentation.currentSlideIndex);
             setShowPresentation(conf.presentation.isActive);
           }
+          // Update waiting participants
+          const waiting = conf.participants.filter(p => p.admissionStatus === 'waiting' && !p.leftAt);
+          setWaitingParticipants(waiting);
+          if (waiting.length > 0 && conf.hostId === user?.id) {
+            setWaitingRoomNotification(true);
+          }
           // Load existing meeting minutes if any
           const existingMinutes = await db.meetingMinutes.where('conferenceId').equals(conf.id).first();
           if (existingMinutes) {
@@ -469,7 +506,205 @@ export default function VideoConferencePage() {
       }
     };
     loadConference();
-  }, [conferenceId]);
+  }, [conferenceId, user?.id]);
+
+  // Subscribe to real-time conference updates via Supabase
+  useEffect(() => {
+    if (!conferenceId || conferenceId === 'new') return;
+
+    let subscription: { unsubscribe: () => void } | null = null;
+
+    const setupRealtimeSubscription = async () => {
+      const supabase = await getSupabaseClient();
+      if (!supabase) return;
+
+      // Subscribe to conference changes
+      subscription = supabase
+        .channel(`conference:${conferenceId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'video_conferences',
+            filter: `id=eq.${conferenceId}`,
+          },
+          async (payload: { new?: Record<string, unknown> }) => {
+            if (payload.new) {
+              const updatedConf = await db.videoConferences.get(conferenceId);
+              if (updatedConf) {
+                setConference(updatedConf);
+                setParticipants(updatedConf.participants);
+                
+                // Update waiting participants for host
+                const waiting = updatedConf.participants.filter(
+                  p => p.admissionStatus === 'waiting' && !p.leftAt
+                );
+                setWaitingParticipants(waiting);
+                if (waiting.length > 0 && updatedConf.hostId === user?.id) {
+                  setWaitingRoomNotification(true);
+                }
+
+                // Check if current user was admitted
+                if (user) {
+                  const myParticipant = updatedConf.participants.find(p => p.userId === user.id);
+                  if (myParticipant?.admissionStatus === 'admitted' && isInWaitingRoom) {
+                    setIsInWaitingRoom(false);
+                    setIsJoined(true);
+                    toast.success('You have been admitted to the meeting!');
+                  } else if (myParticipant?.admissionStatus === 'rejected') {
+                    toast.error('Your request to join was declined');
+                    navigate('/communication/chat');
+                  }
+                }
+
+                // Connect to new admitted participants
+                if (isJoined && isWebRTCInitialized && user) {
+                  const newAdmitted = updatedConf.participants.filter(
+                    p => p.admissionStatus === 'admitted' && 
+                         p.userId !== user.id && 
+                         !p.leftAt &&
+                         !remoteStreams.has(p.userId)
+                  );
+                  for (const participant of newAdmitted) {
+                    WebRTCSignalingService.createOffer(
+                      conferenceId,
+                      user.id,
+                      `${user.firstName} ${user.lastName}`,
+                      participant.userId
+                    );
+                  }
+                }
+              }
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    setupRealtimeSubscription();
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
+  }, [conferenceId, user, isJoined, isInWaitingRoom, isWebRTCInitialized, navigate, remoteStreams]);
+
+  // Initialize WebRTC when joined and stream is available
+  useEffect(() => {
+    if (!isJoined || !stream || !conference || !user || isWebRTCInitialized) return;
+
+    // Initialize WebRTC service
+    WebRTCSignalingService.initializeWebRTC(stream);
+
+    // Set up callbacks
+    WebRTCSignalingService.onRemoteStream((userId, remoteStream) => {
+      setRemoteStreams(prev => new Map(prev).set(userId, remoteStream));
+      toast.success('Participant video connected');
+    });
+
+    WebRTCSignalingService.onParticipantDisconnected((userId) => {
+      setRemoteStreams(prev => {
+        const updated = new Map(prev);
+        updated.delete(userId);
+        return updated;
+      });
+    });
+
+    WebRTCSignalingService.onSignalingMessage(async (message) => {
+      // Send signaling message via Supabase
+      const supabase = await getSupabaseClient();
+      if (supabase) {
+        await supabase.from('rtc_signaling').insert({
+          id: message.id,
+          conference_id: message.conferenceId,
+          from_user_id: message.fromUserId,
+          from_user_name: message.fromUserName,
+          to_user_id: message.toUserId,
+          type: message.type,
+          payload: message.payload,
+          created_at: message.createdAt,
+        });
+      }
+    });
+
+    setIsWebRTCInitialized(true);
+
+    // Connect to existing admitted participants
+    const admittedParticipants = conference.participants.filter(
+      p => p.admissionStatus === 'admitted' && p.userId !== user.id && !p.leftAt
+    );
+    
+    setTimeout(() => {
+      WebRTCSignalingService.connectToParticipants(
+        conference.id,
+        user.id,
+        `${user.firstName} ${user.lastName}`,
+        admittedParticipants
+      );
+    }, 1000);
+
+    return () => {
+      WebRTCSignalingService.closeAllConnections();
+      setIsWebRTCInitialized(false);
+    };
+  }, [isJoined, stream, conference, user, isWebRTCInitialized]);
+
+  // Subscribe to WebRTC signaling messages
+  useEffect(() => {
+    if (!conferenceId || !user || !isJoined) return;
+
+    let signalingSubscription: { unsubscribe: () => void } | null = null;
+
+    const setupSignalingSubscription = async () => {
+      const supabase = await getSupabaseClient();
+      if (!supabase) return;
+
+      signalingSubscription = supabase
+        .channel(`signaling:${conferenceId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'rtc_signaling',
+            filter: `conference_id=eq.${conferenceId}`,
+          },
+          async (payload: { new?: Record<string, unknown> }) => {
+            if (payload.new) {
+              const message: RTCSignalingMessage = {
+                id: payload.new.id as string,
+                conferenceId: payload.new.conference_id as string,
+                fromUserId: payload.new.from_user_id as string,
+                fromUserName: payload.new.from_user_name as string,
+                toUserId: payload.new.to_user_id as string,
+                type: payload.new.type as 'offer' | 'answer' | 'ice-candidate' | 'participant-update',
+                payload: payload.new.payload as string,
+                createdAt: new Date(payload.new.created_at as string),
+              };
+
+              // Process the signaling message
+              await WebRTCSignalingService.processSignalingMessage(
+                conferenceId,
+                user.id,
+                `${user.firstName} ${user.lastName}`,
+                message
+              );
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    setupSignalingSubscription();
+
+    return () => {
+      if (signalingSubscription) {
+        signalingSubscription.unsubscribe();
+      }
+    };
+  }, [conferenceId, user, isJoined]);
 
   // Generate room code using enhanced service (XXX-XXXX-XXX format)
   const generateRoomCode = () => {
@@ -614,7 +849,7 @@ export default function VideoConferencePage() {
         allowParticipantsToChat: true,
         muteOnEntry: true,
         videoOffOnEntry: false,
-        waitingRoomEnabled: false,
+        waitingRoomEnabled: true, // Enable waiting room by default
         recordingEnabled: false,
         maxParticipants: 25,
       },
@@ -634,6 +869,30 @@ export default function VideoConferencePage() {
   const handleJoinConference = async () => {
     if (!user || !conference) return;
 
+    // Check if user is already a participant
+    const existingParticipant = conference.participants.find(p => p.userId === user.id && !p.leftAt);
+    
+    if (existingParticipant) {
+      // User is already in the meeting, just rejoin
+      setParticipants(conference.participants);
+      setIsMuted(existingParticipant.isMuted);
+      setIsVideoOn(existingParticipant.isVideoOn);
+      setIsPresenter(existingParticipant.isPresenter);
+      
+      if (existingParticipant.admissionStatus === 'waiting') {
+        setIsInWaitingRoom(true);
+        toast('Waiting for host to admit you...', { icon: '⏳' });
+        return;
+      }
+      
+      setIsJoined(true);
+      toast.success('Rejoined meeting');
+      return;
+    }
+
+    const isHost = conference.hostId === user.id;
+    const shouldWait = conference.settings.waitingRoomEnabled && !isHost;
+
     const participant: ConferenceParticipant = {
       id: uuidv4(),
       oderId: uuidv4(),
@@ -642,26 +901,72 @@ export default function VideoConferencePage() {
       userRole: user.role,
       avatar: user.avatar,
       joinedAt: new Date(),
-      isHost: conference.hostId === user.id,
+      isHost: isHost,
       isCoHost: false,
-      isPresenter: conference.hostId === user.id,
+      isPresenter: isHost,
       isMuted: conference.settings.muteOnEntry,
       isVideoOn: !conference.settings.videoOffOnEntry,
       isHandRaised: false,
       isScreenSharing: false,
-      connectionStatus: 'connected',
+      connectionStatus: shouldWait ? 'connecting' : 'connected',
+      admissionStatus: shouldWait ? 'waiting' : 'admitted',
     };
 
     const updatedParticipants = [...participants, participant];
     setParticipants(updatedParticipants);
     setIsMuted(conference.settings.muteOnEntry);
     setIsVideoOn(!conference.settings.videoOffOnEntry);
-    setIsPresenter(conference.hostId === user.id);
+    setIsPresenter(isHost);
 
     await db.videoConferences.update(conference.id, {
       participants: updatedParticipants,
-      status: 'active',
-      actualStart: conference.status === 'waiting' ? new Date() : conference.actualStart,
+      status: isHost ? 'active' : conference.status,
+      actualStart: isHost && conference.status === 'waiting' ? new Date() : conference.actualStart,
+      updatedAt: new Date(),
+    });
+    const updatedConf = await db.videoConferences.get(conference.id);
+    if (updatedConf) {
+      syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
+      setConference(updatedConf);
+      // Update waiting participants for host notification
+      if (isHost) {
+        const waiting = updatedConf.participants.filter(p => p.admissionStatus === 'waiting' && !p.leftAt);
+        setWaitingParticipants(waiting);
+        if (waiting.length > 0) {
+          setWaitingRoomNotification(true);
+        }
+      }
+    }
+
+    if (shouldWait) {
+      setIsInWaitingRoom(true);
+      toast('Waiting for host to admit you...', { icon: '⏳' });
+    } else {
+      setIsJoined(true);
+      toast.success('Joined meeting');
+      
+      // Initialize meeting minutes if host
+      if (isHost) {
+        setTimeout(() => initializeMeetingMinutes(), 500);
+      }
+    }
+  };
+
+  // Admit a participant from waiting room
+  const admitParticipant = async (participantId: string) => {
+    if (!conference || !user || conference.hostId !== user.id) return;
+
+    const updatedParticipants = participants.map(p =>
+      p.id === participantId
+        ? { ...p, admissionStatus: 'admitted' as const, connectionStatus: 'connected' as const, joinedAt: new Date() }
+        : p
+    );
+
+    setParticipants(updatedParticipants);
+    setWaitingParticipants(prev => prev.filter(p => p.id !== participantId));
+
+    await db.videoConferences.update(conference.id, {
+      participants: updatedParticipants,
       updatedAt: new Date(),
     });
     const updatedConf = await db.videoConferences.get(conference.id);
@@ -670,18 +975,71 @@ export default function VideoConferencePage() {
       setConference(updatedConf);
     }
 
-    setIsJoined(true);
-    toast.success('Joined meeting');
-    
-    // Initialize meeting minutes if host
-    if (conference.hostId === user.id) {
-      setTimeout(() => initializeMeetingMinutes(), 500);
+    const admittedUser = participants.find(p => p.id === participantId);
+    toast.success(`${admittedUser?.userName || 'Participant'} admitted to meeting`);
+  };
+
+  // Reject a participant from waiting room
+  const rejectParticipant = async (participantId: string) => {
+    if (!conference || !user || conference.hostId !== user.id) return;
+
+    const updatedParticipants = participants.map(p =>
+      p.id === participantId
+        ? { ...p, admissionStatus: 'rejected' as const, connectionStatus: 'disconnected' as const, leftAt: new Date() }
+        : p
+    );
+
+    setParticipants(updatedParticipants);
+    setWaitingParticipants(prev => prev.filter(p => p.id !== participantId));
+
+    await db.videoConferences.update(conference.id, {
+      participants: updatedParticipants,
+      updatedAt: new Date(),
+    });
+    const updatedConf = await db.videoConferences.get(conference.id);
+    if (updatedConf) {
+      syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
+      setConference(updatedConf);
     }
+
+    const rejectedUser = participants.find(p => p.id === participantId);
+    toast(`${rejectedUser?.userName || 'Participant'} was not admitted`);
+  };
+
+  // Admit all waiting participants
+  const admitAllParticipants = async () => {
+    if (!conference || !user || conference.hostId !== user.id) return;
+
+    const updatedParticipants = participants.map(p =>
+      p.admissionStatus === 'waiting'
+        ? { ...p, admissionStatus: 'admitted' as const, connectionStatus: 'connected' as const, joinedAt: new Date() }
+        : p
+    );
+
+    setParticipants(updatedParticipants);
+    setWaitingParticipants([]);
+
+    await db.videoConferences.update(conference.id, {
+      participants: updatedParticipants,
+      updatedAt: new Date(),
+    });
+    const updatedConf = await db.videoConferences.get(conference.id);
+    if (updatedConf) {
+      syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
+      setConference(updatedConf);
+    }
+
+    toast.success('All participants admitted');
   };
 
   // Leave conference
   const handleLeaveConference = async () => {
     if (!user || !conference) return;
+
+    // Close WebRTC connections
+    WebRTCSignalingService.closeAllConnections();
+    setRemoteStreams(new Map());
+    setIsWebRTCInitialized(false);
 
     // Stop transcription if active
     if (isTranscribing) {
@@ -954,6 +1312,101 @@ export default function VideoConferencePage() {
     setJoinCode(formatted);
     setJoinCodeError('');
   };
+
+  // Waiting room screen (for non-host participants waiting to be admitted)
+  if (isInWaitingRoom) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl p-8 max-w-md w-full text-center"
+        >
+          <div className="w-24 h-24 mx-auto bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mb-6">
+            <DoorOpen className="w-12 h-12 text-white" />
+          </div>
+          
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Waiting Room</h1>
+          <p className="text-gray-600 mb-6">
+            Please wait while the host admits you to the meeting
+          </p>
+
+          {/* Meeting info */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-500">Meeting</span>
+              <span className="font-medium">{conference?.title || 'Meeting'}</span>
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-500">Host</span>
+              <span className="font-medium">{conference?.hostName}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">Room Code</span>
+              <span className="font-mono font-bold">{conference?.roomCode}</span>
+            </div>
+          </div>
+
+          {/* Animated waiting indicator */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <div className="flex space-x-1">
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            <span className="text-gray-500 ml-2">Waiting for host...</span>
+          </div>
+
+          {/* Camera preview */}
+          <div className="relative aspect-video bg-gray-900 rounded-xl mb-6 overflow-hidden">
+            {stream && isVideoOn ? (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+                style={{ transform: 'scaleX(-1)' }}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </div>
+              </div>
+            )}
+            
+            {/* Preview controls */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+              <button
+                onClick={toggleMute}
+                className={`p-2 rounded-full ${isMuted ? 'bg-red-500' : 'bg-gray-700 hover:bg-gray-600'}`}
+              >
+                {isMuted ? <MicOff size={18} className="text-white" /> : <Mic size={18} className="text-white" />}
+              </button>
+              <button
+                onClick={toggleVideo}
+                className={`p-2 rounded-full ${!isVideoOn ? 'bg-red-500' : 'bg-gray-700 hover:bg-gray-600'}`}
+              >
+                {isVideoOn ? <Video size={18} className="text-white" /> : <VideoOff size={18} className="text-white" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Leave waiting room button */}
+          <button
+            onClick={() => {
+              setIsInWaitingRoom(false);
+              navigate('/communication/chat');
+            }}
+            className="w-full py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+          >
+            Leave Waiting Room
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   // Pre-join screen
   if (!isJoined) {
@@ -1301,12 +1754,16 @@ export default function VideoConferencePage() {
                 <>
                   {/* Main speaker (first participant or active speaker) */}
                   <div className="flex-1">
-                    {participants.length > 0 ? (
+                    {participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt).length > 0 ? (
                       <ParticipantVideo 
-                        participant={participants[0]} 
+                        participant={participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt)[0]} 
                         isLarge 
-                        isSelf={participants[0].userId === user?.id}
-                        videoStream={participants[0].userId === user?.id ? stream : null}
+                        isSelf={participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt)[0].userId === user?.id}
+                        videoStream={
+                          participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt)[0].userId === user?.id 
+                            ? stream 
+                            : remoteStreams.get(participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt)[0].userId) || null
+                        }
                       />
                     ) : (
                       <div className="h-full bg-gray-800 rounded-xl flex items-center justify-center">
@@ -1316,14 +1773,14 @@ export default function VideoConferencePage() {
                   </div>
                   
                   {/* Thumbnail strip */}
-                  {participants.length > 1 && (
+                  {participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt).length > 1 && (
                     <div className="h-32 flex gap-2 overflow-x-auto py-2">
-                      {participants.slice(1).map((p) => (
+                      {participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt).slice(1).map((p) => (
                         <div key={p.id} className="w-48 flex-shrink-0">
                           <ParticipantVideo 
                             participant={p}
                             isSelf={p.userId === user?.id}
-                            videoStream={p.userId === user?.id ? stream : null}
+                            videoStream={p.userId === user?.id ? stream : remoteStreams.get(p.userId) || null}
                           />
                         </div>
                       ))}
@@ -1332,12 +1789,12 @@ export default function VideoConferencePage() {
                 </>
               ) : (
                 /* Grid view */
-                participants.map((p) => (
+                participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt).map((p) => (
                   <ParticipantVideo 
                     key={p.id} 
                     participant={p}
                     isSelf={p.userId === user?.id}
-                    videoStream={p.userId === user?.id ? stream : null}
+                    videoStream={p.userId === user?.id ? stream : remoteStreams.get(p.userId) || null}
                   />
                 ))
               )}
@@ -1372,6 +1829,88 @@ export default function VideoConferencePage() {
 
         {/* Side panels */}
         <AnimatePresence>
+          {/* Waiting Room Panel (Host only) */}
+          {showWaitingRoom && conference?.hostId === user?.id && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              className="bg-gray-800 border-l border-gray-700 overflow-hidden"
+            >
+              <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+                <h3 className="font-semibold text-white flex items-center gap-2">
+                  <DoorOpen size={18} />
+                  Waiting Room ({waitingParticipants.length})
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowWaitingRoom(false);
+                    setWaitingRoomNotification(false);
+                  }}
+                  className="p-1 hover:bg-gray-700 rounded"
+                >
+                  <X size={18} className="text-gray-400" />
+                </button>
+              </div>
+              <div className="p-4 space-y-3 overflow-y-auto max-h-[calc(100vh-250px)]">
+                {waitingParticipants.length === 0 ? (
+                  <p className="text-center text-gray-500 text-sm py-4">
+                    No one is waiting to join
+                  </p>
+                ) : (
+                  <>
+                    {/* Admit all button */}
+                    <button
+                      onClick={admitAllParticipants}
+                      className="w-full py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <UserCheck size={16} />
+                      Admit All ({waitingParticipants.length})
+                    </button>
+                    
+                    {/* Individual waiting participants */}
+                    {waitingParticipants.map((p) => (
+                      <div
+                        key={p.id}
+                        className="bg-gray-700/50 rounded-lg p-3"
+                      >
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white text-sm font-semibold">
+                            {p.userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-white font-medium text-sm block">
+                              {p.userName}
+                            </span>
+                            <span className="text-xs text-gray-400 capitalize">
+                              {p.userRole.replace('_', ' ')}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => admitParticipant(p.id)}
+                            className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-1"
+                          >
+                            <UserCheck size={14} />
+                            Admit
+                          </button>
+                          <button
+                            onClick={() => rejectParticipant(p.id)}
+                            className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-1"
+                          >
+                            <UserX size={14} />
+                            Decline
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {/* Participants panel */}
           {showParticipants && (
             <motion.div
@@ -1381,7 +1920,9 @@ export default function VideoConferencePage() {
               className="bg-gray-800 border-l border-gray-700 overflow-hidden"
             >
               <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-                <h3 className="font-semibold text-white">Participants ({participants.length})</h3>
+                <h3 className="font-semibold text-white">
+                  Participants ({participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt).length})
+                </h3>
                 <button
                   onClick={() => setShowParticipants(false)}
                   className="p-1 hover:bg-gray-700 rounded"
@@ -1390,13 +1931,19 @@ export default function VideoConferencePage() {
                 </button>
               </div>
               <div className="p-4 space-y-2 overflow-y-auto max-h-[calc(100vh-200px)]">
-                {participants.map((p) => (
+                {participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt).map((p) => (
                   <div
                     key={p.id}
                     className="flex items-center gap-3 p-3 bg-gray-700/50 rounded-lg"
                   >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold">
-                      {p.userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold">
+                        {p.userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      </div>
+                      {/* Connection indicator */}
+                      <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-800 ${
+                        remoteStreams.has(p.userId) || p.userId === user?.id ? 'bg-green-500' : 'bg-yellow-500'
+                      }`} />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -1598,7 +2145,10 @@ export default function VideoConferencePage() {
           <button
             onClick={() => {
               setShowParticipants(!showParticipants);
-              if (!showParticipants) setShowChat(false);
+              if (!showParticipants) {
+                setShowChat(false);
+                setShowWaitingRoom(false);
+              }
             }}
             className={`p-4 rounded-full transition-colors ${
               showParticipants 
@@ -1610,11 +2160,41 @@ export default function VideoConferencePage() {
             <Users size={22} className="text-white" />
           </button>
 
+          {/* Waiting Room (Host only) */}
+          {conference?.hostId === user?.id && (
+            <button
+              onClick={() => {
+                setShowWaitingRoom(!showWaitingRoom);
+                setWaitingRoomNotification(false);
+                if (!showWaitingRoom) {
+                  setShowChat(false);
+                  setShowParticipants(false);
+                }
+              }}
+              className={`p-4 rounded-full transition-colors relative ${
+                showWaitingRoom 
+                  ? 'bg-yellow-500 hover:bg-yellow-600' 
+                  : 'bg-gray-700 hover:bg-gray-600'
+              }`}
+              title="Waiting Room"
+            >
+              <DoorOpen size={22} className="text-white" />
+              {waitingRoomNotification && waitingParticipants.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                  {waitingParticipants.length}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Chat */}
           <button
             onClick={() => {
               setShowChat(!showChat);
-              if (!showChat) setShowParticipants(false);
+              if (!showChat) {
+                setShowParticipants(false);
+                setShowWaitingRoom(false);
+              }
             }}
             className={`p-4 rounded-full transition-colors relative ${
               showChat 

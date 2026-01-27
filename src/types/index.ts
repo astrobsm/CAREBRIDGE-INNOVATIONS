@@ -1417,6 +1417,8 @@ export interface VideoConference {
 export interface ConferenceParticipant {
   id: string;
   oderId: string;
+  odId?: string; // WebRTC offer/answer ID for signaling
+  odSdp?: string; // SDP offer/answer
   userId: string;
   userName: string;
   userRole: UserRole;
@@ -1431,6 +1433,19 @@ export interface ConferenceParticipant {
   isHandRaised: boolean;
   isScreenSharing: boolean;
   connectionStatus: 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+  admissionStatus: 'waiting' | 'admitted' | 'rejected'; // For waiting room
+}
+
+// WebRTC Signaling types for peer-to-peer video
+export interface RTCSignalingMessage {
+  id: string;
+  conferenceId: string;
+  fromUserId: string;
+  fromUserName: string;
+  toUserId: string; // 'all' for broadcast
+  type: 'offer' | 'answer' | 'ice-candidate' | 'participant-update';
+  payload: string; // JSON stringified SDP or ICE candidate
+  createdAt: Date;
 }
 
 export interface ConferenceSettings {

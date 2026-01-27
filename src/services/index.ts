@@ -78,6 +78,30 @@ export {
   getEmailShareData,
 } from './meetingMinutesService';
 
+// WebRTC Signaling Service
+export { default as WebRTCSignalingService } from './webrtcSignalingService';
+export {
+  initializeWebRTC,
+  onRemoteStream,
+  onParticipantDisconnected,
+  onSignalingMessage,
+  createPeerConnection,
+  createOffer,
+  handleOffer,
+  handleAnswer,
+  handleIceCandidate,
+  processSignalingMessage,
+  connectToParticipants,
+  closePeerConnection,
+  closeAllConnections,
+  getRemoteStream,
+  getAllRemoteStreams,
+  updateLocalStream,
+  isInWaitingRoom,
+  getWaitingParticipants,
+  getAdmittedParticipants,
+} from './webrtcSignalingService';
+
 // Unified API Service (Recommended)
 export {
   API,
