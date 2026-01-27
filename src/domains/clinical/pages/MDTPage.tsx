@@ -39,9 +39,25 @@ import {
   Bed,
   Mic,
   MicOff,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Thermometer,
+  Droplets,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  ReferenceLine,
+} from 'recharts';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
@@ -862,7 +878,7 @@ export default function MDTPage() {
                   <div className="bg-gradient-to-r from-primary-600 to-blue-600 text-white px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <FileText size={20} />
-                      <h3 className="font-semibold">Patient Summary - {selectedPatient?.firstName} {selectedPatient?.lastName}</h3>
+                      <h3 className="font-semibold">Comprehensive Patient Summary - {selectedPatient?.firstName} {selectedPatient?.lastName}</h3>
                     </div>
                     <span className="text-xs bg-white/20 px-2 py-1 rounded">
                       {hasScrolledToEnd ? '✓ Summary Reviewed' : 'Scroll to review entire summary'}
@@ -872,13 +888,13 @@ export default function MDTPage() {
                   <div 
                     ref={summaryScrollRef}
                     onScroll={handleSummaryScroll}
-                    className="max-h-[500px] overflow-y-auto p-4 space-y-4"
+                    className="max-h-[600px] overflow-y-auto p-4 space-y-4"
                   >
                     {/* Demographics Section */}
                     <div className="bg-gray-50 rounded-lg p-4">
                       <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
                         <User size={16} />
-                        Demographics
+                        Demographics & Basic Information
                       </h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <div>
@@ -899,15 +915,91 @@ export default function MDTPage() {
                           <span className="text-gray-500">Allergies:</span>
                           <p className="font-medium text-red-600">{selectedPatient?.allergies?.join(', ') || 'None known'}</p>
                         </div>
+                        <div>
+                          <span className="text-gray-500">Phone:</span>
+                          <p className="font-medium">{selectedPatient?.phone || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Occupation:</span>
+                          <p className="font-medium">{selectedPatient?.occupation || 'N/A'}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-gray-500">Address:</span>
+                          <p className="font-medium">{selectedPatient?.address || 'N/A'}</p>
+                        </div>
                       </div>
                     </div>
+
+                    {/* ALL DIAGNOSES - Consolidated from all encounters */}
+                    {(() => {
+                      const allDiagnoses: Array<{ diagnosis: string; type: string; date: Date; source: string }> = [];
+                      
+                      // From clinical encounters
+                      patientEncounters?.forEach(enc => {
+                        enc.diagnosis?.forEach(d => {
+                          allDiagnoses.push({
+                            diagnosis: typeof d === 'string' ? d : d.description || 'Unknown',
+                            type: typeof d === 'object' && d.type ? d.type : 'clinical',
+                            date: new Date(enc.startedAt),
+                            source: `${enc.type} encounter`
+                          });
+                        });
+                      });
+                      
+                      // From admissions
+                      patientAdmissions?.forEach(adm => {
+                        if (adm.admissionDiagnosis) {
+                          allDiagnoses.push({
+                            diagnosis: adm.admissionDiagnosis,
+                            type: 'admission',
+                            date: new Date(adm.admissionDate),
+                            source: 'Admission diagnosis'
+                          });
+                        }
+                      });
+
+                      if (allDiagnoses.length === 0) return null;
+
+                      // Deduplicate and sort by date
+                      const uniqueDiagnoses = allDiagnoses.reduce((acc, curr) => {
+                        const existing = acc.find(d => d.diagnosis.toLowerCase() === curr.diagnosis.toLowerCase());
+                        if (!existing) acc.push(curr);
+                        return acc;
+                      }, [] as typeof allDiagnoses).sort((a, b) => b.date.getTime() - a.date.getTime());
+
+                      return (
+                        <div className="bg-rose-50 rounded-lg p-4 border-l-4 border-rose-500">
+                          <h4 className="font-medium text-rose-700 mb-3 flex items-center gap-2">
+                            <AlertCircle size={16} />
+                            All Diagnoses Entertained ({uniqueDiagnoses.length})
+                          </h4>
+                          <div className="grid gap-2">
+                            {uniqueDiagnoses.map((d, idx) => (
+                              <div key={idx} className="bg-white rounded p-2 flex justify-between items-center">
+                                <div>
+                                  <p className="font-medium text-gray-800">{d.diagnosis}</p>
+                                  <p className="text-xs text-gray-500">{d.source} • {format(d.date, 'PPP')}</p>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded text-xs ${
+                                  d.type === 'primary' ? 'bg-red-100 text-red-700' :
+                                  d.type === 'admission' ? 'bg-blue-100 text-blue-700' :
+                                  'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {d.type}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Current Admission Section */}
                     {patientAdmissions && patientAdmissions.length > 0 && (
                       <div className="bg-blue-50 rounded-lg p-4">
                         <h4 className="font-medium text-blue-700 mb-2 flex items-center gap-2">
                           <Bed size={16} />
-                          Admission History ({patientAdmissions.length} admission{patientAdmissions.length > 1 ? 's' : ''})
+                          Admission History ({patientAdmissions.length})
                         </h4>
                         {patientAdmissions.sort((a, b) => new Date(b.admissionDate).getTime() - new Date(a.admissionDate).getTime()).map((admission, idx) => (
                           <div key={admission.id} className={`${idx > 0 ? 'mt-3 pt-3 border-t border-blue-200' : ''}`}>
@@ -1016,87 +1108,272 @@ export default function MDTPage() {
                       </div>
                     )}
 
-                    {/* Lab Requests Section */}
+                    {/* Lab Requests Section - Enhanced with Results */}
                     {patientLabRequests && patientLabRequests.length > 0 && (
                       <div className="bg-cyan-50 rounded-lg p-4">
-                        <h4 className="font-medium text-cyan-700 mb-2 flex items-center gap-2">
+                        <h4 className="font-medium text-cyan-700 mb-3 flex items-center gap-2">
                           <FlaskConical size={16} />
-                          Laboratory Tests ({patientLabRequests.length})
+                          Laboratory Tests & Results ({patientLabRequests.length})
                         </h4>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {patientLabRequests.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()).slice(0, 10).map(lab => (
-                            <div key={lab.id} className="text-sm border-l-2 border-cyan-300 pl-3">
-                              <div className="flex justify-between">
-                                <span className="font-medium">{lab.tests?.map(t => t.name).join(', ') || 'Lab Test'}</span>
+                            <div key={lab.id} className="bg-white rounded-lg p-3 border border-cyan-200">
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <span className="font-medium text-gray-800">{lab.tests?.map(t => t.name).join(', ') || 'Lab Test'}</span>
+                                  <p className="text-xs text-gray-500">{format(new Date(lab.requestedAt), 'PPP')} • {lab.priority} priority</p>
+                                </div>
                                 <span className={`px-2 py-0.5 rounded text-xs ${
                                   lab.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                                 }`}>
                                   {lab.status}
                                 </span>
                               </div>
-                              <p className="text-gray-600 text-xs">{format(new Date(lab.requestedAt), 'PPP')}</p>
-                              <p className="text-cyan-700 text-xs">{lab.priority} priority</p>
+                              {/* Show test results if completed */}
+                              {lab.status === 'completed' && lab.tests && lab.tests.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-cyan-100">
+                                  <p className="text-xs font-medium text-cyan-700 mb-1">Results:</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {lab.tests.filter(t => t.result).map((test, idx) => (
+                                      <div key={idx} className={`text-xs p-1.5 rounded ${
+                                        test.isAbnormal ? 'bg-red-50 border border-red-200' : 'bg-gray-50'
+                                      }`}>
+                                        <span className="text-gray-600">{test.name}:</span>
+                                        <span className={`ml-1 font-medium ${test.isAbnormal ? 'text-red-600' : 'text-gray-800'}`}>
+                                          {test.result} {test.unit}
+                                        </span>
+                                        {test.referenceRange && (
+                                          <span className="text-gray-400 ml-1">({test.referenceRange})</span>
+                                        )}
+                                        {test.isAbnormal && <TrendingUp className="inline ml-1 text-red-500" size={10} />}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
+                        
+                        {/* Lab Trends Chart */}
+                        {(() => {
+                          // Extract numeric lab results for trending
+                          const labTrendData: Array<{ date: string; [key: string]: any }> = [];
+                          const labTestNames = new Set<string>();
+                          
+                          patientLabRequests
+                            .filter(lab => lab.status === 'completed' && lab.tests)
+                            .sort((a, b) => new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime())
+                            .forEach(lab => {
+                              const dataPoint: { date: string; [key: string]: any } = {
+                                date: format(new Date(lab.requestedAt), 'MMM d')
+                              };
+                              lab.tests?.forEach(test => {
+                                if (test.result) {
+                                  const numVal = parseFloat(test.result);
+                                  if (!isNaN(numVal)) {
+                                    dataPoint[test.name] = numVal;
+                                    labTestNames.add(test.name);
+                                  }
+                                }
+                              });
+                              if (Object.keys(dataPoint).length > 1) {
+                                labTrendData.push(dataPoint);
+                              }
+                            });
+
+                          if (labTrendData.length > 1 && labTestNames.size > 0) {
+                            const colors = ['#0891b2', '#7c3aed', '#dc2626', '#059669', '#d97706'];
+                            return (
+                              <div className="mt-4 bg-white rounded-lg p-3">
+                                <p className="text-xs font-medium text-cyan-700 mb-2 flex items-center gap-1">
+                                  <TrendingUp size={12} /> Lab Results Trends
+                                </p>
+                                <ResponsiveContainer width="100%" height={150}>
+                                  <LineChart data={labTrendData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                                    <YAxis tick={{ fontSize: 10 }} />
+                                    <Tooltip contentStyle={{ fontSize: '11px' }} />
+                                    {Array.from(labTestNames).slice(0, 5).map((name, idx) => (
+                                      <Line 
+                                        key={name}
+                                        type="monotone" 
+                                        dataKey={name} 
+                                        stroke={colors[idx % colors.length]}
+                                        strokeWidth={2}
+                                        dot={{ r: 3 }}
+                                        name={name}
+                                      />
+                                    ))}
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     )}
 
-                    {/* Vital Signs Section */}
+                    {/* Vital Signs Section - Enhanced with Trend Chart */}
                     {patientVitalSigns && patientVitalSigns.length > 0 && (
                       <div className="bg-green-50 rounded-lg p-4">
-                        <h4 className="font-medium text-green-700 mb-2 flex items-center gap-2">
+                        <h4 className="font-medium text-green-700 mb-3 flex items-center gap-2">
                           <Activity size={16} />
-                          Recent Vitals ({patientVitalSigns.length} recordings)
+                          Vital Signs Monitoring ({patientVitalSigns.length} recordings)
                         </h4>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        
+                        {/* Latest Vitals Cards */}
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
                           {(() => {
-                            const latest = patientVitalSigns.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())[0];
+                            const sorted = [...patientVitalSigns].sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+                            const latest = sorted[0];
+                            const previous = sorted[1];
+                            
+                            const getTrendIcon = (current: number, prev: number | undefined, lowerBetter = false) => {
+                              if (!prev) return <Minus size={10} className="text-gray-400" />;
+                              if (current > prev) return lowerBetter ? 
+                                <TrendingUp size={10} className="text-red-500" /> : 
+                                <TrendingUp size={10} className="text-green-500" />;
+                              if (current < prev) return lowerBetter ?
+                                <TrendingDown size={10} className="text-green-500" /> :
+                                <TrendingDown size={10} className="text-red-500" />;
+                              return <Minus size={10} className="text-gray-400" />;
+                            };
+                            
                             return (
                               <>
-                                <div className="text-sm bg-white p-2 rounded">
-                                  <span className="text-gray-500">BP</span>
-                                  <p className="font-medium">{latest.bloodPressureSystolic}/{latest.bloodPressureDiastolic} mmHg</p>
+                                <div className="text-sm bg-white p-2 rounded border border-green-200">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-500 flex items-center gap-1"><Droplets size={12} /> BP</span>
+                                    {getTrendIcon(latest.bloodPressureSystolic, previous?.bloodPressureSystolic, true)}
+                                  </div>
+                                  <p className="font-bold text-lg">{latest.bloodPressureSystolic}/{latest.bloodPressureDiastolic}</p>
+                                  <p className="text-xs text-gray-400">mmHg</p>
                                 </div>
-                                <div className="text-sm bg-white p-2 rounded">
-                                  <span className="text-gray-500">Pulse</span>
-                                  <p className="font-medium">{latest.pulse} bpm</p>
+                                <div className="text-sm bg-white p-2 rounded border border-green-200">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-500 flex items-center gap-1"><Heart size={12} /> Pulse</span>
+                                    {getTrendIcon(latest.pulse, previous?.pulse)}
+                                  </div>
+                                  <p className="font-bold text-lg">{latest.pulse}</p>
+                                  <p className="text-xs text-gray-400">bpm</p>
                                 </div>
-                                <div className="text-sm bg-white p-2 rounded">
-                                  <span className="text-gray-500">Temp</span>
-                                  <p className="font-medium">{latest.temperature}°C</p>
+                                <div className="text-sm bg-white p-2 rounded border border-green-200">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-500 flex items-center gap-1"><Thermometer size={12} /> Temp</span>
+                                    {getTrendIcon(latest.temperature, previous?.temperature, true)}
+                                  </div>
+                                  <p className="font-bold text-lg">{latest.temperature}</p>
+                                  <p className="text-xs text-gray-400">°C</p>
                                 </div>
-                                <div className="text-sm bg-white p-2 rounded">
-                                  <span className="text-gray-500">SpO2</span>
-                                  <p className="font-medium">{latest.oxygenSaturation}%</p>
+                                <div className="text-sm bg-white p-2 rounded border border-green-200">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-500">SpO2</span>
+                                    {getTrendIcon(latest.oxygenSaturation, previous?.oxygenSaturation)}
+                                  </div>
+                                  <p className="font-bold text-lg">{latest.oxygenSaturation}%</p>
+                                  <p className="text-xs text-gray-400">Oxygen</p>
+                                </div>
+                                <div className="text-sm bg-white p-2 rounded border border-green-200">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-500">RR</span>
+                                    {getTrendIcon(latest.respiratoryRate, previous?.respiratoryRate, true)}
+                                  </div>
+                                  <p className="font-bold text-lg">{latest.respiratoryRate}</p>
+                                  <p className="text-xs text-gray-400">/min</p>
                                 </div>
                               </>
                             );
                           })()}
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">
+                        
+                        <p className="text-xs text-gray-500 mb-3">
                           Last recorded: {format(new Date(patientVitalSigns.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())[0].recordedAt), 'PPP p')}
                         </p>
+
+                        {/* Vitals Trend Chart */}
+                        {patientVitalSigns.length > 1 && (
+                          <div className="bg-white rounded-lg p-3">
+                            <p className="text-xs font-medium text-green-700 mb-2 flex items-center gap-1">
+                              <TrendingUp size={12} /> Vital Signs Trends (Last {Math.min(patientVitalSigns.length, 10)} readings)
+                            </p>
+                            <ResponsiveContainer width="100%" height={180}>
+                              <LineChart data={
+                                [...patientVitalSigns]
+                                  .sort((a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime())
+                                  .slice(-10)
+                                  .map(v => ({
+                                    time: format(new Date(v.recordedAt), 'MMM d HH:mm'),
+                                    'BP Systolic': v.bloodPressureSystolic,
+                                    'Pulse': v.pulse,
+                                    'SpO2': v.oxygenSaturation,
+                                  }))
+                              }>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="time" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={50} />
+                                <YAxis tick={{ fontSize: 10 }} />
+                                <Tooltip contentStyle={{ fontSize: '11px' }} />
+                                <Legend wrapperStyle={{ fontSize: '10px' }} />
+                                <ReferenceLine y={120} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'SBP High', fontSize: 8 }} />
+                                <Line type="monotone" dataKey="BP Systolic" stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} />
+                                <Line type="monotone" dataKey="Pulse" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} />
+                                <Line type="monotone" dataKey="SpO2" stroke="#22c55e" strokeWidth={2} dot={{ r: 2 }} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {/* Prescriptions Section */}
+                    {/* Prescriptions Section - Enhanced with Medication Details */}
                     {patientPrescriptions && patientPrescriptions.length > 0 && (
                       <div className="bg-indigo-50 rounded-lg p-4">
-                        <h4 className="font-medium text-indigo-700 mb-2 flex items-center gap-2">
+                        <h4 className="font-medium text-indigo-700 mb-3 flex items-center gap-2">
                           <Pill size={16} />
-                          Prescriptions ({patientPrescriptions.length})
+                          Current Medications & Prescriptions ({patientPrescriptions.length})
                         </h4>
-                        <div className="space-y-2">
-                          {patientPrescriptions.slice(0, 5).map(rx => (
-                            <div key={rx.id} className="text-sm border-l-2 border-indigo-300 pl-3">
-                              <div className="flex justify-between">
-                                <span className="font-medium">{rx.medications?.length || 0} medications</span>
+                        <div className="space-y-3">
+                          {patientPrescriptions.sort((a, b) => new Date(b.prescribedAt).getTime() - new Date(a.prescribedAt).getTime()).slice(0, 5).map(rx => (
+                            <div key={rx.id} className="bg-white rounded-lg p-3 border border-indigo-200">
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <span className="text-xs text-gray-500">{format(new Date(rx.prescribedAt), 'PPP')}</span>
+                                </div>
                                 <span className={`px-2 py-0.5 rounded text-xs ${
-                                  rx.status === 'dispensed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                  rx.status === 'dispensed' ? 'bg-green-100 text-green-700' : 
+                                  rx.status === 'partially_dispensed' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-100 text-gray-600'
                                 }`}>{rx.status}</span>
                               </div>
-                              <p className="text-gray-600 text-xs">{format(new Date(rx.prescribedAt), 'PPP')}</p>
+                              {/* List all medications in this prescription */}
+                              {rx.medications && rx.medications.length > 0 && (
+                                <div className="space-y-1">
+                                  {rx.medications.map((med, idx) => (
+                                    <div key={idx} className={`text-sm p-2 rounded ${
+                                      med.isDispensed ? 'bg-green-50' : 'bg-yellow-50'
+                                    }`}>
+                                      <div className="flex justify-between">
+                                        <span className="font-medium text-gray-800">{med.name}</span>
+                                        {med.isDispensed ? 
+                                          <CheckCircle2 size={14} className="text-green-500" /> :
+                                          <Clock size={14} className="text-yellow-500" />
+                                        }
+                                      </div>
+                                      <p className="text-xs text-gray-600">
+                                        {med.dosage} • {med.frequency} • {med.route} • {med.duration}
+                                      </p>
+                                      {med.instructions && (
+                                        <p className="text-xs text-indigo-600 italic mt-1">{med.instructions}</p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {rx.notes && (
+                                <p className="text-xs text-gray-500 mt-2 italic">Note: {rx.notes}</p>
+                              )}
                             </div>
                           ))}
                           {patientPrescriptions.length > 5 && (
@@ -1164,50 +1441,184 @@ export default function MDTPage() {
 
                     {/* Treatment Plans Section */}
                     {patientTreatmentPlans && patientTreatmentPlans.length > 0 && (
-                      <div className="bg-violet-50 rounded-lg p-4">
-                        <h4 className="font-medium text-violet-700 mb-2 flex items-center gap-2">
+                      <div className="bg-violet-50 rounded-lg p-4 border-l-4 border-violet-500">
+                        <h4 className="font-medium text-violet-700 mb-3 flex items-center gap-2">
                           <Clipboard size={16} />
-                          Previous Treatment Plans ({patientTreatmentPlans.length})
+                          Specialty Treatment Plans ({patientTreatmentPlans.length})
                         </h4>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {patientTreatmentPlans.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(plan => (
-                            <div key={plan.id} className="text-sm border-l-2 border-violet-300 pl-3">
-                              <div className="flex justify-between">
-                                <span className="font-medium">{plan.title}</span>
+                            <div key={plan.id} className="bg-white rounded-lg p-3 border border-violet-200">
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <span className="font-medium text-gray-800">{plan.title}</span>
+                                  <p className="text-xs text-gray-500">{format(new Date(plan.createdAt), 'PPP')}</p>
+                                </div>
                                 <span className={`px-2 py-0.5 rounded text-xs ${
                                   plan.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                                 }`}>
                                   {plan.status}
                                 </span>
                               </div>
-                              <p className="text-gray-600 text-xs">{format(new Date(plan.createdAt), 'PPP')}</p>
-                              {plan.clinicalGoals?.length > 0 && <p className="text-violet-600 text-xs mt-1">{plan.clinicalGoals.length} goals defined</p>}
+                              {/* Show clinical goals */}
+                              {plan.clinicalGoals && plan.clinicalGoals.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs font-medium text-violet-600 mb-1">Goals:</p>
+                                  <ul className="text-xs text-gray-600 space-y-1">
+                                    {plan.clinicalGoals.slice(0, 3).map((goal, idx) => (
+                                      <li key={idx} className="flex items-start gap-1">
+                                        <Target size={10} className="mt-0.5 text-violet-500" />
+                                        <span>{typeof goal === 'string' ? goal : goal.description || 'Goal'}</span>
+                                      </li>
+                                    ))}
+                                    {plan.clinicalGoals.length > 3 && (
+                                      <li className="text-violet-500">+ {plan.clinicalGoals.length - 3} more goals</li>
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Clinical Encounters Section */}
+                    {/* Clinical Encounters Section - Enhanced with Full Details */}
                     {patientEncounters && patientEncounters.length > 0 && (
                       <div className="bg-slate-50 rounded-lg p-4">
-                        <h4 className="font-medium text-slate-700 mb-2 flex items-center gap-2">
+                        <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
                           <FileText size={16} />
-                          Clinical Encounters ({patientEncounters.length})
+                          Clinical Records & Documentation ({patientEncounters.length})
                         </h4>
-                        <div className="space-y-2">
-                          {patientEncounters.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()).slice(0, 5).map(enc => (
-                            <div key={enc.id} className="text-sm border-l-2 border-slate-300 pl-3">
-                              <div className="flex items-center gap-2">
-                                <span className="px-2 py-0.5 rounded text-xs bg-slate-200">{enc.type}</span>
-                                <span className="text-gray-500">{format(new Date(enc.startedAt), 'PPP')}</span>
+                        <div className="space-y-3">
+                          {patientEncounters.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()).slice(0, 8).map(enc => (
+                            <div key={enc.id} className="bg-white rounded-lg p-3 border border-slate-200">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-2 py-0.5 rounded text-xs ${
+                                    enc.type === 'emergency' ? 'bg-red-100 text-red-700' :
+                                    enc.type === 'surgical' ? 'bg-purple-100 text-purple-700' :
+                                    enc.type === 'inpatient' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }`}>{enc.type}</span>
+                                  <span className="text-xs text-gray-500">{format(new Date(enc.startedAt), 'PPP')}</span>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded text-xs ${
+                                  enc.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                  enc.status === 'in-progress' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-100 text-gray-600'
+                                }`}>{enc.status}</span>
                               </div>
-                              {enc.chiefComplaint && <p className="text-gray-600 mt-1">{enc.chiefComplaint}</p>}
+                              
+                              {/* Chief Complaint */}
+                              {enc.chiefComplaint && (
+                                <div className="mb-2">
+                                  <p className="text-xs font-medium text-gray-700">Chief Complaint:</p>
+                                  <p className="text-sm text-gray-800">{enc.chiefComplaint}</p>
+                                </div>
+                              )}
+                              
+                              {/* History of Present Illness */}
+                              {enc.historyOfPresentIllness && (
+                                <div className="mb-2">
+                                  <p className="text-xs font-medium text-gray-700">History of Present Illness:</p>
+                                  <p className="text-xs text-gray-600 line-clamp-2">{enc.historyOfPresentIllness}</p>
+                                </div>
+                              )}
+                              
+                              {/* Diagnoses from this encounter */}
+                              {enc.diagnosis && enc.diagnosis.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-slate-100">
+                                  <p className="text-xs font-medium text-slate-600 mb-1">Diagnoses:</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {enc.diagnosis.map((d, idx) => (
+                                      <span key={idx} className="px-2 py-0.5 bg-slate-100 rounded text-xs text-gray-700">
+                                        {typeof d === 'string' ? d : d.description || 'Diagnosis'}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Treatment Plan from encounter */}
+                              {enc.treatmentPlan && (
+                                <div className="mt-2 pt-2 border-t border-slate-100">
+                                  <p className="text-xs font-medium text-slate-600 mb-1">Treatment Plan:</p>
+                                  <p className="text-xs text-gray-600 line-clamp-2">{enc.treatmentPlan}</p>
+                                </div>
+                              )}
+                              
+                              {/* Notes */}
+                              {enc.notes && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-gray-500 italic line-clamp-2">{enc.notes}</p>
+                                </div>
+                              )}
+                              
+                              <p className="text-xs text-slate-500 mt-2">
+                                By: {enc.attendingClinician || 'Unknown clinician'}
+                              </p>
                             </div>
                           ))}
-                          {patientEncounters.length > 5 && (
-                            <p className="text-sm text-slate-600 italic">+ {patientEncounters.length - 5} more encounters</p>
+                          {patientEncounters.length > 8 && (
+                            <p className="text-sm text-slate-600 italic text-center">+ {patientEncounters.length - 8} more clinical encounters</p>
                           )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* MDT Specialty Plans from This System */}
+                    {patientPlans && patientPlans.length > 0 && (
+                      <div className="bg-teal-50 rounded-lg p-4 border-l-4 border-teal-500">
+                        <h4 className="font-medium text-teal-700 mb-3 flex items-center gap-2">
+                          <Users size={16} />
+                          MDT Specialty Recommendations ({patientPlans.length})
+                        </h4>
+                        <div className="space-y-3">
+                          {patientPlans.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()).map(plan => (
+                            <div key={plan.id} className="bg-white rounded-lg p-3 border border-teal-200">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div 
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: specialtyDefinitions[plan.specialty as SpecialtyType]?.color || '#6b7280' }}
+                                  />
+                                  <span className="font-medium text-gray-800">
+                                    {specialtyDefinitions[plan.specialty as SpecialtyType]?.name || plan.specialty}
+                                  </span>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded text-xs ${
+                                  plan.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                  plan.status === 'submitted' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-100 text-gray-600'
+                                }`}>{plan.status}</span>
+                              </div>
+                              <p className="text-xs text-gray-500 mb-2">{format(new Date(plan.submittedAt), 'PPP')} by {plan.submittedBy?.name || 'Unknown'}</p>
+                              
+                              {/* Clinical Findings */}
+                              {plan.clinicalFindings && (
+                                <div className="mb-2">
+                                  <p className="text-xs font-medium text-teal-600">Clinical Findings:</p>
+                                  <p className="text-xs text-gray-600">{plan.clinicalFindings}</p>
+                                </div>
+                              )}
+                              
+                              {/* Recommendations */}
+                              {plan.recommendations && plan.recommendations.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs font-medium text-teal-600">Recommendations:</p>
+                                  <ul className="text-xs text-gray-600 space-y-1 mt-1">
+                                    {plan.recommendations.slice(0, 3).map((rec, idx) => (
+                                      <li key={idx} className="flex items-start gap-1">
+                                        <CheckCircle2 size={10} className="mt-0.5 text-teal-500" />
+                                        <span>{rec.description}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
