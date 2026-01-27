@@ -45,6 +45,23 @@ import {
   UserX,
   Bell,
   DoorOpen,
+  Lock,
+  Unlock,
+  MoreVertical,
+  Volume2,
+  VolumeX,
+  Shield,
+  ThumbsUp,
+  Heart,
+  Smile,
+  BarChart3,
+  MessageSquarePlus,
+  HelpCircle,
+  Pin,
+  ChevronUp,
+  LayoutGrid,
+  LayoutList,
+  PictureInPicture2,
 } from 'lucide-react';
 import {
   useMediaDevices,
@@ -68,6 +85,10 @@ import type {
   PresentationSlide,
   ConferenceChatMessage,
   RTCSignalingMessage,
+  ConferencePoll,
+  PollOption,
+  ConferenceQA,
+  MeetingReaction,
 } from '../../../types';
 
 // Supabase client for real-time subscriptions
@@ -91,13 +112,36 @@ function ParticipantVideo({
   isLarge = false,
   isSelf = false,
   videoStream = null,
+  isHostOrCoHost = false,
+  isPinned = false,
+  onMute,
+  onStopVideo,
+  onRemove,
+  onSpotlight,
+  onPin,
+  onMakePresenter,
+  onPromoteCoHost,
+  onDemoteCoHost,
+  onPrivateChat,
 }: { 
   participant: ConferenceParticipant; 
   isLarge?: boolean;
   isSelf?: boolean;
   videoStream?: MediaStream | null;
+  isHostOrCoHost?: boolean;
+  isPinned?: boolean;
+  onMute?: () => void;
+  onStopVideo?: () => void;
+  onRemove?: () => void;
+  onSpotlight?: () => void;
+  onPin?: () => void;
+  onMakePresenter?: () => void;
+  onPromoteCoHost?: () => void;
+  onDemoteCoHost?: () => void;
+  onPrivateChat?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [showMenu, setShowMenu] = useState(false);
 
   // Connect video stream to video element
   useEffect(() => {
@@ -107,9 +151,9 @@ function ParticipantVideo({
   }, [videoStream, participant.isVideoOn]);
 
   return (
-    <div className={`relative bg-gray-900 rounded-xl overflow-hidden ${
+    <div className={`relative bg-gray-900 rounded-xl overflow-hidden group ${
       isLarge ? 'aspect-video' : 'aspect-video'
-    }`}>
+    } ${isPinned ? 'ring-2 ring-yellow-400' : ''}`}>
       {/* Video element - shows actual camera feed when video is on */}
       {participant.isVideoOn && videoStream ? (
         <video
@@ -130,6 +174,124 @@ function ParticipantVideo({
         </div>
       )}
 
+      {/* Host controls menu button */}
+      {(isHostOrCoHost || !isSelf) && !isSelf && (
+        <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-1.5 bg-black/50 hover:bg-black/70 rounded-lg transition-colors"
+          >
+            <MoreVertical size={16} className="text-white" />
+          </button>
+
+          {/* Dropdown menu */}
+          <AnimatePresence>
+            {showMenu && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="absolute top-8 left-0 bg-gray-800 rounded-lg shadow-xl py-1 min-w-[160px] z-50"
+              >
+                {onPin && (
+                  <button
+                    onClick={() => { onPin(); setShowMenu(false); }}
+                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <Pin size={14} />
+                    {isPinned ? 'Unpin' : 'Pin'}
+                  </button>
+                )}
+                {onSpotlight && (
+                  <button
+                    onClick={() => { onSpotlight(); setShowMenu(false); }}
+                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <Sparkles size={14} />
+                    Spotlight
+                  </button>
+                )}
+                {onPrivateChat && (
+                  <button
+                    onClick={() => { onPrivateChat(); setShowMenu(false); }}
+                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <MessageSquare size={14} />
+                    Private Chat
+                  </button>
+                )}
+                {isHostOrCoHost && (
+                  <>
+                    <div className="border-t border-gray-700 my-1" />
+                    {onMute && !participant.isMuted && (
+                      <button
+                        onClick={() => { onMute(); setShowMenu(false); }}
+                        className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                      >
+                        <MicOff size={14} />
+                        Mute
+                      </button>
+                    )}
+                    {onStopVideo && participant.isVideoOn && (
+                      <button
+                        onClick={() => { onStopVideo(); setShowMenu(false); }}
+                        className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                      >
+                        <VideoOff size={14} />
+                        Stop Video
+                      </button>
+                    )}
+                    {onMakePresenter && (
+                      <button
+                        onClick={() => { onMakePresenter(); setShowMenu(false); }}
+                        className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                      >
+                        <Presentation size={14} />
+                        Make Presenter
+                      </button>
+                    )}
+                    {onPromoteCoHost && !participant.isCoHost && !participant.isHost && (
+                      <button
+                        onClick={() => { onPromoteCoHost(); setShowMenu(false); }}
+                        className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                      >
+                        <Shield size={14} />
+                        Make Co-Host
+                      </button>
+                    )}
+                    {onDemoteCoHost && participant.isCoHost && (
+                      <button
+                        onClick={() => { onDemoteCoHost(); setShowMenu(false); }}
+                        className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                      >
+                        <Shield size={14} className="text-gray-400" />
+                        Remove Co-Host
+                      </button>
+                    )}
+                    {onRemove && (
+                      <button
+                        onClick={() => { onRemove(); setShowMenu(false); }}
+                        className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-700 flex items-center gap-2"
+                      >
+                        <UserX size={14} />
+                        Remove
+                      </button>
+                    )}
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Pinned indicator */}
+      {isPinned && (
+        <div className="absolute top-2 right-2">
+          <Pin size={16} className="text-yellow-400" />
+        </div>
+      )}
+
       {/* Participant info overlay */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
         <div className="flex items-center justify-between">
@@ -138,10 +300,13 @@ function ParticipantVideo({
               {participant.userName} {isSelf && '(You)'}
             </span>
             {participant.isHost && (
-              <Crown size={14} className="text-yellow-400" />
+              <Crown size={14} className="text-yellow-400" title="Host" />
+            )}
+            {participant.isCoHost && !participant.isHost && (
+              <Shield size={14} className="text-blue-400" title="Co-Host" />
             )}
             {participant.isPresenter && (
-              <Presentation size={14} className="text-green-400" />
+              <Presentation size={14} className="text-green-400" title="Presenter" />
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -165,6 +330,278 @@ function ParticipantVideo({
         </div>
       )}
     </div>
+  );
+}
+
+// Reaction Picker Component
+function ReactionPicker({ onSelect, onClose }: { onSelect: (type: string) => void; onClose: () => void }) {
+  const reactions = [
+    { type: 'thumbs_up', emoji: '👍', label: 'Thumbs Up' },
+    { type: 'applause', emoji: '👏', label: 'Applause' },
+    { type: 'heart', emoji: '❤️', label: 'Heart' },
+    { type: 'laugh', emoji: '😄', label: 'Laugh' },
+    { type: 'surprised', emoji: '😮', label: 'Surprised' },
+    { type: 'thinking', emoji: '🤔', label: 'Thinking' },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 10 }}
+      className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-xl px-3 py-2 flex gap-2"
+    >
+      {reactions.map(r => (
+        <button
+          key={r.type}
+          onClick={() => onSelect(r.type)}
+          className="text-2xl hover:scale-125 transition-transform"
+          title={r.label}
+        >
+          {r.emoji}
+        </button>
+      ))}
+    </motion.div>
+  );
+}
+
+// Floating Reactions Display
+function FloatingReactions({ reactions }: { reactions: MeetingReaction[] }) {
+  const emojiMap: Record<string, string> = {
+    raise_hand: '✋',
+    applause: '👏',
+    thumbs_up: '👍',
+    thumbs_down: '👎',
+    heart: '❤️',
+    laugh: '😄',
+    surprised: '😮',
+    thinking: '🤔',
+  };
+
+  return (
+    <div className="fixed bottom-32 right-8 flex flex-col-reverse gap-2 pointer-events-none">
+      <AnimatePresence>
+        {reactions.slice(-5).map(reaction => (
+          <motion.div
+            key={reaction.id}
+            initial={{ opacity: 0, y: 20, scale: 0.5 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.5 }}
+            className="flex items-center gap-2 bg-white/90 rounded-full px-3 py-1.5 shadow-lg"
+          >
+            <span className="text-xl">{emojiMap[reaction.type] || '👍'}</span>
+            <span className="text-sm text-gray-700">{reaction.participantName}</span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// Poll Modal Component
+function PollModal({
+  onClose,
+  onCreatePoll,
+}: {
+  onClose: () => void;
+  onCreatePoll: (question: string, options: string[], isAnonymous: boolean) => void;
+}) {
+  const [question, setQuestion] = useState('');
+  const [options, setOptions] = useState(['', '']);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+
+  const addOption = () => {
+    if (options.length < 6) {
+      setOptions([...options, '']);
+    }
+  };
+
+  const removeOption = (index: number) => {
+    if (options.length > 2) {
+      setOptions(options.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleCreate = () => {
+    if (!question.trim() || options.filter(o => o.trim()).length < 2) {
+      toast.error('Please enter a question and at least 2 options');
+      return;
+    }
+    onCreatePoll(question, options.filter(o => o.trim()), isAnonymous);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Create Poll</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Question</label>
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Ask a question..."
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Options</label>
+            <div className="space-y-2">
+              {options.map((option, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={option}
+                    onChange={(e) => {
+                      const newOptions = [...options];
+                      newOptions[index] = e.target.value;
+                      setOptions(newOptions);
+                    }}
+                    placeholder={`Option ${index + 1}`}
+                    className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  {options.length > 2 && (
+                    <button
+                      onClick={() => removeOption(index)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {options.length < 6 && (
+              <button
+                onClick={addOption}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              >
+                <Plus size={16} />
+                Add Option
+              </button>
+            )}
+          </div>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={isAnonymous}
+              onChange={(e) => setIsAnonymous(e.target.checked)}
+              className="rounded text-blue-600"
+            />
+            <span className="text-sm text-gray-700">Anonymous voting</span>
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreate}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Launch Poll
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// Active Poll Display
+function ActivePollDisplay({
+  poll,
+  onVote,
+  onClose,
+  userId,
+  isHost,
+}: {
+  poll: ConferencePoll;
+  onVote: (optionId: string) => void;
+  onClose: () => void;
+  userId: string;
+  isHost: boolean;
+}) {
+  const hasVoted = poll.options.some(opt => opt.voters?.includes(userId));
+  const maxVotes = Math.max(...poll.options.map(o => o.votes), 1);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="absolute top-20 right-4 bg-white rounded-xl shadow-2xl w-80 z-40"
+    >
+      <div className="p-4 border-b">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart3 size={18} className="text-blue-600" />
+            <span className="font-medium">Poll</span>
+          </div>
+          {isHost && (
+            <button
+              onClick={onClose}
+              className="text-sm text-red-600 hover:text-red-700"
+            >
+              End Poll
+            </button>
+          )}
+        </div>
+        <p className="mt-2 font-medium">{poll.question}</p>
+      </div>
+
+      <div className="p-4 space-y-2">
+        {poll.options.map(option => (
+          <button
+            key={option.id}
+            onClick={() => !hasVoted && onVote(option.id)}
+            disabled={hasVoted || poll.status === 'closed'}
+            className={`w-full text-left p-3 rounded-lg border transition-colors ${
+              hasVoted
+                ? 'bg-gray-50 cursor-default'
+                : 'hover:bg-blue-50 hover:border-blue-300'
+            }`}
+          >
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-sm">{option.text}</span>
+              {(hasVoted || poll.status === 'closed') && (
+                <span className="text-sm text-gray-500">
+                  {poll.totalVotes > 0 ? Math.round((option.votes / poll.totalVotes) * 100) : 0}%
+                </span>
+              )}
+            </div>
+            {(hasVoted || poll.status === 'closed') && (
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 rounded-full transition-all"
+                  style={{ width: `${(option.votes / maxVotes) * 100}%` }}
+                />
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="px-4 pb-4 text-sm text-gray-500">
+        {poll.totalVotes} vote{poll.totalVotes !== 1 ? 's' : ''}
+        {poll.isAnonymous && ' • Anonymous'}
+      </div>
+    </motion.div>
   );
 }
 
@@ -405,6 +842,32 @@ export default function VideoConferencePage() {
   const [waitingParticipants, setWaitingParticipants] = useState<ConferenceParticipant[]>([]);
   const [showWaitingRoom, setShowWaitingRoom] = useState(false);
   const [waitingRoomNotification, setWaitingRoomNotification] = useState(false);
+
+  // Enhanced Host Controls State
+  const [isMeetingLocked, setIsMeetingLocked] = useState(false);
+  const [showParticipantMenu, setShowParticipantMenu] = useState<string | null>(null);
+  const [selectedParticipant, setSelectedParticipant] = useState<ConferenceParticipant | null>(null);
+
+  // Polls & Q&A State
+  const [polls, setPolls] = useState<ConferencePoll[]>([]);
+  const [showPollModal, setShowPollModal] = useState(false);
+  const [activePoll, setActivePoll] = useState<ConferencePoll | null>(null);
+  const [qaQuestions, setQaQuestions] = useState<ConferenceQA[]>([]);
+  const [showQAPanel, setShowQAPanel] = useState(false);
+
+  // Reactions State
+  const [reactions, setReactions] = useState<MeetingReaction[]>([]);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+
+  // Layout State
+  const [layoutMode, setLayoutMode] = useState<'grid' | 'speaker' | 'presentation' | 'spotlight'>('speaker');
+  const [spotlightParticipant, setSpotlightParticipant] = useState<string | null>(null);
+  const [showLayoutOptions, setShowLayoutOptions] = useState(false);
+  const [pinnedParticipants, setPinnedParticipants] = useState<string[]>([]);
+
+  // Private Chat State
+  const [privateChatRecipient, setPrivateChatRecipient] = useState<ConferenceParticipant | null>(null);
+  const [showPrivateChatList, setShowPrivateChatList] = useState(false);
 
   // Enhanced features hooks
   const {
@@ -1146,6 +1609,350 @@ export default function VideoConferencePage() {
     }
 
     toast.success('All participants admitted');
+  };
+
+  // ============================================================
+  // HOST CONTROL FUNCTIONS
+  // ============================================================
+
+  // Check if current user is host or co-host
+  const isHostOrCoHost = useCallback(() => {
+    if (!user || !conference) return false;
+    return conference.hostId === user.id || conference.coHostIds?.includes(user.id);
+  }, [user, conference]);
+
+  // Lock/Unlock meeting
+  const toggleMeetingLock = async () => {
+    if (!conference || !isHostOrCoHost()) return;
+
+    const newLockState = !isMeetingLocked;
+    setIsMeetingLocked(newLockState);
+
+    await db.videoConferences.update(conference.id, {
+      settings: {
+        ...conference.settings,
+        isMeetingLocked: newLockState,
+      },
+      updatedAt: new Date(),
+    });
+    const updatedConf = await db.videoConferences.get(conference.id);
+    if (updatedConf) {
+      syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
+      setConference(updatedConf);
+    }
+
+    toast.success(newLockState ? 'Meeting locked - no new participants can join' : 'Meeting unlocked');
+  };
+
+  // Mute a specific participant (host control)
+  const muteParticipant = async (participantId: string) => {
+    if (!conference || !isHostOrCoHost()) return;
+
+    const updatedParticipants = participants.map(p =>
+      p.id === participantId ? { ...p, isMuted: true } : p
+    );
+
+    setParticipants(updatedParticipants);
+    await updateConferenceParticipants(updatedParticipants);
+
+    const mutedUser = participants.find(p => p.id === participantId);
+    toast(`${mutedUser?.userName || 'Participant'} has been muted`);
+  };
+
+  // Unmute request to participant
+  const requestUnmute = async (participantId: string) => {
+    // In a real implementation, this would send a signal to the participant
+    const targetUser = participants.find(p => p.id === participantId);
+    toast(`Unmute request sent to ${targetUser?.userName || 'participant'}`);
+  };
+
+  // Turn off participant's video (host control)
+  const stopParticipantVideo = async (participantId: string) => {
+    if (!conference || !isHostOrCoHost()) return;
+
+    const updatedParticipants = participants.map(p =>
+      p.id === participantId ? { ...p, isVideoOn: false } : p
+    );
+
+    setParticipants(updatedParticipants);
+    await updateConferenceParticipants(updatedParticipants);
+
+    const targetUser = participants.find(p => p.id === participantId);
+    toast(`${targetUser?.userName || 'Participant'}'s video has been stopped`);
+  };
+
+  // Remove participant from meeting
+  const removeParticipant = async (participantId: string) => {
+    if (!conference || !isHostOrCoHost()) return;
+
+    const updatedParticipants = participants.map(p =>
+      p.id === participantId
+        ? { ...p, leftAt: new Date(), connectionStatus: 'disconnected' as const, admissionStatus: 'rejected' as const }
+        : p
+    );
+
+    setParticipants(updatedParticipants);
+    await updateConferenceParticipants(updatedParticipants);
+
+    // Close WebRTC connection to this participant
+    const targetUser = participants.find(p => p.id === participantId);
+    if (targetUser) {
+      WebRTCSignalingService.closePeerConnection(targetUser.userId);
+      setRemoteStreams(prev => {
+        const updated = new Map(prev);
+        updated.delete(targetUser.userId);
+        return updated;
+      });
+    }
+
+    toast(`${targetUser?.userName || 'Participant'} has been removed from the meeting`);
+  };
+
+  // Promote participant to co-host
+  const promoteToCoHost = async (participantId: string) => {
+    if (!conference || conference.hostId !== user?.id) return;
+
+    const targetUser = participants.find(p => p.id === participantId);
+    if (!targetUser) return;
+
+    const updatedParticipants = participants.map(p =>
+      p.id === participantId ? { ...p, isCoHost: true } : p
+    );
+
+    const updatedCoHosts = [...(conference.coHostIds || []), targetUser.userId];
+
+    setParticipants(updatedParticipants);
+
+    await db.videoConferences.update(conference.id, {
+      participants: updatedParticipants,
+      coHostIds: updatedCoHosts,
+      updatedAt: new Date(),
+    });
+    const updatedConf = await db.videoConferences.get(conference.id);
+    if (updatedConf) {
+      syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
+      setConference(updatedConf);
+    }
+
+    toast.success(`${targetUser.userName} is now a co-host`);
+  };
+
+  // Demote co-host to participant
+  const demoteFromCoHost = async (participantId: string) => {
+    if (!conference || conference.hostId !== user?.id) return;
+
+    const targetUser = participants.find(p => p.id === participantId);
+    if (!targetUser) return;
+
+    const updatedParticipants = participants.map(p =>
+      p.id === participantId ? { ...p, isCoHost: false } : p
+    );
+
+    const updatedCoHosts = (conference.coHostIds || []).filter(id => id !== targetUser.userId);
+
+    setParticipants(updatedParticipants);
+
+    await db.videoConferences.update(conference.id, {
+      participants: updatedParticipants,
+      coHostIds: updatedCoHosts,
+      updatedAt: new Date(),
+    });
+    const updatedConf = await db.videoConferences.get(conference.id);
+    if (updatedConf) {
+      syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
+      setConference(updatedConf);
+    }
+
+    toast(`${targetUser.userName} is no longer a co-host`);
+  };
+
+  // Make participant presenter
+  const makePresenter = async (participantId: string) => {
+    if (!conference || !isHostOrCoHost()) return;
+
+    const updatedParticipants = participants.map(p => ({
+      ...p,
+      isPresenter: p.id === participantId,
+    }));
+
+    setParticipants(updatedParticipants);
+    await updateConferenceParticipants(updatedParticipants);
+
+    const targetUser = participants.find(p => p.id === participantId);
+    toast.success(`${targetUser?.userName || 'Participant'} is now the presenter`);
+  };
+
+  // Spotlight a participant
+  const spotlightUser = (participantId: string | null) => {
+    setSpotlightParticipant(participantId);
+    if (participantId) {
+      setLayoutMode('spotlight');
+      const targetUser = participants.find(p => p.id === participantId);
+      toast(`Spotlighting ${targetUser?.userName || 'participant'}`);
+    }
+  };
+
+  // Pin/Unpin participant
+  const togglePinParticipant = (participantId: string) => {
+    setPinnedParticipants(prev => {
+      if (prev.includes(participantId)) {
+        return prev.filter(id => id !== participantId);
+      }
+      return [...prev, participantId];
+    });
+  };
+
+  // Mute all participants
+  const muteAllParticipants = async () => {
+    if (!conference || !isHostOrCoHost()) return;
+
+    const updatedParticipants = participants.map(p =>
+      p.userId !== user?.id ? { ...p, isMuted: true } : p
+    );
+
+    setParticipants(updatedParticipants);
+    await updateConferenceParticipants(updatedParticipants);
+
+    toast.success('All participants have been muted');
+  };
+
+  // Helper function to update conference participants
+  const updateConferenceParticipants = async (updatedParticipants: ConferenceParticipant[]) => {
+    if (!conference) return;
+
+    await db.videoConferences.update(conference.id, {
+      participants: updatedParticipants,
+      updatedAt: new Date(),
+    });
+    const updatedConf = await db.videoConferences.get(conference.id);
+    if (updatedConf) {
+      syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
+      setConference(updatedConf);
+    }
+  };
+
+  // ============================================================
+  // REACTIONS FUNCTIONS
+  // ============================================================
+
+  const sendReaction = (reactionType: MeetingReaction['type']) => {
+    if (!user || !conference) return;
+
+    const reaction: MeetingReaction = {
+      id: uuidv4(),
+      participantId: user.id,
+      participantName: `${user.firstName} ${user.lastName}`,
+      type: reactionType,
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 5000), // Reactions expire after 5 seconds
+    };
+
+    setReactions(prev => [...prev, reaction]);
+
+    // Remove reaction after 5 seconds
+    setTimeout(() => {
+      setReactions(prev => prev.filter(r => r.id !== reaction.id));
+    }, 5000);
+
+    setShowReactionPicker(false);
+  };
+
+  // ============================================================
+  // POLL FUNCTIONS
+  // ============================================================
+
+  const createPoll = async (question: string, options: string[], isAnonymous: boolean = false) => {
+    if (!user || !conference) return;
+
+    const poll: ConferencePoll = {
+      id: uuidv4(),
+      conferenceId: conference.id,
+      createdBy: user.id,
+      createdByName: `${user.firstName} ${user.lastName}`,
+      question,
+      options: options.map((text, index) => ({
+        id: `option-${index}`,
+        text,
+        votes: 0,
+        voters: [],
+      })),
+      isAnonymous,
+      allowMultiple: false,
+      status: 'active',
+      createdAt: new Date(),
+      totalVotes: 0,
+    };
+
+    setPolls(prev => [...prev, poll]);
+    setActivePoll(poll);
+    setShowPollModal(false);
+
+    toast.success('Poll created');
+  };
+
+  const votePoll = (pollId: string, optionId: string) => {
+    if (!user) return;
+
+    setPolls(prev => prev.map(poll => {
+      if (poll.id !== pollId) return poll;
+
+      // Check if user already voted
+      const hasVoted = poll.options.some(opt => opt.voters?.includes(user.id));
+      if (hasVoted) {
+        toast.error('You have already voted');
+        return poll;
+      }
+
+      return {
+        ...poll,
+        options: poll.options.map(opt => {
+          if (opt.id !== optionId) return opt;
+          return {
+            ...opt,
+            votes: opt.votes + 1,
+            voters: [...(opt.voters || []), user.id],
+          };
+        }),
+        totalVotes: poll.totalVotes + 1,
+      };
+    }));
+
+    toast.success('Vote recorded');
+  };
+
+  const closePoll = (pollId: string) => {
+    setPolls(prev => prev.map(poll =>
+      poll.id === pollId
+        ? { ...poll, status: 'closed', closedAt: new Date() }
+        : poll
+    ));
+    if (activePoll?.id === pollId) {
+      setActivePoll(null);
+    }
+    toast.success('Poll closed');
+  };
+
+  // ============================================================
+  // PRIVATE CHAT FUNCTIONS
+  // ============================================================
+
+  const sendPrivateMessage = (recipientId: string, content: string) => {
+    if (!user || !conference) return;
+
+    const message: ConferenceChatMessage = {
+      id: uuidv4(),
+      senderId: user.id,
+      senderName: `${user.firstName} ${user.lastName}`,
+      content,
+      type: 'text',
+      isPrivate: true,
+      recipientId,
+      recipientName: participants.find(p => p.userId === recipientId)?.userName,
+      createdAt: new Date(),
+    };
+
+    setChatMessages(prev => [...prev, message]);
+    // In real implementation, send via Supabase for real-time sync
   };
 
   // Leave conference

@@ -1494,10 +1494,109 @@ export interface ConferenceChatMessage {
   senderId: string;
   senderName: string;
   content: string;
-  type: 'text' | 'file' | 'system';
+  type: 'text' | 'file' | 'system' | 'reaction' | 'poll';
   isPrivate: boolean;
   recipientId?: string;
+  recipientName?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  reactions?: MessageReaction[];
+  pollId?: string;
   createdAt: Date;
+}
+
+// Message Reactions
+export interface MessageReaction {
+  emoji: string;
+  userId: string;
+  userName: string;
+  createdAt: Date;
+}
+
+// Meeting Reactions (hand raise, applause, etc.)
+export interface MeetingReaction {
+  id: string;
+  participantId: string;
+  participantName: string;
+  type: 'raise_hand' | 'applause' | 'thumbs_up' | 'thumbs_down' | 'heart' | 'laugh' | 'surprised' | 'thinking';
+  createdAt: Date;
+  expiresAt?: Date; // For temporary reactions like applause
+}
+
+// Polls
+export interface ConferencePoll {
+  id: string;
+  conferenceId: string;
+  createdBy: string;
+  createdByName: string;
+  question: string;
+  options: PollOption[];
+  isAnonymous: boolean;
+  allowMultiple: boolean;
+  status: 'active' | 'closed' | 'ended';
+  createdAt: Date;
+  closedAt?: Date;
+  totalVotes: number;
+}
+
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: number;
+  voters?: string[]; // User IDs (only if not anonymous)
+}
+
+export interface PollVote {
+  pollId: string;
+  optionId: string;
+  voterId: string;
+  voterName: string;
+  createdAt: Date;
+}
+
+// Q&A Session
+export interface ConferenceQA {
+  id: string;
+  conferenceId: string;
+  askerId: string;
+  askerName: string;
+  question: string;
+  answer?: string;
+  answeredBy?: string;
+  answeredByName?: string;
+  isAnswered: boolean;
+  isPinned: boolean;
+  upvotes: number;
+  upvoters: string[];
+  createdAt: Date;
+  answeredAt?: Date;
+}
+
+// Enhanced Conference Settings
+export interface EnhancedConferenceSettings {
+  // Permissions
+  allowParticipantsToUnmute: boolean;
+  allowParticipantsToShareScreen: boolean;
+  allowParticipantsToChat: boolean;
+  allowParticipantsToRaiseHand: boolean;
+  allowParticipantsToReact: boolean;
+  allowPrivateChat: boolean;
+  
+  // Entry settings
+  muteOnEntry: boolean;
+  videoOffOnEntry: boolean;
+  waitingRoomEnabled: boolean;
+  
+  // Meeting controls
+  recordingEnabled: boolean;
+  transcriptionEnabled: boolean;
+  isMeetingLocked: boolean;
+  maxParticipants: number;
+  
+  // Layout
+  defaultLayout: 'grid' | 'speaker' | 'presentation';
+  hideNonVideoParticipants: boolean;
 }
 
 // ==================== WARD ROUNDS ====================
