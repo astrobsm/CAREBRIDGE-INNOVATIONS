@@ -11,10 +11,12 @@
 -- 1. CREATE RTC_SIGNALING TABLE
 -- ============================================
 
+-- Note: Removed foreign key to video_conferences since that table may not exist
+-- in Supabase (conferences are stored locally in IndexedDB first)
 CREATE TABLE IF NOT EXISTS rtc_signaling (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conference_id UUID NOT NULL REFERENCES video_conferences(id) ON DELETE CASCADE,
-  from_user_id UUID NOT NULL,
+  conference_id UUID NOT NULL, -- References video_conferences.id (no FK constraint for flexibility)
+  from_user_id TEXT NOT NULL,
   from_user_name TEXT NOT NULL,
   to_user_id TEXT NOT NULL, -- 'all' for broadcast or specific user ID
   type TEXT NOT NULL CHECK (type IN ('offer', 'answer', 'ice-candidate', 'participant-update')),
