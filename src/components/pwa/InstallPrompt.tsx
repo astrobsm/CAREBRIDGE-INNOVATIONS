@@ -9,6 +9,7 @@ export default function InstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [showInstalledToast, setShowInstalledToast] = useState(false);
 
   useEffect(() => {
     // Check if user previously dismissed the prompt
@@ -36,10 +37,37 @@ export default function InstallPrompt() {
     }
   }, [isUpdateAvailable]);
 
+  // Show installed toast briefly when app is installed, then auto-dismiss
+  useEffect(() => {
+    if (isInstalled && !dismissed) {
+      // Check if we've already shown the toast in this session
+      const shownInSession = sessionStorage.getItem('pwa_installed_toast_shown');
+      if (!shownInSession) {
+        setShowInstalledToast(true);
+        sessionStorage.setItem('pwa_installed_toast_shown', 'true');
+        
+        // Auto-dismiss after 4 seconds
+        const timer = setTimeout(() => {
+          setShowInstalledToast(false);
+        }, 4000);
+        
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isInstalled, dismissed]);
+
   const handleInstall = async () => {
     const success = await install();
     if (success) {
       setShowPrompt(false);
+      // Show the toast after successful install
+      setShowInstalledToast(true);
+      sessionStorage.setItem('pwa_installed_toast_shown', 'true');
+      
+      // Auto-dismiss after 4 seconds
+      setTimeout(() => {
+        setShowInstalledToast(false);
+      }, 4000);
     }
   };
 
@@ -203,14 +231,15 @@ export default function InstallPrompt() {
         )}
       </AnimatePresence>
 
-      {/* Installed Success Toast */}
+      {/* Installed Success Toast - Auto-dismisses after 4 seconds */}
       <AnimatePresence>
-        {isInstalled && !dismissed && (
+        {showInstalledToast && (
           <motion.div
             initial={{ x: 100, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 100, opacity: 0 }}
-            className="fixed bottom-4 right-4 bg-white rounded-xl shadow-lg p-4 flex items-center gap-3 z-50"
+            onClick={() => setShowInstalledToast(false)}
+            className="fixed bottom-4 right-4 bg-white rounded-xl shadow-lg p-4 flex items-center gap-3 z-50 cursor-pointer hover:shadow-xl transition-shadow"
           >
             <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
               <Check className="w-5 h-5 text-green-600" />
@@ -219,6 +248,12 @@ export default function InstallPrompt() {
               <p className="font-medium text-gray-900">App Installed!</p>
               <p className="text-sm text-gray-500">AstroHEALTH is ready to use</p>
             </div>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setShowInstalledToast(false); }}
+              className="ml-2 p-1 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="w-4 h-4 text-gray-400" />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
