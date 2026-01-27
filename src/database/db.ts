@@ -52,6 +52,12 @@ import type {
   Payslip,
   PreoperativeAssessment,
   ExternalReview,
+  // New types for complete sync coverage
+  Referral,
+  PatientEducationRecord,
+  CalculatorResult,
+  UserSettings,
+  HospitalSettings,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -130,11 +136,20 @@ export class AstroHEALTHDatabase extends Dexie {
   medicationCharts!: Table<DailyMedicationChart, string>;
   // External Reviews (Admin only)
   externalReviews!: Table<ExternalReview, string>;
+  // Referrals Module
+  referrals!: Table<Referral, string>;
+  // Patient Education Records
+  patientEducationRecords!: Table<PatientEducationRecord, string>;
+  // Calculator Results
+  calculatorResults!: Table<CalculatorResult, string>;
+  // User & Hospital Settings
+  userSettings!: Table<UserSettings, string>;
+  hospitalSettings!: Table<HospitalSettings, string>;
 
   constructor() {
     super('AstroHEALTHDB');
 
-    this.version(63).stores({
+    this.version(64).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -203,6 +218,15 @@ export class AstroHEALTHDatabase extends Dexie {
       preoperativeAssessments: 'id, patientId, surgeryName, surgeryType, scheduledDate, asaClass, status, clearanceStatus, assessedBy, createdAt',
       // External Reviews (Admin only)
       externalReviews: 'id, patientId, hospitalId, folderNumber, serviceDate, createdBy, createdAt',
+      // Referrals Module
+      referrals: 'id, referralNumber, patientId, fromHospitalId, toHospitalId, referralType, status, priority, referralDate, referredBy, createdAt',
+      // Patient Education Records
+      patientEducationRecords: 'id, patientId, hospitalId, encounterId, admissionId, topicId, category, educatorId, deliveredAt, createdAt',
+      // Calculator Results
+      calculatorResults: 'id, patientId, hospitalId, encounterId, calculatorType, calculatedBy, calculatedAt, createdAt',
+      // User & Hospital Settings
+      userSettings: 'id, userId, createdAt',
+      hospitalSettings: 'id, hospitalId, createdAt',
     });
   }
 }

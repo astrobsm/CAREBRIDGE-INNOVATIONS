@@ -4127,3 +4127,222 @@ export interface ExternalReview {
   updatedAt: string;
   syncStatus?: 'synced' | 'pending' | 'error';
 }
+
+// ============================================
+// REFERRALS MODULE
+// ============================================
+
+export type ReferralType = 
+  | 'internal'    // Within same hospital
+  | 'external'    // To another hospital
+  | 'specialist'  // To specialist
+  | 'emergency';  // Emergency transfer
+
+export type ReferralStatus = 
+  | 'pending'
+  | 'accepted'
+  | 'declined'
+  | 'completed'
+  | 'cancelled';
+
+export type ReferralPriority = 'routine' | 'urgent' | 'emergency';
+
+export interface Referral {
+  id: string;
+  referralNumber: string;
+  patientId: string;
+  patientName?: string; // Denormalized for quick display
+  fromHospitalId: string;
+  fromHospitalName?: string;
+  toHospitalId?: string;
+  toHospitalName?: string;
+  toSpecialty?: string;
+  toSpecialistId?: string;
+  toSpecialistName?: string;
+  referralType: ReferralType;
+  status: ReferralStatus;
+  priority: ReferralPriority;
+  referralDate: string;
+  reason: string;
+  clinicalSummary: string;
+  currentDiagnosis?: string;
+  relevantInvestigations?: string;
+  currentTreatment?: string;
+  referralQuestions?: string; // Specific questions for receiving specialist
+  urgencyJustification?: string;
+  attachments?: string[]; // File URLs
+  referredBy: string;
+  referredByName?: string;
+  acceptedBy?: string;
+  acceptedByName?: string;
+  acceptedAt?: string;
+  completedAt?: string;
+  responseNotes?: string;
+  declineReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================
+// PATIENT EDUCATION RECORDS MODULE
+// ============================================
+
+export type EducationDeliveryMethod = 
+  | 'verbal'
+  | 'written'
+  | 'video'
+  | 'demonstration'
+  | 'interactive'
+  | 'group_session';
+
+export type EducationComprehensionLevel = 
+  | 'understood_fully'
+  | 'understood_partially'
+  | 'needs_reinforcement'
+  | 'barrier_identified';
+
+export interface PatientEducationRecord {
+  id: string;
+  patientId: string;
+  patientName?: string;
+  hospitalId: string;
+  encounterId?: string;
+  admissionId?: string;
+  topicId: string; // Reference to education topic from patientEducation.ts
+  topicTitle: string;
+  category: string;
+  deliveryMethod: EducationDeliveryMethod;
+  comprehensionLevel: EducationComprehensionLevel;
+  comprehensionNotes?: string;
+  barriers?: string[]; // e.g., language, literacy, cognitive, hearing
+  barriersMitigated?: string;
+  teachBackPerformed: boolean;
+  teachBackSuccessful?: boolean;
+  materialsProvided?: string[]; // e.g., pamphlet, video link, QR code
+  familyMemberPresent?: boolean;
+  familyMemberName?: string;
+  followUpRequired: boolean;
+  followUpNotes?: string;
+  educatorId: string;
+  educatorName?: string;
+  educatorRole?: string;
+  deliveredAt: string;
+  durationMinutes?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================
+// CALCULATOR RESULTS MODULE
+// ============================================
+
+export type CalculatorType = 
+  | 'bmi'
+  | 'bsa'
+  | 'gfr'
+  | 'parkland'
+  | 'caprini'
+  | 'wells_dvt'
+  | 'wells_pe'
+  | 'apache_ii'
+  | 'sofa'
+  | 'qsofa'
+  | 'gcs'
+  | 'braden'
+  | 'must'
+  | 'waterlow'
+  | 'news2'
+  | 'mews'
+  | 'sickle_cell'
+  | 'corrected_calcium'
+  | 'anion_gap'
+  | 'creatinine_clearance'
+  | 'other';
+
+export interface CalculatorResult {
+  id: string;
+  patientId?: string;
+  patientName?: string;
+  hospitalId?: string;
+  encounterId?: string;
+  calculatorType: CalculatorType;
+  calculatorName: string;
+  inputValues: Record<string, number | string | boolean>;
+  resultValue: number | string;
+  resultInterpretation: string;
+  riskLevel?: 'low' | 'moderate' | 'high' | 'very_high' | 'critical';
+  recommendations?: string[];
+  calculatedBy: string;
+  calculatedByName?: string;
+  calculatedAt: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================
+// USER & HOSPITAL SETTINGS MODULE
+// ============================================
+
+export interface UserSettings {
+  id: string;
+  userId: string;
+  // Notification preferences
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  smsNotifications: boolean;
+  whatsappNotifications: boolean;
+  // Alert preferences
+  criticalAlertsOnly: boolean;
+  appointmentReminders: boolean;
+  wardRoundReminders: boolean;
+  medicationReminders: boolean;
+  labResultAlerts: boolean;
+  // Display preferences
+  theme: 'light' | 'dark' | 'system';
+  language: string;
+  dateFormat: string;
+  timeFormat: '12h' | '24h';
+  defaultLandingPage?: string;
+  // Clinical preferences
+  defaultHospitalId?: string;
+  defaultWard?: string;
+  autoSaveInterval?: number; // in seconds
+  voiceDictationLanguage?: string;
+  // Accessibility
+  fontSize: 'small' | 'medium' | 'large';
+  highContrast: boolean;
+  reduceMotion: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HospitalSettings {
+  id: string;
+  hospitalId: string;
+  // Branding
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  // Operational settings
+  defaultConsultationFee?: number;
+  defaultCurrency: string;
+  taxRate?: number;
+  // Ward configuration
+  wards?: { name: string; type: string; bedCount: number }[];
+  // Appointment settings
+  appointmentSlotDuration: number; // in minutes
+  appointmentLeadTime: number; // hours before appointment for reminders
+  maxAdvanceBookingDays: number;
+  // Clinical protocols
+  defaultDVTProphylaxis?: string;
+  defaultAntibioticProtocol?: string;
+  requireTwoFactorAuth: boolean;
+  sessionTimeoutMinutes: number;
+  // Sync settings
+  syncIntervalMinutes: number;
+  offlineStorageLimitMB: number;
+  createdAt: string;
+  updatedAt: string;
+}

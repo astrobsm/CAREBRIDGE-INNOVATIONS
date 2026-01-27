@@ -136,6 +136,19 @@ export const TABLES = {
   
   // External Reviews (Admin only)
   externalReviews: 'external_reviews',
+  
+  // Referrals
+  referrals: 'referrals',
+  
+  // Patient Education Records
+  patientEducationRecords: 'patient_education_records',
+  
+  // Calculator Results
+  calculatorResults: 'calculator_results',
+  
+  // User & Hospital Settings
+  userSettings: 'user_settings',
+  hospitalSettings: 'hospital_settings',
 } as const;
 
 // Local to cloud table name mapping
@@ -205,6 +218,15 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   preoperativeAssessments: 'preoperative_assessments',
   // External Reviews (Admin only)
   externalReviews: 'external_reviews',
+  // Referrals
+  referrals: 'referrals',
+  // Patient Education Records
+  patientEducationRecords: 'patient_education_records',
+  // Calculator Results
+  calculatorResults: 'calculator_results',
+  // User & Hospital Settings
+  userSettings: 'user_settings',
+  hospitalSettings: 'hospital_settings',
 };
 
 // Type for sync status

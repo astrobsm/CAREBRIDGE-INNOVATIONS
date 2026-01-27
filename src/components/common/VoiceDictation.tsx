@@ -80,6 +80,25 @@ export function VoiceDictation({
   const [recognitionError, setRecognitionError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Use refs to track current values for use in event handlers
+  // This prevents stale closures in the speech recognition callbacks
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  const interimTranscriptRef = useRef(interimTranscript);
+  
+  // Keep refs in sync with current values
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+  
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+  
+  useEffect(() => {
+    interimTranscriptRef.current = interimTranscript;
+  }, [interimTranscript]);
 
   // Initialize speech recognition
   useEffect(() => {
@@ -105,9 +124,11 @@ export function VoiceDictation({
 
     recognition.onend = () => {
       setIsListening(false);
-      // Append any remaining interim transcript
-      if (interimTranscript) {
-        onChange(value + (value ? ' ' : '') + interimTranscript);
+      // Append any remaining interim transcript using refs for current values
+      const currentInterim = interimTranscriptRef.current;
+      if (currentInterim) {
+        const currentValue = valueRef.current;
+        onChangeRef.current(currentValue + (currentValue ? ' ' : '') + currentInterim);
         setInterimTranscript('');
       }
     };
@@ -148,9 +169,14 @@ export function VoiceDictation({
       }
 
       if (finalTranscript) {
+        // Use ref for current value to avoid stale closure
+        const currentValue = valueRef.current;
         // Add proper spacing and punctuation
-        const spacer = value && !value.endsWith(' ') && !value.endsWith('.') && !value.endsWith(',') ? ' ' : '';
-        onChange(value + spacer + finalTranscript);
+        const spacer = currentValue && !currentValue.endsWith(' ') && !currentValue.endsWith('.') && !currentValue.endsWith(',') ? ' ' : '';
+        const newValue = currentValue + spacer + finalTranscript;
+        onChangeRef.current(newValue);
+        // Update ref immediately so next result has correct value
+        valueRef.current = newValue;
       }
       setInterimTranscript(interim);
     };

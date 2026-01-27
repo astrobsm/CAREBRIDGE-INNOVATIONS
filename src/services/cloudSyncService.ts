@@ -608,6 +608,19 @@ async function pullAllFromCloud(): Promise<void> {
   // External Reviews (Admin only)
   await pullTable(TABLES.externalReviews, 'externalReviews');
   
+  // Referrals
+  await pullTable(TABLES.referrals, 'referrals');
+  
+  // Patient Education Records
+  await pullTable(TABLES.patientEducationRecords, 'patientEducationRecords');
+  
+  // Calculator Results
+  await pullTable(TABLES.calculatorResults, 'calculatorResults');
+  
+  // User & Hospital Settings
+  await pullTable(TABLES.userSettings, 'userSettings');
+  await pullTable(TABLES.hospitalSettings, 'hospitalSettings');
+  
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
 }
@@ -715,6 +728,19 @@ async function pushAllToCloud(): Promise<void> {
   
   // External Reviews (Admin only)
   await pushTable('externalReviews', TABLES.externalReviews);
+  
+  // Referrals
+  await pushTable('referrals', TABLES.referrals);
+  
+  // Patient Education Records
+  await pushTable('patientEducationRecords', TABLES.patientEducationRecords);
+  
+  // Calculator Results
+  await pushTable('calculatorResults', TABLES.calculatorResults);
+  
+  // User & Hospital Settings
+  await pushTable('userSettings', TABLES.userSettings);
+  await pushTable('hospitalSettings', TABLES.hospitalSettings);
   
   // Audit Logs (for accountability across devices)
   await pushTable('auditLogs', TABLES.auditLogs);
@@ -1099,6 +1125,15 @@ function getCloudTableName(localTableName: string): string | null {
     preoperativeAssessments: TABLES.preoperativeAssessments,
     // External Reviews (Admin only)
     externalReviews: TABLES.externalReviews,
+    // Referrals
+    referrals: TABLES.referrals,
+    // Patient Education Records
+    patientEducationRecords: TABLES.patientEducationRecords,
+    // Calculator Results
+    calculatorResults: TABLES.calculatorResults,
+    // User & Hospital Settings
+    userSettings: TABLES.userSettings,
+    hospitalSettings: TABLES.hospitalSettings,
     // Audit Logs
     auditLogs: TABLES.auditLogs,
   };
