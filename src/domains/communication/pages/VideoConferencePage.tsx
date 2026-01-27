@@ -508,11 +508,90 @@ export default function VideoConferencePage() {
     loadConference();
   }, [conferenceId, user?.id]);
 
-  // Subscribe to real-time conference updates via Supabase
+  // Subscribe to real-time conference updates via Supabase AND poll for updates
   useEffect(() => {
     if (!conferenceId || conferenceId === 'new') return;
 
     let subscription: { unsubscribe: () => void } | null = null;
+    let pollingInterval: NodeJS.Timeout | null = null;
+
+    // Process conference updates (from real-time or polling)
+    const processConferenceUpdate = async (conferenceData: Record<string, unknown>) => {
+      // Parse participants from Supabase format
+      const supabaseParticipants = (conferenceData.participants as ConferenceParticipant[]) || [];
+      
+      // Update local state with Supabase data
+      const updatedConf: VideoConference = {
+        id: conferenceData.id as string,
+        roomId: conferenceData.room_id as string,
+        roomCode: conferenceData.room_code as string,
+        title: conferenceData.title as string,
+        description: conferenceData.description as string,
+        scheduledStart: conferenceData.scheduled_start ? new Date(conferenceData.scheduled_start as string) : undefined,
+        scheduledEnd: conferenceData.scheduled_end ? new Date(conferenceData.scheduled_end as string) : undefined,
+        actualStart: conferenceData.actual_start ? new Date(conferenceData.actual_start as string) : undefined,
+        actualEnd: conferenceData.actual_end ? new Date(conferenceData.actual_end as string) : undefined,
+        status: conferenceData.status as 'scheduled' | 'waiting' | 'active' | 'ended' | 'cancelled',
+        hostId: conferenceData.host_id as string,
+        coHostIds: (conferenceData.co_host_ids as string[]) || [],
+        hospitalId: conferenceData.hospital_id as string,
+        participants: supabaseParticipants,
+        settings: (conferenceData.settings as VideoConference['settings']) || {},
+        chatEnabled: conferenceData.chat_enabled as boolean,
+        chatMessages: (conferenceData.chat_messages as ConferenceChatMessage[]) || [],
+        presentation: conferenceData.presentation as VideoConference['presentation'],
+        createdAt: new Date(conferenceData.created_at as string),
+        updatedAt: new Date(conferenceData.updated_at as string),
+      };
+
+      setConference(updatedConf);
+      setParticipants(supabaseParticipants);
+
+      // Also update local IndexedDB to keep in sync
+      await db.videoConferences.put(updatedConf);
+
+      // Update waiting participants for host
+      const waiting = supabaseParticipants.filter(
+        (p: ConferenceParticipant) => p.admissionStatus === 'waiting' && !p.leftAt
+      );
+      setWaitingParticipants(waiting);
+      if (waiting.length > 0 && updatedConf.hostId === user?.id) {
+        setWaitingRoomNotification(true);
+      }
+
+      // Check if current user was admitted
+      if (user) {
+        const myParticipant = supabaseParticipants.find((p: ConferenceParticipant) => p.userId === user.id);
+        if (myParticipant?.admissionStatus === 'admitted' && isInWaitingRoom) {
+          setIsInWaitingRoom(false);
+          setIsJoined(true);
+          toast.success('You have been admitted to the meeting!');
+        } else if (myParticipant?.admissionStatus === 'rejected') {
+          toast.error('Your request to join was declined');
+          navigate('/communication/chat');
+        }
+      }
+
+      // Connect to new admitted participants
+      if (isJoined && isWebRTCInitialized && user) {
+        const newAdmitted = supabaseParticipants.filter(
+          (p: ConferenceParticipant) =>
+            p.admissionStatus === 'admitted' &&
+            p.userId !== user.id &&
+            !p.leftAt &&
+            !remoteStreams.has(p.userId)
+        );
+        for (const participant of newAdmitted) {
+          console.log('[VideoConference] Creating offer to new participant:', participant.userName);
+          WebRTCSignalingService.createOffer(
+            conferenceId,
+            user.id,
+            `${user.firstName} ${user.lastName}`,
+            participant.userId
+          );
+        }
+      }
+    };
 
     const setupRealtimeSubscription = async () => {
       const supabase = await getSupabaseClient();
@@ -520,7 +599,7 @@ export default function VideoConferencePage() {
 
       // Subscribe to conference changes
       subscription = supabase
-        .channel(`conference:${conferenceId}`)
+        .channel(`conference:${conferenceId}:updates`)
         .on(
           'postgres_changes',
           {
@@ -531,55 +610,36 @@ export default function VideoConferencePage() {
           },
           async (payload: { new?: Record<string, unknown> }) => {
             if (payload.new) {
-              const updatedConf = await db.videoConferences.get(conferenceId);
-              if (updatedConf) {
-                setConference(updatedConf);
-                setParticipants(updatedConf.participants);
-                
-                // Update waiting participants for host
-                const waiting = updatedConf.participants.filter(
-                  p => p.admissionStatus === 'waiting' && !p.leftAt
-                );
-                setWaitingParticipants(waiting);
-                if (waiting.length > 0 && updatedConf.hostId === user?.id) {
-                  setWaitingRoomNotification(true);
-                }
-
-                // Check if current user was admitted
-                if (user) {
-                  const myParticipant = updatedConf.participants.find(p => p.userId === user.id);
-                  if (myParticipant?.admissionStatus === 'admitted' && isInWaitingRoom) {
-                    setIsInWaitingRoom(false);
-                    setIsJoined(true);
-                    toast.success('You have been admitted to the meeting!');
-                  } else if (myParticipant?.admissionStatus === 'rejected') {
-                    toast.error('Your request to join was declined');
-                    navigate('/communication/chat');
-                  }
-                }
-
-                // Connect to new admitted participants
-                if (isJoined && isWebRTCInitialized && user) {
-                  const newAdmitted = updatedConf.participants.filter(
-                    p => p.admissionStatus === 'admitted' && 
-                         p.userId !== user.id && 
-                         !p.leftAt &&
-                         !remoteStreams.has(p.userId)
-                  );
-                  for (const participant of newAdmitted) {
-                    WebRTCSignalingService.createOffer(
-                      conferenceId,
-                      user.id,
-                      `${user.firstName} ${user.lastName}`,
-                      participant.userId
-                    );
-                  }
-                }
-              }
+              console.log('[VideoConference] Real-time update received');
+              await processConferenceUpdate(payload.new);
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('[VideoConference] Conference subscription status:', status);
+        });
+
+      // Polling fallback - check for conference updates every 3 seconds
+      pollingInterval = setInterval(async () => {
+        try {
+          const { data: confData, error } = await supabase
+            .from('video_conferences')
+            .select('*')
+            .eq('id', conferenceId)
+            .single();
+
+          if (error) {
+            // Conference might not be in Supabase yet (offline-first)
+            return;
+          }
+
+          if (confData) {
+            await processConferenceUpdate(confData);
+          }
+        } catch (err) {
+          console.error('[VideoConference] Conference polling error:', err);
+        }
+      }, 3000);
     };
 
     setupRealtimeSubscription();
@@ -587,6 +647,9 @@ export default function VideoConferencePage() {
     return () => {
       if (subscription) {
         subscription.unsubscribe();
+      }
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
       }
     };
   }, [conferenceId, user, isJoined, isInWaitingRoom, isWebRTCInitialized, navigate, remoteStreams]);
@@ -651,18 +714,21 @@ export default function VideoConferencePage() {
     };
   }, [isJoined, stream, conference, user, isWebRTCInitialized]);
 
-  // Subscribe to WebRTC signaling messages
+  // Subscribe to WebRTC signaling messages AND poll for updates
   useEffect(() => {
     if (!conferenceId || !user || !isJoined) return;
 
     let signalingSubscription: { unsubscribe: () => void } | null = null;
+    let pollingInterval: NodeJS.Timeout | null = null;
+    let lastSignalingCheck = new Date();
 
     const setupSignalingSubscription = async () => {
       const supabase = await getSupabaseClient();
       if (!supabase) return;
 
+      // Real-time subscription for signaling messages
       signalingSubscription = supabase
-        .channel(`signaling:${conferenceId}`)
+        .channel(`signaling:${conferenceId}:${user.id}`)
         .on(
           'postgres_changes',
           {
@@ -684,6 +750,8 @@ export default function VideoConferencePage() {
                 createdAt: new Date(payload.new.created_at as string),
               };
 
+              console.log('[VideoConference] Received signaling message:', message.type, 'from:', message.fromUserName);
+
               // Process the signaling message
               await WebRTCSignalingService.processSignalingMessage(
                 conferenceId,
@@ -694,7 +762,52 @@ export default function VideoConferencePage() {
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('[VideoConference] Signaling subscription status:', status);
+        });
+
+      // Polling fallback - check for new signaling messages every 2 seconds
+      pollingInterval = setInterval(async () => {
+        try {
+          const { data: messages, error } = await supabase
+            .from('rtc_signaling')
+            .select('*')
+            .eq('conference_id', conferenceId)
+            .gt('created_at', lastSignalingCheck.toISOString())
+            .order('created_at', { ascending: true });
+
+          if (error) {
+            console.error('[VideoConference] Polling error:', error);
+            return;
+          }
+
+          if (messages && messages.length > 0) {
+            console.log('[VideoConference] Polled', messages.length, 'new signaling messages');
+            for (const msg of messages) {
+              const message: RTCSignalingMessage = {
+                id: msg.id,
+                conferenceId: msg.conference_id,
+                fromUserId: msg.from_user_id,
+                fromUserName: msg.from_user_name,
+                toUserId: msg.to_user_id,
+                type: msg.type,
+                payload: msg.payload,
+                createdAt: new Date(msg.created_at),
+              };
+
+              await WebRTCSignalingService.processSignalingMessage(
+                conferenceId,
+                user.id,
+                `${user.firstName} ${user.lastName}`,
+                message
+              );
+            }
+            lastSignalingCheck = new Date(messages[messages.length - 1].created_at);
+          }
+        } catch (err) {
+          console.error('[VideoConference] Polling error:', err);
+        }
+      }, 2000);
     };
 
     setupSignalingSubscription();
@@ -702,6 +815,9 @@ export default function VideoConferencePage() {
     return () => {
       if (signalingSubscription) {
         signalingSubscription.unsubscribe();
+      }
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
       }
     };
   }, [conferenceId, user, isJoined]);

@@ -48,7 +48,35 @@ ALTER PUBLICATION supabase_realtime ADD TABLE rtc_signaling;
 COMMENT ON TABLE rtc_signaling IS 'WebRTC signaling messages for peer-to-peer video conferencing. Messages are exchanged between participants to establish direct connections.';
 
 -- ============================================
--- 5. SET UP ROW LEVEL SECURITY
+-- 5. ADD room_id COLUMN TO video_conferences IF MISSING
+-- ============================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'video_conferences' AND column_name = 'room_id'
+  ) THEN
+    ALTER TABLE video_conferences ADD COLUMN room_id TEXT;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'video_conferences' AND column_name = 'room_code'
+  ) THEN
+    ALTER TABLE video_conferences ADD COLUMN room_code TEXT;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'video_conferences' AND column_name = 'co_host_ids'
+  ) THEN
+    ALTER TABLE video_conferences ADD COLUMN co_host_ids JSONB DEFAULT '[]'::jsonb;
+  END IF;
+END $$;
+
+-- ============================================
+-- 6. SET UP ROW LEVEL SECURITY
 -- ============================================
 
 ALTER TABLE rtc_signaling ENABLE ROW LEVEL SECURITY;
