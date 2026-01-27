@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
   Save,
@@ -17,11 +17,25 @@ import {
   Scale,
   Ruler,
   AlertCircle,
+  TrendingUp,
+  BarChart3,
+  RefreshCw,
 } from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  ReferenceLine,
+} from 'recharts';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
-import { syncRecord } from '../../../services/cloudSyncService';
+import { syncRecord, fullSync } from '../../../services/cloudSyncService';
 import type { VitalSigns } from '../../../types';
 import { format } from 'date-fns';
 
@@ -46,18 +60,67 @@ export default function VitalsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [showCharts, setShowCharts] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const patient = useLiveQuery(
     () => patientId ? db.patients.get(patientId) : undefined,
     [patientId]
   );
 
+  // Get more vitals for charting (last 20 readings)
   const previousVitals = useLiveQuery(
     () => patientId
-      ? db.vitalSigns.where('patientId').equals(patientId).reverse().limit(10).toArray()
+      ? db.vitalSigns.where('patientId').equals(patientId).reverse().limit(20).toArray()
       : [],
     [patientId]
   );
+
+  // Trigger sync on mount and periodically to ensure cross-device consistency
+  useEffect(() => {
+    const triggerSync = async () => {
+      try {
+        await fullSync();
+      } catch (err) {
+        console.warn('Background sync failed:', err);
+      }
+    };
+    
+    // Sync on mount
+    triggerSync();
+    
+    // Set up polling every 15 seconds for this page
+    const interval = setInterval(triggerSync, 15000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Manual sync function
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await fullSync();
+      toast.success('Data synced successfully!');
+    } catch (err) {
+      toast.error('Sync failed. Please try again.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Prepare chart data (reverse to show chronological order)
+  const chartData = previousVitals
+    ? [...previousVitals].reverse().map((v, index) => ({
+        index: index + 1,
+        time: format(new Date(v.recordedAt), 'MMM d HH:mm'),
+        temperature: v.temperature,
+        pulse: v.pulse,
+        systolic: v.bloodPressureSystolic,
+        diastolic: v.bloodPressureDiastolic,
+        spo2: v.oxygenSaturation,
+        rr: v.respiratoryRate,
+      }))
+    : [];
 
   const {
     register,
@@ -195,8 +258,250 @@ export default function VitalsPage() {
               Patient: {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCharts(!showCharts)}
+              className={`btn ${showCharts ? 'btn-primary' : 'btn-secondary'} flex items-center gap-2`}
+            >
+              <BarChart3 size={18} />
+              {showCharts ? 'Hide Charts' : 'Show Charts'}
+            </button>
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="btn btn-secondary flex items-center gap-2"
+              title="Sync with cloud"
+            >
+              <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
+              {isSyncing ? 'Syncing...' : 'Sync'}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Vital Signs Trend Charts */}
+      <AnimatePresence>
+        {showCharts && chartData.length > 1 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-6"
+          >
+            <div className="card">
+              <div className="card-header flex items-center gap-3">
+                <TrendingUp className="w-5 h-5 text-blue-500" />
+                <h2 className="font-semibold text-gray-900">Vital Signs Trends</h2>
+                <span className="text-sm text-gray-500">({chartData.length} readings)</span>
+              </div>
+              <div className="card-body">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Heart Rate & Blood Pressure Chart */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                      <Heart size={16} className="text-red-500" />
+                      Heart Rate & Blood Pressure
+                    </h3>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis 
+                            dataKey="time" 
+                            fontSize={10} 
+                            tick={{ fill: '#6b7280' }}
+                            tickLine={false}
+                          />
+                          <YAxis 
+                            fontSize={10} 
+                            tick={{ fill: '#6b7280' }}
+                            tickLine={false}
+                            domain={[40, 180]}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: '#1f2937', 
+                              border: 'none', 
+                              borderRadius: '8px',
+                              color: 'white'
+                            }}
+                          />
+                          <Legend fontSize={10} />
+                          <ReferenceLine y={100} stroke="#ef4444" strokeDasharray="5 5" opacity={0.5} />
+                          <ReferenceLine y={60} stroke="#f59e0b" strokeDasharray="5 5" opacity={0.5} />
+                          <Line 
+                            type="monotone" 
+                            dataKey="pulse" 
+                            name="Pulse (bpm)"
+                            stroke="#ef4444" 
+                            strokeWidth={2}
+                            dot={{ fill: '#ef4444', strokeWidth: 0, r: 3 }}
+                            activeDot={{ r: 5 }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="systolic" 
+                            name="Systolic BP"
+                            stroke="#8b5cf6" 
+                            strokeWidth={2}
+                            dot={{ fill: '#8b5cf6', strokeWidth: 0, r: 3 }}
+                            activeDot={{ r: 5 }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="diastolic" 
+                            name="Diastolic BP"
+                            stroke="#06b6d4" 
+                            strokeWidth={2}
+                            dot={{ fill: '#06b6d4', strokeWidth: 0, r: 3 }}
+                            activeDot={{ r: 5 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Temperature & SpO2 Chart */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                      <Thermometer size={16} className="text-orange-500" />
+                      Temperature & Oxygen Saturation
+                    </h3>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis 
+                            dataKey="time" 
+                            fontSize={10} 
+                            tick={{ fill: '#6b7280' }}
+                            tickLine={false}
+                          />
+                          <YAxis 
+                            yAxisId="temp"
+                            fontSize={10} 
+                            tick={{ fill: '#6b7280' }}
+                            tickLine={false}
+                            domain={[35, 40]}
+                            orientation="left"
+                          />
+                          <YAxis 
+                            yAxisId="spo2"
+                            fontSize={10} 
+                            tick={{ fill: '#6b7280' }}
+                            tickLine={false}
+                            domain={[85, 100]}
+                            orientation="right"
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: '#1f2937', 
+                              border: 'none', 
+                              borderRadius: '8px',
+                              color: 'white'
+                            }}
+                          />
+                          <Legend fontSize={10} />
+                          <ReferenceLine yAxisId="temp" y={37.5} stroke="#f59e0b" strokeDasharray="5 5" opacity={0.5} />
+                          <ReferenceLine yAxisId="spo2" y={95} stroke="#22c55e" strokeDasharray="5 5" opacity={0.5} />
+                          <Line 
+                            yAxisId="temp"
+                            type="monotone" 
+                            dataKey="temperature" 
+                            name="Temp (°C)"
+                            stroke="#f97316" 
+                            strokeWidth={2}
+                            dot={{ fill: '#f97316', strokeWidth: 0, r: 3 }}
+                            activeDot={{ r: 5 }}
+                          />
+                          <Line 
+                            yAxisId="spo2"
+                            type="monotone" 
+                            dataKey="spo2" 
+                            name="SpO2 (%)"
+                            stroke="#22c55e" 
+                            strokeWidth={2}
+                            dot={{ fill: '#22c55e', strokeWidth: 0, r: 3 }}
+                            activeDot={{ r: 5 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Respiratory Rate Chart */}
+                  <div className="bg-gray-50 rounded-lg p-4 lg:col-span-2">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                      <Wind size={16} className="text-blue-500" />
+                      Respiratory Rate Trend
+                    </h3>
+                    <div className="h-36">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis 
+                            dataKey="time" 
+                            fontSize={10} 
+                            tick={{ fill: '#6b7280' }}
+                            tickLine={false}
+                          />
+                          <YAxis 
+                            fontSize={10} 
+                            tick={{ fill: '#6b7280' }}
+                            tickLine={false}
+                            domain={[8, 30]}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: '#1f2937', 
+                              border: 'none', 
+                              borderRadius: '8px',
+                              color: 'white'
+                            }}
+                          />
+                          <Legend fontSize={10} />
+                          <ReferenceLine y={20} stroke="#f59e0b" strokeDasharray="5 5" opacity={0.5} />
+                          <ReferenceLine y={12} stroke="#22c55e" strokeDasharray="5 5" opacity={0.5} />
+                          <Line 
+                            type="monotone" 
+                            dataKey="rr" 
+                            name="Resp. Rate (breaths/min)"
+                            stroke="#3b82f6" 
+                            strokeWidth={2}
+                            dot={{ fill: '#3b82f6', strokeWidth: 0, r: 3 }}
+                            activeDot={{ r: 5 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Legend for reference lines */}
+                <div className="mt-4 flex flex-wrap gap-4 text-xs text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-0.5 bg-amber-500 opacity-50" style={{ borderStyle: 'dashed' }}></div>
+                    <span>Warning threshold</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-0.5 bg-green-500 opacity-50" style={{ borderStyle: 'dashed' }}></div>
+                    <span>Normal threshold</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {chartData.length <= 1 && showCharts && (
+        <div className="mb-6 card">
+          <div className="card-body text-center py-8">
+            <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">Charts will appear after recording at least 2 vital sign entries.</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Vitals Form */}

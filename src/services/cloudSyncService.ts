@@ -239,6 +239,14 @@ export function initCloudSync() {
         fullSync();
       }
     }, 300000);
+
+    // Set up aggressive polling for critical clinical data every 30 seconds
+    // This ensures cross-device sync even if real-time fails
+    setInterval(() => {
+      if (navigator.onLine && isSupabaseConfigured()) {
+        syncCriticalClinicalData();
+      }
+    }, 30000);
   } else {
     console.log('[CloudSync] Skipping sync - not online or Supabase not configured');
   }
@@ -922,6 +930,28 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
   }
 }
 
+// Sync critical clinical data more frequently for cross-device consistency
+async function syncCriticalClinicalData() {
+  if (!isSupabaseConfigured() || !supabase) return;
+  
+  const criticalTables = [
+    { cloud: TABLES.vitalSigns, local: 'vitalSigns' },
+    { cloud: TABLES.clinicalEncounters, local: 'clinicalEncounters' },
+    { cloud: TABLES.wardRounds, local: 'wardRounds' },
+    { cloud: TABLES.prescriptions, local: 'prescriptions' },
+    { cloud: TABLES.medicationCharts, local: 'medicationCharts' },
+    { cloud: TABLES.labRequests, local: 'labRequests' },
+  ];
+
+  for (const { cloud, local } of criticalTables) {
+    try {
+      await pullTable(cloud, local);
+    } catch (err) {
+      console.warn(`[CloudSync] Failed to sync critical table ${local}:`, err);
+    }
+  }
+}
+
 // Set up real-time subscriptions for live updates
 function setupRealtimeSubscriptions() {
   if (!supabase) return;
@@ -948,6 +978,18 @@ function setupRealtimeSubscriptions() {
     { cloud: TABLES.appointments, local: 'appointments' },
     { cloud: TABLES.chatMessages, local: 'chatMessages' },
     { cloud: TABLES.medicationCharts, local: 'medicationCharts' },
+    // Critical clinical data for cross-device sync
+    { cloud: TABLES.vitalSigns, local: 'vitalSigns' },
+    { cloud: TABLES.clinicalEncounters, local: 'clinicalEncounters' },
+    { cloud: TABLES.wardRounds, local: 'wardRounds' },
+    { cloud: TABLES.surgeries, local: 'surgeries' },
+    { cloud: TABLES.wounds, local: 'wounds' },
+    { cloud: TABLES.burnAssessments, local: 'burnAssessments' },
+    { cloud: TABLES.labRequests, local: 'labRequests' },
+    { cloud: TABLES.investigations, local: 'investigations' },
+    { cloud: TABLES.treatmentPlans, local: 'treatmentPlans' },
+    { cloud: TABLES.treatmentProgress, local: 'treatmentProgress' },
+    { cloud: TABLES.dischargeSummaries, local: 'dischargeSummaries' },
   ];
 
   // Batch subscribe to avoid overwhelming Supabase connection limits
