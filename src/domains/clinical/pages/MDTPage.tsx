@@ -355,7 +355,21 @@ export default function MDTPage() {
     setHasScrolledToEnd(false);
   }, [selectedPatientId]);
 
+  // Handle scroll to detect when user reaches the end
+  const handleSummaryScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    // Consider "scrolled to end" when within 50px of bottom
+    if (scrollHeight - scrollTop - clientHeight < 50) {
+      setHasScrolledToEnd(true);
+    }
+  };
+
+  const selectedPatient = useMemo(() => {
+    return patients?.find(p => p.id === selectedPatientId);
+  }, [patients, selectedPatientId]);
+
   // Check if content doesn't require scrolling (fits entirely in view)
+  // Must be AFTER selectedPatient is defined to avoid hoisting issues
   useEffect(() => {
     const checkScrollRequired = () => {
       const el = summaryScrollRef.current;
@@ -372,19 +386,6 @@ export default function MDTPage() {
     const timer = setTimeout(checkScrollRequired, 300);
     return () => clearTimeout(timer);
   }, [selectedPatientId, selectedPatient]);
-
-  // Handle scroll to detect when user reaches the end
-  const handleSummaryScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    // Consider "scrolled to end" when within 50px of bottom
-    if (scrollHeight - scrollTop - clientHeight < 50) {
-      setHasScrolledToEnd(true);
-    }
-  };
-
-  const selectedPatient = useMemo(() => {
-    return patients?.find(p => p.id === selectedPatientId);
-  }, [patients, selectedPatientId]);
 
   // Get hospital for selected patient
   const patientHospital = useMemo(() => {
