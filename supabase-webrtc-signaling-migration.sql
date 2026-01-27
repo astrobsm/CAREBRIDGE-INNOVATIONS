@@ -19,10 +19,7 @@ CREATE TABLE IF NOT EXISTS rtc_signaling (
   to_user_id TEXT NOT NULL, -- 'all' for broadcast or specific user ID
   type TEXT NOT NULL CHECK (type IN ('offer', 'answer', 'ice-candidate', 'participant-update')),
   payload TEXT NOT NULL, -- JSON stringified SDP or ICE candidate
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  
-  -- Index for efficient lookups
-  CONSTRAINT rtc_signaling_type_check CHECK (type IN ('offer', 'answer', 'ice-candidate', 'participant-update'))
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================
