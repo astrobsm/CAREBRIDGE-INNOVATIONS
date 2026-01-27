@@ -605,6 +605,222 @@ function ActivePollDisplay({
   );
 }
 
+// Q&A Panel Component
+function QAPanel({
+  questions,
+  onAskQuestion,
+  onAnswerQuestion,
+  onUpvote,
+  onPinQuestion,
+  userId,
+  userName,
+  isHost,
+  onClose,
+}: {
+  questions: ConferenceQA[];
+  onAskQuestion: (question: string) => void;
+  onAnswerQuestion: (questionId: string, answer: string) => void;
+  onUpvote: (questionId: string) => void;
+  onPinQuestion: (questionId: string) => void;
+  userId: string;
+  userName: string;
+  isHost: boolean;
+  onClose: () => void;
+}) {
+  const [newQuestion, setNewQuestion] = useState('');
+  const [answeringId, setAnsweringId] = useState<string | null>(null);
+  const [answerText, setAnswerText] = useState('');
+  const [filter, setFilter] = useState<'all' | 'unanswered' | 'answered'>('all');
+
+  const handleSubmitQuestion = () => {
+    if (!newQuestion.trim()) return;
+    onAskQuestion(newQuestion.trim());
+    setNewQuestion('');
+  };
+
+  const handleSubmitAnswer = (questionId: string) => {
+    if (!answerText.trim()) return;
+    onAnswerQuestion(questionId, answerText.trim());
+    setAnswerText('');
+    setAnsweringId(null);
+  };
+
+  const filteredQuestions = questions.filter(q => {
+    if (filter === 'unanswered') return !q.isAnswered;
+    if (filter === 'answered') return q.isAnswered;
+    return true;
+  });
+
+  const sortedQuestions = [...filteredQuestions].sort((a, b) => {
+    // Pinned first, then by upvotes, then by date
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    if (b.upvotes !== a.upvotes) return b.upvotes - a.upvotes;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  return (
+    <div className="flex flex-col h-full bg-white">
+      <div className="p-4 border-b flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <HelpCircle size={20} className="text-blue-600" />
+          <h3 className="font-semibold">Q&A</h3>
+          <span className="text-sm text-gray-500">
+            {questions.filter(q => !q.isAnswered).length} unanswered
+          </span>
+        </div>
+        <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+          <X size={18} />
+        </button>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex border-b">
+        {(['all', 'unanswered', 'answered'] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${
+              filter === f
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Questions list */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {sortedQuestions.length === 0 ? (
+          <div className="text-center text-gray-500 py-8">
+            <HelpCircle size={40} className="mx-auto mb-2 text-gray-300" />
+            <p>No questions yet</p>
+            <p className="text-sm">Be the first to ask!</p>
+          </div>
+        ) : (
+          sortedQuestions.map(q => (
+            <div
+              key={q.id}
+              className={`p-3 rounded-lg border ${
+                q.isPinned ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                {/* Upvote button */}
+                <button
+                  onClick={() => onUpvote(q.id)}
+                  disabled={q.upvoters.includes(userId)}
+                  className={`flex flex-col items-center p-1 rounded ${
+                    q.upvoters.includes(userId)
+                      ? 'text-blue-600'
+                      : 'text-gray-400 hover:text-blue-600'
+                  }`}
+                >
+                  <ChevronUp size={20} />
+                  <span className="text-xs font-medium">{q.upvotes}</span>
+                </button>
+
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-medium">{q.askerName}</span>
+                    {q.isPinned && (
+                      <Pin size={12} className="text-yellow-600" />
+                    )}
+                    {q.isAnswered && (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                        Answered
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-800">{q.question}</p>
+
+                  {/* Answer */}
+                  {q.isAnswered && q.answer && (
+                    <div className="mt-2 pl-3 border-l-2 border-green-400">
+                      <p className="text-sm text-gray-600">{q.answer}</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        — {q.answeredByName}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Answer form (for host) */}
+                  {isHost && !q.isAnswered && answeringId === q.id && (
+                    <div className="mt-2">
+                      <textarea
+                        value={answerText}
+                        onChange={(e) => setAnswerText(e.target.value)}
+                        placeholder="Type your answer..."
+                        className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                        rows={2}
+                      />
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => handleSubmitAnswer(q.id)}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                        >
+                          Submit Answer
+                        </button>
+                        <button
+                          onClick={() => { setAnsweringId(null); setAnswerText(''); }}
+                          className="px-3 py-1 text-gray-600 text-sm hover:bg-gray-100 rounded-lg"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  {isHost && !q.isAnswered && answeringId !== q.id && (
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => setAnsweringId(q.id)}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Answer
+                      </button>
+                      <button
+                        onClick={() => onPinQuestion(q.id)}
+                        className="text-xs text-gray-600 hover:underline"
+                      >
+                        {q.isPinned ? 'Unpin' : 'Pin'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Ask question form */}
+      <div className="p-4 border-t">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newQuestion}
+            onChange={(e) => setNewQuestion(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSubmitQuestion()}
+            placeholder="Type your question..."
+            className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={handleSubmitQuestion}
+            disabled={!newQuestion.trim()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Send size={18} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Slide presenter component
 function SlidePresenter({
   slides,
@@ -1955,6 +2171,71 @@ export default function VideoConferencePage() {
     // In real implementation, send via Supabase for real-time sync
   };
 
+  // ============================================================
+  // Q&A FUNCTIONS
+  // ============================================================
+
+  const askQuestion = (questionText: string) => {
+    if (!user || !conference) return;
+
+    const question: ConferenceQA = {
+      id: uuidv4(),
+      conferenceId: conference.id,
+      askerId: user.id,
+      askerName: `${user.firstName} ${user.lastName}`,
+      question: questionText,
+      isAnswered: false,
+      isPinned: false,
+      upvotes: 0,
+      upvoters: [],
+      createdAt: new Date(),
+    };
+
+    setQaQuestions(prev => [...prev, question]);
+    toast.success('Question submitted');
+  };
+
+  const answerQuestion = (questionId: string, answer: string) => {
+    if (!user || !isHostOrCoHost()) return;
+
+    setQaQuestions(prev => prev.map(q =>
+      q.id === questionId
+        ? {
+            ...q,
+            answer,
+            answeredBy: user.id,
+            answeredByName: `${user.firstName} ${user.lastName}`,
+            isAnswered: true,
+            answeredAt: new Date(),
+          }
+        : q
+    ));
+    toast.success('Answer submitted');
+  };
+
+  const upvoteQuestion = (questionId: string) => {
+    if (!user) return;
+
+    setQaQuestions(prev => prev.map(q => {
+      if (q.id !== questionId) return q;
+      if (q.upvoters.includes(user.id)) return q; // Already upvoted
+
+      return {
+        ...q,
+        upvotes: q.upvotes + 1,
+        upvoters: [...q.upvoters, user.id],
+      };
+    }));
+  };
+
+  const pinQuestion = (questionId: string) => {
+    if (!isHostOrCoHost()) return;
+
+    setQaQuestions(prev => prev.map(q =>
+      q.id === questionId ? { ...q, isPinned: !q.isPinned } : q
+    ));
+  };
+
   // Leave conference
   const handleLeaveConference = async () => {
     if (!user || !conference) return;
@@ -2609,7 +2890,10 @@ export default function VideoConferencePage() {
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Floating Reactions Overlay */}
+        <FloatingReactions reactions={reactions} />
+
         {/* Video grid or presentation */}
         <div className="flex-1 p-2 sm:p-4">
           {showPresentation ? (
@@ -2677,22 +2961,33 @@ export default function VideoConferencePage() {
                 <>
                   {/* Main speaker (first participant or active speaker) */}
                   <div className="flex-1">
-                    {participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt).length > 0 ? (
-                      <ParticipantVideo 
-                        participant={participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt)[0]} 
-                        isLarge 
-                        isSelf={participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt)[0].userId === user?.id}
-                        videoStream={
-                          participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt)[0].userId === user?.id 
-                            ? stream 
-                            : remoteStreams.get(participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt)[0].userId) || null
-                        }
-                      />
-                    ) : (
-                      <div className="h-full bg-gray-800 rounded-xl flex items-center justify-center">
-                        <p className="text-gray-400">Waiting for participants...</p>
-                      </div>
-                    )}
+                    {(() => {
+                      const admittedParticipants = participants.filter(p => p.admissionStatus === 'admitted' && !p.leftAt);
+                      const mainSpeaker = admittedParticipants[0];
+                      return admittedParticipants.length > 0 ? (
+                        <ParticipantVideo 
+                          participant={mainSpeaker} 
+                          isLarge 
+                          isSelf={mainSpeaker.userId === user?.id}
+                          videoStream={mainSpeaker.userId === user?.id ? stream : remoteStreams.get(mainSpeaker.userId) || null}
+                          isHostOrCoHost={isHostOrCoHost()}
+                          isPinned={pinnedParticipants.includes(mainSpeaker.userId)}
+                          onMute={isHostOrCoHost() ? () => muteParticipant(mainSpeaker.userId) : undefined}
+                          onStopVideo={isHostOrCoHost() ? () => stopParticipantVideo(mainSpeaker.userId) : undefined}
+                          onRemove={isHostOrCoHost() ? () => removeParticipant(mainSpeaker.userId) : undefined}
+                          onSpotlight={isHostOrCoHost() ? () => spotlightUser(mainSpeaker.userId) : undefined}
+                          onPin={() => togglePinParticipant(mainSpeaker.userId)}
+                          onMakePresenter={isHostOrCoHost() ? () => makePresenter(mainSpeaker.userId) : undefined}
+                          onPromoteCoHost={conference?.hostId === user?.id && mainSpeaker.role !== 'co_host' ? () => promoteToCoHost(mainSpeaker.userId) : undefined}
+                          onDemoteCoHost={conference?.hostId === user?.id && mainSpeaker.role === 'co_host' ? () => demoteFromCoHost(mainSpeaker.userId) : undefined}
+                          onPrivateChat={() => { setPrivateChatRecipient(mainSpeaker.userId); setShowChat(true); }}
+                        />
+                      ) : (
+                        <div className="h-full bg-gray-800 rounded-xl flex items-center justify-center">
+                          <p className="text-gray-400">Waiting for participants...</p>
+                        </div>
+                      );
+                    })()}
                   </div>
                   
                   {/* Thumbnail strip */}
@@ -2704,6 +2999,17 @@ export default function VideoConferencePage() {
                             participant={p}
                             isSelf={p.userId === user?.id}
                             videoStream={p.userId === user?.id ? stream : remoteStreams.get(p.userId) || null}
+                            isHostOrCoHost={isHostOrCoHost()}
+                            isPinned={pinnedParticipants.includes(p.userId)}
+                            onMute={isHostOrCoHost() ? () => muteParticipant(p.userId) : undefined}
+                            onStopVideo={isHostOrCoHost() ? () => stopParticipantVideo(p.userId) : undefined}
+                            onRemove={isHostOrCoHost() ? () => removeParticipant(p.userId) : undefined}
+                            onSpotlight={isHostOrCoHost() ? () => spotlightUser(p.userId) : undefined}
+                            onPin={() => togglePinParticipant(p.userId)}
+                            onMakePresenter={isHostOrCoHost() ? () => makePresenter(p.userId) : undefined}
+                            onPromoteCoHost={conference?.hostId === user?.id && p.role !== 'co_host' ? () => promoteToCoHost(p.userId) : undefined}
+                            onDemoteCoHost={conference?.hostId === user?.id && p.role === 'co_host' ? () => demoteFromCoHost(p.userId) : undefined}
+                            onPrivateChat={() => { setPrivateChatRecipient(p.userId); setShowChat(true); }}
                           />
                         </div>
                       ))}
@@ -2718,6 +3024,17 @@ export default function VideoConferencePage() {
                     participant={p}
                     isSelf={p.userId === user?.id}
                     videoStream={p.userId === user?.id ? stream : remoteStreams.get(p.userId) || null}
+                    isHostOrCoHost={isHostOrCoHost()}
+                    isPinned={pinnedParticipants.includes(p.userId)}
+                    onMute={isHostOrCoHost() ? () => muteParticipant(p.userId) : undefined}
+                    onStopVideo={isHostOrCoHost() ? () => stopParticipantVideo(p.userId) : undefined}
+                    onRemove={isHostOrCoHost() ? () => removeParticipant(p.userId) : undefined}
+                    onSpotlight={isHostOrCoHost() ? () => spotlightUser(p.userId) : undefined}
+                    onPin={() => togglePinParticipant(p.userId)}
+                    onMakePresenter={isHostOrCoHost() ? () => makePresenter(p.userId) : undefined}
+                    onPromoteCoHost={conference?.hostId === user?.id && p.role !== 'co_host' ? () => promoteToCoHost(p.userId) : undefined}
+                    onDemoteCoHost={conference?.hostId === user?.id && p.role === 'co_host' ? () => demoteFromCoHost(p.userId) : undefined}
+                    onPrivateChat={() => { setPrivateChatRecipient(p.userId); setShowChat(true); }}
                   />
                 ))
               )}
@@ -2966,8 +3283,44 @@ export default function VideoConferencePage() {
               </div>
             </motion.div>
           )}
+
+          {/* Q&A Panel */}
+          {showQAPanel && (
+            <QAPanel
+              questions={qaQuestions}
+              isHost={isHostOrCoHost()}
+              currentUserId={user?.id || ''}
+              onAskQuestion={(question) => askQuestion(question)}
+              onAnswerQuestion={(questionId, answer) => answerQuestion(questionId, answer)}
+              onUpvote={(questionId) => upvoteQuestion(questionId)}
+              onPin={(questionId) => pinQuestion(questionId)}
+              onClose={() => setShowQAPanel(false)}
+            />
+          )}
         </AnimatePresence>
       </div>
+
+      {/* Active Poll Display - Bottom right corner */}
+      {activePoll && !showPollModal && (
+        <div className="absolute bottom-24 right-4 z-30">
+          <ActivePollDisplay
+            poll={activePoll}
+            onVote={(optionId) => votePoll(activePoll.id, optionId)}
+            onClose={isHostOrCoHost() ? () => closePoll(activePoll.id) : undefined}
+            hasVoted={activePoll.votes?.some(v => v.voterId === user?.id) || false}
+          />
+        </div>
+      )}
+
+      {/* Poll Creation Modal */}
+      <AnimatePresence>
+        {showPollModal && (
+          <PollModal
+            onClose={() => setShowPollModal(false)}
+            onCreate={(question, options) => createPoll(question, options)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Control bar */}
       <div className="px-4 py-4 bg-gray-800/90 backdrop-blur">
@@ -3049,18 +3402,92 @@ export default function VideoConferencePage() {
             <Hand size={22} className="text-white" />
           </button>
 
-          {/* View mode */}
-          <button
-            onClick={() => setViewMode(viewMode === 'grid' ? 'speaker' : 'grid')}
-            className="p-4 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors"
-            title={viewMode === 'grid' ? 'Speaker view' : 'Grid view'}
-          >
-            {viewMode === 'grid' ? (
-              <User size={22} className="text-white" />
-            ) : (
-              <Grid3X3 size={22} className="text-white" />
-            )}
-          </button>
+          {/* Reactions */}
+          <div className="relative">
+            <button
+              onClick={() => setShowReactionPicker(!showReactionPicker)}
+              className="p-4 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors"
+              title="Send reaction"
+            >
+              <Smile size={22} className="text-white" />
+            </button>
+            <AnimatePresence>
+              {showReactionPicker && (
+                <ReactionPicker
+                  onSelect={(type) => sendReaction(type as MeetingReaction['type'])}
+                  onClose={() => setShowReactionPicker(false)}
+                />
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Layout mode selector */}
+          <div className="relative">
+            <button
+              onClick={() => setShowLayoutOptions(!showLayoutOptions)}
+              className="p-4 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors"
+              title="Change layout"
+            >
+              {layoutMode === 'grid' ? (
+                <LayoutGrid size={22} className="text-white" />
+              ) : layoutMode === 'spotlight' ? (
+                <Sparkles size={22} className="text-white" />
+              ) : layoutMode === 'presentation' ? (
+                <PictureInPicture2 size={22} className="text-white" />
+              ) : (
+                <LayoutList size={22} className="text-white" />
+              )}
+            </button>
+            <AnimatePresence>
+              {showLayoutOptions && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 rounded-lg shadow-xl py-2 min-w-[160px]"
+                >
+                  <button
+                    onClick={() => { setLayoutMode('grid'); setShowLayoutOptions(false); }}
+                    className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${
+                      layoutMode === 'grid' ? 'text-blue-400 bg-gray-700' : 'text-white hover:bg-gray-700'
+                    }`}
+                  >
+                    <LayoutGrid size={16} />
+                    Grid View
+                  </button>
+                  <button
+                    onClick={() => { setLayoutMode('speaker'); setShowLayoutOptions(false); }}
+                    className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${
+                      layoutMode === 'speaker' ? 'text-blue-400 bg-gray-700' : 'text-white hover:bg-gray-700'
+                    }`}
+                  >
+                    <LayoutList size={16} />
+                    Speaker View
+                  </button>
+                  <button
+                    onClick={() => { setLayoutMode('presentation'); setShowLayoutOptions(false); }}
+                    className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${
+                      layoutMode === 'presentation' ? 'text-blue-400 bg-gray-700' : 'text-white hover:bg-gray-700'
+                    }`}
+                  >
+                    <PictureInPicture2 size={16} />
+                    Presentation View
+                  </button>
+                  {spotlightParticipant && (
+                    <button
+                      onClick={() => { setLayoutMode('spotlight'); setShowLayoutOptions(false); }}
+                      className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${
+                        layoutMode === 'spotlight' ? 'text-blue-400 bg-gray-700' : 'text-white hover:bg-gray-700'
+                      }`}
+                    >
+                      <Sparkles size={16} />
+                      Spotlight View
+                    </button>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           <div className="w-px h-10 bg-gray-600 mx-2" />
 
@@ -3117,6 +3544,7 @@ export default function VideoConferencePage() {
               if (!showChat) {
                 setShowParticipants(false);
                 setShowWaitingRoom(false);
+                setShowQAPanel(false);
               }
             }}
             className={`p-4 rounded-full transition-colors relative ${
@@ -3133,6 +3561,79 @@ export default function VideoConferencePage() {
               </span>
             )}
           </button>
+
+          {/* Polls (Host/Co-Host only) */}
+          {isHostOrCoHost() && (
+            <button
+              onClick={() => setShowPollModal(true)}
+              className={`p-4 rounded-full transition-colors relative ${
+                activePoll 
+                  ? 'bg-purple-500 hover:bg-purple-600' 
+                  : 'bg-gray-700 hover:bg-gray-600'
+              }`}
+              title="Create Poll"
+            >
+              <BarChart3 size={22} className="text-white" />
+              {activePoll && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+              )}
+            </button>
+          )}
+
+          {/* Q&A */}
+          <button
+            onClick={() => {
+              setShowQAPanel(!showQAPanel);
+              if (!showQAPanel) {
+                setShowChat(false);
+                setShowParticipants(false);
+                setShowWaitingRoom(false);
+              }
+            }}
+            className={`p-4 rounded-full transition-colors relative ${
+              showQAPanel 
+                ? 'bg-blue-500 hover:bg-blue-600' 
+                : 'bg-gray-700 hover:bg-gray-600'
+            }`}
+            title="Q&A"
+          >
+            <HelpCircle size={22} className="text-white" />
+            {qaQuestions.filter(q => !q.isAnswered).length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center">
+                {qaQuestions.filter(q => !q.isAnswered).length}
+              </span>
+            )}
+          </button>
+
+          {/* Mute All (Host/Co-Host only) */}
+          {isHostOrCoHost() && (
+            <button
+              onClick={muteAllParticipants}
+              className="p-4 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors"
+              title="Mute all participants"
+            >
+              <VolumeX size={22} className="text-white" />
+            </button>
+          )}
+
+          {/* Lock Meeting (Host only) */}
+          {conference?.hostId === user?.id && (
+            <button
+              onClick={toggleMeetingLock}
+              className={`p-4 rounded-full transition-colors ${
+                isMeetingLocked 
+                  ? 'bg-red-500 hover:bg-red-600' 
+                  : 'bg-gray-700 hover:bg-gray-600'
+              }`}
+              title={isMeetingLocked ? 'Unlock meeting' : 'Lock meeting'}
+            >
+              {isMeetingLocked ? (
+                <Lock size={22} className="text-white" />
+              ) : (
+                <Unlock size={22} className="text-white" />
+              )}
+            </button>
+          )}
 
           <div className="w-px h-10 bg-gray-600 mx-2" />
 
