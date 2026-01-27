@@ -471,9 +471,9 @@ export default function VideoConferencePage() {
     loadConference();
   }, [conferenceId]);
 
-  // Generate room code using enhanced service
+  // Generate room code using enhanced service (XXX-XXXX-XXX format)
   const generateRoomCode = () => {
-    return MeetingMinutesService.generateSimpleRoomCode();
+    return MeetingMinutesService.generateRoomCode();
   };
 
   // ============================================================
