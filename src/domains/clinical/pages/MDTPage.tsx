@@ -365,6 +365,7 @@ export default function MDTPage() {
   // State for tracking if user has scrolled to end of patient summary
   const [hasScrolledToEnd, setHasScrolledToEnd] = useState(false);
   const summaryScrollRef = useRef<HTMLDivElement>(null);
+  const endOfSummaryRef = useRef<HTMLDivElement>(null);
 
   // Reset scroll state when patient changes
   useEffect(() => {
@@ -374,8 +375,8 @@ export default function MDTPage() {
   // Handle scroll to detect when user reaches the end
   const handleSummaryScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    // Consider "scrolled to end" when within 50px of bottom
-    if (scrollHeight - scrollTop - clientHeight < 50) {
+    // Consider "scrolled to end" when within 100px of bottom (more lenient)
+    if (scrollHeight - scrollTop - clientHeight < 100) {
       setHasScrolledToEnd(true);
     }
   };
@@ -385,6 +386,7 @@ export default function MDTPage() {
   }, [patients, selectedPatientId]);
 
   // Check if content doesn't require scrolling (fits entirely in view)
+  // Or if user has already scrolled near the bottom
   // Must be AFTER selectedPatient is defined to avoid hoisting issues
   useEffect(() => {
     const checkScrollRequired = () => {
@@ -392,7 +394,14 @@ export default function MDTPage() {
       if (el && selectedPatientId) {
         // If scrollHeight <= clientHeight, content fits without scrolling
         // So we can auto-enable the button
-        if (el.scrollHeight <= el.clientHeight + 10) {
+        if (el.scrollHeight <= el.clientHeight + 20) {
+          setHasScrolledToEnd(true);
+          return;
+        }
+        
+        // Also check if already scrolled to near bottom
+        const { scrollTop, scrollHeight, clientHeight } = el;
+        if (scrollHeight - scrollTop - clientHeight < 100) {
           setHasScrolledToEnd(true);
         }
       }
@@ -400,7 +409,12 @@ export default function MDTPage() {
     
     // Check after a short delay to ensure content is rendered
     const timer = setTimeout(checkScrollRequired, 300);
-    return () => clearTimeout(timer);
+    // Also check again after more time in case content loads slowly
+    const timer2 = setTimeout(checkScrollRequired, 1000);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+    };
   }, [selectedPatientId, selectedPatient]);
 
   // Get hospital for selected patient
@@ -1624,11 +1638,31 @@ export default function MDTPage() {
                     )}
 
                     {/* End of Summary Marker */}
-                    <div className="text-center py-4 border-t border-dashed border-gray-300">
+                    <div ref={endOfSummaryRef} className="text-center py-4 border-t border-dashed border-gray-300">
                       <p className="text-sm text-gray-500">— End of Patient Summary —</p>
                       {!hasScrolledToEnd && (
-                        <p className="text-xs text-primary-600 animate-pulse mt-1">
-                          Continue scrolling to review full summary
+                        <>
+                          <p className="text-xs text-primary-600 animate-pulse mt-1">
+                            Continue scrolling to review full summary
+                          </p>
+                          <label className="flex items-center justify-center gap-2 mt-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setHasScrolledToEnd(true);
+                                }
+                              }}
+                              className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                            />
+                            <span className="text-xs text-gray-600">I have reviewed the complete patient summary</span>
+                          </label>
+                        </>
+                      )}
+                      {hasScrolledToEnd && (
+                        <p className="text-xs text-green-600 mt-1 flex items-center justify-center gap-1">
+                          <CheckCircle2 size={12} />
+                          Summary reviewed - You can now add treatment plans
                         </p>
                       )}
                     </div>
