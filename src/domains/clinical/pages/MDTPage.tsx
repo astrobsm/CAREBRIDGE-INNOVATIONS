@@ -355,6 +355,24 @@ export default function MDTPage() {
     setHasScrolledToEnd(false);
   }, [selectedPatientId]);
 
+  // Check if content doesn't require scrolling (fits entirely in view)
+  useEffect(() => {
+    const checkScrollRequired = () => {
+      const el = summaryScrollRef.current;
+      if (el && selectedPatientId) {
+        // If scrollHeight <= clientHeight, content fits without scrolling
+        // So we can auto-enable the button
+        if (el.scrollHeight <= el.clientHeight + 10) {
+          setHasScrolledToEnd(true);
+        }
+      }
+    };
+    
+    // Check after a short delay to ensure content is rendered
+    const timer = setTimeout(checkScrollRequired, 300);
+    return () => clearTimeout(timer);
+  }, [selectedPatientId, selectedPatient]);
+
   // Handle scroll to detect when user reaches the end
   const handleSummaryScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
