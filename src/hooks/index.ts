@@ -9,5 +9,13 @@ export * from './useDatabase';
 // Billing activity hook - for recording billable activities during clinical workflows
 export { useBillingActivity } from './useBillingActivity';
 
+// Speech-to-text hook - for voice dictation in forms
+export { 
+  useSpeechToText, 
+  useSpeechEnabledInput, 
+  type UseSpeechToTextOptions,
+  type UseSpeechToTextReturn 
+} from './useSpeechToText';
+
 // Re-export database operations for convenience
 export { dbOps } from './useDatabase';

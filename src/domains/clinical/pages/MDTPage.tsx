@@ -5,7 +5,7 @@
  * Comprehensive MDT management with treatment harmonization and approval workflows
  */
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -37,11 +37,14 @@ import {
   Syringe,
   FlaskConical,
   Bed,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import {
   mdtService,
   specialtyDefinitions,
@@ -86,6 +89,172 @@ export default function MDTPage() {
   const [medications, setMedications] = useState<MedicationRecommendation[]>([]);
   const [shortTermGoals, setShortTermGoals] = useState<Goal[]>([]);
   const [longTermGoals, setLongTermGoals] = useState<Goal[]>([]);
+
+  // Speech-to-text state for multiple fields
+  const [activeSpeechField, setActiveSpeechField] = useState<string | null>(null);
+  
+  // Speech recognition hook
+  const speech = useSpeechToText({
+    continuous: true,
+    onResult: useCallback((transcript: string) => {
+      if (!activeSpeechField) return;
+      
+      // Handle different field types based on activeSpeechField
+      if (activeSpeechField === 'clinicalFindings') {
+        setClinicalFindings(prev => {
+          const spacer = prev && !prev.endsWith(' ') ? ' ' : '';
+          return prev + spacer + transcript;
+        });
+      } else if (activeSpeechField.startsWith('diagnosis-')) {
+        const idx = parseInt(activeSpeechField.split('-')[1]);
+        setDiagnoses(prev => {
+          const updated = [...prev];
+          const currentVal = updated[idx] || '';
+          const spacer = currentVal && !currentVal.endsWith(' ') ? ' ' : '';
+          updated[idx] = currentVal + spacer + transcript;
+          return updated;
+        });
+      } else if (activeSpeechField.startsWith('rec-category-')) {
+        const idx = parseInt(activeSpeechField.split('-')[2]);
+        setRecommendations(prev => {
+          const updated = [...prev];
+          if (updated[idx]) {
+            const currentVal = updated[idx].category || '';
+            const spacer = currentVal && !currentVal.endsWith(' ') ? ' ' : '';
+            updated[idx] = { ...updated[idx], category: currentVal + spacer + transcript };
+          }
+          return updated;
+        });
+      } else if (activeSpeechField.startsWith('rec-desc-')) {
+        const idx = parseInt(activeSpeechField.split('-')[2]);
+        setRecommendations(prev => {
+          const updated = [...prev];
+          if (updated[idx]) {
+            const currentVal = updated[idx].description || '';
+            const spacer = currentVal && !currentVal.endsWith(' ') ? ' ' : '';
+            updated[idx] = { ...updated[idx], description: currentVal + spacer + transcript };
+          }
+          return updated;
+        });
+      } else if (activeSpeechField.startsWith('med-name-')) {
+        const idx = parseInt(activeSpeechField.split('-')[2]);
+        setMedications(prev => {
+          const updated = [...prev];
+          if (updated[idx]) {
+            const currentVal = updated[idx].medicationName || '';
+            const spacer = currentVal && !currentVal.endsWith(' ') ? ' ' : '';
+            updated[idx] = { ...updated[idx], medicationName: currentVal + spacer + transcript };
+          }
+          return updated;
+        });
+      } else if (activeSpeechField.startsWith('med-dose-')) {
+        const idx = parseInt(activeSpeechField.split('-')[2]);
+        setMedications(prev => {
+          const updated = [...prev];
+          if (updated[idx]) {
+            const currentVal = updated[idx].dose || '';
+            const spacer = currentVal && !currentVal.endsWith(' ') ? ' ' : '';
+            updated[idx] = { ...updated[idx], dose: currentVal + spacer + transcript };
+          }
+          return updated;
+        });
+      } else if (activeSpeechField.startsWith('med-freq-')) {
+        const idx = parseInt(activeSpeechField.split('-')[2]);
+        setMedications(prev => {
+          const updated = [...prev];
+          if (updated[idx]) {
+            const currentVal = updated[idx].frequency || '';
+            const spacer = currentVal && !currentVal.endsWith(' ') ? ' ' : '';
+            updated[idx] = { ...updated[idx], frequency: currentVal + spacer + transcript };
+          }
+          return updated;
+        });
+      } else if (activeSpeechField.startsWith('med-indication-')) {
+        const idx = parseInt(activeSpeechField.split('-')[3]);
+        setMedications(prev => {
+          const updated = [...prev];
+          if (updated[idx]) {
+            const currentVal = updated[idx].indication || '';
+            const spacer = currentVal && !currentVal.endsWith(' ') ? ' ' : '';
+            updated[idx] = { ...updated[idx], indication: currentVal + spacer + transcript };
+          }
+          return updated;
+        });
+      } else if (activeSpeechField.startsWith('shortGoal-')) {
+        const idx = parseInt(activeSpeechField.split('-')[1]);
+        setShortTermGoals(prev => {
+          const updated = [...prev];
+          if (updated[idx]) {
+            const currentVal = updated[idx].description || '';
+            const spacer = currentVal && !currentVal.endsWith(' ') ? ' ' : '';
+            updated[idx] = { ...updated[idx], description: currentVal + spacer + transcript };
+          }
+          return updated;
+        });
+      } else if (activeSpeechField.startsWith('longGoal-')) {
+        const idx = parseInt(activeSpeechField.split('-')[1]);
+        setLongTermGoals(prev => {
+          const updated = [...prev];
+          if (updated[idx]) {
+            const currentVal = updated[idx].description || '';
+            const spacer = currentVal && !currentVal.endsWith(' ') ? ' ' : '';
+            updated[idx] = { ...updated[idx], description: currentVal + spacer + transcript };
+          }
+          return updated;
+        });
+      }
+    }, [activeSpeechField]),
+    onError: useCallback((error: string) => {
+      toast.error(error);
+      setActiveSpeechField(null);
+    }, []),
+  });
+
+  // Toggle speech for a specific field
+  const toggleSpeechForField = useCallback((fieldId: string) => {
+    if (activeSpeechField === fieldId && speech.isListening) {
+      speech.stopListening();
+      setActiveSpeechField(null);
+    } else {
+      // Stop any current listening
+      if (speech.isListening) {
+        speech.stopListening();
+      }
+      setActiveSpeechField(fieldId);
+      setTimeout(() => speech.startListening(), 100);
+    }
+  }, [activeSpeechField, speech]);
+
+  // Stop speech when modal closes
+  useEffect(() => {
+    if (!showPlanModal && speech.isListening) {
+      speech.stopListening();
+      setActiveSpeechField(null);
+    }
+  }, [showPlanModal, speech]);
+
+  // Render speech button for a field
+  const renderSpeechButton = (fieldId: string, size = 16) => {
+    if (!speech.isSupported) return null;
+    const isActive = activeSpeechField === fieldId && speech.isListening;
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          toggleSpeechForField(fieldId);
+        }}
+        className={`p-1.5 rounded-lg transition-all flex-shrink-0 ${
+          isActive 
+            ? 'bg-red-500 text-white animate-pulse' 
+            : 'bg-gray-100 text-gray-500 hover:bg-primary-100 hover:text-primary-600'
+        }`}
+        title={isActive ? 'Stop voice input' : 'Start voice input'}
+      >
+        {isActive ? <MicOff size={size} /> : <Mic size={size} />}
+      </button>
+    );
+  };
 
   // Data queries
   const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
@@ -133,6 +302,67 @@ export default function MDTPage() {
       : db.vitalSigns.where('patientId').equals('__none__').toArray(),
     [selectedPatientId]
   );
+
+  // Additional patient data queries for comprehensive summary
+  const patientWardRounds = useLiveQuery(
+    () => selectedPatientId 
+      ? db.wardRounds.where('patientId').equals(selectedPatientId).toArray() 
+      : db.wardRounds.where('patientId').equals('__none__').toArray(),
+    [selectedPatientId]
+  );
+
+  const patientLabRequests = useLiveQuery(
+    () => selectedPatientId 
+      ? db.labRequests.where('patientId').equals(selectedPatientId).toArray() 
+      : db.labRequests.where('patientId').equals('__none__').toArray(),
+    [selectedPatientId]
+  );
+
+  const patientWounds = useLiveQuery(
+    () => selectedPatientId 
+      ? db.wounds.where('patientId').equals(selectedPatientId).toArray() 
+      : db.wounds.where('patientId').equals('__none__').toArray(),
+    [selectedPatientId]
+  );
+
+  const patientBurns = useLiveQuery(
+    () => selectedPatientId 
+      ? db.burnAssessments.where('patientId').equals(selectedPatientId).toArray() 
+      : db.burnAssessments.where('patientId').equals('__none__').toArray(),
+    [selectedPatientId]
+  );
+
+  const patientNutrition = useLiveQuery(
+    () => selectedPatientId 
+      ? db.nutritionAssessments.where('patientId').equals(selectedPatientId).toArray() 
+      : db.nutritionAssessments.where('patientId').equals('__none__').toArray(),
+    [selectedPatientId]
+  );
+
+  const patientTreatmentPlans = useLiveQuery(
+    () => selectedPatientId 
+      ? db.treatmentPlans.where('patientId').equals(selectedPatientId).toArray() 
+      : db.treatmentPlans.where('patientId').equals('__none__').toArray(),
+    [selectedPatientId]
+  );
+
+  // State for tracking if user has scrolled to end of patient summary
+  const [hasScrolledToEnd, setHasScrolledToEnd] = useState(false);
+  const summaryScrollRef = useRef<HTMLDivElement>(null);
+
+  // Reset scroll state when patient changes
+  useEffect(() => {
+    setHasScrolledToEnd(false);
+  }, [selectedPatientId]);
+
+  // Handle scroll to detect when user reaches the end
+  const handleSummaryScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    // Consider "scrolled to end" when within 50px of bottom
+    if (scrollHeight - scrollTop - clientHeight < 50) {
+      setHasScrolledToEnd(true);
+    }
+  };
 
   const selectedPatient = useMemo(() => {
     return patients?.find(p => p.id === selectedPatientId);
@@ -608,17 +838,396 @@ export default function MDTPage() {
 
             {selectedPatientId && (
               <>
+                {/* Comprehensive Patient Summary - Must scroll to end to enable Add Plan */}
+                <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                  <div className="bg-gradient-to-r from-primary-600 to-blue-600 text-white px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText size={20} />
+                      <h3 className="font-semibold">Patient Summary - {selectedPatient?.firstName} {selectedPatient?.lastName}</h3>
+                    </div>
+                    <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                      {hasScrolledToEnd ? '✓ Summary Reviewed' : 'Scroll to review entire summary'}
+                    </span>
+                  </div>
+
+                  <div 
+                    ref={summaryScrollRef}
+                    onScroll={handleSummaryScroll}
+                    className="max-h-[500px] overflow-y-auto p-4 space-y-4"
+                  >
+                    {/* Demographics Section */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <User size={16} />
+                        Demographics
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <span className="text-gray-500">Hospital No:</span>
+                          <p className="font-medium">{selectedPatient?.hospitalNumber}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Age/Gender:</span>
+                          <p className="font-medium">
+                            {selectedPatient?.dateOfBirth && Math.floor((Date.now() - new Date(selectedPatient.dateOfBirth).getTime()) / 31557600000)} yrs / {selectedPatient?.gender}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Blood Group:</span>
+                          <p className="font-medium">{selectedPatient?.bloodGroup || 'Not recorded'}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Allergies:</span>
+                          <p className="font-medium text-red-600">{selectedPatient?.allergies?.join(', ') || 'None known'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Current Admission Section */}
+                    {patientAdmissions && patientAdmissions.length > 0 && (
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <h4 className="font-medium text-blue-700 mb-2 flex items-center gap-2">
+                          <Bed size={16} />
+                          Admission History ({patientAdmissions.length} admission{patientAdmissions.length > 1 ? 's' : ''})
+                        </h4>
+                        {patientAdmissions.sort((a, b) => new Date(b.admissionDate).getTime() - new Date(a.admissionDate).getTime()).map((admission, idx) => (
+                          <div key={admission.id} className={`${idx > 0 ? 'mt-3 pt-3 border-t border-blue-200' : ''}`}>
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  admission.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {admission.status}
+                                </span>
+                                <p className="text-sm mt-1">
+                                  <span className="font-medium">Admitted:</span> {format(new Date(admission.admissionDate), 'PPP')}
+                                </p>
+                              </div>
+                              <div className="text-right text-sm">
+                                <p className="text-gray-500">Ward: {admission.wardName}</p>
+                                <p className="text-gray-500">Bed: {admission.bedNumber}</p>
+                              </div>
+                            </div>
+                            <p className="text-sm"><span className="font-medium">Diagnosis:</span> {admission.admissionDiagnosis}</p>
+                            {admission.status === 'active' && (
+                              <p className="text-sm text-blue-600 font-medium mt-1">
+                                Days in Hospital: {Math.ceil((Date.now() - new Date(admission.admissionDate).getTime()) / 86400000)}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Ward Rounds Section */}
+                    {patientWardRounds && patientWardRounds.length > 0 && (
+                      <div className="bg-purple-50 rounded-lg p-4">
+                        <h4 className="font-medium text-purple-700 mb-2 flex items-center gap-2">
+                          <Stethoscope size={16} />
+                          Ward Rounds ({patientWardRounds.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {patientWardRounds.sort((a, b) => new Date(b.roundDate).getTime() - new Date(a.roundDate).getTime()).slice(0, 5).map(round => (
+                            <div key={round.id} className="text-sm border-l-2 border-purple-300 pl-3">
+                              <p className="font-medium">{format(new Date(round.roundDate), 'PPP')} - {round.roundType}</p>
+                              <p className="text-gray-600">{round.notes || 'No notes recorded'}</p>
+                              <p className="text-purple-600 text-xs">Lead: {round.leadDoctorName}</p>
+                            </div>
+                          ))}
+                          {patientWardRounds.length > 5 && (
+                            <p className="text-sm text-purple-600 italic">+ {patientWardRounds.length - 5} more ward rounds</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Surgeries Section */}
+                    {patientSurgeries && patientSurgeries.length > 0 && (
+                      <div className="bg-red-50 rounded-lg p-4">
+                        <h4 className="font-medium text-red-700 mb-2 flex items-center gap-2">
+                          <Syringe size={16} />
+                          Surgical History ({patientSurgeries.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {patientSurgeries.sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()).map(surgery => (
+                            <div key={surgery.id} className="text-sm border-l-2 border-red-300 pl-3">
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded text-xs ${
+                                  surgery.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                  surgery.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                                  'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {surgery.status}
+                                </span>
+                                <span className="font-medium">{surgery.procedureName}</span>
+                              </div>
+                              <p className="text-gray-600">{format(new Date(surgery.scheduledDate), 'PPP')}</p>
+                              {surgery.operativeNotes && <p className="text-gray-500 text-xs mt-1">{surgery.operativeNotes}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Investigations Section */}
+                    {patientInvestigations && patientInvestigations.length > 0 && (
+                      <div className="bg-amber-50 rounded-lg p-4">
+                        <h4 className="font-medium text-amber-700 mb-2 flex items-center gap-2">
+                          <FlaskConical size={16} />
+                          Investigations ({patientInvestigations.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {patientInvestigations.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10).map(inv => (
+                            <div key={inv.id} className="text-sm border-l-2 border-amber-300 pl-3 flex justify-between">
+                              <div>
+                                <span className="font-medium">{inv.type}</span>
+                                <p className="text-gray-600 text-xs">{format(new Date(inv.createdAt), 'PPP')}</p>
+                              </div>
+                              <span className={`px-2 py-0.5 h-fit rounded text-xs ${
+                                inv.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {inv.status}
+                              </span>
+                            </div>
+                          ))}
+                          {patientInvestigations.length > 10 && (
+                            <p className="text-sm text-amber-600 italic">+ {patientInvestigations.length - 10} more investigations</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Lab Requests Section */}
+                    {patientLabRequests && patientLabRequests.length > 0 && (
+                      <div className="bg-cyan-50 rounded-lg p-4">
+                        <h4 className="font-medium text-cyan-700 mb-2 flex items-center gap-2">
+                          <FlaskConical size={16} />
+                          Laboratory Tests ({patientLabRequests.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {patientLabRequests.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()).slice(0, 10).map(lab => (
+                            <div key={lab.id} className="text-sm border-l-2 border-cyan-300 pl-3">
+                              <div className="flex justify-between">
+                                <span className="font-medium">{lab.tests?.map(t => t.name).join(', ') || 'Lab Test'}</span>
+                                <span className={`px-2 py-0.5 rounded text-xs ${
+                                  lab.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {lab.status}
+                                </span>
+                              </div>
+                              <p className="text-gray-600 text-xs">{format(new Date(lab.requestedAt), 'PPP')}</p>
+                              <p className="text-cyan-700 text-xs">{lab.priority} priority</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Vital Signs Section */}
+                    {patientVitalSigns && patientVitalSigns.length > 0 && (
+                      <div className="bg-green-50 rounded-lg p-4">
+                        <h4 className="font-medium text-green-700 mb-2 flex items-center gap-2">
+                          <Activity size={16} />
+                          Recent Vitals ({patientVitalSigns.length} recordings)
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {(() => {
+                            const latest = patientVitalSigns.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())[0];
+                            return (
+                              <>
+                                <div className="text-sm bg-white p-2 rounded">
+                                  <span className="text-gray-500">BP</span>
+                                  <p className="font-medium">{latest.bloodPressureSystolic}/{latest.bloodPressureDiastolic} mmHg</p>
+                                </div>
+                                <div className="text-sm bg-white p-2 rounded">
+                                  <span className="text-gray-500">Pulse</span>
+                                  <p className="font-medium">{latest.pulse} bpm</p>
+                                </div>
+                                <div className="text-sm bg-white p-2 rounded">
+                                  <span className="text-gray-500">Temp</span>
+                                  <p className="font-medium">{latest.temperature}°C</p>
+                                </div>
+                                <div className="text-sm bg-white p-2 rounded">
+                                  <span className="text-gray-500">SpO2</span>
+                                  <p className="font-medium">{latest.oxygenSaturation}%</p>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Last recorded: {format(new Date(patientVitalSigns.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())[0].recordedAt), 'PPP p')}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Prescriptions Section */}
+                    {patientPrescriptions && patientPrescriptions.length > 0 && (
+                      <div className="bg-indigo-50 rounded-lg p-4">
+                        <h4 className="font-medium text-indigo-700 mb-2 flex items-center gap-2">
+                          <Pill size={16} />
+                          Prescriptions ({patientPrescriptions.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {patientPrescriptions.slice(0, 5).map(rx => (
+                            <div key={rx.id} className="text-sm border-l-2 border-indigo-300 pl-3">
+                              <div className="flex justify-between">
+                                <span className="font-medium">{rx.medications?.length || 0} medications</span>
+                                <span className={`px-2 py-0.5 rounded text-xs ${
+                                  rx.status === 'dispensed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                }`}>{rx.status}</span>
+                              </div>
+                              <p className="text-gray-600 text-xs">{format(new Date(rx.prescribedAt), 'PPP')}</p>
+                            </div>
+                          ))}
+                          {patientPrescriptions.length > 5 && (
+                            <p className="text-sm text-indigo-600 italic">+ {patientPrescriptions.length - 5} more prescriptions</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Wounds Section */}
+                    {patientWounds && patientWounds.length > 0 && (
+                      <div className="bg-orange-50 rounded-lg p-4">
+                        <h4 className="font-medium text-orange-700 mb-2 flex items-center gap-2">
+                          <Target size={16} />
+                          Wound Assessments ({patientWounds.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {patientWounds.map(wound => (
+                            <div key={wound.id} className="text-sm border-l-2 border-orange-300 pl-3">
+                              <span className="font-medium">{wound.type} - {wound.location}</span>
+                              <p className="text-gray-600">Size: {wound.length}x{wound.width}{wound.depth ? `x${wound.depth}` : ''}cm</p>
+                              <p className="text-orange-600">Progress: {wound.healingProgress}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Burns Section */}
+                    {patientBurns && patientBurns.length > 0 && (
+                      <div className="bg-rose-50 rounded-lg p-4">
+                        <h4 className="font-medium text-rose-700 mb-2 flex items-center gap-2">
+                          <AlertTriangle size={16} />
+                          Burn Assessments ({patientBurns.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {patientBurns.map(burn => (
+                            <div key={burn.id} className="text-sm border-l-2 border-rose-300 pl-3">
+                              <span className="font-medium">TBSA: {burn.tbsaPercentage}% - {burn.burnType}</span>
+                              <p className="text-gray-600">{format(new Date(burn.createdAt), 'PPP')}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Nutrition Section */}
+                    {patientNutrition && patientNutrition.length > 0 && (
+                      <div className="bg-lime-50 rounded-lg p-4">
+                        <h4 className="font-medium text-lime-700 mb-2 flex items-center gap-2">
+                          <Heart size={16} />
+                          Nutrition Assessments ({patientNutrition.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {patientNutrition.sort((a, b) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime()).slice(0, 3).map(nutr => (
+                            <div key={nutr.id} className="text-sm border-l-2 border-lime-300 pl-3">
+                              <p className="font-medium">{format(new Date(nutr.assessedAt), 'PPP')}</p>
+                              <p className="text-gray-600">BMI: {nutr.bmi || 'N/A'} | MUST Score: {typeof nutr.mustScore === 'object' ? (nutr.mustScore as any).total || 'N/A' : nutr.mustScore}</p>
+                              {nutr.nutritionalDiagnosis && <p className="text-lime-600 text-xs">{nutr.nutritionalDiagnosis}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Treatment Plans Section */}
+                    {patientTreatmentPlans && patientTreatmentPlans.length > 0 && (
+                      <div className="bg-violet-50 rounded-lg p-4">
+                        <h4 className="font-medium text-violet-700 mb-2 flex items-center gap-2">
+                          <Clipboard size={16} />
+                          Previous Treatment Plans ({patientTreatmentPlans.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {patientTreatmentPlans.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(plan => (
+                            <div key={plan.id} className="text-sm border-l-2 border-violet-300 pl-3">
+                              <div className="flex justify-between">
+                                <span className="font-medium">{plan.title}</span>
+                                <span className={`px-2 py-0.5 rounded text-xs ${
+                                  plan.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {plan.status}
+                                </span>
+                              </div>
+                              <p className="text-gray-600 text-xs">{format(new Date(plan.createdAt), 'PPP')}</p>
+                              {plan.clinicalGoals?.length > 0 && <p className="text-violet-600 text-xs mt-1">{plan.clinicalGoals.length} goals defined</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Clinical Encounters Section */}
+                    {patientEncounters && patientEncounters.length > 0 && (
+                      <div className="bg-slate-50 rounded-lg p-4">
+                        <h4 className="font-medium text-slate-700 mb-2 flex items-center gap-2">
+                          <FileText size={16} />
+                          Clinical Encounters ({patientEncounters.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {patientEncounters.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()).slice(0, 5).map(enc => (
+                            <div key={enc.id} className="text-sm border-l-2 border-slate-300 pl-3">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 rounded text-xs bg-slate-200">{enc.type}</span>
+                                <span className="text-gray-500">{format(new Date(enc.startedAt), 'PPP')}</span>
+                              </div>
+                              {enc.chiefComplaint && <p className="text-gray-600 mt-1">{enc.chiefComplaint}</p>}
+                            </div>
+                          ))}
+                          {patientEncounters.length > 5 && (
+                            <p className="text-sm text-slate-600 italic">+ {patientEncounters.length - 5} more encounters</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* End of Summary Marker */}
+                    <div className="text-center py-4 border-t border-dashed border-gray-300">
+                      <p className="text-sm text-gray-500">— End of Patient Summary —</p>
+                      {!hasScrolledToEnd && (
+                        <p className="text-xs text-primary-600 animate-pulse mt-1">
+                          Continue scrolling to review full summary
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Specialty Plans Section - Only visible after summary review */}
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">
                     Specialty Treatment Plans for {selectedPatient?.firstName} {selectedPatient?.lastName}
                   </h3>
-                  <button
-                    onClick={() => setShowPlanModal(true)}
-                    className="btn btn-primary flex items-center gap-2"
-                  >
-                    <Plus size={18} />
-                    Add Plan
-                  </button>
+                  {hasScrolledToEnd ? (
+                    <button
+                      onClick={() => setShowPlanModal(true)}
+                      className="btn btn-primary flex items-center gap-2"
+                    >
+                      <Plus size={18} />
+                      Add Plan
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="btn bg-gray-300 text-gray-500 cursor-not-allowed flex items-center gap-2"
+                      title="Please scroll through the entire patient summary first"
+                    >
+                      <Plus size={18} />
+                      Add Plan
+                    </button>
+                  )}
                 </div>
 
                 {/* Specialty Plans Grid */}
@@ -1110,7 +1719,19 @@ export default function MDTPage() {
               className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
             >
               <div className="flex items-center justify-between p-4 border-b">
-                <h2 className="text-xl font-semibold">Submit Specialty Treatment Plan</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-semibold">Submit Specialty Treatment Plan</h2>
+                  {speech.isSupported && (
+                    <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${
+                      speech.isListening 
+                        ? 'bg-red-100 text-red-700 animate-pulse' 
+                        : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      <Mic size={12} />
+                      {speech.isListening ? 'Listening...' : 'Voice ready'}
+                    </span>
+                  )}
+                </div>
                 <button onClick={() => setShowPlanModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                   <X size={20} />
                 </button>
@@ -1133,14 +1754,28 @@ export default function MDTPage() {
 
                 {/* Clinical Findings */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Clinical Findings</label>
-                  <textarea
-                    value={clinicalFindings}
-                    onChange={(e) => setClinicalFindings(e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg"
-                    placeholder="Document relevant clinical findings..."
-                  />
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Clinical Findings</label>
+                    {renderSpeechButton('clinicalFindings')}
+                  </div>
+                  <div className="relative">
+                    <textarea
+                      value={clinicalFindings}
+                      onChange={(e) => setClinicalFindings(e.target.value)}
+                      rows={3}
+                      className={`w-full px-4 py-2 border rounded-lg ${
+                        activeSpeechField === 'clinicalFindings' && speech.isListening 
+                          ? 'border-red-400 ring-2 ring-red-200' 
+                          : 'border-gray-200'
+                      }`}
+                      placeholder="Document relevant clinical findings... (or use mic button)"
+                    />
+                    {activeSpeechField === 'clinicalFindings' && speech.interimTranscript && (
+                      <p className="text-sm text-gray-400 italic mt-1">
+                        {speech.interimTranscript}...
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Diagnoses */}
@@ -1156,9 +1791,14 @@ export default function MDTPage() {
                           newDiag[idx] = e.target.value;
                           setDiagnoses(newDiag);
                         }}
-                        className="flex-1 px-4 py-2 border border-gray-200 rounded-lg"
+                        className={`flex-1 px-4 py-2 border rounded-lg ${
+                          activeSpeechField === `diagnosis-${idx}` && speech.isListening 
+                            ? 'border-red-400 ring-2 ring-red-200' 
+                            : 'border-gray-200'
+                        }`}
                         placeholder="Enter diagnosis"
                       />
+                      {renderSpeechButton(`diagnosis-${idx}`)}
                       {idx > 0 && (
                         <button
                           onClick={() => setDiagnoses(diagnoses.filter((_, i) => i !== idx))}
@@ -1190,18 +1830,25 @@ export default function MDTPage() {
                   </div>
                   {recommendations.map((rec, idx) => (
                     <div key={rec.id} className="p-3 bg-gray-50 rounded-lg mb-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          value={rec.category}
-                          onChange={(e) => {
-                            const updated = [...recommendations];
-                            updated[idx] = { ...rec, category: e.target.value };
-                            setRecommendations(updated);
-                          }}
-                          className="px-3 py-2 border border-gray-200 rounded"
-                          placeholder="Category"
-                        />
+                      <div className="flex gap-2 mb-2">
+                        <div className="flex-1 flex gap-2">
+                          <input
+                            type="text"
+                            value={rec.category}
+                            onChange={(e) => {
+                              const updated = [...recommendations];
+                              updated[idx] = { ...rec, category: e.target.value };
+                              setRecommendations(updated);
+                            }}
+                            className={`flex-1 px-3 py-2 border rounded ${
+                              activeSpeechField === `rec-category-${idx}` && speech.isListening 
+                                ? 'border-red-400 ring-2 ring-red-200' 
+                                : 'border-gray-200'
+                            }`}
+                            placeholder="Category"
+                          />
+                          {renderSpeechButton(`rec-category-${idx}`, 14)}
+                        </div>
                         <select
                           value={rec.priority}
                           onChange={(e) => {
@@ -1216,17 +1863,29 @@ export default function MDTPage() {
                           <option value="critical">Critical</option>
                         </select>
                       </div>
-                      <textarea
-                        value={rec.description}
-                        onChange={(e) => {
-                          const updated = [...recommendations];
-                          updated[idx] = { ...rec, description: e.target.value };
-                          setRecommendations(updated);
-                        }}
-                        className="w-full mt-2 px-3 py-2 border border-gray-200 rounded"
-                        placeholder="Description"
-                        rows={2}
-                      />
+                      <div className="flex gap-2">
+                        <textarea
+                          value={rec.description}
+                          onChange={(e) => {
+                            const updated = [...recommendations];
+                            updated[idx] = { ...rec, description: e.target.value };
+                            setRecommendations(updated);
+                          }}
+                          className={`flex-1 px-3 py-2 border rounded ${
+                            activeSpeechField === `rec-desc-${idx}` && speech.isListening 
+                              ? 'border-red-400 ring-2 ring-red-200' 
+                              : 'border-gray-200'
+                          }`}
+                          placeholder="Description"
+                          rows={2}
+                        />
+                        {renderSpeechButton(`rec-desc-${idx}`, 14)}
+                      </div>
+                      {(activeSpeechField === `rec-category-${idx}` || activeSpeechField === `rec-desc-${idx}`) && speech.interimTranscript && (
+                        <p className="text-xs text-gray-400 italic mt-1">
+                          {speech.interimTranscript}...
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1244,29 +1903,43 @@ export default function MDTPage() {
                   </div>
                   {medications.map((med, idx) => (
                     <div key={med.id} className="p-3 bg-gray-50 rounded-lg mb-2">
-                      <div className="grid grid-cols-3 gap-2 mb-2">
-                        <input
-                          type="text"
-                          value={med.medicationName}
-                          onChange={(e) => {
-                            const updated = [...medications];
-                            updated[idx] = { ...med, medicationName: e.target.value };
-                            setMedications(updated);
-                          }}
-                          className="px-3 py-2 border border-gray-200 rounded"
-                          placeholder="Medication name"
-                        />
-                        <input
-                          type="text"
-                          value={med.dose}
-                          onChange={(e) => {
-                            const updated = [...medications];
-                            updated[idx] = { ...med, dose: e.target.value };
-                            setMedications(updated);
-                          }}
-                          className="px-3 py-2 border border-gray-200 rounded"
-                          placeholder="Dose"
-                        />
+                      <div className="flex gap-2 mb-2 flex-wrap">
+                        <div className="flex gap-1 flex-1 min-w-[150px]">
+                          <input
+                            type="text"
+                            value={med.medicationName}
+                            onChange={(e) => {
+                              const updated = [...medications];
+                              updated[idx] = { ...med, medicationName: e.target.value };
+                              setMedications(updated);
+                            }}
+                            className={`flex-1 px-3 py-2 border rounded ${
+                              activeSpeechField === `med-name-${idx}` && speech.isListening 
+                                ? 'border-red-400 ring-2 ring-red-200' 
+                                : 'border-gray-200'
+                            }`}
+                            placeholder="Medication name"
+                          />
+                          {renderSpeechButton(`med-name-${idx}`, 14)}
+                        </div>
+                        <div className="flex gap-1 flex-1 min-w-[120px]">
+                          <input
+                            type="text"
+                            value={med.dose}
+                            onChange={(e) => {
+                              const updated = [...medications];
+                              updated[idx] = { ...med, dose: e.target.value };
+                              setMedications(updated);
+                            }}
+                            className={`flex-1 px-3 py-2 border rounded ${
+                              activeSpeechField === `med-dose-${idx}` && speech.isListening 
+                                ? 'border-red-400 ring-2 ring-red-200' 
+                                : 'border-gray-200'
+                            }`}
+                            placeholder="Dose"
+                          />
+                          {renderSpeechButton(`med-dose-${idx}`, 14)}
+                        </div>
                         <select
                           value={med.action}
                           onChange={(e) => {
@@ -1274,7 +1947,7 @@ export default function MDTPage() {
                             updated[idx] = { ...med, action: e.target.value as any };
                             setMedications(updated);
                           }}
-                          className="px-3 py-2 border border-gray-200 rounded"
+                          className="px-3 py-2 border border-gray-200 rounded min-w-[110px]"
                         >
                           <option value="add">Add</option>
                           <option value="continue">Continue</option>
@@ -1282,36 +1955,57 @@ export default function MDTPage() {
                           <option value="discontinue">Discontinue</option>
                         </select>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          value={med.frequency}
-                          onChange={(e) => {
-                            const updated = [...medications];
-                            updated[idx] = { ...med, frequency: e.target.value };
-                            setMedications(updated);
-                          }}
-                          className="px-3 py-2 border border-gray-200 rounded"
-                          placeholder="Frequency (e.g., BD, TDS)"
-                        />
-                        <input
-                          type="text"
-                          value={med.indication}
-                          onChange={(e) => {
-                            const updated = [...medications];
-                            updated[idx] = { ...med, indication: e.target.value };
-                            setMedications(updated);
-                          }}
-                          className="px-3 py-2 border border-gray-200 rounded"
-                          placeholder="Indication"
-                        />
+                      <div className="flex gap-2">
+                        <div className="flex gap-1 flex-1">
+                          <input
+                            type="text"
+                            value={med.frequency}
+                            onChange={(e) => {
+                              const updated = [...medications];
+                              updated[idx] = { ...med, frequency: e.target.value };
+                              setMedications(updated);
+                            }}
+                            className={`flex-1 px-3 py-2 border rounded ${
+                              activeSpeechField === `med-freq-${idx}` && speech.isListening 
+                                ? 'border-red-400 ring-2 ring-red-200' 
+                                : 'border-gray-200'
+                            }`}
+                            placeholder="Frequency (e.g., BD, TDS)"
+                          />
+                          {renderSpeechButton(`med-freq-${idx}`, 14)}
+                        </div>
+                        <div className="flex gap-1 flex-1">
+                          <input
+                            type="text"
+                            value={med.indication}
+                            onChange={(e) => {
+                              const updated = [...medications];
+                              updated[idx] = { ...med, indication: e.target.value };
+                              setMedications(updated);
+                            }}
+                            className={`flex-1 px-3 py-2 border rounded ${
+                              activeSpeechField === `med-indication-${idx}` && speech.isListening 
+                                ? 'border-red-400 ring-2 ring-red-200' 
+                                : 'border-gray-200'
+                            }`}
+                            placeholder="Indication"
+                          />
+                          {renderSpeechButton(`med-indication-${idx}`, 14)}
+                        </div>
                       </div>
+                      {['med-name-', 'med-dose-', 'med-freq-', 'med-indication-'].some(
+                        prefix => activeSpeechField === `${prefix}${idx}`
+                      ) && speech.interimTranscript && (
+                        <p className="text-xs text-gray-400 italic mt-1">
+                          {speech.interimTranscript}...
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
 
                 {/* Goals */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label className="text-sm font-medium text-gray-700">Short-term Goals</label>
@@ -1324,17 +2018,29 @@ export default function MDTPage() {
                     </div>
                     {shortTermGoals.map((goal, idx) => (
                       <div key={goal.id} className="p-2 bg-gray-50 rounded mb-2">
-                        <input
-                          type="text"
-                          value={goal.description}
-                          onChange={(e) => {
-                            const updated = [...shortTermGoals];
-                            updated[idx] = { ...goal, description: e.target.value };
-                            setShortTermGoals(updated);
-                          }}
-                          className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
-                          placeholder="Goal description"
-                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={goal.description}
+                            onChange={(e) => {
+                              const updated = [...shortTermGoals];
+                              updated[idx] = { ...goal, description: e.target.value };
+                              setShortTermGoals(updated);
+                            }}
+                            className={`flex-1 px-3 py-2 border rounded text-sm ${
+                              activeSpeechField === `shortGoal-${idx}` && speech.isListening 
+                                ? 'border-red-400 ring-2 ring-red-200' 
+                                : 'border-gray-200'
+                            }`}
+                            placeholder="Goal description"
+                          />
+                          {renderSpeechButton(`shortGoal-${idx}`, 14)}
+                        </div>
+                        {activeSpeechField === `shortGoal-${idx}` && speech.interimTranscript && (
+                          <p className="text-xs text-gray-400 italic mt-1">
+                            {speech.interimTranscript}...
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1350,17 +2056,29 @@ export default function MDTPage() {
                     </div>
                     {longTermGoals.map((goal, idx) => (
                       <div key={goal.id} className="p-2 bg-gray-50 rounded mb-2">
-                        <input
-                          type="text"
-                          value={goal.description}
-                          onChange={(e) => {
-                            const updated = [...longTermGoals];
-                            updated[idx] = { ...goal, description: e.target.value };
-                            setLongTermGoals(updated);
-                          }}
-                          className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
-                          placeholder="Goal description"
-                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={goal.description}
+                            onChange={(e) => {
+                              const updated = [...longTermGoals];
+                              updated[idx] = { ...goal, description: e.target.value };
+                              setLongTermGoals(updated);
+                            }}
+                            className={`flex-1 px-3 py-2 border rounded text-sm ${
+                              activeSpeechField === `longGoal-${idx}` && speech.isListening 
+                                ? 'border-red-400 ring-2 ring-red-200' 
+                                : 'border-gray-200'
+                            }`}
+                            placeholder="Goal description"
+                          />
+                          {renderSpeechButton(`longGoal-${idx}`, 14)}
+                        </div>
+                        {activeSpeechField === `longGoal-${idx}` && speech.interimTranscript && (
+                          <p className="text-xs text-gray-400 italic mt-1">
+                            {speech.interimTranscript}...
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
