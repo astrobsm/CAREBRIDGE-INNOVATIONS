@@ -58,6 +58,7 @@ import type {
   CalculatorResult,
   UserSettings,
   HospitalSettings,
+  MeetingMinutes,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -145,11 +146,13 @@ export class AstroHEALTHDatabase extends Dexie {
   // User & Hospital Settings
   userSettings!: Table<UserSettings, string>;
   hospitalSettings!: Table<HospitalSettings, string>;
+  // Meeting Minutes & Transcriptions
+  meetingMinutes!: Table<MeetingMinutes, string>;
 
   constructor() {
     super('AstroHEALTHDB');
 
-    this.version(65).stores({
+    this.version(66).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -227,6 +230,8 @@ export class AstroHEALTHDatabase extends Dexie {
       // User & Hospital Settings
       userSettings: 'id, userId, createdAt',
       hospitalSettings: 'id, hospitalId, createdAt',
+      // Meeting Minutes & Transcriptions
+      meetingMinutes: 'id, conferenceId, hospitalId, patientId, hostId, status, meetingDate, meetingType, createdAt',
     });
   }
 }

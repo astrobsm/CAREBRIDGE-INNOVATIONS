@@ -4346,3 +4346,112 @@ export interface HospitalSettings {
   createdAt: string;
   updatedAt: string;
 }
+
+// ==================== MEETING MINUTES & TRANSCRIPTION ====================
+
+export interface MeetingTranscriptSegment {
+  id: string;
+  speakerId?: string;
+  speakerName: string;
+  text: string;
+  startTime: number; // seconds from meeting start
+  endTime: number;
+  confidence: number; // 0-1 speech recognition confidence
+  isEdited: boolean;
+}
+
+export interface MeetingKeyPoint {
+  id: string;
+  type: 'decision' | 'action_item' | 'discussion' | 'question' | 'follow_up';
+  content: string;
+  assignee?: string;
+  assigneeName?: string;
+  dueDate?: Date;
+  priority: 'low' | 'medium' | 'high';
+  status: 'pending' | 'in_progress' | 'completed';
+  relatedTranscriptIds: string[];
+}
+
+export interface MeetingAgendaItem {
+  id: string;
+  title: string;
+  description?: string;
+  presenter?: string;
+  duration?: number; // minutes
+  status: 'pending' | 'discussed' | 'deferred';
+  notes?: string;
+}
+
+export interface MeetingMinutes {
+  id: string;
+  conferenceId: string;
+  hospitalId?: string;
+  
+  // Meeting details
+  title: string;
+  meetingType: 'consultation' | 'case_discussion' | 'ward_round' | 'team_meeting' | 'teaching' | 'presentation' | 'mdt' | 'other';
+  meetingDate: Date;
+  startTime: Date;
+  endTime?: Date;
+  duration?: number; // minutes
+  location?: string;
+  roomCode: string;
+  
+  // Participants
+  hostId: string;
+  hostName: string;
+  attendees: MeetingAttendee[];
+  absentees?: string[];
+  
+  // Agenda
+  agenda: MeetingAgendaItem[];
+  
+  // Full transcript
+  transcript: MeetingTranscriptSegment[];
+  rawTranscriptText: string;
+  
+  // AI-Generated Content
+  aiSummary: string;
+  keyPoints: MeetingKeyPoint[];
+  actionItems: MeetingKeyPoint[];
+  decisionsReached: string[];
+  discussionHighlights: string[];
+  nextSteps: string[];
+  
+  // Patient-related (for clinical meetings)
+  patientId?: string;
+  patientName?: string;
+  clinicalNotes?: string;
+  
+  // Recording info
+  hasRecording: boolean;
+  recordingUrl?: string;
+  recordingDuration?: number;
+  
+  // Status & sharing
+  status: 'draft' | 'finalized' | 'shared';
+  sharedWith: string[]; // user IDs
+  sharedAt?: Date;
+  exportedFormats: ('pdf' | 'docx' | 'email' | 'whatsapp')[];
+  
+  // Metadata
+  createdBy: string;
+  createdByName: string;
+  createdAt: Date;
+  updatedAt: Date;
+  finalizedAt?: Date;
+  finalizedBy?: string;
+}
+
+export interface MeetingAttendee {
+  id: string;
+  oderId: string;
+  userId: string;
+  userName: string;
+  userRole: UserRole;
+  specialty?: string;
+  joinedAt: Date;
+  leftAt?: Date;
+  participationDuration?: number; // minutes
+  contributions: number; // number of transcript segments
+}

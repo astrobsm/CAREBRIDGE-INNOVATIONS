@@ -33,6 +33,14 @@ import {
   Sparkles,
   Layout,
   Camera,
+  FileText,
+  Download,
+  Mail,
+  MessageCircle,
+  ScrollText,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
 } from 'lucide-react';
 import {
   useMediaDevices,
@@ -46,8 +54,11 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
+import MeetingMinutesService from '../../../services/meetingMinutesService';
 import type { 
-  VideoConference, 
+  VideoConference,
+  MeetingMinutes,
+  MeetingTranscriptSegment, 
   ConferenceParticipant, 
   PresentationSlide,
   ConferenceChatMessage,
@@ -349,6 +360,15 @@ export default function VideoConferencePage() {
   const [participants, setParticipants] = useState<ConferenceParticipant[]>([]);
   const [chatMessages, setChatMessages] = useState<ConferenceChatMessage[]>([]);
 
+  // Meeting Minutes & Transcription State
+  const [meetingMinutes, setMeetingMinutes] = useState<MeetingMinutes | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptSegments, setTranscriptSegments] = useState<MeetingTranscriptSegment[]>([]);
+  const [showTranscript, setShowTranscript] = useState(false);
+  const [showMinutesModal, setShowMinutesModal] = useState(false);
+  const [isGeneratingMinutes, setIsGeneratingMinutes] = useState(false);
+  const [minutesGenerated, setMinutesGenerated] = useState(false);
+
   // Enhanced features hooks
   const {
     videoDevices,
@@ -430,16 +450,143 @@ export default function VideoConferencePage() {
             setCurrentSlideIndex(conf.presentation.currentSlideIndex);
             setShowPresentation(conf.presentation.isActive);
           }
+          // Load existing meeting minutes if any
+          const existingMinutes = await db.meetingMinutes.where('conferenceId').equals(conf.id).first();
+          if (existingMinutes) {
+            setMeetingMinutes(existingMinutes);
+            setTranscriptSegments(existingMinutes.transcript || []);
+            if (existingMinutes.status !== 'draft') {
+              setMinutesGenerated(true);
+            }
+          }
         }
       }
     };
     loadConference();
   }, [conferenceId]);
 
-  // Generate room code
+  // Generate room code using enhanced service
   const generateRoomCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
+    return MeetingMinutesService.generateSimpleRoomCode();
   };
+
+  // ============================================================
+  // TRANSCRIPTION FUNCTIONS
+  // ============================================================
+
+  // Start live transcription
+  const startTranscription = useCallback(() => {
+    if (!user) return;
+    
+    const speakerName = `${user.firstName} ${user.lastName}`;
+    const started = MeetingMinutesService.startTranscription(
+      speakerName,
+      (segments) => {
+        setTranscriptSegments(segments);
+        // Auto-scroll transcript view
+      },
+      (error) => {
+        toast.error(error);
+        setIsTranscribing(false);
+      }
+    );
+    
+    if (started) {
+      setIsTranscribing(true);
+      toast.success('Live transcription started');
+    }
+  }, [user]);
+
+  // Stop transcription
+  const stopTranscription = useCallback(() => {
+    const segments = MeetingMinutesService.stopTranscription();
+    setTranscriptSegments(segments);
+    setIsTranscribing(false);
+    toast.success('Transcription stopped');
+  }, []);
+
+  // Toggle transcription
+  const toggleTranscription = useCallback(() => {
+    if (isTranscribing) {
+      stopTranscription();
+    } else {
+      startTranscription();
+    }
+  }, [isTranscribing, startTranscription, stopTranscription]);
+
+  // Initialize meeting minutes when joining
+  const initializeMeetingMinutes = useCallback(async () => {
+    if (!conference || !user || meetingMinutes) return;
+    
+    try {
+      const minutes = await MeetingMinutesService.createMinutes(
+        conference,
+        user.id,
+        `${user.firstName} ${user.lastName}`,
+        user.hospitalId
+      );
+      setMeetingMinutes(minutes);
+      toast.success('Meeting minutes initialized');
+    } catch (error) {
+      console.error('Failed to initialize meeting minutes:', error);
+    }
+  }, [conference, user, meetingMinutes]);
+
+  // Generate AI-powered meeting minutes
+  const generateMeetingMinutes = useCallback(async () => {
+    if (!meetingMinutes || !user) return;
+    
+    setIsGeneratingMinutes(true);
+    
+    try {
+      // Update transcript in meeting minutes
+      await db.meetingMinutes.update(meetingMinutes.id, {
+        transcript: transcriptSegments,
+        rawTranscriptText: transcriptSegments.map(s => s.text).join(' '),
+        updatedAt: new Date(),
+      });
+      
+      // Finalize with AI summary
+      const finalizedMinutes = await MeetingMinutesService.finalizeMinutes(
+        meetingMinutes.id,
+        new Date(),
+        user.id,
+        recordedBlob ? URL.createObjectURL(recordedBlob) : undefined,
+        recordingDuration
+      );
+      
+      if (finalizedMinutes) {
+        setMeetingMinutes(finalizedMinutes);
+        setMinutesGenerated(true);
+        setShowMinutesModal(true);
+        toast.success('Meeting minutes generated successfully!');
+      }
+    } catch (error) {
+      console.error('Failed to generate meeting minutes:', error);
+      toast.error('Failed to generate meeting minutes');
+    } finally {
+      setIsGeneratingMinutes(false);
+    }
+  }, [meetingMinutes, user, transcriptSegments, recordedBlob, recordingDuration]);
+
+  // Download meeting minutes PDF
+  const downloadMinutesPDF = useCallback(() => {
+    if (!meetingMinutes) return;
+    MeetingMinutesService.downloadPDF(meetingMinutes);
+    toast.success('PDF downloaded');
+  }, [meetingMinutes]);
+
+  // Share via WhatsApp
+  const shareViaWhatsApp = useCallback(() => {
+    if (!meetingMinutes) return;
+    MeetingMinutesService.shareWhatsApp(meetingMinutes);
+  }, [meetingMinutes]);
+
+  // Share via Email
+  const shareViaEmail = useCallback(() => {
+    if (!meetingMinutes) return;
+    MeetingMinutesService.shareEmail(meetingMinutes);
+  }, [meetingMinutes]);
 
   // Create new conference
   const handleCreateConference = async () => {
@@ -512,15 +659,28 @@ export default function VideoConferencePage() {
       updatedAt: new Date(),
     });
     const updatedConf = await db.videoConferences.get(conference.id);
-    if (updatedConf) syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
+    if (updatedConf) {
+      syncRecord('videoConferences', updatedConf as unknown as Record<string, unknown>);
+      setConference(updatedConf);
+    }
 
     setIsJoined(true);
     toast.success('Joined meeting');
+    
+    // Initialize meeting minutes if host
+    if (conference.hostId === user.id) {
+      setTimeout(() => initializeMeetingMinutes(), 500);
+    }
   };
 
   // Leave conference
   const handleLeaveConference = async () => {
     if (!user || !conference) return;
+
+    // Stop transcription if active
+    if (isTranscribing) {
+      stopTranscription();
+    }
 
     // Stop screen sharing if active
     if (screenStream) {
@@ -542,6 +702,14 @@ export default function VideoConferencePage() {
     });
     const updatedConfLeave = await db.videoConferences.get(conference.id);
     if (updatedConfLeave) syncRecord('videoConferences', updatedConfLeave as unknown as Record<string, unknown>);
+
+    // If host and have transcript, offer to generate minutes
+    if (conference.hostId === user.id && transcriptSegments.length > 0 && !minutesGenerated) {
+      const shouldGenerate = window.confirm('Would you like to generate AI-powered meeting minutes before leaving?');
+      if (shouldGenerate) {
+        await generateMeetingMinutes();
+      }
+    }
 
     setIsJoined(false);
     toast.success('Left meeting');
@@ -1345,6 +1513,70 @@ export default function VideoConferencePage() {
             formatDuration={formatDuration}
           />
 
+          {/* Live Transcription Toggle */}
+          <button
+            onClick={toggleTranscription}
+            className={`p-4 rounded-full transition-colors relative ${
+              isTranscribing 
+                ? 'bg-green-500 hover:bg-green-600' 
+                : 'bg-gray-700 hover:bg-gray-600'
+            }`}
+            title={isTranscribing ? 'Stop transcription' : 'Start live transcription'}
+          >
+            <ScrollText size={22} className="text-white" />
+            {isTranscribing && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+            )}
+          </button>
+
+          {/* View Transcript */}
+          <button
+            onClick={() => setShowTranscript(!showTranscript)}
+            className={`p-4 rounded-full transition-colors relative ${
+              showTranscript 
+                ? 'bg-blue-500 hover:bg-blue-600' 
+                : 'bg-gray-700 hover:bg-gray-600'
+            }`}
+            title="View transcript"
+          >
+            <FileText size={22} className="text-white" />
+            {transcriptSegments.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">
+                {transcriptSegments.length}
+              </span>
+            )}
+          </button>
+
+          {/* Generate/View Meeting Minutes */}
+          <button
+            onClick={() => {
+              if (minutesGenerated) {
+                setShowMinutesModal(true);
+              } else {
+                generateMeetingMinutes();
+              }
+            }}
+            disabled={isGeneratingMinutes || transcriptSegments.length === 0}
+            className={`p-4 rounded-full transition-colors ${
+              minutesGenerated
+                ? 'bg-green-500 hover:bg-green-600'
+                : transcriptSegments.length > 0
+                  ? 'bg-purple-600 hover:bg-purple-700'
+                  : 'bg-gray-700 opacity-50 cursor-not-allowed'
+            }`}
+            title={minutesGenerated ? 'View meeting minutes' : 'Generate meeting minutes'}
+          >
+            {isGeneratingMinutes ? (
+              <Loader2 size={22} className="text-white animate-spin" />
+            ) : minutesGenerated ? (
+              <CheckCircle size={22} className="text-white" />
+            ) : (
+              <Sparkles size={22} className="text-white" />
+            )}
+          </button>
+
+          <div className="w-px h-10 bg-gray-600 mx-2" />
+
           {/* Settings */}
           <button
             onClick={() => setShowSettings(true)}
@@ -1418,6 +1650,214 @@ export default function VideoConferencePage() {
         onSelectBackground={applyBackground}
         onUploadCustom={handleCustomBackgroundUpload}
       />
+
+      {/* Live Transcript Panel */}
+      <AnimatePresence>
+        {showTranscript && (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            className="fixed bottom-28 left-4 right-4 md:left-auto md:right-4 md:w-96 max-h-64 bg-gray-900/95 backdrop-blur rounded-xl border border-gray-700 shadow-2xl z-50 overflow-hidden"
+          >
+            <div className="p-3 border-b border-gray-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ScrollText size={18} className="text-blue-400" />
+                <h3 className="text-white font-medium text-sm">Live Transcript</h3>
+                {isTranscribing && (
+                  <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                    Recording
+                  </span>
+                )}
+              </div>
+              <button onClick={() => setShowTranscript(false)} className="p-1 hover:bg-gray-700 rounded">
+                <X size={16} className="text-gray-400" />
+              </button>
+            </div>
+            <div className="p-3 overflow-y-auto max-h-48 space-y-2">
+              {transcriptSegments.length === 0 ? (
+                <div className="text-center text-gray-500 py-4">
+                  <ScrollText size={24} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No transcript yet</p>
+                  <p className="text-xs mt-1">Start transcription to capture speech</p>
+                </div>
+              ) : (
+                transcriptSegments.map((segment, idx) => (
+                  <div key={segment.id || idx} className="text-sm">
+                    <span className="text-blue-400 font-medium">{segment.speakerName}: </span>
+                    <span className="text-gray-300">{segment.text}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Meeting Minutes Modal */}
+      <AnimatePresence>
+        {showMinutesModal && meetingMinutes && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+            onClick={() => setShowMinutesModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-lg">
+                      <FileText size={24} className="text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-white">Meeting Minutes</h2>
+                      <p className="text-white/80 text-sm">{meetingMinutes.title}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowMinutesModal(false)}
+                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <X size={24} className="text-white" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 overflow-y-auto max-h-[50vh]">
+                {/* Meeting Info */}
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">Date:</span>
+                      <span className="ml-2 font-medium">{format(new Date(meetingMinutes.meetingDate), 'PPP')}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Duration:</span>
+                      <span className="ml-2 font-medium">{meetingMinutes.duration || 0} minutes</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Host:</span>
+                      <span className="ml-2 font-medium">{meetingMinutes.hostName}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Attendees:</span>
+                      <span className="ml-2 font-medium">{meetingMinutes.attendees.length}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Summary */}
+                {meetingMinutes.aiSummary && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <Sparkles size={18} className="text-purple-500" />
+                      AI Summary
+                    </h3>
+                    <p className="text-gray-700">{meetingMinutes.aiSummary}</p>
+                  </div>
+                )}
+
+                {/* Key Decisions */}
+                {meetingMinutes.decisionsReached.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <CheckCircle size={18} className="text-green-500" />
+                      Key Decisions
+                    </h3>
+                    <ul className="space-y-2">
+                      {meetingMinutes.decisionsReached.map((decision, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-gray-700">
+                          <span className="text-green-500 mt-1">•</span>
+                          {decision}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Action Items */}
+                {meetingMinutes.actionItems.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <AlertCircle size={18} className="text-orange-500" />
+                      Action Items
+                    </h3>
+                    <ul className="space-y-2">
+                      {meetingMinutes.actionItems.map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-gray-700">
+                          <span className="text-orange-500 mt-1">•</span>
+                          <div>
+                            <span>{item.content}</span>
+                            {item.assigneeName && (
+                              <span className="ml-2 text-sm text-gray-500">
+                                (Assigned: {item.assigneeName})
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Next Steps */}
+                {meetingMinutes.nextSteps.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Next Steps</h3>
+                    <ul className="space-y-2">
+                      {meetingMinutes.nextSteps.map((step, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-gray-700">
+                          <span className="text-blue-500 mt-1">→</span>
+                          {step}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer - Share Options */}
+              <div className="p-6 border-t border-gray-200 bg-gray-50">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Share Meeting Minutes</h4>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={downloadMinutesPDF}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Download size={18} />
+                    Download PDF
+                  </button>
+                  <button
+                    onClick={shareViaEmail}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    <Mail size={18} />
+                    Email
+                  </button>
+                  <button
+                    onClick={shareViaWhatsApp}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <MessageCircle size={18} />
+                    WhatsApp
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -35,6 +35,7 @@ import type {
   MDTMeeting,
   NutritionPlan,
   LimbSalvageAssessment,
+  MeetingMinutes,
 } from '../types';
 
 // ============================================================
@@ -1118,6 +1119,116 @@ export const LimbSalvageOps = {
 };
 
 // ============================================================
+// MEETING MINUTES OPERATIONS
+// ============================================================
+
+export const MeetingMinutesOps = {
+  async getAll(): Promise<MeetingMinutes[]> {
+    return db.meetingMinutes.reverse().sortBy('meetingDate');
+  },
+
+  async getById(id: string): Promise<MeetingMinutes | undefined> {
+    return db.meetingMinutes.get(id);
+  },
+
+  async getByConferenceId(conferenceId: string): Promise<MeetingMinutes | undefined> {
+    return db.meetingMinutes.where('conferenceId').equals(conferenceId).first();
+  },
+
+  async getByHospital(hospitalId: string): Promise<MeetingMinutes[]> {
+    return db.meetingMinutes.where('hospitalId').equals(hospitalId).toArray();
+  },
+
+  async getByPatient(patientId: string): Promise<MeetingMinutes[]> {
+    return db.meetingMinutes.where('patientId').equals(patientId).toArray();
+  },
+
+  async getByHost(hostId: string): Promise<MeetingMinutes[]> {
+    return db.meetingMinutes.where('hostId').equals(hostId).toArray();
+  },
+
+  async getByStatus(status: 'draft' | 'finalized' | 'shared'): Promise<MeetingMinutes[]> {
+    return db.meetingMinutes.where('status').equals(status).toArray();
+  },
+
+  async getByMeetingType(meetingType: string): Promise<MeetingMinutes[]> {
+    return db.meetingMinutes.where('meetingType').equals(meetingType).toArray();
+  },
+
+  async getRecent(limit: number = 10): Promise<MeetingMinutes[]> {
+    return db.meetingMinutes.orderBy('meetingDate').reverse().limit(limit).toArray();
+  },
+
+  async create(minutes: MeetingMinutes): Promise<string> {
+    return db.meetingMinutes.add(minutes);
+  },
+
+  async update(id: string, updates: Partial<MeetingMinutes>): Promise<number> {
+    return db.meetingMinutes.update(id, { ...updates, updatedAt: new Date() });
+  },
+
+  async delete(id: string): Promise<void> {
+    await db.meetingMinutes.delete(id);
+  },
+
+  async finalize(id: string, finalizedBy: string): Promise<number> {
+    return db.meetingMinutes.update(id, {
+      status: 'finalized',
+      finalizedAt: new Date(),
+      finalizedBy,
+      updatedAt: new Date(),
+    });
+  },
+
+  async markShared(id: string, format: 'pdf' | 'docx' | 'email' | 'whatsapp', sharedWithUserIds?: string[]): Promise<number> {
+    const minutes = await db.meetingMinutes.get(id);
+    if (!minutes) return 0;
+    
+    const exportedFormats = [...(minutes.exportedFormats || [])];
+    if (!exportedFormats.includes(format)) {
+      exportedFormats.push(format);
+    }
+    
+    const sharedWith = [...(minutes.sharedWith || [])];
+    if (sharedWithUserIds) {
+      sharedWithUserIds.forEach(userId => {
+        if (!sharedWith.includes(userId)) {
+          sharedWith.push(userId);
+        }
+      });
+    }
+    
+    return db.meetingMinutes.update(id, {
+      status: 'shared',
+      exportedFormats,
+      sharedWith,
+      sharedAt: new Date(),
+      updatedAt: new Date(),
+    });
+  },
+
+  async addTranscriptSegment(
+    id: string, 
+    segment: { speakerName: string; text: string; startTime: number; endTime: number; confidence: number }
+  ): Promise<number> {
+    const minutes = await db.meetingMinutes.get(id);
+    if (!minutes) return 0;
+
+    const newSegment = {
+      id: `segment-${Date.now()}`,
+      ...segment,
+      isEdited: false,
+    };
+
+    return db.meetingMinutes.update(id, {
+      transcript: [...minutes.transcript, newSegment],
+      rawTranscriptText: minutes.rawTranscriptText + ' ' + segment.text,
+      updatedAt: new Date(),
+    });
+  },
+};
+
+// ============================================================
 // EXPORT ALL OPERATIONS
 // ============================================================
 
@@ -1149,4 +1260,5 @@ export const dbOps = {
   assignments: AssignmentOps,
   dashboard: DashboardOps,
   limbSalvage: LimbSalvageOps,
+  meetingMinutes: MeetingMinutesOps,
 };

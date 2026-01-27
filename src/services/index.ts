@@ -54,8 +54,29 @@ export {
   VideoConferenceOps,
   AssignmentOps,
   DashboardOps,
+  MeetingMinutesOps,
   dbOps,
 } from '../database/operations';
+
+// Meeting Minutes Service
+export { default as MeetingMinutesService } from './meetingMinutesService';
+export {
+  generateMeetingRoomCode,
+  generateSimpleRoomCode,
+  startLiveTranscription,
+  stopLiveTranscription,
+  setCurrentSpeaker,
+  getTranscriptionStatus,
+  generateAISummary,
+  createMeetingMinutes,
+  finalizeMeetingMinutes,
+  generateMeetingMinutesPDF,
+  downloadMeetingMinutesPDF,
+  shareViaWhatsApp,
+  shareViaEmail,
+  getWhatsAppShareData,
+  getEmailShareData,
+} from './meetingMinutesService';
 
 // Unified API Service (Recommended)
 export {
