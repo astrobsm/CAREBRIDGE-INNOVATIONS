@@ -605,6 +605,9 @@ async function pullAllFromCloud(): Promise<void> {
   // Preoperative Assessments
   await pullTable(TABLES.preoperativeAssessments, 'preoperativeAssessments');
   
+  // External Reviews (Admin only)
+  await pullTable(TABLES.externalReviews, 'externalReviews');
+  
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
 }
@@ -709,6 +712,9 @@ async function pushAllToCloud(): Promise<void> {
   
   // Preoperative Assessments
   await pushTable('preoperativeAssessments', TABLES.preoperativeAssessments);
+  
+  // External Reviews (Admin only)
+  await pushTable('externalReviews', TABLES.externalReviews);
   
   // Audit Logs (for accountability across devices)
   await pushTable('auditLogs', TABLES.auditLogs);
@@ -1091,6 +1097,8 @@ function getCloudTableName(localTableName: string): string | null {
     postOperativeNotes: TABLES.postOperativeNotes,
     // Preoperative Assessments
     preoperativeAssessments: TABLES.preoperativeAssessments,
+    // External Reviews (Admin only)
+    externalReviews: TABLES.externalReviews,
     // Audit Logs
     auditLogs: TABLES.auditLogs,
   };

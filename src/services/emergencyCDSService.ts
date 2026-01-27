@@ -109,7 +109,6 @@ export function calculateQSOFA(input: EmergencyCDSInput): QSOFAScore {
 export function calculateSOFA(input: EmergencyCDSInput): SOFAScore {
   const lab = input.laboratory || {};
   const vitals = input.vitalSigns;
-  const organ = input.organDysfunction || {};
   
   // Respiration (PaO2/FiO2 approximation from SpO2)
   let respiration = 0;
@@ -138,7 +137,7 @@ export function calculateSOFA(input: EmergencyCDSInput): SOFAScore {
   
   // Cardiovascular
   let cardiovascular = 0;
-  if (organ.requiresVasopressors) cardiovascular = 3;
+  if (input.organDysfunction?.requiresVasopressors) cardiovascular = 3;
   else if (vitals.bloodPressureSystolic < 90) cardiovascular = 2;
   else if (vitals.bloodPressureSystolic < 100) cardiovascular = 1;
   

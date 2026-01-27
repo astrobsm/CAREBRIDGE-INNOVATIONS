@@ -25,7 +25,10 @@ export type MedicalTextContext =
   | 'prescription'
   | 'wound_assessment'
   | 'burn_assessment'
-  | 'patient_history';
+  | 'patient_history'
+  | 'investigation'
+  | 'nursing'
+  | 'nutrition';
 
 // Medical abbreviation expansions
 const MEDICAL_ABBREVIATIONS: Record<string, string> = {
@@ -185,6 +188,15 @@ const CONTEXT_TEMPLATES: Record<MedicalTextContext, { prefix?: string; suffix?: 
   },
   patient_history: {
     formatting: (text) => formatAsPatientHistory(text),
+  },
+  nursing: {
+    formatting: (text) => formatAsParagraph(text),
+  },
+  investigation: {
+    formatting: (text) => formatAsLabReport(text),
+  },
+  nutrition: {
+    formatting: (text) => formatAsParagraph(text),
   },
 };
 

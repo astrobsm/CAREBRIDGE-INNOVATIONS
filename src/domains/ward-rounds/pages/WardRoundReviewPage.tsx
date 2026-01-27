@@ -7,8 +7,8 @@
  * and deferring ward rounds with reasons
  */
 
-import { useState, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,27 +20,16 @@ import {
   ArrowLeft,
   Save,
   Clock,
-  User,
   Stethoscope,
   Activity,
-  FileText,
   AlertTriangle,
   BedDouble,
-  Heart,
-  Droplet,
-  Thermometer,
-  Wind,
   Pill,
   FlaskConical,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
   ClipboardList,
   Edit3,
-  Calendar,
   ChevronDown,
   ChevronUp,
-  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -48,7 +37,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation } from '../../../components/common';
 import VitalsChart from '../../../components/clinical/VitalsChart';
-import type { ClinicalEncounter, WardRound } from '../../../types';
+import type { ClinicalEncounter } from '../../../types';
 
 // Form Schema
 const wardRoundReviewSchema = z.object({
@@ -118,14 +107,6 @@ export default function WardRoundReviewPage() {
     [patientId]
   );
 
-  // Fetch recent encounters
-  const encounters = useLiveQuery(
-    () => patientId
-      ? db.clinicalEncounters.where('patientId').equals(patientId).reverse().limit(5).toArray()
-      : [],
-    [patientId]
-  );
-
   // Fetch active prescriptions
   const prescriptions = useLiveQuery(
     () => patientId
@@ -140,16 +121,6 @@ export default function WardRoundReviewPage() {
   const investigations = useLiveQuery(
     () => patientId
       ? db.investigations.where('patientId').equals(patientId).reverse().limit(10).toArray()
-      : [],
-    [patientId]
-  );
-
-  // Fetch treatment plans
-  const treatmentPlans = useLiveQuery(
-    () => patientId
-      ? db.treatmentPlans.where('patientId').equals(patientId)
-        .filter(tp => tp.status === 'active')
-        .toArray()
       : [],
     [patientId]
   );
@@ -261,9 +232,14 @@ Discharge Consideration: ${data.dischargeConsideration.replace(/_/g, ' ')}
       await syncRecord('clinicalEncounters', encounter as unknown as Record<string, unknown>);
 
       // Create ward round note
+      if (!admission?.id) {
+        toast.error('No active admission found');
+        return;
+      }
+      
       const wardRoundNote = {
         id: uuidv4(),
-        admissionId: admission?.id,
+        admissionId: admission.id,
         noteType: 'ward_round' as const,
         content: JSON.stringify({
           ...data,
@@ -296,10 +272,15 @@ Discharge Consideration: ${data.dischargeConsideration.replace(/_/g, ' ')}
     }
 
     try {
+      if (!admission?.id) {
+        toast.error('No active admission found');
+        return;
+      }
+      
       // Log deferral in admission notes
       const deferralNote = {
         id: uuidv4(),
-        admissionId: admission?.id,
+        admissionId: admission.id,
         noteType: 'ward_round' as const,
         content: JSON.stringify({
           type: 'deferred',
@@ -517,7 +498,9 @@ Discharge Consideration: ${data.dischargeConsideration.replace(/_/g, ' ')}
                     <div className="space-y-1">
                       {prescriptions.slice(0, 4).map((rx) => (
                         <p key={rx.id} className="text-xs text-gray-700 truncate">
-                          • {rx.medicationName} {rx.dose}
+                          • {rx.medications && rx.medications.length > 0 
+                            ? rx.medications.map((m: any) => `${m.name} ${m.dose || ''}`).join(', ')
+                            : 'No medications listed'}
                         </p>
                       ))}
                       {prescriptions.length > 4 && (
@@ -638,8 +621,8 @@ Discharge Consideration: ${data.dischargeConsideration.replace(/_/g, ' ')}
                 {/* General Status */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="label">General Condition *</label>
-                    <select {...register('generalCondition')} className="input">
+                    <label htmlFor="generalCondition" className="label">General Condition *</label>
+                    <select id="generalCondition" {...register('generalCondition')} className="input">
                       <option value="stable">Stable</option>
                       <option value="improving">Improving</option>
                       <option value="unchanged">Unchanged</option>
@@ -652,8 +635,8 @@ Discharge Consideration: ${data.dischargeConsideration.replace(/_/g, ' ')}
                   </div>
 
                   <div>
-                    <label className="label">Consciousness Level *</label>
-                    <select {...register('consciousness')} className="input">
+                    <label htmlFor="consciousness" className="label">Consciousness Level *</label>
+                    <select id="consciousness" {...register('consciousness')} className="input">
                       <option value="alert">Alert & Oriented</option>
                       <option value="drowsy">Drowsy</option>
                       <option value="confused">Confused</option>
@@ -822,8 +805,8 @@ Discharge Consideration: ${data.dischargeConsideration.replace(/_/g, ' ')}
 
                 {/* Discharge Planning */}
                 <div>
-                  <label className="label">Discharge Consideration</label>
-                  <select {...register('dischargeConsideration')} className="input">
+                  <label htmlFor="dischargeConsideration" className="label">Discharge Consideration</label>
+                  <select id="dischargeConsideration" {...register('dischargeConsideration')} className="input">
                     <option value="not_ready">Not Ready for Discharge</option>
                     <option value="planning">Discharge Planning Started</option>
                     <option value="within_24h">Possible within 24 hours</option>
@@ -879,8 +862,9 @@ Discharge Consideration: ${data.dischargeConsideration.replace(/_/g, ' ')}
 
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="label">Reason for Deferral *</label>
+                  <label htmlFor="deferReason" className="label">Reason for Deferral *</label>
                   <select
+                    id="deferReason"
                     value={deferReason}
                     onChange={(e) => setDeferReason(e.target.value)}
                     className="input"

@@ -710,6 +710,8 @@ export interface Admission {
   // Care Team Assignment
   primaryDoctor: string; // User ID
   primaryNurse?: string; // User ID
+  primaryManagingConsultant?: string; // User ID - Primary consultant who approves MDT plans
+  primaryManagingConsultantName?: string; // Name for display
   consultants?: string[]; // User IDs of consulting specialists
   
   // Treatment Plan Link
