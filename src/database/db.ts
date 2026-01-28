@@ -290,26 +290,31 @@ export async function initializeDemoData(): Promise<void> {
   }
 
   // Ensure super admin user exists
-  const superAdminEmail = 'douglas@carebridge.edu.ng';
-  const existingSuperAdmin = await db.users.where('email').equals(superAdminEmail).first();
-  
-  if (!existingSuperAdmin) {
-    await db.users.add({
-      id: crypto.randomUUID(),
-      email: superAdminEmail,
-      password: 'BLACK@2velvet',
-      firstName: 'Douglas',
-      lastName: 'Admin',
-      role: 'super_admin',
-      hospitalId: 'hospital-1',
-      isActive: true,
-      hasAcceptedAgreement: true,
-      agreementAcceptedAt: new Date(),
-      agreementVersion: '1.0',
-      mustChangePassword: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    console.log('[Database] Super admin user created: douglas@carebridge.edu.ng');
+  try {
+    const superAdminEmail = 'douglas@carebridge.edu.ng';
+    const existingSuperAdmin = await db.users.where('email').equals(superAdminEmail).first();
+    
+    if (!existingSuperAdmin) {
+      await db.users.add({
+        id: crypto.randomUUID(),
+        email: superAdminEmail,
+        password: 'BLACK@2velvet',
+        firstName: 'Douglas',
+        lastName: 'Admin',
+        role: 'super_admin',
+        hospitalId: 'hospital-1',
+        isActive: true,
+        hasAcceptedAgreement: true,
+        agreementAcceptedAt: new Date(),
+        agreementVersion: '1.0',
+        mustChangePassword: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      console.log('[Database] Super admin user created: douglas@carebridge.edu.ng');
+    }
+  } catch (error) {
+    // Ignore constraint errors - user may already exist from cloud sync
+    console.log('[Database] Super admin already exists or could not be created');
   }
 }
