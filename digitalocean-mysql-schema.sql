@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS patients (
   blood_group VARCHAR(10),
   genotype VARCHAR(10),
   phone VARCHAR(50),
+  alternate_phone VARCHAR(50),
   email VARCHAR(255),
   address TEXT,
   city VARCHAR(100),

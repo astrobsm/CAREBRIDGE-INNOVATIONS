@@ -211,6 +211,9 @@ export default async function handler(req: any, res: any) {
       case 'health':
         return await handleHealth(res);
       
+      case 'migrate':
+        return await handleMigrate(res);
+      
       default:
         return res.status(400).json({ error: `Unknown action: ${action}` });
     }
@@ -394,4 +397,42 @@ async function handleHealth(res: any) {
       error: error.message 
     });
   }
+}
+
+// Migration handler to add missing columns
+async function handleMigrate(res: any) {
+  const dbPool = getPool();
+  const migrations: string[] = [];
+  const errors: string[] = [];
+
+  // List of columns to add (table, column, definition)
+  const columnsToAdd = [
+    { table: 'patients', column: 'alternate_phone', definition: 'VARCHAR(50) NULL AFTER phone' },
+  ];
+
+  for (const { table, column, definition } of columnsToAdd) {
+    try {
+      // Check if column exists
+      const [cols] = await dbPool.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+        [table, column]
+      );
+      
+      if ((cols as any[]).length === 0) {
+        // Column doesn't exist, add it
+        await dbPool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+        migrations.push(`Added ${column} to ${table}`);
+      } else {
+        migrations.push(`Column ${column} already exists in ${table}`);
+      }
+    } catch (error: any) {
+      errors.push(`Error adding ${column} to ${table}: ${error.message}`);
+    }
+  }
+
+  return res.status(200).json({
+    success: errors.length === 0,
+    migrations,
+    errors
+  });
 }
