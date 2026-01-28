@@ -184,13 +184,14 @@ export const DataMigration: React.FC = () => {
         onClick={handleMigrate}
         disabled={isMigrating || totalRecords === 0}
         className={`
-          w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium
+          w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-colors
           ${
             isMigrating || totalRecords === 0
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-primary text-white hover:bg-primary/90'
+              : 'bg-violet-600 text-white hover:bg-violet-700 cursor-pointer'
           }
         `}
+        type="button"
       >
         {isMigrating ? (
           <>
