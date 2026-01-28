@@ -288,4 +288,28 @@ export async function initializeDemoData(): Promise<void> {
       updatedAt: new Date(),
     });
   }
+
+  // Ensure super admin user exists
+  const superAdminEmail = 'douglas@carebridge.edu.ng';
+  const existingSuperAdmin = await db.users.where('email').equals(superAdminEmail).first();
+  
+  if (!existingSuperAdmin) {
+    await db.users.add({
+      id: crypto.randomUUID(),
+      email: superAdminEmail,
+      password: 'BLACK@2velvet',
+      firstName: 'Douglas',
+      lastName: 'Admin',
+      role: 'super_admin',
+      hospitalId: 'hospital-1',
+      isActive: true,
+      hasAcceptedAgreement: true,
+      agreementAcceptedAt: new Date(),
+      agreementVersion: '1.0',
+      mustChangePassword: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    console.log('[Database] Super admin user created: douglas@carebridge.edu.ng');
+  }
 }
