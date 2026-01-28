@@ -7,7 +7,7 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import initPWA from './services/pwaService';
-import { initCloudSync, fullSync } from './services/cloudSyncService';
+import { initDOSync, fullDOSync } from './services/digitalOceanSyncService';
 import { initializeDemoData } from './database';
 import { startNotificationScheduler, initVoiceAlarm } from './services/scheduledNotificationService';
 import { requestNotificationPermission, startReminderScheduler, setupNotificationClickHandler } from './services/appointmentNotificationService';
@@ -55,8 +55,10 @@ function setupNetworkHandlers() {
         icon: '🌐',
         duration: 3000
       });
-      // Trigger sync when coming back online
-      setTimeout(() => fullSync(), 1000);
+      // Trigger DigitalOcean sync when coming back online
+      setTimeout(() => {
+        fullDOSync();
+      }, 1000);
     }
     wasOffline = false;
   });
@@ -141,7 +143,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 // Initialize cloud sync AFTER React has mounted
 // This prevents state updates from happening before React is ready
 setTimeout(() => {
-  initCloudSync();
+  // Initialize DigitalOcean MySQL sync
+  initDOSync();
   
   // Initialize notification system
   initVoiceAlarm();
