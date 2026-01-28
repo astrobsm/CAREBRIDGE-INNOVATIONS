@@ -23,6 +23,7 @@ import {
   Heart,
   BookOpen,
   Eye,
+  Printer,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -30,6 +31,11 @@ import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { downloadPostOpNotePDF, sharePostOpNoteViaWhatsApp } from '../../../utils/postOpNotePdfGenerator';
 import { markPdfGenerated, markSharedViaWhatsApp, markEducationDelivered } from '../../../services/postOperativeNoteService';
+import {
+  printThermalDocument,
+  type PrintableDocument,
+  type PrintSection,
+} from '../../../services/thermalPrintService';
 
 export default function PostOperativeNotePage() {
   const { surgeryId } = useParams<{ surgeryId: string }>();
@@ -123,6 +129,51 @@ export default function PostOperativeNotePage() {
     }
   };
 
+  // Thermal print (XP-T80Q, 80mm, Georgia 12pt)
+  const handleThermalPrint = () => {
+    if (!postOpNote || !patient) {
+      toast.error('Missing required data');
+      return;
+    }
+
+    const content: PrintSection[] = [
+      { type: 'header', data: 'Patient' },
+      { type: 'text', data: { key: 'Name', value: `${patient.firstName} ${patient.lastName}` } },
+      { type: 'text', data: { key: 'Hospital #', value: patient.hospitalNumber || 'N/A' } },
+      { type: 'divider', data: 'dashed' },
+      { type: 'header', data: 'Procedure Details' },
+      { type: 'text', data: { key: 'Procedure', value: postOpNote.procedureName } },
+      { type: 'text', data: { key: 'Date', value: format(new Date(postOpNote.procedureDate), 'dd/MM/yyyy') } },
+      { type: 'text', data: { key: 'Surgeon', value: postOpNote.surgeonName } },
+    ];
+
+    if (postOpNote.anesthetist) {
+      content.push({ type: 'text', data: { key: 'Anesthetist', value: postOpNote.anesthetist } });
+    }
+
+    content.push({ type: 'divider', data: 'dashed' });
+    content.push({ type: 'header', data: 'Operative Findings' });
+    content.push({ type: 'text', data: postOpNote.operativeFindings || 'Not documented' });
+
+    if (postOpNote.immediatePostOpOrders) {
+      content.push({ type: 'divider', data: 'dashed' });
+      content.push({ type: 'header', data: 'Post-Op Orders' });
+      content.push({ type: 'text', data: postOpNote.immediatePostOpOrders });
+    }
+
+    const thermalDoc: PrintableDocument = {
+      title: 'POST-OP NOTE',
+      subtitle: postOpNote.procedureName,
+      hospitalName: hospital?.name,
+      content,
+      footer: 'Official Hospital Document',
+      printDate: true,
+    };
+
+    printThermalDocument(thermalDoc);
+    toast.success('Print dialog opened');
+  };
+
   if (!surgery || !postOpNote) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -181,6 +232,14 @@ export default function PostOperativeNotePage() {
 
         {/* Action Buttons */}
         <div className="flex gap-2">
+          <button
+            onClick={handleThermalPrint}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-300"
+            title="Print Receipt (80mm Thermal)"
+          >
+            <Printer size={18} />
+            Print
+          </button>
           <button
             onClick={handleDownloadPDF}
             disabled={isDownloading}

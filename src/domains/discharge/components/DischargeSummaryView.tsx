@@ -23,6 +23,12 @@ import { format, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import type { DischargeSummary, Patient } from '../../../types';
 import { generateDischargeSummaryPDF } from '../../../utils/dischargePdfGenerator';
+import {
+  printThermalDocument,
+  createClinicalDocument,
+  type PrintableDocument,
+  type PrintSection,
+} from '../../../services/thermalPrintService';
 
 interface Props {
   summary: DischargeSummary;
@@ -49,8 +55,54 @@ const dispositionLabels: Record<string, string> = {
 export default function DischargeSummaryView({ summary, patient, onClose }: Props) {
   const losDays = differenceInDays(new Date(summary.dischargeDate), new Date(summary.admissionDate)) + 1;
 
+  // Thermal print (XP-T80Q, 80mm, Georgia 12pt)
   const handlePrint = () => {
-    window.print();
+    if (!patient) {
+      toast.error('Patient information not available');
+      return;
+    }
+
+    const content: PrintSection[] = [
+      { type: 'header', data: 'Admission Details' },
+      { type: 'text', data: { key: 'Admitted', value: format(new Date(summary.admissionDate), 'dd/MM/yyyy') } },
+      { type: 'text', data: { key: 'Discharged', value: format(new Date(summary.dischargeDate), 'dd/MM/yyyy') } },
+      { type: 'text', data: { key: 'LOS', value: `${losDays} day${losDays > 1 ? 's' : ''}` } },
+      { type: 'divider', data: 'dashed' },
+      { type: 'header', data: 'Diagnosis' },
+      { type: 'text', data: summary.primaryDiagnosis },
+    ];
+
+    if (summary.secondaryDiagnoses?.length) {
+      content.push({ type: 'text', data: `Secondary: ${summary.secondaryDiagnoses.join(', ')}` });
+    }
+
+    content.push({ type: 'divider', data: 'dashed' });
+    content.push({ type: 'header', data: 'Condition at Discharge' });
+    content.push({ type: 'text', data: summary.conditionOnDischarge || 'Not specified' });
+
+    if (summary.medications?.length) {
+      content.push({ type: 'divider', data: 'dashed' });
+      content.push({ type: 'header', data: 'Medications' });
+      summary.medications.forEach(med => {
+        content.push({ type: 'text', data: `• ${med.name} - ${med.dosage}` });
+      });
+    }
+
+    if (summary.followUpInstructions) {
+      content.push({ type: 'divider', data: 'dashed' });
+      content.push({ type: 'header', data: 'Follow-up' });
+      content.push({ type: 'text', data: summary.followUpInstructions });
+    }
+
+    const thermalDoc: PrintableDocument = {
+      title: 'DISCHARGE SUMMARY',
+      content,
+      footer: 'For queries, contact the hospital',
+      printDate: true,
+    };
+
+    printThermalDocument(thermalDoc);
+    toast.success('Print dialog opened');
   };
 
   const handleDownloadPDF = async () => {

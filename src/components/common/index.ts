@@ -10,3 +10,5 @@ export { OCRScanner } from './OCRScanner';
 export { default as LoadingScreen } from './LoadingScreen';
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as BulkImportModal } from './BulkImportModal';
+export { ThermalPrintButton, quickPrint, createReceiptDocument, createClinicalDocument } from './ThermalPrintButton';
+export type { PrintableDocument, PrintSection } from './ThermalPrintButton';

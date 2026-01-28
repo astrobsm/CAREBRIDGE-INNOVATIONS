@@ -56,8 +56,8 @@ import {
   downloadMonitoringChartPDF,
   type TransfusionOrderData,
   type TransfusionMonitoringChartData,
-} from '../../../utils/transfusionPdfGenerator';
-import TransfusionMonitoringChartView from '../components/TransfusionMonitoringChartView';
+} from '../../../utils/transfusionPdfGenerator';\nimport {\n  printThermalDocument,\n  type PrintableDocument,\n  type PrintSection,\n} from '../../../services/thermalPrintService';\nimport TransfusionMonitoringChartView from '../components/TransfusionMonitoringChartView';
+import { Printer } from 'lucide-react';
 import type { TransfusionOrder, TransfusionMonitoringChart, TransfusionMonitoringEntry, Patient } from '../../../types';
 
 type TabType = 'requests' | 'active' | 'orders' | 'charts' | 'inventory' | 'reactions' | 'mtp';

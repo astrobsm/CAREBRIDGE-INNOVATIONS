@@ -2,8 +2,6 @@
 // This API route handles all database sync operations
 
 import mysql from 'mysql2/promise';
-import * as fs from 'fs';
-import * as path from 'path';
 
 // Create MySQL connection pool
 let pool: mysql.Pool | null = null;
@@ -178,7 +176,7 @@ export default async function handler(req: any, res: any) {
   });
 
   try {
-    const { method } = req;
+    const { method: _method } = req;
     const { action, table: rawTable, data, filters, since } = req.body || {};
 
     // Normalize table name from camelCase to snake_case
@@ -191,18 +189,23 @@ export default async function handler(req: any, res: any) {
 
     switch (action) {
       case 'pull':
+        if (!table) return res.status(400).json({ error: 'Table name is required for pull' });
         return await handlePull(res, table, since);
       
       case 'push':
+        if (!table) return res.status(400).json({ error: 'Table name is required for push' });
         return await handlePush(res, table, data);
       
       case 'upsert':
+        if (!table) return res.status(400).json({ error: 'Table name is required for upsert' });
         return await handleUpsert(res, table, data);
       
       case 'delete':
+        if (!table) return res.status(400).json({ error: 'Table name is required for delete' });
         return await handleDelete(res, table, filters);
       
       case 'query':
+        if (!table) return res.status(400).json({ error: 'Table name is required for query' });
         return await handleQuery(res, table, filters);
       
       case 'health':

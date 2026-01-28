@@ -52,6 +52,12 @@ import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
 import { downloadInvoicePDF, shareInvoiceViaWhatsApp } from '../../../utils/billingPdfGenerator';
 import type { InvoicePDFOptions, InvoiceItemPDF } from '../../../utils/billingPdfGenerator';
+import {
+  printThermalDocument,
+  createReceiptDocument,
+  type PrintableDocument,
+  type PrintSection,
+} from '../../../services/thermalPrintService';
 
 // Map billingActivities categories to service category keys
 const billingCategoryMapping: Record<string, BillingCategory> = {
@@ -549,6 +555,78 @@ export default function BillingPage() {
     }
   };
 
+  // Thermal print invoice (XP-T80Q, 80mm, Georgia 12pt)
+  const handleThermalPrint = async (invoice: Invoice) => {
+    try {
+      const patient = patientMap.get(invoice.patientId);
+      const hospital = await db.hospitals.get(invoice.hospitalId);
+      
+      if (!patient) {
+        toast.error('Patient not found');
+        return;
+      }
+
+      const content: PrintSection[] = [
+        { type: 'header', data: 'Invoice Details' },
+        { type: 'text', data: { key: 'Invoice #', value: invoice.invoiceNumber } },
+        { type: 'text', data: { key: 'Date', value: format(new Date(invoice.createdAt), 'dd/MM/yyyy') } },
+        { type: 'divider', data: 'dashed' },
+        { type: 'header', data: 'Patient' },
+        { type: 'text', data: { key: 'Name', value: `${patient.firstName} ${patient.lastName}` } },
+        { type: 'text', data: { key: 'Hospital #', value: patient.hospitalNumber || 'N/A' } },
+        { type: 'divider', data: 'dashed' },
+        { type: 'header', data: 'Items' },
+        {
+          type: 'table',
+          data: {
+            headers: ['Item', 'Qty', 'Amount'],
+            rows: invoice.items.map(item => [
+              item.description.substring(0, 20) + (item.description.length > 20 ? '...' : ''),
+              item.quantity,
+              formatCurrency(item.amount || item.total || item.quantity * item.unitPrice),
+            ]),
+          },
+        },
+        { type: 'divider', data: 'solid' },
+      ];
+
+      // Add subtotal, discount, tax
+      const subtotal = invoice.subtotal || invoice.items.reduce((sum, item) => sum + (item.amount || item.total || item.quantity * item.unitPrice), 0);
+      content.push({ type: 'text', data: { key: 'Subtotal', value: formatCurrency(subtotal) } });
+      
+      if (invoice.discount && invoice.discount > 0) {
+        content.push({ type: 'text', data: { key: 'Discount', value: `-${formatCurrency(invoice.discount)}` } });
+      }
+      if (invoice.tax && invoice.tax > 0) {
+        content.push({ type: 'text', data: { key: 'Tax', value: formatCurrency(invoice.tax) } });
+      }
+      
+      content.push({ type: 'divider', data: 'double' });
+      content.push({ type: 'text', data: { key: 'TOTAL', value: formatCurrency(invoice.totalAmount || invoice.total || 0) }, style: { bold: true } });
+      content.push({ type: 'text', data: { key: 'Paid', value: formatCurrency(invoice.paidAmount || invoice.amountPaid || 0) } });
+      
+      const balance = (invoice.totalAmount || invoice.total || 0) - (invoice.paidAmount || invoice.amountPaid || 0);
+      if (balance > 0) {
+        content.push({ type: 'text', data: { key: 'Balance Due', value: formatCurrency(balance) }, style: { bold: true } });
+      }
+
+      const thermalDoc: PrintableDocument = {
+        title: 'INVOICE',
+        subtitle: invoice.invoiceNumber,
+        hospitalName: hospital?.name || 'AstroHEALTH Hospital',
+        content,
+        footer: 'Thank you for your patronage',
+        printDate: true,
+      };
+
+      printThermalDocument(thermalDoc);
+      toast.success('Print dialog opened');
+    } catch (error) {
+      console.error('Error printing invoice:', error);
+      toast.error('Failed to print invoice');
+    }
+  };
+
   // Share invoice via WhatsApp
   const handleShareWhatsApp = async (invoice: Invoice) => {
     try {
@@ -838,9 +916,9 @@ export default function BillingPage() {
                             <Eye size={16} className="sm:w-[18px] sm:h-[18px]" />
                           </button>
                           <button
-                            onClick={() => handleDownloadInvoice(invoice)}
-                            className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Print Invoice"
+                            onClick={() => handleThermalPrint(invoice)}
+                            className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Print Receipt (80mm Thermal)"
                           >
                             <Printer size={16} className="sm:w-[18px] sm:h-[18px]" />
                           </button>
@@ -1436,6 +1514,16 @@ export default function BillingPage() {
               <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
                 <button onClick={() => setShowDetailsModal(false)} className="btn btn-secondary">
                   Close
+                </button>
+                <button
+                  onClick={() => {
+                    handleThermalPrint(selectedInvoice);
+                  }}
+                  className="btn btn-secondary"
+                  title="Print Receipt (80mm Thermal)"
+                >
+                  <Printer size={18} />
+                  Print Receipt
                 </button>
                 <button
                   onClick={() => {
