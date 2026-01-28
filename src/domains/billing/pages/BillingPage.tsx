@@ -54,7 +54,6 @@ import { downloadInvoicePDF, shareInvoiceViaWhatsApp } from '../../../utils/bill
 import type { InvoicePDFOptions, InvoiceItemPDF } from '../../../utils/billingPdfGenerator';
 import {
   printThermalDocument,
-  createReceiptDocument,
   type PrintableDocument,
   type PrintSection,
 } from '../../../services/thermalPrintService';
