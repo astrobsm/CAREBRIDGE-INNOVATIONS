@@ -29,6 +29,7 @@ import {
   Calendar,
   Stethoscope,
 } from 'lucide-react';
+import DataMigration from '../../../components/common/DataMigration';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../database';
@@ -1038,6 +1039,12 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* Cloud Migration */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Cloud Sync</h3>
+              <DataMigration />
             </div>
 
             <div>
