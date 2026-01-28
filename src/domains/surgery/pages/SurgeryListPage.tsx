@@ -196,8 +196,8 @@ export default function SurgeryListPage() {
     return surgeries.filter((surgery) => {
       const patient = patientMap.get(surgery.patientId);
       const matchesSearch = searchQuery === '' ||
-        surgery.procedureName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (patient && `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()));
+        (surgery.procedureName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (patient && `${patient.firstName || ''} ${patient.lastName || ''}`.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesStatus = statusFilter === 'all' || surgery.status === statusFilter;
       const matchesType = typeFilter === 'all' || surgery.type === typeFilter;

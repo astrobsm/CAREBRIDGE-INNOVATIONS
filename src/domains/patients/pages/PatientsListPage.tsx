@@ -33,10 +33,10 @@ export default function PatientsListPage() {
 
     return patients.filter((patient) => {
       const matchesSearch = searchQuery === '' ||
-        patient.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        patient.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        patient.hospitalNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        patient.phone.includes(searchQuery);
+        (patient.firstName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (patient.lastName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (patient.hospitalNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (patient.phone || '').includes(searchQuery);
 
       const matchesGender = selectedGender === 'all' || patient.gender === selectedGender;
 

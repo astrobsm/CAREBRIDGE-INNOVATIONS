@@ -116,8 +116,8 @@ export default function SurgicalEstimatePage() {
     if (!patients || !patientSearch.trim()) return [];
     const search = patientSearch.toLowerCase();
     return patients.filter(p => 
-      `${p.firstName} ${p.lastName}`.toLowerCase().includes(search) ||
-      p.hospitalNumber?.toLowerCase().includes(search)
+      `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase().includes(search) ||
+      (p.hospitalNumber || '').toLowerCase().includes(search)
     ).slice(0, 10);
   }, [patients, patientSearch]);
 

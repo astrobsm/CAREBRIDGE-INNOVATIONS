@@ -255,7 +255,7 @@ export default function NutritionPage() {
     return assessments.filter((assessment) => {
       const patient = patientMap.get(assessment.patientId);
       return searchQuery === '' ||
-        (patient && `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()));
+        (patient && `${patient.firstName || ''} ${patient.lastName || ''}`.toLowerCase().includes(searchQuery.toLowerCase()));
     });
   }, [assessments, searchQuery, patientMap]);
 

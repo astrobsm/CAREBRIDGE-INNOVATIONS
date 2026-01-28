@@ -123,8 +123,8 @@ export default function ChatPage() {
     if (!searchQuery.trim()) return chatRooms || [];
     const query = searchQuery.toLowerCase();
     return (chatRooms || []).filter(room =>
-      room.name.toLowerCase().includes(query) ||
-      room.participants.some(p => p.userName.toLowerCase().includes(query))
+      (room.name || '').toLowerCase().includes(query) ||
+      room.participants.some(p => (p.userName || '').toLowerCase().includes(query))
     );
   }, [chatRooms, searchQuery]);
 
@@ -788,8 +788,8 @@ function NewRoomModal({ users, currentUserId, onClose, onCreate }: NewRoomModalP
 
   const filteredUsers = users.filter(u => 
     u.id !== currentUserId &&
-    (`${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     u.role.toLowerCase().includes(searchQuery.toLowerCase()))
+    (`${u.firstName || ''} ${u.lastName || ''}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     (u.role || '').toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const toggleUser = (userId: string) => {

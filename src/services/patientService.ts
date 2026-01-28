@@ -165,12 +165,12 @@ class PatientService {
       if (query) {
         const lowerQuery = query.toLowerCase().trim();
         patients = patients.filter(p =>
-          p.firstName?.toLowerCase().includes(lowerQuery) ||
-          p.lastName?.toLowerCase().includes(lowerQuery) ||
-          p.hospitalNumber?.toLowerCase().includes(lowerQuery) ||
-          p.phone?.includes(lowerQuery) ||
-          p.email?.toLowerCase().includes(lowerQuery) ||
-          `${p.firstName} ${p.lastName}`.toLowerCase().includes(lowerQuery)
+          (p.firstName || '').toLowerCase().includes(lowerQuery) ||
+          (p.lastName || '').toLowerCase().includes(lowerQuery) ||
+          (p.hospitalNumber || '').toLowerCase().includes(lowerQuery) ||
+          (p.phone || '').includes(lowerQuery) ||
+          (p.email || '').toLowerCase().includes(lowerQuery) ||
+          `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase().includes(lowerQuery)
         );
       }
 
@@ -179,8 +179,8 @@ class PatientService {
         let valueA: string | number, valueB: string | number;
         switch (sortBy) {
           case 'name':
-            valueA = `${a.firstName} ${a.lastName}`.toLowerCase();
-            valueB = `${b.firstName} ${b.lastName}`.toLowerCase();
+            valueA = `${a.firstName || ''} ${a.lastName || ''}`.toLowerCase();
+            valueB = `${b.firstName || ''} ${b.lastName || ''}`.toLowerCase();
             break;
           case 'hospitalNumber':
             valueA = a.hospitalNumber || '';

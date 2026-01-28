@@ -263,8 +263,8 @@ export const PatientAPI = {
     const lowerQuery = query.toLowerCase();
     return db.patients
       .filter(p => 
-        p.firstName.toLowerCase().includes(lowerQuery) ||
-        p.lastName.toLowerCase().includes(lowerQuery) ||
+        (p.firstName || '').toLowerCase().includes(lowerQuery) ||
+        (p.lastName || '').toLowerCase().includes(lowerQuery) ||
         (p.hospitalNumber?.toLowerCase().includes(lowerQuery) ?? false)
       )
       .toArray();

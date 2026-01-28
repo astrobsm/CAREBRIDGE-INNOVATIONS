@@ -153,8 +153,8 @@ export default function WardRoundsPage() {
     if (!patientSearchQuery.trim()) return admittedPatients;
     const query = patientSearchQuery.toLowerCase();
     return admittedPatients.filter(p => 
-      `${p.firstName} ${p.lastName}`.toLowerCase().includes(query) ||
-      p.hospitalNumber.toLowerCase().includes(query) ||
+      `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase().includes(query) ||
+      (p.hospitalNumber || '').toLowerCase().includes(query) ||
       p.admission?.wardName?.toLowerCase().includes(query)
     );
   }, [admittedPatients, patientSearchQuery]);
@@ -164,8 +164,8 @@ export default function WardRoundsPage() {
     if (!wardRounds) return [];
     return wardRounds.filter(r => {
       const matchesHospital = selectedHospital === 'all' || r.hospitalId === selectedHospital;
-      const matchesSearch = r.wardName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           r.leadDoctorName.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = (r.wardName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           (r.leadDoctorName || '').toLowerCase().includes(searchQuery.toLowerCase());
       return matchesHospital && matchesSearch;
     });
   }, [wardRounds, selectedHospital, searchQuery]);

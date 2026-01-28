@@ -187,9 +187,9 @@ export default function WoundsPage() {
     return wounds.filter((wound) => {
       const patient = patientMap.get(wound.patientId);
       return searchQuery === '' ||
-        wound.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        wound.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (patient && `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()));
+        (wound.location || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (wound.type || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (patient && `${patient.firstName || ''} ${patient.lastName || ''}`.toLowerCase().includes(searchQuery.toLowerCase()));
     });
   }, [wounds, searchQuery, patientMap]);
 

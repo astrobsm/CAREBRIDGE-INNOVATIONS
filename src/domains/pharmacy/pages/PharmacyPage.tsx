@@ -581,7 +581,7 @@ export default function PharmacyPage() {
     return prescriptions.filter((rx) => {
       const patient = patientMap.get(rx.patientId);
       const matchesSearch = searchQuery === '' ||
-        (patient && `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()));
+        (patient && `${patient.firstName || ''} ${patient.lastName || ''}`.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesStatus = statusFilter === 'all' || rx.status === statusFilter;
       return matchesSearch && matchesStatus;
     });

@@ -344,8 +344,8 @@ export default function BillingPage() {
     return invoices.filter((invoice) => {
       const patient = patientMap.get(invoice.patientId);
       const matchesSearch = searchQuery === '' ||
-        invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (patient && `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()));
+        (invoice.invoiceNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (patient && `${patient.firstName || ''} ${patient.lastName || ''}`.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
       return matchesSearch && matchesStatus;
     });

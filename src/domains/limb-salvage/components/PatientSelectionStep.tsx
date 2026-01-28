@@ -35,8 +35,8 @@ export default function PatientSelectionStep({
 
   // Filter patients by search
   const filteredPatients = patients?.filter(p => {
-    const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
-    const hospitalNumber = p.hospitalNumber?.toLowerCase() || '';
+    const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
+    const hospitalNumber = (p.hospitalNumber || '').toLowerCase();
     const search = searchTerm.toLowerCase();
     return fullName.includes(search) || hospitalNumber.includes(search);
   });

@@ -305,9 +305,9 @@ export default function NPWTPage() {
   const filteredSessions = (sessions || []).filter(session => {
     const patient = (patients || []).find(p => p.id === session.patientId);
     const matchesSearch = !searchTerm || 
-      patient?.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient?.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      session.machineCode.toLowerCase().includes(searchTerm.toLowerCase());
+      (patient?.firstName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (patient?.lastName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (session.machineCode || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCycle = filterCycle === 'all' || session.cycleType === filterCycle;
     return matchesSearch && matchesCycle;
   });
