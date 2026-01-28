@@ -35,29 +35,68 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// Define allowed tables for security
+// Define allowed tables for security (snake_case names)
 const ALLOWED_TABLES = [
-  'users', 'patients', 'vital_signs', 'clinical_encounters', 'surgeries',
-  'admissions', 'ward_rounds', 'wounds', 'wound_measurements', 'burn_assessments',
-  'burn_monitoring', 'lab_requests', 'investigations', 'prescriptions',
-  'treatment_plans', 'treatment_progress', 'discharge_summaries', 'nutrition_assessments',
-  'appointments', 'invoices', 'invoice_items', 'hospitals', 'chat_rooms',
-  'chat_messages', 'chat_participants', 'video_conferences', 'video_participants',
-  'preoperative_assessments', 'postoperative_notes', 'surgical_notes',
-  'external_reviews', 'mdt_meetings', 'blood_transfusions', 'histopathology_requests',
-  'npwt_sessions', 'limb_salvage_assessments', 'medication_charts',
-  'medication_administrations', 'shift_assignments', 'consumable_boms',
-  'consumable_bom_items', 'comorbidities', 'nurse_notes', 'webrtc_signaling'
+  // Core entities
+  'users', 'hospitals', 'patients', 
+  // Vital signs and clinical encounters
+  'vital_signs', 'clinical_encounters',
+  // Surgeries and operative notes
+  'surgeries', 'preoperative_assessments', 'postoperative_notes', 'surgical_notes',
+  // Admissions and ward management
+  'admissions', 'admission_notes', 'bed_assignments', 'ward_rounds', 'nurse_notes',
+  // Wounds and burns
+  'wounds', 'wound_measurements', 'burn_assessments', 'burn_monitoring', 
+  'burn_monitoring_records', 'escharotomy_records', 'skin_graft_records', 'burn_care_plans',
+  // Labs and investigations
+  'lab_requests', 'investigations', 'histopathology_requests',
+  // Medications and prescriptions
+  'prescriptions', 'medication_charts', 'medication_administrations',
+  // Treatment and discharge
+  'treatment_plans', 'treatment_progress', 'discharge_summaries',
+  // Nutrition
+  'nutrition_assessments', 'nutrition_plans',
+  // Appointments
+  'appointments', 'appointment_reminders', 'appointment_slots', 'clinic_sessions',
+  // Billing and invoices
+  'invoices', 'invoice_items', 'activity_billing_records', 
+  'payroll_periods', 'staff_payroll_records', 'payslips',
+  // Communication
+  'chat_rooms', 'chat_messages', 'chat_participants', 
+  'video_conferences', 'video_participants', 'enhanced_video_conferences', 'webrtc_signaling',
+  // Blood transfusions
+  'blood_transfusions', 'transfusion_orders', 'transfusion_monitoring_charts',
+  // Specialized assessments
+  'external_reviews', 'mdt_meetings', 'limb_salvage_assessments',
+  // NPWT (Negative Pressure Wound Therapy)
+  'npwt_sessions', 'npwt_notifications',
+  // Staffing and assignments
+  'shift_assignments', 'doctor_assignments', 'nurse_assignments', 
+  'nurse_patient_assignments', 'staff_patient_assignments',
+  // Consumables
+  'consumable_boms', 'consumable_bom_items',
+  // Other
+  'comorbidities', 'referrals', 'patient_education_records', 
+  'calculator_results', 'meeting_minutes',
+  // Settings and logs
+  'user_settings', 'hospital_settings', 'audit_logs', 'sync_status'
 ];
-
-// Validate table name to prevent SQL injection
-function isValidTable(table: string): boolean {
-  return ALLOWED_TABLES.includes(table.toLowerCase());
-}
 
 // Convert camelCase to snake_case
 function toSnakeCase(str: string): string {
   return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+// Convert table name to snake_case and validate
+function normalizeTableName(table: string): string {
+  // Convert camelCase to snake_case (e.g., vitalSigns -> vital_signs)
+  return toSnakeCase(table).toLowerCase();
+}
+
+// Validate table name to prevent SQL injection
+function isValidTable(table: string): boolean {
+  // Table name should already be normalized to snake_case
+  return ALLOWED_TABLES.includes(table);
 }
 
 // Convert snake_case to camelCase
@@ -65,13 +104,39 @@ function toCamelCase(str: string): string {
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 }
 
+// Convert ISO 8601 datetime to MySQL DATETIME format
+function toMySQLDateTime(value: any): any {
+  if (typeof value === 'string') {
+    // Check if it's an ISO 8601 date string
+    const isoDatePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
+    if (isoDatePattern.test(value)) {
+      // Convert to MySQL DATETIME format: 'YYYY-MM-DD HH:MM:SS'
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().slice(0, 19).replace('T', ' ');
+      }
+    }
+  }
+  return value;
+}
+
 // Convert object keys from camelCase to snake_case
 function objectToSnakeCase(obj: Record<string, any>): Record<string, any> {
   const result: Record<string, any> = {};
   for (const key in obj) {
-    const value = obj[key];
+    let value = obj[key];
+    
+    // Convert Date objects to MySQL format
+    if (value instanceof Date) {
+      value = value.toISOString().slice(0, 19).replace('T', ' ');
+    }
+    // Convert ISO 8601 date strings to MySQL format
+    else if (typeof value === 'string') {
+      value = toMySQLDateTime(value);
+    }
+    
     // Convert arrays and objects to JSON strings for MySQL
-    if (Array.isArray(value) || (value !== null && typeof value === 'object' && !(value instanceof Date))) {
+    if (Array.isArray(value) || (value !== null && typeof value === 'object')) {
       result[toSnakeCase(key)] = JSON.stringify(value);
     } else {
       result[toSnakeCase(key)] = value;
@@ -114,11 +179,14 @@ export default async function handler(req: any, res: any) {
 
   try {
     const { method } = req;
-    const { action, table, data, filters, since } = req.body || {};
+    const { action, table: rawTable, data, filters, since } = req.body || {};
+
+    // Normalize table name from camelCase to snake_case
+    const table = rawTable ? normalizeTableName(rawTable) : null;
 
     // Validate table name
     if (table && !isValidTable(table)) {
-      return res.status(400).json({ error: `Invalid table name: ${table}` });
+      return res.status(400).json({ error: `Invalid table name: ${rawTable} (normalized: ${table})` });
     }
 
     switch (action) {
