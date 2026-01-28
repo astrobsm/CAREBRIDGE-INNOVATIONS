@@ -44,6 +44,15 @@ const rolePermissions: Record<UserRole, string[]> = {
     'view_patients', 'manage_patients', 'create_encounters', 'manage_surgeries',
     'view_labs', 'request_labs', 'prescribe', 'view_vitals', 'manage_wounds'
   ],
+  doctor: [
+    'view_patients', 'manage_patients', 'create_encounters', 
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals', 'manage_admissions'
+  ],
+  plastic_surgeon: [
+    'view_patients', 'manage_patients', 'create_encounters', 'manage_surgeries',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals', 'manage_wounds', 
+    'manage_burns', 'manage_reconstructive'
+  ],
   anaesthetist: [
     'view_patients', 'create_encounters', 'manage_anaesthesia',
     'view_labs', 'view_vitals', 'prescribe'

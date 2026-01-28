@@ -87,50 +87,118 @@ export async function queryCloud(table: string, filters?: Record<string, any>): 
 
 // Table name mappings (camelCase to snake_case)
 export const TABLE_MAPPINGS: Record<string, string> = {
+  // Core tables
   users: 'users',
+  hospitals: 'hospitals',
   patients: 'patients',
+  
+  // Clinical tables
   vitalSigns: 'vital_signs',
   clinicalEncounters: 'clinical_encounters',
   surgeries: 'surgeries',
-  admissions: 'admissions',
-  wardRounds: 'ward_rounds',
   wounds: 'wounds',
   woundMeasurements: 'wound_measurements',
   burnAssessments: 'burn_assessments',
   burnMonitoring: 'burn_monitoring',
+  burnMonitoringRecords: 'burn_monitoring_records',
+  escharotomyRecords: 'escharotomy_records',
+  skinGraftRecords: 'skin_graft_records',
+  burnCarePlans: 'burn_care_plans',
+  
+  // Lab & Investigations
   labRequests: 'lab_requests',
   investigations: 'investigations',
   prescriptions: 'prescriptions',
+  
+  // Nutrition
+  nutritionAssessments: 'nutrition_assessments',
+  nutritionPlans: 'nutrition_plans',
+  
+  // Admissions & Ward
+  admissions: 'admissions',
+  admissionNotes: 'admission_notes',
+  bedAssignments: 'bed_assignments',
+  wardRounds: 'ward_rounds',
+  doctorAssignments: 'doctor_assignments',
+  nurseAssignments: 'nurse_assignments',
+  nursePatientAssignments: 'nurse_patient_assignments',
+  staffPatientAssignments: 'staff_patient_assignments',
+  
+  // Treatment
   treatmentPlans: 'treatment_plans',
   treatmentProgress: 'treatment_progress',
   dischargeSummaries: 'discharge_summaries',
-  nutritionAssessments: 'nutrition_assessments',
+  
+  // Appointments
   appointments: 'appointments',
+  appointmentReminders: 'appointment_reminders',
+  appointmentSlots: 'appointment_slots',
+  clinicSessions: 'clinic_sessions',
+  
+  // Billing & Invoicing
   invoices: 'invoices',
   invoiceItems: 'invoice_items',
-  hospitals: 'hospitals',
+  activityBillingRecords: 'activity_billing_records',
+  payrollPeriods: 'payroll_periods',
+  staffPayrollRecords: 'staff_payroll_records',
+  payslips: 'payslips',
+  
+  // Communication
   chatRooms: 'chat_rooms',
   chatMessages: 'chat_messages',
   chatParticipants: 'chat_participants',
   videoConferences: 'video_conferences',
   videoParticipants: 'video_participants',
+  enhancedVideoConferences: 'enhanced_video_conferences',
+  webrtcSignaling: 'webrtc_signaling',
+  
+  // Surgical
   preoperativeAssessments: 'preoperative_assessments',
   postoperativeNotes: 'postoperative_notes',
   surgicalNotes: 'surgical_notes',
+  consumableBoms: 'consumable_boms',
+  consumableBOMs: 'consumable_boms',
+  consumableBomItems: 'consumable_bom_items',
+  
+  // Specialized Assessments
   externalReviews: 'external_reviews',
   mdtMeetings: 'mdt_meetings',
   bloodTransfusions: 'blood_transfusions',
   histopathologyRequests: 'histopathology_requests',
-  npwtSessions: 'npwt_sessions',
   limbSalvageAssessments: 'limb_salvage_assessments',
+  
+  // NPWT
+  npwtSessions: 'npwt_sessions',
+  npwtNotifications: 'npwt_notifications',
+  
+  // Medication Charts
   medicationCharts: 'medication_charts',
   medicationAdministrations: 'medication_administrations',
+  
+  // Transfusion
+  transfusionOrders: 'transfusion_orders',
+  transfusionMonitoringCharts: 'transfusion_monitoring_charts',
+  
+  // Nursing
   shiftAssignments: 'shift_assignments',
-  consumableBoms: 'consumable_boms',
-  consumableBomItems: 'consumable_bom_items',
-  comorbidities: 'comorbidities',
   nurseNotes: 'nurse_notes',
-  webrtcSignaling: 'webrtc_signaling',
+  comorbidities: 'comorbidities',
+  
+  // Referrals & Education
+  referrals: 'referrals',
+  patientEducationRecords: 'patient_education_records',
+  calculatorResults: 'calculator_results',
+  
+  // Settings
+  userSettings: 'user_settings',
+  hospitalSettings: 'hospital_settings',
+  
+  // Audit & Sync
+  auditLogs: 'audit_logs',
+  syncStatus: 'sync_status',
+  
+  // Meeting Minutes
+  meetingMinutes: 'meeting_minutes',
 };
 
 // Get snake_case table name

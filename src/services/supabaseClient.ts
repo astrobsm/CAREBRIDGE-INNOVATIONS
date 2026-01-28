@@ -149,6 +149,9 @@ export const TABLES = {
   // User & Hospital Settings
   userSettings: 'user_settings',
   hospitalSettings: 'hospital_settings',
+  
+  // Meeting Minutes & Transcription
+  meetingMinutes: 'meeting_minutes',
 } as const;
 
 // Local to cloud table name mapping
@@ -227,6 +230,8 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   // User & Hospital Settings
   userSettings: 'user_settings',
   hospitalSettings: 'hospital_settings',
+  // Meeting Minutes & Transcription
+  meetingMinutes: 'meeting_minutes',
 };
 
 // Type for sync status

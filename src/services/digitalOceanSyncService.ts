@@ -214,13 +214,25 @@ const SYNC_TABLES = [
   { local: 'clinicalEncounters', cloud: 'clinical_encounters' },
   { local: 'surgeries', cloud: 'surgeries' },
   { local: 'admissions', cloud: 'admissions' },
+  { local: 'admissionNotes', cloud: 'admission_notes' },
   { local: 'wardRounds', cloud: 'ward_rounds' },
+  { local: 'bedAssignments', cloud: 'bed_assignments' },
+  
+  // Assignments
+  { local: 'doctorAssignments', cloud: 'doctor_assignments' },
+  { local: 'nurseAssignments', cloud: 'nurse_assignments' },
+  { local: 'nursePatientAssignments', cloud: 'nurse_patient_assignments' },
+  { local: 'staffPatientAssignments', cloud: 'staff_patient_assignments' },
   
   // Wound & Burns
   { local: 'wounds', cloud: 'wounds' },
   { local: 'woundMeasurements', cloud: 'wound_measurements' },
   { local: 'burnAssessments', cloud: 'burn_assessments' },
   { local: 'burnMonitoring', cloud: 'burn_monitoring' },
+  { local: 'burnMonitoringRecords', cloud: 'burn_monitoring_records' },
+  { local: 'escharotomyRecords', cloud: 'escharotomy_records' },
+  { local: 'skinGraftRecords', cloud: 'skin_graft_records' },
+  { local: 'burnCarePlans', cloud: 'burn_care_plans' },
   
   // Lab & Investigations
   { local: 'labRequests', cloud: 'lab_requests' },
@@ -236,11 +248,19 @@ const SYNC_TABLES = [
   { local: 'treatmentProgress', cloud: 'treatment_progress' },
   { local: 'dischargeSummaries', cloud: 'discharge_summaries' },
   { local: 'nutritionAssessments', cloud: 'nutrition_assessments' },
+  { local: 'nutritionPlans', cloud: 'nutrition_plans' },
   
   // Appointments & Billing
   { local: 'appointments', cloud: 'appointments' },
+  { local: 'appointmentReminders', cloud: 'appointment_reminders' },
+  { local: 'appointmentSlots', cloud: 'appointment_slots' },
+  { local: 'clinicSessions', cloud: 'clinic_sessions' },
   { local: 'invoices', cloud: 'invoices' },
   { local: 'invoiceItems', cloud: 'invoice_items' },
+  { local: 'activityBillingRecords', cloud: 'activity_billing_records' },
+  { local: 'payrollPeriods', cloud: 'payroll_periods' },
+  { local: 'staffPayrollRecords', cloud: 'staff_payroll_records' },
+  { local: 'payslips', cloud: 'payslips' },
   
   // Communication
   { local: 'chatRooms', cloud: 'chat_rooms' },
@@ -248,6 +268,8 @@ const SYNC_TABLES = [
   { local: 'chatParticipants', cloud: 'chat_participants' },
   { local: 'videoConferences', cloud: 'video_conferences' },
   { local: 'videoParticipants', cloud: 'video_participants' },
+  { local: 'enhancedVideoConferences', cloud: 'enhanced_video_conferences' },
+  { local: 'webrtcSignaling', cloud: 'webrtc_signaling' },
   
   // Specialized
   { local: 'preoperativeAssessments', cloud: 'preoperative_assessments' },
@@ -258,15 +280,47 @@ const SYNC_TABLES = [
   { local: 'bloodTransfusions', cloud: 'blood_transfusions' },
   { local: 'histopathologyRequests', cloud: 'histopathology_requests' },
   { local: 'npwtSessions', cloud: 'npwt_sessions' },
+  { local: 'npwtNotifications', cloud: 'npwt_notifications' },
   { local: 'limbSalvageAssessments', cloud: 'limb_salvage_assessments' },
   { local: 'shiftAssignments', cloud: 'shift_assignments' },
   { local: 'nurseNotes', cloud: 'nurse_notes' },
   { local: 'comorbidities', cloud: 'comorbidities' },
   { local: 'consumableBOMs', cloud: 'consumable_boms' },
+  { local: 'consumableBomItems', cloud: 'consumable_bom_items' },
+  
+  // Transfusion
+  { local: 'transfusionOrders', cloud: 'transfusion_orders' },
+  { local: 'transfusionMonitoringCharts', cloud: 'transfusion_monitoring_charts' },
+  
+  // Referrals & Education
+  { local: 'referrals', cloud: 'referrals' },
+  { local: 'patientEducationRecords', cloud: 'patient_education_records' },
+  { local: 'calculatorResults', cloud: 'calculator_results' },
+  
+  // Settings
+  { local: 'userSettings', cloud: 'user_settings' },
+  { local: 'hospitalSettings', cloud: 'hospital_settings' },
+  
+  // Audit & Sync
+  { local: 'auditLogs', cloud: 'audit_logs' },
+  { local: 'syncStatus', cloud: 'sync_status' },
+  
+  // Meeting Minutes
+  { local: 'meetingMinutes', cloud: 'meeting_minutes' },
 ];
 
 // Critical data that syncs frequently
-const CRITICAL_TABLES = ['vitalSigns', 'patients', 'admissions', 'surgeries'];
+const CRITICAL_TABLES = [
+  'vitalSigns', 
+  'patients', 
+  'admissions', 
+  'surgeries', 
+  'clinicalEncounters',
+  'medicationCharts',
+  'wardRounds',
+  'burnMonitoringRecords',
+  'transfusionOrders'
+];
 
 // Pull all data from cloud
 async function pullAllFromCloud(): Promise<void> {

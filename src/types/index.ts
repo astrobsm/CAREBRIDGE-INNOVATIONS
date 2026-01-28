@@ -243,7 +243,7 @@ export interface Surgery {
   procedureName: string;
   procedureCode?: string;
   type: 'elective' | 'emergency';
-  category: 'minor' | 'major';
+  category: 'minor' | 'intermediate' | 'major' | 'super_major';
   preOperativeAssessment: PreOperativeAssessment;
   scheduledDate: Date;
   actualStartTime?: Date;
