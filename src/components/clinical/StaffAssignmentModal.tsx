@@ -198,7 +198,7 @@ export default function StaffAssignmentModal({
                     className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg"
                   >
                     <div className="w-8 h-8 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                      {user ? `${user.firstName[0]}${user.lastName[0]}` : '??'}
+                      {user ? `${(user.firstName || '?')[0]}${(user.lastName || '?')[0]}` : '??'}
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">
@@ -272,7 +272,7 @@ export default function StaffAssignmentModal({
                     }`}
                   >
                     <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-                      {staff.firstName[0]}{staff.lastName[0]}
+                      {(staff.firstName || '?')[0]}{(staff.lastName || '?')[0]}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900">

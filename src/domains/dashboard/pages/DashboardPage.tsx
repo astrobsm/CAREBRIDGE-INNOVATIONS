@@ -187,7 +187,7 @@ export default function DashboardPage() {
                   className="px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 hover:bg-gray-50 transition-colors"
                 >
                   <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0">
-                    {patient.firstName[0]}{patient.lastName[0]}
+                    {(patient.firstName || '?')[0]}{(patient.lastName || '?')[0]}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 truncate">

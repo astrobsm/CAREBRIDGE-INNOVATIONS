@@ -285,7 +285,7 @@ export default function ChatPage() {
         {/* Avatar */}
         {showAvatar && !isOwnMessage ? (
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-            {message.senderName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+            {(message.senderName || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
           </div>
         ) : (
           <div className="w-8 flex-shrink-0" />
@@ -442,7 +442,7 @@ export default function ChatPage() {
                   <div className={`w-12 h-12 rounded-full ${config.bgColor} flex items-center justify-center flex-shrink-0`}>
                     {room.type === 'direct' && otherParticipant ? (
                       <span className="text-lg font-semibold text-gray-700">
-                        {otherParticipant.userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {(otherParticipant.userName || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
                       </span>
                     ) : (
                       <span className={config.color}>{config.icon}</span>
@@ -720,7 +720,7 @@ export default function ChatPage() {
                   {selectedRoom.participants.map((participant) => (
                     <div key={participant.userId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold">
-                        {participant.userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {(participant.userName || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">{participant.userName}</p>
@@ -912,7 +912,7 @@ function NewRoomModal({ users, currentUserId, onClose, onCreate }: NewRoomModalP
                     }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold">
-                      {u.firstName[0]}{u.lastName[0]}
+                      {(u.firstName || '?')[0]}{(u.lastName || '?')[0]}
                     </div>
                     <div className="flex-1 text-left">
                       <p className="font-medium">{u.firstName} {u.lastName}</p>

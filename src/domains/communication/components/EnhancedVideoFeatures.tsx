@@ -390,7 +390,7 @@ export function CameraPreview({ stream, isVideoOn, userName, virtualBackground, 
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-            {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+            {(userName || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
           </div>
         </div>
       )}
@@ -752,7 +752,7 @@ export function PresenterModeLayout({
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold">
-                  {presenterName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  {(presenterName || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
                 </div>
               </div>
             )}
@@ -786,7 +786,7 @@ export function PresenterModeLayout({
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                  {presenterName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  {(presenterName || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
                 </div>
               </div>
             )}

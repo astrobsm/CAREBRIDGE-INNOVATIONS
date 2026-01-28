@@ -99,7 +99,7 @@ export default function PatientDetailsPage() {
           <div className="flex flex-col md:flex-row md:items-start gap-6">
             {/* Avatar */}
             <div className="w-24 h-24 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-2xl flex items-center justify-center text-white text-3xl font-bold">
-              {patient.firstName[0]}{patient.lastName[0]}
+              {(patient.firstName || '?')[0]}{(patient.lastName || '?')[0]}
             </div>
 
             {/* Info */}

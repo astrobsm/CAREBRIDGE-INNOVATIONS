@@ -348,7 +348,7 @@ export default function PayrollDashboardPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                          {record.staffName.split(' ').map(n => n[0]).join('')}
+                          {(record.staffName || '??').split(' ').map(n => n[0]).join('')}
                         </div>
                         <span className="font-medium text-gray-900">{record.staffName}</span>
                       </div>

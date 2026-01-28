@@ -176,7 +176,7 @@ function ParticipantVideo({
       ) : (
         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
           <div className={`${isLarge ? 'w-32 h-32' : 'w-20 h-20'} rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white ${isLarge ? 'text-4xl' : 'text-2xl'} font-bold`}>
-            {participant.userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+            {(participant.userName || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
           </div>
         </div>
       )}
@@ -3259,7 +3259,7 @@ export default function VideoConferencePage() {
                       >
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white text-sm font-semibold">
-                            {p.userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                            {(p.userName || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
                           </div>
                           <div className="flex-1">
                             <span className="text-white font-medium text-sm block">
@@ -3321,7 +3321,7 @@ export default function VideoConferencePage() {
                   >
                     <div className="relative">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold">
-                        {p.userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {(p.userName || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
                       </div>
                       {/* Connection indicator */}
                       <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-800 ${
@@ -3386,7 +3386,7 @@ export default function VideoConferencePage() {
                   chatMessages.map((msg) => (
                     <div key={msg.id} className="flex gap-2">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-                        {msg.senderName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {(msg.senderName || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">

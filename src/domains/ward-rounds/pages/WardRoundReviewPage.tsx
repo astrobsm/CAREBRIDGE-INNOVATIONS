@@ -372,7 +372,7 @@ Discharge Consideration: ${data.dischargeConsideration.replace(/_/g, ' ')}
         >
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
-              {patient.firstName[0]}{patient.lastName[0]}
+              {(patient.firstName || '?')[0]}{(patient.lastName || '?')[0]}
             </div>
             <div className="text-left">
               <h2 className="font-bold text-gray-900 text-lg">
