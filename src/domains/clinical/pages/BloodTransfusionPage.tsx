@@ -56,7 +56,13 @@ import {
   downloadMonitoringChartPDF,
   type TransfusionOrderData,
   type TransfusionMonitoringChartData,
-} from '../../../utils/transfusionPdfGenerator';\nimport {\n  printThermalDocument,\n  type PrintableDocument,\n  type PrintSection,\n} from '../../../services/thermalPrintService';\nimport TransfusionMonitoringChartView from '../components/TransfusionMonitoringChartView';
+} from '../../../utils/transfusionPdfGenerator';
+import {
+  printThermalDocument,
+  type PrintableDocument,
+  type PrintSection,
+} from '../../../services/thermalPrintService';
+import TransfusionMonitoringChartView from '../components/TransfusionMonitoringChartView';
 import { Printer } from 'lucide-react';
 import type { TransfusionOrder, TransfusionMonitoringChart, TransfusionMonitoringEntry, Patient } from '../../../types';
 
