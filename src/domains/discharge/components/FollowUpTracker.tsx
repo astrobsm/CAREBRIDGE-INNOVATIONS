@@ -102,9 +102,9 @@ export default function FollowUpTracker({ onClose }: Props) {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       list = list.filter(f =>
-        f.patientName.toLowerCase().includes(query) ||
-        f.appointment.type.toLowerCase().includes(query) ||
-        f.appointment.department.toLowerCase().includes(query)
+        (f.patientName || '').toLowerCase().includes(query) ||
+        (f.appointment.type || '').toLowerCase().includes(query) ||
+        (f.appointment.department || '').toLowerCase().includes(query)
       );
     }
 

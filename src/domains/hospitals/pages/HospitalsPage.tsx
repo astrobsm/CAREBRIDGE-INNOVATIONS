@@ -123,8 +123,8 @@ export default function HospitalsPage() {
     if (!hospitals) return [];
     return hospitals.filter((hospital) => {
       const matchesSearch = searchQuery === '' ||
-        hospital.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        hospital.address.toLowerCase().includes(searchQuery.toLowerCase());
+        (hospital.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (hospital.address || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchesState = stateFilter === 'all' || hospital.state === stateFilter;
       const matchesType = typeFilter === 'all' || hospital.type === typeFilter;
       return matchesSearch && matchesState && matchesType;

@@ -125,11 +125,11 @@ const ADTPage: React.FC = () => {
       const patient = patientMap.get(a.patientId);
       const searchLower = searchTerm.toLowerCase();
       return (
-        patient?.firstName.toLowerCase().includes(searchLower) ||
-        patient?.lastName.toLowerCase().includes(searchLower) ||
-        patient?.hospitalNumber.toLowerCase().includes(searchLower) ||
-        a.wardName.toLowerCase().includes(searchLower) ||
-        a.bedNumber.toLowerCase().includes(searchLower)
+        (patient?.firstName || '').toLowerCase().includes(searchLower) ||
+        (patient?.lastName || '').toLowerCase().includes(searchLower) ||
+        (patient?.hospitalNumber || '').toLowerCase().includes(searchLower) ||
+        (a.wardName || '').toLowerCase().includes(searchLower) ||
+        (a.bedNumber || '').toLowerCase().includes(searchLower)
       );
     });
   }, [admissions, searchTerm, patientMap]);

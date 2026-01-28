@@ -152,10 +152,10 @@ export default function AppointmentsPage() {
       filtered = filtered.filter(a => {
         const patient = patientMap?.[a.patientId];
         return (
-          a.appointmentNumber.toLowerCase().includes(query) ||
-          patient?.name.toLowerCase().includes(query) ||
-          patient?.hospitalNumber.toLowerCase().includes(query) ||
-          a.reasonForVisit.toLowerCase().includes(query)
+          (a.appointmentNumber || '').toLowerCase().includes(query) ||
+          (patient?.name || '').toLowerCase().includes(query) ||
+          (patient?.hospitalNumber || '').toLowerCase().includes(query) ||
+          (a.reasonForVisit || '').toLowerCase().includes(query)
         );
       });
     }

@@ -2658,8 +2658,8 @@ export default function EnhancedTreatmentPlanCard({
                     <label className="label">Assign To</label>
                     <select {...registerProc('assignedTo')} className="input">
                       <option value="">Select staff member...</option>
-                      {users?.filter(u => ['surgeon', 'doctor', 'nurse'].includes(u.role)).map(user => (
-                        <option key={user.id} value={user.id}>{user.firstName} {user.lastName} ({user.role})</option>
+                      {users?.filter(u => u.role && ['surgeon', 'doctor', 'nurse'].includes(u.role)).map(user => (
+                        <option key={user.id} value={user.id}>{user.firstName || ''} {user.lastName || ''} ({user.role})</option>
                       ))}
                     </select>
                     {selectedProcedureType && (

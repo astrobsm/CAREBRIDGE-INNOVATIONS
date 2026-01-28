@@ -280,9 +280,9 @@ export function HospitalSelector({
     
     const query = searchQuery.toLowerCase();
     return hospitals.filter(h => 
-      h.name.toLowerCase().includes(query) ||
-      h.address.toLowerCase().includes(query) ||
-      h.city?.toLowerCase().includes(query)
+      (h.name || '').toLowerCase().includes(query) ||
+      (h.address || '').toLowerCase().includes(query) ||
+      (h.city || '').toLowerCase().includes(query)
     ).slice(0, 10);
   }, [hospitals, searchQuery]);
 

@@ -56,7 +56,7 @@ export default function PayrollDashboardPage() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       records = records.filter(r => 
-        r.staffName.toLowerCase().includes(query)
+        (r.staffName || '').toLowerCase().includes(query)
       );
     }
     

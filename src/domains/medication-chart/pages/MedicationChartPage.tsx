@@ -263,9 +263,9 @@ export default function MedicationChartPage() {
   // Filter patients
   const filteredPatients = admittedPatients.filter(patient =>
     !searchTerm ||
-    patient.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.hospitalNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    (patient.firstName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (patient.lastName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (patient.hospitalNumber || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Get status icon

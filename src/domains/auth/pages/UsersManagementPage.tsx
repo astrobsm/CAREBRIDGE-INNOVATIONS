@@ -266,9 +266,9 @@ export default function UsersManagementPage() {
   // Filter users
   const filteredUsers = users?.filter((user) => {
     const matchesSearch =
-      user.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
+      (user.firstName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.lastName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.email || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
     return matchesSearch && matchesRole;
   }) || [];
