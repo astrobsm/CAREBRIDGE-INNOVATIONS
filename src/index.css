@@ -507,3 +507,33 @@
     @apply shadow-none border-none;
   }
 }
+
+/* Voice Notification Animations */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+  }
+  50% {
+    opacity: 0.9;
+    box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Attention-grabbing flash for urgent notifications */
+@keyframes urgent-flash {
+  0%, 100% {
+    background-color: rgba(220, 38, 38, 0.05);
+  }
+  50% {
+    background-color: rgba(220, 38, 38, 0.15);
+  }
+}
+
+.animate-urgent-flash {
+  animation: urgent-flash 1s ease-in-out infinite;
+}

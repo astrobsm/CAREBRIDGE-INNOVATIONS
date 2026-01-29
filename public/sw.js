@@ -560,27 +560,97 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
+  const notificationData = event.notification.data || {};
+  
+  // Handle dismiss action
   if (event.action === 'dismiss') {
     return;
   }
 
-  const url = event.notification.data?.url || '/';
-  
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clientList) => {
-      // Focus existing window if available
-      for (const client of clientList) {
-        if (client.url.includes(url) && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      // Open new window
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(url);
-      }
-    })
-  );
+  // Handle patient assignment acknowledgment
+  if (event.action === 'acknowledge' && notificationData.type === 'patient_assignment') {
+    event.waitUntil(handleAssignmentAcknowledge(notificationData.notificationId));
+    return;
+  }
+
+  // Handle view patient for assignment notifications
+  if (event.action === 'view' && notificationData.type === 'patient_assignment') {
+    const url = `/patients/${notificationData.patientId}`;
+    event.waitUntil(openAppWindow(url));
+    // Also acknowledge
+    handleAssignmentAcknowledge(notificationData.notificationId);
+    return;
+  }
+
+  const url = notificationData.url || '/';
+  event.waitUntil(openAppWindow(url));
 });
+
+// Open app window helper
+async function openAppWindow(url) {
+  const clientList = await self.clients.matchAll({ type: 'window' });
+  
+  // Focus existing window if available
+  for (const client of clientList) {
+    if (client.url.includes(url) && 'focus' in client) {
+      return client.focus();
+    }
+  }
+  
+  // Open new window
+  if (self.clients.openWindow) {
+    return self.clients.openWindow(url);
+  }
+}
+
+// Handle assignment notification acknowledgment
+async function handleAssignmentAcknowledge(notificationId) {
+  if (!notificationId) return;
+  
+  try {
+    // Update the notification in IndexedDB
+    const NOTIFICATION_DB_NAME = 'carebridge-voice-notifications';
+    const NOTIFICATION_STORE_NAME = 'pending-voice-notifications';
+    
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open(NOTIFICATION_DB_NAME, 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+    
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction([NOTIFICATION_STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(NOTIFICATION_STORE_NAME);
+      const getReq = store.get(notificationId);
+      
+      getReq.onsuccess = () => {
+        const notification = getReq.result;
+        if (notification) {
+          notification.acknowledged = true;
+          notification.acknowledgedAt = new Date().toISOString();
+          store.put(notification);
+        }
+        resolve();
+      };
+      getReq.onerror = () => reject(getReq.error);
+    });
+    
+    db.close();
+    
+    // Notify clients that notification was acknowledged
+    const clients = await self.clients.matchAll();
+    clients.forEach((client) => {
+      client.postMessage({ 
+        type: 'ASSIGNMENT_ACKNOWLEDGED', 
+        notificationId: notificationId 
+      });
+    });
+    
+    console.log('[SW] Assignment notification acknowledged:', notificationId);
+  } catch (error) {
+    console.error('[SW] Error acknowledging assignment:', error);
+  }
+}
 
 // Listen for messages from the main app
 self.addEventListener('message', (event) => {
@@ -652,6 +722,49 @@ self.addEventListener('message', (event) => {
         })
       );
       break;
+    
+    case 'CHECK_VOICE_NOTIFICATIONS':
+      // Check voice notifications specifically
+      event.waitUntil(checkVoiceNotificationsFromSW());
+      break;
+    
+    case 'ACKNOWLEDGE_ASSIGNMENT':
+      // Acknowledge a specific assignment notification
+      if (data.notificationId) {
+        event.waitUntil(handleAssignmentAcknowledge(data.notificationId));
+      }
+      break;
+      
+    case 'TRIGGER_VOICE_NOTIFICATION':
+      // Trigger a voice notification from the app
+      if (data.notification) {
+        event.waitUntil(
+          self.registration.showNotification(
+            `🏥 Patient Assignment`,
+            {
+              body: data.notification.message,
+              icon: '/icons/icon-192x192.png',
+              badge: '/icons/icon-72x72.png',
+              vibrate: [500, 200, 500, 200, 500],
+              tag: `assignment-${data.notification.id}`,
+              requireInteraction: true,
+              renotify: true,
+              data: {
+                type: 'patient_assignment',
+                notificationId: data.notification.id,
+                patientId: data.notification.patientId,
+                userId: data.notification.userId,
+                url: '/dashboard',
+              },
+              actions: [
+                { action: 'acknowledge', title: '✓ Acknowledge' },
+                { action: 'view', title: 'View Patient' }
+              ]
+            }
+          )
+        );
+      }
+      break;
   }
 });
 
@@ -672,6 +785,9 @@ self.addEventListener('periodicsync', (event) => {
 // Check and send scheduled notifications
 async function checkAndSendNotifications() {
   try {
+    // Check for pending voice notifications (patient assignments)
+    await checkVoiceNotificationsFromSW();
+    
     // Notify clients to check for pending notifications
     const clients = await self.clients.matchAll();
     
@@ -686,6 +802,114 @@ async function checkAndSendNotifications() {
     }
   } catch (error) {
     console.error('[SW] Error checking notifications:', error);
+  }
+}
+
+// Check voice notifications from service worker (for patient assignments)
+async function checkVoiceNotificationsFromSW() {
+  const NOTIFICATION_DB_NAME = 'carebridge-voice-notifications';
+  const NOTIFICATION_STORE_NAME = 'pending-voice-notifications';
+  
+  try {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open(NOTIFICATION_DB_NAME, 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = (event) => {
+        const database = event.target.result;
+        if (!database.objectStoreNames.contains(NOTIFICATION_STORE_NAME)) {
+          const store = database.createObjectStore(NOTIFICATION_STORE_NAME, { keyPath: 'id' });
+          store.createIndex('userId', 'userId', { unique: false });
+          store.createIndex('acknowledged', 'acknowledged', { unique: false });
+        }
+      };
+    });
+    
+    // Get all unacknowledged notifications
+    const pending = await new Promise((resolve, reject) => {
+      const transaction = db.transaction([NOTIFICATION_STORE_NAME], 'readonly');
+      const store = transaction.objectStore(NOTIFICATION_STORE_NAME);
+      const index = store.index('acknowledged');
+      const req = index.getAll(IDBKeyRange.only(false));
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+    
+    if (pending.length === 0) {
+      db.close();
+      return;
+    }
+    
+    console.log(`[SW] Found ${pending.length} pending voice notifications`);
+    
+    // Check if app has any clients open
+    const clients = await self.clients.matchAll();
+    const appIsOpen = clients.length > 0;
+    
+    // Only show push notifications if app is closed (let the app handle voice when open)
+    if (!appIsOpen) {
+      const now = new Date();
+      
+      for (const notification of pending) {
+        // Check if we should re-notify (every 30 seconds)
+        const lastAnnounced = notification.lastAnnouncedAt ? new Date(notification.lastAnnouncedAt) : null;
+        const shouldRenotify = !lastAnnounced || (now - lastAnnounced) > 30000;
+        
+        if (shouldRenotify) {
+          const roleLabel = notification.assignmentType === 'primary_doctor' 
+            ? 'Doctor' 
+            : notification.assignmentType === 'primary_nurse' 
+              ? 'Nurse' 
+              : 'Staff';
+          
+          // Show notification with vibration pattern for urgency
+          await self.registration.showNotification(
+            `🚨 URGENT: Patient Assignment - ${roleLabel}`,
+            {
+              body: `${notification.patientName} admitted to ${notification.wardName}, Bed ${notification.bedNumber} at ${notification.hospitalName}. TAP TO ACKNOWLEDGE!`,
+              icon: '/icons/icon-192x192.png',
+              badge: '/icons/icon-72x72.png',
+              vibrate: [500, 200, 500, 200, 500, 200, 500], // Long urgent vibration
+              tag: `assignment-${notification.id}`,
+              requireInteraction: true,
+              renotify: true, // Re-show notification even if same tag
+              data: {
+                type: 'patient_assignment',
+                notificationId: notification.id,
+                patientId: notification.patientId,
+                userId: notification.userId,
+                url: '/dashboard',
+              },
+              actions: [
+                { action: 'acknowledge', title: '✓ Acknowledge' },
+                { action: 'view', title: 'View Patient' }
+              ]
+            }
+          );
+          
+          // Update last announced time
+          await new Promise((resolve, reject) => {
+            const transaction = db.transaction([NOTIFICATION_STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(NOTIFICATION_STORE_NAME);
+            const getReq = store.get(notification.id);
+            getReq.onsuccess = () => {
+              const data = getReq.result;
+              if (data && !data.acknowledged) {
+                data.repeatCount = (data.repeatCount || 0) + 1;
+                data.lastAnnouncedAt = now.toISOString();
+                store.put(data);
+              }
+              resolve();
+            };
+            getReq.onerror = () => reject(getReq.error);
+          });
+        }
+      }
+    }
+    
+    db.close();
+  } catch (error) {
+    console.error('[SW] Error checking voice notifications:', error);
   }
 }
 
@@ -764,11 +988,12 @@ async function checkNotificationsFromSW() {
 
 // Set up periodic notification check timer (fallback for when periodic sync is not available)
 let notificationCheckTimer = null;
+let voiceNotificationTimer = null;
 
 function startNotificationTimer() {
   if (notificationCheckTimer) return;
   
-  // Check every minute
+  // Check general notifications every minute
   notificationCheckTimer = setInterval(() => {
     if (notificationChecksEnabled) {
       checkAndSendNotifications();
@@ -778,8 +1003,20 @@ function startNotificationTimer() {
   console.log('[SW] Notification timer started');
 }
 
+// Start aggressive timer for voice notifications (every 30 seconds)
+function startVoiceNotificationTimer() {
+  if (voiceNotificationTimer) return;
+  
+  voiceNotificationTimer = setInterval(() => {
+    checkVoiceNotificationsFromSW();
+  }, 30000); // 30 seconds
+  
+  console.log('[SW] Voice notification timer started');
+}
+
 // Start timer when SW activates
 startNotificationTimer();
+startVoiceNotificationTimer();
 
 // Handle app lifecycle events
 self.addEventListener('online', () => {
@@ -788,4 +1025,4 @@ self.addEventListener('online', () => {
   checkAndSendNotifications();
 });
 
-console.log('[SW] Service Worker v2.0.0 loaded - Offline-First PWA with Notifications ready');
+console.log('[SW] Service Worker v2.1.0 loaded - Offline-First PWA with Voice Notifications ready');

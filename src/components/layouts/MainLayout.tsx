@@ -4,6 +4,8 @@ import Sidebar from '../navigation/Sidebar';
 import Header from '../navigation/Header';
 import { useOfflineState } from '../../services/offlineDataManager';
 import { WifiOff, X, RefreshCw } from 'lucide-react';
+import { AssignmentNotificationBanner } from '../notifications';
+import { initVoiceNotificationService, requestNotificationPermission } from '../../services/voiceNotificationService';
 
 // Offline Banner Component
 function OfflineBanner() {
@@ -97,8 +99,22 @@ function OfflineBanner() {
 export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Initialize voice notifications on app load
+  useEffect(() => {
+    initVoiceNotificationService();
+    // Request permission for notifications
+    requestNotificationPermission().then(granted => {
+      if (granted) {
+        console.log('[MainLayout] Notification permission granted for voice announcements');
+      }
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Assignment Notification Banner - for voice notifications */}
+      <AssignmentNotificationBanner />
+      
       {/* Offline/Sync Status Banner */}
       <OfflineBanner />
       

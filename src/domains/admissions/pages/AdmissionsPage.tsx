@@ -1,7 +1,7 @@
 // Admissions Management Page
 // Handles patient admissions with duration tracking, treatment plan linking, and risk assessments
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -39,6 +39,11 @@ import type { AdmissionRiskAssessments as AdmissionRiskData } from '../component
 import { generateAdmissionPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
+import { 
+  createAssignmentNotification, 
+  initVoiceNotificationService,
+  requestNotificationPermission 
+} from '../../../services/voiceNotificationService';
 
 const admissionSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
@@ -109,6 +114,17 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
   // Multi-step admission form state
   const [admissionStep, setAdmissionStep] = useState<AdmissionStep>('details');
   const [riskAssessments, setRiskAssessments] = useState<AdmissionRiskData>({});
+
+  // Initialize voice notification service on mount
+  useEffect(() => {
+    initVoiceNotificationService();
+    // Request notification permission
+    requestNotificationPermission().then(granted => {
+      if (granted) {
+        console.log('Notification permission granted');
+      }
+    });
+  }, []);
 
   const admissions = useLiveQuery(
     () => db.admissions.orderBy('admissionDate').reverse().toArray(),
@@ -223,6 +239,50 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
 
       await db.admissions.add(admission);
       syncRecord('admissions', admission as unknown as Record<string, unknown>);
+      
+      // Get patient and hospital info for voice notifications
+      const patient = patientMap.get(data.patientId);
+      const hospital = await db.hospitals.get(user.hospitalId || 'hospital-1');
+      const patientName = patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown Patient';
+      const hospitalName = hospital?.name || 'the hospital';
+      
+      // Send voice notifications to assigned staff
+      // Notify primary doctor if assigned and not the current user
+      if (admission.primaryDoctor && admission.primaryDoctor !== user.id) {
+        try {
+          await createAssignmentNotification(
+            admission.primaryDoctor,
+            admission.patientId,
+            patientName,
+            hospitalName,
+            admission.wardName,
+            admission.bedNumber,
+            'primary_doctor'
+          );
+          console.log('Voice notification sent to primary doctor:', admission.primaryDoctor);
+        } catch (notifyError) {
+          console.error('Error sending notification to doctor:', notifyError);
+        }
+      }
+      
+      // Notify primary nurse if assigned
+      if (admission.primaryNurse) {
+        try {
+          await createAssignmentNotification(
+            admission.primaryNurse,
+            admission.patientId,
+            patientName,
+            hospitalName,
+            admission.wardName,
+            admission.bedNumber,
+            'primary_nurse'
+          );
+          console.log('Voice notification sent to primary nurse:', admission.primaryNurse);
+        } catch (notifyError) {
+          console.error('Error sending notification to nurse:', notifyError);
+        }
+      }
+      
       toast.success(`Patient admitted successfully! Admission #${admission.admissionNumber}`);
       setShowModal(false);
       setAdmissionStep('details');

@@ -249,6 +249,21 @@ export type {
   NutritionSupplement 
 } from './nutritionPlannerService';
 
+// Voice Notification Service (for staff assignment notifications)
+export {
+  voiceNotificationService,
+  initVoiceNotificationService,
+  createAssignmentNotification,
+  acknowledgeNotification,
+  acknowledgeAllForUser,
+  getPendingNotifications,
+  hasPendingNotifications,
+  requestNotificationPermission as requestVoiceNotificationPermission,
+  stopAllAnnouncements,
+  cleanupOldNotifications,
+} from './voiceNotificationService';
+export type { VoiceNotification } from './voiceNotificationService';
+
 // Scheduled Notification Service (Push notifications with voice alarms)
 export {
   startNotificationScheduler,
