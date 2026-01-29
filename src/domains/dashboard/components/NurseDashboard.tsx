@@ -17,13 +17,10 @@ import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
-import { getStaffDashboardStats, formatCurrency } from '../../../services/activityBillingService';
-import type { StaffDashboardStats } from '../../../types';
+
 
 export default function NurseDashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<StaffDashboardStats | null>(null);
-  const [statsPeriod, setStatsPeriod] = useState<'today' | 'week' | 'month'>('month');
   const [currentShift, setCurrentShift] = useState<'morning' | 'afternoon' | 'night'>('morning');
 
   // Determine current shift based on time
@@ -37,13 +34,6 @@ export default function NurseDashboard() {
       setCurrentShift('night');
     }
   }, []);
-
-  // Fetch staff dashboard stats
-  useEffect(() => {
-    if (user?.id) {
-      getStaffDashboardStats(user.id, statsPeriod).then(setStats);
-    }
-  }, [user?.id, statsPeriod]);
 
   // My assigned patients (nurse assignments)
   const myPatientAssignments = useLiveQuery(async () => {
@@ -151,7 +141,7 @@ export default function NurseDashboard() {
       value: pendingVitals ?? 0,
       icon: <Heart className="w-5 h-5" />,
       color: pendingVitals && pendingVitals > 0 ? 'bg-red-500' : 'bg-emerald-500',
-      link: '/clinical',
+      link: '/patients',
     },
     {
       name: 'Dressings Due',
@@ -227,47 +217,6 @@ export default function NurseDashboard() {
         ))}
       </div>
 
-      {/* Earnings Section */}
-      {stats && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.4 }}
-          className="bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl p-4 sm:p-6 text-white"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">My Earnings</h2>
-            <select
-              value={statsPeriod}
-              onChange={(e) => setStatsPeriod(e.target.value as 'today' | 'week' | 'month')}
-              className="bg-white/20 text-white text-sm rounded-lg px-3 py-1 border-0 focus:ring-2 focus:ring-white/50"
-              title="Select earnings period"
-            >
-              <option value="today" className="text-gray-900">Today</option>
-              <option value="week" className="text-gray-900">This Week</option>
-              <option value="month" className="text-gray-900">This Month</option>
-            </select>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div>
-              <p className="text-pink-100 text-sm">Activities</p>
-              <p className="text-2xl font-bold">{stats.totalActivities}</p>
-            </div>
-            <div>
-              <p className="text-pink-100 text-sm">Total Billed</p>
-              <p className="text-2xl font-bold">{formatCurrency(stats.totalBilled)}</p>
-            </div>
-            <div>
-              <p className="text-pink-100 text-sm">Pending</p>
-              <p className="text-2xl font-bold">{formatCurrency(stats.pendingPayment)}</p>
-            </div>
-            <div>
-              <p className="text-pink-100 text-sm">My Earnings (50%)</p>
-              <p className="text-2xl font-bold">{formatCurrency(stats.earnedAmount)}</p>
-            </div>
-          </div>
-        </motion.div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* My Patients */}
