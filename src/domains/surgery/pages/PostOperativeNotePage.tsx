@@ -144,21 +144,21 @@ export default function PostOperativeNotePage() {
       { type: 'header', data: 'Procedure Details' },
       { type: 'text', data: { key: 'Procedure', value: postOpNote.procedureName } },
       { type: 'text', data: { key: 'Date', value: format(new Date(postOpNote.procedureDate), 'dd/MM/yyyy') } },
-      { type: 'text', data: { key: 'Surgeon', value: postOpNote.surgeonName } },
+      { type: 'text', data: { key: 'Surgeon', value: postOpNote.surgeon } },
     ];
 
-    if (postOpNote.anesthetist) {
-      content.push({ type: 'text', data: { key: 'Anesthetist', value: postOpNote.anesthetist } });
+    if (postOpNote.anaesthetist) {
+      content.push({ type: 'text', data: { key: 'Anaesthetist', value: postOpNote.anaesthetist } });
     }
 
     content.push({ type: 'divider', data: 'dashed' });
     content.push({ type: 'header', data: 'Operative Findings' });
-    content.push({ type: 'text', data: postOpNote.operativeFindings || 'Not documented' });
+    content.push({ type: 'text', data: postOpNote.findings || 'Not documented' });
 
-    if (postOpNote.immediatePostOpOrders) {
+    if (postOpNote.monitoringInstructions?.length) {
       content.push({ type: 'divider', data: 'dashed' });
       content.push({ type: 'header', data: 'Post-Op Orders' });
-      content.push({ type: 'text', data: postOpNote.immediatePostOpOrders });
+      content.push({ type: 'text', data: postOpNote.monitoringInstructions.join(', ') });
     }
 
     const thermalDoc: PrintableDocument = {
@@ -217,6 +217,7 @@ export default function PostOperativeNotePage() {
           <button
             onClick={() => navigate(-1)}
             className="p-2 hover:bg-gray-100 rounded-lg"
+            title="Go back"
           >
             <ArrowLeft size={20} />
           </button>

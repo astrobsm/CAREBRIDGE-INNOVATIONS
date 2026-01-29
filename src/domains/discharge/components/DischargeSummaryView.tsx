@@ -16,8 +16,6 @@ import {
   Printer,
   CheckCircle,
   AlertTriangle,
-  Clock,
-  MapPin,
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -25,7 +23,6 @@ import type { DischargeSummary, Patient } from '../../../types';
 import { generateDischargeSummaryPDF } from '../../../utils/dischargePdfGenerator';
 import {
   printThermalDocument,
-  createClinicalDocument,
   type PrintableDocument,
   type PrintSection,
 } from '../../../services/thermalPrintService';
@@ -69,29 +66,29 @@ export default function DischargeSummaryView({ summary, patient, onClose }: Prop
       { type: 'text', data: { key: 'LOS', value: `${losDays} day${losDays > 1 ? 's' : ''}` } },
       { type: 'divider', data: 'dashed' },
       { type: 'header', data: 'Diagnosis' },
-      { type: 'text', data: summary.primaryDiagnosis },
+      { type: 'text', data: summary.admittingDiagnosis },
     ];
 
-    if (summary.secondaryDiagnoses?.length) {
-      content.push({ type: 'text', data: `Secondary: ${summary.secondaryDiagnoses.join(', ')}` });
+    if (summary.finalDiagnosis?.length) {
+      content.push({ type: 'text', data: `Final: ${summary.finalDiagnosis.join(', ')}` });
     }
 
     content.push({ type: 'divider', data: 'dashed' });
     content.push({ type: 'header', data: 'Condition at Discharge' });
-    content.push({ type: 'text', data: summary.conditionOnDischarge || 'Not specified' });
+    content.push({ type: 'text', data: summary.conditionAtDischarge || 'Not specified' });
 
-    if (summary.medications?.length) {
+    if (summary.dischargeMedications?.length) {
       content.push({ type: 'divider', data: 'dashed' });
       content.push({ type: 'header', data: 'Medications' });
-      summary.medications.forEach(med => {
-        content.push({ type: 'text', data: `• ${med.name} - ${med.dosage}` });
+      summary.dischargeMedications.forEach((med) => {
+        content.push({ type: 'text', data: `• ${med.name} - ${med.dose}` });
       });
     }
 
-    if (summary.followUpInstructions) {
+    if (summary.dietaryInstructions) {
       content.push({ type: 'divider', data: 'dashed' });
       content.push({ type: 'header', data: 'Follow-up' });
-      content.push({ type: 'text', data: summary.followUpInstructions });
+      content.push({ type: 'text', data: summary.dietaryInstructions });
     }
 
     const thermalDoc: PrintableDocument = {
@@ -161,7 +158,7 @@ export default function DischargeSummaryView({ summary, patient, onClose }: Prop
             >
               <Download size={18} />
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded">
+            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded" title="Close">
               <X size={20} />
             </button>
           </div>

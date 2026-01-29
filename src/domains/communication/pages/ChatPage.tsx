@@ -434,6 +434,7 @@ export default function ChatPage() {
                 <button
                   key={room.id}
                   onClick={() => setSelectedRoomId(room.id)}
+                  title={`Open chat with ${room.name}`}
                   className={`w-full p-4 flex items-start gap-3 hover:bg-gray-50 transition-colors border-b ${
                     selectedRoomId === room.id ? 'bg-blue-50' : ''
                   }`}
@@ -492,6 +493,7 @@ export default function ChatPage() {
               <button
                 onClick={() => setSelectedRoomId(null)}
                 className="sm:hidden p-2 hover:bg-gray-100 rounded-lg"
+                title="Back to rooms"
               >
                 <ChevronLeft size={20} />
               </button>
@@ -573,6 +575,7 @@ export default function ChatPage() {
                   <button
                     onClick={() => setReplyingTo(null)}
                     className="p-1 hover:bg-blue-100 rounded"
+                    title="Cancel reply"
                   >
                     <X size={16} className="text-blue-600" />
                   </button>
@@ -601,6 +604,7 @@ export default function ChatPage() {
                       setMessageText('');
                     }}
                     className="p-1 hover:bg-amber-100 rounded"
+                    title="Cancel edit"
                   >
                     <X size={16} className="text-amber-600" />
                   </button>
@@ -652,6 +656,7 @@ export default function ChatPage() {
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}
+                title="Send message"
               >
                 <Send size={20} />
               </button>
@@ -694,6 +699,7 @@ export default function ChatPage() {
               <button
                 onClick={() => setShowRoomInfo(false)}
                 className="p-1 hover:bg-gray-100 rounded"
+                title="Close room info"
               >
                 <X size={18} />
               </button>
@@ -711,7 +717,7 @@ export default function ChatPage() {
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-semibold text-gray-700">Participants</h4>
-                  <button className="text-blue-600 text-sm flex items-center gap-1">
+                  <button className="text-blue-600 text-sm flex items-center gap-1" title="Add participant">
                     <UserPlus size={14} />
                     Add
                   </button>
@@ -735,19 +741,19 @@ export default function ChatPage() {
               </div>
 
               <div className="mt-6 space-y-2">
-                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 text-gray-700" title="Mute Notifications">
                   <Bell size={18} />
                   <span>Mute Notifications</span>
                 </button>
-                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 text-gray-700" title="Starred Messages">
                   <Star size={18} />
                   <span>Starred Messages</span>
                 </button>
-                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 text-gray-700" title="Archive Chat">
                   <Archive size={18} />
                   <span>Archive Chat</span>
                 </button>
-                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-red-50 text-red-600">
+                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-red-50 text-red-600" title="Leave Group">
                   <LogOut size={18} />
                   <span>Leave Group</span>
                 </button>
@@ -836,7 +842,7 @@ function NewRoomModal({ users, currentUserId, onClose, onCreate }: NewRoomModalP
         <div className="flex-shrink-0 p-6 border-b">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">New Conversation</h2>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
               <X size={20} />
             </button>
           </div>

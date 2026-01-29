@@ -57,13 +57,7 @@ import {
   type TransfusionOrderData,
   type TransfusionMonitoringChartData,
 } from '../../../utils/transfusionPdfGenerator';
-import {
-  printThermalDocument,
-  type PrintableDocument,
-  type PrintSection,
-} from '../../../services/thermalPrintService';
 import TransfusionMonitoringChartView from '../components/TransfusionMonitoringChartView';
-import { Printer } from 'lucide-react';
 import type { TransfusionOrder, TransfusionMonitoringChart, TransfusionMonitoringEntry, Patient } from '../../../types';
 
 type TabType = 'requests' | 'active' | 'orders' | 'charts' | 'inventory' | 'reactions' | 'mtp';
@@ -1513,7 +1507,7 @@ Note: Uploaded chart stored successfully.
                   <Droplets className="text-red-600" />
                   New Transfusion Request
                 </h2>
-                <button onClick={() => setShowRequestModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowRequestModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -1526,6 +1520,7 @@ Note: Uploaded chart stored successfully.
                     value={selectedPatientId}
                     onChange={(e) => handlePatientSelect(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                    title="Select patient for transfusion"
                   >
                     <option value="">Select patient...</option>
                     {patients?.map(p => (
@@ -1598,6 +1593,7 @@ Note: Uploaded chart stored successfully.
                       value={patientBloodType}
                       onChange={(e) => setPatientBloodType(e.target.value as BloodType)}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      title="Patient blood type"
                     >
                       {(['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'] as BloodType[]).map(type => (
                         <option key={type} value={type}>{type}</option>
@@ -1747,6 +1743,7 @@ Note: Uploaded chart stored successfully.
                                   prev.map(pr => pr.type === p.type ? { ...pr, units: Math.max(1, pr.units - 1) } : pr)
                                 )}
                                 className="w-6 h-6 rounded bg-gray-200"
+                                title="Decrease units"
                               >
                                 -
                               </button>
@@ -1756,12 +1753,14 @@ Note: Uploaded chart stored successfully.
                                   prev.map(pr => pr.type === p.type ? { ...pr, units: pr.units + 1 } : pr)
                                 )}
                                 className="w-6 h-6 rounded bg-gray-200"
+                                title="Increase units"
                               >
                                 +
                               </button>
                               <button
                                 onClick={() => removeProduct(p.type)}
                                 className="ml-2 text-red-500"
+                                title="Remove product"
                               >
                                 <X size={16} />
                               </button>
@@ -1814,7 +1813,7 @@ Note: Uploaded chart stored successfully.
                   <Play className="text-green-600" />
                   Start Transfusion
                 </h2>
-                <button onClick={() => setShowStartModal(false)} className="p-2 hover:bg-green-100 rounded-lg">
+                <button onClick={() => setShowStartModal(false)} className="p-2 hover:bg-green-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -1878,6 +1877,7 @@ Note: Uploaded chart stored successfully.
                         value={preVitals.temperature}
                         onChange={(e) => setPreVitals(prev => ({ ...prev, temperature: Number(e.target.value) }))}
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                        title="Temperature"
                       />
                     </div>
                     <div>
@@ -1887,6 +1887,7 @@ Note: Uploaded chart stored successfully.
                         value={preVitals.pulse}
                         onChange={(e) => setPreVitals(prev => ({ ...prev, pulse: Number(e.target.value) }))}
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                        title="Pulse"
                       />
                     </div>
                     <div>
@@ -1900,6 +1901,7 @@ Note: Uploaded chart stored successfully.
                             bloodPressure: { ...prev.bloodPressure!, systolic: Number(e.target.value) }
                           }))}
                           className="w-full px-2 py-2 border border-gray-200 rounded-lg"
+                          title="Systolic Blood Pressure"
                         />
                         <input
                           type="number"
@@ -1909,6 +1911,7 @@ Note: Uploaded chart stored successfully.
                             bloodPressure: { ...prev.bloodPressure!, diastolic: Number(e.target.value) }
                           }))}
                           className="w-full px-2 py-2 border border-gray-200 rounded-lg"
+                          title="Diastolic Blood Pressure"
                         />
                       </div>
                     </div>
@@ -1919,6 +1922,7 @@ Note: Uploaded chart stored successfully.
                         value={preVitals.respiratoryRate}
                         onChange={(e) => setPreVitals(prev => ({ ...prev, respiratoryRate: Number(e.target.value) }))}
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                        title="Respiratory Rate"
                       />
                     </div>
                     <div>
@@ -1928,6 +1932,7 @@ Note: Uploaded chart stored successfully.
                         value={preVitals.oxygenSaturation}
                         onChange={(e) => setPreVitals(prev => ({ ...prev, oxygenSaturation: Number(e.target.value) }))}
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                        title="Oxygen Saturation"
                       />
                     </div>
                   </div>
@@ -1975,7 +1980,7 @@ Note: Uploaded chart stored successfully.
                   <AlertTriangle />
                   Report Transfusion Reaction
                 </h2>
-                <button onClick={() => setShowReactionModal(false)} className="p-2 hover:bg-red-100 rounded-lg">
+                <button onClick={() => setShowReactionModal(false)} className="p-2 hover:bg-red-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -2043,7 +2048,7 @@ Note: Uploaded chart stored successfully.
                   <Upload className="text-green-600" />
                   Upload Monitoring Chart
                 </h2>
-                <button onClick={() => { setShowChartUploadModal(false); resetChartUploadForm(); }} className="p-2 hover:bg-green-100 rounded-lg">
+                <button onClick={() => { setShowChartUploadModal(false); resetChartUploadForm(); }} className="p-2 hover:bg-green-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -2059,6 +2064,7 @@ Note: Uploaded chart stored successfully.
                       setSelectedPatientForChart(patient || null);
                     }}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                    title="Select patient for monitoring chart"
                   >
                     <option value="">Select patient...</option>
                     {patients?.map(p => (
@@ -2094,6 +2100,7 @@ Note: Uploaded chart stored successfully.
                     accept="image/*"
                     onChange={handleChartFileUpload}
                     className="hidden"
+                    title="Upload chart image from device"
                   />
                   <input
                     ref={cameraInputRef}
@@ -2102,6 +2109,7 @@ Note: Uploaded chart stored successfully.
                     capture="environment"
                     onChange={handleChartFileUpload}
                     className="hidden"
+                    title="Capture chart image with camera"
                   />
                 </div>
 
@@ -2199,7 +2207,7 @@ Note: Uploaded chart stored successfully.
                   <FileText className="text-red-600" />
                   Order Details - {selectedOrderForView.orderId}
                 </h2>
-                <button onClick={() => setSelectedOrderForView(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setSelectedOrderForView(null)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -2290,7 +2298,7 @@ Note: Uploaded chart stored successfully.
                   <ClipboardCheck className="text-blue-600" />
                   Chart - {selectedChartForView.chartId}
                 </h2>
-                <button onClick={() => setSelectedChartForView(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setSelectedChartForView(null)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -2365,7 +2373,7 @@ Note: Uploaded chart stored successfully.
                   <Activity className="text-blue-600" />
                   Record Transfusion Vitals
                 </h2>
-                <button onClick={() => setShowVitalsModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowVitalsModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -2389,6 +2397,7 @@ Note: Uploaded chart stored successfully.
                       value={preVitals.temperature || ''}
                       onChange={(e) => setPreVitals({ ...preVitals, temperature: parseFloat(e.target.value) || 36.5 })}
                       className="input"
+                      title="Temperature in Celsius"
                     />
                   </div>
                   <div>
@@ -2398,6 +2407,7 @@ Note: Uploaded chart stored successfully.
                       value={preVitals.pulse || ''}
                       onChange={(e) => setPreVitals({ ...preVitals, pulse: parseInt(e.target.value) || 80 })}
                       className="input"
+                      title="Pulse rate"
                     />
                   </div>
                 </div>
@@ -2416,6 +2426,7 @@ Note: Uploaded chart stored successfully.
                         },
                       })}
                       className="input"
+                      title="Systolic blood pressure"
                     />
                   </div>
                   <div>
@@ -2431,6 +2442,7 @@ Note: Uploaded chart stored successfully.
                         },
                       })}
                       className="input"
+                      title="Diastolic blood pressure"
                     />
                   </div>
                 </div>
@@ -2443,6 +2455,7 @@ Note: Uploaded chart stored successfully.
                       value={preVitals.respiratoryRate || ''}
                       onChange={(e) => setPreVitals({ ...preVitals, respiratoryRate: parseInt(e.target.value) || 16 })}
                       className="input"
+                      title="Respiratory rate"
                     />
                   </div>
                   <div>
@@ -2452,6 +2465,7 @@ Note: Uploaded chart stored successfully.
                       value={preVitals.oxygenSaturation || ''}
                       onChange={(e) => setPreVitals({ ...preVitals, oxygenSaturation: parseInt(e.target.value) || 98 })}
                       className="input"
+                      title="Oxygen saturation"
                     />
                   </div>
                 </div>
@@ -2518,7 +2532,7 @@ Note: Uploaded chart stored successfully.
                   <BarChart3 className="text-purple-600" />
                   New Digital Monitoring Chart
                 </h2>
-                <button onClick={() => setShowCreateDigitalChartModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowCreateDigitalChartModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -2536,6 +2550,7 @@ Note: Uploaded chart stored successfully.
                     value={digitalChartPatientId}
                     onChange={(e) => setDigitalChartPatientId(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                    title="Select patient for digital monitoring chart"
                   >
                     <option value="">Select patient</option>
                     {patients?.map(patient => (
@@ -2552,6 +2567,7 @@ Note: Uploaded chart stored successfully.
                     value={digitalChartProductType}
                     onChange={(e) => setDigitalChartProductType(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                    title="Select blood product type"
                   >
                     <option value="">Select product type</option>
                     <option value="Packed Red Blood Cells (PRBC)">Packed Red Blood Cells (PRBC)</option>

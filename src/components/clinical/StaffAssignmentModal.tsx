@@ -166,6 +166,7 @@ export default function StaffAssignmentModal({
           <button
             onClick={onClose}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Close"
           >
             <X size={20} />
           </button>
@@ -212,6 +213,7 @@ export default function StaffAssignmentModal({
                       onClick={() => handleRelease(assignment.id!, assignment.staffName)}
                       disabled={isAssigning}
                       className="ml-2 p-1 text-red-400 hover:text-red-600 hover:bg-red-100 rounded transition-colors disabled:opacity-50"
+                      title="Release staff assignment"
                     >
                       <UserMinus size={16} />
                     </button>

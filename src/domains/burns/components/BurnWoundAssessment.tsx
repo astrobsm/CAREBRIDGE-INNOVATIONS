@@ -405,7 +405,7 @@ export default function BurnWoundAssessmentComponent({
                 {activeTab === 'assessments' ? 'Wound Assessment' : 
                  activeTab === 'escharotomy' ? 'Escharotomy Record' : 'Grafting Record'}
               </h3>
-              <button onClick={() => setShowForm(false)} className="text-2xl hover:text-gray-600">×</button>
+              <button onClick={() => setShowForm(false)} className="text-2xl hover:text-gray-600" title="Close form">×</button>
             </div>
             
             <div className="p-6 space-y-4">
@@ -417,6 +417,7 @@ export default function BurnWoundAssessmentComponent({
                       value={assessmentForm.region}
                       onChange={e => setAssessmentForm(prev => ({ ...prev, region: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg"
+                      title="Select body region"
                     >
                       <option value="">Select region...</option>
                       {BODY_REGIONS.map(region => (
@@ -431,6 +432,7 @@ export default function BurnWoundAssessmentComponent({
                       value={assessmentForm.depth}
                       onChange={e => setAssessmentForm(prev => ({ ...prev, depth: e.target.value as BurnDepthType }))}
                       className="w-full px-3 py-2 border rounded-lg"
+                      title="Select burn depth"
                     >
                       <option value="superficial">Superficial (1st degree)</option>
                       <option value="superficial_partial">Superficial Partial (2nd degree)</option>
@@ -469,6 +471,7 @@ export default function BurnWoundAssessmentComponent({
                         value={assessmentForm.exudateLevel}
                         onChange={e => setAssessmentForm(prev => ({ ...prev, exudateLevel: e.target.value }))}
                         className="w-full px-3 py-2 border rounded-lg"
+                        title="Select exudate level"
                       >
                         {EXUDATE_LEVELS.map(level => (
                           <option key={level} value={level}>{level}</option>
@@ -481,6 +484,7 @@ export default function BurnWoundAssessmentComponent({
                         value={assessmentForm.exudateType}
                         onChange={e => setAssessmentForm(prev => ({ ...prev, exudateType: e.target.value }))}
                         className="w-full px-3 py-2 border rounded-lg"
+                        title="Select exudate type"
                       >
                         {EXUDATE_TYPES.map(type => (
                           <option key={type} value={type}>{type}</option>
@@ -495,6 +499,7 @@ export default function BurnWoundAssessmentComponent({
                       value={assessmentForm.dressingType}
                       onChange={e => setAssessmentForm(prev => ({ ...prev, dressingType: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg"
+                      title="Select dressing type"
                     >
                       <option value="">Select dressing...</option>
                       {DRESSING_TYPES.map(type => (
@@ -537,6 +542,7 @@ export default function BurnWoundAssessmentComponent({
                       onChange={e => setAssessmentForm(prev => ({ ...prev, notes: e.target.value }))}
                       rows={3}
                       className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="Enter assessment notes..."
                     />
                   </div>
                   
@@ -558,6 +564,7 @@ export default function BurnWoundAssessmentComponent({
                       value={escharotomyForm.location}
                       onChange={e => setEscharotomyForm(prev => ({ ...prev, location: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg"
+                      title="Select escharotomy location"
                     >
                       <option value="">Select location...</option>
                       <option value="Bilateral chest (anterior axillary line)">Bilateral chest (anterior axillary line)</option>
@@ -579,6 +586,7 @@ export default function BurnWoundAssessmentComponent({
                       value={escharotomyForm.indication}
                       onChange={e => setEscharotomyForm(prev => ({ ...prev, indication: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg"
+                      title="Select escharotomy indication"
                     >
                       <option value="">Select indication...</option>
                       <option value="Circumferential burn with vascular compromise">Circumferential burn with vascular compromise</option>
@@ -628,6 +636,7 @@ export default function BurnWoundAssessmentComponent({
                       value={graftingForm.graftType}
                       onChange={e => setGraftingForm(prev => ({ ...prev, graftType: e.target.value as any }))}
                       className="w-full px-3 py-2 border rounded-lg"
+                      title="Select graft type"
                     >
                       <option value="split_thickness">Split Thickness Skin Graft (STSG)</option>
                       <option value="full_thickness">Full Thickness Skin Graft (FTSG)</option>
@@ -677,6 +686,7 @@ export default function BurnWoundAssessmentComponent({
                         value={graftingForm.meshing}
                         onChange={e => setGraftingForm(prev => ({ ...prev, meshing: e.target.value }))}
                         className="w-full px-3 py-2 border rounded-lg"
+                        title="Select meshing ratio"
                       >
                         <option value="">No meshing (sheet graft)</option>
                         <option value="1:1.5">1:1.5</option>

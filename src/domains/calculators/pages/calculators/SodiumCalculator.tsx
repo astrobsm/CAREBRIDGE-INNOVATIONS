@@ -235,6 +235,7 @@ export default function SodiumCalculator({ patientInfo }: Props) {
             value={gender}
             onChange={(e) => setGender(e.target.value as Gender)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
+            title="Select patient category"
           >
             <option value="male">Adult Male (TBW: 60%)</option>
             <option value="female">Adult Female (TBW: 50%)</option>
@@ -251,6 +252,7 @@ export default function SodiumCalculator({ patientInfo }: Props) {
             value={volumeStatus}
             onChange={(e) => setVolumeStatus(e.target.value as VolumeStatus)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
+            title="Select volume status"
           >
             <option value="hypovolemic">Hypovolemic</option>
             <option value="euvolemic">Euvolemic</option>

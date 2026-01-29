@@ -468,7 +468,7 @@ export default function WoundsPage() {
             >
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">New Wound Assessment</h2>
-                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -674,7 +674,7 @@ export default function WoundsPage() {
                     <FileText size={18} />
                     <span className="hidden sm:inline">Export PDF</span>
                   </button>
-                  <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                     <X size={20} />
                   </button>
                 </div>

@@ -438,6 +438,7 @@ export default function AppointmentsPage() {
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                    title="Filter by status"
                   >
                     <option value="all">All Statuses</option>
                     <option value="scheduled">Scheduled</option>
@@ -457,6 +458,7 @@ export default function AppointmentsPage() {
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value as FilterType)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                    title="Filter by appointment type"
                   >
                     <option value="all">All Types</option>
                     <option value="follow_up">Follow-up</option>
@@ -477,6 +479,7 @@ export default function AppointmentsPage() {
                     value={filterHospital}
                     onChange={(e) => setFilterHospital(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                    title="Filter by hospital"
                   >
                     <option value="all">All Hospitals</option>
                     {hospitals?.map(h => (

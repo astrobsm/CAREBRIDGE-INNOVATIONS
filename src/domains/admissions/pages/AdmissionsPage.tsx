@@ -363,6 +363,7 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as AdmissionStatus | 'all')}
           className="input w-full sm:w-40"
+          title="Filter by status"
         >
           <option value="all">All Status</option>
           <option value="active">Active</option>
@@ -373,6 +374,7 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
           value={wardFilter}
           onChange={(e) => setWardFilter(e.target.value as WardType | 'all')}
           className="input w-full sm:w-40"
+          title="Filter by ward"
         >
           <option value="all">All Wards</option>
           {wardTypes.map(ward => (
@@ -532,6 +534,7 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
                 <button
                   onClick={() => { setShowModal(false); setAdmissionStep('details'); }}
                   className="p-2 hover:bg-gray-100 rounded-lg"
+                  title="Close"
                 >
                   <X size={20} />
                 </button>
@@ -837,6 +840,7 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
                   <button
                     onClick={() => setShowDetailModal(false)}
                     className="p-2 hover:bg-white/20 rounded-lg"
+                    title="Close"
                   >
                     <X size={20} />
                   </button>

@@ -12,8 +12,6 @@ import {
   Plus,
   TrendingUp,
   TrendingDown,
-  Minus,
-  Clock,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { BurnVitalSigns, UrineOutput, BurnAlert } from '../types';
@@ -397,7 +395,7 @@ export default function VitalsMonitor({
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Record Vital Signs</h3>
-              <button onClick={() => setShowVitalsForm(false)} className="text-2xl hover:text-gray-600">×</button>
+              <button onClick={() => setShowVitalsForm(false)} className="text-2xl hover:text-gray-600" title="Close vital signs form">×</button>
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -471,6 +469,8 @@ export default function VitalsMonitor({
                     value={vitalsForm.painScore}
                     onChange={e => setVitalsForm(prev => ({ ...prev, painScore: e.target.value }))}
                     className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="0-10"
+                    title="Pain score"
                   />
                 </div>
               </div>
@@ -485,6 +485,7 @@ export default function VitalsMonitor({
                       value={vitalsForm.gcsEye}
                       onChange={e => setVitalsForm(prev => ({ ...prev, gcsEye: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg"
+                      title="GCS Eye response"
                     >
                       <option value="4">4 - Spontaneous</option>
                       <option value="3">3 - To voice</option>
@@ -498,6 +499,7 @@ export default function VitalsMonitor({
                       value={vitalsForm.gcsVerbal}
                       onChange={e => setVitalsForm(prev => ({ ...prev, gcsVerbal: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg"
+                      title="GCS Verbal response"
                     >
                       <option value="5">5 - Oriented</option>
                       <option value="4">4 - Confused</option>
@@ -512,6 +514,7 @@ export default function VitalsMonitor({
                       value={vitalsForm.gcsMotor}
                       onChange={e => setVitalsForm(prev => ({ ...prev, gcsMotor: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg"
+                      title="GCS Motor response"
                     >
                       <option value="6">6 - Obeys commands</option>
                       <option value="5">5 - Localizes pain</option>
@@ -531,6 +534,7 @@ export default function VitalsMonitor({
                   onChange={e => setVitalsForm(prev => ({ ...prev, notes: e.target.value }))}
                   rows={2}
                   className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="Enter additional notes..."
                 />
               </div>
               
@@ -551,7 +555,7 @@ export default function VitalsMonitor({
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="border-b px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Record Urine Output</h3>
-              <button onClick={() => setShowUOForm(false)} className="text-2xl hover:text-gray-600">×</button>
+              <button onClick={() => setShowUOForm(false)} className="text-2xl hover:text-gray-600" title="Close urine output form">×</button>
             </div>
             <div className="p-6 space-y-4">
               <div>
@@ -575,6 +579,7 @@ export default function VitalsMonitor({
                   value={uoForm.color}
                   onChange={e => setUOForm(prev => ({ ...prev, color: e.target.value as any }))}
                   className="w-full px-3 py-2 border rounded-lg"
+                  title="Urine color"
                 >
                   <option value="clear">Clear</option>
                   <option value="yellow">Yellow (Normal)</option>

@@ -10,14 +10,10 @@ import {
   AlertTriangle,
   FileText,
   Pill,
-  Activity,
   Calendar,
-  Phone,
   CreditCard,
   Users,
   ClipboardList,
-  Truck,
-  Home,
   Stethoscope,
   Clock,
   ArrowRight,
@@ -211,7 +207,7 @@ export default function DischargeChecklist({ admission, patient, onComplete, onC
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded">
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded" title="Close">
             <X size={20} />
           </button>
         </div>

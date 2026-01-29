@@ -138,7 +138,8 @@ export default function NewPatientPage() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [loadingHospitals, setLoadingHospitals] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_loadingHospitals, setLoadingHospitals] = useState(true);
   
   // DVT Risk Assessment State
   const [selectedDvtFactors, setSelectedDvtFactors] = useState<string[]>([]);
@@ -332,19 +333,19 @@ export default function NewPatientPage() {
         phone: data.phone,
         alternatePhone: data.alternatePhone,
         email: data.email || undefined,
-        address: data.address,
-        city: data.city,
-        state: data.state,
+        address: data.address || '',
+        city: data.city || '',
+        state: data.state || '',
         occupation: data.occupation,
         religion: data.religion,
         tribe: data.tribe,
         allergies: data.allergies ? data.allergies.split(',').map(a => a.trim()) : [],
         chronicConditions: data.chronicConditions ? data.chronicConditions.split(',').map(c => c.trim()) : [],
         nextOfKin: {
-          name: data.nextOfKinName,
-          relationship: data.nextOfKinRelationship,
-          phone: data.nextOfKinPhone,
-          address: data.nextOfKinAddress,
+          name: data.nextOfKinName || '',
+          relationship: data.nextOfKinRelationship || '',
+          phone: data.nextOfKinPhone || '',
+          address: data.nextOfKinAddress || '',
         },
         // Risk Assessments
         dvtRiskAssessment,
@@ -445,14 +446,14 @@ export default function NewPatientPage() {
             </div>
             <div>
               <label className="label">Gender *</label>
-              <select {...register('gender')} className="input">
+              <select {...register('gender')} className="input" title="Select gender">
                 <option value="male">Male</option>
                 <option value="female">Female</option>
               </select>
             </div>
             <div>
               <label className="label">Marital Status *</label>
-              <select {...register('maritalStatus')} className="input">
+              <select {...register('maritalStatus')} className="input" title="Select marital status">
                 <option value="single">Single</option>
                 <option value="married">Married</option>
                 <option value="divorced">Divorced</option>
@@ -461,7 +462,7 @@ export default function NewPatientPage() {
             </div>
             <div>
               <label className="label">Blood Group</label>
-              <select {...register('bloodGroup')} className="input">
+              <select {...register('bloodGroup')} className="input" title="Select blood group">
                 <option value="">Select blood group</option>
                 {bloodGroups.map((bg) => (
                   <option key={bg} value={bg}>{bg}</option>
@@ -470,7 +471,7 @@ export default function NewPatientPage() {
             </div>
             <div>
               <label className="label">Genotype</label>
-              <select {...register('genotype')} className="input">
+              <select {...register('genotype')} className="input" title="Select genotype">
                 <option value="">Select genotype</option>
                 {genotypes.map((g) => (
                   <option key={g} value={g}>{g}</option>
@@ -573,7 +574,7 @@ export default function NewPatientPage() {
               </div>
             )}
 
-            {careType === 'homecare' && (
+            {careType === 'home_care' && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center gap-2 text-green-700">
                   <Home className="w-5 h-5" />
@@ -828,6 +829,7 @@ export default function NewPatientPage() {
                   value={bradenScores.sensoryPerception}
                   onChange={(e) => setBradenScores({ ...bradenScores, sensoryPerception: parseInt(e.target.value) })}
                   className={`input ${bradenScores.sensoryPerception === 0 ? 'border-red-300' : ''}`}
+                  title="Select sensory perception level"
                 >
                   <option value={0}>Select...</option>
                   <option value={1}>1 - Completely Limited: Unresponsive to painful stimuli</option>
@@ -844,6 +846,7 @@ export default function NewPatientPage() {
                   value={bradenScores.moisture}
                   onChange={(e) => setBradenScores({ ...bradenScores, moisture: parseInt(e.target.value) })}
                   className={`input ${bradenScores.moisture === 0 ? 'border-red-300' : ''}`}
+                  title="Select moisture level"
                 >
                   <option value={0}>Select...</option>
                   <option value={1}>1 - Constantly Moist: Skin is kept moist almost constantly</option>
@@ -860,6 +863,7 @@ export default function NewPatientPage() {
                   value={bradenScores.activity}
                   onChange={(e) => setBradenScores({ ...bradenScores, activity: parseInt(e.target.value) })}
                   className={`input ${bradenScores.activity === 0 ? 'border-red-300' : ''}`}
+                  title="Select activity level"
                 >
                   <option value={0}>Select...</option>
                   <option value={1}>1 - Bedfast: Confined to bed</option>
@@ -876,6 +880,7 @@ export default function NewPatientPage() {
                   value={bradenScores.mobility}
                   onChange={(e) => setBradenScores({ ...bradenScores, mobility: parseInt(e.target.value) })}
                   className={`input ${bradenScores.mobility === 0 ? 'border-red-300' : ''}`}
+                  title="Select mobility level"
                 >
                   <option value={0}>Select...</option>
                   <option value={1}>1 - Completely Immobile: Does not make even slight changes in body position</option>
@@ -892,6 +897,7 @@ export default function NewPatientPage() {
                   value={bradenScores.nutrition}
                   onChange={(e) => setBradenScores({ ...bradenScores, nutrition: parseInt(e.target.value) })}
                   className={`input ${bradenScores.nutrition === 0 ? 'border-red-300' : ''}`}
+                  title="Select nutrition level"
                 >
                   <option value={0}>Select...</option>
                   <option value={1}>1 - Very Poor: Never eats a complete meal, rarely eats more than 1/3 of any food</option>
@@ -908,6 +914,7 @@ export default function NewPatientPage() {
                   value={bradenScores.frictionShear}
                   onChange={(e) => setBradenScores({ ...bradenScores, frictionShear: parseInt(e.target.value) })}
                   className={`input ${bradenScores.frictionShear === 0 ? 'border-red-300' : ''}`}
+                  title="Select friction and shear level"
                 >
                   <option value={0}>Select...</option>
                   <option value={1}>1 - Problem: Requires moderate to maximum assistance in moving, spastic/contractures</option>

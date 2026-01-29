@@ -362,6 +362,8 @@ export default function BurnsAssessmentPage() {
                   value={patientAge}
                   onChange={(e) => setPatientAge(Number(e.target.value))}
                   className="input"
+                  title="Patient age"
+                  placeholder="Age"
                 />
               </div>
               <div>
@@ -373,6 +375,7 @@ export default function BurnsAssessmentPage() {
                     // Update form value
                   }}
                   className="input"
+                  title="Patient weight"
                   placeholder="70"
                 />
               </div>
@@ -382,6 +385,7 @@ export default function BurnsAssessmentPage() {
                   value={patientGender}
                   onChange={(e) => setPatientGender(e.target.value as 'male' | 'female')}
                   className="input"
+                  title="Select gender"
                 >
                   <option value="male">Male</option>
                   <option value="female">Female</option>
@@ -421,6 +425,8 @@ export default function BurnsAssessmentPage() {
                         max={part.adultPercent}
                         step="0.5"
                         value={selected?.percent || ''}
+                        title="Burn percentage for this body part"
+                        placeholder="%"
                         onChange={(e) => {
                           const val = Number(e.target.value);
                           if (val > 0) {
@@ -430,13 +436,13 @@ export default function BurnsAssessmentPage() {
                           }
                         }}
                         className="input text-sm py-1"
-                        placeholder="%"
                       />
                       {selected && (
                         <select
                           value={selected.depth}
                           onChange={(e) => updateBodyPart(part.id, selected.percent, e.target.value as BurnDepth)}
                           className="input text-xs py-1"
+                          title="Select burn depth"
                         >
                           {burnDepths.map((d) => (
                             <option key={d.value} value={d.value}>{d.label}</option>
@@ -818,7 +824,7 @@ export default function BurnsAssessmentPage() {
             >
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">New Burn Assessment</h2>
-                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -848,7 +854,7 @@ export default function BurnsAssessmentPage() {
                     </div>
                     <div>
                       <label className="label">Patient Weight (kg) *</label>
-                      <input type="number" {...register('patientWeight', { valueAsNumber: true })} className="input" />
+                      <input type="number" {...register('patientWeight', { valueAsNumber: true })} className="input" title="Patient weight in kilograms" placeholder="Weight in kg" />
                     </div>
                   </div>
 
@@ -859,7 +865,7 @@ export default function BurnsAssessmentPage() {
 
                   <div>
                     <label className="label">Time of Injury *</label>
-                    <input type="datetime-local" {...register('timeOfInjury')} className="input" />
+                    <input type="datetime-local" {...register('timeOfInjury')} className="input" title="Date and time of injury" />
                   </div>
 
                   <div className="space-y-2">
@@ -945,7 +951,7 @@ export default function BurnsAssessmentPage() {
                     <FileText size={18} />
                     <span className="hidden sm:inline">Export PDF</span>
                   </button>
-                  <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                     <X size={20} />
                   </button>
                 </div>

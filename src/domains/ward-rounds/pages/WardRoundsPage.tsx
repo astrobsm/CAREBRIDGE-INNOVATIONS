@@ -512,6 +512,7 @@ export default function WardRoundsPage() {
           value={selectedHospital}
           onChange={(e) => setSelectedHospital(e.target.value)}
           className="input w-full sm:w-64"
+          title="Filter by hospital"
         >
           <option value="all">All Hospitals</option>
           {hospitals?.map((hospital) => (
@@ -790,7 +791,7 @@ export default function WardRoundsPage() {
             >
               <div className="p-6 border-b flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">Schedule Ward Round</h2>
-                <button onClick={() => setShowRoundModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowRoundModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -1045,6 +1046,7 @@ export default function WardRoundsPage() {
                     setPatientSearchQuery('');
                   }} 
                   className="p-2 hover:bg-gray-100 rounded-lg"
+                  title="Close"
                 >
                   <X size={20} />
                 </button>
@@ -1211,6 +1213,7 @@ export default function WardRoundsPage() {
                     setPatientSearchQuery('');
                   }} 
                   className="p-2 hover:bg-gray-100 rounded-lg"
+                  title="Close"
                 >
                   <X size={20} />
                 </button>

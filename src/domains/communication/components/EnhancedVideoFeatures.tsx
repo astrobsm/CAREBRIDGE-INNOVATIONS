@@ -459,6 +459,7 @@ export function DeviceSettingsModal({
               value={selectedVideoDevice}
               onChange={(e) => onVideoDeviceChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              title="Select camera device"
             >
               {videoDevices.map((device) => (
                 <option key={device.deviceId} value={device.deviceId}>
@@ -478,6 +479,7 @@ export function DeviceSettingsModal({
               value={selectedAudioInput}
               onChange={(e) => onAudioInputChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              title="Select microphone device"
             >
               {audioInputDevices.map((device) => (
                 <option key={device.deviceId} value={device.deviceId}>
@@ -497,6 +499,7 @@ export function DeviceSettingsModal({
               value={selectedAudioOutput}
               onChange={(e) => onAudioOutputChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              title="Select speaker device"
             >
               {audioOutputDevices.map((device) => (
                 <option key={device.deviceId} value={device.deviceId}>
@@ -552,7 +555,7 @@ export function VirtualBackgroundSelector({
             <Sparkles size={24} className="text-purple-500" />
             Virtual Background
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
             ×
           </button>
         </div>
@@ -607,6 +610,7 @@ export function VirtualBackgroundSelector({
           type="file"
           accept="image/*"
           className="hidden"
+          title="Upload custom background image"
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) onUploadCustom(file);
@@ -660,12 +664,14 @@ export function RecordingControls({
           <button
             onClick={onPause}
             className="p-1.5 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            title={isPaused ? "Resume recording" : "Pause recording"}
           >
             {isPaused ? <Play size={16} /> : <Pause size={16} />}
           </button>
           <button
             onClick={onStop}
             className="p-1.5 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            title="Stop recording"
           >
             <Square size={16} />
           </button>

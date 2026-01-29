@@ -461,6 +461,7 @@ export default function NPWTPage() {
           value={filterCycle}
           onChange={(e) => setFilterCycle(e.target.value as any)}
           className="input w-full sm:w-48"
+          title="Filter by cycle type"
         >
           <option value="all">All Cycles</option>
           <option value="4_day">4-Day Cycle</option>
@@ -569,7 +570,7 @@ export default function NPWTPage() {
                   <Wind className="w-6 h-6 text-purple-600" />
                   New NPWT Session
                 </h2>
-                <button onClick={() => setShowNewSession(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowNewSession(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -591,6 +592,7 @@ export default function NPWTPage() {
                         type="button"
                         onClick={() => setSelectedPatient(null)}
                         className="text-gray-400 hover:text-red-500"
+                        title="Clear patient selection"
                       >
                         <X size={18} />
                       </button>
@@ -1066,6 +1068,7 @@ export default function NPWTPage() {
                           type="button"
                           onClick={() => setImagePreview(null)}
                           className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full"
+                          title="Remove image"
                         >
                           <X size={14} />
                         </button>
@@ -1135,7 +1138,7 @@ export default function NPWTPage() {
           <div className="bg-white rounded-xl w-full max-w-lg shadow-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900">Select Patient</h3>
-              <button onClick={() => setShowPatientSelector(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <button onClick={() => setShowPatientSelector(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                 <X size={20} />
               </button>
             </div>

@@ -467,6 +467,7 @@ export default function UnifiedLabPage() {
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+              title="Filter by category"
             >
               <option value="all">All Categories</option>
               {categories.map(cat => (
@@ -481,6 +482,7 @@ export default function UnifiedLabPage() {
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
               className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+              title="Filter by priority"
             >
               <option value="all">All Priorities</option>
               <option value="stat">STAT</option>
@@ -748,6 +750,7 @@ function TrendAnalysisView({
             value={trendPatientId}
             onChange={(e) => setTrendPatientId(e.target.value)}
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+            title="Select patient for trend analysis"
           >
             <option value="">Choose a patient</option>
             {patients.map(p => (
@@ -764,6 +767,7 @@ function TrendAnalysisView({
             value={trendParameter}
             onChange={(e) => setTrendParameter(e.target.value)}
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+            title="Select parameter for trend analysis"
           >
             {Object.keys(referenceRanges).map(param => (
               <option key={param} value={param}>{param}</option>
@@ -908,7 +912,7 @@ function RequestModal({
             <FlaskConical className="text-primary-600" />
             New Investigation Request
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
             <X size={20} />
           </button>
         </div>
@@ -1256,7 +1260,7 @@ function ResultModal({
             <h2 className="text-xl font-semibold">Enter Results</h2>
             <p className="text-sm text-gray-500">{investigation.patientName} - {investigation.typeName}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
             <X size={20} />
           </button>
         </div>
@@ -1302,6 +1306,7 @@ function ResultModal({
               multiple
               onChange={(e) => setUploadedFiles(Array.from(e.target.files || []))}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+              title="Upload attachment files"
             />
             {uploadedFiles.length > 0 && (
               <p className="text-xs text-gray-500 mt-1">{uploadedFiles.length} file(s) selected</p>
@@ -1350,7 +1355,7 @@ function DetailsModal({
             <h2 className="text-xl font-semibold">Investigation Results</h2>
             <p className="text-sm text-gray-500">{investigation.patientName} - {investigation.typeName}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
             <X size={20} />
           </button>
         </div>

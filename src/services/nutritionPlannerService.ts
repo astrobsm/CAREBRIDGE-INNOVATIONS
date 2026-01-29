@@ -1261,7 +1261,8 @@ class NutritionPlannerService {
 
   // Get sample meal suggestions
   getSampleMeals(dietType: DietType, mealType: MealType): { name: string; items: string[]; calories: number }[] {
-    const suitableFoods = this.getFoodsForDiet(dietType);
+    // Get suitable foods for filtering (to be used in future enhancement)
+    void this.getFoodsForDiet(dietType);
     
     const suggestions = {
       breakfast: [

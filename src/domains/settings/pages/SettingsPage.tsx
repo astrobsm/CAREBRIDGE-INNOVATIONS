@@ -296,6 +296,8 @@ export default function SettingsPage() {
                     value={profileSettings.firstName}
                     onChange={(e) => setProfileSettings({ ...profileSettings, firstName: e.target.value })}
                     className="input"
+                    title="Enter first name"
+                    placeholder="First Name"
                   />
                 </div>
                 <div>
@@ -305,6 +307,8 @@ export default function SettingsPage() {
                     value={profileSettings.lastName}
                     onChange={(e) => setProfileSettings({ ...profileSettings, lastName: e.target.value })}
                     className="input"
+                    title="Enter last name"
+                    placeholder="Last Name"
                   />
                 </div>
                 <div>
@@ -314,6 +318,8 @@ export default function SettingsPage() {
                     value={profileSettings.email}
                     onChange={(e) => setProfileSettings({ ...profileSettings, email: e.target.value })}
                     className="input"
+                    title="Enter email address"
+                    placeholder="Email"
                   />
                 </div>
                 <div>
@@ -323,6 +329,8 @@ export default function SettingsPage() {
                     value={profileSettings.phone}
                     onChange={(e) => setProfileSettings({ ...profileSettings, phone: e.target.value })}
                     className="input"
+                    title="Enter phone number"
+                    placeholder="Phone"
                   />
                 </div>
               </div>
@@ -338,6 +346,8 @@ export default function SettingsPage() {
                     value={user?.role || ''}
                     disabled
                     className="input bg-gray-100"
+                    title="User role (read-only)"
+                    placeholder="Role"
                   />
                 </div>
                 <div>
@@ -348,6 +358,7 @@ export default function SettingsPage() {
                     onChange={(e) => setProfileSettings({ ...profileSettings, specialty: e.target.value })}
                     className="input"
                     placeholder="e.g., General Surgery"
+                    title="Enter your specialty"
                   />
                 </div>
               </div>
@@ -826,6 +837,7 @@ export default function SettingsPage() {
                     value={offlineSettings.syncInterval}
                     onChange={(e) => setOfflineSettings({ ...offlineSettings, syncInterval: parseInt(e.target.value) })}
                     className="input"
+                    title="Select sync interval"
                   >
                     <option value={5}>Every 5 minutes</option>
                     <option value={15}>Every 15 minutes</option>
@@ -1048,7 +1060,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 text-red-600">Danger Zone</h3>
+              <h3 className="text-lg font-semibold text-red-600 mb-4">Danger Zone</h3>
               <div className="card border border-red-200 p-4">
                 <div className="flex items-center justify-between">
                   <div>

@@ -604,6 +604,7 @@ export default function DrugAllergyAssessment({
                         removeAllergy(allergy.id);
                       }}
                       className="p-1 hover:bg-red-200 rounded"
+                      title="Remove allergy"
                     >
                       <Trash2 size={14} className="text-red-600" />
                     </button>
@@ -708,7 +709,7 @@ export default function DrugAllergyAssessment({
             <div className="border rounded-lg p-4 space-y-4 bg-white">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">Add Drug Allergy</h4>
-                <button onClick={() => setShowAddForm(false)} className="p-1 hover:bg-gray-100 rounded">
+                <button onClick={() => setShowAddForm(false)} className="p-1 hover:bg-gray-100 rounded" title="Close">
                   <X size={18} />
                 </button>
               </div>
@@ -775,6 +776,7 @@ export default function DrugAllergyAssessment({
                     value={newAllergy.reactionType}
                     onChange={(e) => setNewAllergy(prev => ({ ...prev, reactionType: e.target.value as ReactionType }))}
                     className="w-full px-3 py-2 border rounded-lg"
+                    title="Select reaction type"
                   >
                     <option value="allergy">True Allergy (Immune-mediated)</option>
                     <option value="intolerance">Intolerance</option>
@@ -788,6 +790,7 @@ export default function DrugAllergyAssessment({
                     value={newAllergy.severity}
                     onChange={(e) => setNewAllergy(prev => ({ ...prev, severity: e.target.value as ReactionSeverity }))}
                     className="w-full px-3 py-2 border rounded-lg"
+                    title="Select severity level"
                   >
                     <option value="mild">Mild</option>
                     <option value="moderate">Moderate</option>
@@ -836,6 +839,7 @@ export default function DrugAllergyAssessment({
                   value={newAllergy.verificationStatus}
                   onChange={(e) => setNewAllergy(prev => ({ ...prev, verificationStatus: e.target.value as DrugAllergy['verificationStatus'] }))}
                   className="w-full px-3 py-2 border rounded-lg"
+                  title="Select verification status"
                 >
                   <option value="confirmed">Confirmed (documented reaction)</option>
                   <option value="suspected">Suspected (patient reported)</option>

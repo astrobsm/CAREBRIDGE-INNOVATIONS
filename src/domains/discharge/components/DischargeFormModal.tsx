@@ -344,7 +344,7 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-white/20 rounded">
+          <button onClick={onClose} className="p-1 hover:bg-white/20 rounded" title="Close">
             <X size={20} />
           </button>
         </div>
@@ -545,6 +545,7 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
                             type="button"
                             onClick={() => removeMedication(index)}
                             className="text-red-500 hover:text-red-700"
+                            title="Remove medication"
                           >
                             <Trash2 size={16} />
                           </button>
@@ -758,6 +759,7 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
                             type="button"
                             onClick={() => removeFollowUp(index)}
                             className="text-red-500 hover:text-red-700"
+                            title="Remove appointment"
                           >
                             <Trash2 size={16} />
                           </button>

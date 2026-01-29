@@ -507,6 +507,7 @@ export default function PostOpNoteFormPage() {
                   }
                 }}
                 className="btn btn-secondary"
+                title="Add complication"
               >
                 <Plus size={16} />
               </button>
@@ -527,6 +528,7 @@ export default function PostOpNoteFormPage() {
                         });
                       }}
                       className="hover:bg-red-200 rounded-full p-0.5"
+                      title="Remove complication"
                     >
                       <Trash2 size={12} />
                     </button>
@@ -595,6 +597,7 @@ export default function PostOpNoteFormPage() {
                   type="button"
                   onClick={() => removeSpecimen(index)}
                   className="text-red-600 hover:text-red-700"
+                  title="Remove specimen"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -682,6 +685,7 @@ export default function PostOpNoteFormPage() {
                   }
                 }}
                 className="btn btn-secondary"
+                title="Add instruction"
               >
                 <Plus size={16} />
               </button>
@@ -699,6 +703,7 @@ export default function PostOpNoteFormPage() {
                         });
                       }}
                       className="text-red-600 hover:text-red-700"
+                      title="Remove instruction"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -769,6 +774,7 @@ export default function PostOpNoteFormPage() {
                   type="button"
                   onClick={() => removeMedication(index)}
                   className="text-red-600 hover:text-red-700"
+                  title="Remove medication"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -869,6 +875,7 @@ export default function PostOpNoteFormPage() {
                   }
                 }}
                 className="btn btn-secondary"
+                title="Add warning sign"
               >
                 <Plus size={16} />
               </button>
@@ -886,6 +893,7 @@ export default function PostOpNoteFormPage() {
                         });
                       }}
                       className="text-red-600 hover:text-red-700"
+                      title="Remove warning sign"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -930,6 +938,7 @@ export default function PostOpNoteFormPage() {
                   }
                 }}
                 className="btn btn-secondary"
+                title="Add item"
               >
                 <Plus size={16} />
               </button>
@@ -947,6 +956,7 @@ export default function PostOpNoteFormPage() {
                         });
                       }}
                       className="text-red-600 hover:text-red-700"
+                      title="Remove item"
                     >
                       <Trash2 size={14} />
                     </button>

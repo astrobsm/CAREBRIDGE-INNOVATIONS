@@ -292,6 +292,7 @@ export default function MUSTCalculator({ patientInfo }: Props) {
                 value={weightLossDuration}
                 onChange={(e) => setWeightLossDuration(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-gray-900"
+                title="Select weight loss period"
               >
                 <option value="1 month">&lt;1 month</option>
                 <option value="1-3 months">1-3 months</option>

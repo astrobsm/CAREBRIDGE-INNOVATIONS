@@ -338,6 +338,7 @@ export default function WoundClassificationStep({
                     value={wound.shape}
                     onChange={(e) => updateWound(wound.id, { shape: e.target.value as WoundShape })}
                     className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                    title="Select wound shape"
                   >
                     {Object.entries(woundShapeInfo).map(([key, info]) => (
                       <option key={key} value={key}>{info.label}</option>
@@ -391,7 +392,7 @@ export default function WoundClassificationStep({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1">
+                  <label className="flex text-xs font-medium text-gray-600 mb-1 items-center gap-1">
                     Area (cm²)
                     <span className="group relative">
                       <Info size={12} className="text-gray-400 cursor-help" />
@@ -406,6 +407,7 @@ export default function WoundClassificationStep({
                       value={wound.area}
                       readOnly
                       className="w-full px-3 py-2 border rounded-lg text-sm bg-blue-50 font-semibold text-blue-700"
+                      title="Calculated wound area"
                     />
                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-500">
                       auto
@@ -451,6 +453,8 @@ export default function WoundClassificationStep({
                 value={debridementCount}
                 onChange={(e) => onUpdate({ debridementCount: parseInt(e.target.value) || 0 })}
                 className="w-16 px-2 py-1 border rounded text-sm"
+                title="Debridement count"
+                placeholder="0"
               />
             </div>
           )}
@@ -559,6 +563,7 @@ export default function WoundClassificationStep({
               value={wifiClassification.wound}
               onChange={(e) => onUpdate({ wifiClassification: { ...wifiClassification, wound: parseInt(e.target.value) as 0|1|2|3 } })}
               className="w-full px-3 py-2 border rounded-lg"
+              title="Wound grade"
             >
               <option value={0}>0 - No ulcer/gangrene</option>
               <option value={1}>1 - Small, shallow ulcer</option>
@@ -573,6 +578,7 @@ export default function WoundClassificationStep({
               value={wifiClassification.ischemia}
               onChange={(e) => onUpdate({ wifiClassification: { ...wifiClassification, ischemia: parseInt(e.target.value) as 0|1|2|3 } })}
               className="w-full px-3 py-2 border rounded-lg"
+              title="Ischemia grade"
             >
               <option value={0}>0 - ABI ≥0.80</option>
               <option value={1}>1 - ABI 0.60-0.79</option>
@@ -587,6 +593,7 @@ export default function WoundClassificationStep({
               value={wifiClassification.footInfection}
               onChange={(e) => onUpdate({ wifiClassification: { ...wifiClassification, footInfection: parseInt(e.target.value) as 0|1|2|3 } })}
               className="w-full px-3 py-2 border rounded-lg"
+              title="Foot infection grade"
             >
               <option value={0}>0 - No infection</option>
               <option value={1}>1 - Mild (local, skin only)</option>
@@ -613,6 +620,7 @@ export default function WoundClassificationStep({
               value={sinbadScore.site}
               onChange={(e) => updateSinbad('site', parseInt(e.target.value) as 0|1)}
               className="w-full px-3 py-2 border rounded-lg"
+              title="Site location"
             >
               <option value={0}>0 - Forefoot</option>
               <option value={1}>1 - Midfoot/Hindfoot</option>
@@ -625,6 +633,7 @@ export default function WoundClassificationStep({
               value={sinbadScore.ischemia}
               onChange={(e) => updateSinbad('ischemia', parseInt(e.target.value) as 0|1)}
               className="w-full px-3 py-2 border rounded-lg"
+              title="Ischemia status"
             >
               <option value={0}>0 - Pulses present</option>
               <option value={1}>1 - Pulses absent</option>
@@ -637,6 +646,7 @@ export default function WoundClassificationStep({
               value={sinbadScore.neuropathy}
               onChange={(e) => updateSinbad('neuropathy', parseInt(e.target.value) as 0|1)}
               className="w-full px-3 py-2 border rounded-lg"
+              title="Neuropathy status"
             >
               <option value={0}>0 - Sensation intact</option>
               <option value={1}>1 - Sensation absent</option>
@@ -649,6 +659,7 @@ export default function WoundClassificationStep({
               value={sinbadScore.bacterialInfection}
               onChange={(e) => updateSinbad('bacterialInfection', parseInt(e.target.value) as 0|1)}
               className="w-full px-3 py-2 border rounded-lg"
+              title="Infection status"
             >
               <option value={0}>0 - Absent</option>
               <option value={1}>1 - Present</option>
@@ -661,6 +672,7 @@ export default function WoundClassificationStep({
               value={sinbadScore.area}
               onChange={(e) => updateSinbad('area', parseInt(e.target.value) as 0|1)}
               className="w-full px-3 py-2 border rounded-lg"
+              title="Area size"
             >
               <option value={0}>0 - &lt;1 cm²</option>
               <option value={1}>1 - ≥1 cm²</option>
@@ -673,6 +685,7 @@ export default function WoundClassificationStep({
               value={sinbadScore.depth}
               onChange={(e) => updateSinbad('depth', parseInt(e.target.value) as 0|1)}
               className="w-full px-3 py-2 border rounded-lg"
+              title="Wound depth"
             >
               <option value={0}>0 - Superficial</option>
               <option value={1}>1 - Deep</option>

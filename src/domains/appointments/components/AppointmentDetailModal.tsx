@@ -240,6 +240,7 @@ export default function AppointmentDetailModal({
             <button
               onClick={onClose}
               className="absolute top-4 right-4 text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10"
+              title="Close modal"
             >
               <X className="w-5 h-5" />
             </button>

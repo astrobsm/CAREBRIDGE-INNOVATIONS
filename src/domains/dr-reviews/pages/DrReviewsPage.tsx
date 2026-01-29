@@ -266,6 +266,7 @@ export default function DrReviewsPage() {
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
               className="input"
+              title="Select date range"
             >
               <option value="all">All Time</option>
               <option value="today">Today</option>
@@ -277,7 +278,7 @@ export default function DrReviewsPage() {
           </div>
           <div>
             <label className="label">Status Filter</label>
-            <select className="input">
+            <select className="input" title="Filter by review status">
               <option value="all">All Reviews</option>
               <option value="completed">Completed</option>
               <option value="pending">Pending</option>

@@ -9,7 +9,6 @@ import {
   TrendingUp, 
   TrendingDown,
   Activity,
-  CheckCircle,
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
@@ -49,7 +48,8 @@ export default function FluidResuscitationDashboard({
     initialPlan?.formula || 'parkland'
   );
   const [currentRate, setCurrentRate] = useState<number>(0);
-  const [hourlyEntries, setHourlyEntries] = useState<HourlyResuscitationEntry[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_hourlyEntries, _setHourlyEntries] = useState<HourlyResuscitationEntry[]>([]);
   const [adjustments, setAdjustments] = useState<FluidAdjustment[]>([]);
 
   // Urine output targets
@@ -179,6 +179,7 @@ export default function FluidResuscitationDashboard({
               value={formula}
               onChange={(e) => setFormula(e.target.value as ResuscitationFormula)}
               className="px-3 py-1.5 border rounded-lg text-sm"
+              title="Select resuscitation formula"
             >
               <option value="parkland">Parkland (4 mL/kg/%TBSA)</option>
               <option value="modified_brooke">Modified Brooke (2 mL/kg/%TBSA)</option>

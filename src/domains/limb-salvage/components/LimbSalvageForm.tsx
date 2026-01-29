@@ -327,6 +327,7 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full"
+            title="Close"
           >
             <X className="h-5 w-5" />
           </button>

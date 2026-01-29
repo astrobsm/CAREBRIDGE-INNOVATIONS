@@ -1396,10 +1396,12 @@ export interface VideoConference {
   hospitalId?: string;
   hostId: string;
   hostName: string;
+  coHostIds?: string[]; // Array of co-host user IDs
+  roomId?: string; // Room identifier
   participants: ConferenceParticipant[];
   invitedUsers: string[]; // User IDs
   patientId?: string; // For case presentations
-  scheduledStart: Date;
+  scheduledStart?: Date; // Made optional for on-demand meetings
   scheduledEnd?: Date;
   actualStart?: Date;
   actualEnd?: Date;
@@ -1422,6 +1424,7 @@ export interface ConferenceParticipant {
   userId: string;
   userName: string;
   userRole: UserRole;
+  role?: 'host' | 'co_host' | 'presenter' | 'participant'; // Conference-specific role
   avatar?: string;
   joinedAt?: Date;
   leftAt?: Date;
@@ -1491,10 +1494,11 @@ export interface ConferenceRecording {
 
 export interface ConferenceChatMessage {
   id: string;
+  conferenceId?: string; // Conference ID for message association
   senderId: string;
   senderName: string;
   content: string;
-  type: 'text' | 'file' | 'system' | 'reaction' | 'poll';
+  type: 'text' | 'file' | 'system' | 'reaction' | 'poll' | 'private';
   isPrivate: boolean;
   recipientId?: string;
   recipientName?: string;
@@ -1532,6 +1536,7 @@ export interface ConferencePoll {
   createdByName: string;
   question: string;
   options: PollOption[];
+  votes?: PollVote[]; // Array of all votes cast
   isAnonymous: boolean;
   allowMultiple: boolean;
   status: 'active' | 'closed' | 'ended';
@@ -4039,7 +4044,7 @@ export interface PostOperativeNote {
   position: string;
   dietInstructions: string;
   ivFluids?: string;
-  medications: PostOperativeMedication[];
+  medications: PostoperativeMedication[];
   drainCare?: string;
   catheterCare?: string;
   

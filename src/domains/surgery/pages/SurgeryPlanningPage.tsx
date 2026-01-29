@@ -365,7 +365,7 @@ export default function SurgeryPlanningPage() {
         preOperativeAssessment: preOpAssessment,
         scheduledDate: new Date(data.scheduledDate),
         status: 'scheduled',
-        surgeon: user.fullName || user.email || 'Unknown Surgeon',
+        surgeon: `${user.firstName} ${user.lastName}` || user.email || 'Unknown Surgeon',
         surgeonId: user.id,
         surgeonFee: data.surgeonFee,
         assistant: data.assistant,
@@ -471,6 +471,7 @@ export default function SurgeryPlanningPage() {
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
                     className="input"
+                    title="Select procedure category"
                   >
                     <option value="">All Categories</option>
                     {procedureCategories.map(cat => (
@@ -1001,6 +1002,7 @@ export default function SurgeryPlanningPage() {
                   value={user?.firstName + ' ' + user?.lastName}
                   disabled
                   className="input bg-gray-50"
+                  title="Primary Surgeon"
                 />
               </div>
 
@@ -1079,6 +1081,7 @@ export default function SurgeryPlanningPage() {
                           onChange={(e) => setCustomSurgeonFee(Number(e.target.value))}
                           className="input"
                           step={50000}
+                          title="Surgeon's Fee"
                         />
                         <div className="text-sm text-gray-500">
                           Range: {formatNaira(selectedProcedure.minFee)} - {formatNaira(selectedProcedure.maxFee)}

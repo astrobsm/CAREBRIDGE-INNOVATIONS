@@ -546,13 +546,13 @@ class BurnCareService {
    */
   async getActiveBurns(): Promise<BurnAssessment[]> {
     const burns = await db.burnAssessments.toArray();
-    return burns.filter(b => b.status !== 'healed' && b.status !== 'grafted');
+    return burns.filter(b => (b as BurnAssessment & { status?: string }).status !== 'healed' && (b as BurnAssessment & { status?: string }).status !== 'grafted');
   }
 
   /**
    * Calculate expected healing time
    */
-  estimateHealingTime(depth: BurnDepth, tbsa: number): { minDays: number; maxDays: number; notes: string } {
+  estimateHealingTime(depth: BurnDepth, _tbsa: number): { minDays: number; maxDays: number; notes: string } {
     switch (depth) {
       case 'superficial':
         return { minDays: 5, maxDays: 10, notes: 'Should heal without scarring' };

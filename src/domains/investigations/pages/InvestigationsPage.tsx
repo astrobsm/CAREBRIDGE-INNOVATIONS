@@ -491,6 +491,7 @@ export default function InvestigationsPage() {
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="input w-full sm:w-64"
+            title="Filter by category"
           >
             <option value="all">All Categories</option>
             {investigationCategories.map((cat) => (
@@ -515,6 +516,7 @@ export default function InvestigationsPage() {
                   value={selectedPatientForTrend}
                   onChange={(e) => setSelectedPatientForTrend(e.target.value)}
                   className="input"
+                  title="Select patient for trend analysis"
                 >
                   <option value="">Select patient</option>
                   {patients?.map((patient) => (
@@ -530,6 +532,7 @@ export default function InvestigationsPage() {
                   value={selectedParameterForTrend}
                   onChange={(e) => setSelectedParameterForTrend(e.target.value)}
                   className="input"
+                  title="Select parameter for trend analysis"
                 >
                   {Object.keys(referenceRanges).map((param) => (
                     <option key={param} value={param}>{param}</option>
@@ -802,7 +805,7 @@ export default function InvestigationsPage() {
             >
               <div className="p-6 border-b flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">Request Investigation</h2>
-                <button onClick={() => setShowRequestModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowRequestModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -966,7 +969,7 @@ export default function InvestigationsPage() {
                   <h2 className="text-xl font-bold text-gray-900">Upload Results</h2>
                   <p className="text-sm text-gray-500">{selectedInvestigation.typeName} - {selectedInvestigation.patientName}</p>
                 </div>
-                <button onClick={() => setShowResultModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowResultModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -1061,6 +1064,7 @@ export default function InvestigationsPage() {
                       accept="image/*,.pdf"
                       className="hidden"
                       onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
+                      title="Upload investigation result file"
                     />
                     {uploadedFile ? (
                       <div className="flex items-center justify-center gap-2">
@@ -1075,6 +1079,7 @@ export default function InvestigationsPage() {
                             setUploadedFile(null);
                           }}
                           className="p-1 hover:bg-gray-100 rounded"
+                          title="Remove file"
                         >
                           <X size={16} />
                         </button>
@@ -1144,7 +1149,7 @@ export default function InvestigationsPage() {
                   <h2 className="text-xl font-bold text-gray-900">Investigation Results</h2>
                   <p className="text-sm text-gray-500">{selectedInvestigation.typeName} - {selectedInvestigation.patientName}</p>
                 </div>
-                <button onClick={() => setShowTrendModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowTrendModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>

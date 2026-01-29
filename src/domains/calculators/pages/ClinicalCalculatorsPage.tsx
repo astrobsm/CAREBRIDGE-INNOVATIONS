@@ -264,6 +264,7 @@ export default function ClinicalCalculatorsPage() {
                 <button
                   onClick={() => setShowPatientForm(false)}
                   className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  title="Close"
                 >
                   <X className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
@@ -327,6 +328,7 @@ export default function ClinicalCalculatorsPage() {
                       value={patientInfo.gender}
                       onChange={(e) => setPatientInfo({...patientInfo, gender: e.target.value as PatientCalculatorInfo['gender']})}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      title="Select gender"
                     >
                       <option value="male">Male</option>
                       <option value="female">Female</option>

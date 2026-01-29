@@ -212,6 +212,7 @@ export default function AccountantDashboard() {
             value={selectedHospital}
             onChange={(e) => setSelectedHospital(e.target.value)}
             className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-sky-500"
+            title="Filter by hospital"
           >
             <option value="all">All Hospitals</option>
             {hospitals?.map((h) => (

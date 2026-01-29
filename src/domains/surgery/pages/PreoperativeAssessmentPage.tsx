@@ -371,6 +371,7 @@ export default function PreoperativeAssessmentPage() {
                 value={selectedPatientId}
                 onChange={(e) => setSelectedPatientId(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+                title="Select patient for preoperative assessment"
               >
                 <option value="">Select Patient</option>
                 {patients?.map(p => (
@@ -479,6 +480,7 @@ export default function PreoperativeAssessmentPage() {
                   {...form.register('surgeryName')}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
                   placeholder="e.g., Laparoscopic Cholecystectomy"
+                  title="Surgery name"
                 />
               </div>
               <div>
@@ -486,6 +488,7 @@ export default function PreoperativeAssessmentPage() {
                 <select
                   {...form.register('surgeryType')}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  title="Surgery type"
                 >
                   <option value="minor">Minor (Local/No sedation)</option>
                   <option value="intermediate">Intermediate</option>
@@ -501,6 +504,7 @@ export default function PreoperativeAssessmentPage() {
                 value={surgeryDateTime}
                 onChange={(e) => setSurgeryDateTime(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+                title="Select surgery date and time"
               />
             </div>
 
@@ -592,6 +596,7 @@ export default function PreoperativeAssessmentPage() {
                   max={10}
                   step={0.5}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  title="Mouth opening in centimeters"
                 />
                 <p className="text-xs text-gray-500 mt-1">Normal: ≥3 finger breadths (≥4cm)</p>
               </div>
@@ -607,6 +612,7 @@ export default function PreoperativeAssessmentPage() {
                   max={15}
                   step={0.5}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  title="Thyromental distance in centimeters"
                 />
                 <p className="text-xs text-gray-500 mt-1">Normal: ≥6cm</p>
               </div>
@@ -619,6 +625,7 @@ export default function PreoperativeAssessmentPage() {
                 value={neckMobility}
                 onChange={(e) => setNeckMobility(e.target.value as any)}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                title="Neck mobility assessment"
               >
                 <option value="normal">Normal (≥35° extension)</option>
                 <option value="limited">Limited</option>
@@ -703,6 +710,7 @@ export default function PreoperativeAssessmentPage() {
                 value={metsValue}
                 onChange={(e) => setMetsValue(Number(e.target.value))}
                 className="w-full"
+                title="Select functional capacity in METs"
               />
               <div className="flex justify-between text-xs text-gray-500">
                 <span>Poor (&lt;4)</span>
@@ -816,6 +824,7 @@ export default function PreoperativeAssessmentPage() {
                   value={anticoagulantType}
                   onChange={(e) => setAnticoagulantType(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  title="Anticoagulant medication type"
                 >
                   <option value="">Select...</option>
                   <option value="warfarin">Warfarin</option>
@@ -1017,7 +1026,7 @@ export default function PreoperativeAssessmentPage() {
                   []
                 ).map((inv, idx) => (
                   <li key={idx} className="flex items-center gap-2">
-                    <input type="checkbox" className="rounded" />
+                    <input type="checkbox" className="rounded" title={`Mark ${inv} as completed`} />
                     <span>{inv}</span>
                   </li>
                 ))}
@@ -1276,7 +1285,7 @@ export default function PreoperativeAssessmentPage() {
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b">
                 <h2 className="text-xl font-semibold">Preoperative Anaesthetic Assessment</h2>
-                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>

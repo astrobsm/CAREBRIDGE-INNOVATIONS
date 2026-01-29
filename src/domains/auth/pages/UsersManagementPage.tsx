@@ -102,7 +102,7 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
       >
         <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between z-10">
           <h3 className="text-lg font-semibold">Edit User</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -117,6 +117,8 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 className="input"
                 required
+                title="First name"
+                placeholder="First name"
               />
             </div>
             <div>
@@ -127,6 +129,8 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 className="input"
                 required
+                title="Last name"
+                placeholder="Last name"
               />
             </div>
           </div>
@@ -139,6 +143,8 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="input"
               required
+              title="Email address"
+              placeholder="user@example.com"
             />
           </div>
 
@@ -149,6 +155,8 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="input"
+              title="Phone number"
+              placeholder="+234 xxx xxx xxxx"
             />
           </div>
 
@@ -159,6 +167,7 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
               onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
               className="input"
               required
+              title="Select user role"
             >
               {roles.map((role) => (
                 <option key={role.value} value={role.value}>
@@ -174,6 +183,7 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
               value={formData.hospitalId}
               onChange={(e) => setFormData({ ...formData, hospitalId: e.target.value })}
               className="input"
+              title="Select hospital"
             >
               <option value="">Not assigned</option>
               {hospitals.map((hospital) => (
@@ -191,6 +201,7 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
               value={formData.specialization}
               onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
               className="input"
+              title="Specialization"
               placeholder="e.g., General Surgery, Orthopedics"
             />
           </div>
@@ -469,6 +480,7 @@ export default function UsersManagementPage() {
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value)}
             className="input min-w-[150px]"
+            title="Filter by role"
           >
             <option value="all">All Roles</option>
             {roles.map((role) => (
@@ -551,6 +563,7 @@ export default function UsersManagementPage() {
                   <button
                     onClick={() => setActiveMenu(activeMenu === user.id ? null : user.id)}
                     className="p-2 hover:bg-gray-100 rounded-lg"
+                    title="User actions"
                   >
                     <MoreVertical className="w-4 h-4 text-gray-500" />
                   </button>
@@ -722,7 +735,7 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
       >
         <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between z-10">
           <h3 className="text-lg font-semibold">Add New User</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -737,6 +750,8 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 className="input"
                 required
+                title="First name"
+                placeholder="First name"
               />
             </div>
             <div>
@@ -747,6 +762,8 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 className="input"
                 required
+                title="Last name"
+                placeholder="Last name"
               />
             </div>
           </div>
@@ -759,6 +776,8 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="input"
               required
+              title="Email address"
+              placeholder="user@example.com"
             />
           </div>
 
@@ -769,6 +788,7 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="input"
+              title="Phone number"
               placeholder="+234 xxx xxx xxxx"
             />
           </div>
@@ -780,6 +800,7 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
               onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
               className="input"
               required
+              title="Select user role"
             >
               {roles.map((role) => (
                 <option key={role.value} value={role.value}>
@@ -795,6 +816,7 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
               value={formData.hospitalId}
               onChange={(e) => setFormData({ ...formData, hospitalId: e.target.value })}
               className="input"
+              title="Select hospital"
             >
               <option value="">Not assigned</option>
               {hospitals.map((hospital) => (
@@ -812,6 +834,7 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
               value={formData.specialization}
               onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
               className="input"
+              title="Specialization"
               placeholder="e.g., General Surgery, Orthopedics"
             />
           </div>
@@ -823,6 +846,7 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
               value={formData.licenseNumber}
               onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
               className="input"
+              title="License number"
               placeholder="Medical license number"
             />
           </div>
@@ -837,11 +861,14 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
                 className="input pr-10"
                 required
                 minLength={8}
+                title="Password"
+                placeholder="Enter password"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                title="Toggle password visibility"
               >
                 {showPassword ? <X className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
               </button>
@@ -856,6 +883,8 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
               onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
               className="input"
               required
+              title="Confirm password"
+              placeholder="Re-enter password"
             />
           </div>
 

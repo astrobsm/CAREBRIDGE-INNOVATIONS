@@ -1,7 +1,7 @@
 // Patient Education Sheet Component
 // Generates printable patient education materials for discharge
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   X,
@@ -14,7 +14,6 @@ import {
   Utensils,
   Badge,
   Printer,
-  Download,
   Check,
   ChevronDown,
   ChevronUp,
@@ -510,7 +509,7 @@ export default function PatientEducationSheet({ summary, patient, onClose }: Pro
             >
               <Printer size={18} />
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded">
+            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded" title="Close">
               <X size={20} />
             </button>
           </div>

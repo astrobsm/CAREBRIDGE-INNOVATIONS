@@ -8,7 +8,6 @@ import {
   CheckCircle,
   AlertTriangle,
   Activity,
-  Thermometer,
   Heart,
   Wind,
   Utensils,
@@ -23,7 +22,6 @@ import {
   Minus,
   ArrowRight,
 } from 'lucide-react';
-import { format } from 'date-fns';
 import type { Admission, Patient } from '../../../types';
 
 interface AssessmentCriterion {
@@ -406,7 +404,7 @@ export default function DischargeReadinessAssessment({ admission, patient, onCom
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded">
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded" title="Close">
             <X size={20} />
           </button>
         </div>

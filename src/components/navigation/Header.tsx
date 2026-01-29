@@ -79,6 +79,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <button
             onClick={onMenuClick}
             className="lg:hidden p-2 rounded-lg hover:bg-indigo-50 transition-colors"
+            title="Open menu"
           >
             <Menu size={24} className="text-indigo-700" />
           </button>
@@ -137,6 +138,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <button
               onClick={() => setShowNotifications(!showNotifications)}
               className="relative p-2 rounded-lg hover:bg-gray-100"
+              title="Notifications"
             >
               <Bell size={20} className="text-gray-600" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />

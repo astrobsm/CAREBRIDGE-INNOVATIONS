@@ -1130,6 +1130,7 @@ export default function PharmacyPage() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="input w-auto"
+            title="Filter by status"
           >
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
@@ -1250,7 +1251,7 @@ export default function PharmacyPage() {
             >
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">New Prescription</h2>
-                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -1284,6 +1285,7 @@ export default function PharmacyPage() {
                           value={currentMed.category}
                           onChange={(e) => setCurrentMed({ ...currentMed, category: e.target.value, name: '' })}
                           className="input text-sm"
+                          title="Select medication category"
                         >
                           {medicationCategories.map((cat) => (
                             <option key={cat.value} value={cat.value}>{cat.label}</option>
@@ -1296,6 +1298,7 @@ export default function PharmacyPage() {
                           value={currentMed.name || ''}
                           onChange={(e) => setCurrentMed({ ...currentMed, name: e.target.value })}
                           className="input text-sm"
+                          title="Select medication"
                         >
                           <option value="">Select...</option>
                           {availableMeds.map((med) => (
@@ -1311,6 +1314,7 @@ export default function PharmacyPage() {
                             value={currentMed.dosage || ''}
                             onChange={(e) => setCurrentMed({ ...currentMed, dosage: e.target.value })}
                             className="input text-sm"
+                            title="Select dose"
                           >
                             <option value="">Select...</option>
                             {selectedMedInfo.doses.map((dose) => (
@@ -1342,6 +1346,7 @@ export default function PharmacyPage() {
                               });
                             }}
                             className="input text-sm"
+                            title="Select frequency"
                           >
                             <option value="">Select...</option>
                             {selectedMedInfo.frequency.map((freq) => (
@@ -1372,6 +1377,7 @@ export default function PharmacyPage() {
                           value={currentMed.route}
                           onChange={(e) => setCurrentMed({ ...currentMed, route: e.target.value as MedicationRoute })}
                           className="input text-sm"
+                          title="Select route"
                         >
                           {routes.map((route) => (
                             <option key={route.value} value={route.value}>{route.label}</option>
@@ -1404,6 +1410,8 @@ export default function PharmacyPage() {
                           onChange={(e) => setCurrentMed({ ...currentMed, quantity: Number(e.target.value) })}
                           className="input text-sm"
                           min="1"
+                          title="Quantity"
+                          placeholder="Qty"
                         />
                       </div>
                       <div className="flex items-end">
@@ -1448,6 +1456,7 @@ export default function PharmacyPage() {
                               type="button"
                               onClick={() => removeMedication(med.id)}
                               className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                              title="Remove medication"
                             >
                               <Trash2 size={18} />
                             </button>

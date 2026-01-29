@@ -343,6 +343,7 @@ export default function HospitalsPage() {
             value={stateFilter}
             onChange={(e) => setStateFilter(e.target.value)}
             className="input w-auto"
+            title="Filter by state"
           >
             <option value="all">All States</option>
             {nigerianStates.map((state) => (
@@ -353,6 +354,7 @@ export default function HospitalsPage() {
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             className="input w-auto"
+            title="Filter by type"
           >
             <option value="all">All Types</option>
             {hospitalTypes.map((type) => (
@@ -383,6 +385,7 @@ export default function HospitalsPage() {
                   <button
                     onClick={() => openEditModal(hospital)}
                     className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="Edit hospital"
                   >
                     <Edit size={18} />
                   </button>
@@ -492,7 +495,7 @@ export default function HospitalsPage() {
                 <h2 className="text-xl font-bold text-gray-900">
                   {editingHospital ? 'Edit Hospital' : 'Add New Hospital'}
                 </h2>
-                <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -512,7 +515,7 @@ export default function HospitalsPage() {
                     </div>
                     <div>
                       <label className="label">Type *</label>
-                      <select {...register('type')} className={`input ${errors.type ? 'input-error' : ''}`}>
+                      <select {...register('type')} className={`input ${errors.type ? 'input-error' : ''}`} title="Select hospital type">
                         {hospitalTypes.map((type) => (
                           <option key={type.value} value={type.value}>{type.label}</option>
                         ))}
@@ -544,7 +547,7 @@ export default function HospitalsPage() {
                     </div>
                     <div>
                       <label className="label">State *</label>
-                      <select {...register('state')} className={`input ${errors.state ? 'input-error' : ''}`}>
+                      <select {...register('state')} className={`input ${errors.state ? 'input-error' : ''}`} title="Select state">
                         <option value="">Select state</option>
                         {nigerianStates.map((state) => (
                           <option key={state} value={state}>{state}</option>

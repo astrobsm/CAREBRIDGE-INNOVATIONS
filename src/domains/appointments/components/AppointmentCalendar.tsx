@@ -284,6 +284,7 @@ export default function AppointmentCalendar({
                 setShowActionMenu(showActionMenu === appointment.id ? null : appointment.id);
               }}
               className="p-1.5 rounded-lg hover:bg-white/50 opacity-0 group-hover:opacity-100 transition-opacity"
+              title="More options"
             >
               <MoreVertical className="w-4 h-4 text-gray-500" />
             </button>
@@ -501,12 +502,14 @@ export default function AppointmentCalendar({
             <button
               onClick={() => navigate('prev')}
               className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+              title="Previous"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               onClick={() => navigate('next')}
               className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+              title="Next"
             >
               <ChevronRight className="w-5 h-5" />
             </button>

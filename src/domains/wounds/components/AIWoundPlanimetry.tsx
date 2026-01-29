@@ -497,7 +497,7 @@ export default function AIWoundPlanimetry({
               <p className="text-sm text-white/80">TensorFlow.js-powered wound measurement</p>
             </div>
           </div>
-          <button onClick={onCancel} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
+          <button onClick={onCancel} className="p-2 hover:bg-white/20 rounded-lg transition-colors" title="Cancel and close">
             <X size={20} />
           </button>
         </div>

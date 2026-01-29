@@ -46,6 +46,7 @@ function OfflineBanner() {
           <button
             onClick={() => setDismissed(true)}
             className="p-1.5 hover:bg-white/20 rounded-full transition-colors"
+            title="Dismiss banner"
           >
             <X className="w-4 h-4" />
           </button>

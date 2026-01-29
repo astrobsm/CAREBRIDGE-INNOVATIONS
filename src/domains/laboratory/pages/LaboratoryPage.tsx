@@ -634,6 +634,7 @@ export default function LaboratoryPage() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="input w-auto"
+            title="Filter by status"
           >
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
@@ -777,7 +778,7 @@ export default function LaboratoryPage() {
             >
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">New Lab Request</h2>
-                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -976,7 +977,7 @@ export default function LaboratoryPage() {
                   </div>
                   <h2 className="text-xl font-bold text-gray-900">Sample Collection</h2>
                 </div>
-                <button onClick={() => setShowCollectionModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowCollectionModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -1069,7 +1070,7 @@ export default function LaboratoryPage() {
                   </div>
                   <h2 className="text-xl font-bold text-gray-900">Upload Test Results</h2>
                 </div>
-                <button onClick={() => setShowResultModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowResultModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>

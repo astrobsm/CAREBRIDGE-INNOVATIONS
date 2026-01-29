@@ -386,7 +386,7 @@ export default function BurnAlertsPanel({
                 <Phone className="h-5 w-5 text-orange-600" />
                 <h3 className="text-lg font-semibold">Escalate Alert</h3>
               </div>
-              <button onClick={() => setShowEscalateModal(false)} className="text-2xl hover:text-gray-600">×</button>
+              <button onClick={() => setShowEscalateModal(false)} className="text-2xl hover:text-gray-600" title="Close escalation form">×</button>
             </div>
             <div className="p-6 space-y-4">
               <p className="text-sm text-gray-600">

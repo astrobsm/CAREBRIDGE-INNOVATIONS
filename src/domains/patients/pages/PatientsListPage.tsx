@@ -6,7 +6,6 @@ import {
   Plus,
   Search,
   Filter,
-  MoreVertical,
   Eye,
   Edit,
   Trash2,
@@ -101,6 +100,7 @@ export default function PatientsListPage() {
                 setCurrentPage(1);
               }}
               className="input w-auto"
+              title="Filter by gender"
             >
               <option value="all">All Genders</option>
               <option value="male">Male</option>
@@ -254,6 +254,7 @@ export default function PatientsListPage() {
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="btn btn-secondary py-2 px-3"
+                title="Previous page"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -264,6 +265,7 @@ export default function PatientsListPage() {
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
                 className="btn btn-secondary py-2 px-3"
+                title="Next page"
               >
                 <ChevronRight size={16} />
               </button>

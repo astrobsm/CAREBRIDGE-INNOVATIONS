@@ -153,6 +153,8 @@ export default function PatientSelectionStep({
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
               min="0"
               max="120"
+              title="Patient age"
+              placeholder="Age"
             />
           </div>
 
@@ -165,6 +167,7 @@ export default function PatientSelectionStep({
               value={patientGender}
               onChange={(e) => onUpdate({ patientGender: e.target.value as 'male' | 'female' })}
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              title="Select gender"
             >
               <option value="male">Male</option>
               <option value="female">Female</option>
@@ -180,6 +183,7 @@ export default function PatientSelectionStep({
               value={affectedSide}
               onChange={(e) => onUpdate({ affectedSide: e.target.value as 'left' | 'right' | 'bilateral' })}
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              title="Select affected limb"
             >
               <option value="left">Left Foot</option>
               <option value="right">Right Foot</option>

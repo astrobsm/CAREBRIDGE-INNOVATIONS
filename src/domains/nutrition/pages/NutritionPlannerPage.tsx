@@ -19,8 +19,6 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
-  AlertTriangle,
-  CheckCircle2,
   Clipboard,
   User,
   Calendar,
@@ -40,7 +38,6 @@ import {
   mustScreeningCriteria,
   type NutritionAssessment,
   type MealPlan,
-  type FoodItem,
   type DietType,
   type FeedingRoute,
   type FoodCategory,
@@ -104,8 +101,9 @@ export default function NutritionPlannerPage() {
   const [appetiteLevel, setAppetiteLevel] = useState<NutritionAssessment['appetiteLevel']>('good');
   const [feedingRoute, setFeedingRoute] = useState<FeedingRoute>('oral');
   const [estimatedIntake, setEstimatedIntake] = useState(100);
-  const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([]);
-  const [allergies, setAllergies] = useState<string[]>([]);
+  // These state variables are used in the assessment creation - setters will be used later for user input
+  const [dietaryRestrictions] = useState<string[]>([]);
+  const [allergies] = useState<string[]>([]);
   const [stressFactor, setStressFactor] = useState(1.0);
   const [proteinCondition, setProteinCondition] = useState<'normal' | 'wound_healing' | 'burns' | 'critical' | 'renal'>('normal');
 
@@ -401,6 +399,7 @@ export default function NutritionPlannerPage() {
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value as FoodCategory | 'all')}
                   className="px-4 py-2 border border-gray-200 rounded-lg"
+                  title="Filter by food category"
                 >
                   <option value="all">All Categories</option>
                   <option value="cereals">Cereals & Grains</option>
@@ -674,6 +673,7 @@ export default function NutritionPlannerPage() {
                       value={stressFactor}
                       onChange={(e) => setStressFactor(Number(e.target.value))}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      title="Select stress factor"
                     >
                       <option value={1.0}>Normal (1.0)</option>
                       <option value={1.2}>Mild stress (1.2)</option>
@@ -713,6 +713,7 @@ export default function NutritionPlannerPage() {
                       value={proteinCondition}
                       onChange={(e) => setProteinCondition(e.target.value as typeof proteinCondition)}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      title="Select protein condition"
                     >
                       <option value="normal">Normal (0.8 g/kg)</option>
                       <option value="wound_healing">Wound Healing (1.5 g/kg)</option>
@@ -857,7 +858,7 @@ export default function NutritionPlannerPage() {
                   <Scale className="text-green-600" />
                   New Nutrition Assessment
                 </h2>
-                <button onClick={() => setShowAssessmentModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowAssessmentModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -927,6 +928,7 @@ export default function NutritionPlannerPage() {
                       value={weight}
                       onChange={(e) => setWeight(e.target.value ? Number(e.target.value) : '')}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      placeholder="Weight in kg"
                     />
                   </div>
                   <div>
@@ -936,6 +938,7 @@ export default function NutritionPlannerPage() {
                       value={height}
                       onChange={(e) => setHeight(e.target.value ? Number(e.target.value) : '')}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      placeholder="Height in cm"
                     />
                   </div>
                   <div>
@@ -945,6 +948,7 @@ export default function NutritionPlannerPage() {
                       value={age}
                       onChange={(e) => setAge(e.target.value ? Number(e.target.value) : '')}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      placeholder="Age in years"
                     />
                   </div>
                   <div>
@@ -953,6 +957,7 @@ export default function NutritionPlannerPage() {
                       value={isMale ? 'male' : 'female'}
                       onChange={(e) => setIsMale(e.target.value === 'male')}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      title="Select patient sex"
                     >
                       <option value="male">Male</option>
                       <option value="female">Female</option>
@@ -989,6 +994,7 @@ export default function NutritionPlannerPage() {
                       value={weightLossPercent}
                       onChange={(e) => setWeightLossPercent(e.target.value ? Number(e.target.value) : '')}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      placeholder="Percentage weight loss"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1019,6 +1025,7 @@ export default function NutritionPlannerPage() {
                       value={appetiteLevel}
                       onChange={(e) => setAppetiteLevel(e.target.value as typeof appetiteLevel)}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      title="Select appetite level"
                     >
                       <option value="good">Good</option>
                       <option value="fair">Fair</option>
@@ -1032,6 +1039,7 @@ export default function NutritionPlannerPage() {
                       value={feedingRoute}
                       onChange={(e) => setFeedingRoute(e.target.value as FeedingRoute)}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      title="Select feeding route"
                     >
                       {Object.entries(feedingRouteLabels).map(([key, label]) => (
                         <option key={key} value={key}>{label}</option>
@@ -1045,6 +1053,7 @@ export default function NutritionPlannerPage() {
                       value={estimatedIntake}
                       onChange={(e) => setEstimatedIntake(Number(e.target.value))}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      placeholder="0-100%"
                     />
                   </div>
                 </div>
@@ -1057,6 +1066,7 @@ export default function NutritionPlannerPage() {
                       value={stressFactor}
                       onChange={(e) => setStressFactor(Number(e.target.value))}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      title="Select stress factor for requirements"
                     >
                       <option value={1.0}>Normal (1.0)</option>
                       <option value={1.2}>Mild stress (1.2)</option>
@@ -1071,6 +1081,7 @@ export default function NutritionPlannerPage() {
                       value={proteinCondition}
                       onChange={(e) => setProteinCondition(e.target.value as typeof proteinCondition)}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                      title="Select protein requirements"
                     >
                       <option value="normal">Normal (0.8 g/kg)</option>
                       <option value="wound_healing">Wound Healing (1.5 g/kg)</option>
@@ -1122,7 +1133,7 @@ export default function NutritionPlannerPage() {
                   <Utensils className="text-green-600" />
                   Create Meal Plan
                 </h2>
-                <button onClick={() => setShowMealPlanModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowMealPlanModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -1151,6 +1162,7 @@ export default function NutritionPlannerPage() {
                     value={mealPlanDietType}
                     onChange={(e) => setMealPlanDietType(e.target.value as DietType)}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                    title="Select diet type"
                   >
                     {Object.entries(dietTypeLabels).map(([key, label]) => (
                       <option key={key} value={key}>{label}</option>
@@ -1165,6 +1177,7 @@ export default function NutritionPlannerPage() {
                     value={mealPlanDuration}
                     onChange={(e) => setMealPlanDuration(Number(e.target.value))}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                    placeholder="Number of days"
                   />
                 </div>
               </div>

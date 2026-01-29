@@ -821,6 +821,7 @@ export default function BillingPage() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="input w-auto"
+            title="Filter by status"
           >
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
@@ -958,7 +959,7 @@ export default function BillingPage() {
             >
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">New Invoice</h2>
-                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -978,6 +979,7 @@ export default function BillingPage() {
                             value={globalDiscount}
                             onChange={(e) => setGlobalDiscount(Number(e.target.value))}
                             className="input text-sm py-1.5"
+                            title="Select global discount"
                           >
                             {discountPresets.map(d => (
                               <option key={d.value} value={d.value}>{d.label}</option>
@@ -990,6 +992,7 @@ export default function BillingPage() {
                             value={feeLevel}
                             onChange={(e) => setFeeLevel(e.target.value as 'min' | 'mid' | 'max')}
                             className="input text-sm py-1.5"
+                            title="Select fee level"
                           >
                             <option value="min">Minimum</option>
                             <option value="mid">Standard</option>
@@ -1154,6 +1157,7 @@ export default function BillingPage() {
                                       onChange={(e) => updateQuantity(item.id, parseInt(e.target.value))}
                                       min="1"
                                       className="w-16 text-center border rounded px-2 py-1"
+                                      title="Item quantity"
                                     />
                                   </td>
                                   <td className="px-4 py-3 text-center">
@@ -1161,6 +1165,7 @@ export default function BillingPage() {
                                       value={item.discountPercent || 0}
                                       onChange={(e) => applyItemDiscount(item.id, Number(e.target.value))}
                                       className="w-20 text-xs border rounded px-1 py-1"
+                                      title="Item discount"
                                     >
                                       {discountPresets.map(d => (
                                         <option key={d.value} value={d.value}>{d.value}%</option>
@@ -1312,6 +1317,7 @@ export default function BillingPage() {
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className="input"
+                    title="Select payment method"
                   >
                     {paymentMethods.map((method) => (
                       <option key={method.value} value={method.value}>{method.label}</option>
@@ -1361,7 +1367,7 @@ export default function BillingPage() {
                     <Receipt className="w-6 h-6 text-purple-600" />
                     Invoice Details
                   </h2>
-                  <button onClick={() => setShowDetailsModal(false)} className="p-2 hover:bg-white rounded-lg">
+                  <button onClick={() => setShowDetailsModal(false)} className="p-2 hover:bg-white rounded-lg" title="Close">
                     <X size={20} />
                   </button>
                 </div>

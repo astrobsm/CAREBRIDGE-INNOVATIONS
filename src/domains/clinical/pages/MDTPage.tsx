@@ -875,6 +875,7 @@ export default function MDTPage() {
                 value={selectedPatientId}
                 onChange={(e) => setSelectedPatientId(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+                title="Select patient for MDT discussion"
               >
                 <option value="">Choose a patient...</option>
                 {patients?.map(p => (
@@ -1654,6 +1655,7 @@ export default function MDTPage() {
                                 }
                               }}
                               className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                              title="Confirm patient summary reviewed"
                             />
                             <span className="text-xs text-gray-600">I have reviewed the complete patient summary</span>
                           </label>
@@ -1953,7 +1955,7 @@ export default function MDTPage() {
                           <div className="mt-3 space-y-2">
                             {plan.patientGoals.map(goal => (
                               <div key={goal.id} className="p-3 bg-gray-50 rounded-lg border flex items-start gap-3">
-                                <input type="checkbox" className="mt-1" checked={goal.status === 'achieved'} readOnly />
+                                <input type="checkbox" className="mt-1" checked={goal.status === 'achieved'} readOnly title="Goal achievement status" />
                                 <div className="flex-1">
                                   <p className="font-medium">{goal.description}</p>
                                   <p className="text-sm text-gray-500">
@@ -2196,7 +2198,7 @@ export default function MDTPage() {
                     </span>
                   )}
                 </div>
-                <button onClick={() => setShowPlanModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowPlanModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -2209,6 +2211,7 @@ export default function MDTPage() {
                     value={planSpecialty}
                     onChange={(e) => setPlanSpecialty(e.target.value as SpecialtyType)}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                    title="Select specialty"
                   >
                     {Object.entries(specialtyDefinitions).map(([key, spec]) => (
                       <option key={key} value={key}>{spec.name}</option>
@@ -2267,6 +2270,7 @@ export default function MDTPage() {
                         <button
                           onClick={() => setDiagnoses(diagnoses.filter((_, i) => i !== idx))}
                           className="p-2 text-red-500"
+                          title="Remove diagnosis"
                         >
                           <X size={18} />
                         </button>
@@ -2321,6 +2325,7 @@ export default function MDTPage() {
                             setRecommendations(updated);
                           }}
                           className="px-3 py-2 border border-gray-200 rounded"
+                          title="Select recommendation priority"
                         >
                           <option value="routine">Routine</option>
                           <option value="urgent">Urgent</option>
@@ -2412,6 +2417,7 @@ export default function MDTPage() {
                             setMedications(updated);
                           }}
                           className="px-3 py-2 border border-gray-200 rounded min-w-[110px]"
+                          title="Select medication action"
                         >
                           <option value="add">Add</option>
                           <option value="continue">Continue</option>
@@ -2590,7 +2596,7 @@ export default function MDTPage() {
                   <Users className="text-primary-600" />
                   Schedule MDT Meeting
                 </h2>
-                <button onClick={() => setShowMeetingModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowMeetingModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -2605,6 +2611,7 @@ export default function MDTPage() {
                       setShowPatientSummary(false);
                     }}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    title="Select patient for meeting"
                   >
                     <option value="">Select patient...</option>
                     {patients?.map(p => (
@@ -2931,6 +2938,7 @@ export default function MDTPage() {
                       value={meetingDate}
                       onChange={(e) => setMeetingDate(e.target.value)}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      title="Select meeting date and time"
                     />
                   </div>
 
@@ -2940,6 +2948,7 @@ export default function MDTPage() {
                       value={meetingDuration}
                       onChange={(e) => setMeetingDuration(Number(e.target.value))}
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      title="Select meeting duration"
                     >
                       <option value={30}>30 minutes</option>
                       <option value={60}>60 minutes</option>

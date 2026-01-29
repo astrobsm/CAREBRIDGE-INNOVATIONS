@@ -654,6 +654,7 @@ export default function EnhancedBurnsAssessmentPage() {
                   value={patientAge}
                   onChange={(e) => setPatientAge(Number(e.target.value))}
                   className="w-20 ml-2 px-2 py-1 border rounded text-sm"
+                  title="Patient age"
                 />
               </div>
               <div>
@@ -663,6 +664,7 @@ export default function EnhancedBurnsAssessmentPage() {
                   value={patientWeight}
                   onChange={(e) => setPatientWeight(Number(e.target.value))}
                   className="w-20 ml-2 px-2 py-1 border rounded text-sm"
+                  title="Patient weight in kg"
                 />
               </div>
             </div>
@@ -888,7 +890,7 @@ export default function EnhancedBurnsAssessmentPage() {
             >
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">New Burn Assessment</h2>
-                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -1050,7 +1052,7 @@ export default function EnhancedBurnsAssessmentPage() {
                     <FileText size={18} />
                     Export PDF
                   </button>
-                  <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                     <X size={20} />
                   </button>
                 </div>

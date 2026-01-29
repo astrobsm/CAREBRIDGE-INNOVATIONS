@@ -181,6 +181,7 @@ export default function InstallPrompt() {
                   <button
                     onClick={handleDismiss}
                     className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                    title="Dismiss install prompt"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -251,6 +252,7 @@ export default function InstallPrompt() {
             <button 
               onClick={(e) => { e.stopPropagation(); setShowInstalledToast(false); }}
               className="ml-2 p-1 hover:bg-gray-100 rounded-full transition-colors"
+              title="Close notification"
             >
               <X className="w-4 h-4 text-gray-400" />
             </button>

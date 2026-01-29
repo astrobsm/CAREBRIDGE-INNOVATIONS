@@ -332,6 +332,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
             value={gender}
             onChange={(e) => setGender(e.target.value as 'male' | 'female')}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900"
+            title="Select gender"
           >
             <option value="male">Male</option>
             <option value="female">Female</option>
@@ -364,6 +365,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
                   value={bodyParts[key as keyof typeof bodyParts]}
                   onChange={(e) => handleBodyPartChange(key as keyof typeof bodyParts, parseFloat(e.target.value))}
                   className="flex-1 accent-orange-600"
+                  title={`Burn percentage for ${name}`}
                 />
                 <span className="text-xs sm:text-sm font-semibold w-10 sm:w-12 text-right">
                   {bodyParts[key as keyof typeof bodyParts]}%

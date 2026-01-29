@@ -181,6 +181,7 @@ export default function WhatsAppReminder({
             onChange={(e) => setCustomMessage(e.target.value)}
             rows={10}
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-mono"
+            placeholder="Enter your custom reminder message..."
           />
         ) : (
           <div className="bg-gray-50 rounded-xl p-4 max-h-64 overflow-y-auto">

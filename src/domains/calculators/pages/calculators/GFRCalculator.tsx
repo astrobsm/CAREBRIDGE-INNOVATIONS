@@ -255,6 +255,7 @@ export default function GFRCalculator({ patientInfo }: Props) {
             value={gender}
             onChange={(e) => setGender(e.target.value as 'male' | 'female')}
             className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900 text-sm"
+            title="Select gender"
           >
             <option value="male">Male</option>
             <option value="female">Female</option>

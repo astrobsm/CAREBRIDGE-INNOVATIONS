@@ -384,6 +384,7 @@ export default function MedicationChartPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input pl-10"
+            title="Search patients"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -393,6 +394,7 @@ export default function MedicationChartPage() {
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
             className="input w-48"
+            title="Select date"
           />
         </div>
       </div>
@@ -610,7 +612,7 @@ export default function MedicationChartPage() {
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold text-gray-900">Record Administration</h2>
-                  <button onClick={closeAdminModal} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <button onClick={closeAdminModal} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                     <X size={20} />
                   </button>
                 </div>
@@ -658,6 +660,7 @@ export default function MedicationChartPage() {
                     value={actualTime}
                     onChange={(e) => setActualTime(e.target.value)}
                     className="input"
+                    title="Actual time given"
                   />
                 </div>
 

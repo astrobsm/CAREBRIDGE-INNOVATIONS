@@ -23,8 +23,6 @@ import {
   Presentation,
   X,
   Send,
-  Grid3X3,
-  User,
   Crown,
   Plus,
   Clock,
@@ -43,32 +41,25 @@ import {
   AlertCircle,
   UserCheck,
   UserX,
-  Bell,
   DoorOpen,
   Lock,
   Unlock,
   MoreVertical,
-  Volume2,
   VolumeX,
   Shield,
-  ThumbsUp,
-  Heart,
   Smile,
   BarChart3,
-  MessageSquarePlus,
   HelpCircle,
   Pin,
   ChevronUp,
   LayoutGrid,
   LayoutList,
   PictureInPicture2,
-  Circle,
   Radio,
   Paperclip,
   File,
   ExternalLink,
   Eye,
-  StopCircle,
 } from 'lucide-react';
 import {
   useMediaDevices,
@@ -93,13 +84,13 @@ import type {
   ConferenceChatMessage,
   RTCSignalingMessage,
   ConferencePoll,
-  PollOption,
   ConferenceQA,
   MeetingReaction,
 } from '../../../types';
 
 // Supabase client for real-time subscriptions
-let supabaseClient: ReturnType<typeof import('@supabase/supabase-js').createClient> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let supabaseClient: any = null;
 
 // Initialize Supabase client dynamically
 const getSupabaseClient = async () => {
@@ -187,6 +178,7 @@ function ParticipantVideo({
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="p-1.5 bg-black/50 hover:bg-black/70 rounded-lg transition-colors"
+            title="Participant options"
           >
             <MoreVertical size={16} className="text-white" />
           </button>
@@ -307,13 +299,13 @@ function ParticipantVideo({
               {participant.userName} {isSelf && '(You)'}
             </span>
             {participant.isHost && (
-              <Crown size={14} className="text-yellow-400" title="Host" />
+              <span title="Host"><Crown size={14} className="text-yellow-400" /></span>
             )}
             {participant.isCoHost && !participant.isHost && (
-              <Shield size={14} className="text-blue-400" title="Co-Host" />
+              <span title="Co-Host"><Shield size={14} className="text-blue-400" /></span>
             )}
             {participant.isPresenter && (
-              <Presentation size={14} className="text-green-400" title="Presenter" />
+              <span title="Presenter"><Presentation size={14} className="text-green-400" /></span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -341,7 +333,7 @@ function ParticipantVideo({
 }
 
 // Reaction Picker Component
-function ReactionPicker({ onSelect, onClose }: { onSelect: (type: string) => void; onClose: () => void }) {
+function ReactionPicker({ onSelect, onClose: _onClose }: { onSelect: (type: string) => void; onClose: () => void }) {
   const reactions = [
     { type: 'thumbs_up', emoji: '👍', label: 'Thumbs Up' },
     { type: 'applause', emoji: '👏', label: 'Applause' },
@@ -446,7 +438,7 @@ function PollModal({
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Create Poll</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg" title="Close">
             <X size={20} />
           </button>
         </div>
@@ -483,6 +475,7 @@ function PollModal({
                     <button
                       onClick={() => removeOption(index)}
                       className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                      title="Remove option"
                     >
                       <X size={18} />
                     </button>
@@ -536,16 +529,14 @@ function ActivePollDisplay({
   poll,
   onVote,
   onClose,
-  userId,
-  isHost,
+  hasVoted = false,
 }: {
   poll: ConferencePoll;
   onVote: (optionId: string) => void;
-  onClose: () => void;
-  userId: string;
-  isHost: boolean;
+  onClose?: () => void;
+  hasVoted?: boolean;
 }) {
-  const hasVoted = poll.options.some(opt => opt.voters?.includes(userId));
+  const isHost = !!onClose;
   const maxVotes = Math.max(...poll.options.map(o => o.votes), 1);
 
   return (
@@ -618,9 +609,8 @@ function QAPanel({
   onAskQuestion,
   onAnswerQuestion,
   onUpvote,
-  onPinQuestion,
-  userId,
-  userName,
+  onPin,
+  currentUserId,
   isHost,
   onClose,
 }: {
@@ -628,12 +618,13 @@ function QAPanel({
   onAskQuestion: (question: string) => void;
   onAnswerQuestion: (questionId: string, answer: string) => void;
   onUpvote: (questionId: string) => void;
-  onPinQuestion: (questionId: string) => void;
-  userId: string;
-  userName: string;
+  onPin: (questionId: string) => void;
+  currentUserId: string;
   isHost: boolean;
   onClose: () => void;
 }) {
+  const userId = currentUserId;
+  const onPinQuestion = onPin;
   const [newQuestion, setNewQuestion] = useState('');
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answerText, setAnswerText] = useState('');
@@ -676,7 +667,7 @@ function QAPanel({
             {questions.filter(q => !q.isAnswered).length} unanswered
           </span>
         </div>
-        <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+        <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded" title="Close Q&A panel">
           <X size={18} />
         </button>
       </div>
@@ -813,12 +804,14 @@ function QAPanel({
             onChange={(e) => setNewQuestion(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSubmitQuestion()}
             placeholder="Type your question..."
+            title="Enter your question"
             className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={handleSubmitQuestion}
             disabled={!newQuestion.trim()}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            title="Submit question"
           >
             <Send size={18} />
           </button>
@@ -881,6 +874,7 @@ function SlidePresenter({
             <button
               onClick={() => fileInputRef.current?.click()}
               className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
+              title="Add presentation slides"
             >
               <Upload size={16} />
               Add Slides
@@ -889,6 +883,7 @@ function SlidePresenter({
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            title="Close presentation"
           >
             <X size={20} className="text-gray-400" />
           </button>
@@ -899,6 +894,7 @@ function SlidePresenter({
           accept="image/*"
           multiple
           className="hidden"
+          title="Select slides to upload"
           onChange={(e) => e.target.files && onUpload(e.target.files)}
         />
       </div>
@@ -951,6 +947,7 @@ function SlidePresenter({
                   onClick={() => onNavigate(currentIndex - 1)}
                   disabled={currentIndex === 0}
                   className="absolute left-4 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Previous slide"
                 >
                   <ChevronLeft size={28} className="text-white" />
                 </button>
@@ -958,6 +955,7 @@ function SlidePresenter({
                   onClick={() => onNavigate(currentIndex + 1)}
                   disabled={currentIndex === slides.length - 1}
                   className="absolute right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Next slide"
                 >
                   <ChevronRight size={28} className="text-white" />
                 </button>
@@ -1023,7 +1021,7 @@ export default function VideoConferencePage() {
   const [showChat, setShowChat] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [showPresentation, setShowPresentation] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'speaker'>('speaker');
+  const [viewMode, _setViewMode] = useState<'grid' | 'speaker'>('speaker');
   const [chatMessage, setChatMessage] = useState('');
 
   // Enhanced UI state
@@ -1068,11 +1066,11 @@ export default function VideoConferencePage() {
 
   // Enhanced Host Controls State
   const [isMeetingLocked, setIsMeetingLocked] = useState(false);
-  const [showParticipantMenu, setShowParticipantMenu] = useState<string | null>(null);
-  const [selectedParticipant, setSelectedParticipant] = useState<ConferenceParticipant | null>(null);
+  const [_showParticipantMenu, _setShowParticipantMenu] = useState<string | null>(null);
+  const [_selectedParticipant, _setSelectedParticipant] = useState<ConferenceParticipant | null>(null);
 
   // Polls & Q&A State
-  const [polls, setPolls] = useState<ConferencePoll[]>([]);
+  const [_polls, setPolls] = useState<ConferencePoll[]>([]);
   const [showPollModal, setShowPollModal] = useState(false);
   const [activePoll, setActivePoll] = useState<ConferencePoll | null>(null);
   const [qaQuestions, setQaQuestions] = useState<ConferenceQA[]>([]);
@@ -1089,13 +1087,13 @@ export default function VideoConferencePage() {
   const [pinnedParticipants, setPinnedParticipants] = useState<string[]>([]);
 
   // Private Chat State
-  const [privateChatRecipient, setPrivateChatRecipient] = useState<ConferenceParticipant | null>(null);
-  const [showPrivateChatList, setShowPrivateChatList] = useState(false);
+  const [_privateChatRecipient, setPrivateChatRecipient] = useState<ConferenceParticipant | null>(null);
+  const [_showPrivateChatList, _setShowPrivateChatList] = useState(false);
 
   // Live Streaming State
   const [isLiveStreaming, setIsLiveStreaming] = useState(false);
   const [streamViewers, setStreamViewers] = useState(0);
-  const [liveStreamUrl, setLiveStreamUrl] = useState<string | null>(null);
+  const [_liveStreamUrl, setLiveStreamUrl] = useState<string | null>(null);
   const [showLiveStreamSettings, setShowLiveStreamSettings] = useState(false);
 
   // File Sharing in Chat
@@ -1224,6 +1222,8 @@ export default function VideoConferencePage() {
         roomCode: conferenceData.room_code as string,
         title: conferenceData.title as string,
         description: conferenceData.description as string,
+        hostName: (conferenceData.host_name as string) || '',
+        invitedUsers: (conferenceData.invited_users as string[]) || [],
         scheduledStart: conferenceData.scheduled_start ? new Date(conferenceData.scheduled_start as string) : undefined,
         scheduledEnd: conferenceData.scheduled_end ? new Date(conferenceData.scheduled_end as string) : undefined,
         actualStart: conferenceData.actual_start ? new Date(conferenceData.actual_start as string) : undefined,
@@ -1312,7 +1312,7 @@ export default function VideoConferencePage() {
             }
           }
         )
-        .subscribe((status) => {
+        .subscribe((status: string) => {
           console.log('[VideoConference] Conference subscription status:', status);
         });
 
@@ -1459,7 +1459,7 @@ export default function VideoConferencePage() {
             }
           }
         )
-        .subscribe((status) => {
+        .subscribe((status: string) => {
           console.log('[VideoConference] Signaling subscription status:', status);
         });
 
@@ -1893,12 +1893,13 @@ export default function VideoConferencePage() {
     toast(`${mutedUser?.userName || 'Participant'} has been muted`);
   };
 
-  // Unmute request to participant
+  // Unmute request to participant (reserved for future use)
   const requestUnmute = async (participantId: string) => {
     // In a real implementation, this would send a signal to the participant
     const targetUser = participants.find(p => p.id === participantId);
     toast(`Unmute request sent to ${targetUser?.userName || 'participant'}`);
   };
+  void requestUnmute; // Reserved for future use
 
   // Turn off participant's video (host control)
   const stopParticipantVideo = async (participantId: string) => {
@@ -2170,6 +2171,7 @@ export default function VideoConferencePage() {
   // PRIVATE CHAT FUNCTIONS
   // ============================================================
 
+  // Private message function (reserved for future chat implementation)
   const sendPrivateMessage = (recipientId: string, content: string) => {
     if (!user || !conference) return;
 
@@ -2188,6 +2190,7 @@ export default function VideoConferencePage() {
     setChatMessages(prev => [...prev, message]);
     // In real implementation, send via Supabase for real-time sync
   };
+  void sendPrivateMessage; // Reserved for future use
 
   // ============================================================
   // Q&A FUNCTIONS
@@ -2349,6 +2352,7 @@ export default function VideoConferencePage() {
         senderName: `${user.firstName} ${user.lastName}`,
         type: 'file',
         content: `📎 ${selectedFile.name}`,
+        isPrivate: false,
         fileUrl,
         fileName: selectedFile.name,
         fileSize: selectedFile.size,
@@ -2866,6 +2870,7 @@ export default function VideoConferencePage() {
                 value={selectedVideoDevice}
                 onChange={(e) => switchCamera(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                title="Select camera device"
               >
                 {videoDevices.map((device) => (
                   <option key={device.deviceId} value={device.deviceId}>
@@ -2886,6 +2891,7 @@ export default function VideoConferencePage() {
                   <button
                     onClick={copyMeetingLink}
                     className="p-1.5 hover:bg-gray-200 rounded"
+                    title="Copy meeting link"
                   >
                     <Copy size={16} className="text-gray-500" />
                   </button>
@@ -3123,7 +3129,7 @@ export default function VideoConferencePage() {
                           onMakePresenter={isHostOrCoHost() ? () => makePresenter(mainSpeaker.userId) : undefined}
                           onPromoteCoHost={conference?.hostId === user?.id && mainSpeaker.role !== 'co_host' ? () => promoteToCoHost(mainSpeaker.userId) : undefined}
                           onDemoteCoHost={conference?.hostId === user?.id && mainSpeaker.role === 'co_host' ? () => demoteFromCoHost(mainSpeaker.userId) : undefined}
-                          onPrivateChat={() => { setPrivateChatRecipient(mainSpeaker.userId); setShowChat(true); }}
+                          onPrivateChat={() => { setPrivateChatRecipient(mainSpeaker); setShowChat(true); }}
                         />
                       ) : (
                         <div className="h-full bg-gray-800 rounded-xl flex items-center justify-center">
@@ -3152,7 +3158,7 @@ export default function VideoConferencePage() {
                             onMakePresenter={isHostOrCoHost() ? () => makePresenter(p.userId) : undefined}
                             onPromoteCoHost={conference?.hostId === user?.id && p.role !== 'co_host' ? () => promoteToCoHost(p.userId) : undefined}
                             onDemoteCoHost={conference?.hostId === user?.id && p.role === 'co_host' ? () => demoteFromCoHost(p.userId) : undefined}
-                            onPrivateChat={() => { setPrivateChatRecipient(p.userId); setShowChat(true); }}
+                            onPrivateChat={() => { setPrivateChatRecipient(p); setShowChat(true); }}
                           />
                         </div>
                       ))}
@@ -3177,7 +3183,7 @@ export default function VideoConferencePage() {
                     onMakePresenter={isHostOrCoHost() ? () => makePresenter(p.userId) : undefined}
                     onPromoteCoHost={conference?.hostId === user?.id && p.role !== 'co_host' ? () => promoteToCoHost(p.userId) : undefined}
                     onDemoteCoHost={conference?.hostId === user?.id && p.role === 'co_host' ? () => demoteFromCoHost(p.userId) : undefined}
-                    onPrivateChat={() => { setPrivateChatRecipient(p.userId); setShowChat(true); }}
+                    onPrivateChat={() => { setPrivateChatRecipient(p); setShowChat(true); }}
                   />
                 ))
               )}
@@ -3231,6 +3237,7 @@ export default function VideoConferencePage() {
                     setWaitingRoomNotification(false);
                   }}
                   className="p-1 hover:bg-gray-700 rounded"
+                  title="Close waiting room"
                 >
                   <X size={18} className="text-gray-400" />
                 </button>
@@ -3309,6 +3316,7 @@ export default function VideoConferencePage() {
                 <button
                   onClick={() => setShowParticipants(false)}
                   className="p-1 hover:bg-gray-700 rounded"
+                  title="Close participants panel"
                 >
                   <X size={18} className="text-gray-400" />
                 </button>
@@ -3373,6 +3381,7 @@ export default function VideoConferencePage() {
                 <button
                   onClick={() => setShowChat(false)}
                   className="p-1 hover:bg-gray-700 rounded"
+                  title="Close chat"
                 >
                   <X size={18} className="text-gray-400" />
                 </button>
@@ -3442,6 +3451,7 @@ export default function VideoConferencePage() {
                   <button
                     onClick={() => setSelectedFile(null)}
                     className="p-1 hover:bg-gray-600 rounded"
+                    title="Remove selected file"
                   >
                     <X size={14} className="text-gray-400" />
                   </button>
@@ -3458,6 +3468,7 @@ export default function VideoConferencePage() {
                     onChange={handleFileSelect}
                     className="hidden"
                     accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    title="Select file to share"
                   />
                   
                   {/* File attachment button */}
@@ -3481,6 +3492,7 @@ export default function VideoConferencePage() {
                     onClick={selectedFile ? uploadAndShareFile : handleSendChatMessage}
                     disabled={!chatMessage.trim() && !selectedFile}
                     className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Send message"
                   >
                     {isUploadingFile ? (
                       <Loader2 size={18} className="animate-spin" />
@@ -3497,12 +3509,12 @@ export default function VideoConferencePage() {
           {showQAPanel && (
             <QAPanel
               questions={qaQuestions}
-              isHost={isHostOrCoHost()}
+              isHost={isHostOrCoHost() || false}
               currentUserId={user?.id || ''}
-              onAskQuestion={(question) => askQuestion(question)}
-              onAnswerQuestion={(questionId, answer) => answerQuestion(questionId, answer)}
-              onUpvote={(questionId) => upvoteQuestion(questionId)}
-              onPin={(questionId) => pinQuestion(questionId)}
+              onAskQuestion={(question: string) => askQuestion(question)}
+              onAnswerQuestion={(questionId: string, answer: string) => answerQuestion(questionId, answer)}
+              onUpvote={(questionId: string) => upvoteQuestion(questionId)}
+              onPin={(questionId: string) => pinQuestion(questionId)}
               onClose={() => setShowQAPanel(false)}
             />
           )}
@@ -3526,7 +3538,7 @@ export default function VideoConferencePage() {
         {showPollModal && (
           <PollModal
             onClose={() => setShowPollModal(false)}
-            onCreate={(question, options) => createPoll(question, options)}
+            onCreatePoll={(question: string, options: string[], isAnonymous: boolean) => createPoll(question, options, isAnonymous)}
           />
         )}
       </AnimatePresence>
@@ -3894,6 +3906,7 @@ export default function VideoConferencePage() {
                       <button
                         onClick={() => setShowLiveStreamSettings(false)}
                         className="p-1 hover:bg-gray-700 rounded"
+                        title="Close live streaming settings"
                       >
                         <X size={16} className="text-gray-400" />
                       </button>
@@ -4083,7 +4096,7 @@ export default function VideoConferencePage() {
                   </span>
                 )}
               </div>
-              <button onClick={() => setShowTranscript(false)} className="p-1 hover:bg-gray-700 rounded">
+              <button onClick={() => setShowTranscript(false)} className="p-1 hover:bg-gray-700 rounded" title="Close transcript">
                 <X size={16} className="text-gray-400" />
               </button>
             </div>
@@ -4139,6 +4152,7 @@ export default function VideoConferencePage() {
                   <button
                     onClick={() => setShowMinutesModal(false)}
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                    title="Close meeting minutes"
                   >
                     <X size={24} className="text-white" />
                   </button>

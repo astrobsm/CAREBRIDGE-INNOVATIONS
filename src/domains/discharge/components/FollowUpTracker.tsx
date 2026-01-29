@@ -224,7 +224,7 @@ export default function FollowUpTracker({ onClose }: Props) {
               <p className="text-sm text-white/80">Monitor and manage patient follow-up appointments</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded">
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded" title="Close">
             <X size={20} />
           </button>
         </div>
@@ -280,6 +280,7 @@ export default function FollowUpTracker({ onClose }: Props) {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as FilterStatus)}
               className="input w-full md:w-40"
+              title="Filter by status"
             >
               <option value="all">All Status</option>
               <option value="scheduled">Scheduled</option>
@@ -291,6 +292,7 @@ export default function FollowUpTracker({ onClose }: Props) {
               value={periodFilter}
               onChange={(e) => setPeriodFilter(e.target.value as FilterPeriod)}
               className="input w-full md:w-36"
+              title="Filter by period"
             >
               <option value="all">All Time</option>
               <option value="today">Today</option>

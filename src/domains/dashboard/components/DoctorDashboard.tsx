@@ -183,6 +183,7 @@ export default function DoctorDashboard() {
               value={statsPeriod}
               onChange={(e) => setStatsPeriod(e.target.value as 'today' | 'week' | 'month')}
               className="bg-white/20 text-white text-sm rounded-lg px-3 py-1 border-0 focus:ring-2 focus:ring-white/50"
+              title="Select earnings period"
             >
               <option value="today" className="text-gray-900">Today</option>
               <option value="week" className="text-gray-900">This Week</option>

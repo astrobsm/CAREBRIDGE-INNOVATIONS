@@ -482,7 +482,7 @@ export default function NutritionPage() {
             >
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">Nutrition Assessment (MUST Screening)</h2>
-                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>
@@ -721,7 +721,7 @@ export default function NutritionPage() {
                   <Utensils className="w-6 h-6 text-green-500" />
                   7-Day Meal Planner (African Foods)
                 </h2>
-                <button onClick={() => setShowMealPlanModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowMealPlanModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
                   <X size={20} />
                 </button>
               </div>

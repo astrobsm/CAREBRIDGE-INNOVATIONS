@@ -218,7 +218,7 @@ export default function AMADischargeForm({ admission, patient, onClose, onComple
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded">
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded" title="Close">
             <X size={20} />
           </button>
         </div>

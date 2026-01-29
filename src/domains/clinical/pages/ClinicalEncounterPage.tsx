@@ -509,6 +509,7 @@ export default function ClinicalEncounterPage() {
                     value={newDiagnosis.type}
                     onChange={(e) => setNewDiagnosis({ ...newDiagnosis, type: e.target.value as 'primary' | 'secondary' | 'differential' })}
                     className="input w-auto"
+                    title="Select diagnosis type"
                   >
                     <option value="primary">Primary</option>
                     <option value="secondary">Secondary</option>
@@ -518,6 +519,7 @@ export default function ClinicalEncounterPage() {
                     type="button"
                     onClick={addDiagnosis}
                     className="btn btn-primary"
+                    title="Add diagnosis"
                   >
                     <Plus size={18} />
                   </button>
@@ -547,6 +549,7 @@ export default function ClinicalEncounterPage() {
                           type="button"
                           onClick={() => removeDiagnosis(diagnosis.id)}
                           className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                          title="Remove diagnosis"
                         >
                           <Trash2 size={18} />
                         </button>

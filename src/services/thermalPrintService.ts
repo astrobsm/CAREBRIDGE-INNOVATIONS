@@ -402,7 +402,7 @@ export function generateThermalPrintHTML(
 /**
  * Render a single section
  */
-function renderSection(section: PrintSection, config: ThermalPrintConfig): string {
+function renderSection(section: PrintSection, _config: ThermalPrintConfig): string {
   const style = section.style || {};
   const classes = [
     'section',

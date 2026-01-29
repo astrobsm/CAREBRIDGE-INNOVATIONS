@@ -7,7 +7,6 @@ import {
   Scissors,
   CircleDot,
   Flame,
-  FlaskConical,
   Pill,
   Apple,
   Receipt,
@@ -18,10 +17,8 @@ import {
   Calculator,
   BedDouble,
   MessageSquare,
-  Video,
   Clipboard,
   TestTube2,
-  LogOut,
   Droplets,
   Footprints,
   Wind,
@@ -274,6 +271,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <button
           onClick={onClose}
           className="ml-auto lg:hidden p-2 rounded-lg hover:bg-indigo-100 transition-colors"
+          title="Close sidebar"
         >
           <X size={20} className="text-indigo-600" />
         </button>
