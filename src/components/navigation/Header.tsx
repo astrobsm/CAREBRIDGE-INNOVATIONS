@@ -171,7 +171,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100"
             >
               <div className="w-8 h-8 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                {user?.firstName[0]}{user?.lastName[0]}
+                {(user?.firstName || '?')[0]}{(user?.lastName || '?')[0]}
               </div>
               <ChevronDown size={16} className="text-gray-500 hidden sm:block" />
             </button>

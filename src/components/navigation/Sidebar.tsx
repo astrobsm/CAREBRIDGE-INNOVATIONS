@@ -347,14 +347,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="px-4 py-4 border-t border-gray-200">
           <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl">
             <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-medium">
-              {user.firstName[0]}{user.lastName[0]}
+              {(user.firstName || '?')[0]}{(user.lastName || '?')[0]}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">
-                {user.firstName} {user.lastName}
+                {user.firstName || ''} {user.lastName || ''}
               </p>
               <p className="text-xs text-gray-500 truncate capitalize">
-                {user.role.replace('_', ' ')}
+                {(user.role || '').replace('_', ' ')}
               </p>
             </div>
           </div>

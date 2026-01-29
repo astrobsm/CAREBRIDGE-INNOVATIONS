@@ -503,7 +503,7 @@ export default function UsersManagementPage() {
                   {/* Avatar */}
                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-white font-semibold text-sm sm:text-base">
-                      {user.firstName[0]}{user.lastName[0]}
+                      {(user.firstName || '?')[0]}{(user.lastName || '?')[0]}
                     </span>
                   </div>
 
