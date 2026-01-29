@@ -471,9 +471,34 @@ async function handleMigrate(res: any) {
     
     // surgeries table
     { table: 'surgeries', column: 'synced_status', definition: "VARCHAR(20) DEFAULT 'pending'" },
+    { table: 'surgeries', column: 'actual_start_time', definition: 'DATETIME NULL' },
+    { table: 'surgeries', column: 'actual_end_time', definition: 'DATETIME NULL' },
+    { table: 'surgeries', column: 'duration_minutes', definition: 'INT NULL' },
+    { table: 'surgeries', column: 'blood_loss_ml', definition: 'INT NULL' },
+    { table: 'surgeries', column: 'complications', definition: 'TEXT NULL' },
+    { table: 'surgeries', column: 'findings', definition: 'TEXT NULL' },
+    { table: 'surgeries', column: 'specimens', definition: 'TEXT NULL' },
+    { table: 'surgeries', column: 'implants', definition: 'TEXT NULL' },
+    { table: 'surgeries', column: 'drains', definition: 'TEXT NULL' },
+    { table: 'surgeries', column: 'closure_details', definition: 'TEXT NULL' },
+    { table: 'surgeries', column: 'post_op_instructions', definition: 'TEXT NULL' },
+    { table: 'surgeries', column: 'asa_class', definition: 'VARCHAR(20) NULL' },
     
     // wounds table
     { table: 'wounds', column: 'synced_status', definition: "VARCHAR(20) DEFAULT 'pending'" },
+    { table: 'wounds', column: 'periwound_skin', definition: 'VARCHAR(255) NULL' },
+    { table: 'wounds', column: 'wound_edge', definition: 'VARCHAR(255) NULL' },
+    { table: 'wounds', column: 'undermining', definition: 'VARCHAR(255) NULL' },
+    { table: 'wounds', column: 'tunneling', definition: 'VARCHAR(255) NULL' },
+    { table: 'wounds', column: 'granulation_percent', definition: 'INT NULL' },
+    { table: 'wounds', column: 'slough_percent', definition: 'INT NULL' },
+    { table: 'wounds', column: 'necrotic_percent', definition: 'INT NULL' },
+    { table: 'wounds', column: 'epithelialization_percent', definition: 'INT NULL' },
+    { table: 'wounds', column: 'odor', definition: 'VARCHAR(100) NULL' },
+    { table: 'wounds', column: 'pain_level', definition: 'INT NULL' },
+    { table: 'wounds', column: 'treatment_plan', definition: 'TEXT NULL' },
+    { table: 'wounds', column: 'dressing_type', definition: 'VARCHAR(255) NULL' },
+    { table: 'wounds', column: 'dressing_frequency', definition: 'VARCHAR(100) NULL' },
     
     // lab_requests table
     { table: 'lab_requests', column: 'synced_status', definition: "VARCHAR(20) DEFAULT 'pending'" },
@@ -483,9 +508,28 @@ async function handleMigrate(res: any) {
     
     // invoices table
     { table: 'invoices', column: 'synced_status', definition: "VARCHAR(20) DEFAULT 'pending'" },
+    { table: 'invoices', column: 'total', definition: 'DECIMAL(15,2) DEFAULT 0' },
+    { table: 'invoices', column: 'subtotal', definition: 'DECIMAL(15,2) DEFAULT 0' },
+    { table: 'invoices', column: 'tax', definition: 'DECIMAL(15,2) DEFAULT 0' },
+    { table: 'invoices', column: 'discount', definition: 'DECIMAL(15,2) DEFAULT 0' },
+    { table: 'invoices', column: 'amount_paid', definition: 'DECIMAL(15,2) DEFAULT 0' },
+    { table: 'invoices', column: 'balance', definition: 'DECIMAL(15,2) DEFAULT 0' },
+    { table: 'invoices', column: 'payment_method', definition: 'VARCHAR(100) NULL' },
+    { table: 'invoices', column: 'payment_reference', definition: 'VARCHAR(255) NULL' },
+    { table: 'invoices', column: 'notes', definition: 'TEXT NULL' },
     
     // admissions table
     { table: 'admissions', column: 'synced_status', definition: "VARCHAR(20) DEFAULT 'pending'" },
+    { table: 'admissions', column: 'severity', definition: 'VARCHAR(50) NULL' },
+    { table: 'admissions', column: 'diet', definition: 'VARCHAR(255) NULL' },
+    { table: 'admissions', column: 'mobility', definition: 'VARCHAR(100) NULL' },
+    { table: 'admissions', column: 'oxygen_requirement', definition: 'VARCHAR(100) NULL' },
+    { table: 'admissions', column: 'iv_access', definition: 'VARCHAR(100) NULL' },
+    { table: 'admissions', column: 'catheter', definition: 'VARCHAR(100) NULL' },
+    { table: 'admissions', column: 'attending_doctor_id', definition: 'VARCHAR(36) NULL' },
+    { table: 'admissions', column: 'attending_doctor_name', definition: 'VARCHAR(255) NULL' },
+    { table: 'admissions', column: 'primary_nurse_id', definition: 'VARCHAR(36) NULL' },
+    { table: 'admissions', column: 'primary_nurse_name', definition: 'VARCHAR(255) NULL' },
     
     // treatment_plans table
     { table: 'treatment_plans', column: 'synced_status', definition: "VARCHAR(20) DEFAULT 'pending'" },
