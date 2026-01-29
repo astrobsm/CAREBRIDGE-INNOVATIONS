@@ -99,11 +99,16 @@ export default function WardRoundReviewPage() {
     [patientId, admissionId]
   );
 
-  // Fetch vital signs (last 20)
+  // Fetch vital signs (last 20), sorted by recordedAt descending (newest first)
   const vitals = useLiveQuery(
-    () => patientId
-      ? db.vitalSigns.where('patientId').equals(patientId).reverse().limit(20).toArray()
-      : [],
+    async () => {
+      if (!patientId) return [];
+      const allVitals = await db.vitalSigns.where('patientId').equals(patientId).toArray();
+      // Sort by recordedAt descending (newest first) and limit to 20
+      return allVitals
+        .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())
+        .slice(0, 20);
+    },
     [patientId]
   );
 

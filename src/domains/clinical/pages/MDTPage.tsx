@@ -313,9 +313,12 @@ export default function MDTPage() {
   );
   
   const patientVitalSigns = useLiveQuery(
-    () => selectedPatientId 
-      ? db.vitalSigns.where('patientId').equals(selectedPatientId).toArray() 
-      : db.vitalSigns.where('patientId').equals('__none__').toArray(),
+    async () => {
+      if (!selectedPatientId) return [];
+      const vitals = await db.vitalSigns.where('patientId').equals(selectedPatientId).toArray();
+      // Sort by recordedAt descending (newest first) for display
+      return vitals.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+    },
     [selectedPatientId]
   );
 

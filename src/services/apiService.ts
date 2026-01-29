@@ -319,16 +319,26 @@ export const PatientAPI = {
     labRequests: LabRequest[];
     investigations: Investigation[];
   }> {
-    const [patient, vitals, encounters, surgeries, admissions, prescriptions, labRequests, investigations] = await Promise.all([
+    const [patient, vitalsRaw, encountersRaw, surgeriesRaw, admissionsRaw, prescriptionsRaw, labRequestsRaw, investigationsRaw] = await Promise.all([
       db.patients.get(id),
-      db.vitalSigns.where('patientId').equals(id).reverse().sortBy('recordedAt'),
-      db.clinicalEncounters.where('patientId').equals(id).reverse().sortBy('createdAt'),
-      db.surgeries.where('patientId').equals(id).reverse().sortBy('scheduledDate'),
-      db.admissions.where('patientId').equals(id).reverse().sortBy('admissionDate'),
-      db.prescriptions.where('patientId').equals(id).reverse().sortBy('prescribedAt'),
-      db.labRequests.where('patientId').equals(id).reverse().sortBy('requestedAt'),
-      db.investigations.where('patientId').equals(id).reverse().sortBy('requestedAt'),
+      db.vitalSigns.where('patientId').equals(id).toArray(),
+      db.clinicalEncounters.where('patientId').equals(id).toArray(),
+      db.surgeries.where('patientId').equals(id).toArray(),
+      db.admissions.where('patientId').equals(id).toArray(),
+      db.prescriptions.where('patientId').equals(id).toArray(),
+      db.labRequests.where('patientId').equals(id).toArray(),
+      db.investigations.where('patientId').equals(id).toArray(),
     ]);
+    
+    // Sort all arrays by their respective date fields in descending order (newest first)
+    const vitals = vitalsRaw.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+    const encounters = encountersRaw.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const surgeries = surgeriesRaw.sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+    const admissions = admissionsRaw.sort((a, b) => new Date(b.admissionDate).getTime() - new Date(a.admissionDate).getTime());
+    const prescriptions = prescriptionsRaw.sort((a, b) => new Date(b.prescribedAt).getTime() - new Date(a.prescribedAt).getTime());
+    const labRequests = labRequestsRaw.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+    const investigations = investigationsRaw.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+    
     return { patient, vitals, encounters, surgeries, admissions, prescriptions, labRequests, investigations };
   },
 };
@@ -339,15 +349,18 @@ export const PatientAPI = {
 
 export const VitalSignsAPI = {
   async getByPatient(patientId: string): Promise<VitalSigns[]> {
-    return db.vitalSigns.where('patientId').equals(patientId).reverse().sortBy('recordedAt');
+    const vitals = await db.vitalSigns.where('patientId').equals(patientId).toArray();
+    // Sort by recordedAt descending (newest first)
+    return vitals.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
   },
 
   async getLatest(patientId: string): Promise<VitalSigns | undefined> {
     const vitals = await db.vitalSigns
       .where('patientId')
       .equals(patientId)
-      .reverse()
-      .sortBy('recordedAt');
+      .toArray();
+    // Sort by recordedAt descending (newest first) and get first
+    vitals.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
     return vitals[0];
   },
 

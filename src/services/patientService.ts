@@ -282,34 +282,49 @@ class PatientService {
       if (!patient) return null;
 
       const [
-        vitals,
-        admissions,
-        surgeries,
-        burns,
-        wounds,
-        prescriptions,
-        investigations,
-        encounters,
-        labRequests,
-        dischargeSummaries,
-        nutritionAssessments,
-        burnMonitoring,
-        limbSalvage,
+        vitalsRaw,
+        admissionsRaw,
+        surgeriesRaw,
+        burnsRaw,
+        woundsRaw,
+        prescriptionsRaw,
+        investigationsRaw,
+        encountersRaw,
+        labRequestsRaw,
+        dischargeSummariesRaw,
+        nutritionAssessmentsRaw,
+        burnMonitoringRaw,
+        limbSalvageRaw,
       ] = await Promise.all([
-        db.vitalSigns.where('patientId').equals(patientId).reverse().sortBy('recordedAt'),
-        db.admissions.where('patientId').equals(patientId).reverse().sortBy('admissionDate'),
-        db.surgeries.where('patientId').equals(patientId).reverse().sortBy('scheduledDate'),
-        db.burnAssessments.where('patientId').equals(patientId).reverse().sortBy('createdAt'),
-        db.wounds.where('patientId').equals(patientId).reverse().sortBy('createdAt'),
-        db.prescriptions.where('patientId').equals(patientId).reverse().sortBy('prescribedAt'),
-        db.investigations.where('patientId').equals(patientId).reverse().sortBy('requestedAt'),
-        db.clinicalEncounters.where('patientId').equals(patientId).reverse().sortBy('createdAt'),
-        db.labRequests.where('patientId').equals(patientId).reverse().sortBy('requestedAt'),
-        db.dischargeSummaries.where('patientId').equals(patientId).reverse().sortBy('dischargeDate'),
-        db.nutritionAssessments.where('patientId').equals(patientId).reverse().sortBy('assessedAt'),
-        db.burnMonitoringRecords.where('patientId').equals(patientId).reverse().sortBy('recordedAt'),
-        db.limbSalvageAssessments.where('patientId').equals(patientId).reverse().sortBy('createdAt'),
+        db.vitalSigns.where('patientId').equals(patientId).toArray(),
+        db.admissions.where('patientId').equals(patientId).toArray(),
+        db.surgeries.where('patientId').equals(patientId).toArray(),
+        db.burnAssessments.where('patientId').equals(patientId).toArray(),
+        db.wounds.where('patientId').equals(patientId).toArray(),
+        db.prescriptions.where('patientId').equals(patientId).toArray(),
+        db.investigations.where('patientId').equals(patientId).toArray(),
+        db.clinicalEncounters.where('patientId').equals(patientId).toArray(),
+        db.labRequests.where('patientId').equals(patientId).toArray(),
+        db.dischargeSummaries.where('patientId').equals(patientId).toArray(),
+        db.nutritionAssessments.where('patientId').equals(patientId).toArray(),
+        db.burnMonitoringRecords.where('patientId').equals(patientId).toArray(),
+        db.limbSalvageAssessments.where('patientId').equals(patientId).toArray(),
       ]);
+
+      // Sort all arrays by their respective date fields in descending order (newest first)
+      const vitals = vitalsRaw.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+      const admissions = admissionsRaw.sort((a, b) => new Date(b.admissionDate).getTime() - new Date(a.admissionDate).getTime());
+      const surgeries = surgeriesRaw.sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+      const burns = burnsRaw.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const wounds = woundsRaw.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const prescriptions = prescriptionsRaw.sort((a, b) => new Date(b.prescribedAt).getTime() - new Date(a.prescribedAt).getTime());
+      const investigations = investigationsRaw.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+      const encounters = encountersRaw.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const labRequests = labRequestsRaw.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+      const dischargeSummaries = dischargeSummariesRaw.sort((a, b) => new Date(b.dischargeDate).getTime() - new Date(a.dischargeDate).getTime());
+      const nutritionAssessments = nutritionAssessmentsRaw.sort((a, b) => new Date(b.assessedAt).getTime() - new Date(a.assessedAt).getTime());
+      const burnMonitoring = burnMonitoringRaw.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+      const limbSalvage = limbSalvageRaw.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       return {
         patient,
@@ -339,11 +354,13 @@ class PatientService {
   async getLatestVitals(patientId: string): Promise<VitalSigns | undefined> {
     if (!patientId) return undefined;
     try {
-      return await db.vitalSigns
+      const allVitals = await db.vitalSigns
         .where('patientId')
         .equals(patientId)
-        .reverse()
-        .first();
+        .toArray();
+      // Sort by recordedAt descending (newest first) and get first
+      allVitals.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+      return allVitals[0];
     } catch (error) {
       console.error('[PatientService] Error fetching latest vitals:', error);
       return undefined;

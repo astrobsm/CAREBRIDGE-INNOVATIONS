@@ -74,15 +74,17 @@ export default function PatientClinicalSummaryPage() {
     [patientId]
   );
 
-  // Fetch all vitals for this patient
+  // Fetch all vitals for this patient, sorted by recordedAt descending (newest first)
   const vitals = useLiveQuery(
-    () => patientId 
-      ? db.vitalSigns
+    async () => {
+      if (!patientId) return [];
+      const allVitals = await db.vitalSigns
           .where('patientId')
           .equals(patientId)
-          .reverse()
-          .toArray()
-      : [],
+          .toArray();
+      // Sort by recordedAt descending (newest first) for display
+      return allVitals.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+    },
     [patientId]
   );
 

@@ -64,9 +64,13 @@ export default function ClinicalEncounterPage() {
   );
 
   const latestVitals = useLiveQuery(
-    () => patientId
-      ? db.vitalSigns.where('patientId').equals(patientId).reverse().first()
-      : undefined,
+    async () => {
+      if (!patientId) return undefined;
+      const allVitals = await db.vitalSigns.where('patientId').equals(patientId).toArray();
+      // Sort by recordedAt descending (newest first) and get first
+      allVitals.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+      return allVitals[0];
+    },
     [patientId]
   );
 

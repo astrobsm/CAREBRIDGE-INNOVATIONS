@@ -99,11 +99,13 @@ export default function NurseDashboard() {
     
     let count = 0;
     for (const patientId of patientIds) {
-      const lastVitals = await db.vitalSigns
+      const allVitals = await db.vitalSigns
         .where('patientId')
         .equals(patientId)
-        .filter(v => new Date(v.recordedAt) >= fourHoursAgo)
-        .first();
+        .toArray();
+      // Sort by recordedAt descending and find vitals within the last 4 hours
+      allVitals.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+      const lastVitals = allVitals.find(v => new Date(v.recordedAt) >= fourHoursAgo);
       if (!lastVitals) count++;
     }
     return count;

@@ -68,11 +68,16 @@ export default function VitalsPage() {
     [patientId]
   );
 
-  // Get more vitals for charting (last 20 readings)
+  // Get more vitals for charting (last 20 readings), sorted by recordedAt descending (newest first)
   const previousVitals = useLiveQuery(
-    () => patientId
-      ? db.vitalSigns.where('patientId').equals(patientId).reverse().limit(20).toArray()
-      : [],
+    async () => {
+      if (!patientId) return [];
+      const allVitals = await db.vitalSigns.where('patientId').equals(patientId).toArray();
+      // Sort by recordedAt descending (newest first) and limit to 20
+      return allVitals
+        .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())
+        .slice(0, 20);
+    },
     [patientId]
   );
 

@@ -238,9 +238,12 @@ export interface UsePatientVitalsResult {
 
 export function usePatientVitals(patientId: string | undefined): UsePatientVitalsResult {
   const vitals = useLiveQuery(
-    () => patientId 
-      ? db.vitalSigns.where('patientId').equals(patientId).reverse().sortBy('recordedAt')
-      : [],
+    async () => {
+      if (!patientId) return [];
+      const allVitals = await db.vitalSigns.where('patientId').equals(patientId).toArray();
+      // Sort by recordedAt descending (newest first)
+      return allVitals.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+    },
     [patientId]
   );
 

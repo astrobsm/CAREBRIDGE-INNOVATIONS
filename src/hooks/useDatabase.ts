@@ -123,10 +123,16 @@ export function usePatientWithDetails(patientId: string | undefined) {
 
 /**
  * Hook to get vital signs for a patient with live updates
+ * Sorted by recordedAt in descending order (newest first)
  */
 export function usePatientVitals(patientId: string | undefined) {
   const vitals = useLiveQuery(
-    () => (patientId ? db.vitalSigns.where('patientId').equals(patientId).reverse().sortBy('recordedAt') : []),
+    async () => {
+      if (!patientId) return [];
+      const allVitals = await db.vitalSigns.where('patientId').equals(patientId).toArray();
+      // Sort by recordedAt descending (newest first)
+      return allVitals.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
+    },
     [patientId]
   );
   return {

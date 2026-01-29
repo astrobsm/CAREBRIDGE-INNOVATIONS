@@ -33,9 +33,14 @@ export default function PatientDetailsPage() {
   );
 
   const vitals = useLiveQuery(
-    () => patientId
-      ? db.vitalSigns.where('patientId').equals(patientId).reverse().limit(5).toArray()
-      : [],
+    async () => {
+      if (!patientId) return [];
+      const allVitals = await db.vitalSigns.where('patientId').equals(patientId).toArray();
+      // Sort by recordedAt descending (newest first) and limit to 5
+      return allVitals
+        .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())
+        .slice(0, 5);
+    },
     [patientId]
   );
 
