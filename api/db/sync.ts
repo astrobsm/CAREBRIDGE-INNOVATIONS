@@ -407,7 +407,68 @@ async function handleMigrate(res: any) {
 
   // List of columns to add (table, column, definition)
   const columnsToAdd = [
-    { table: 'patients', column: 'alternate_phone', definition: 'VARCHAR(50) NULL AFTER phone' },
+    // patients table
+    { table: 'patients', column: 'alternate_phone', definition: 'VARCHAR(50) NULL' },
+    { table: 'patients', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // users table
+    { table: 'users', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    { table: 'users', column: 'synced_at', definition: 'DATETIME NULL' },
+    
+    // hospitals table  
+    { table: 'hospitals', column: 'is24_hours', definition: 'BOOLEAN DEFAULT FALSE' },
+    { table: 'hospitals', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // vital_signs table
+    { table: 'vital_signs', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // clinical_encounters table
+    { table: 'clinical_encounters', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // surgeries table
+    { table: 'surgeries', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // wounds table
+    { table: 'wounds', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // lab_requests table
+    { table: 'lab_requests', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // prescriptions table
+    { table: 'prescriptions', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // invoices table
+    { table: 'invoices', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // admissions table
+    { table: 'admissions', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // treatment_plans table
+    { table: 'treatment_plans', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // investigations table
+    { table: 'investigations', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // video_conferences table
+    { table: 'video_conferences', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // appointments table
+    { table: 'appointments', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // medication_charts table
+    { table: 'medication_charts', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // transfusion_orders table
+    { table: 'transfusion_orders', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // preoperative_assessments table
+    { table: 'preoperative_assessments', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // external_reviews table
+    { table: 'external_reviews', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
+    
+    // hospital_settings table
+    { table: 'hospital_settings', column: 'synced_status', definition: 'VARCHAR(20) DEFAULT "pending"' },
   ];
 
   for (const { table, column, definition } of columnsToAdd) {
