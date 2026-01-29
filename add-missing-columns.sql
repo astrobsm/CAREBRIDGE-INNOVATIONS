@@ -108,6 +108,31 @@ ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS estimated_blood_loss INT AFTER co
 ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS specimens JSON AFTER estimated_blood_loss;
 ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS implants JSON AFTER specimens;
 ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS notes TEXT AFTER implants;
+-- Additional surgery team columns
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS assistant VARCHAR(255) AFTER notes;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS assistant_id VARCHAR(36) AFTER assistant;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS assistant_fee_percentage DECIMAL(5,2) AFTER assistant_id;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS assistant_fee DECIMAL(15,2) AFTER assistant_fee_percentage;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS anaesthetist VARCHAR(255) AFTER assistant_fee;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS anaesthetist_id VARCHAR(36) AFTER anaesthetist;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS anaesthesia_fee DECIMAL(15,2) AFTER anaesthetist_id;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS scrub_nurse_id VARCHAR(36) AFTER anaesthesia_fee;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS circulating_nurse_id VARCHAR(36) AFTER scrub_nurse_id;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS surgeon_fee DECIMAL(15,2) AFTER circulating_nurse_id;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS blood_loss INT AFTER surgeon_fee;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS specimen_sent BOOLEAN DEFAULT FALSE AFTER blood_loss;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS specimen_type VARCHAR(255) AFTER specimen_sent;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS operative_notes TEXT AFTER specimen_type;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS post_operative_instructions TEXT AFTER operative_notes;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS pre_operative_assessment JSON AFTER post_operative_instructions;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS category VARCHAR(50) AFTER pre_operative_assessment;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS actual_start_time DATETIME AFTER category;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS actual_end_time DATETIME AFTER actual_start_time;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS duration_minutes INT AFTER actual_end_time;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS blood_loss_ml INT AFTER duration_minutes;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS closure_details TEXT AFTER blood_loss_ml;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS post_op_instructions TEXT AFTER closure_details;
+ALTER TABLE surgeries ADD COLUMN IF NOT EXISTS asa_class VARCHAR(20) AFTER post_op_instructions;
 
 -- ============================================
 -- ADMISSIONS TABLE - Add missing columns
@@ -125,6 +150,37 @@ ALTER TABLE admissions ADD COLUMN IF NOT EXISTS actual_los INT AFTER expected_lo
 ALTER TABLE admissions ADD COLUMN IF NOT EXISTS discharge_disposition VARCHAR(100) AFTER actual_los;
 ALTER TABLE admissions ADD COLUMN IF NOT EXISTS discharge_date TIMESTAMP NULL AFTER discharge_disposition;
 ALTER TABLE admissions ADD COLUMN IF NOT EXISTS discharged_by VARCHAR(36) AFTER discharge_date;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS created_by VARCHAR(36) AFTER discharged_by;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS admitted_by VARCHAR(36) AFTER created_by;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS admission_number VARCHAR(100) AFTER admitted_by;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS admission_time VARCHAR(20) AFTER admission_number;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS admitted_from VARCHAR(100) AFTER admission_time;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS ward_type VARCHAR(100) AFTER admitted_from;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS ward_name VARCHAR(255) AFTER ward_type;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS chief_complaint TEXT AFTER ward_name;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS indication_for_admission TEXT AFTER chief_complaint;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS provisional_diagnosis JSON AFTER indication_for_admission;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS comorbidities JSON AFTER provisional_diagnosis;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS allergies JSON AFTER comorbidities;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS primary_managing_consultant VARCHAR(36) AFTER allergies;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS primary_managing_consultant_name VARCHAR(255) AFTER primary_managing_consultant;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS consultants JSON AFTER primary_managing_consultant_name;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS treatment_plan_id VARCHAR(36) AFTER consultants;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS risk_assessments JSON AFTER treatment_plan_id;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS estimated_stay_days INT AFTER risk_assessments;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS discharge_time VARCHAR(20) AFTER estimated_stay_days;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS discharge_type VARCHAR(100) AFTER discharge_time;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS discharge_summary_id VARCHAR(36) AFTER discharge_type;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS encounter_id VARCHAR(36) AFTER discharge_summary_id;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS attending_doctor_id VARCHAR(36) AFTER encounter_id;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS attending_doctor_name VARCHAR(255) AFTER attending_doctor_id;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS primary_nurse_id VARCHAR(36) AFTER attending_doctor_name;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS primary_nurse_name VARCHAR(255) AFTER primary_nurse_id;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS diet VARCHAR(255) AFTER primary_nurse_name;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS mobility VARCHAR(100) AFTER diet;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS oxygen_requirement VARCHAR(100) AFTER mobility;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS iv_access VARCHAR(100) AFTER oxygen_requirement;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS catheter VARCHAR(100) AFTER iv_access;
 
 -- ============================================
 -- WOUNDS TABLE - Add missing columns
@@ -151,7 +207,8 @@ ALTER TABLE wounds ADD COLUMN IF NOT EXISTS infection_signs JSON AFTER odor;
 ALTER TABLE wounds ADD COLUMN IF NOT EXISTS healing_stage VARCHAR(50) AFTER infection_signs;
 ALTER TABLE wounds ADD COLUMN IF NOT EXISTS treatment_plan TEXT AFTER healing_stage;
 ALTER TABLE wounds ADD COLUMN IF NOT EXISTS photos JSON AFTER treatment_plan;
-ALTER TABLE wounds ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active' AFTER photos;
+ALTER TABLE wounds ADD COLUMN IF NOT EXISTS photo_urls JSON AFTER photos;
+ALTER TABLE wounds ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active' AFTER photo_urls;
 
 -- ============================================
 -- LAB_REQUESTS TABLE - Add missing columns
