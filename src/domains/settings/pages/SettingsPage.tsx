@@ -37,6 +37,7 @@ import { useOfflineState, offlineDataManager } from '../../../services/offlineDa
 import { fullSync, testSupabaseConnection } from '../../../services/cloudSyncService';
 import { isSupabaseConfigured } from '../../../services/supabaseClient';
 import { requestBackgroundSync, clearServiceWorkerCache } from '../../../services/pwaService';
+import { UpdatePrompt } from '../../../components/pwa';
 import {
   isPushSupported,
   requestNotificationPermission,
@@ -890,6 +891,9 @@ export default function SettingsPage() {
                 working even without an internet connection.
               </p>
             </div>
+
+            {/* App Updates Section */}
+            <UpdatePrompt variant="card" />
 
             {/* Sync Debug Section */}
             <div className="card border p-4">

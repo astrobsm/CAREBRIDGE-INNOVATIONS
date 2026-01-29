@@ -52,12 +52,48 @@ const COLUMNS_TO_ADD = [
   // SURGERIES
   { table: 'surgeries', column: 'assistant', definition: 'VARCHAR(255)' },
   { table: 'surgeries', column: 'assistant_id', definition: 'VARCHAR(36)' },
+  { table: 'surgeries', column: 'anaesthetist', definition: 'VARCHAR(255)' },
+  { table: 'surgeries', column: 'anaesthetist_id', definition: 'VARCHAR(36)' },
+  { table: 'surgeries', column: 'scrub_nurse', definition: 'VARCHAR(255)' },
+  { table: 'surgeries', column: 'scrub_nurse_id', definition: 'VARCHAR(36)' },
+  { table: 'surgeries', column: 'circulating_nurse', definition: 'VARCHAR(255)' },
+  { table: 'surgeries', column: 'circulating_nurse_id', definition: 'VARCHAR(36)' },
+  { table: 'surgeries', column: 'anaesthesia_type', definition: 'VARCHAR(100)' },
+  { table: 'surgeries', column: 'operative_notes', definition: 'TEXT' },
+  { table: 'surgeries', column: 'complications', definition: 'TEXT' },
+  { table: 'surgeries', column: 'blood_loss', definition: 'VARCHAR(50)' },
+  { table: 'surgeries', column: 'specimens', definition: 'JSON' },
+  { table: 'surgeries', column: 'implants', definition: 'JSON' },
+  { table: 'surgeries', column: 'post_op_instructions', definition: 'TEXT' },
   
   // WOUNDS
   { table: 'wounds', column: 'photo_urls', definition: 'JSON' },
+  { table: 'wounds', column: 'treatment', definition: 'TEXT' },
+  { table: 'wounds', column: 'treatment_plan', definition: 'TEXT' },
+  { table: 'wounds', column: 'wound_bed', definition: 'VARCHAR(100)' },
+  { table: 'wounds', column: 'wound_edges', definition: 'VARCHAR(100)' },
+  { table: 'wounds', column: 'tunneling', definition: 'VARCHAR(100)' },
+  { table: 'wounds', column: 'undermining', definition: 'VARCHAR(100)' },
   
   // ADMISSIONS
   { table: 'admissions', column: 'created_by', definition: 'VARCHAR(36)' },
+  { table: 'admissions', column: 'admitted_by', definition: 'VARCHAR(255)' },
+  { table: 'admissions', column: 'admitted_by_id', definition: 'VARCHAR(36)' },
+  { table: 'admissions', column: 'consultants', definition: 'JSON' },
+  { table: 'admissions', column: 'admitted_from', definition: 'VARCHAR(100)' },
+  { table: 'admissions', column: 'comorbidities', definition: 'JSON' },
+  { table: 'admissions', column: 'discharged_by', definition: 'VARCHAR(255)' },
+  { table: 'admissions', column: 'discharged_by_id', definition: 'VARCHAR(36)' },
+  { table: 'admissions', column: 'primary_nurse', definition: 'VARCHAR(255)' },
+  { table: 'admissions', column: 'primary_nurse_id', definition: 'VARCHAR(36)' },
+  { table: 'admissions', column: 'admission_date', definition: 'DATE' },
+  { table: 'admissions', column: 'admission_time', definition: 'TIME' },
+  { table: 'admissions', column: 'admission_type', definition: 'VARCHAR(50)' },
+  { table: 'admissions', column: 'discharge_date', definition: 'DATE' },
+  { table: 'admissions', column: 'discharge_time', definition: 'TIME' },
+  { table: 'admissions', column: 'discharge_type', definition: 'VARCHAR(50)' },
+  { table: 'admissions', column: 'discharge_destination', definition: 'VARCHAR(100)' },
+  { table: 'admissions', column: 'length_of_stay', definition: 'INT' },
   
   // TREATMENT_PROGRESS
   { table: 'treatment_progress', column: 'recorded_at', definition: 'DATETIME' },
@@ -129,6 +165,13 @@ const COLUMNS_TO_ADD = [
   { table: 'external_reviews', column: 'pathology_results', definition: 'JSON' },
   { table: 'external_reviews', column: 'radiology_results', definition: 'JSON' },
   { table: 'external_reviews', column: 'lab_results', definition: 'JSON' },
+  { table: 'external_reviews', column: 'medications', definition: 'JSON' },
+  { table: 'external_reviews', column: 'clinical_notes', definition: 'TEXT' },
+  { table: 'external_reviews', column: 'discharge_summary', definition: 'TEXT' },
+  { table: 'external_reviews', column: 'follow_up_plan', definition: 'TEXT' },
+  { table: 'external_reviews', column: 'attachments', definition: 'JSON' },
+  { table: 'external_reviews', column: 'diagnoses', definition: 'JSON' },
+  { table: 'external_reviews', column: 'surgeries', definition: 'JSON' },
 ];
 
 // Column type modifications

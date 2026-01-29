@@ -25,6 +25,7 @@ import {
   Camera,
   Target,
   Printer,
+  Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -34,6 +35,12 @@ import type { Wound, WoundType, TissueType } from '../../../types';
 import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
 import { generateWoundPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { generateCalibrationRulerPDF } from '../../../utils/calibrationRulerPdf';
+import { 
+  printDressingProtocol, 
+  downloadDressingProtocol, 
+  determineWoundPhase as getDressingPhase,
+  type DressingProtocolData 
+} from '../../../utils/dressingProtocolPrint';
 import { PatientSelector } from '../../../components/patient';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { usePatientMap } from '../../../services/patientHooks';
@@ -663,6 +670,78 @@ export default function WoundsPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Print Dressing Protocol - 80mm Thermal */}
+                  <button
+                    onClick={() => {
+                      const patient = patientMap.get(selectedWound.patientId);
+                      const phase = getDressingPhase(selectedWound.tissueType);
+                      const protocolData: DressingProtocolData = {
+                        patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown',
+                        hospitalNumber: patient?.hospitalNumber || 'N/A',
+                        wardBed: patient?.ward,
+                        woundLocation: selectedWound.location,
+                        woundType: selectedWound.type.replace('_', ' '),
+                        woundDimensions: {
+                          length: selectedWound.length,
+                          width: selectedWound.width,
+                          depth: selectedWound.depth,
+                          area: selectedWound.area,
+                        },
+                        tissueTypes: selectedWound.tissueType,
+                        exudateAmount: selectedWound.exudateAmount || 'Unknown',
+                        exudateType: selectedWound.exudateType,
+                        phase,
+                        painLevel: selectedWound.painLevel,
+                        specialInstructions: selectedWound.dressingFrequency ? `Current dressing: ${selectedWound.dressingType}` : undefined,
+                        assessedBy: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
+                        assessedAt: new Date(selectedWound.createdAt),
+                        hospitalName: patient?.hospitalName,
+                      };
+                      printDressingProtocol(protocolData);
+                      toast.success('Print dialog opened');
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 transition-colors"
+                    title="Print Dressing Protocol (80mm Thermal)"
+                  >
+                    <Printer size={18} />
+                    <span className="hidden sm:inline">Print Protocol</span>
+                  </button>
+                  {/* Download Dressing Protocol */}
+                  <button
+                    onClick={() => {
+                      const patient = patientMap.get(selectedWound.patientId);
+                      const phase = getDressingPhase(selectedWound.tissueType);
+                      const protocolData: DressingProtocolData = {
+                        patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown',
+                        hospitalNumber: patient?.hospitalNumber || 'N/A',
+                        wardBed: patient?.ward,
+                        woundLocation: selectedWound.location,
+                        woundType: selectedWound.type.replace('_', ' '),
+                        woundDimensions: {
+                          length: selectedWound.length,
+                          width: selectedWound.width,
+                          depth: selectedWound.depth,
+                          area: selectedWound.area,
+                        },
+                        tissueTypes: selectedWound.tissueType,
+                        exudateAmount: selectedWound.exudateAmount || 'Unknown',
+                        exudateType: selectedWound.exudateType,
+                        phase,
+                        painLevel: selectedWound.painLevel,
+                        specialInstructions: selectedWound.dressingFrequency ? `Current dressing: ${selectedWound.dressingType}` : undefined,
+                        assessedBy: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
+                        assessedAt: new Date(selectedWound.createdAt),
+                        hospitalName: patient?.hospitalName,
+                      };
+                      downloadDressingProtocol(protocolData);
+                      toast.success('Dressing protocol downloaded');
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+                    title="Download Dressing Protocol"
+                  >
+                    <Download size={18} />
+                    <span className="hidden sm:inline">Download</span>
+                  </button>
                   <button
                     onClick={() => {
                       const patient = patientMap.get(selectedWound.patientId);

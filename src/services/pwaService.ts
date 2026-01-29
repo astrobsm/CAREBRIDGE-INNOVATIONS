@@ -174,6 +174,61 @@ export async function applyUpdate(): Promise<void> {
   }
 }
 
+// Check for updates manually
+export async function checkForAppUpdate(): Promise<{ available: boolean; message: string }> {
+  if (!('serviceWorker' in navigator)) {
+    return { available: false, message: 'Service Workers not supported in this browser' };
+  }
+
+  try {
+    // Get or wait for registration
+    let registration = swRegistration || await navigator.serviceWorker.getRegistration();
+    
+    if (!registration) {
+      return { available: false, message: 'No service worker registered' };
+    }
+
+    // Store reference
+    swRegistration = registration;
+
+    // Force update check
+    console.log('[PWA] Checking for updates...');
+    await registration.update();
+
+    // Check if there's a waiting worker (update ready to apply)
+    if (registration.waiting) {
+      updateAvailable = true;
+      window.dispatchEvent(new CustomEvent('pwa-update-available'));
+      return { available: true, message: 'Update available! Click to install.' };
+    }
+
+    // Check if there's an installing worker (update in progress)
+    if (registration.installing) {
+      return { available: true, message: 'Update downloading...' };
+    }
+
+    return { available: false, message: 'App is up to date' };
+  } catch (error) {
+    console.error('[PWA] Update check failed:', error);
+    return { available: false, message: `Update check failed: ${error instanceof Error ? error.message : 'Unknown error'}` };
+  }
+}
+
+// Get current app version from service worker
+export function getAppVersion(): string {
+  return '2.0.0'; // Should match CACHE_VERSION in sw.js
+}
+
+// Force reload to apply update
+export function forceReloadForUpdate(): void {
+  // Skip waiting and reload
+  if (swRegistration?.waiting) {
+    swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+  }
+  // Reload will happen via 'controllerchange' event handler
+  window.location.reload();
+}
+
 // Check if app is installed
 export function isAppInstalled(): boolean {
   // Check display-mode

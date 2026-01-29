@@ -52,6 +52,7 @@ import ExternalReviewPage from './domains/external-review/pages/ExternalReviewPa
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
 import InstallPrompt from './components/pwa/InstallPrompt';
+import { UpdatePrompt } from './components/pwa';
 
 // Component to check agreement status and redirect
 function AgreementGuard({ children }: { children: React.ReactNode }) {
@@ -165,6 +166,7 @@ function App() {
     
     {/* PWA Install Prompt & Offline/Update Notifications */}
     <InstallPrompt />
+    <UpdatePrompt variant="banner" />
   </>
   );
 }
