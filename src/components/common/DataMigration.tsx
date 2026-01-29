@@ -5,8 +5,199 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Upload, Database, CheckCircle, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
-import { migrateToDigitalOcean, getLocalDataSummary, MigrationProgress } from '../../services/migrationService';
+import { Upload, Database, CheckCircle, AlertCircle, Loader2, RefreshCw, ChevronDown, ChevronUp, Copy, Download } from 'lucide-react';
+import { migrateToDigitalOcean, getLocalDataSummary, MigrationProgress, MigrationError } from '../../services/migrationService';
+import toast from 'react-hot-toast';
+
+// Error Details Panel Component - Shows all errors with full debugging info
+interface ErrorDetailsPanelProps {
+  errors: MigrationError[];
+  showAll: boolean;
+  setShowAll: (show: boolean) => void;
+  expandedErrors: Set<number>;
+  setExpandedErrors: (set: Set<number>) => void;
+}
+
+const ErrorDetailsPanel: React.FC<ErrorDetailsPanelProps> = ({
+  errors,
+  showAll,
+  setShowAll,
+  expandedErrors,
+  setExpandedErrors,
+}) => {
+  // Group errors by table for summary
+  const errorsByTable = errors.reduce((acc, err) => {
+    acc[err.table] = (acc[err.table] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const toggleError = (index: number) => {
+    const newExpanded = new Set(expandedErrors);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedErrors(newExpanded);
+  };
+
+  const copyAllErrors = () => {
+    const errorText = errors.map((err, i) => 
+      `Error ${i + 1}:\n` +
+      `  Table: ${err.table}\n` +
+      `  Record ID: ${err.recordId}\n` +
+      `  Error: ${err.error}\n` +
+      `  Details: ${err.details || 'N/A'}\n` +
+      `  Time: ${err.timestamp.toISOString()}\n`
+    ).join('\n---\n\n');
+    
+    navigator.clipboard.writeText(errorText);
+    toast.success('All errors copied to clipboard!');
+  };
+
+  const downloadErrorLog = () => {
+    const errorLog = {
+      generatedAt: new Date().toISOString(),
+      totalErrors: errors.length,
+      errorsByTable,
+      errors: errors.map((err, i) => ({
+        index: i + 1,
+        table: err.table,
+        recordId: err.recordId,
+        error: err.error,
+        details: err.details,
+        timestamp: err.timestamp.toISOString(),
+      })),
+    };
+    
+    const blob = new Blob([JSON.stringify(errorLog, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `migration-errors-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Error log downloaded!');
+  };
+
+  const displayErrors = showAll ? errors : errors.slice(0, 10);
+
+  return (
+    <div className="mt-3 border border-red-200 rounded-lg bg-red-50">
+      {/* Header with summary */}
+      <div className="p-3 border-b border-red-200 bg-red-100 rounded-t-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-semibold text-red-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              Migration Errors ({errors.length} total)
+            </p>
+            <div className="text-xs text-red-600 mt-1 flex flex-wrap gap-2">
+              {Object.entries(errorsByTable).map(([table, count]) => (
+                <span key={table} className="bg-red-200 px-2 py-0.5 rounded">
+                  {table}: {count}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={copyAllErrors}
+              className="p-1.5 text-red-600 hover:bg-red-200 rounded transition-colors"
+              title="Copy all errors"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+            <button
+              onClick={downloadErrorLog}
+              className="p-1.5 text-red-600 hover:bg-red-200 rounded transition-colors"
+              title="Download error log"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Error list */}
+      <div className="max-h-96 overflow-y-auto">
+        {displayErrors.map((err, i) => (
+          <div key={i} className="border-b border-red-100 last:border-b-0">
+            <button
+              onClick={() => toggleError(i)}
+              className="w-full p-2 text-left hover:bg-red-100 transition-colors flex items-center justify-between"
+            >
+              <div className="flex-1 min-w-0">
+                <span className="font-mono text-xs text-red-500">#{i + 1}</span>
+                <span className="ml-2 font-medium text-red-700">{err.table}</span>
+                <span className="ml-2 text-xs text-red-500">ID: {err.recordId}</span>
+                <p className="text-sm text-red-600 truncate mt-0.5">{err.error}</p>
+              </div>
+              {expandedErrors.has(i) ? (
+                <ChevronUp className="w-4 h-4 text-red-500 flex-shrink-0" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-red-500 flex-shrink-0" />
+              )}
+            </button>
+            
+            {expandedErrors.has(i) && (
+              <div className="px-3 pb-3 bg-red-50">
+                <div className="bg-white border border-red-200 rounded p-3 text-xs font-mono overflow-x-auto">
+                  <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                    <span className="font-bold text-red-700">Table:</span>
+                    <span className="text-gray-800">{err.table}</span>
+                    
+                    <span className="font-bold text-red-700">Record ID:</span>
+                    <span className="text-gray-800">{err.recordId}</span>
+                    
+                    <span className="font-bold text-red-700">Error:</span>
+                    <span className="text-red-600">{err.error}</span>
+                    
+                    <span className="font-bold text-red-700">Timestamp:</span>
+                    <span className="text-gray-600">{err.timestamp.toLocaleString()}</span>
+                  </div>
+                  
+                  {err.details && (
+                    <div className="mt-2 pt-2 border-t border-red-100">
+                      <span className="font-bold text-red-700 block mb-1">Details / Stack Trace:</span>
+                      <pre className="whitespace-pre-wrap text-gray-700 bg-gray-50 p-2 rounded max-h-48 overflow-auto">
+                        {err.details}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Show more/less toggle */}
+      {errors.length > 10 && (
+        <div className="p-2 border-t border-red-200 bg-red-100 rounded-b-lg">
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="w-full text-center text-sm text-red-700 hover:text-red-800 font-medium flex items-center justify-center gap-1"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="w-4 h-4" />
+                Show less (first 10)
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" />
+                Show all {errors.length} errors
+              </>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const DataMigration: React.FC = () => {
   const [localData, setLocalData] = useState<{ tableName: string; count: number }[]>([]);
@@ -14,6 +205,8 @@ export const DataMigration: React.FC = () => {
   const [isMigrating, setIsMigrating] = useState(false);
   const [progress, setProgress] = useState<MigrationProgress | null>(null);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [showAllErrors, setShowAllErrors] = useState(false);
+  const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     loadLocalData();
@@ -144,17 +337,13 @@ export const DataMigration: React.FC = () => {
           </div>
           
           {progress.errors.length > 0 && (
-            <div className="mt-2 text-sm text-red-600">
-              <p className="font-medium">Errors ({progress.errors.length}):</p>
-              <ul className="list-disc list-inside">
-                {progress.errors.slice(0, 5).map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-                {progress.errors.length > 5 && (
-                  <li>...and {progress.errors.length - 5} more</li>
-                )}
-              </ul>
-            </div>
+            <ErrorDetailsPanel
+              errors={progress.errors}
+              showAll={showAllErrors}
+              setShowAll={setShowAllErrors}
+              expandedErrors={expandedErrors}
+              setExpandedErrors={setExpandedErrors}
+            />
           )}
         </div>
       )}

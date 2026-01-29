@@ -7,13 +7,21 @@
 import { db } from '../database/db';
 import { upsertToCloud } from './digitalOceanClient';
 
+export interface MigrationError {
+  table: string;
+  recordId: string;
+  error: string;
+  details?: string;
+  timestamp: Date;
+}
+
 export interface MigrationProgress {
   currentTable: string;
   tablesProcessed: number;
   totalTables: number;
   recordsProcessed: number;
   recordsTotal: number;
-  errors: string[];
+  errors: MigrationError[];
   isComplete: boolean;
 }
 
@@ -89,7 +97,7 @@ const TABLES_TO_MIGRATE = [
  */
 async function getTableRecords(tableName: string): Promise<unknown[]> {
   try {
-    const table = (db as Record<string, unknown>)[tableName];
+    const table = (db as unknown as Record<string, unknown>)[tableName];
     if (table && typeof (table as { toArray?: () => Promise<unknown[]> }).toArray === 'function') {
       return await (table as { toArray: () => Promise<unknown[]> }).toArray();
     }
@@ -143,26 +151,33 @@ export async function migrateToDigitalOcean(
       if (records.length > 0) {
         console.log(`[Migration] Processing ${tableName}: ${records.length} records`);
         
-        let tableErrors = 0;
-        
         for (const record of records) {
+          const recordData = record as Record<string, unknown>;
+          const recordId = (recordData.id as string) || 'unknown';
+          
           try {
-            const result = await upsertToCloud(tableName, record as Record<string, unknown>);
+            const result = await upsertToCloud(tableName, recordData);
             if (result.success) {
               stats.records++;
             } else {
-              tableErrors++;
               stats.errors++;
-              if (tableErrors <= 3) {
-                progress.errors.push(`${tableName}: ${result.error}`);
-              }
+              progress.errors.push({
+                table: tableName,
+                recordId,
+                error: result.error || 'Unknown error',
+                details: result.details || JSON.stringify(recordData, null, 2).substring(0, 500),
+                timestamp: new Date(),
+              });
             }
           } catch (error) {
-            tableErrors++;
             stats.errors++;
-            if (tableErrors <= 3) {
-              progress.errors.push(`${tableName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            }
+            progress.errors.push({
+              table: tableName,
+              recordId,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              details: error instanceof Error ? error.stack : JSON.stringify(recordData, null, 2).substring(0, 500),
+              timestamp: new Date(),
+            });
           }
           
           progress.recordsProcessed++;

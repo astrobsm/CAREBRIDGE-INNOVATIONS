@@ -220,8 +220,13 @@ export default async function handler(req: any, res: any) {
   } catch (error: any) {
     console.error('[DB API] Error:', error);
     return res.status(500).json({ 
+      success: false,
       error: error.message || 'Internal server error',
-      code: error.code 
+      code: error.code,
+      sqlError: error.sqlMessage || null,
+      sqlState: error.sqlState || null,
+      stack: process.env.NODE_ENV !== 'production' ? error.stack : null,
+      details: `SQL State: ${error.sqlState || 'N/A'}, Code: ${error.code || 'N/A'}, SQL: ${error.sql?.substring(0, 300) || 'N/A'}`
     });
   }
 }

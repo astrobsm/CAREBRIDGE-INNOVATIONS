@@ -13,6 +13,7 @@ export interface SyncResult {
   data?: any[];
   count?: number;
   error?: string;
+  details?: string;
 }
 
 // Check if DigitalOcean sync is configured
@@ -35,14 +36,29 @@ async function apiCall(action: string, body: Record<string, any> = {}): Promise<
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));
       console.error(`[DO Sync] API error for ${action}:`, error);
-      return { success: false, error: error.error || 'API request failed' };
+      return { 
+        success: false, 
+        error: error.error || 'API request failed',
+        details: error.details || error.sqlError || error.stack || JSON.stringify(error),
+      };
     }
 
     const result = await response.json();
+    if (!result.success && result.error) {
+      return { 
+        success: false, 
+        error: result.error,
+        details: result.details || result.sqlError || result.stack,
+      };
+    }
     return { success: true, ...result };
   } catch (error: any) {
     console.error(`[DO Sync] Network error for ${action}:`, error);
-    return { success: false, error: error.message || 'Network error' };
+    return { 
+      success: false, 
+      error: error.message || 'Network error',
+      details: error.stack || `Request body: ${JSON.stringify(body).substring(0, 500)}`,
+    };
   }
 }
 
