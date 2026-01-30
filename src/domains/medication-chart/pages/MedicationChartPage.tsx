@@ -29,6 +29,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
+import { recordMedicationEntryEarning } from '../../../services/staffEarningsService';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Patient, Admission, Prescription } from '../../../types';
 import type { 
@@ -190,6 +191,8 @@ export default function MedicationChartPage() {
   const recordAdministration = async () => {
     if (!selectedMedication || !currentChart) return;
 
+    const userName = user ? `${user.firstName} ${user.lastName}` : 'Unknown';
+
     const administration: MedicationAdministration = {
       id: uuidv4(),
       chartId: currentChart.id,
@@ -202,7 +205,7 @@ export default function MedicationChartPage() {
       status: adminStatus,
       reasonNotGiven: adminStatus !== 'given' ? reasonNotGiven : undefined,
       administeredBy: user?.id || '',
-      administeredByName: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
+      administeredByName: userName,
       notes: adminNotes || undefined,
       createdAt: new Date(),
     };
@@ -226,6 +229,24 @@ export default function MedicationChartPage() {
       syncRecord('medicationCharts', updatedChart as unknown as Record<string, unknown>);
       setCurrentChart(updatedChart);
       // useLiveQuery automatically updates medicationCharts when db changes
+
+      // Record medication entry earning (₦500 per entry) for the administering staff
+      try {
+        if (user && adminStatus === 'given') {
+          await recordMedicationEntryEarning(
+            administration.id,
+            currentChart.patientId,
+            user.id,
+            userName,
+            user.role,
+            user.hospitalId || '',
+            selectedMedication.medicationName
+          );
+        }
+      } catch (earningsError) {
+        console.error('Error recording medication earnings:', earningsError);
+        // Don't fail the main operation for earnings tracking
+      }
 
       toast.success('Medication administration recorded');
       closeAdminModal();

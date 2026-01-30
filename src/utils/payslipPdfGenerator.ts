@@ -89,7 +89,7 @@ function addEarningsTable(doc: jsPDF, y: number, payslip: Payslip): number {
   doc.text('Activity Category', 20, y + 5.5);
   doc.text('Count', pageWidth - 100, y + 5.5, { align: 'right' });
   doc.text('Total Billed', pageWidth - 60, y + 5.5, { align: 'right' });
-  doc.text('Staff Earning (50%)', pageWidth - 20, y + 5.5, { align: 'right' });
+  doc.text('Staff Earning', pageWidth - 20, y + 5.5, { align: 'right' });
   
   y += 12;
   
@@ -153,7 +153,7 @@ function addSurgeryAssistantTable(doc: jsPDF, y: number, payslip: Payslip): numb
   doc.text('Procedure', 20, y + 4.5);
   doc.text('Surgeon Fee', pageWidth - 90, y + 4.5, { align: 'right' });
   doc.text('Assistant (20%)', pageWidth - 50, y + 4.5, { align: 'right' });
-  doc.text('Staff Share (50%)', pageWidth - 20, y + 4.5, { align: 'right' });
+  doc.text('Staff Earning', pageWidth - 20, y + 4.5, { align: 'right' });
   
   y += 10;
   

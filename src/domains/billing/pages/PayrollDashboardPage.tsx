@@ -193,7 +193,7 @@ export default function PayrollDashboardPage() {
         <div>
           <h1 className="page-title">Staff Payroll</h1>
           <p className="text-gray-500 text-sm">
-            {REVENUE_SHARE_CONFIG.staffPercentage * 100}% Revenue Share Model
+            Activity-Based Earnings Tracking
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -271,12 +271,12 @@ export default function PayrollDashboardPage() {
               <p className="text-2xl font-bold">{periodSummary?.totalActivities ?? 0}</p>
             </div>
             <div>
-              <p className="text-indigo-100 text-sm">Staff Revenue (50%)</p>
+              <p className="text-indigo-100 text-sm">Staff Earnings</p>
               <p className="text-2xl font-bold">{formatCurrency(periodSummary?.totalEarnings ?? 0)}</p>
             </div>
             <div>
-              <p className="text-indigo-100 text-sm">Hospital Revenue (50%)</p>
-              <p className="text-2xl font-bold">{formatCurrency(periodSummary?.totalEarnings ?? 0)}</p>
+              <p className="text-indigo-100 text-sm">Patient Billing</p>
+              <p className="text-2xl font-bold">{formatCurrency((periodSummary?.totalEarnings ?? 0) * 3)}</p>
             </div>
           </div>
         </motion.div>
@@ -338,7 +338,7 @@ export default function PayrollDashboardPage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Activities</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Total Billed</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Earnings (50%)</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Earnings</th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
               </tr>

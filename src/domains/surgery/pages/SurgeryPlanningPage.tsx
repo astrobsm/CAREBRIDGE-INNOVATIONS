@@ -229,6 +229,16 @@ export default function SurgeryPlanningPage() {
     [patientId]
   );
 
+  // Fetch surgical team members from database by role
+  const surgicalTeamMembers = useLiveQuery(async () => {
+    const allUsers = await db.users.toArray();
+    return {
+      assistants: allUsers.filter(u => ['surgeon', 'doctor'].includes(u.role)),
+      anaesthetists: allUsers.filter(u => u.role === 'anaesthetist'),
+      nurses: allUsers.filter(u => u.role === 'nurse'),
+    };
+  }, []);
+
   const {
     register,
     handleSubmit,
@@ -1008,38 +1018,68 @@ export default function SurgeryPlanningPage() {
 
               <div>
                 <label className="label">Assistant Surgeon</label>
-                <input
+                <select
                   {...register('assistant')}
                   className="input"
-                  placeholder="Enter assistant surgeon name"
-                />
+                  title="Select assistant surgeon"
+                >
+                  <option value="">Select Assistant Surgeon</option>
+                  {surgicalTeamMembers?.assistants
+                    .filter(a => a.id !== user?.id)
+                    .map(assistant => (
+                      <option key={assistant.id} value={`${assistant.firstName} ${assistant.lastName}`}>
+                        {assistant.firstName} {assistant.lastName} ({assistant.role})
+                      </option>
+                    ))}
+                </select>
               </div>
 
               <div>
                 <label className="label">Anaesthetist</label>
-                <input
+                <select
                   {...register('anaesthetist')}
                   className="input"
-                  placeholder="Enter anaesthetist name"
-                />
+                  title="Select anaesthetist"
+                >
+                  <option value="">Select Anaesthetist</option>
+                  {surgicalTeamMembers?.anaesthetists.map(anaesthetist => (
+                    <option key={anaesthetist.id} value={`${anaesthetist.firstName} ${anaesthetist.lastName}`}>
+                      {anaesthetist.firstName} {anaesthetist.lastName}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="label">Scrub Nurse</label>
-                <input
+                <select
                   {...register('scrubNurse')}
                   className="input"
-                  placeholder="Enter scrub nurse name"
-                />
+                  title="Select scrub nurse"
+                >
+                  <option value="">Select Scrub Nurse</option>
+                  {surgicalTeamMembers?.nurses.map(nurse => (
+                    <option key={nurse.id} value={`${nurse.firstName} ${nurse.lastName}`}>
+                      {nurse.firstName} {nurse.lastName}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="label">Circulating Nurse</label>
-                <input
+                <select
                   {...register('circulatingNurse')}
                   className="input"
-                  placeholder="Enter circulating nurse name"
-                />
+                  title="Select circulating nurse"
+                >
+                  <option value="">Select Circulating Nurse</option>
+                  {surgicalTeamMembers?.nurses.map(nurse => (
+                    <option key={nurse.id} value={`${nurse.firstName} ${nurse.lastName}`}>
+                      {nurse.firstName} {nurse.lastName}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </motion.div>

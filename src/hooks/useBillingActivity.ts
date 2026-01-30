@@ -7,7 +7,7 @@ import type { BillingCategory } from '../types';
 /**
  * Hook for recording billable activities during clinical workflows.
  * This hook provides functions to record various types of billable activities
- * with automatic 50/50 revenue sharing between staff and hospital.
+ * with activity-based earnings for staff.
  */
 export function useBillingActivity() {
   const { user } = useAuth();

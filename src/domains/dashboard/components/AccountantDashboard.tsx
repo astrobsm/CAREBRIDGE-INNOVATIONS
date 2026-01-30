@@ -278,18 +278,18 @@ export default function AccountantDashboard() {
         transition={{ duration: 0.3, delay: 0.4 }}
         className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl p-4 sm:p-6 text-white"
       >
-        <h2 className="text-lg font-semibold mb-4">Revenue Split (50/50)</h2>
+        <h2 className="text-lg font-semibold mb-4">Revenue Summary</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
             <p className="text-emerald-100 text-sm">Total Collected</p>
             <p className="text-2xl font-bold">{formatCurrency(financialSummary?.totalPaid || 0)}</p>
           </div>
           <div>
-            <p className="text-emerald-100 text-sm">Hospital Share (50%)</p>
+            <p className="text-emerald-100 text-sm">Hospital Revenue</p>
             <p className="text-2xl font-bold">{formatCurrency(financialSummary?.hospitalShare || 0)}</p>
           </div>
           <div>
-            <p className="text-emerald-100 text-sm">Staff Share (50%)</p>
+            <p className="text-emerald-100 text-sm">Staff Earnings</p>
             <p className="text-2xl font-bold">{formatCurrency(financialSummary?.staffShare || 0)}</p>
           </div>
           <div>

@@ -30,6 +30,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
+import { recordLabResultUploadEarning, createEntryTracking } from '../../../services/staffEarningsService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { generateLabResultPDF, generateLabRequestFormPDF } from '../../../utils/clinicalPdfGenerators';
@@ -255,22 +256,66 @@ export default function LaboratoryPage() {
     if (!selectedRequest || !user) return;
 
     try {
+      // Create entry tracking with user details, location, and time
+      const tracking = await createEntryTracking(
+        user.id!,
+        `${user.firstName} ${user.lastName}`,
+        user.role,
+        true // Include location
+      );
+
       const updatedTests = selectedRequest.tests.map(test => ({
         ...test,
         result: testResults[test.id]?.result || test.result,
         isAbnormal: testResults[test.id]?.isAbnormal || test.isAbnormal,
         notes: testResults[test.id]?.notes || test.notes,
+        // Add tracking info
+        uploadedBy: tracking.userId,
+        uploadedByName: tracking.userName,
+        uploadedAt: tracking.timestamp,
       }));
 
       const allTestsHaveResults = updatedTests.every(test => test.result);
+      const resultsUploadedCount = updatedTests.filter(test => test.result).length;
 
       await db.labRequests.update(selectedRequest.id, {
         tests: updatedTests,
         status: allTestsHaveResults ? 'completed' : 'processing',
         completedAt: allTestsHaveResults ? new Date() : undefined,
+        // Add entry tracking
+        entryTracking: {
+          userId: tracking.userId,
+          userName: tracking.userName,
+          userRole: tracking.userRole,
+          timestamp: tracking.timestamp,
+          location: tracking.location,
+          deviceInfo: tracking.deviceInfo,
+        },
       });
       const updatedRequest = await db.labRequests.get(selectedRequest.id);
       if (updatedRequest) syncRecord('labRequests', updatedRequest as unknown as Record<string, unknown>);
+
+      // Record staff earnings for lab result upload (₦500 per result uploaded)
+      try {
+        const patient = patientMap.get(selectedRequest.patientId);
+        const hospitalId = patient?.registeredHospitalId || user.hospitalId || 'hospital-1';
+        
+        // Record earnings for each test result uploaded
+        for (let i = 0; i < resultsUploadedCount; i++) {
+          const testName = updatedTests[i]?.name || 'Lab Result';
+          await recordLabResultUploadEarning(
+            selectedRequest.id,
+            selectedRequest.patientId,
+            user.id!,
+            `${user.firstName} ${user.lastName}`,
+            user.role,
+            hospitalId,
+            testName
+          );
+        }
+      } catch (earningsError) {
+        console.warn('Failed to record lab result earnings:', earningsError);
+      }
 
       toast.success(allTestsHaveResults ? 'All results uploaded - Request completed!' : 'Results saved successfully!');
       setShowResultModal(false);

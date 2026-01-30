@@ -24,11 +24,13 @@ import {
   Stethoscope,
   ClipboardList,
   Download,
+  Receipt,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
+import { generateDischargeBillSummary } from '../../../services/staffEarningsService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { VoiceDictation } from '../../../components/common';
 import type { Admission, Patient, DischargeSummary, DischargeMedication, FollowUpAppointment } from '../../../types';
@@ -113,6 +115,20 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showBillSummary, setShowBillSummary] = useState(false);
+  const [billSummary, setBillSummary] = useState<{
+    totalBilled: number;
+    totalPaid: number;
+    outstanding: number;
+    summary: {
+      encounters: number;
+      surgeries: number;
+      nursingCare: number;
+      laboratory: number;
+      medications: number;
+      other: number;
+    };
+  } | null>(null);
 
   const users = useLiveQuery(() => db.users.toArray(), []);
   
@@ -273,7 +289,22 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
       const updatedAdmission = await db.admissions.get(admission.id);
       if (updatedAdmission) syncRecord('admissions', updatedAdmission as unknown as Record<string, unknown>);
 
-      onComplete();
+      // Generate automatic discharge bill summary
+      try {
+        const billData = await generateDischargeBillSummary(admission.patientId, admission.id);
+        setBillSummary({
+          totalBilled: billData.totalBilled,
+          totalPaid: billData.totalPaid,
+          outstanding: billData.outstanding,
+          summary: billData.summary,
+        });
+        setShowBillSummary(true);
+        toast.success('Discharge completed! Review bill summary.');
+      } catch (billError) {
+        console.error('Error generating bill summary:', billError);
+        toast.success('Discharge completed successfully');
+        onComplete();
+      }
     } catch (error) {
       console.error('Error creating discharge summary:', error);
       toast.error('Failed to process discharge');
@@ -945,6 +976,110 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
           </div>
         </form>
       </motion.div>
+
+      {/* Discharge Bill Summary Modal */}
+      {showBillSummary && billSummary && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-primary/10 rounded-full">
+                <Receipt className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Discharge Bill Summary</h3>
+                <p className="text-sm text-gray-500">Inpatient care charges</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              {billSummary.summary.encounters > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Doctor Consultations</span>
+                  <span className="font-medium">₦{billSummary.summary.encounters.toLocaleString()}</span>
+                </div>
+              )}
+              {billSummary.summary.surgeries > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Surgical Procedures</span>
+                  <span className="font-medium">₦{billSummary.summary.surgeries.toLocaleString()}</span>
+                </div>
+              )}
+              {billSummary.summary.nursingCare > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Nursing Care</span>
+                  <span className="font-medium">₦{billSummary.summary.nursingCare.toLocaleString()}</span>
+                </div>
+              )}
+              {billSummary.summary.laboratory > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Laboratory</span>
+                  <span className="font-medium">₦{billSummary.summary.laboratory.toLocaleString()}</span>
+                </div>
+              )}
+              {billSummary.summary.medications > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Medications</span>
+                  <span className="font-medium">₦{billSummary.summary.medications.toLocaleString()}</span>
+                </div>
+              )}
+              {billSummary.summary.other > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Other Charges</span>
+                  <span className="font-medium">₦{billSummary.summary.other.toLocaleString()}</span>
+                </div>
+              )}
+              
+              <div className="border-t pt-3 mt-3">
+                <div className="flex justify-between text-sm font-semibold">
+                  <span>Total Billed</span>
+                  <span>₦{billSummary.totalBilled.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Paid</span>
+                  <span>₦{billSummary.totalPaid.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold text-primary mt-2">
+                  <span>Outstanding Balance</span>
+                  <span>₦{billSummary.outstanding.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {billSummary.outstanding > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <div className="flex gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                  <p className="text-sm text-amber-800">
+                    Patient has outstanding balance of ₦{billSummary.outstanding.toLocaleString()}. 
+                    Please ensure payment is settled before final discharge.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowBillSummary(false);
+                  onComplete();
+                }}
+                className="flex-1 btn btn-primary"
+              >
+                <CheckCircle size={16} className="mr-2" />
+                Confirm & Close
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

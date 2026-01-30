@@ -18,7 +18,7 @@ export type BillingCategory =
   | 'home_care'
   | 'administrative';
 
-export type StaffRevenueShare = 0.50; // 50% to staff, 50% to hospital
+export type StaffRevenueShare = 0.50; // Staff revenue share ratio
 
 export interface BillableActivity {
   id: string;
@@ -53,14 +53,14 @@ export interface ActivityBillingRecord {
   
   // Billing details
   fee: number;
-  staffShare: number; // 50% of fee
-  hospitalShare: number; // 50% of fee
+  staffShare: number; // Staff's share of fee
+  hospitalShare: number; // Hospital's share of fee
   
   // Payment status
   paymentStatus: 'pending' | 'partial' | 'paid' | 'waived';
   amountPaid: number;
-  staffAmountPaid: number; // 50% of amount paid
-  hospitalAmountPaid: number; // 50% of amount paid
+  staffAmountPaid: number; // Staff's share of amount paid
+  hospitalAmountPaid: number; // Hospital's share of amount paid
   
   // Timestamps
   performedAt: Date;
@@ -75,9 +75,9 @@ export interface ActivityBillingRecord {
 
 // Staff Revenue Share Configuration
 export const REVENUE_SHARE_CONFIG = {
-  staffPercentage: 0.50, // 50% to staff
-  hospitalPercentage: 0.50, // 50% to hospital
-  description: 'Revenue is split 50-50 between the performing staff and the hospital',
+  staffPercentage: 0.50, // Staff share
+  hospitalPercentage: 0.50, // Hospital share
+  description: 'Activity-based earnings for staff',
 };
 
 // ============================================
@@ -893,7 +893,7 @@ export const billableActivities: BillableActivity[] = [
     defaultFee: 20000,
     duration: '15-30 minutes',
     applicableRoles: ['surgeon', 'anaesthetist'],
-    notes: 'Charged per review, 50% to consultant',
+    notes: 'Charged per review',
   },
   {
     id: 'RT-002',
@@ -906,7 +906,7 @@ export const billableActivities: BillableActivity[] = [
     defaultFee: 12000,
     duration: '10-20 minutes',
     applicableRoles: ['surgeon', 'anaesthetist'],
-    notes: 'Charged per review, 50% to doctor',
+    notes: 'Charged per review',
   },
   {
     id: 'RT-003',
@@ -919,7 +919,7 @@ export const billableActivities: BillableActivity[] = [
     defaultFee: 2000,
     duration: '10-15 minutes',
     applicableRoles: ['nurse'],
-    notes: 'Charged per vitals recording, 50% to nurse',
+    notes: 'Charged per vitals recording',
   },
   {
     id: 'RT-004',
@@ -932,7 +932,7 @@ export const billableActivities: BillableActivity[] = [
     defaultFee: 1000,
     duration: '10-15 minutes',
     applicableRoles: ['nurse'],
-    notes: 'Charged per transfusion record entry, 50% to nurse',
+    notes: 'Charged per transfusion record entry',
   },
   {
     id: 'RT-005',
@@ -945,7 +945,7 @@ export const billableActivities: BillableActivity[] = [
     defaultFee: 10000,
     duration: 'Per chart session',
     applicableRoles: ['nurse'],
-    notes: 'Charged per medication administration session, 50% to nurse',
+    notes: 'Charged per medication administration session',
   },
   {
     id: 'RT-006',
@@ -958,7 +958,7 @@ export const billableActivities: BillableActivity[] = [
     defaultFee: 500,
     duration: '5-10 minutes',
     applicableRoles: ['lab_scientist'],
-    notes: 'Charged per result upload, 50% to lab scientist',
+    notes: 'Charged per result upload',
   },
 
   // ============================================

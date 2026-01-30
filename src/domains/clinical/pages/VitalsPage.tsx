@@ -36,6 +36,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord, fullSync } from '../../../services/cloudSyncService';
+import { recordVitalSignsEarning, createEntryTracking } from '../../../services/staffEarningsService';
 import type { VitalSigns } from '../../../types';
 import { format } from 'date-fns';
 
@@ -199,9 +200,18 @@ export default function VitalsPage() {
 
     try {
       const bmi = calculateBMI();
+      const vitalsId = uuidv4();
+
+      // Create entry tracking with user details, location, and time
+      const tracking = await createEntryTracking(
+        user.id!,
+        `${user.firstName} ${user.lastName}`,
+        user.role,
+        true // Include location
+      );
 
       const vitals: VitalSigns = {
-        id: uuidv4(),
+        id: vitalsId,
         patientId,
         temperature: data.temperature,
         pulse: data.pulse,
@@ -217,10 +227,34 @@ export default function VitalsPage() {
         notes: data.notes,
         recordedBy: user.id,
         recordedAt: new Date(),
+        // Add tracking info
+        entryTracking: {
+          userId: tracking.userId,
+          userName: tracking.userName,
+          userRole: tracking.userRole,
+          timestamp: tracking.timestamp,
+          location: tracking.location,
+          deviceInfo: tracking.deviceInfo,
+        },
       };
 
       await db.vitalSigns.add(vitals);
       await syncRecord('vitalSigns', vitals as unknown as Record<string, unknown>);
+
+      // Record staff earnings for vital signs entry (₦500)
+      try {
+        await recordVitalSignsEarning(
+          vitalsId,
+          patientId,
+          user.id!,
+          `${user.firstName} ${user.lastName}`,
+          user.role,
+          patient?.registeredHospitalId || user.hospitalId || 'hospital-1'
+        );
+      } catch (earningsError) {
+        console.warn('Failed to record vital signs earnings:', earningsError);
+      }
+
       toast.success('Vital signs recorded successfully!');
       navigate(`/patients/${patientId}`);
     } catch (error) {
