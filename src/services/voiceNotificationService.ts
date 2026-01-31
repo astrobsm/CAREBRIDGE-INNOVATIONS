@@ -112,11 +112,15 @@ async function loadPersistedNotifications(): Promise<void> {
     const db = await openNotificationDB();
     const transaction = db.transaction([NOTIFICATION_STORE_NAME], 'readonly');
     const store = transaction.objectStore(NOTIFICATION_STORE_NAME);
-    const index = store.index('acknowledged');
     
+    // Note: IndexedDB doesn't support boolean keys well, so we get all and filter
     const notifications = await new Promise<VoiceNotification[]>((resolve, reject) => {
-      const request = index.getAll(IDBKeyRange.only(false));
-      request.onsuccess = () => resolve(request.result);
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const all = request.result || [];
+        // Filter for unacknowledged notifications
+        resolve(all.filter((n: VoiceNotification) => n.acknowledged !== true));
+      };
       request.onerror = () => reject(request.error);
     });
 

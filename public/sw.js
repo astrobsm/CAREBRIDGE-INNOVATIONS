@@ -826,12 +826,16 @@ async function checkVoiceNotificationsFromSW() {
     });
     
     // Get all unacknowledged notifications
+    // Note: IndexedDB doesn't support boolean keys well, so we get all and filter
     const pending = await new Promise((resolve, reject) => {
       const transaction = db.transaction([NOTIFICATION_STORE_NAME], 'readonly');
       const store = transaction.objectStore(NOTIFICATION_STORE_NAME);
-      const index = store.index('acknowledged');
-      const req = index.getAll(IDBKeyRange.only(false));
-      req.onsuccess = () => resolve(req.result || []);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const all = req.result || [];
+        // Filter for unacknowledged notifications (acknowledged !== true)
+        resolve(all.filter(n => n.acknowledged !== true && n.acknowledged !== 'true'));
+      };
       req.onerror = () => reject(req.error);
     });
     
