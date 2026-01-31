@@ -1221,6 +1221,8 @@ export default function EnhancedClinicalEncounterPage() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPreviousEncounter, setSelectedPreviousEncounter] = useState<ClinicalEncounter | null>(null);
+  // Encounter mode: 'auto' (based on history), 'first', or 'followup'
+  const [encounterMode, setEncounterMode] = useState<'auto' | 'first' | 'followup'>('auto');
 
   // Get patient context (age-based, pregnancy, GFR)
   const patientContext = usePatientContext(patientId);
@@ -1252,7 +1254,11 @@ export default function EnhancedClinicalEncounterPage() {
   );
 
   // Determine if this is a first encounter or follow-up
-  const isFirstEncounter = previousEncounters.length === 0;
+  // Auto mode: based on previous encounters, Manual mode: user override
+  const autoFirstEncounter = previousEncounters.length === 0;
+  const isFirstEncounter = encounterMode === 'auto' 
+    ? autoFirstEncounter 
+    : encounterMode === 'first';
 
   const handleFirstEncounterSubmit = async (
     data: FirstEncounterFormData,
@@ -1390,6 +1396,49 @@ export default function EnhancedClinicalEncounterPage() {
                 pregnancy={patientContext.pregnancy}
                 showDetails 
               />
+            </div>
+            
+            {/* Encounter Mode Toggle */}
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-gray-500 flex items-center gap-1">
+                <ClipboardList size={14} />
+                Form Type:
+              </span>
+              <div className="flex rounded-lg bg-gray-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => setEncounterMode('auto')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    encounterMode === 'auto'
+                      ? 'bg-white text-sky-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Auto {autoFirstEncounter ? '(First)' : '(Follow-up)'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEncounterMode('first')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    encounterMode === 'first'
+                      ? 'bg-white text-emerald-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  First Encounter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEncounterMode('followup')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    encounterMode === 'followup'
+                      ? 'bg-white text-purple-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Follow-up
+                </button>
+              </div>
             </div>
           </div>
           <button

@@ -98,6 +98,16 @@ export default function ScanToText({
     };
   }, [stream]);
 
+  // Attach stream to video element when stream is available
+  useEffect(() => {
+    if (stream && videoRef.current && showCamera) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(err => {
+        console.error('Error playing video:', err);
+      });
+    }
+  }, [stream, showCamera]);
+
   // Handle paste from clipboard
   useEffect(() => {
     if (!allowPaste || !isOpen) return;
@@ -132,13 +142,9 @@ export default function ScanToText({
         },
       });
       
-      setStream(mediaStream);
+      // Set state - useEffect will handle attaching to video element
       setShowCamera(true);
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        await videoRef.current.play();
-      }
+      setStream(mediaStream);
     } catch (error) {
       console.error('Camera access error:', error);
       toast.error('Could not access camera. Please check permissions.');
