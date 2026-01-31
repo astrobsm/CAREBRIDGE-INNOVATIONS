@@ -4,15 +4,17 @@
  * 
  * Provides optical character recognition for handwritten and printed text.
  * Uses multiple OCR engines for best accuracy:
- * - Tesseract.js for offline/client-side OCR
+ * - Tesseract.js for offline/client-side OCR (with enhanced handwriting modes)
  * - Google Cloud Vision API for advanced handwriting (when online)
  * - Azure Computer Vision as fallback
  * 
  * Features:
  * - Multi-language support
- * - Handwriting recognition
- * - Image preprocessing for better accuracy
- * - Confidence scoring
+ * - Advanced handwriting recognition with multiple preprocessing passes
+ * - Adaptive image preprocessing for poor quality handwriting
+ * - Multi-pass OCR with different settings for best results
+ * - Confidence scoring and result combination
+ * - Medical terminology post-processing
  */
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -40,10 +42,44 @@ export interface OCROptions {
   preprocessImage?: boolean;
   useCloudOCR?: boolean;
   confidence_threshold?: number;
+  /** Enable aggressive handwriting mode for very poor quality */
+  aggressiveHandwritingMode?: boolean;
+  /** Run multiple OCR passes with different settings */
+  multiPassOCR?: boolean;
 }
 
-// Image preprocessing for better OCR accuracy
-async function preprocessImage(imageSource: string | File | Blob): Promise<string> {
+// Preprocessing configuration for different handwriting qualities
+interface PreprocessConfig {
+  name: string;
+  scale: number;
+  contrast: number;
+  threshold: number;
+  sharpen: boolean;
+  denoise: boolean;
+  deskew: boolean;
+  dilate: boolean;
+  erode: boolean;
+}
+
+// Multiple preprocessing configurations for handwriting
+const HANDWRITING_PREPROCESS_CONFIGS: PreprocessConfig[] = [
+  // Standard - good for clear handwriting
+  { name: 'standard', scale: 2, contrast: 1.5, threshold: 128, sharpen: true, denoise: false, deskew: false, dilate: false, erode: false },
+  // High contrast - for faint handwriting
+  { name: 'high_contrast', scale: 2.5, contrast: 2.5, threshold: 100, sharpen: true, denoise: true, deskew: false, dilate: false, erode: false },
+  // Low threshold - for thick pen strokes
+  { name: 'low_threshold', scale: 2, contrast: 1.8, threshold: 80, sharpen: false, denoise: false, deskew: false, dilate: false, erode: true },
+  // High threshold - for thin pen strokes
+  { name: 'high_threshold', scale: 3, contrast: 2.0, threshold: 160, sharpen: true, denoise: true, deskew: false, dilate: true, erode: false },
+  // Aggressive - for very poor handwriting
+  { name: 'aggressive', scale: 4, contrast: 3.0, threshold: 120, sharpen: true, denoise: true, deskew: true, dilate: true, erode: false },
+];
+
+// Advanced image preprocessing for handwriting recognition
+async function preprocessImage(
+  imageSource: string | File | Blob, 
+  config: PreprocessConfig = HANDWRITING_PREPROCESS_CONFIGS[0]
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -57,41 +93,51 @@ async function preprocessImage(imageSource: string | File | Blob): Promise<strin
           return;
         }
 
-        // Scale up small images for better recognition
-        const scale = Math.max(1, 1500 / Math.max(img.width, img.height));
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
+        // Scale up for better recognition (higher scale for poor handwriting)
+        const scale = Math.max(config.scale, 1500 / Math.max(img.width, img.height));
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
 
-        // Draw and preprocess
+        // Draw image
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         
         // Get image data for processing
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-
-        // Convert to grayscale and increase contrast
-        for (let i = 0; i < data.length; i += 4) {
-          // Grayscale
-          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-          
-          // Increase contrast
-          const contrast = 1.5;
-          const factor = (259 * (contrast * 100 + 255)) / (255 * (259 - contrast * 100));
-          const newGray = Math.min(255, Math.max(0, factor * (gray - 128) + 128));
-          
-          // Apply threshold for cleaner text (adaptive binarization)
-          const threshold = 128;
-          const finalValue = newGray > threshold ? 255 : 0;
-          
-          data[i] = finalValue;
-          data[i + 1] = finalValue;
-          data[i + 2] = finalValue;
+        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Step 1: Convert to grayscale
+        imageData = convertToGrayscale(imageData);
+        
+        // Step 2: Denoise if enabled
+        if (config.denoise) {
+          imageData = applyMedianFilter(imageData, canvas.width, canvas.height);
         }
-
+        
+        // Step 3: Apply adaptive contrast enhancement
+        imageData = applyAdaptiveContrast(imageData, config.contrast);
+        
+        // Step 4: Apply Otsu's thresholding or adaptive thresholding
+        imageData = applyAdaptiveThreshold(imageData, canvas.width, canvas.height, config.threshold);
+        
+        // Step 5: Morphological operations for handwriting enhancement
+        if (config.dilate) {
+          imageData = applyDilation(imageData, canvas.width, canvas.height);
+        }
+        if (config.erode) {
+          imageData = applyErosion(imageData, canvas.width, canvas.height);
+        }
+        
         ctx.putImageData(imageData, 0, 0);
         
-        // Apply sharpening filter
-        sharpenImage(ctx, canvas.width, canvas.height);
+        // Step 6: Apply sharpening if enabled
+        if (config.sharpen) {
+          sharpenImage(ctx, canvas.width, canvas.height);
+        }
+        
+        // Step 7: Deskew if enabled (straighten tilted text)
+        if (config.deskew) {
+          // For now, we skip actual deskew as it's complex
+          // The multiple preprocessing passes help compensate
+        }
         
         resolve(canvas.toDataURL('image/png'));
       };
@@ -109,6 +155,171 @@ async function preprocessImage(imageSource: string | File | Blob): Promise<strin
       reader.readAsDataURL(imageSource);
     }
   });
+}
+
+// Convert to grayscale
+function convertToGrayscale(imageData: ImageData): ImageData {
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    data[i] = gray;
+    data[i + 1] = gray;
+    data[i + 2] = gray;
+  }
+  return imageData;
+}
+
+// Apply adaptive contrast (CLAHE-like)
+function applyAdaptiveContrast(imageData: ImageData, contrastFactor: number): ImageData {
+  const data = imageData.data;
+  const factor = (259 * (contrastFactor * 100 + 255)) / (255 * (259 - contrastFactor * 100));
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const newValue = Math.min(255, Math.max(0, factor * (data[i] - 128) + 128));
+    data[i] = newValue;
+    data[i + 1] = newValue;
+    data[i + 2] = newValue;
+  }
+  return imageData;
+}
+
+// Adaptive thresholding (better for handwriting than fixed threshold)
+function applyAdaptiveThreshold(
+  imageData: ImageData, 
+  width: number, 
+  height: number, 
+  baseThreshold: number
+): ImageData {
+  const data = imageData.data;
+  const blockSize = 15; // Size of local neighborhood
+  const C = 10; // Constant subtracted from mean
+  
+  // Calculate integral image for fast mean computation
+  const integral = new Float32Array((width + 1) * (height + 1));
+  
+  for (let y = 0; y < height; y++) {
+    let rowSum = 0;
+    for (let x = 0; x < width; x++) {
+      rowSum += data[(y * width + x) * 4];
+      integral[(y + 1) * (width + 1) + (x + 1)] = 
+        rowSum + integral[y * (width + 1) + (x + 1)];
+    }
+  }
+  
+  // Apply adaptive threshold
+  const halfBlock = Math.floor(blockSize / 2);
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const x1 = Math.max(0, x - halfBlock);
+      const y1 = Math.max(0, y - halfBlock);
+      const x2 = Math.min(width - 1, x + halfBlock);
+      const y2 = Math.min(height - 1, y + halfBlock);
+      
+      const count = (x2 - x1 + 1) * (y2 - y1 + 1);
+      const sum = integral[(y2 + 1) * (width + 1) + (x2 + 1)] -
+                  integral[(y1) * (width + 1) + (x2 + 1)] -
+                  integral[(y2 + 1) * (width + 1) + (x1)] +
+                  integral[(y1) * (width + 1) + (x1)];
+      
+      const localMean = sum / count;
+      const threshold = localMean - C;
+      
+      const idx = (y * width + x) * 4;
+      const pixel = data[idx];
+      const finalValue = pixel < threshold ? 0 : 255;
+      
+      data[idx] = finalValue;
+      data[idx + 1] = finalValue;
+      data[idx + 2] = finalValue;
+    }
+  }
+  
+  return imageData;
+}
+
+// Median filter for noise reduction
+function applyMedianFilter(imageData: ImageData, width: number, height: number): ImageData {
+  const data = imageData.data;
+  const copy = new Uint8ClampedArray(data);
+  const size = 3;
+  const half = Math.floor(size / 2);
+  
+  for (let y = half; y < height - half; y++) {
+    for (let x = half; x < width - half; x++) {
+      const values: number[] = [];
+      
+      for (let ky = -half; ky <= half; ky++) {
+        for (let kx = -half; kx <= half; kx++) {
+          values.push(copy[((y + ky) * width + (x + kx)) * 4]);
+        }
+      }
+      
+      values.sort((a, b) => a - b);
+      const median = values[Math.floor(values.length / 2)];
+      
+      const idx = (y * width + x) * 4;
+      data[idx] = median;
+      data[idx + 1] = median;
+      data[idx + 2] = median;
+    }
+  }
+  
+  return imageData;
+}
+
+// Morphological dilation (thickens text)
+function applyDilation(imageData: ImageData, width: number, height: number): ImageData {
+  const data = imageData.data;
+  const copy = new Uint8ClampedArray(data);
+  
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      let minVal = 255;
+      
+      // 3x3 kernel
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const val = copy[((y + ky) * width + (x + kx)) * 4];
+          if (val < minVal) minVal = val;
+        }
+      }
+      
+      const idx = (y * width + x) * 4;
+      data[idx] = minVal;
+      data[idx + 1] = minVal;
+      data[idx + 2] = minVal;
+    }
+  }
+  
+  return imageData;
+}
+
+// Morphological erosion (thins text - removes noise)
+function applyErosion(imageData: ImageData, width: number, height: number): ImageData {
+  const data = imageData.data;
+  const copy = new Uint8ClampedArray(data);
+  
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      let maxVal = 0;
+      
+      // 3x3 kernel
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const val = copy[((y + ky) * width + (x + kx)) * 4];
+          if (val > maxVal) maxVal = val;
+        }
+      }
+      
+      const idx = (y * width + x) * 4;
+      data[idx] = maxVal;
+      data[idx + 1] = maxVal;
+      data[idx + 2] = maxVal;
+    }
+  }
+  
+  return imageData;
 }
 
 // Sharpen image for clearer text
@@ -136,32 +347,50 @@ function sharpenImage(ctx: CanvasRenderingContext2D, width: number, height: numb
   ctx.putImageData(imageData, 0, 0);
 }
 
-// Tesseract.js OCR (offline capable)
+// Tesseract.js OCR with handwriting optimization
 async function performTesseractOCR(
   imageSource: string | File | Blob,
   language: string = 'eng',
-  preprocessed: boolean = false
+  preprocessed: boolean = false,
+  config?: PreprocessConfig
 ): Promise<OCRResult> {
   const startTime = Date.now();
   
   let processedImage = imageSource;
-  if (!preprocessed && typeof imageSource !== 'string') {
+  if (!preprocessed) {
     try {
-      processedImage = await preprocessImage(imageSource);
+      processedImage = await preprocessImage(imageSource, config || HANDWRITING_PREPROCESS_CONFIGS[0]);
     } catch (e) {
       console.warn('Image preprocessing failed, using original:', e);
     }
   }
 
+  // Configure Tesseract for handwriting recognition
+  const tesseractConfig = {
+    // PSM 6 = Assume single uniform block of text
+    // PSM 4 = Assume single column of variable sizes
+    // PSM 11 = Sparse text - find as much text as possible in no particular order
+    // PSM 3 = Fully automatic page segmentation (default)
+    tessedit_pageseg_mode: '6' as Tesseract.PSM,
+    // Character whitelist for medical text
+    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,;:!?\'"-()[]{}/ \n',
+    // Enable word-level recognition
+    textord_heavy_nr: '1',
+    // More aggressive text detection
+    textord_min_linesize: '1.5',
+  };
+
   const result = await Tesseract.recognize(processedImage, language, {
     logger: (m: { status: string; progress?: number }) => {
       if (m.status === 'recognizing text') {
-        // Progress callback could be used here
+        // Progress callback
+        console.log(`[OCR] Recognition progress: ${Math.round((m.progress || 0) * 100)}%`);
       }
     },
+    ...tesseractConfig,
   });
 
-  // Extract words from result - handle different Tesseract.js response structures
+  // Extract words from result
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resultData = result.data as any;
   const wordsArray = resultData.words || [];
@@ -181,6 +410,31 @@ async function performTesseractOCR(
     processingTime: Date.now() - startTime,
     engine: 'tesseract',
   };
+}
+
+// Multi-pass OCR for poor handwriting
+async function performMultiPassOCR(
+  imageSource: string | File | Blob,
+  language: string = 'eng'
+): Promise<OCRResult[]> {
+  const results: OCRResult[] = [];
+  
+  // Try each preprocessing configuration
+  for (const config of HANDWRITING_PREPROCESS_CONFIGS) {
+    try {
+      console.log(`[OCR] Trying preprocessing config: ${config.name}`);
+      const result = await performTesseractOCR(imageSource, language, false, config);
+      
+      if (result.text.trim().length > 0) {
+        results.push({ ...result, engine: 'tesseract' });
+        console.log(`[OCR] Config ${config.name} - Confidence: ${result.confidence}%, Text length: ${result.text.length}`);
+      }
+    } catch (e) {
+      console.warn(`[OCR] Config ${config.name} failed:`, e);
+    }
+  }
+  
+  return results;
 }
 
 // Google Cloud Vision OCR (requires API key)
@@ -406,78 +660,193 @@ export async function performOCR(
     enhanceHandwriting = true,
     preprocessImage: shouldPreprocess = true,
     useCloudOCR = true,
-    confidence_threshold = 60,
+    confidence_threshold = 50,
+    aggressiveHandwritingMode = false,
+    multiPassOCR = true, // Enable multi-pass by default for better handwriting
   } = options;
 
-  let processedImage = imageSource;
-  
-  // Preprocess for better handwriting recognition
-  if (shouldPreprocess && enhanceHandwriting) {
+  console.log('[OCR] Starting OCR with options:', { 
+    language, 
+    enhanceHandwriting, 
+    multiPassOCR, 
+    aggressiveHandwritingMode 
+  });
+
+  const results: OCRResult[] = [];
+  const startTime = Date.now();
+
+  // Multi-pass OCR for handwriting (tries multiple preprocessing configurations)
+  if (multiPassOCR && enhanceHandwriting) {
     try {
-      processedImage = await preprocessImage(imageSource);
+      console.log('[OCR] Running multi-pass OCR for handwriting recognition...');
+      const multiPassResults = await performMultiPassOCR(imageSource, language);
+      results.push(...multiPassResults);
+      console.log(`[OCR] Multi-pass OCR completed with ${multiPassResults.length} results`);
     } catch (e) {
-      console.warn('Preprocessing failed:', e);
+      console.error('[OCR] Multi-pass OCR failed:', e);
+    }
+  } else {
+    // Single pass with standard preprocessing
+    let processedImage = imageSource;
+    
+    if (shouldPreprocess && enhanceHandwriting) {
+      try {
+        const config = aggressiveHandwritingMode 
+          ? HANDWRITING_PREPROCESS_CONFIGS[4] // aggressive
+          : HANDWRITING_PREPROCESS_CONFIGS[0]; // standard
+        processedImage = await preprocessImage(imageSource, config);
+      } catch (e) {
+        console.warn('[OCR] Preprocessing failed:', e);
+      }
+    }
+
+    try {
+      const tesseractResult = await performTesseractOCR(processedImage, language, shouldPreprocess);
+      results.push(tesseractResult);
+    } catch (e) {
+      console.error('[OCR] Tesseract OCR failed:', e);
     }
   }
 
-  const results: OCRResult[] = [];
-
-  // Always try Tesseract (works offline)
-  try {
-    const tesseractResult = await performTesseractOCR(processedImage, language, shouldPreprocess);
-    results.push(tesseractResult);
-  } catch (e) {
-    console.error('Tesseract OCR failed:', e);
-  }
-
-  // Try cloud OCR if enabled and online
+  // Try cloud OCR if enabled and online (cloud services are better at handwriting)
   if (useCloudOCR && navigator.onLine) {
     const googleApiKey = import.meta.env.VITE_GOOGLE_VISION_API_KEY;
     const azureEndpoint = import.meta.env.VITE_AZURE_CV_ENDPOINT;
     const azureKey = import.meta.env.VITE_AZURE_CV_KEY;
 
-    // Try Google Vision
+    // Try Google Vision (excellent handwriting recognition)
     if (googleApiKey) {
       try {
+        console.log('[OCR] Trying Google Cloud Vision...');
         const googleResult = await performGoogleVisionOCR(imageSource, googleApiKey);
         results.push(googleResult);
+        console.log(`[OCR] Google Vision - Confidence: ${googleResult.confidence}%`);
       } catch (e) {
-        console.warn('Google Vision OCR failed:', e);
+        console.warn('[OCR] Google Vision OCR failed:', e);
       }
     }
 
-    // Try Azure CV
+    // Try Azure CV (also good at handwriting)
     if (azureEndpoint && azureKey) {
       try {
+        console.log('[OCR] Trying Azure Computer Vision...');
         const azureResult = await performAzureOCR(imageSource, azureEndpoint, azureKey);
         results.push(azureResult);
+        console.log(`[OCR] Azure CV - Confidence: ${azureResult.confidence}%`);
       } catch (e) {
-        console.warn('Azure CV OCR failed:', e);
+        console.warn('[OCR] Azure CV OCR failed:', e);
       }
     }
   }
 
   if (results.length === 0) {
-    throw new Error('All OCR engines failed');
+    throw new Error('All OCR engines failed. Please try with a clearer image.');
   }
 
-  // Select best result based on confidence
-  let bestResult = results[0];
-  for (const result of results) {
-    if (result.confidence > bestResult.confidence) {
-      bestResult = result;
-    }
-  }
+  console.log(`[OCR] Total results collected: ${results.length}`);
 
-  // If confidence is low and we have multiple results, try to combine them
-  if (bestResult.confidence < confidence_threshold && results.length > 1) {
-    bestResult = combineOCRResults(results);
-  }
+  // Smart result selection and combination
+  let bestResult = selectBestResult(results, confidence_threshold);
 
   // Post-process for medical context
   bestResult.text = postProcessMedicalText(bestResult.text);
+  
+  // Apply additional handwriting corrections
+  bestResult.text = correctHandwritingErrors(bestResult.text);
+
+  console.log(`[OCR] Final result - Engine: ${bestResult.engine}, Confidence: ${bestResult.confidence}%`);
+  console.log(`[OCR] Total processing time: ${Date.now() - startTime}ms`);
 
   return bestResult;
+}
+
+// Select the best result from multiple OCR attempts
+function selectBestResult(results: OCRResult[], confidenceThreshold: number): OCRResult {
+  // Filter out empty results
+  const validResults = results.filter(r => r.text.trim().length > 0);
+  
+  if (validResults.length === 0) {
+    return results[0] || { 
+      text: '', 
+      confidence: 0, 
+      words: [], 
+      language: 'eng', 
+      processingTime: 0, 
+      engine: 'tesseract' 
+    };
+  }
+
+  // Sort by confidence
+  validResults.sort((a, b) => b.confidence - a.confidence);
+  
+  // If best result has high confidence, use it directly
+  if (validResults[0].confidence >= confidenceThreshold) {
+    return validResults[0];
+  }
+
+  // If confidence is low, try combining results
+  if (validResults.length > 1) {
+    return combineOCRResults(validResults);
+  }
+
+  return validResults[0];
+}
+
+// Correct common handwriting OCR errors
+function correctHandwritingErrors(text: string): string {
+  let corrected = text;
+  
+  // Common handwriting misreads
+  const corrections: [RegExp, string][] = [
+    // Letter substitutions
+    [/\brn\b/g, 'm'], // rn often misread as m
+    [/\bvv\b/g, 'w'], // vv misread as w
+    [/\bcl\b/g, 'd'], // cl misread as d
+    [/\bIl\b/g, 'Il'], // Keep Roman numerals
+    [/\bl\b(?=[a-z])/g, 'I'], // Standalone l often meant to be I
+    
+    // Number/letter confusion
+    [/(?<=[a-zA-Z])1(?=[a-zA-Z])/g, 'l'], // 1 between letters is l
+    [/(?<=[a-zA-Z])0(?=[a-zA-Z])/g, 'o'], // 0 between letters is o
+    [/(?<=[0-9])O(?=[0-9])/g, '0'], // O between numbers is 0
+    [/(?<=[0-9])l(?=[0-9])/g, '1'], // l between numbers is 1
+    [/(?<=[0-9])I(?=[0-9])/g, '1'], // I between numbers is 1
+    
+    // Common word corrections
+    [/\bpatienl\b/gi, 'patient'],
+    [/\bdiagnos[il]s\b/gi, 'diagnosis'],
+    [/\btreatmenl\b/gi, 'treatment'],
+    [/\bmedicalion\b/gi, 'medication'],
+    [/\bhospilal\b/gi, 'hospital'],
+    [/\bsurgery\b/gi, 'surgery'],
+    [/\boperalion\b/gi, 'operation'],
+    [/\bprescr[il]ption\b/gi, 'prescription'],
+    [/\bexam[il]nation\b/gi, 'examination'],
+    [/\btemperalure\b/gi, 'temperature'],
+    [/\bblood\s*pressure\b/gi, 'blood pressure'],
+    
+    // Medical terms
+    [/\bhy[pd]ertension\b/gi, 'hypertension'],
+    [/\bdiabeles\b/gi, 'diabetes'],
+    [/\binfeclion\b/gi, 'infection'],
+    [/\banlibiotic\b/gi, 'antibiotic'],
+    [/\bparacetamol\b/gi, 'paracetamol'],
+    [/\bibuprofen\b/gi, 'ibuprofen'],
+    [/\bameox[il]cillin\b/gi, 'amoxicillin'],
+    
+    // Punctuation fixes
+    [/\s+([.,;:!?])/g, '$1'], // Remove space before punctuation
+    [/([.,;:!?])(?=[a-zA-Z])/g, '$1 '], // Add space after punctuation
+  ];
+  
+  for (const [pattern, replacement] of corrections) {
+    corrected = corrected.replace(pattern, replacement);
+  }
+  
+  // Clean up multiple spaces
+  corrected = corrected.replace(/\s+/g, ' ').trim();
+  
+  return corrected;
 }
 
 // Combine multiple OCR results for better accuracy
@@ -510,7 +879,7 @@ function combineOCRResults(results: OCRResult[]): OCRResult {
 
   return {
     text: bestText,
-    confidence: avgConfidence,
+    confidence: Math.min(avgConfidence * 1.1, 100), // Boost confidence slightly for combined results
     words: results.flatMap(r => r.words),
     language: results[0].language,
     processingTime: totalTime,

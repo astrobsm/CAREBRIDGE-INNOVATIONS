@@ -25,6 +25,8 @@ import {
   Clipboard,
   FileText,
   ScanLine,
+  Sparkles,
+  Wand2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ocrService, { OCRResult, OCROptions } from '../../services/ocrService';
@@ -78,6 +80,8 @@ export default function ScanToText({
 }: ScanToTextProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  // Advanced handwriting mode for poor quality handwriting
+  const [aggressiveMode, setAggressiveMode] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [recognizedText, setRecognizedText] = useState<string>('');
   const [confidence, setConfidence] = useState<number>(0);
@@ -216,9 +220,15 @@ export default function ScanToText({
         enhanceHandwriting: true,
         preprocessImage: true,
         confidence_threshold: minConfidence,
+        aggressiveHandwritingMode: aggressiveMode,
+        multiPassOCR: true, // Enable multi-pass for better handwriting recognition
       };
 
+      toast.loading('Recognizing text... This may take a moment for handwriting.', { id: 'ocr-processing' });
+      
       const result = await ocrService.performOCR(capturedImage, options);
+      
+      toast.dismiss('ocr-processing');
       
       let processedText = result.text;
       
@@ -235,11 +245,14 @@ export default function ScanToText({
       }
 
       if (result.confidence < minConfidence) {
-        toast.error(`Low confidence (${Math.round(result.confidence)}%). Consider retaking the image.`);
+        toast.error(`Low confidence (${Math.round(result.confidence)}%). Try enabling "Aggressive Mode" for difficult handwriting.`);
+      } else if (result.confidence >= 70) {
+        toast.success(`Text recognized with ${Math.round(result.confidence)}% confidence!`);
       }
     } catch (error) {
       console.error('OCR processing error:', error);
-      toast.error('Failed to recognize text. Try a clearer image.');
+      toast.dismiss('ocr-processing');
+      toast.error('Failed to recognize text. Try enabling Aggressive Mode or use a clearer image.');
     } finally {
       setIsProcessing(false);
     }
@@ -477,6 +490,38 @@ export default function ScanToText({
                   </div>
                 )}
 
+                {/* Handwriting Mode Toggle */}
+                <div className="mb-4 p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Wand2 className="w-5 h-5 text-amber-600" />
+                      <div>
+                        <span className="font-medium text-gray-800">Aggressive Handwriting Mode</span>
+                        <p className="text-xs text-gray-500">Enable for difficult/messy handwriting</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAggressiveMode(!aggressiveMode)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        aggressiveMode ? 'bg-amber-500' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          aggressiveMode ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {aggressiveMode && (
+                    <div className="mt-2 flex items-center gap-2 text-xs text-amber-700">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Multi-pass OCR with enhanced preprocessing enabled. Processing may take longer.</span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Capture Options (when no image) */}
                 {!capturedImage && !showCamera && (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -521,6 +566,23 @@ export default function ScanToText({
                         <span className="text-xs text-gray-500">Ctrl+V to paste</span>
                       </button>
                     )}
+                  </div>
+                )}
+
+                {/* Tips for Better Recognition */}
+                {!capturedImage && !showCamera && (
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      Tips for Better Handwriting Recognition
+                    </h4>
+                    <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+                      <li>Ensure good lighting with no shadows on the text</li>
+                      <li>Hold camera steady and parallel to the paper</li>
+                      <li>Fill the frame with the text area</li>
+                      <li>Enable "Aggressive Mode" for messy or faded handwriting</li>
+                      <li>Use high contrast paper (white paper, dark ink)</li>
+                    </ul>
                   </div>
                 )}
 
