@@ -361,15 +361,23 @@ async function handleAPIRequest(request) {
     }
   } else {
     // POST/PUT/DELETE requests: Try network, queue if offline
+    // Clone request body BEFORE fetch (body can only be read once)
+    let bodyText = null;
+    try {
+      bodyText = await request.clone().text();
+    } catch (e) {
+      // Body might be empty or already consumed
+      bodyText = '';
+    }
+    
     try {
       const networkResponse = await fetch(request);
       return networkResponse;
     } catch (error) {
       console.log('[SW] API mutation failed, queuing for later');
       
-      // Clone and store the request body
-      const body = await request.clone().text();
-      await offlineQueue.add(request, body);
+      // Use the pre-cloned body
+      await offlineQueue.add(request, bodyText);
       
       // Notify clients about pending sync
       const count = await offlineQueue.count();
