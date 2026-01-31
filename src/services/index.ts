@@ -192,6 +192,84 @@ export {
 // Clinical Services
 export { woundCareService } from './woundCareService';
 export { investigationLabService, testDefinitions, referenceRanges } from './investigationLabService';
+
+// GFR Calculation Service
+export {
+  calculateGFR,
+  calculateCKDEPI,
+  calculateMDRD,
+  calculateCockcroftGault,
+  calculateSchwartzBedside,
+  getGFRStage,
+  getGFRInterpretation,
+  normalizeCreatinine,
+  CREATININE_UNITS,
+  getGFRForPatient,
+} from './gfrCalculationService';
+export type {
+  GFRResult,
+  GFRStage,
+  CreatinineUnit,
+  GFRFormula,
+  GFRInput,
+} from './gfrCalculationService';
+
+// Blood Glucose Service
+export {
+  convertGlucose,
+  normalizeToMgDL,
+  normalizeToMmolL,
+  interpretGlucose,
+  getGlucoseTargets,
+  getHbA1cTargets,
+  calculateEstimatedA1c,
+} from './bloodGlucoseService';
+export type {
+  GlucoseUnit,
+  GlucoseReading,
+  GlucoseInterpretation,
+  PatientGlucoseContext,
+} from './bloodGlucoseService';
+
+// Patient Category Service (Age-based Dynamic Forms)
+export {
+  calculatePatientAge,
+  formatPatientAge,
+  getAgeCategory,
+  getBroadCategory,
+  categorizePatient,
+  calculateGestationalAge,
+  calculateEDD,
+  categorizePregnancy,
+  calculateBSA,
+  calculateIBW,
+  calculateAdjustedWeight,
+  getPatientContext,
+  isAssessmentAppropriate,
+  getDosingWeight,
+} from './patientCategoryService';
+export type {
+  AgeCategory,
+  BroadCategory,
+  PregnancyTrimester,
+  PatientAge,
+  PatientCategory,
+  PregnancyStatus,
+  PregnancyMedicationCategory,
+  PatientContext,
+} from './patientCategoryService';
+
+// Renal Dosing Service
+export {
+  getRecommendedDose,
+  checkRenalDosing,
+  getMedicationsRequiringAdjustment,
+  RENAL_DOSE_DATABASE,
+} from './renalDosingService';
+export type {
+  RenalDoseAdjustment,
+  RenalDosingRecommendation,
+} from './renalDosingService';
 export type { UnifiedCategory, InvestigationPriority, InvestigationStatus, TestDefinition, TrendAnalysis } from './investigationLabService';
 export { burnCareService, ruleOfNines, lundBrowderChart } from './burnCareService';
 export type { FluidCalculation, ABSIScore, BurnNutrition, BurnWoundCareProtocol, BurnPrognosisFactors } from './burnCareService';

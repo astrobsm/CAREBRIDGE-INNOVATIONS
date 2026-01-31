@@ -28,6 +28,7 @@ import {
   Wallet,
   FileText,
   Send,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -72,6 +73,29 @@ const navigation: NavItem[] = [
     permission: 'create_encounters',
   },
   { 
+    name: 'Preoperative Planning', 
+    href: '/preoperative-planning', 
+    icon: <ClipboardList size={20} />,
+    permission: 'create_encounters',
+  },
+  { 
+    name: 'Surgery', 
+    href: '/surgery', 
+    icon: <Scissors size={20} />,
+    permission: 'manage_surgeries',
+    children: [
+      { name: 'Surgery List', href: '/surgery' },
+      { name: 'Preoperative Review', href: '/surgery/preoperative' },
+      { name: 'Post-Op Notes', href: '/surgery/post-op-notes' },
+    ],
+  },
+  { 
+    name: 'Post-Op Care', 
+    href: '/post-op-care', 
+    icon: <Activity size={20} />,
+    permission: 'create_encounters',
+  },
+  { 
     name: 'MDT', 
     href: '/mdt', 
     icon: <Users size={20} />,
@@ -97,17 +121,6 @@ const navigation: NavItem[] = [
     children: [
       { name: 'Encounters', href: '/patients' },
       { name: 'Vital Signs', href: '/patients' },
-    ],
-  },
-  { 
-    name: 'Surgery', 
-    href: '/surgery', 
-    icon: <Scissors size={20} />,
-    permission: 'manage_surgeries',
-    children: [
-      { name: 'Surgery List', href: '/surgery' },
-      { name: 'Preoperative Review', href: '/surgery/preoperative' },
-      { name: 'Post-Op Notes', href: '/surgery/post-op-notes' },
     ],
   },
   { 
@@ -202,12 +215,6 @@ const navigation: NavItem[] = [
     name: 'Patient Education', 
     href: '/patient-education', 
     icon: <BookOpen size={20} />,
-  },
-  { 
-    name: 'Dr. Reviews', 
-    href: '/dr-reviews', 
-    icon: <FileText size={20} />,
-    permission: 'manage_hospital', // Admin only
   },
   { 
     name: 'External Review', 

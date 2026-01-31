@@ -696,3 +696,262 @@ export async function generateDischargeBillSummary(
 
   return { admissionCharges, totalBilled, totalPaid, outstanding, summary };
 }
+
+// ============================================
+// EARNINGS ELIGIBILITY - ROLE-BASED ACCESS
+// ============================================
+
+/**
+ * Roles that are eligible to view and receive earnings
+ * Only clinical staff (doctors, surgeons, nurses) can have earnings
+ */
+export const EARNINGS_ELIGIBLE_ROLES: UserRole[] = [
+  'surgeon',
+  'doctor',
+  'nurse',
+  'resident',
+  'consultant',
+  'medical_officer',
+  'house_officer',
+  'senior_registrar',
+  'registrar',
+];
+
+/**
+ * Roles that can view earnings in their dashboard
+ */
+export const DASHBOARD_EARNINGS_ROLES: UserRole[] = [
+  'surgeon',
+  'doctor',
+  'nurse',
+  'consultant',
+  'senior_registrar',
+  'registrar',
+  'resident',
+  'medical_officer',
+  'house_officer',
+];
+
+/**
+ * Check if a user role is eligible for earnings
+ */
+export function isEligibleForEarnings(role: UserRole): boolean {
+  return EARNINGS_ELIGIBLE_ROLES.includes(role);
+}
+
+/**
+ * Check if a user role should see earnings in dashboard
+ */
+export function shouldShowEarningsInDashboard(role: UserRole): boolean {
+  return DASHBOARD_EARNINGS_ROLES.includes(role);
+}
+
+/**
+ * Get earnings category based on role
+ */
+export function getEarningsCategoryForRole(role: UserRole): 'doctor' | 'nurse' | 'none' {
+  const doctorRoles: UserRole[] = [
+    'surgeon',
+    'doctor',
+    'consultant',
+    'resident',
+    'medical_officer',
+    'house_officer',
+    'senior_registrar',
+    'registrar',
+  ];
+  
+  const nurseRoles: UserRole[] = ['nurse'];
+  
+  if (doctorRoles.includes(role)) return 'doctor';
+  if (nurseRoles.includes(role)) return 'nurse';
+  return 'none';
+}
+
+/**
+ * Get staff earnings with role validation
+ * Returns null if the user is not eligible for earnings
+ */
+export async function getStaffEarningsIfEligible(
+  staffId: string,
+  staffRole: UserRole,
+  startDate?: Date,
+  endDate?: Date
+): Promise<{
+  totalEarnings: number;
+  totalActivities: number;
+  byCategory: Record<string, number>;
+  eligible: boolean;
+  earningsCategory: 'doctor' | 'nurse' | 'none';
+} | null> {
+  // Check if user is eligible for earnings
+  if (!isEligibleForEarnings(staffRole)) {
+    return {
+      totalEarnings: 0,
+      totalActivities: 0,
+      byCategory: {},
+      eligible: false,
+      earningsCategory: 'none',
+    };
+  }
+
+  const earnings = await getStaffTotalEarnings(staffId, startDate, endDate);
+  
+  return {
+    ...earnings,
+    eligible: true,
+    earningsCategory: getEarningsCategoryForRole(staffRole),
+  };
+}
+
+/**
+ * Get payroll summary for a period - filtered by eligible roles only
+ */
+export async function getPayrollSummary(
+  hospitalId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<{
+  doctors: Array<{
+    userId: string;
+    userName: string;
+    role: UserRole;
+    totalEarnings: number;
+    totalActivities: number;
+    encounters: number;
+    surgeries: number;
+    procedures: number;
+  }>;
+  nurses: Array<{
+    userId: string;
+    userName: string;
+    role: UserRole;
+    totalEarnings: number;
+    totalActivities: number;
+    surgeryAssistance: number;
+    vitalSigns: number;
+    medications: number;
+  }>;
+  totalPayroll: number;
+  doctorsTotal: number;
+  nursesTotal: number;
+  period: { start: Date; end: Date };
+}> {
+  // Get all billing records for the period
+  const allRecords = await db.activityBillingRecords
+    .where('hospitalId')
+    .equals(hospitalId)
+    .toArray();
+
+  const periodRecords = allRecords.filter(r => {
+    const recordDate = new Date(r.performedAt);
+    return recordDate >= startDate && recordDate <= endDate;
+  });
+
+  // Get unique staff IDs
+  const staffIds = [...new Set(periodRecords.map(r => r.performedBy))];
+
+  // Get staff details
+  const staffMembers = await db.users.bulkGet(staffIds);
+
+  // Group by doctor/nurse
+  const doctorEarnings: Map<string, {
+    userId: string;
+    userName: string;
+    role: UserRole;
+    totalEarnings: number;
+    totalActivities: number;
+    encounters: number;
+    surgeries: number;
+    procedures: number;
+  }> = new Map();
+
+  const nurseEarnings: Map<string, {
+    userId: string;
+    userName: string;
+    role: UserRole;
+    totalEarnings: number;
+    totalActivities: number;
+    surgeryAssistance: number;
+    vitalSigns: number;
+    medications: number;
+  }> = new Map();
+
+  for (const record of periodRecords) {
+    const staff = staffMembers.find(s => s?.id === record.performedBy);
+    if (!staff) continue;
+
+    const role = staff.role as UserRole;
+    const earningsCategory = getEarningsCategoryForRole(role);
+
+    if (earningsCategory === 'none') continue;
+
+    const staffShare = record.staffShare || 0;
+    const category = record.category?.toLowerCase() || '';
+
+    if (earningsCategory === 'doctor') {
+      const existing = doctorEarnings.get(staff.id) || {
+        userId: staff.id,
+        userName: `${staff.firstName} ${staff.lastName}`,
+        role,
+        totalEarnings: 0,
+        totalActivities: 0,
+        encounters: 0,
+        surgeries: 0,
+        procedures: 0,
+      };
+
+      existing.totalEarnings += staffShare;
+      existing.totalActivities += 1;
+
+      if (category.includes('encounter') || category.includes('consultation')) {
+        existing.encounters += staffShare;
+      } else if (category.includes('surgery')) {
+        existing.surgeries += staffShare;
+      } else {
+        existing.procedures += staffShare;
+      }
+
+      doctorEarnings.set(staff.id, existing);
+    } else if (earningsCategory === 'nurse') {
+      const existing = nurseEarnings.get(staff.id) || {
+        userId: staff.id,
+        userName: `${staff.firstName} ${staff.lastName}`,
+        role,
+        totalEarnings: 0,
+        totalActivities: 0,
+        surgeryAssistance: 0,
+        vitalSigns: 0,
+        medications: 0,
+      };
+
+      existing.totalEarnings += staffShare;
+      existing.totalActivities += 1;
+
+      if (category.includes('surgery') || category.includes('scrub') || category.includes('circulating')) {
+        existing.surgeryAssistance += staffShare;
+      } else if (category.includes('vital')) {
+        existing.vitalSigns += staffShare;
+      } else if (category.includes('medication')) {
+        existing.medications += staffShare;
+      }
+
+      nurseEarnings.set(staff.id, existing);
+    }
+  }
+
+  const doctors = Array.from(doctorEarnings.values()).sort((a, b) => b.totalEarnings - a.totalEarnings);
+  const nurses = Array.from(nurseEarnings.values()).sort((a, b) => b.totalEarnings - a.totalEarnings);
+
+  const doctorsTotal = doctors.reduce((sum, d) => sum + d.totalEarnings, 0);
+  const nursesTotal = nurses.reduce((sum, n) => sum + n.totalEarnings, 0);
+
+  return {
+    doctors,
+    nurses,
+    totalPayroll: doctorsTotal + nursesTotal,
+    doctorsTotal,
+    nursesTotal,
+    period: { start: startDate, end: endDate },
+  };
+}

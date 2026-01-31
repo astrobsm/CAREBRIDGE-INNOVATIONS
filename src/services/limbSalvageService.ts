@@ -129,6 +129,11 @@ function calculateIschemiaScore(assessment: Partial<LimbSalvageAssessment>): num
 /**
  * Calculate Infection Score (0-20 points)
  * Based on sepsis assessment and osteomyelitis
+ * 
+ * IMPORTANT: Chronic osteomyelitis (>6 weeks) is weighted heavily as it is
+ * a critical factor in limb salvage decisions. Evidence shows that chronic
+ * osteomyelitis has significantly lower cure rates with conservative treatment
+ * and is often a primary indication for amputation.
  */
 function calculateInfectionScore(assessment: Partial<LimbSalvageAssessment>): number {
   let score = 0;
@@ -148,12 +153,63 @@ function calculateInfectionScore(assessment: Partial<LimbSalvageAssessment>): nu
     score += sepsis.clinicalFeatures.qsofaScore;
   }
 
-  // Osteomyelitis (0-6 points)
+  // ============================================================
+  // OSTEOMYELITIS SCORING - Enhanced for Chronic Cases
+  // Chronic osteomyelitis is a CRITICAL factor in amputation decisions
+  // ============================================================
   if (osteo?.suspected) {
+    // Base score for suspected osteomyelitis (2 points)
     score += 2;
+    
+    // Clinical evidence
     if (osteo.probeToBone) score += 1;
+    
+    // Imaging evidence
     if (osteo.mriFindings === 'positive') score += 2;
-    if (osteo.boneBiopsy === 'positive') score += 1;
+    else if (osteo.mriFindings === 'suspicious') score += 1;
+    
+    // Histological confirmation
+    if (osteo.boneBiopsy === 'positive') score += 2;
+    
+    // Radiographic changes (chronic sign)
+    if (osteo.radiographicChanges) score += 1;
+    
+    // ============================================================
+    // CHRONICITY SCORING - CRITICAL FOR AMPUTATION DECISION
+    // Chronic osteomyelitis (>6 weeks) has fundamentally different
+    // prognosis and management requirements
+    // ============================================================
+    if (osteo.chronicity === 'chronic' || (osteo.durationInWeeks && osteo.durationInWeeks > 6)) {
+      // Chronic osteomyelitis carries heavy prognostic significance
+      // Studies show cure rates drop to 60-80% with surgery + antibiotics
+      // vs >90% for acute cases
+      score += 4; // SIGNIFICANT additional weight for chronicity
+      
+      // Structural bone changes in chronic OM
+      if (osteo.sequestrum) score += 2; // Dead bone = poor prognosis
+      if (osteo.involucrum) score += 1; // Indicates chronicity
+      if (osteo.cloacae) score += 1; // Drainage tracts
+      if (osteo.involvedCortex === 'full_thickness') score += 2;
+      else if (osteo.involvedCortex === 'deep') score += 1;
+    } else if (osteo.chronicity === 'subacute' || (osteo.durationInWeeks && osteo.durationInWeeks > 2)) {
+      score += 2; // Moderate additional weight
+    }
+    
+    // Treatment failure indicators (very poor prognosis)
+    if (osteo.recurrent) score += 3; // Recurrence = high amputation likelihood
+    if (osteo.previousAntibiotic && osteo.previousDebridement) {
+      // Failed combined therapy = strong amputation indicator
+      score += 2;
+    } else if (osteo.previousAntibiotic || osteo.previousDebridement) {
+      score += 1;
+    }
+    
+    // Multiple bone involvement
+    if (osteo.affectedBones && osteo.affectedBones.length >= 3) {
+      score += 2; // Extensive involvement
+    } else if (osteo.affectedBones && osteo.affectedBones.length >= 2) {
+      score += 1;
+    }
   }
 
   // Lab markers (0-3 points)
@@ -356,6 +412,68 @@ function generateImmediateRecommendations(assessment: Partial<LimbSalvageAssessm
     });
   }
 
+  // ============================================================
+  // CHRONIC OSTEOMYELITIS - CRITICAL AMPUTATION CONSIDERATION
+  // ============================================================
+  const osteo = assessment.osteomyelitis;
+  if (osteo?.suspected) {
+    const isChronicOM = osteo.chronicity === 'chronic' || (osteo.durationInWeeks && osteo.durationInWeeks > 6);
+    const hasFailedTreatment = osteo.recurrent || (osteo.previousAntibiotic && osteo.previousDebridement);
+    const hasSequestrumFormation = osteo.sequestrum;
+    
+    if (isChronicOM) {
+      // Chronic osteomyelitis requires different management approach
+      recommendations.push({
+        category: 'immediate',
+        priority: 'critical',
+        recommendation: 'CHRONIC OSTEOMYELITIS: Strongly consider primary amputation',
+        rationale: `Chronic osteomyelitis (>6 weeks) has cure rates of only 60-80% even with combined surgical debridement and prolonged antibiotics. ${hasSequestrumFormation ? 'Presence of sequestrum indicates established chronic infection with dead bone that will not respond to antibiotics alone.' : ''} ${hasFailedTreatment ? 'Previous treatment failure significantly worsens prognosis.' : ''} Weigh quality of life, multiple surgery burden, and definitive cure with amputation vs prolonged limb salvage attempts.`,
+        timeframe: 'Immediate MDT discussion required',
+      });
+      
+      if (hasSequestrumFormation) {
+        recommendations.push({
+          category: 'immediate',
+          priority: 'critical',
+          recommendation: 'Sequestrum requires surgical removal or amputation',
+          rationale: 'Sequestrum (dead bone) acts as a foreign body and biofilm nidus - antibiotics cannot penetrate. Without removal, infection will persist indefinitely.',
+          timeframe: 'Within 48-72 hours',
+        });
+      }
+      
+      if (osteo.cloacae) {
+        recommendations.push({
+          category: 'immediate',
+          priority: 'high',
+          recommendation: 'Sinus tracts indicate chronic draining osteomyelitis',
+          rationale: 'Cloacae (drainage tracts through bone) are pathognomonic of chronic osteomyelitis and rarely heal without radical surgery or amputation.',
+          timeframe: 'Surgical planning required',
+        });
+      }
+    }
+    
+    if (hasFailedTreatment) {
+      recommendations.push({
+        category: 'immediate',
+        priority: 'critical',
+        recommendation: 'Treatment-resistant osteomyelitis: Amputation strongly indicated',
+        rationale: `${osteo.recurrent ? 'Recurrent osteomyelitis after treatment indicates antibiotic-resistant organisms or inadequate source control. ' : ''}${osteo.previousAntibiotic && osteo.previousDebridement ? 'Failure of combined antibiotic + surgical treatment carries very poor prognosis for limb salvage. ' : ''}Consider quality of life benefits of definitive amputation over prolonged treatment attempts.`,
+        timeframe: 'Urgent surgical decision required',
+      });
+    }
+    
+    // Multiple bone involvement
+    if (osteo.affectedBones && osteo.affectedBones.length >= 3) {
+      recommendations.push({
+        category: 'immediate',
+        priority: 'high',
+        recommendation: 'Extensive multi-bone osteomyelitis: Consider proximal amputation',
+        rationale: `Involvement of ${osteo.affectedBones.length} bones (${osteo.affectedBones.join(', ')}) indicates extensive infection. Multiple debridements rarely achieve cure and amputation level should be proximal to all infected bone.`,
+        timeframe: 'Surgical planning required',
+      });
+    }
+  }
+
   return recommendations;
 }
 
@@ -490,12 +608,54 @@ function generateLongTermRecommendations(assessment: Partial<LimbSalvageAssessme
 
 /**
  * Recommend appropriate amputation level based on assessment
+ * 
+ * IMPORTANT: Chronic osteomyelitis is a KEY factor in amputation decision.
+ * The presence of chronic osteomyelitis (>6 weeks), especially with:
+ * - Sequestrum formation
+ * - Previous treatment failure
+ * - Multiple bone involvement
+ * strongly favors definitive amputation over limb salvage attempts.
  */
 export function recommendAmputationLevel(assessment: Partial<LimbSalvageAssessment>): AmputationLevel {
   const score = assessment.limbSalvageScore;
   const doppler = assessment.dopplerFindings;
+  const osteo = assessment.osteomyelitis;
   
-  // Excellent/Good salvage probability - no amputation
+  // ============================================================
+  // CHRONIC OSTEOMYELITIS - May override other considerations
+  // ============================================================
+  const isChronicOM = osteo?.suspected && (
+    osteo.chronicity === 'chronic' || 
+    (osteo.durationInWeeks && osteo.durationInWeeks > 6)
+  );
+  const hasFailedTreatment = osteo?.recurrent || (osteo?.previousAntibiotic && osteo?.previousDebridement);
+  const hasSequestrumOrSevereChanges = osteo?.sequestrum || osteo?.involvedCortex === 'full_thickness';
+  
+  // Chronic OM with treatment failure or sequestrum = strong amputation indication
+  // This can override "good" salvage probability scores
+  if (isChronicOM && (hasFailedTreatment || hasSequestrumOrSevereChanges)) {
+    const abi = doppler?.arterial?.abi || 1;
+    const affectedBoneCount = osteo?.affectedBones?.length || 0;
+    
+    // Determine amputation level based on extent of bone involvement
+    if (affectedBoneCount >= 3 || abi < 0.5) {
+      // Extensive involvement or poor vascularity = more proximal amputation
+      return abi < 0.4 ? 'bka' : 'transmetatarsal';
+    }
+    
+    // Single/dual bone involvement - may still consider ray amputation
+    const woundLocation = assessment.woundLocation?.toLowerCase() || '';
+    const affectedBonesLower = osteo?.affectedBones?.map(b => b.toLowerCase()) || [];
+    
+    if (affectedBoneCount <= 2 && 
+        (woundLocation.includes('toe') || affectedBonesLower.some(b => b.includes('phalanx')))) {
+      return abi >= 0.6 ? 'ray_amputation' : 'transmetatarsal';
+    }
+    
+    return 'transmetatarsal';
+  }
+  
+  // Excellent/Good salvage probability - no amputation (unless chronic OM override above)
   if (score?.salvageProbability === 'excellent' || score?.salvageProbability === 'good') {
     return 'none';
   }

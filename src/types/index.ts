@@ -2730,6 +2730,20 @@ export interface OsteomyelitisAssessment {
   boneBiopsy?: 'negative' | 'positive' | 'not_done';
   affectedBones: string[];
   duration?: string; // How long suspected
+  
+  // Chronicity Assessment - CRITICAL for amputation decision
+  // Chronic osteomyelitis (>6 weeks) has significantly worse prognosis
+  // and is a strong indicator for considering limb ablation
+  chronicity?: 'acute' | 'subacute' | 'chronic';
+  durationInWeeks?: number; // Numeric duration for scoring
+  previousAntibiotic?: boolean; // Prior antibiotic treatment attempts
+  previousDebridement?: boolean; // Prior surgical debridement
+  recurrent?: boolean; // Has recurred after previous treatment
+  involvedCortex?: 'superficial' | 'deep' | 'full_thickness';
+  sequestrum?: boolean; // Dead bone within viable bone
+  involucrum?: boolean; // New bone formation around sequestrum
+  cloacae?: boolean; // Drainage tracts through bone
+  
   notes?: string;
 }
 
@@ -3645,7 +3659,9 @@ export interface AppointmentSlot {
 export interface ClinicSession {
   id: string;
   hospitalId: string;
-  clinicianId: string;
+  clinicianId?: string;                   // Deprecated - use clinicianIds instead
+  clinicianIds: string[];                 // Multiple doctors/surgeons can be assigned
+  assignedNurseId?: string;               // Single nurse assignment (required for notifications)
   
   sessionDate: Date;
   startTime: string;
@@ -3659,6 +3675,10 @@ export interface ClinicSession {
   
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   notes?: string;
+  
+  // Notification tracking
+  notificationsSent?: boolean;
+  notificationSentAt?: Date;
   
   createdAt: Date;
   updatedAt: Date;

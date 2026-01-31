@@ -18,7 +18,6 @@ import {
   calculatePayrollForPeriod,
   markPayrollAsPaid 
 } from '../../../services/activityBillingService';
-import { REVENUE_SHARE_CONFIG } from '../../../data/billingActivities';
 
 export default function PayrollDashboardPage() {
   const { user } = useAuth();

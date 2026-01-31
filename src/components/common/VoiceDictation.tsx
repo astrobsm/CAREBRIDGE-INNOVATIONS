@@ -4,6 +4,7 @@
  * 
  * Comprehensive speech-to-text component for medical dictation
  * with AI-powered text enhancement for proper medical expressions.
+ * Now includes OCR/Scan-to-Text for handwritten notes.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -28,6 +29,7 @@ import type {
   SpeechRecognitionErrorEvent 
 } from '../../types/webSpeech';
 import { isSpeechRecognitionSupported, getSpeechRecognitionConstructor } from '../../types/webSpeech';
+import ScanToText from './ScanToText';
 
 interface VoiceDictationProps {
   /** Current value of the text field */
@@ -50,6 +52,8 @@ interface VoiceDictationProps {
   disabled?: boolean;
   /** Whether to show the AI enhance button */
   showAIEnhance?: boolean;
+  /** Whether to show the OCR/Scan-to-Text button */
+  showScanToText?: boolean;
   /** Error message */
   error?: string;
   /** Required field */
@@ -69,6 +73,7 @@ export function VoiceDictation({
   medicalContext = 'general',
   disabled = false,
   showAIEnhance = true,
+  showScanToText = true,
   error,
   required = false,
   name,
@@ -126,11 +131,15 @@ export function VoiceDictation({
       setIsListening(false);
       // Append any remaining interim transcript using refs for current values
       const currentInterim = interimTranscriptRef.current;
-      if (currentInterim) {
+      if (currentInterim && currentInterim.trim()) {
         const currentValue = valueRef.current;
-        onChangeRef.current(currentValue + (currentValue ? ' ' : '') + currentInterim);
-        setInterimTranscript('');
+        const trimmedInterim = currentInterim.trim();
+        const needsSpace = currentValue && currentValue.length > 0 && !currentValue.endsWith(' ') && !currentValue.endsWith('\n');
+        const newValue = currentValue + (needsSpace ? ' ' : '') + trimmedInterim;
+        onChangeRef.current(newValue);
+        valueRef.current = newValue;
       }
+      setInterimTranscript('');
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -159,6 +168,7 @@ export function VoiceDictation({
       let finalTranscript = '';
       let interim = '';
 
+      // Process all results from the current result index
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
@@ -168,17 +178,33 @@ export function VoiceDictation({
         }
       }
 
+      // Always update interim transcript for visual feedback
+      setInterimTranscript(interim);
+
       if (finalTranscript) {
         // Use ref for current value to avoid stale closure
         const currentValue = valueRef.current;
-        // Add proper spacing and punctuation
-        const spacer = currentValue && !currentValue.endsWith(' ') && !currentValue.endsWith('.') && !currentValue.endsWith(',') ? ' ' : '';
-        const newValue = currentValue + spacer + finalTranscript;
+        
+        // Trim the final transcript and add proper spacing
+        const trimmedTranscript = finalTranscript.trim();
+        
+        // Determine if we need a space between existing text and new text
+        let newValue: string;
+        if (!currentValue || currentValue.length === 0) {
+          // First entry - just use the transcript
+          newValue = trimmedTranscript;
+        } else {
+          // Check if current value ends with space or punctuation
+          const lastChar = currentValue.charAt(currentValue.length - 1);
+          const needsSpace = lastChar !== ' ' && lastChar !== '\n';
+          newValue = currentValue + (needsSpace ? ' ' : '') + trimmedTranscript;
+        }
+        
+        // Update via callback
         onChangeRef.current(newValue);
         // Update ref immediately so next result has correct value
         valueRef.current = newValue;
       }
-      setInterimTranscript(interim);
     };
 
     recognitionRef.current = recognition;
@@ -374,6 +400,20 @@ export function VoiceDictation({
               )}
               <span className="text-sm">AI Enhance</span>
             </button>
+          )}
+
+          {showScanToText && (
+            <ScanToText
+              onTextRecognized={(text) => {
+                // Append scanned text to existing value
+                const newValue = value ? `${value}\n${text}` : text;
+                onChange(newValue);
+              }}
+              buttonLabel="Scan"
+              size="sm"
+              disabled={disabled}
+              medicalContext={true}
+            />
           )}
 
           <button

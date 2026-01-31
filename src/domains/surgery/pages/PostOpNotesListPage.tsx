@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../database/db';
-import type { Surgery, Patient, PostOperativeNote } from '../../../types';
+import { EntryTrackingBadge } from '../../../components/common';
+import type { EntryTrackingInfo } from '../../../components/common';
+import type { Surgery, Patient, PostOperativeNote, User as UserType } from '../../../types';
 
 interface SurgeryWithPatient extends Surgery {
   patient?: Patient;
@@ -27,13 +29,55 @@ export default function PostOpNotesListPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [surgeries, setSurgeries] = useState<SurgeryWithPatient[]>([]);
+  const [users, setUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'with-notes' | 'pending'>('all');
 
   useEffect(() => {
     loadSurgeries();
+    loadUsers();
   }, []);
+
+  async function loadUsers() {
+    try {
+      const allUsers = await db.users.toArray();
+      setUsers(allUsers);
+    } catch (error) {
+      console.error('Error loading users:', error);
+    }
+  }
+
+  // Create a map for quick user lookup
+  const usersMap = useMemo(() => {
+    const map = new Map<string, UserType>();
+    users.forEach(u => map.set(u.id!, u));
+    return map;
+  }, [users]);
+
+  // Helper to get entry tracking info for a post-op note
+  const getPostOpNoteTracking = (note: PostOperativeNote): EntryTrackingInfo | undefined => {
+    // Use surgeon info from the note
+    const surgeonUser = usersMap.get(note.surgeonId);
+    if (surgeonUser) {
+      return {
+        userId: surgeonUser.id!,
+        userName: `${surgeonUser.firstName} ${surgeonUser.lastName}`,
+        userRole: surgeonUser.role,
+        timestamp: note.createdAt,
+      };
+    }
+    // Fallback to note.surgeon name if user not found
+    if (note.surgeon) {
+      return {
+        userId: note.surgeonId,
+        userName: note.surgeon,
+        userRole: 'surgeon',
+        timestamp: note.createdAt,
+      };
+    }
+    return undefined;
+  };
 
   async function loadSurgeries() {
     try {
@@ -295,21 +339,30 @@ export default function PostOpNotesListPage() {
                   </div>
                 </div>
                 {surgery.postOpNote && (
-                  <div className="mt-3 ml-12 flex items-center gap-4 text-xs text-gray-500">
-                    <span>
-                      {surgery.postOpNote.specimens?.length || 0} specimen(s)
-                    </span>
-                    <span>•</span>
-                    <span>
-                      {surgery.postOpNote.patientEducation ? 'Education provided' : 'No education'}
-                    </span>
-                    {surgery.postOpNote.educationDeliveredAt && (
-                      <>
-                        <span>•</span>
-                        <span className="text-green-600">
-                          Education delivered {format(new Date(surgery.postOpNote.educationDeliveredAt), 'dd MMM')}
-                        </span>
-                      </>
+                  <div className="mt-3 ml-12">
+                    <div className="flex items-center gap-4 text-xs text-gray-500 mb-2">
+                      <span>
+                        {surgery.postOpNote.specimens?.length || 0} specimen(s)
+                      </span>
+                      <span>•</span>
+                      <span>
+                        {surgery.postOpNote.patientEducation ? 'Education provided' : 'No education'}
+                      </span>
+                      {surgery.postOpNote.educationDeliveredAt && (
+                        <>
+                          <span>•</span>
+                          <span className="text-green-600">
+                            Education delivered {format(new Date(surgery.postOpNote.educationDeliveredAt), 'dd MMM')}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {/* Entry Tracking Badge */}
+                    {getPostOpNoteTracking(surgery.postOpNote) && (
+                      <EntryTrackingBadge 
+                        tracking={getPostOpNoteTracking(surgery.postOpNote)!} 
+                        mode="compact"
+                      />
                     )}
                   </div>
                 )}

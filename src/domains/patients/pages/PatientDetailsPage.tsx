@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion } from 'framer-motion';
@@ -22,6 +23,9 @@ import { db } from '../../../database';
 import { format, differenceInYears } from 'date-fns';
 import AdmissionDurationClock, { AdmissionDurationBadge } from '../../admissions/components/AdmissionDurationClock';
 import { generateEncounterPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
+import { EntryTrackingBadge } from '../../../components/common';
+import type { EntryTrackingInfo } from '../../../components/common';
+import type { User as UserType, VitalSigns, ClinicalEncounter } from '../../../types';
 
 export default function PatientDetailsPage() {
   const { patientId } = useParams<{ patientId: string }>();
@@ -58,6 +62,46 @@ export default function PatientDetailsPage() {
       : undefined,
     [patientId]
   );
+
+  // Fetch users for entry tracking display
+  const users = useLiveQuery(() => db.users.toArray(), []);
+  
+  // Create a map for quick user lookup
+  const usersMap = useMemo(() => {
+    const map = new Map<string, UserType>();
+    if (users) {
+      users.forEach(u => map.set(u.id!, u));
+    }
+    return map;
+  }, [users]);
+
+  // Helper to get entry tracking info for a vital sign
+  const getVitalTracking = (vital: VitalSigns): EntryTrackingInfo | undefined => {
+    const recordedByUser = usersMap.get(vital.recordedBy);
+    if (recordedByUser) {
+      return {
+        userId: recordedByUser.id!,
+        userName: `${recordedByUser.firstName} ${recordedByUser.lastName}`,
+        userRole: recordedByUser.role,
+        timestamp: vital.recordedAt,
+      };
+    }
+    return undefined;
+  };
+
+  // Helper to get entry tracking info for an encounter
+  const getEncounterTracking = (encounter: ClinicalEncounter): EntryTrackingInfo | undefined => {
+    const clinicianUser = usersMap.get(encounter.attendingClinician);
+    if (clinicianUser) {
+      return {
+        userId: clinicianUser.id!,
+        userName: `${clinicianUser.firstName} ${clinicianUser.lastName}`,
+        userRole: clinicianUser.role,
+        timestamp: encounter.createdAt,
+      };
+    }
+    return undefined;
+  };
 
   if (!patient) {
     return (
@@ -241,7 +285,7 @@ export default function PatientDetailsPage() {
               </Link>
               {activeAdmission.treatmentPlanId && (
                 <Link
-                  to={`/treatment-plans/${activeAdmission.treatmentPlanId}`}
+                  to={`/treatment-plans/new?patientId=${patientId}`}
                   className="btn btn-primary text-sm"
                 >
                   View Treatment Plan
@@ -322,6 +366,7 @@ export default function PatientDetailsPage() {
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">BP</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Pulse</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">SpO2</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Recorded By</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -336,6 +381,17 @@ export default function PatientDetailsPage() {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">{vital.pulse} bpm</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{vital.oxygenSaturation}%</td>
+                        <td className="px-4 py-3 text-sm">
+                          {getVitalTracking(vital) ? (
+                            <EntryTrackingBadge 
+                              tracking={getVitalTracking(vital)!} 
+                              mode="compact" 
+                              showTimestamp={false}
+                            />
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -377,9 +433,19 @@ export default function PatientDetailsPage() {
                         <p className="text-sm text-gray-600 mt-1">
                           {encounter.chiefComplaint}
                         </p>
-                        <p className="text-xs text-gray-500 mt-2">
+                        <p className="text-xs text-gray-500 mt-1">
                           {format(new Date(encounter.createdAt), 'MMM d, yyyy h:mm a')}
                         </p>
+                        {/* Entry Tracking Badge */}
+                        {getEncounterTracking(encounter) && (
+                          <div className="mt-2">
+                            <EntryTrackingBadge 
+                              tracking={getEncounterTracking(encounter)!} 
+                              mode="compact"
+                              showTimestamp={false}
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <button

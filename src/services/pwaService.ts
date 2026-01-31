@@ -51,8 +51,13 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       });
 
       // Handle controller change (after update)
+      // Only reload in production to avoid dev server reload loops
+      let reloadScheduled = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
+        if (!reloadScheduled && process.env.NODE_ENV === 'production') {
+          reloadScheduled = true;
+          window.location.reload();
+        }
       });
 
       // Register for background sync

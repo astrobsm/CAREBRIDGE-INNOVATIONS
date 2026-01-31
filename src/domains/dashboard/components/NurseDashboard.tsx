@@ -12,11 +12,19 @@ import {
   ChevronRight,
   CheckCircle,
   Bell,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { 
+  shouldShowEarningsInDashboard, 
+  getStaffTotalEarnings,
+  isEligibleForEarnings 
+} from '../../../services/staffEarningsService';
+import { formatCurrency } from '../../../services/activityBillingService';
 
 
 export default function NurseDashboard() {
@@ -127,6 +135,14 @@ export default function NurseDashboard() {
       .filter(t => patientIds.includes(t.patientId) && t.status === 'in_progress')
       .toArray();
   }, [myPatientAssignments]);
+
+  // My earnings this month (only for eligible roles)
+  const showEarnings = user?.role ? shouldShowEarningsInDashboard(user.role) : false;
+  const myEarnings = useLiveQuery(async () => {
+    if (!user?.id || !user?.role || !isEligibleForEarnings(user.role)) return null;
+    const now = new Date();
+    return getStaffTotalEarnings(user.id, startOfMonth(now), endOfMonth(now));
+  }, [user?.id, user?.role]);
 
   const dashboardStats = [
     {
@@ -304,7 +320,7 @@ export default function NurseDashboard() {
               activeTransfusions.map((transfusion) => (
                 <Link
                   key={transfusion.id}
-                  to={`/blood-transfusion/${transfusion.id}`}
+                  to="/blood-transfusion"
                   className="block px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center justify-between">
@@ -330,6 +346,55 @@ export default function NurseDashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* My Earnings This Month - Only show for eligible roles */}
+      {showEarnings && myEarnings && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.65 }}
+          className="bg-gradient-to-r from-pink-500 to-rose-600 rounded-xl shadow-lg p-6 text-white"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign size={24} />
+                <h2 className="font-semibold text-lg">My Earnings This Month</h2>
+              </div>
+              <p className="text-3xl font-bold">{formatCurrency(myEarnings.totalEarnings)}</p>
+              <p className="text-pink-100 text-sm mt-1">
+                {myEarnings.totalActivities} activities completed
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="flex items-center gap-1 text-pink-100">
+                <TrendingUp size={16} />
+                <span className="text-sm">This period</span>
+              </div>
+              <Link 
+                to="/billing/payroll" 
+                className="inline-block mt-2 text-sm bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors"
+              >
+                View Details
+              </Link>
+            </div>
+          </div>
+          {/* Earnings breakdown */}
+          {Object.keys(myEarnings.byCategory).length > 0 && (
+            <div className="mt-4 pt-4 border-t border-white/20">
+              <p className="text-xs text-pink-100 mb-2">Breakdown by Activity</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {Object.entries(myEarnings.byCategory).slice(0, 3).map(([category, amount]) => (
+                  <div key={category} className="bg-white/10 rounded-lg p-2">
+                    <p className="text-xs text-pink-100 capitalize">{category.replace(/_/g, ' ')}</p>
+                    <p className="font-semibold">{formatCurrency(amount)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
 
       {/* Quick Actions */}
       <motion.div

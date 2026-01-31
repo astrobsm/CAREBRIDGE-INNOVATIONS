@@ -12,21 +12,8 @@ import {
   Calendar,
   Clock,
   CheckCircle,
-  AlertTriangle,
   Eye,
-  Plus,
-  Filter,
-  Download,
-  Printer,
-  Activity,
-  Pill,
-  Stethoscope,
-  ClipboardList,
-  Phone,
-  MapPin,
   Building2,
-  ArrowRight,
-  ChevronDown,
   RefreshCw,
   BookOpen,
   ClipboardCheck,
@@ -37,7 +24,7 @@ import { format, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
-import type { Admission, DischargeSummary } from '../../../types';
+import type { Admission, DischargeSummary, User as UserType } from '../../../types';
 import DischargeFormModal from '../components/DischargeFormModal';
 import DischargeSummaryView from '../components/DischargeSummaryView';
 import FollowUpTracker from '../components/FollowUpTracker';
@@ -46,7 +33,11 @@ import AMADischargeForm from '../components/AMADischargeForm';
 import PatientEducationSheet from '../components/PatientEducationSheet';
 import DischargeReadinessAssessment from '../components/DischargeReadinessAssessment';
 import { usePatientMap } from '../../../services/patientHooks';
+import { EntryTrackingBadge } from '../../../components/common';
+import type { EntryTrackingInfo } from '../../../components/common';
 
+// Status and color mappings for future use
+/* eslint-disable @typescript-eslint/no-unused-vars */
 const statusColors = {
   draft: 'bg-yellow-100 text-yellow-700',
   completed: 'bg-green-100 text-green-700',
@@ -68,13 +59,15 @@ const dispositionLabels = {
   'against-advice': 'Against Medical Advice',
   deceased: 'Deceased',
 };
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 interface DischargePageProps {
   embedded?: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function DischargePage({ embedded = false }: DischargePageProps) {
-  const { user } = useAuth();
+  useAuth(); // Auth context needed for re-render on auth changes
   const [showDischargeForm, setShowDischargeForm] = useState(false);
   const [showSummaryView, setShowSummaryView] = useState(false);
   const [showFollowUpTracker, setShowFollowUpTracker] = useState(false);
@@ -106,10 +99,39 @@ export default function DischargePage({ embedded = false }: DischargePageProps) 
   const patientMap = usePatientMap();
 
   const userMap = useMemo(() => {
-    const map = new Map();
-    users?.forEach(u => map.set(u.id, u));
+    const map = new Map<string, UserType>();
+    users?.forEach(u => map.set(u.id!, u));
     return map;
   }, [users]);
+
+  // Helper to get entry tracking info for an admission (admitted by or discharged by)
+  const getAdmissionTracking = (admission: Admission): EntryTrackingInfo | undefined => {
+    const admittedByUser = userMap.get(admission.admittedBy);
+    if (admittedByUser) {
+      return {
+        userId: admittedByUser.id!,
+        userName: `${admittedByUser.firstName} ${admittedByUser.lastName}`,
+        userRole: admittedByUser.role,
+        timestamp: admission.admissionDate,
+      };
+    }
+    return undefined;
+  };
+
+  // Helper for discharge tracking
+  const getDischargeTracking = (admission: Admission): EntryTrackingInfo | undefined => {
+    if (!admission.dischargedBy || !admission.dischargeDate) return undefined;
+    const dischargedByUser = userMap.get(admission.dischargedBy);
+    if (dischargedByUser) {
+      return {
+        userId: dischargedByUser.id!,
+        userName: `${dischargedByUser.firstName} ${dischargedByUser.lastName}`,
+        userRole: dischargedByUser.role,
+        timestamp: admission.dischargeDate,
+      };
+    }
+    return undefined;
+  };
 
   const summaryMap = useMemo(() => {
     const map = new Map();
@@ -337,6 +359,8 @@ export default function DischargePage({ embedded = false }: DischargePageProps) 
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'all' | 'pending' | 'completed')}
             className="input w-full sm:w-44"
+            title="Filter by status"
+            aria-label="Filter by status"
           >
             <option value="all">All Status</option>
             <option value="pending">Pending Discharge</option>
@@ -346,6 +370,8 @@ export default function DischargePage({ embedded = false }: DischargePageProps) 
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value as 'all' | 'today' | 'week' | 'month')}
             className="input w-full sm:w-40"
+            title="Filter by date"
+            aria-label="Filter by date"
           >
             <option value="all">All Time</option>
             <option value="today">Today</option>
@@ -371,7 +397,6 @@ export default function DischargePage({ embedded = false }: DischargePageProps) 
           <div className="grid gap-4">
             {filteredAdmissions.map((admission) => {
               const patient = patientMap.get(admission.patientId);
-              const doctor = userMap.get(admission.primaryDoctor);
               const isActive = admission.status === 'active';
               const losDays = getLOSDays(admission);
 
@@ -409,6 +434,23 @@ export default function DischargePage({ embedded = false }: DischargePageProps) 
                           <p className="text-sm text-gray-600 mt-1 truncate">
                             <span className="font-medium">Dx:</span> {admission.admissionDiagnosis}
                           </p>
+                          {/* Entry Tracking Badges */}
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {getAdmissionTracking(admission) && (
+                              <EntryTrackingBadge 
+                                tracking={getAdmissionTracking(admission)!} 
+                                mode="compact"
+                                showTimestamp={false}
+                              />
+                            )}
+                            {!isActive && getDischargeTracking(admission) && (
+                              <EntryTrackingBadge 
+                                tracking={getDischargeTracking(admission)!} 
+                                mode="compact"
+                                showTimestamp={false}
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
@@ -36,9 +36,12 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord, fullSync } from '../../../services/cloudSyncService';
-import { recordVitalSignsEarning, createEntryTracking } from '../../../services/staffEarningsService';
-import type { VitalSigns } from '../../../types';
+import { recordVitalSignsEarning } from '../../../services/staffEarningsService';
+import { EntryTrackingBadge } from '../../../components/common';
+import type { EntryTrackingInfo } from '../../../components/common';
+import type { VitalSigns, User } from '../../../types';
 import { format } from 'date-fns';
+import { convertGlucose, type GlucoseUnit } from '../../../services/bloodGlucoseService';
 
 const vitalsSchema = z.object({
   temperature: z.number().min(30).max(45),
@@ -63,6 +66,7 @@ export default function VitalsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCharts, setShowCharts] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [bloodGlucoseUnit, setBloodGlucoseUnit] = useState<GlucoseUnit>('mmol/L');
 
   const patient = useLiveQuery(
     () => patientId ? db.patients.get(patientId) : undefined,
@@ -81,6 +85,32 @@ export default function VitalsPage() {
     },
     [patientId]
   );
+
+  // Fetch users for entry tracking display
+  const users = useLiveQuery(() => db.users.toArray(), []);
+  
+  // Create a map for quick user lookup
+  const usersMap = useMemo(() => {
+    const map = new Map<string, User>();
+    if (users) {
+      users.forEach(u => map.set(u.id!, u));
+    }
+    return map;
+  }, [users]);
+
+  // Helper to get entry tracking info for a vital sign
+  const getEntryTracking = (vital: VitalSigns): EntryTrackingInfo | undefined => {
+    const recordedByUser = usersMap.get(vital.recordedBy);
+    if (recordedByUser) {
+      return {
+        userId: recordedByUser.id!,
+        userName: `${recordedByUser.firstName} ${recordedByUser.lastName}`,
+        userRole: recordedByUser.role,
+        timestamp: vital.recordedAt,
+      };
+    }
+    return undefined;
+  };
 
   // Trigger sync on mount and periodically to ensure cross-device consistency
   useEffect(() => {
@@ -202,14 +232,6 @@ export default function VitalsPage() {
       const bmi = calculateBMI();
       const vitalsId = uuidv4();
 
-      // Create entry tracking with user details, location, and time
-      const tracking = await createEntryTracking(
-        user.id!,
-        `${user.firstName} ${user.lastName}`,
-        user.role,
-        true // Include location
-      );
-
       const vitals: VitalSigns = {
         id: vitalsId,
         patientId,
@@ -223,25 +245,22 @@ export default function VitalsPage() {
         height: data.height,
         bmi,
         painScore: data.painScore,
-        bloodGlucose: data.bloodGlucose,
+        // Store blood glucose in mmol/L (convert if entered in mg/dL)
+        bloodGlucose: data.bloodGlucose 
+          ? (bloodGlucoseUnit === 'mg/dL' 
+              ? convertGlucose(data.bloodGlucose, 'mg/dL', 'mmol/L') 
+              : data.bloodGlucose)
+          : undefined,
         notes: data.notes,
         recordedBy: user.id,
         recordedAt: new Date(),
-        // Add tracking info
-        entryTracking: {
-          userId: tracking.userId,
-          userName: tracking.userName,
-          userRole: tracking.userRole,
-          timestamp: tracking.timestamp,
-          location: tracking.location,
-          deviceInfo: tracking.deviceInfo,
-        },
       };
 
       await db.vitalSigns.add(vitals);
       await syncRecord('vitalSigns', vitals as unknown as Record<string, unknown>);
 
       // Record staff earnings for vital signs entry (₦500)
+      // Tracking info (user, time, location) is stored in the billing record
       try {
         await recordVitalSignsEarning(
           vitalsId,
@@ -715,13 +734,28 @@ export default function VitalsPage() {
                 </div>
 
                 <div>
-                  <label className="label">Blood Glucose (mmol/L)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    {...register('bloodGlucose', { valueAsNumber: true })}
-                    className="input"
-                  />
+                  <label className="label">Blood Glucose</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      step={bloodGlucoseUnit === 'mmol/L' ? '0.1' : '1'}
+                      {...register('bloodGlucose', { valueAsNumber: true })}
+                      className="input flex-1"
+                      placeholder={bloodGlucoseUnit === 'mmol/L' ? '4.0 - 7.0' : '72 - 126'}
+                    />
+                    <select
+                      value={bloodGlucoseUnit}
+                      onChange={(e) => setBloodGlucoseUnit(e.target.value as GlucoseUnit)}
+                      className="input w-28"
+                      title="Blood glucose unit"
+                    >
+                      <option value="mmol/L">mmol/L</option>
+                      <option value="mg/dL">mg/dL</option>
+                    </select>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Normal fasting: {bloodGlucoseUnit === 'mmol/L' ? '4.0 - 5.4 mmol/L' : '72 - 99 mg/dL'}
+                  </p>
                 </div>
 
                 <div className="sm:col-span-2">
@@ -781,9 +815,18 @@ export default function VitalsPage() {
               {previousVitals && previousVitals.length > 0 ? (
                 previousVitals.map((vital) => (
                   <div key={vital.id} className="p-4">
-                    <p className="text-xs text-gray-500 mb-2">
+                    <p className="text-xs text-gray-500 mb-1">
                       {format(new Date(vital.recordedAt), 'MMM d, yyyy h:mm a')}
                     </p>
+                    {/* Entry Tracking Badge */}
+                    {getEntryTracking(vital) && (
+                      <div className="mb-2">
+                        <EntryTrackingBadge 
+                          tracking={getEntryTracking(vital)!} 
+                          mode="compact" 
+                        />
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-500">Temp:</span>

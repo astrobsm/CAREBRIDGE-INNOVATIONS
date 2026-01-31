@@ -617,7 +617,445 @@ export const downloadCategorySummaryPDF = (
   doc.save(fileName);
 };
 
+/**
+ * Generate a complete Patient Education PDF for a Procedure
+ * (Used for surgical procedure education from patientEducation.ts)
+ */
+export const downloadProcedureEducationPDF = (
+  education: {
+    procedureId: string;
+    procedureName: string;
+    category: string;
+    overview: string;
+    aims: string[];
+    indications: string[];
+    anesthesiaTypes?: string[];
+    preferredAnesthesia: string;
+    anesthesiaDescription?: string;
+    expectedOutcomes: string[];
+    generalComplications: Array<{ name: string; likelihood?: string; percentage?: string; description: string }>;
+    specificComplications: Array<{ name: string; likelihood?: string; percentage?: string; description: string }>;
+    lifestyleChanges: Array<{ 
+      category: string; 
+      recommendation: string; 
+      importance: string;
+      duration?: string;
+    }>;
+    patientResponsibilities: Array<{
+      phase: string;
+      importance: string;
+      responsibility: string;
+    }>;
+    followUpSchedule: string[];
+    warningSignsToReport?: string[];
+    alternativeTreatments?: string[];
+    riskOfNotTreating?: string;
+    hospitalStay: string;
+    healingTime: string;
+    successRate: string;
+  },
+  patientName?: string,
+  hospitalName?: string
+): void => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
+  const margin = 15;
+  const contentWidth = pageWidth - (margin * 2);
+  let y = 10;
+
+  // === PAGE 1: COVER AND OVERVIEW ===
+  
+  const headerInfo: PDFDocumentInfo = {
+    title: 'Patient Education - Surgical Procedure',
+    hospitalName: hospitalName || 'AstroHEALTH Healthcare'
+  };
+  y = addBrandedHeader(doc, headerInfo);
+  y += 5;
+
+  // Title box
+  doc.setFillColor(240, 249, 255);
+  doc.roundedRect(margin, y, contentWidth, 35, 3, 3, 'F');
+  doc.setDrawColor(59, 130, 246);
+  doc.roundedRect(margin, y, contentWidth, 35, 3, 3, 'S');
+  
+  y += 8;
+  doc.setTextColor(30, 64, 175);
+  doc.setFontSize(16);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text(education.procedureName, pageWidth / 2, y, { align: 'center' });
+  
+  y += 8;
+  doc.setFontSize(11);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setTextColor(59, 130, 246);
+  doc.text(education.category, pageWidth / 2, y, { align: 'center' });
+  
+  if (patientName) {
+    y += 7;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Prepared for: ${patientName}`, pageWidth / 2, y, { align: 'center' });
+  }
+  
+  y += 20;
+
+  // Quick Stats Box
+  doc.setFillColor(249, 250, 251);
+  doc.roundedRect(margin, y, contentWidth, 22, 2, 2, 'F');
+  
+  const statsY = y + 8;
+  const colWidth = contentWidth / 4;
+  
+  doc.setFontSize(8);
+  doc.setTextColor(107, 114, 128);
+  doc.text('Healing Time', margin + colWidth * 0.5, statsY, { align: 'center' });
+  doc.text('Hospital Stay', margin + colWidth * 1.5, statsY, { align: 'center' });
+  doc.text('Success Rate', margin + colWidth * 2.5, statsY, { align: 'center' });
+  doc.text('Anesthesia', margin + colWidth * 3.5, statsY, { align: 'center' });
+  
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(31, 41, 55);
+  doc.text(education.healingTime || 'Varies', margin + colWidth * 0.5, statsY + 8, { align: 'center' });
+  doc.text(education.hospitalStay || 'Varies', margin + colWidth * 1.5, statsY + 8, { align: 'center' });
+  doc.text(education.successRate || 'High', margin + colWidth * 2.5, statsY + 8, { align: 'center' });
+  doc.text(education.preferredAnesthesia || 'TBD', margin + colWidth * 3.5, statsY + 8, { align: 'center' });
+  
+  y += 30;
+
+  // Overview
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(55, 65, 81);
+  y = addWrappedText(doc, education.overview, margin, y, contentWidth, 5);
+  y += 8;
+
+  // Aims of Surgery
+  y = checkPageBreak(doc, y, 40);
+  y = addSectionHeader(doc, 'Aims of Surgery', y);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  education.aims.forEach(aim => {
+    y = checkPageBreak(doc, y, 8);
+    y = addBulletPoint(doc, aim, margin, y, contentWidth);
+    y += 2;
+  });
+  y += 5;
+
+  // Indications
+  y = checkPageBreak(doc, y, 40);
+  y = addSectionHeader(doc, 'When This Surgery is Recommended', y);
+  education.indications.forEach(indication => {
+    y = checkPageBreak(doc, y, 8);
+    y = addBulletPoint(doc, indication, margin, y, contentWidth);
+    y += 2;
+  });
+  y += 5;
+
+  // Anesthesia Information
+  y = checkPageBreak(doc, y, 40);
+  y = addSectionHeader(doc, 'Anesthesia Information', y);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(9);
+  if (education.anesthesiaDescription) {
+    y = addWrappedText(doc, education.anesthesiaDescription, margin, y, contentWidth, 4);
+    y += 3;
+  }
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Preferred: ', margin, y);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(education.preferredAnesthesia || 'To be determined', margin + 22, y);
+  if (education.anesthesiaTypes && education.anesthesiaTypes.length > 0) {
+    y += 5;
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Options: ', margin, y);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.text(education.anesthesiaTypes.join(', '), margin + 20, y);
+  }
+  y += 8;
+
+  // Expected Outcomes
+  y = checkPageBreak(doc, y, 40);
+  y = addSectionHeader(doc, 'Expected Outcomes', y);
+  education.expectedOutcomes.forEach(outcome => {
+    y = checkPageBreak(doc, y, 8);
+    y = addBulletPoint(doc, outcome, margin, y, contentWidth);
+    y += 2;
+  });
+  y += 5;
+
+  // === PAGE 2: COMPLICATIONS ===
+  doc.addPage();
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  y = 20;
+
+  y = addSectionHeader(doc, 'Possible Complications', y);
+  
+  doc.setFillColor(254, 243, 199);
+  doc.roundedRect(margin, y, contentWidth, 12, 2, 2, 'F');
+  doc.setFontSize(8);
+  doc.setTextColor(146, 64, 14);
+  doc.text('All surgeries carry some risk. Your surgeon takes every precaution to minimize these risks.', margin + 3, y + 7);
+  y += 18;
+
+  // General Complications
+  y = addSubsectionHeader(doc, 'General Surgical Risks', y);
+  education.generalComplications.forEach(comp => {
+    y = checkPageBreak(doc, y, 15);
+    doc.setFillColor(249, 250, 251);
+    doc.roundedRect(margin, y - 3, contentWidth, 14, 2, 2, 'F');
+    
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text(comp.name, margin + 3, y + 2);
+    
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(239, 68, 68);
+    doc.text(comp.percentage || comp.likelihood || '', margin + contentWidth - 25, y + 2);
+    
+    doc.setTextColor(107, 114, 128);
+    doc.setFontSize(7);
+    const descLines = doc.splitTextToSize(comp.description, contentWidth - 10);
+    doc.text(descLines[0] || '', margin + 3, y + 8);
+    
+    y += 18;
+  });
+  y += 3;
+
+  // Specific Complications
+  y = checkPageBreak(doc, y, 30);
+  y = addSubsectionHeader(doc, 'Procedure-Specific Risks', y);
+  education.specificComplications.forEach(comp => {
+    y = checkPageBreak(doc, y, 15);
+    doc.setFillColor(254, 242, 242);
+    doc.roundedRect(margin, y - 3, contentWidth, 14, 2, 2, 'F');
+    
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text(comp.name, margin + 3, y + 2);
+    
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(239, 68, 68);
+    doc.text(comp.percentage || comp.likelihood || '', margin + contentWidth - 40, y + 2);
+    
+    doc.setTextColor(107, 114, 128);
+    doc.setFontSize(7);
+    const descLines = doc.splitTextToSize(comp.description, contentWidth - 10);
+    doc.text(descLines[0] || '', margin + 3, y + 8);
+    
+    y += 18;
+  });
+
+  // === PAGE 3: LIFESTYLE AND RESPONSIBILITIES ===
+  doc.addPage();
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  y = 20;
+
+  y = addSectionHeader(doc, 'Recovery & Lifestyle Changes', y);
+  education.lifestyleChanges.forEach(change => {
+    y = checkPageBreak(doc, y, 20);
+    
+    const importance = change.importance?.toLowerCase() || 'recommended';
+    if (importance === 'essential' || importance === 'critical') {
+      doc.setFillColor(254, 226, 226);
+    } else {
+      doc.setFillColor(240, 253, 244);
+    }
+    doc.roundedRect(margin, y - 3, contentWidth, 18, 2, 2, 'F');
+    
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text(change.category, margin + 3, y + 2);
+    
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(8);
+    if (importance === 'essential' || importance === 'critical') {
+      doc.setTextColor(185, 28, 28);
+    } else {
+      doc.setTextColor(22, 101, 52);
+    }
+    doc.text(change.importance?.toUpperCase() || 'RECOMMENDED', margin + contentWidth - 30, y + 2);
+    
+    doc.setTextColor(55, 65, 81);
+    doc.setFontSize(7);
+    const descLines = doc.splitTextToSize(change.recommendation, contentWidth - 10);
+    doc.text(descLines[0] || '', margin + 3, y + 8);
+    if (change.duration) {
+      doc.text(`Duration: ${change.duration}`, margin + 3, y + 13);
+    }
+    
+    y += 22;
+  });
+  y += 5;
+
+  // Patient Responsibilities - Group by phase
+  y = checkPageBreak(doc, y, 60);
+  y = addSectionHeader(doc, 'Your Responsibilities', y);
+  
+  // Group responsibilities by phase
+  const phaseColors: Record<string, number[]> = {
+    'before surgery': [219, 234, 254],
+    'before_surgery': [219, 234, 254],
+    'pre_operative': [219, 234, 254],
+    'immediately after surgery': [254, 243, 199],
+    'immediate_post_op': [254, 243, 199],
+    'during recovery': [220, 252, 231],
+    'during_recovery': [220, 252, 231],
+    'recovery': [220, 252, 231],
+    'long-term care': [243, 232, 255],
+    'long_term': [243, 232, 255],
+  };
+  
+  // Group by phase
+  const groupedResp: Record<string, Array<{importance: string; responsibility: string}>> = {};
+  education.patientResponsibilities.forEach(resp => {
+    const phase = resp.phase?.toLowerCase() || 'general';
+    if (!groupedResp[phase]) groupedResp[phase] = [];
+    groupedResp[phase].push({ importance: resp.importance, responsibility: resp.responsibility });
+  });
+  
+  Object.entries(groupedResp).forEach(([phase, items]) => {
+    if (items && items.length > 0) {
+      y = checkPageBreak(doc, y, 25);
+      const color = phaseColors[phase] || [229, 231, 235];
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.roundedRect(margin, y - 2, contentWidth, 8, 1, 1, 'F');
+      doc.setFontSize(8);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.setTextColor(0, 0, 0);
+      // Capitalize phase name
+      const phaseName = phase.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      doc.text(phaseName, margin + 3, y + 3);
+      y += 10;
+      
+      items.forEach(item => {
+        y = checkPageBreak(doc, y, 6);
+        const taskText = item.importance ? `[${item.importance.toUpperCase()}] ${item.responsibility}` : item.responsibility;
+        y = addBulletPoint(doc, taskText, margin + 5, y, contentWidth - 10);
+        y += 1;
+      });
+      y += 5;
+    }
+  });
+
+  // === PAGE 4: FOLLOW-UP AND WARNINGS ===
+  doc.addPage();
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  y = 20;
+
+  // Follow-up Schedule
+  y = addSectionHeader(doc, 'Follow-up Schedule', y);
+  education.followUpSchedule.forEach((visit, index) => {
+    y = checkPageBreak(doc, y, 10);
+    doc.setFillColor(239, 246, 255);
+    doc.circle(margin + 5, y, 3, 'F');
+    doc.setFontSize(8);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setTextColor(59, 130, 246);
+    doc.text(String(index + 1), margin + 4, y + 1);
+    
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text(visit, margin + 12, y + 1);
+    y += 8;
+  });
+  y += 8;
+
+  // Warning Signs
+  const warningSigns = education.warningSignsToReport || [];
+  if (warningSigns.length > 0) {
+    y = checkPageBreak(doc, y, 50);
+    doc.setFillColor(254, 226, 226);
+    doc.roundedRect(margin, y, contentWidth, 8, 2, 2, 'F');
+    doc.setFontSize(10);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setTextColor(185, 28, 28);
+    doc.text('WARNING SIGNS - Seek Medical Help Immediately', margin + 3, y + 5);
+    y += 12;
+    
+    warningSigns.forEach(sign => {
+      y = checkPageBreak(doc, y, 8);
+      doc.setFontSize(9);
+      doc.setTextColor(185, 28, 28);
+      doc.text('•', margin + 3, y);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.text(sign, margin + 8, y);
+      y += 6;
+    });
+    y += 8;
+  }
+
+  // Alternative Treatments
+  const altTreatments = education.alternativeTreatments || [];
+  if (altTreatments.length > 0) {
+    y = checkPageBreak(doc, y, 40);
+    y = addSectionHeader(doc, 'Alternative Treatment Options', y);
+    altTreatments.forEach(alt => {
+      y = checkPageBreak(doc, y, 6);
+      y = addBulletPoint(doc, alt, margin, y, contentWidth);
+      y += 2;
+    });
+    y += 5;
+  }
+
+  // Risk of Not Treating
+  if (education.riskOfNotTreating) {
+    y = checkPageBreak(doc, y, 30);
+    doc.setFillColor(254, 243, 199);
+    doc.roundedRect(margin, y, contentWidth, 20, 2, 2, 'F');
+    doc.setDrawColor(217, 119, 6);
+    doc.roundedRect(margin, y, contentWidth, 20, 2, 2, 'S');
+    
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setTextColor(146, 64, 14);
+    doc.text('Risk of Not Having Surgery:', margin + 3, y + 6);
+    
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    const riskLines = doc.splitTextToSize(education.riskOfNotTreating, contentWidth - 8);
+    doc.text(riskLines.slice(0, 2), margin + 3, y + 12);
+  }
+
+  // Footer
+  doc.setFontSize(7);
+  doc.setTextColor(107, 114, 128);
+  doc.text(
+    `This document is for patient education purposes. Discuss all treatment options with your surgeon.`,
+    pageWidth / 2,
+    280,
+    { align: 'center' }
+  );
+  doc.text(
+    `Generated by AstroHEALTH Healthcare System - ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
+    pageWidth / 2,
+    285,
+    { align: 'center' }
+  );
+
+  const fileName = `Patient_Education_${education.procedureName.replace(/[^a-zA-Z0-9]/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+  doc.save(fileName);
+};
+
 export default {
   downloadPatientEducationPDF,
-  downloadCategorySummaryPDF
+  downloadCategorySummaryPDF,
+  downloadProcedureEducationPDF
 };

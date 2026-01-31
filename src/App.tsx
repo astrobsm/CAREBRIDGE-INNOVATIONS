@@ -44,11 +44,15 @@ import LimbSalvagePage from './domains/limb-salvage/pages/LimbSalvagePage';
 import NPWTPage from './domains/npwt/pages/NPWTPage';
 import MedicationChartPage from './domains/medication-chart/pages/MedicationChartPage';
 import PatientEducationPage from './domains/patient-education/pages/PatientEducationPage';
+import PatientEducationDetailPage from './domains/patient-education/pages/PatientEducationDetailPage';
 import ChatPage from './domains/communication/pages/ChatPage';
 import VideoConferencePage from './domains/communication/pages/VideoConferencePage';
 import AppointmentsPage from './domains/appointments/pages/AppointmentsPage';
 import DrReviewsPage from './domains/dr-reviews/pages/DrReviewsPage';
 import ExternalReviewPage from './domains/external-review/pages/ExternalReviewPage';
+import PostOpCarePage from './domains/post-op-care/pages/PostOpCarePage';
+import PostOpMonitoringChartsPage from './domains/post-op-care/pages/PostOpMonitoringChartsPage';
+import PreoperativePlanningPage from './domains/preoperative-planning/pages/PreoperativePlanningPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
 import InstallPrompt from './components/pwa/InstallPrompt';
@@ -124,6 +128,9 @@ function App() {
         <Route path="admissions" element={<AdmissionsPage />} />
         <Route path="discharge" element={<DischargePage />} />
         <Route path="ward-rounds" element={<WardRoundsPage />} />
+        <Route path="post-op-care" element={<PostOpCarePage />} />
+        <Route path="post-op-care/charts/:patientId/:surgeryId" element={<PostOpMonitoringChartsPage />} />
+        <Route path="preoperative-planning" element={<PreoperativePlanningPage />} />
         <Route path="treatment-plans/new" element={<TreatmentPlanPage />} />
         <Route path="mdt" element={<MDTPage />} />
         <Route path="blood-transfusion" element={<BloodTransfusionPage />} />
@@ -135,6 +142,7 @@ function App() {
         <Route path="npwt" element={<NPWTPage />} />
         <Route path="medication-chart" element={<MedicationChartPage />} />
         <Route path="patient-education" element={<PatientEducationPage />} />
+        <Route path="patient-education/:conditionId" element={<PatientEducationDetailPage />} />
         <Route path="laboratory" element={<LaboratoryPage />} />
         <Route path="pharmacy" element={<PharmacyPage />} />
         <Route path="nutrition" element={<NutritionPlannerPage />} />

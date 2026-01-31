@@ -32,13 +32,15 @@ import { format } from 'date-fns';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
-import type { Admission, WardType, AdmissionStatus } from '../../../types';
+import type { Admission, WardType, AdmissionStatus, User as UserType } from '../../../types';
 import AdmissionDurationClock from '../components/AdmissionDurationClock';
 import AdmissionRiskAssessments from '../components/AdmissionRiskAssessments';
 import type { AdmissionRiskAssessments as AdmissionRiskData } from '../components/AdmissionRiskAssessments';
 import { generateAdmissionPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
+import { EntryTrackingBadge } from '../../../components/common';
+import type { EntryTrackingInfo } from '../../../components/common';
 import { 
   createAssignmentNotification, 
   initVoiceNotificationService,
@@ -136,10 +138,24 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
   const patientMap = usePatientMap();
 
   const userMap = useMemo(() => {
-    const map = new Map();
-    users?.forEach(u => map.set(u.id, u));
+    const map = new Map<string, UserType>();
+    users?.forEach(u => map.set(u.id!, u));
     return map;
   }, [users]);
+
+  // Helper to get entry tracking info for an admission
+  const getAdmissionTracking = (admission: Admission): EntryTrackingInfo | undefined => {
+    const admittedByUser = userMap.get(admission.admittedBy);
+    if (admittedByUser) {
+      return {
+        userId: admittedByUser.id!,
+        userName: `${admittedByUser.firstName} ${admittedByUser.lastName}`,
+        userRole: admittedByUser.role,
+        timestamp: admission.admissionDate,
+      };
+    }
+    return undefined;
+  };
 
   const doctors = useMemo(() => {
     return users?.filter(u => ['surgeon', 'anaesthetist'].includes(u.role)) || [];
@@ -448,7 +464,9 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
         {filteredAdmissions.map((admission) => {
           const patient = patientMap.get(admission.patientId);
           const doctor = userMap.get(admission.primaryDoctor);
-          const nurse = userMap.get(admission.primaryNurse);
+          const nurse = admission.primaryNurse && typeof admission.primaryNurse === 'string' 
+            ? userMap.get(admission.primaryNurse) 
+            : undefined;
 
           return (
             <motion.div
@@ -530,6 +548,16 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
                     </div>
                   )}
                 </div>
+
+                {/* Entry Tracking - Admitted By */}
+                {getAdmissionTracking(admission) && (
+                  <div className="pt-2 border-t">
+                    <EntryTrackingBadge 
+                      tracking={getAdmissionTracking(admission)!} 
+                      mode="compact"
+                    />
+                  </div>
+                )}
 
                 {/* Treatment Plan Link */}
                 {admission.treatmentPlanId && (

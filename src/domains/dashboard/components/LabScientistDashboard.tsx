@@ -221,7 +221,7 @@ export default function LabScientistDashboard() {
             displayedInvestigations.map((investigation) => (
               <Link
                 key={investigation.id}
-                to={`/investigations/${investigation.id}`}
+                to="/investigations"
                 className="block px-4 py-3 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center gap-3">

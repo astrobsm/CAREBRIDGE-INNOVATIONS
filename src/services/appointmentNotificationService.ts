@@ -269,8 +269,8 @@ export function setupNotificationClickHandler(): void {
         const { action, appointmentId, url } = event.data;
 
         if (action === 'view' && appointmentId) {
-          // Navigate to appointment details
-          window.location.href = `/appointments/${appointmentId}`;
+          // Navigate to appointments page with appointment ID as query param to open detail modal
+          window.location.href = `/appointments?view=${appointmentId}`;
         } else if (action === 'checkin' && appointmentId) {
           // Quick check-in
           const appointment = await db.appointments.get(appointmentId);

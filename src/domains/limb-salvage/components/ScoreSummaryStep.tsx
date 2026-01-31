@@ -7,12 +7,14 @@ import {
   Activity,
   Clock,
   FileText,
-  Scissors
+  Scissors,
+  Bone
 } from 'lucide-react';
 import type { 
   LimbSalvageScore, 
   LimbSalvageRecommendation,
-  AmputationLevel 
+  AmputationLevel,
+  OsteomyelitisAssessment
 } from '../../../types';
 
 interface ScoreSummaryStepProps {
@@ -22,6 +24,7 @@ interface ScoreSummaryStepProps {
   recommendedAmputationLevel: AmputationLevel;
   treatmentPlan: string;
   followUpDate: Date | null;
+  osteomyelitis?: OsteomyelitisAssessment;
   onUpdate: (data: Partial<{
     treatmentPlan: string;
     followUpDate: Date;
@@ -49,8 +52,21 @@ export default function ScoreSummaryStep({
   recommendedAmputationLevel,
   treatmentPlan,
   followUpDate,
+  osteomyelitis,
   onUpdate,
 }: ScoreSummaryStepProps) {
+
+  // Chronic osteomyelitis assessment
+  const isChronicOM = osteomyelitis?.suspected && (
+    osteomyelitis.chronicity === 'chronic' || 
+    (osteomyelitis.durationInWeeks && osteomyelitis.durationInWeeks > 6)
+  );
+  const hasFailedOMTreatment = osteomyelitis?.recurrent || 
+    (osteomyelitis?.previousAntibiotic && osteomyelitis?.previousDebridement);
+  // hasSequestrumOrSevereChanges used for conditional display in warning section
+  const _hasSequestrumOrSevereChanges = osteomyelitis?.sequestrum || 
+    osteomyelitis?.involvedCortex === 'full_thickness';
+  void _hasSequestrumOrSevereChanges; // Silence unused warning
 
   const getRiskBgColor = (risk: string): string => {
     switch (risk) {
@@ -296,6 +312,81 @@ export default function ScoreSummaryStep({
           </p>
         </div>
       </div>
+
+      {/* CHRONIC OSTEOMYELITIS WARNING - CRITICAL FOR AMPUTATION DECISION */}
+      {isChronicOM && (
+        <div className="bg-red-100 border-2 border-red-500 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Bone className="h-6 w-6 text-red-700 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-bold text-red-800 text-lg flex items-center gap-2">
+                ⚠️ CHRONIC OSTEOMYELITIS IDENTIFIED
+                {hasFailedOMTreatment && <span className="text-sm bg-red-200 px-2 py-0.5 rounded">Treatment Failed</span>}
+              </p>
+              
+              <div className="mt-3 space-y-2 text-sm text-red-800">
+                <p className="font-semibold">
+                  Chronic osteomyelitis ({osteomyelitis?.durationInWeeks || '>6'} weeks) is a CRITICAL factor in limb salvage decisions:
+                </p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>Cure rates with surgery + antibiotics: <strong>60-80%</strong> (vs &gt;90% for acute)</li>
+                  <li>Multiple surgeries often required with uncertain outcomes</li>
+                  <li>Prolonged antibiotic therapy (6+ weeks) with toxicity risks</li>
+                  <li>Recurrence rate: 20-30% even after aggressive treatment</li>
+                </ul>
+                
+                {osteomyelitis?.sequestrum && (
+                  <p className="bg-red-200 p-2 rounded mt-2">
+                    <strong>🔴 SEQUESTRUM PRESENT:</strong> Dead bone acts as foreign body and biofilm reservoir. 
+                    Antibiotics cannot penetrate. Surgical removal or amputation is mandatory.
+                  </p>
+                )}
+                
+                {osteomyelitis?.cloacae && (
+                  <p className="bg-red-200 p-2 rounded">
+                    <strong>🔴 SINUS TRACTS (CLOACAE):</strong> Drainage tracts through bone indicate chronic infection 
+                    that rarely heals without radical surgery or amputation.
+                  </p>
+                )}
+                
+                {hasFailedOMTreatment && (
+                  <p className="bg-red-200 p-2 rounded">
+                    <strong>🔴 TREATMENT FAILURE:</strong> 
+                    {osteomyelitis?.recurrent && ' Recurrent infection after treatment. '}
+                    {osteomyelitis?.previousAntibiotic && osteomyelitis?.previousDebridement && 
+                      ' Combined antibiotic + surgical therapy has failed. '}
+                    <br />
+                    <strong>Strong indication for definitive amputation</strong> - weigh quality of life benefits 
+                    of early amputation vs prolonged, likely futile, limb salvage attempts.
+                  </p>
+                )}
+                
+                {osteomyelitis?.affectedBones && osteomyelitis.affectedBones.length >= 3 && (
+                  <p className="bg-red-200 p-2 rounded">
+                    <strong>🔴 MULTI-BONE INVOLVEMENT:</strong> {osteomyelitis.affectedBones.length} bones affected 
+                    ({osteomyelitis.affectedBones.join(', ')}). Extensive involvement typically requires 
+                    amputation proximal to all infected bone.
+                  </p>
+                )}
+              </div>
+              
+              <div className="mt-4 p-3 bg-white border border-red-300 rounded">
+                <p className="font-semibold text-red-900">Recommended Action:</p>
+                <p className="text-red-800">
+                  Urgent multidisciplinary team (MDT) discussion required. Present chronic osteomyelitis findings 
+                  and discuss with patient/family the benefits of definitive amputation including:
+                </p>
+                <ul className="list-disc list-inside text-sm text-red-700 mt-2">
+                  <li>Faster return to function with prosthesis</li>
+                  <li>Elimination of infection and sepsis risk</li>
+                  <li>Avoidance of multiple surgeries and prolonged hospitalization</li>
+                  <li>Improved quality of life compared to non-healing wounds</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Critical Warning */}
       {limbSalvageScore.riskCategory === 'very_high' && (

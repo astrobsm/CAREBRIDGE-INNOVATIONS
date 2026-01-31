@@ -30,6 +30,7 @@ import {
   ClipboardList,
   Eye,
   Syringe,
+  AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -46,6 +47,8 @@ import {
 } from '../../../services/preoperativeService';
 import type { ASAClassification } from '../../../services/preoperativeService';
 import type { PreoperativeAssessment } from '../../../types';
+import { getGFRForPatient, type GFRResult } from '../../../services/gfrCalculationService';
+import { categorizePatient, type PatientCategoryResult } from '../../../services/patientCategoryService';
 
 // Form schema
 const assessmentSchema = z.object({
@@ -109,6 +112,10 @@ export default function PreoperativeAssessmentPage() {
   const [patientAllergies, setPatientAllergies] = useState('');
   const [medicationNotes, setMedicationNotes] = useState('');
   
+  // Renal function and patient category state
+  const [patientGFR, setPatientGFR] = useState<GFRResult | null>(null);
+  const [patientCategory, setPatientCategory] = useState<PatientCategoryResult | null>(null);
+  
   // Navigation
   const navigate = useNavigate();
   
@@ -169,6 +176,30 @@ export default function PreoperativeAssessmentPage() {
     if (!selectedPatientId || !patients) return null;
     return patients.find(p => p.id === selectedPatientId) || null;
   }, [selectedPatientId, patients]);
+
+  // Fetch GFR and patient category when patient is selected
+  useEffect(() => {
+    async function fetchPatientData() {
+      if (selectedPatientId) {
+        // Fetch GFR
+        const gfr = await getGFRForPatient(selectedPatientId);
+        setPatientGFR(gfr);
+        
+        // Calculate patient category if we have selected patient data
+        if (selectedPatient?.dateOfBirth) {
+          const category = categorizePatient(
+            selectedPatient.dateOfBirth,
+            selectedPatient.gender
+          );
+          setPatientCategory(category);
+        }
+      } else {
+        setPatientGFR(null);
+        setPatientCategory(null);
+      }
+    }
+    fetchPatientData();
+  }, [selectedPatientId, selectedPatient]);
 
   // Flatten medications from prescriptions
   const currentMedications = useMemo(() => {
@@ -418,6 +449,15 @@ export default function PreoperativeAssessmentPage() {
                       {selectedPatient.dateOfBirth 
                         ? Math.floor((new Date().getTime() - new Date(selectedPatient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) + ' years'
                         : 'N/A'}
+                      {patientCategory && (
+                        <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                          patientCategory.broadCategory === 'pediatric' ? 'bg-purple-100 text-purple-800' :
+                          patientCategory.broadCategory === 'geriatric' ? 'bg-amber-100 text-amber-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {patientCategory.broadCategory.charAt(0).toUpperCase() + patientCategory.broadCategory.slice(1)}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div>
@@ -433,6 +473,94 @@ export default function PreoperativeAssessmentPage() {
                     <p className="font-medium text-red-600">{selectedPatient.allergies || 'None known'}</p>
                   </div>
                 </div>
+
+                {/* Renal Function (GFR) Display */}
+                {patientGFR ? (
+                  <div className={`mt-3 p-3 rounded-lg border ${
+                    patientGFR.gfr < 30 ? 'bg-red-50 border-red-200' :
+                    patientGFR.gfr < 60 ? 'bg-amber-50 border-amber-200' :
+                    'bg-green-50 border-green-200'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className={`w-4 h-4 ${
+                          patientGFR.gfr < 30 ? 'text-red-600' :
+                          patientGFR.gfr < 60 ? 'text-amber-600' :
+                          'text-green-600'
+                        }`} />
+                        <span className="font-medium text-sm">Renal Function (eGFR)</span>
+                      </div>
+                      <div className="text-right">
+                        <span className={`font-bold ${
+                          patientGFR.gfr < 30 ? 'text-red-700' :
+                          patientGFR.gfr < 60 ? 'text-amber-700' :
+                          'text-green-700'
+                        }`}>
+                          {patientGFR.gfr.toFixed(1)} mL/min/1.73m²
+                        </span>
+                        <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                          patientGFR.gfr < 30 ? 'bg-red-200 text-red-800' :
+                          patientGFR.gfr < 60 ? 'bg-amber-200 text-amber-800' :
+                          'bg-green-200 text-green-800'
+                        }`}>
+                          {patientGFR.stage}
+                        </span>
+                      </div>
+                    </div>
+                    {patientGFR.gfr < 60 && (
+                      <p className="mt-2 text-xs text-red-700">
+                        <strong>⚠️ Anaesthetic Consideration:</strong> Impaired renal function - adjust dosing of renally cleared drugs, monitor fluid balance carefully, and consider postoperative renal support needs.
+                      </p>
+                    )}
+                    {patientGFR.gfr < 30 && (
+                      <p className="mt-1 text-xs text-red-700">
+                        <strong>⚠️ Critical:</strong> Severe renal impairment - avoid nephrotoxic agents (NSAIDs, aminoglycosides), use with caution: contrast media, metformin. Consider nephrology consultation.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-gray-600 text-sm">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>GFR not available - no recent creatinine on record. Consider ordering renal function tests.</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Age-specific Considerations */}
+                {patientCategory && (patientCategory.broadCategory === 'pediatric' || patientCategory.broadCategory === 'geriatric') && (
+                  <div className={`mt-3 p-3 rounded-lg border ${
+                    patientCategory.broadCategory === 'pediatric' ? 'bg-purple-50 border-purple-200' : 'bg-amber-50 border-amber-200'
+                  }`}>
+                    <h4 className={`font-medium text-sm ${
+                      patientCategory.broadCategory === 'pediatric' ? 'text-purple-800' : 'text-amber-800'
+                    }`}>
+                      {patientCategory.broadCategory === 'pediatric' ? '👶 Pediatric Considerations' : '👴 Geriatric Considerations'}
+                    </h4>
+                    <ul className={`mt-2 text-xs space-y-1 ${
+                      patientCategory.broadCategory === 'pediatric' ? 'text-purple-700' : 'text-amber-700'
+                    }`}>
+                      {patientCategory.broadCategory === 'pediatric' ? (
+                        <>
+                          <li>• Weight-based drug dosing essential</li>
+                          <li>• Higher risk of airway complications</li>
+                          <li>• Temperature regulation challenges</li>
+                          <li>• Parental consent and presence considerations</li>
+                          {patientCategory.category === 'infant' && <li>• <strong>Infant:</strong> Immature organ systems, bradycardia with hypoxia</li>}
+                          {patientCategory.category === 'neonate' && <li>• <strong>Neonate:</strong> Very high risk - specialized neonatal anaesthetic care required</li>}
+                        </>
+                      ) : (
+                        <>
+                          <li>• Increased sensitivity to anaesthetic agents</li>
+                          <li>• Higher risk of postoperative delirium</li>
+                          <li>• Polypharmacy review essential</li>
+                          <li>• Frailty assessment recommended</li>
+                          <li>• Enhanced recovery protocols may need modification</li>
+                        </>
+                      )}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 

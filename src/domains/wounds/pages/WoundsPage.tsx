@@ -39,7 +39,10 @@ import {
   printDressingProtocol, 
   downloadDressingProtocol, 
   determineWoundPhase as getDressingPhase,
-  type DressingProtocolData 
+  printSkinGraftProtocol,
+  exportSkinGraftProtocolPDF,
+  type DressingProtocolData,
+  type SkinGraftProtocolData 
 } from '../../../utils/dressingProtocolPrint';
 import { PatientSelector } from '../../../components/patient';
 import { syncRecord } from '../../../services/cloudSyncService';
@@ -886,6 +889,135 @@ export default function WoundsPage() {
                           </li>
                         ))}
                       </ol>
+                    </div>
+
+                    {/* Skin Graft Protocol Section */}
+                    <div className="bg-teal-50 rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <Target size={16} />
+                        Skin Graft Dressing Protocols
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Specialized protocols for skin graft recipient and donor sites
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Graft Site Protocol */}
+                        <div className="bg-white rounded-lg p-3 border border-teal-200">
+                          <h5 className="font-medium text-teal-800 text-sm mb-2">
+                            🩹 Graft Site
+                          </h5>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => {
+                                const patient = patientMap.get(selectedWound.patientId);
+                                const protocolData: SkinGraftProtocolData = {
+                                  patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown',
+                                  hospitalNumber: patient?.hospitalNumber || 'N/A',
+                                  wardBed: patient?.ward,
+                                  graftType: 'skin_graft_site',
+                                  graftLocation: selectedWound.location,
+                                  surgeryDate: new Date(selectedWound.createdAt),
+                                  postOpDay: differenceInDays(new Date(), new Date(selectedWound.createdAt)),
+                                  specialInstructions: selectedWound.dressingType ? `Current dressing: ${selectedWound.dressingType}` : undefined,
+                                  assessedBy: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
+                                  assessedAt: new Date(),
+                                  hospitalName: patient?.hospitalName,
+                                };
+                                printSkinGraftProtocol(protocolData);
+                                toast.success('Print dialog opened');
+                              }}
+                              className="flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs hover:bg-teal-200 transition-colors"
+                              title="Print Graft Site Protocol"
+                            >
+                              <Printer size={14} />
+                              Print
+                            </button>
+                            <button
+                              onClick={() => {
+                                const patient = patientMap.get(selectedWound.patientId);
+                                const protocolData: SkinGraftProtocolData = {
+                                  patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown',
+                                  hospitalNumber: patient?.hospitalNumber || 'N/A',
+                                  wardBed: patient?.ward,
+                                  graftType: 'skin_graft_site',
+                                  graftLocation: selectedWound.location,
+                                  surgeryDate: new Date(selectedWound.createdAt),
+                                  postOpDay: differenceInDays(new Date(), new Date(selectedWound.createdAt)),
+                                  specialInstructions: selectedWound.dressingType ? `Current dressing: ${selectedWound.dressingType}` : undefined,
+                                  assessedBy: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
+                                  assessedAt: new Date(),
+                                  hospitalName: patient?.hospitalName,
+                                };
+                                exportSkinGraftProtocolPDF(protocolData);
+                                toast.success('PDF export dialog opened');
+                              }}
+                              className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs hover:bg-emerald-200 transition-colors"
+                              title="Export Graft Site PDF"
+                            >
+                              <Download size={14} />
+                              PDF
+                            </button>
+                          </div>
+                        </div>
+                        {/* Donor Site Protocol */}
+                        <div className="bg-white rounded-lg p-3 border border-amber-200">
+                          <h5 className="font-medium text-amber-800 text-sm mb-2">
+                            🏥 Donor Site
+                          </h5>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => {
+                                const patient = patientMap.get(selectedWound.patientId);
+                                const protocolData: SkinGraftProtocolData = {
+                                  patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown',
+                                  hospitalNumber: patient?.hospitalNumber || 'N/A',
+                                  wardBed: patient?.ward,
+                                  graftType: 'donor_site',
+                                  graftLocation: 'Donor Site (Thigh/Arm)',
+                                  surgeryDate: new Date(selectedWound.createdAt),
+                                  postOpDay: differenceInDays(new Date(), new Date(selectedWound.createdAt)),
+                                  specialInstructions: 'Keep dry. Allow dressing to fall off naturally.',
+                                  assessedBy: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
+                                  assessedAt: new Date(),
+                                  hospitalName: patient?.hospitalName,
+                                };
+                                printSkinGraftProtocol(protocolData);
+                                toast.success('Print dialog opened');
+                              }}
+                              className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs hover:bg-amber-200 transition-colors"
+                              title="Print Donor Site Protocol"
+                            >
+                              <Printer size={14} />
+                              Print
+                            </button>
+                            <button
+                              onClick={() => {
+                                const patient = patientMap.get(selectedWound.patientId);
+                                const protocolData: SkinGraftProtocolData = {
+                                  patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown',
+                                  hospitalNumber: patient?.hospitalNumber || 'N/A',
+                                  wardBed: patient?.ward,
+                                  graftType: 'donor_site',
+                                  graftLocation: 'Donor Site (Thigh/Arm)',
+                                  surgeryDate: new Date(selectedWound.createdAt),
+                                  postOpDay: differenceInDays(new Date(), new Date(selectedWound.createdAt)),
+                                  specialInstructions: 'Keep dry. Allow dressing to fall off naturally.',
+                                  assessedBy: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
+                                  assessedAt: new Date(),
+                                  hospitalName: patient?.hospitalName,
+                                };
+                                exportSkinGraftProtocolPDF(protocolData);
+                                toast.success('PDF export dialog opened');
+                              }}
+                              className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-200 transition-colors"
+                              title="Export Donor Site PDF"
+                            >
+                              <Download size={14} />
+                              PDF
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 

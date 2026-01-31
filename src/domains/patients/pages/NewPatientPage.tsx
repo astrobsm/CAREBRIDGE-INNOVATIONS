@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,13 +7,21 @@ import { v4 as uuidv4 } from 'uuid';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, Save, User, Phone, MapPin, Heart, AlertCircle, Building2, Home,
-  Activity, ShieldAlert, Stethoscope, ChevronDown, ChevronUp, Info
+  Activity, ShieldAlert, Stethoscope, ChevronDown, ChevronUp, Info, Baby, Users
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { HospitalSelector } from '../../../components/hospital';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
+import { 
+  categorizePatient, 
+  categorizePregnancy,
+  type PatientCategory,
+  type PregnancyStatus
+} from '../../../services/patientCategoryService';
+import { PatientCategoryBadge } from '../../../components/common/DynamicFormComponents';
+import { differenceInYears } from 'date-fns';
 import type { Patient, BloodGroup, Genotype, Hospital, DVTRiskAssessment, PressureSoreRiskAssessment, Comorbidity } from '../../../types';
 
 // Hospital options will be fetched from database
@@ -161,6 +169,14 @@ export default function NewPatientPage() {
   const [customComorbidity, setCustomComorbidity] = useState('');
   const [comorbiditiesExpanded, setComorbiditiesExpanded] = useState(true);
 
+  // Pregnancy State (for females of childbearing age)
+  const [isPregnant, setIsPregnant] = useState(false);
+  const [trimester, setTrimester] = useState<1 | 2 | 3>(1);
+  const [gestationalWeeks, setGestationalWeeks] = useState<number>(0);
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>('');
+  const [gravida, setGravida] = useState<number>(1);
+  const [para, setPara] = useState<number>(0);
+
   // Fetch hospitals from database
   useEffect(() => {
     const fetchHospitals = async () => {
@@ -194,6 +210,37 @@ export default function NewPatientPage() {
 
   const careType = watch('careType');
   const hospitalId = watch('hospitalId');
+  const dateOfBirth = watch('dateOfBirth');
+  const gender = watch('gender');
+
+  // Calculate patient category based on date of birth
+  const patientCategory = useMemo((): PatientCategory | null => {
+    if (!dateOfBirth) return null;
+    return categorizePatient(dateOfBirth);
+  }, [dateOfBirth]);
+
+  // Calculate pregnancy status for eligible females
+  const pregnancyStatus = useMemo((): PregnancyStatus | null => {
+    if (!isPregnant || gender !== 'female') return null;
+    // Pass expected delivery date to calculate gestational age, or use gestational weeks directly
+    return categorizePregnancy(isPregnant, expectedDeliveryDate || undefined, gestationalWeeks || undefined);
+  }, [isPregnant, gender, gestationalWeeks, expectedDeliveryDate]);
+
+  // Check if patient is a female of childbearing age
+  const isChildbearingAge = useMemo(() => {
+    if (gender !== 'female' || !dateOfBirth) return false;
+    const age = differenceInYears(new Date(), new Date(dateOfBirth));
+    return age >= 12 && age <= 50;
+  }, [gender, dateOfBirth]);
+
+  // Dynamic field visibility based on patient category
+  const showPediatricFields = patientCategory?.isPediatric || false;
+  const showGeriatricFields = patientCategory?.isGeriatric || false;
+  const showPregnancyFields = isChildbearingAge;
+  
+  // DVT Risk assessment should be hidden for pediatric patients under 14
+  const showDvtAssessment = !patientCategory?.isPediatric || 
+    (patientCategory?.ageInYears && patientCategory.ageInYears >= 14);
 
   const generateHospitalNumber = (): string => {
     const prefix = 'CB';
@@ -443,6 +490,16 @@ export default function NewPatientPage() {
               <label className="label">Date of Birth *</label>
               <input type="date" {...register('dateOfBirth')} className={`input ${errors.dateOfBirth ? 'input-error' : ''}`} />
               {errors.dateOfBirth && <p className="text-sm text-red-500 mt-1">{errors.dateOfBirth.message}</p>}
+              {/* Show patient category badge when DOB is entered */}
+              {patientCategory && (
+                <div className="mt-2">
+                  <PatientCategoryBadge 
+                    category={patientCategory} 
+                    pregnancy={pregnancyStatus}
+                    showDetails 
+                  />
+                </div>
+              )}
             </div>
             <div>
               <label className="label">Gender *</label>
@@ -674,7 +731,186 @@ export default function NewPatientPage() {
           </div>
         </motion.div>
 
-        {/* DVT Risk Assessment (Caprini Score) - OPTIONAL */}
+        {/* Pregnancy Information - For females of childbearing age */}
+        {showPregnancyFields && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.32 }}
+            className="card card-compact border-l-4 border-l-pink-500"
+          >
+            <div className="card-header flex items-center gap-3">
+              <Heart className="w-5 h-5 text-pink-500" />
+              <div>
+                <h2 className="font-semibold text-gray-900">Pregnancy Information</h2>
+                <p className="text-xs text-gray-500">For females of childbearing age - important for medication safety</p>
+              </div>
+            </div>
+            <div className="card-body space-y-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="isPregnant"
+                  checked={isPregnant}
+                  onChange={(e) => setIsPregnant(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                />
+                <label htmlFor="isPregnant" className="text-sm font-medium text-gray-900">
+                  Patient is currently pregnant
+                </label>
+              </div>
+              
+              {isPregnant && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 p-4 bg-pink-50 rounded-lg">
+                  <div>
+                    <label className="label" htmlFor="trimester">Trimester *</label>
+                    <select 
+                      id="trimester"
+                      value={trimester}
+                      onChange={(e) => setTrimester(Number(e.target.value) as 1 | 2 | 3)}
+                      className="input"
+                      title="Select pregnancy trimester"
+                    >
+                      <option value={1}>First Trimester (1-12 weeks)</option>
+                      <option value={2}>Second Trimester (13-26 weeks)</option>
+                      <option value={3}>Third Trimester (27-40 weeks)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Gestational Age (weeks)</label>
+                    <input
+                      type="number"
+                      value={gestationalWeeks || ''}
+                      onChange={(e) => setGestationalWeeks(Number(e.target.value))}
+                      min={0}
+                      max={42}
+                      className="input"
+                      placeholder="Weeks of pregnancy"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Expected Delivery Date</label>
+                    <input
+                      type="date"
+                      value={expectedDeliveryDate}
+                      onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                      className="input"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="label">Gravida (G)</label>
+                      <input
+                        type="number"
+                        value={gravida}
+                        onChange={(e) => setGravida(Number(e.target.value))}
+                        min={1}
+                        className="input"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Para (P)</label>
+                      <input
+                        type="number"
+                        value={para}
+                        onChange={(e) => setPara(Number(e.target.value))}
+                        min={0}
+                        className="input"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Pregnancy-specific alerts */}
+                  <div className="sm:col-span-2">
+                    <div className="flex items-start gap-2 p-3 bg-amber-100 rounded-lg">
+                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-amber-800">
+                        <p className="font-medium">Pregnancy Considerations:</p>
+                        <ul className="list-disc ml-4 mt-1 space-y-1">
+                          <li>Medication dosing will be adjusted for pregnancy safety (FDA categories)</li>
+                          <li>Certain investigations may be contraindicated or require modifications</li>
+                          <li>Vital signs interpretation uses pregnancy-specific reference ranges</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Pediatric-Specific Information */}
+        {showPediatricFields && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.33 }}
+            className="card card-compact border-l-4 border-l-blue-500"
+          >
+            <div className="card-header flex items-center gap-3">
+              <Baby className="w-5 h-5 text-blue-500" />
+              <div>
+                <h2 className="font-semibold text-gray-900">Pediatric Information</h2>
+                <p className="text-xs text-gray-500">Additional fields for patients under 18 years</p>
+              </div>
+            </div>
+            <div className="card-body">
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-blue-800">
+                    <p className="font-medium">Pediatric Patient Considerations:</p>
+                    <ul className="list-disc ml-4 mt-1 space-y-1">
+                      <li>Medication dosing will be weight-based (mg/kg)</li>
+                      <li>Vital signs interpretation uses age-appropriate reference ranges</li>
+                      <li>DVT risk assessment not applicable for patients under 14 years</li>
+                      <li>Guardian/parent consent required for procedures</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Geriatric-Specific Information */}
+        {showGeriatricFields && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.34 }}
+            className="card card-compact border-l-4 border-l-purple-500"
+          >
+            <div className="card-header flex items-center gap-3">
+              <Users className="w-5 h-5 text-purple-500" />
+              <div>
+                <h2 className="font-semibold text-gray-900">Geriatric Considerations</h2>
+                <p className="text-xs text-gray-500">Additional considerations for patients 65+ years</p>
+              </div>
+            </div>
+            <div className="card-body">
+              <div className="p-3 bg-purple-50 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <Info className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-purple-800">
+                    <p className="font-medium">Geriatric Patient Considerations:</p>
+                    <ul className="list-disc ml-4 mt-1 space-y-1">
+                      <li>Medications adjusted for renal function (GFR-based dosing)</li>
+                      <li>Fall risk assessment recommended</li>
+                      <li>Cognitive assessment may be required (MMSE/MoCA)</li>
+                      <li>Polypharmacy review recommended</li>
+                      <li>Enhanced pressure sore risk monitoring</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* DVT Risk Assessment (Caprini Score) - OPTIONAL - Hidden for pediatric patients */}
+        {showDvtAssessment && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -784,6 +1020,7 @@ export default function NewPatientPage() {
             </div>
           )}
         </motion.div>
+        )}
 
         {/* Pressure Sore Risk Assessment (Braden Scale) - OPTIONAL */}
         <motion.div

@@ -441,6 +441,7 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
               recommendedAmputationLevel={formData.recommendedAmputationLevel || 'none'}
               treatmentPlan={formData.treatmentPlan || ''}
               followUpDate={formData.followUpDate || null}
+              osteomyelitis={formData.osteomyelitis}
               onUpdate={updateFormData}
             />
           )}

@@ -294,8 +294,12 @@ export default function InfectionOsteoStep({
             Osteomyelitis Assessment
           </h4>
           {osteomyelitis.suspected && (
-            <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-sm">
-              Osteomyelitis Suspected
+            <span className={`px-2 py-1 rounded text-sm ${
+              osteomyelitis.chronicity === 'chronic' 
+                ? 'bg-red-100 text-red-800 font-semibold' 
+                : 'bg-orange-100 text-orange-800'
+            }`}>
+              {osteomyelitis.chronicity === 'chronic' ? '⚠️ CHRONIC Osteomyelitis' : 'Osteomyelitis Suspected'}
             </span>
           )}
         </div>
@@ -313,6 +317,165 @@ export default function InfectionOsteoStep({
 
           {osteomyelitis.suspected && (
             <>
+              {/* CHRONICITY ASSESSMENT - CRITICAL SECTION */}
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4">
+                <div className="flex items-start gap-2 mb-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                  <div>
+                    <h5 className="font-semibold text-amber-800">Chronicity Assessment - CRITICAL for Amputation Decision</h5>
+                    <p className="text-xs text-amber-700">Chronic osteomyelitis (&gt;6 weeks) has significantly worse prognosis. Studies show cure rates drop to 60-80% vs &gt;90% for acute cases.</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Chronicity Classification</label>
+                    <select
+                      value={osteomyelitis.chronicity || 'acute'}
+                      onChange={(e) => updateOsteo('chronicity', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg ${
+                        osteomyelitis.chronicity === 'chronic' ? 'border-red-500 bg-red-50' : ''
+                      }`}
+                    >
+                      <option value="acute">Acute (&lt;2 weeks)</option>
+                      <option value="subacute">Subacute (2-6 weeks)</option>
+                      <option value="chronic">CHRONIC (&gt;6 weeks) - Poor Prognosis</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration (weeks)</label>
+                    <input
+                      type="number"
+                      value={osteomyelitis.durationInWeeks || ''}
+                      onChange={(e) => updateOsteo('durationInWeeks', parseInt(e.target.value) || 0)}
+                      placeholder="Enter weeks"
+                      min="0"
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                {/* Treatment History - Critical for prognosis */}
+                <div className="space-y-2 mb-4">
+                  <p className="text-sm font-medium text-gray-700">Previous Treatment (Treatment Failure = Strong Amputation Indicator)</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <label className={`flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50 ${
+                      osteomyelitis.previousAntibiotic ? 'border-orange-400 bg-orange-50' : ''
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={osteomyelitis.previousAntibiotic || false}
+                        onChange={(e) => updateOsteo('previousAntibiotic', e.target.checked)}
+                        className="w-4 h-4 text-orange-600 rounded"
+                      />
+                      <span className="text-sm">Prior Antibiotics</span>
+                    </label>
+                    <label className={`flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50 ${
+                      osteomyelitis.previousDebridement ? 'border-orange-400 bg-orange-50' : ''
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={osteomyelitis.previousDebridement || false}
+                        onChange={(e) => updateOsteo('previousDebridement', e.target.checked)}
+                        className="w-4 h-4 text-orange-600 rounded"
+                      />
+                      <span className="text-sm">Prior Debridement</span>
+                    </label>
+                    <label className={`flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50 ${
+                      osteomyelitis.recurrent ? 'border-red-400 bg-red-50' : ''
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={osteomyelitis.recurrent || false}
+                        onChange={(e) => updateOsteo('recurrent', e.target.checked)}
+                        className="w-4 h-4 text-red-600 rounded"
+                      />
+                      <span className="text-sm font-medium">⚠️ Recurrent</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Warning for recurrent/failed treatment */}
+                {(osteomyelitis.recurrent || (osteomyelitis.previousAntibiotic && osteomyelitis.previousDebridement)) && (
+                  <div className="bg-red-100 border border-red-300 rounded p-3 mt-2">
+                    <p className="text-sm text-red-800 font-medium">
+                      ⚠️ HIGH AMPUTATION LIKELIHOOD: {osteomyelitis.recurrent && 'Recurrent osteomyelitis '} 
+                      {osteomyelitis.previousAntibiotic && osteomyelitis.previousDebridement && 'Failed combined antibiotic + surgical treatment '}
+                      indicates very poor prognosis for limb salvage. Strongly consider definitive amputation.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Chronic Bone Changes Section */}
+              {(osteomyelitis.chronicity === 'chronic' || (osteomyelitis.durationInWeeks && osteomyelitis.durationInWeeks > 6)) && (
+                <div className="bg-gray-50 border rounded-lg p-4">
+                  <h5 className="font-medium text-gray-800 mb-3">Chronic Bone Changes (Pathognomonic Signs)</h5>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <label className={`flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-white ${
+                      osteomyelitis.sequestrum ? 'border-red-400 bg-red-50' : ''
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={osteomyelitis.sequestrum || false}
+                        onChange={(e) => updateOsteo('sequestrum', e.target.checked)}
+                        className="w-4 h-4 text-red-600 rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Sequestrum</span>
+                        <p className="text-xs text-gray-500">Dead bone</p>
+                      </div>
+                    </label>
+                    <label className={`flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-white ${
+                      osteomyelitis.involucrum ? 'border-orange-400 bg-orange-50' : ''
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={osteomyelitis.involucrum || false}
+                        onChange={(e) => updateOsteo('involucrum', e.target.checked)}
+                        className="w-4 h-4 text-orange-600 rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Involucrum</span>
+                        <p className="text-xs text-gray-500">New bone shell</p>
+                      </div>
+                    </label>
+                    <label className={`flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-white ${
+                      osteomyelitis.cloacae ? 'border-orange-400 bg-orange-50' : ''
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={osteomyelitis.cloacae || false}
+                        onChange={(e) => updateOsteo('cloacae', e.target.checked)}
+                        className="w-4 h-4 text-orange-600 rounded"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Cloacae</span>
+                        <p className="text-xs text-gray-500">Sinus tracts</p>
+                      </div>
+                    </label>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Cortex Involvement</label>
+                      <select
+                        value={osteomyelitis.involvedCortex || 'superficial'}
+                        onChange={(e) => updateOsteo('involvedCortex', e.target.value)}
+                        className="w-full px-2 py-1 border rounded text-sm"
+                      >
+                        <option value="superficial">Superficial</option>
+                        <option value="deep">Deep</option>
+                        <option value="full_thickness">Full Thickness</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {osteomyelitis.sequestrum && (
+                    <div className="bg-red-100 border border-red-300 rounded p-2 text-sm text-red-800">
+                      <strong>⚠️ Sequestrum Present:</strong> Dead bone acts as foreign body and biofilm nidus. Antibiotics cannot penetrate - surgical removal or amputation required.
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Clinical Signs */}
               <div className="grid grid-cols-2 gap-4">
                 <label className="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-50">
@@ -382,12 +545,17 @@ export default function InfectionOsteoStep({
                     </button>
                   ))}
                 </div>
+                {osteomyelitis.affectedBones && osteomyelitis.affectedBones.length >= 3 && (
+                  <p className="text-sm text-red-600 mt-2 font-medium">
+                    ⚠️ Multiple bones involved ({osteomyelitis.affectedBones.length}) - consider more proximal amputation level
+                  </p>
+                )}
               </div>
 
               {/* Duration & Notes */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (Text)</label>
                   <input
                     type="text"
                     value={osteomyelitis.duration || ''}

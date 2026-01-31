@@ -23,6 +23,7 @@ import {
   CheckCircle,
   ChevronRight,
   UserPlus,
+  CalendarDays,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format, isToday, isTomorrow, isPast } from 'date-fns';
@@ -35,6 +36,7 @@ import type {
   DoctorPatientAssignment, 
   NursePatientAssignment,
 } from '../../../types';
+import ClinicSchedulingTab from '../components/ClinicSchedulingTab';
 
 // Schemas
 const wardRoundSchema = z.object({
@@ -110,7 +112,7 @@ const shifts = [
 
 export default function WardRoundsPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'rounds' | 'doctor_assignments' | 'nurse_assignments'>('rounds');
+  const [activeTab, setActiveTab] = useState<'rounds' | 'clinic_scheduling' | 'doctor_assignments' | 'nurse_assignments'>('rounds');
   const [showRoundModal, setShowRoundModal] = useState(false);
   const [showDoctorAssignModal, setShowDoctorAssignModal] = useState(false);
   const [showNurseAssignModal, setShowNurseAssignModal] = useState(false);
@@ -425,10 +427,10 @@ export default function WardRoundsPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3">
             <Clipboard className="w-8 h-8 text-sky-500" />
-            Ward Rounds & Assignments
+            Ward Rounds & Clinic Scheduling
           </h1>
           <p className="text-sm sm:text-base text-gray-500 mt-1">
-            Manage ward rounds, doctor and nurse patient assignments
+            Manage ward rounds, clinic sessions, doctor and nurse patient assignments
           </p>
         </div>
         <div className="flex gap-2">
@@ -457,7 +459,7 @@ export default function WardRoundsPage() {
       <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('rounds')}
-          className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+          className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
             activeTab === 'rounds'
               ? 'border-sky-500 text-sky-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -469,8 +471,21 @@ export default function WardRoundsPage() {
           </div>
         </button>
         <button
+          onClick={() => setActiveTab('clinic_scheduling')}
+          className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === 'clinic_scheduling'
+              ? 'border-sky-500 text-sky-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <CalendarDays size={18} />
+            Clinic Scheduling
+          </div>
+        </button>
+        <button
           onClick={() => setActiveTab('doctor_assignments')}
-          className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+          className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
             activeTab === 'doctor_assignments'
               ? 'border-sky-500 text-sky-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -483,7 +498,7 @@ export default function WardRoundsPage() {
         </button>
         <button
           onClick={() => setActiveTab('nurse_assignments')}
-          className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+          className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
             activeTab === 'nurse_assignments'
               ? 'border-sky-500 text-sky-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -616,6 +631,14 @@ export default function WardRoundsPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Clinic Scheduling Tab */}
+      {activeTab === 'clinic_scheduling' && (
+        <ClinicSchedulingTab 
+          searchQuery={searchQuery}
+          selectedHospital={selectedHospital}
+        />
       )}
 
       {activeTab === 'doctor_assignments' && (

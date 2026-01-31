@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +19,8 @@ import {
   Info,
   FileText,
   Download,
+  AlertCircle,
+  Activity,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -30,6 +32,8 @@ import { downloadDrugInformationPDF } from '../../../utils/drugInformationPdfGen
 import type { Prescription, Medication, MedicationRoute } from '../../../types';
 import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
+import { getGFRForPatient, type GFRResult } from '../../../services/gfrCalculationService';
+import { getDrugDosingRecommendation, type RenalDosingResult } from '../../../services/renalDosingService';
 
 // Comprehensive Nigerian medication database (BNF & NAFDAC-adapted)
 const medicationDatabase = {
@@ -525,6 +529,31 @@ export default function PharmacyPage() {
   // Use the new patient map hook for efficient lookups
   const patientMap = usePatientMap();
 
+  // Track selected patient's GFR for renal dosing
+  const [patientGFR, setPatientGFR] = useState<GFRResult | null>(null);
+  const [renalDosingWarnings, setRenalDosingWarnings] = useState<RenalDosingResult[]>([]);
+  
+  // Watch patientId to fetch GFR
+  const selectedPatientId = watch('patientId');
+  
+  // Fetch patient GFR when patient is selected
+  useEffect(() => {
+    const fetchPatientGFR = async () => {
+      if (!selectedPatientId) {
+        setPatientGFR(null);
+        return;
+      }
+      try {
+        const gfr = await getGFRForPatient(selectedPatientId);
+        setPatientGFR(gfr);
+      } catch (error) {
+        console.error('Error fetching patient GFR:', error);
+        setPatientGFR(null);
+      }
+    };
+    fetchPatientGFR();
+  }, [selectedPatientId]);
+
   const {
     register,
     handleSubmit,
@@ -544,6 +573,17 @@ export default function PharmacyPage() {
   const selectedMedInfo = useMemo(() => {
     return availableMeds.find(m => m.name === currentMed.name);
   }, [availableMeds, currentMed.name]);
+
+  // Get renal dosing recommendation for selected medication
+  const currentRenalDosing = useMemo((): RenalDosingResult | null => {
+    if (!selectedMedInfo || !patientGFR) return null;
+    try {
+      const drugName = selectedMedInfo.genericName || selectedMedInfo.name;
+      return getDrugDosingRecommendation(drugName.toLowerCase().replace(/\s+/g, '_'), patientGFR.gfr);
+    } catch {
+      return null;
+    }
+  }, [selectedMedInfo, patientGFR]);
 
   const addMedication = () => {
     if (!currentMed.name || !currentMed.dosage || !currentMed.frequency || !currentMed.duration) {
@@ -1275,6 +1315,51 @@ export default function PharmacyPage() {
                     </div>
                   </div>
 
+                  {/* GFR Display - Shows when patient is selected */}
+                  {selectedPatientId && patientGFR && (
+                    <div className={`p-4 rounded-lg border ${
+                      patientGFR.gfr < 30 ? 'bg-red-50 border-red-200' :
+                      patientGFR.gfr < 60 ? 'bg-amber-50 border-amber-200' :
+                      'bg-green-50 border-green-200'
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className={`w-5 h-5 flex-shrink-0 ${
+                          patientGFR.gfr < 30 ? 'text-red-600' :
+                          patientGFR.gfr < 60 ? 'text-amber-600' :
+                          'text-green-600'
+                        }`} />
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            Patient Renal Function: GFR {Math.round(patientGFR.gfr)} mL/min/1.73m²
+                          </p>
+                          <p className={`text-sm ${
+                            patientGFR.gfr < 30 ? 'text-red-700' :
+                            patientGFR.gfr < 60 ? 'text-amber-700' :
+                            'text-green-700'
+                          }`}>
+                            {patientGFR.stage.description}
+                            {patientGFR.gfr < 60 && ' - Renal dose adjustments may be required'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedPatientId && !patientGFR && (
+                    <div className="p-4 rounded-lg border bg-gray-50 border-gray-200">
+                      <div className="flex items-start gap-3">
+                        <Info className="w-5 h-5 flex-shrink-0 text-gray-500" />
+                        <div>
+                          <p className="font-medium text-gray-700">No GFR Available</p>
+                          <p className="text-sm text-gray-500">
+                            Patient does not have recent creatinine results for GFR calculation. 
+                            Consider ordering renal function tests for renally excreted medications.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Add Medication Form */}
                   <div className="card border-2 border-dashed border-gray-200 p-4">
                     <h3 className="font-semibold text-gray-900 mb-4">Add Medication</h3>
@@ -1427,6 +1512,50 @@ export default function PharmacyPage() {
                         <div className="text-xs text-amber-700">
                           <p><strong>Max daily:</strong> {selectedMedInfo.maxDaily}</p>
                           {selectedMedInfo.renalAdjust && <p className="text-red-600">⚠️ Requires renal dose adjustment</p>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Renal Dosing Warning - Shows when medication requires adjustment and patient has impaired renal function */}
+                    {selectedMedInfo?.renalAdjust && patientGFR && patientGFR.gfr < 60 && currentRenalDosing && (
+                      <div className="mt-3 p-3 bg-red-50 border border-red-300 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <Activity className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-red-800 text-sm flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4" />
+                              Renal Dosing Adjustment Required
+                            </h4>
+                            <div className="mt-2 space-y-1 text-xs text-red-700">
+                              <p><strong>Patient GFR:</strong> {patientGFR.gfr.toFixed(1)} mL/min/1.73m² ({patientGFR.stage})</p>
+                              <p><strong>Normal Dose:</strong> {currentRenalDosing.normalDose}</p>
+                              <p><strong>Recommended Adjusted Dose:</strong> <span className="font-semibold text-red-900">{currentRenalDosing.adjustedDose}</span></p>
+                              {currentRenalDosing.adjustment && (
+                                <p><strong>Adjustment:</strong> {currentRenalDosing.adjustment}</p>
+                              )}
+                              {currentRenalDosing.notes && (
+                                <p className="italic mt-1 p-2 bg-red-100 rounded">{currentRenalDosing.notes}</p>
+                              )}
+                              {currentRenalDosing.requiresMonitoring && (
+                                <p className="flex items-center gap-1 mt-1 font-medium">
+                                  <AlertCircle className="w-3 h-3" /> Therapeutic drug monitoring recommended
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Warning for medications that need renal adjustment but patient GFR not available */}
+                    {selectedMedInfo?.renalAdjust && !patientGFR && (
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-300 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <div className="text-xs text-amber-700">
+                            <p className="font-semibold">GFR Not Available</p>
+                            <p className="mt-1">This medication requires renal dose adjustment. Please ensure recent creatinine levels are available to calculate GFR before prescribing.</p>
+                          </div>
                         </div>
                       </div>
                     )}

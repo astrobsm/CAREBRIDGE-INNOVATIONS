@@ -1,8 +1,9 @@
 // Appointments Diary Page
 // Main appointment management page with calendar view, list view, and filtering
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useSearchParams } from 'react-router-dom';
 import { format, startOfWeek, endOfWeek, isToday, isTomorrow, isPast } from 'date-fns';
 import {
   Calendar,
@@ -68,6 +69,7 @@ const typeIcons: Record<AppointmentType, string> = {
 
 export default function AppointmentsPage() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -86,6 +88,19 @@ export default function AppointmentsPage() {
     let query = db.appointments.orderBy('appointmentDate');
     return query.toArray();
   }, []);
+
+  // Handle query param to auto-open appointment detail modal (from notification clicks)
+  useEffect(() => {
+    const viewId = searchParams.get('view');
+    if (viewId && appointments) {
+      const appointmentToView = appointments.find(a => a.id === viewId);
+      if (appointmentToView) {
+        setSelectedAppointment(appointmentToView);
+        // Clear the query param after opening
+        setSearchParams({});
+      }
+    }
+  }, [searchParams, appointments, setSearchParams]);
 
   // Fetch patients for names
   const patientMap = useLiveQuery(async () => {
