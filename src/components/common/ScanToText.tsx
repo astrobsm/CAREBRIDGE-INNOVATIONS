@@ -341,6 +341,7 @@ export default function ScanToText({
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={closeModal}
                   title="Close scanner"
                   className="p-2 hover:bg-white/20 rounded-lg transition-colors"
@@ -372,6 +373,7 @@ export default function ScanToText({
                     {/* Capture button */}
                     <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
                       <button
+                        type="button"
                         onClick={stopCamera}
                         title="Cancel camera"
                         className="p-3 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
@@ -379,6 +381,7 @@ export default function ScanToText({
                         <X className="w-6 h-6" />
                       </button>
                       <button
+                        type="button"
                         onClick={captureFromCamera}
                         title="Capture image"
                         className="p-4 bg-white text-purple-600 rounded-full hover:bg-purple-50 transition-colors shadow-lg"
@@ -418,6 +421,7 @@ export default function ScanToText({
                       {/* Zoom controls */}
                       <div className="absolute bottom-2 right-2 flex gap-2">
                         <button
+                          type="button"
                           onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}
                           title="Zoom out"
                           className="p-2 bg-white/90 rounded-lg shadow hover:bg-white transition-colors"
@@ -425,6 +429,7 @@ export default function ScanToText({
                           <ZoomOut className="w-4 h-4" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => setZoom(z => Math.min(3, z + 0.25))}
                           title="Zoom in"
                           className="p-2 bg-white/90 rounded-lg shadow hover:bg-white transition-colors"
@@ -437,6 +442,7 @@ export default function ScanToText({
                     {/* Action buttons */}
                     <div className="flex gap-2 mt-3">
                       <button
+                        type="button"
                         onClick={retake}
                         className="flex-1 flex items-center justify-center gap-2 py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                       >
@@ -444,6 +450,7 @@ export default function ScanToText({
                         Retake
                       </button>
                       <button
+                        type="button"
                         onClick={processImage}
                         disabled={isProcessing}
                         className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
@@ -469,6 +476,7 @@ export default function ScanToText({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     {allowCamera && (
                       <button
+                        type="button"
                         onClick={startCamera}
                         className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
@@ -482,6 +490,7 @@ export default function ScanToText({
 
                     {allowUpload && (
                       <button
+                        type="button"
                         onClick={() => fileInputRef.current?.click()}
                         className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
@@ -495,6 +504,7 @@ export default function ScanToText({
 
                     {allowPaste && (
                       <button
+                        type="button"
                         onClick={() => toast('Press Ctrl+V to paste an image', { icon: '📋' })}
                         className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
@@ -533,6 +543,7 @@ export default function ScanToText({
 
                     <div className="flex gap-3">
                       <button
+                        type="button"
                         onClick={retake}
                         className="flex-1 flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
                       >
@@ -540,6 +551,7 @@ export default function ScanToText({
                         Scan Again
                       </button>
                       <button
+                        type="button"
                         onClick={acceptText}
                         className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"
                       >
