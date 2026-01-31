@@ -37,21 +37,23 @@ import { EntryTrackingBadge } from '../../../components/common';
 import type { EntryTrackingInfo } from '../../../components/common';
 
 // Status and color mappings for future use
-/* eslint-disable @typescript-eslint/no-unused-vars */
-const statusColors = {
+// @ts-expect-error Reserved for future status display feature
+const _statusColors = {
   draft: 'bg-yellow-100 text-yellow-700',
   completed: 'bg-green-100 text-green-700',
   exported: 'bg-blue-100 text-blue-700',
 };
 
-const conditionColors = {
+// @ts-expect-error Reserved for future condition display feature
+const _conditionColors = {
   improved: 'bg-green-100 text-green-700',
   stable: 'bg-blue-100 text-blue-700',
   unchanged: 'bg-yellow-100 text-yellow-700',
   deteriorated: 'bg-red-100 text-red-700',
 };
 
-const dispositionLabels = {
+// @ts-expect-error Reserved for future disposition labels feature
+const _dispositionLabels = {
   home: 'Discharged Home',
   facility: 'To Facility',
   hospice: 'To Hospice',
@@ -59,14 +61,13 @@ const dispositionLabels = {
   'against-advice': 'Against Medical Advice',
   deceased: 'Deceased',
 };
-/* eslint-enable @typescript-eslint/no-unused-vars */
 
 interface DischargePageProps {
   embedded?: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function DischargePage({ embedded = false }: DischargePageProps) {
+export default function DischargePage({ embedded: _embedded = false }: DischargePageProps) {
   useAuth(); // Auth context needed for re-render on auth changes
   const [showDischargeForm, setShowDischargeForm] = useState(false);
   const [showSummaryView, setShowSummaryView] = useState(false);

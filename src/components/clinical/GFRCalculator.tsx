@@ -158,6 +158,7 @@ export const GFRCalculator: React.FC<GFRCalculatorProps> = ({
         {onClose && (
           <button
             onClick={onClose}
+            title="Close GFR calculator"
             className="text-gray-400 hover:text-gray-600"
           >
             <XCircle className="w-5 h-5" />
@@ -185,6 +186,7 @@ export const GFRCalculator: React.FC<GFRCalculatorProps> = ({
             <select
               value={creatinineUnit}
               onChange={(e) => handleCreatinineUnitChange(e.target.value as CreatinineUnit)}
+              title="Select creatinine unit"
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white"
             >
               <option value="mg/dL">mg/dL</option>
@@ -277,6 +279,7 @@ export const GFRCalculator: React.FC<GFRCalculatorProps> = ({
             <select
               value={weightUnit}
               onChange={(e) => handleWeightUnitChange(e.target.value as WeightUnit)}
+              title="Select weight unit"
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white"
             >
               <option value="kg">kg</option>

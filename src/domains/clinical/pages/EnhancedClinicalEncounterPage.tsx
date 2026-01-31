@@ -24,11 +24,9 @@ import {
   Save,
   Stethoscope,
   ClipboardList,
-  FileText,
   Activity,
   Plus,
   Trash2,
-  CheckCircle,
   UserCheck,
   History,
   Calendar,
@@ -38,7 +36,6 @@ import {
   Baby,
   Users,
   Heart,
-  Info,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -50,10 +47,6 @@ import {
   PatientCategoryBadge,
   ClinicalConsiderations,
   VitalSignsReference,
-  DynamicFormSection,
-  PregnancyFields,
-  PediatricFields,
-  GeriatricFields,
 } from '../../../components/common/DynamicFormComponents';
 import type { 
   ClinicalEncounter, 
@@ -228,7 +221,7 @@ interface FirstEncounterFormProps {
   isLoading: boolean;
 }
 
-function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: FirstEncounterFormProps) {
+function FirstEncounterForm({ patientId: _patientId, patientContext, onSubmit, isLoading }: FirstEncounterFormProps) {
   const [activeTab, setActiveTab] = useState<'history' | 'examination' | 'diagnosis'>('history');
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [newDiagnosis, setNewDiagnosis] = useState<{ description: string; type: 'primary' | 'secondary' | 'differential' }>({ description: '', type: 'primary' });
@@ -573,7 +566,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                   onChange={(value) => updatePhysicalExam('generalAppearance', value)}
                   placeholder="Alert, oriented, well-nourished..."
                   rows={2}
-                  medicalContext="physical_exam"
+                  medicalContext="examination"
                 />
                 <VoiceDictation
                   label="Head & Neck"
@@ -581,7 +574,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                   onChange={(value) => updatePhysicalExam('head', value)}
                   placeholder="HEENT examination findings..."
                   rows={2}
-                  medicalContext="physical_exam"
+                  medicalContext="examination"
                 />
                 <VoiceDictation
                   label="Cardiovascular"
@@ -589,15 +582,15 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                   onChange={(value) => updatePhysicalExam('cardiovascular', value)}
                   placeholder="Heart sounds, pulses, JVP..."
                   rows={2}
-                  medicalContext="physical_exam"
+                  medicalContext="examination"
                 />
                 <VoiceDictation
                   label="Respiratory"
-                  value={physicalExam.respiratory || ''}
-                  onChange={(value) => updatePhysicalExam('respiratory', value)}
+                  value={physicalExam.chest || ''}
+                  onChange={(value) => updatePhysicalExam('chest', value)}
                   placeholder="Breath sounds, chest expansion..."
                   rows={2}
-                  medicalContext="physical_exam"
+                  medicalContext="examination"
                 />
                 <VoiceDictation
                   label="Abdomen"
@@ -605,7 +598,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                   onChange={(value) => updatePhysicalExam('abdomen', value)}
                   placeholder="Soft, non-tender, bowel sounds..."
                   rows={2}
-                  medicalContext="physical_exam"
+                  medicalContext="examination"
                 />
                 <VoiceDictation
                   label="Musculoskeletal"
@@ -613,7 +606,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                   onChange={(value) => updatePhysicalExam('musculoskeletal', value)}
                   placeholder="Range of motion, deformities..."
                   rows={2}
-                  medicalContext="physical_exam"
+                  medicalContext="examination"
                 />
                 <VoiceDictation
                   label="Neurological"
@@ -621,7 +614,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                   onChange={(value) => updatePhysicalExam('neurological', value)}
                   placeholder="Cranial nerves, motor, sensory..."
                   rows={2}
-                  medicalContext="physical_exam"
+                  medicalContext="examination"
                 />
                 <VoiceDictation
                   label="Skin/Integumentary"
@@ -629,7 +622,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                   onChange={(value) => updatePhysicalExam('skin', value)}
                   placeholder="Skin color, lesions, wounds..."
                   rows={2}
-                  medicalContext="physical_exam"
+                  medicalContext="examination"
                 />
               </div>
 
@@ -648,7 +641,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                         onChange={(value) => updatePhysicalExam('fontanelle' as any, value)}
                         placeholder="Anterior fontanelle: flat, soft..."
                         rows={2}
-                        medicalContext="physical_exam"
+                        medicalContext="examination"
                       />
                     )}
                     <VoiceDictation
@@ -657,7 +650,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                       onChange={(value) => updatePhysicalExam('growthParameters' as any, value)}
                       placeholder="Weight, height, head circumference percentiles..."
                       rows={2}
-                      medicalContext="physical_exam"
+                      medicalContext="examination"
                     />
                   </div>
                 </div>
@@ -677,7 +670,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                       onChange={(value) => updatePhysicalExam('cognitive' as any, value)}
                       placeholder="MMSE score, orientation, memory..."
                       rows={2}
-                      medicalContext="physical_exam"
+                      medicalContext="examination"
                     />
                     <VoiceDictation
                       label="Gait & Balance"
@@ -685,7 +678,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                       onChange={(value) => updatePhysicalExam('gaitBalance' as any, value)}
                       placeholder="Steady gait, Romberg test, fall risk..."
                       rows={2}
-                      medicalContext="physical_exam"
+                      medicalContext="examination"
                     />
                   </div>
                 </div>
@@ -720,6 +713,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                   value={newDiagnosis.type}
                   onChange={(e) => setNewDiagnosis({ ...newDiagnosis, type: e.target.value as any })}
                   className="input w-full sm:w-40"
+                  title="Select diagnosis type"
                 >
                   <option value="primary">Primary</option>
                   <option value="secondary">Secondary</option>
@@ -767,6 +761,7 @@ function FirstEncounterForm({ patientId, patientContext, onSubmit, isLoading }: 
                         type="button"
                         onClick={() => removeDiagnosis(diagnosis.id)}
                         className="text-red-500 hover:text-red-700"
+                        title="Remove diagnosis"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -850,8 +845,8 @@ interface FollowUpEncounterFormProps {
 }
 
 function FollowUpEncounterForm({ 
-  patientId, 
-  patientContext, 
+  patientId: _patientId, 
+  patientContext: _patientContext, 
   previousEncounters,
   onSubmit, 
   isLoading 
@@ -872,7 +867,7 @@ function FollowUpEncounterForm({
       setDiagnoses(latestEncounter.diagnosis.map(d => ({
         ...d,
         id: uuidv4(), // New IDs for this encounter
-        status: 'ongoing' as const,
+        status: d.status === 'confirmed' ? 'confirmed' : 'suspected' as const,
       })));
     }
   }, [latestEncounter]);
@@ -1062,7 +1057,7 @@ function FollowUpEncounterForm({
               onChange={(value) => updatePhysicalExam('generalAppearance', value)}
               placeholder="Compared to last visit..."
               rows={2}
-              medicalContext="physical_exam"
+              medicalContext="examination"
             />
             <VoiceDictation
               label="System-Specific Findings"
@@ -1070,7 +1065,7 @@ function FollowUpEncounterForm({
               onChange={(value) => updatePhysicalExam('focusedExam' as any, value)}
               placeholder="Findings relevant to the chief complaint..."
               rows={2}
-              medicalContext="physical_exam"
+              medicalContext="examination"
             />
           </div>
         </div>
@@ -1115,6 +1110,7 @@ function FollowUpEncounterForm({
                     type="button"
                     onClick={() => removeDiagnosis(diagnosis.id)}
                     className="text-red-500 hover:text-red-700"
+                    title="Remove diagnosis"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -1136,6 +1132,7 @@ function FollowUpEncounterForm({
               value={newDiagnosis.type}
               onChange={(e) => setNewDiagnosis({ ...newDiagnosis, type: e.target.value as any })}
               className="input w-full sm:w-40"
+              title="Select diagnosis type"
             >
               <option value="primary">Primary</option>
               <option value="secondary">Secondary</option>
@@ -1220,7 +1217,8 @@ export default function EnhancedClinicalEncounterPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedPreviousEncounter, setSelectedPreviousEncounter] = useState<ClinicalEncounter | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_selectedPreviousEncounter, _setSelectedPreviousEncounter] = useState<ClinicalEncounter | null>(null);
   // Encounter mode: 'auto' (based on history), 'first', or 'followup'
   const [encounterMode, setEncounterMode] = useState<'auto' | 'first' | 'followup'>('auto');
 
@@ -1357,7 +1355,7 @@ export default function EnhancedClinicalEncounterPage() {
   };
 
   const handleViewEncounter = (encounter: ClinicalEncounter) => {
-    setSelectedPreviousEncounter(encounter);
+    _setSelectedPreviousEncounter(encounter);
     // Could open a modal or navigate to view page
   };
 

@@ -14,13 +14,10 @@ import type {
   ResuscitationFormula,
   LundBrowderEntry,
   BurnDepthType,
-  AlertThreshold,
   BurnAlert,
-  AlertPriority,
   BurnVitalSigns,
   LabValues,
   UrineOutput,
-  LUND_BROWDER_CHART,
 } from '../types';
 
 // ==========================================
@@ -32,7 +29,7 @@ import type {
  */
 export function calculateTBSALundBrowder(
   entries: LundBrowderEntry[],
-  ageGroup: 'infant' | 'child_1' | 'child_5' | 'child_10' | 'adult'
+  _ageGroup: 'infant' | 'child_1' | 'child_5' | 'child_10' | 'adult'
 ): TBSACalculation {
   let totalTBSA = 0;
   let superficialTBSA = 0;
@@ -548,9 +545,9 @@ export function calculateFluidAdjustment(
 export function calculateBurnNutrition(
   weight: number,
   tbsa: number,
-  age?: number,
-  height?: number,
-  gender?: 'male' | 'female'
+  _age?: number,
+  _height?: number,
+  _gender?: 'male' | 'female'
 ): {
   caloricTarget: number;
   proteinTarget: number;
@@ -600,7 +597,7 @@ export function calculateBurnNutrition(
  */
 export function checkVitalsForAlerts(
   vitals: BurnVitalSigns,
-  weight: number,
+  _weight: number,
   recentUO?: UrineOutput[]
 ): BurnAlert[] {
   const alerts: BurnAlert[] = [];
@@ -907,7 +904,7 @@ export function checkBurnCenterCriteria(
   hasInhalationInjury: boolean,
   age: number,
   burnLocations: string[],
-  mechanism: string,
+  _mechanism: string,
   hasChemicalBurn: boolean,
   hasElectricalBurn: boolean,
   hasCircumferentialBurn: boolean,

@@ -221,8 +221,9 @@ function interpretPregnancyGlucose(
   testType: string,
   trimester: 1 | 2 | 3
 ): GlucoseInterpretation {
-  const trimesterKey = `trimester${trimester}` as keyof typeof REFERENCE_RANGES.pregnancy;
-  const ranges = REFERENCE_RANGES.pregnancy[trimesterKey];
+  // Trimester-specific ranges available for future use
+  const _trimesterKey = `trimester${trimester}` as keyof typeof REFERENCE_RANGES.pregnancy;
+  void _trimesterKey; // Reference for trimester-specific logic
   
   // For fasting glucose in pregnancy
   if (testType === 'fasting' || testType === 'ogtt_fasting') {

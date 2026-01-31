@@ -18,16 +18,9 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle2,
-  Edit,
-  Clock,
-  User,
-  Stethoscope,
-  Activity,
   AlertCircle,
   Calendar,
   Clipboard,
-  Heart,
-  Shield,
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -186,12 +179,13 @@ function harmonizeMedications(medications: Medication[]): {
 
 export default function DischargeSummaryGenerator({
   summaryData,
-  onUpdate,
-  readOnly = false,
+  onUpdate: _onUpdate,
+  readOnly: _readOnly = false,
 }: Props) {
   const [expandedSections, setExpandedSections] = useState<string[]>(['summary', 'medications']);
-  const [editSection, setEditSection] = useState<string | null>(null);
-  const [localData, setLocalData] = useState(summaryData);
+  const [_editSection, _setEditSection] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [localData, _setLocalData] = useState(summaryData);
 
   // Calculate length of stay
   const lengthOfStay = useMemo(() => {
@@ -210,22 +204,6 @@ export default function DischargeSummaryGenerator({
     setExpandedSections(prev =>
       prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
     );
-  };
-
-  const updateField = (path: string, value: any) => {
-    if (readOnly) return;
-    
-    const newData = { ...localData };
-    const keys = path.split('.');
-    let obj: any = newData;
-    
-    for (let i = 0; i < keys.length - 1; i++) {
-      obj = obj[keys[i]];
-    }
-    obj[keys[keys.length - 1]] = value;
-    
-    setLocalData(newData);
-    if (onUpdate) onUpdate(newData);
   };
 
   // Generate Discharge Summary PDF
@@ -891,7 +869,7 @@ export default function DischargeSummaryGenerator({
                 className="overflow-hidden"
               >
                 <div className="p-4 space-y-2 bg-white">
-                  {harmonizedMeds.map((med, i) => (
+                  {harmonizedMeds.map((med, _i) => (
                     <div
                       key={med.id}
                       className={`p-3 rounded-lg border ${

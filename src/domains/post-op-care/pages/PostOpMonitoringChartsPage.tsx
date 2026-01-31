@@ -5,7 +5,7 @@
  * Dedicated page for viewing post-operative monitoring charts
  */
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ArrowLeft, BarChart3, User, Calendar, AlertCircle } from 'lucide-react';
@@ -42,38 +42,43 @@ const PostOpMonitoringChartsPage: React.FC = () => {
       .toArray();
     
     // Convert to PostOpMonitoringRecord format
-    const surgeryDate = surgery?.completedDate || surgery?.scheduledDate;
+    const surgeryDate = surgery?.actualEndTime || surgery?.scheduledDate;
     if (!surgeryDate) return [];
 
     const surgeryDateTime = new Date(surgeryDate);
     
-    // Filter records after surgery and transform to PostOpMonitoringRecord
+    // Filter records after surgery and transform to PostOpMonitoringRecord format
     const postOpRecords: PostOpMonitoringRecord[] = records
       .filter(r => new Date(r.recordedAt) >= surgeryDateTime)
       .map(r => ({
         id: r.id,
         patientId: r.patientId,
         surgeryId: surgeryId,
+        carePlanId: '',
         recordedAt: r.recordedAt,
         recordedBy: r.recordedBy || '',
+        recordedByName: r.recordedBy || 'Unknown',
         postOpDay: Math.floor((new Date(r.recordedAt).getTime() - surgeryDateTime.getTime()) / (1000 * 60 * 60 * 24)) + 1,
+        dayPostOp: Math.floor((new Date(r.recordedAt).getTime() - surgeryDateTime.getTime()) / (1000 * 60 * 60 * 24)) + 1,
+        hourPostOp: Math.floor((new Date(r.recordedAt).getTime() - surgeryDateTime.getTime()) / (1000 * 60 * 60)) % 24,
+        shift: 'morning' as const,
         vitalSigns: {
-          heartRate: r.heartRate,
-          systolicBP: r.systolicBP,
-          diastolicBP: r.diastolicBP,
+          heartRate: r.pulse,
+          bloodPressureSystolic: r.bloodPressureSystolic,
+          bloodPressureDiastolic: r.bloodPressureDiastolic,
           temperature: r.temperature,
           respiratoryRate: r.respiratoryRate,
           oxygenSaturation: r.oxygenSaturation,
         },
         painScore: r.painScore || 0,
+        painLocation: '',
+        painCharacter: '',
         drainOutputs: [],
-        urineOutputMl: 0,
-        fluidBalance: {
-          intakeMl: 0,
-          outputMl: 0,
-          balanceMl: 0,
-        },
-        notes: r.notes,
+        mobilityStatus: 'bed_rest' as const,
+        dietStatus: 'nil_by_mouth' as const,
+        nursingNotes: r.notes || '',
+        createdAt: r.recordedAt,
+        updatedAt: r.recordedAt,
       }));
 
     return postOpRecords;
@@ -115,8 +120,8 @@ const PostOpMonitoringChartsPage: React.FC = () => {
     );
   }
 
-  const surgeryDate = surgery.completedDate 
-    ? new Date(surgery.completedDate) 
+  const surgeryDate = surgery.actualEndTime 
+    ? new Date(surgery.actualEndTime) 
     : surgery.scheduledDate 
       ? new Date(surgery.scheduledDate) 
       : new Date();

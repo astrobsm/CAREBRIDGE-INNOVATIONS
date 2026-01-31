@@ -92,6 +92,10 @@ export function VoiceDictation({
   const onChangeRef = useRef(onChange);
   const interimTranscriptRef = useRef(interimTranscript);
   
+  // Track processed results to prevent duplication (especially on Android)
+  const lastProcessedIndexRef = useRef(-1);
+  const lastProcessedTranscriptRef = useRef('');
+  
   // Keep refs in sync with current values
   useEffect(() => {
     valueRef.current = value;
@@ -125,6 +129,9 @@ export function VoiceDictation({
     recognition.onstart = () => {
       setIsListening(true);
       setRecognitionError(null);
+      // Reset tracking refs when starting new recognition session
+      lastProcessedIndexRef.current = -1;
+      lastProcessedTranscriptRef.current = '';
     };
 
     recognition.onend = () => {
@@ -168,10 +175,15 @@ export function VoiceDictation({
       let finalTranscript = '';
       let interim = '';
 
-      // Process all results from the current result index
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      // Process only new results to prevent duplication (critical for Android)
+      // Android can fire multiple onresult events for the same final result
+      const startIndex = Math.max(event.resultIndex, lastProcessedIndexRef.current + 1);
+      
+      for (let i = startIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
+          // Mark this index as processed
+          lastProcessedIndexRef.current = i;
           finalTranscript += transcript;
         } else {
           interim += transcript;
@@ -182,11 +194,21 @@ export function VoiceDictation({
       setInterimTranscript(interim);
 
       if (finalTranscript) {
-        // Use ref for current value to avoid stale closure
-        const currentValue = valueRef.current;
-        
-        // Trim the final transcript and add proper spacing
         const trimmedTranscript = finalTranscript.trim();
+        
+        // Skip if this exact transcript was just processed (Android can duplicate)
+        if (trimmedTranscript === lastProcessedTranscriptRef.current) {
+          return;
+        }
+        
+        // Also check if the current value already ends with this transcript (another duplication case)
+        const currentValue = valueRef.current;
+        if (currentValue && currentValue.endsWith(trimmedTranscript)) {
+          return;
+        }
+        
+        // Update last processed transcript
+        lastProcessedTranscriptRef.current = trimmedTranscript;
         
         // Determine if we need a space between existing text and new text
         let newValue: string;

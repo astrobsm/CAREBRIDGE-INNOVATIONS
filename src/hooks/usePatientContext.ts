@@ -22,7 +22,7 @@ import {
   type PatientContext,
   type BroadCategory,
 } from '../services/patientCategoryService';
-import { getGFRForPatient, type GFRResult } from '../services/gfrCalculationService';
+import { type GFRResult } from '../services/gfrCalculationService';
 
 // Form field definitions by category
 export interface FormFieldConfig {
@@ -209,17 +209,24 @@ export function usePatientContext(patientId?: string): UsePatientContextResult {
   const latestCreatinine = useLiveQuery(
     async () => {
       if (!patientId) return null;
-      const labs = await db.labResults
+      const labs = await db.labRequests
         .where('patientId')
         .equals(patientId)
         .toArray();
       
-      // Find most recent creatinine result
-      const creatinineResults = labs
-        .filter(l => l.testName?.toLowerCase().includes('creatinine'))
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      // Find most recent creatinine result from lab tests
+      for (const lab of labs) {
+        if (lab.tests && Array.isArray(lab.tests)) {
+          const creatTest = lab.tests.find(t => 
+            t.name?.toLowerCase().includes('creatinine') && t.result
+          );
+          if (creatTest) {
+            return { result: creatTest.result, unit: creatTest.unit, requestedAt: lab.requestedAt };
+          }
+        }
+      }
       
-      return creatinineResults[0] || null;
+      return null;
     },
     [patientId]
   );
@@ -233,7 +240,7 @@ export function usePatientContext(patientId?: string): UsePatientContextResult {
   // Calculate pregnancy status
   const pregnancy = useMemo(() => {
     if (!patient) return null;
-    if (patient.sex !== 'female') return null;
+    if (patient.gender !== 'female') return null;
     if (!category?.isAdult) return null;
     
     // Check if patient is marked as pregnant
@@ -250,7 +257,7 @@ export function usePatientContext(patientId?: string): UsePatientContextResult {
     
     return getPatientContext(
       patient.dateOfBirth,
-      patient.sex === 'male' ? 'male' : 'female',
+      patient.gender === 'male' ? 'male' : 'female',
       latestVitals?.weight,
       latestVitals?.height,
       pregnancy?.isPregnant,
@@ -259,20 +266,21 @@ export function usePatientContext(patientId?: string): UsePatientContextResult {
   }, [patient, latestVitals, pregnancy]);
 
   // Calculate GFR
-  const gfr = useMemo(() => {
+  const gfr = useMemo((): GFRResult | null => {
     if (!patient?.dateOfBirth || !latestCreatinine) return null;
     
     const creatinineValue = parseFloat(latestCreatinine.result || '0');
     if (isNaN(creatinineValue) || creatinineValue <= 0) return null;
     
-    return getGFRForPatient({
-      age: category?.ageInYears || 0,
-      sex: patient.sex === 'male' ? 'male' : 'female',
+    // Use the synchronous calculateGFR function instead
+    const { calculateGFR } = require('../services/gfrCalculationService');
+    return calculateGFR({
       creatinine: creatinineValue,
-      creatinineUnit: 'mg/dL', // Assuming default
+      creatinineUnit: 'mg/dL',
+      age: category?.ageInYears || 0,
+      gender: patient.gender === 'male' ? 'male' : 'female',
       weight: latestVitals?.weight,
       height: latestVitals?.height,
-      isBlack: false, // Would need to get from patient record
     });
   }, [patient, category, latestCreatinine, latestVitals]);
 
@@ -348,8 +356,8 @@ export function usePatientContext(patientId?: string): UsePatientContextResult {
     }
     
     // Add GFR-specific considerations
-    if (gfr && gfr.gfr < 60) {
-      considerations.push(`Reduced kidney function (GFR: ${Math.round(gfr.gfr)} mL/min) - adjust renally-cleared medications`);
+    if (gfr && gfr.gfrCKDEPI < 60) {
+      considerations.push(`Reduced kidney function (GFR: ${Math.round(gfr.gfrCKDEPI)} mL/min) - adjust renally-cleared medications`);
     }
     
     return considerations;
@@ -374,8 +382,8 @@ export function usePatientContext(patientId?: string): UsePatientContextResult {
       id: patient.id,
       firstName: patient.firstName,
       lastName: patient.lastName,
-      dateOfBirth: patient.dateOfBirth,
-      sex: patient.sex as 'male' | 'female',
+      dateOfBirth: patient.dateOfBirth instanceof Date ? patient.dateOfBirth.toISOString() : String(patient.dateOfBirth),
+      sex: patient.gender as 'male' | 'female',
     } : null,
     category,
     pregnancy,

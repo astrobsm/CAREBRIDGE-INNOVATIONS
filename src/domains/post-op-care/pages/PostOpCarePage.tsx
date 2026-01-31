@@ -511,6 +511,7 @@ export default function PostOpCarePage() {
         )}
         {showCarePlanModal && selectedPatient && selectedSurgery && (
           <PostOpCarePlanModal
+            isOpen={showCarePlanModal}
             patient={selectedPatient.patient}
             surgery={selectedSurgery}
             onClose={() => {

@@ -6,7 +6,7 @@
  * For Nigerian patients based on nutritional requirements
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar,
@@ -23,7 +23,6 @@ import {
   Beef,
   AlertTriangle,
   Check,
-  X,
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -199,7 +198,7 @@ export default function MealPlanGenerator({
     const breakfastCals = calories * 0.25;
     const lunchCals = calories * 0.35;
     const dinnerCals = calories * 0.30;
-    const snackCals = calories * 0.10;
+    // Snacks get remaining 10% (handled implicitly)
 
     // Helper to create meal with target calories
     const createMeal = (foods: FoodItem[], targetCals: number, isMainMeal: boolean): MealItem[] => {
@@ -465,6 +464,7 @@ export default function MealPlanGenerator({
               value={calories}
               onChange={(e) => setCalories(parseInt(e.target.value) || 2000)}
               disabled={readOnly}
+              placeholder="Enter daily calories"
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
             />
           </div>
@@ -477,6 +477,7 @@ export default function MealPlanGenerator({
               value={protein}
               onChange={(e) => setProtein(parseInt(e.target.value) || 60)}
               disabled={readOnly}
+              placeholder="Enter daily protein"
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
             />
           </div>

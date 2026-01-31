@@ -6,11 +6,7 @@ import type {
   LimbSalvageScore,
   LimbSalvageRecommendation,
   WagnerGrade,
-  WIFIClassification,
   SINBADScore,
-  DopplerFindings,
-  OsteomyelitisAssessment,
-  SepsisAssessment,
   RenalStatus,
   DiabeticFootComorbidities,
   AmputationLevel,
@@ -341,7 +337,8 @@ function getSalvageProbability(percentage: number): 'excellent' | 'good' | 'fair
  */
 export function generateRecommendations(assessment: Partial<LimbSalvageAssessment>): LimbSalvageRecommendation[] {
   const recommendations: LimbSalvageRecommendation[] = [];
-  const score = assessment.limbSalvageScore;
+  // Note: limbSalvageScore is reserved for future severity-based recommendations
+  void assessment.limbSalvageScore;
 
   // Immediate/Critical recommendations
   recommendations.push(...generateImmediateRecommendations(assessment));

@@ -174,7 +174,7 @@ export {
   offlineDataManager,
   useOfflineState,
   useIsOnline,
-  getDeviceId,
+  getDeviceId as getOfflineDeviceId,
 } from './offlineDataManager';
 export type { OfflineChange, OfflineState, ConflictResolution } from './offlineDataManager';
 
@@ -197,21 +197,18 @@ export { investigationLabService, testDefinitions, referenceRanges } from './inv
 export {
   calculateGFR,
   calculateCKDEPI,
-  calculateMDRD,
   calculateCockcroftGault,
-  calculateSchwartzBedside,
-  getGFRStage,
-  getGFRInterpretation,
   normalizeCreatinine,
-  CREATININE_UNITS,
+  getCKDStage,
+  getCKDStageDescription,
   getGFRForPatient,
+  convertCreatinine,
 } from './gfrCalculationService';
 export type {
   GFRResult,
-  GFRStage,
+  CKDStage,
   CreatinineUnit,
-  GFRFormula,
-  GFRInput,
+  GFRCalculationInput,
 } from './gfrCalculationService';
 
 // Blood Glucose Service
@@ -220,15 +217,17 @@ export {
   normalizeToMgDL,
   normalizeToMmolL,
   interpretGlucose,
-  getGlucoseTargets,
-  getHbA1cTargets,
-  calculateEstimatedA1c,
+  getDiabetesTargets,
+  calculateEAG,
+  calculateHbA1cFromAG,
+  formatGlucose,
 } from './bloodGlucoseService';
 export type {
   GlucoseUnit,
   GlucoseReading,
   GlucoseInterpretation,
   PatientGlucoseContext,
+  DiabetesTargets,
 } from './bloodGlucoseService';
 
 // Patient Category Service (Age-based Dynamic Forms)
@@ -261,14 +260,17 @@ export type {
 
 // Renal Dosing Service
 export {
-  getRecommendedDose,
-  checkRenalDosing,
-  getMedicationsRequiringAdjustment,
-  RENAL_DOSE_DATABASE,
+  getRenalDosingRecommendation,
+  batchCheckRenalDosing,
+  getContraindicatedDrugs,
+  getSafeDrugs,
+  RENAL_DOSING_DATABASE,
+  getDrugDosingRecommendation,
 } from './renalDosingService';
 export type {
-  RenalDoseAdjustment,
-  RenalDosingRecommendation,
+  DrugRenalAdjustment,
+  DrugInformation,
+  RenalDosingResult,
 } from './renalDosingService';
 export type { UnifiedCategory, InvestigationPriority, InvestigationStatus, TestDefinition, TrendAnalysis } from './investigationLabService';
 export { burnCareService, ruleOfNines, lundBrowderChart } from './burnCareService';

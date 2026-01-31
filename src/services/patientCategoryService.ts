@@ -62,8 +62,9 @@ export interface PatientContext {
   adjustedWeight?: number;
 }
 
-// WHO Age Category Definitions
-const AGE_BOUNDARIES = {
+// WHO Age Category Definitions (reference values - used for documentation)
+/* eslint-disable @typescript-eslint/no-unused-vars */
+const _AGE_BOUNDARIES = {
   neonate: { minDays: 0, maxDays: 28 },
   infant: { minMonths: 1, maxMonths: 12 },
   toddler: { minYears: 1, maxYears: 3 },
@@ -73,6 +74,8 @@ const AGE_BOUNDARIES = {
   adult: { minYears: 18, maxYears: 65 },
   geriatric: { minYears: 65, maxYears: 150 },
 };
+/* eslint-enable @typescript-eslint/no-unused-vars */
+void _AGE_BOUNDARIES; // Suppress unused variable warning - kept for documentation
 
 /**
  * Calculate detailed patient age

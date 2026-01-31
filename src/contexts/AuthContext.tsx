@@ -83,6 +83,32 @@ const rolePermissions: Record<UserRole, string[]> = {
   driver: [
     'view_schedules', 'update_transport_status'
   ],
+  consultant: [
+    'view_patients', 'manage_patients', 'create_encounters', 'manage_surgeries',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals', 'manage_wounds',
+    'supervise_residents', 'approve_discharges'
+  ],
+  resident: [
+    'view_patients', 'manage_patients', 'create_encounters',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals', 'manage_wounds'
+  ],
+  registrar: [
+    'view_patients', 'manage_patients', 'create_encounters', 'manage_surgeries',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals', 'manage_wounds'
+  ],
+  senior_registrar: [
+    'view_patients', 'manage_patients', 'create_encounters', 'manage_surgeries',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals', 'manage_wounds',
+    'supervise_residents'
+  ],
+  medical_officer: [
+    'view_patients', 'manage_patients', 'create_encounters',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals'
+  ],
+  house_officer: [
+    'view_patients', 'create_encounters', 'view_labs', 'request_labs',
+    'view_vitals', 'create_notes'
+  ],
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

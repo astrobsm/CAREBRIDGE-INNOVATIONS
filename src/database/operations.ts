@@ -915,7 +915,7 @@ export const VideoConferenceOps = {
     const now = new Date();
     return db.videoConferences
       .where('status').anyOf(['scheduled', 'in-progress'])
-      .filter(v => new Date(v.scheduledStart) >= now)
+      .filter(v => v.scheduledStart ? new Date(v.scheduledStart) >= now : false)
       .toArray();
   },
 

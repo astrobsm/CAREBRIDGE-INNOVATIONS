@@ -48,8 +48,8 @@ interface EstimateLineItem {
 }
 
 // Surgical Estimate Interface (for future save functionality)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface SurgicalEstimate {
+// @ts-expect-error Reserved for future database persistence feature
+interface _SurgicalEstimate {
   id: string;
   estimateNumber: string;
   patientId: string;

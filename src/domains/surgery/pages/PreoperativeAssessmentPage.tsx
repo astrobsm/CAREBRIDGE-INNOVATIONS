@@ -48,7 +48,7 @@ import {
 import type { ASAClassification } from '../../../services/preoperativeService';
 import type { PreoperativeAssessment } from '../../../types';
 import { getGFRForPatient, type GFRResult } from '../../../services/gfrCalculationService';
-import { categorizePatient, type PatientCategoryResult } from '../../../services/patientCategoryService';
+import { categorizePatient, type PatientCategory } from '../../../services/patientCategoryService';
 
 // Form schema
 const assessmentSchema = z.object({
@@ -114,7 +114,7 @@ export default function PreoperativeAssessmentPage() {
   
   // Renal function and patient category state
   const [patientGFR, setPatientGFR] = useState<GFRResult | null>(null);
-  const [patientCategory, setPatientCategory] = useState<PatientCategoryResult | null>(null);
+  const [patientCategory, setPatientCategory] = useState<PatientCategory | null>(null);
   
   // Navigation
   const navigate = useNavigate();
@@ -188,8 +188,7 @@ export default function PreoperativeAssessmentPage() {
         // Calculate patient category if we have selected patient data
         if (selectedPatient?.dateOfBirth) {
           const category = categorizePatient(
-            selectedPatient.dateOfBirth,
-            selectedPatient.gender
+            selectedPatient.dateOfBirth
           );
           setPatientCategory(category);
         }
@@ -477,42 +476,42 @@ export default function PreoperativeAssessmentPage() {
                 {/* Renal Function (GFR) Display */}
                 {patientGFR ? (
                   <div className={`mt-3 p-3 rounded-lg border ${
-                    patientGFR.gfr < 30 ? 'bg-red-50 border-red-200' :
-                    patientGFR.gfr < 60 ? 'bg-amber-50 border-amber-200' :
+                    patientGFR.gfrCKDEPI < 30 ? 'bg-red-50 border-red-200' :
+                    patientGFR.gfrCKDEPI < 60 ? 'bg-amber-50 border-amber-200' :
                     'bg-green-50 border-green-200'
                   }`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <AlertCircle className={`w-4 h-4 ${
-                          patientGFR.gfr < 30 ? 'text-red-600' :
-                          patientGFR.gfr < 60 ? 'text-amber-600' :
+                          patientGFR.gfrCKDEPI < 30 ? 'text-red-600' :
+                          patientGFR.gfrCKDEPI < 60 ? 'text-amber-600' :
                           'text-green-600'
                         }`} />
                         <span className="font-medium text-sm">Renal Function (eGFR)</span>
                       </div>
                       <div className="text-right">
                         <span className={`font-bold ${
-                          patientGFR.gfr < 30 ? 'text-red-700' :
-                          patientGFR.gfr < 60 ? 'text-amber-700' :
+                          patientGFR.gfrCKDEPI < 30 ? 'text-red-700' :
+                          patientGFR.gfrCKDEPI < 60 ? 'text-amber-700' :
                           'text-green-700'
                         }`}>
-                          {patientGFR.gfr.toFixed(1)} mL/min/1.73m²
+                          {patientGFR.gfrCKDEPI.toFixed(1)} mL/min/1.73m²
                         </span>
                         <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
-                          patientGFR.gfr < 30 ? 'bg-red-200 text-red-800' :
-                          patientGFR.gfr < 60 ? 'bg-amber-200 text-amber-800' :
+                          patientGFR.gfrCKDEPI < 30 ? 'bg-red-200 text-red-800' :
+                          patientGFR.gfrCKDEPI < 60 ? 'bg-amber-200 text-amber-800' :
                           'bg-green-200 text-green-800'
                         }`}>
-                          {patientGFR.stage}
+                          {patientGFR.ckdStage}
                         </span>
                       </div>
                     </div>
-                    {patientGFR.gfr < 60 && (
+                    {patientGFR.gfrCKDEPI < 60 && (
                       <p className="mt-2 text-xs text-red-700">
                         <strong>⚠️ Anaesthetic Consideration:</strong> Impaired renal function - adjust dosing of renally cleared drugs, monitor fluid balance carefully, and consider postoperative renal support needs.
                       </p>
                     )}
-                    {patientGFR.gfr < 30 && (
+                    {patientGFR.gfrCKDEPI < 30 && (
                       <p className="mt-1 text-xs text-red-700">
                         <strong>⚠️ Critical:</strong> Severe renal impairment - avoid nephrotoxic agents (NSAIDs, aminoglycosides), use with caution: contrast media, metformin. Consider nephrology consultation.
                       </p>
@@ -546,8 +545,8 @@ export default function PreoperativeAssessmentPage() {
                           <li>• Higher risk of airway complications</li>
                           <li>• Temperature regulation challenges</li>
                           <li>• Parental consent and presence considerations</li>
-                          {patientCategory.category === 'infant' && <li>• <strong>Infant:</strong> Immature organ systems, bradycardia with hypoxia</li>}
-                          {patientCategory.category === 'neonate' && <li>• <strong>Neonate:</strong> Very high risk - specialized neonatal anaesthetic care required</li>}
+                          {patientCategory.ageCategory === 'infant' && <li>• <strong>Infant:</strong> Immature organ systems, bradycardia with hypoxia</li>}
+                          {patientCategory.ageCategory === 'neonate' && <li>• <strong>Neonate:</strong> Very high risk - specialized neonatal anaesthetic care required</li>}
                         </>
                       ) : (
                         <>

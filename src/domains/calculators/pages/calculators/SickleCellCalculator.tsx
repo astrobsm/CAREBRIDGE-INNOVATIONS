@@ -2,7 +2,7 @@
 // Crisis Management, Hydroxyurea Dosing, and Exchange Transfusion Guidelines
 
 import { useState } from 'react';
-import { Heart, Calculator, AlertTriangle, Droplets, Activity, Thermometer } from 'lucide-react';
+import { Calculator, AlertTriangle, Droplets, Activity, Thermometer } from 'lucide-react';
 import { PatientCalculatorInfo, SickleCellResult } from '../../types';
 
 interface Props {
@@ -240,19 +240,23 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
       severityFactors,
       crisisType: crisisTypes.find(c => c.value === crisisType)?.label || crisisType,
       hydrationRecommendation,
+      hydrationRequirement: maintenanceFluid, // Required: maintenance fluid calculation
       painManagement,
-      transfusionIndicated,
+      transfusionNeeded: transfusionIndicated,
       exchangeTransfusion,
       exchangeVolume,
       transfusionGuidelines,
+      antibioticProphylaxis: infectionManagement, // Use infection management as antibiotic prophylaxis
+      hydroxyureaIndicated: !onHydroxyurea && severity !== 'Mild', // Indicated if not already on it and crisis is not mild
+      hydroxyureaDose: onHydroxyurea ? currentHUDose : `${initialHUDose} mg/day`,
       hydroxyureaDosing,
       infectionManagement,
       acsManagement,
       monitoring,
+      emergencyReferral: severity === 'Critical' || hasStroke || hasACS, // Emergency referral for critical cases
+      referralReasons: severity === 'Critical' ? ['Critical severity crisis', hasStroke ? 'Stroke' : '', hasACS ? 'Acute Chest Syndrome' : ''].filter(Boolean) : undefined,
       dischargeCriteria,
       longTermRecommendations,
-      currentHb: hb,
-      currentHbS: hbsPercent,
     };
     
     setResult(calculationResult);
@@ -370,6 +374,7 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
           value={painScore}
           onChange={(e) => setPainScore(parseInt(e.target.value))}
           className="w-full accent-red-600"
+          title="Pain score from 0 (no pain) to 10 (worst pain)"
         />
         <div className="flex justify-between text-xs text-gray-500 mt-1">
           <span>No pain</span>
@@ -471,6 +476,7 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
               value={transfusionHistory}
               onChange={(e) => setTransfusionHistory(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+              title="Select transfusion history"
             >
               <option value="none">No regular transfusions</option>
               <option value="occasional">Occasional transfusions</option>
@@ -508,7 +514,7 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
                 {result.severity} Crisis
               </p>
               <p className="font-semibold">{result.crisisType}</p>
-              {result.severityFactors.map((factor, i) => (
+              {result.severityFactors?.map((factor, i) => (
                 <p key={i} className="text-sm text-gray-600">{factor}</p>
               ))}
             </div>
@@ -518,10 +524,10 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
               <div className="bg-red-100 border-2 border-red-500 p-4 mb-4 rounded-lg">
                 <h4 className="font-bold text-red-800 mb-2 text-lg">🚨 EMERGENCY EXCHANGE TRANSFUSION</h4>
                 <p className="text-red-700 font-medium">
-                  Estimated exchange volume: {result.exchangeVolume.toLocaleString()} mL (1.5 blood volumes)
+                  Estimated exchange volume: {result.exchangeVolume?.toLocaleString()} mL (1.5 blood volumes)
                 </p>
                 <ul className="list-disc ml-6 mt-2 text-sm text-red-700">
-                  {result.transfusionGuidelines.map((item, index) => (
+                  {result.transfusionGuidelines?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}
                 </ul>
@@ -529,11 +535,11 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
             )}
 
             {/* ACS Management */}
-            {result.acsManagement.length > 0 && (
+            {(result.acsManagement?.length ?? 0) > 0 && (
               <div className="bg-purple-50 border-l-4 border-purple-600 p-4 mb-4 rounded-r-lg">
                 <h4 className="font-bold text-purple-800 mb-2">Acute Chest Syndrome Protocol</h4>
                 <ul className="list-disc ml-6 space-y-1 text-sm text-purple-700">
-                  {result.acsManagement.map((item, index) => (
+                  {result.acsManagement?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}
                 </ul>
@@ -557,18 +563,18 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
                 Fluid Management
               </h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-cyan-700">
-                {result.hydrationRecommendation.map((item, index) => (
+                {result.hydrationRecommendation?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>
             </div>
 
             {/* Infection */}
-            {result.infectionManagement.length > 0 && (
+            {(result.infectionManagement?.length ?? 0) > 0 && (
               <div className="bg-amber-50 border-l-4 border-amber-600 p-4 mb-4 rounded-r-lg">
                 <h4 className="font-bold text-amber-800 mb-2">Infection Management</h4>
                 <ul className="list-disc ml-6 space-y-1 text-sm text-amber-700">
-                  {result.infectionManagement.map((item, index) => (
+                  {result.infectionManagement?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}
                 </ul>
@@ -580,7 +586,7 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
               <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded-r-lg">
                 <h4 className="font-bold text-red-800 mb-2">Transfusion Guidelines</h4>
                 <ul className="list-disc ml-6 space-y-1 text-sm text-red-700">
-                  {result.transfusionGuidelines.map((item, index) => (
+                  {result.transfusionGuidelines?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}
                 </ul>
@@ -591,7 +597,7 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
             <div className="bg-indigo-50 border-l-4 border-indigo-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-indigo-800 mb-2">Hydroxyurea (Disease-Modifying Therapy)</h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-indigo-700">
-                {result.hydroxyureaDosing.map((item, index) => (
+                {result.hydroxyureaDosing?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>
@@ -614,7 +620,7 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
             <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-green-800 mb-2">Discharge Criteria</h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-green-700">
-                {result.dischargeCriteria.map((item, index) => (
+                {result.dischargeCriteria?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>
@@ -624,7 +630,7 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
             <div className="bg-pink-50 border-l-4 border-pink-600 p-4 rounded-r-lg">
               <h4 className="font-bold text-pink-800 mb-2">Long-Term Recommendations</h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-pink-700">
-                {result.longTermRecommendations.map((item, index) => (
+                {result.longTermRecommendations?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>

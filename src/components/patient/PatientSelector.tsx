@@ -10,12 +10,10 @@ import {
   Search, 
   X, 
   User, 
-  ChevronDown, 
   Loader2, 
   AlertCircle,
   Phone,
   Calendar,
-  Building2,
   CheckCircle,
   UserPlus,
   Save,
@@ -24,7 +22,7 @@ import {
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { patientService } from '../../services/patientService';
-import { usePatientSelector, usePatientById } from '../../services/patientHooks';
+import { usePatientById } from '../../services/patientHooks';
 import { db } from '../../database/db';
 import { fullSync } from '../../services/cloudSyncService';
 import type { Patient } from '../../types';
@@ -176,6 +174,7 @@ function QuickAddPatientForm({
             <select
               value={formData.gender}
               onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'male' | 'female' })}
+              title="Select patient gender"
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
             >
               <option value="male">Male</option>
@@ -191,6 +190,7 @@ function QuickAddPatientForm({
               type="date"
               value={formData.dateOfBirth}
               onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+              title="Select date of birth"
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
             />
           </div>
@@ -281,7 +281,7 @@ export function PatientSelector({
   showAddNew = true,
   label,
   size = 'md',
-  variant = 'default',
+  variant: _variant = 'default',
 }: PatientSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -293,7 +293,7 @@ export function PatientSelector({
   const debounceTimer = useRef<NodeJS.Timeout>();
 
   // Get selected patient details
-  const { patient: selectedPatient, loading: patientLoading } = usePatientById(value);
+  const { patient: selectedPatient, loading: _patientLoading } = usePatientById(value);
 
   // Handle search
   useEffect(() => {
@@ -443,6 +443,7 @@ export function PatientSelector({
                 setSearchQuery('');
                 setSearchResults([]);
               }}
+              title="Clear search"
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600"
             >
               <X size={16} />
@@ -663,10 +664,10 @@ export interface PatientCardProps {
 export function PatientCard({
   patientId,
   showActions = true,
-  showVitals = false,
-  showAdmissionStatus = true,
+  showVitals: _showVitals = false,
+  showAdmissionStatus: _showAdmissionStatus = true,
   className = '',
-  onViewDetails,
+  onViewDetails: _onViewDetails,
 }: PatientCardProps) {
   const { patient, loading } = usePatientById(patientId);
 

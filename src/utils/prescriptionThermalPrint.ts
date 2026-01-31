@@ -53,6 +53,17 @@ const routeAbbreviations: Record<MedicationRoute, string> = {
   ophthalmic: 'OPH',
   otic: 'OT',
   nasal: 'NAS',
+  transdermal: 'TD',
+  epidural: 'EPD',
+  spinal: 'IT',
+  intrathecal: 'ITH',
+  nebulizer: 'NEB',
+  vaginal: 'PV',
+  buccal: 'BUC',
+  intradermal: 'ID',
+  intranasal: 'IN',
+  intraarticular: 'IA',
+  intravesical: 'IVES',
 };
 
 // ============================================================

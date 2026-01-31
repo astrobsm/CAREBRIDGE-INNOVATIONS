@@ -230,12 +230,12 @@ export default function BradenCalculator({ patientInfo: _patientInfo }: Props) {
     
     // Score breakdown
     const subscoreAnalysis = {
-      sensoryPerception: { score: sensoryPerception, max: 4, name: 'Sensory Perception' },
-      moisture: { score: moisture, max: 4, name: 'Moisture' },
-      activity: { score: activity, max: 4, name: 'Activity' },
-      mobility: { score: mobility, max: 4, name: 'Mobility' },
-      nutrition: { score: nutrition, max: 4, name: 'Nutrition' },
-      frictionShear: { score: frictionShear, max: 3, name: 'Friction & Shear' },
+      sensoryPerception: { score: sensoryPerception, max: 4, name: 'Sensory Perception', label: 'Sensory Perception' },
+      moisture: { score: moisture, max: 4, name: 'Moisture', label: 'Moisture' },
+      activity: { score: activity, max: 4, name: 'Activity', label: 'Activity' },
+      mobility: { score: mobility, max: 4, name: 'Mobility', label: 'Mobility' },
+      nutrition: { score: nutrition, max: 4, name: 'Nutrition', label: 'Nutrition' },
+      frictionShear: { score: frictionShear, max: 3, name: 'Friction & Shear', label: 'Friction & Shear' },
     };
     
     const lowestScores = Object.entries(subscoreAnalysis)
@@ -405,7 +405,7 @@ export default function BradenCalculator({ patientInfo: _patientInfo }: Props) {
                 Recommended Interventions:
               </h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                {result.interventions.map((item, index) => (
+                {result.interventions?.map((item, index) => (
                   <li key={index} className={item.includes('⚠️') ? 'font-semibold text-red-600' : ''}>
                     {item}
                   </li>
@@ -429,7 +429,7 @@ export default function BradenCalculator({ patientInfo: _patientInfo }: Props) {
             <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-green-800 mb-2">Skin Care Protocol:</h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                {result.skinCare.map((item, index) => (
+                {result.skinCare?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>
@@ -439,7 +439,7 @@ export default function BradenCalculator({ patientInfo: _patientInfo }: Props) {
             <div className="bg-amber-50 border-l-4 border-amber-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-amber-800 mb-2">High-Risk Pressure Areas (Inspect Frequently):</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                {result.highRiskAreas.map((area, index) => (
+                {result.highRiskAreas?.map((area, index) => (
                   <span key={index} className="bg-white rounded px-2 py-1 text-center">
                     {area}
                   </span>
@@ -448,11 +448,11 @@ export default function BradenCalculator({ patientInfo: _patientInfo }: Props) {
             </div>
 
             {/* Equipment */}
-            {result.equipmentList.length > 0 && (
+            {(result.equipmentList?.length ?? 0) > 0 && (
               <div className="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4 rounded-r-lg">
                 <h4 className="font-bold text-blue-800 mb-2">Equipment Checklist:</h4>
                 <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                  {result.equipmentList.map((item, index) => (
+                  {result.equipmentList?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}
                 </ul>
@@ -463,7 +463,7 @@ export default function BradenCalculator({ patientInfo: _patientInfo }: Props) {
             <div className="bg-gray-100 border-l-4 border-gray-500 p-4 rounded-r-lg">
               <h4 className="font-bold text-gray-800 mb-2">🌍 Resource-Limited Setting Adaptations:</h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                {result.resourceLimitedOptions.map((item, index) => (
+                {result.resourceLimitedOptions?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>

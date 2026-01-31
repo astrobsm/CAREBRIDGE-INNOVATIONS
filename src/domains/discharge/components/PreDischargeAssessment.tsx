@@ -9,7 +9,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -17,9 +16,7 @@ import {
   ClipboardCheck,
   Heart,
   Activity,
-  Brain,
   Users,
-  Home,
   Pill,
   AlertOctagon,
   Shield,

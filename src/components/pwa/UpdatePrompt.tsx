@@ -6,7 +6,6 @@ import {
   RefreshCw, 
   X, 
   CheckCircle, 
-  AlertCircle,
   Smartphone
 } from 'lucide-react';
 import { usePWA, checkForAppUpdate, forceReloadForUpdate, getAppVersion } from '../../services/pwaService';

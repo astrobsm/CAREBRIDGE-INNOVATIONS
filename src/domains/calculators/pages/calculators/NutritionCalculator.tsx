@@ -16,6 +16,7 @@ export default function NutritionCalculator({ patientInfo }: Props) {
   const [height, setHeight] = useState(patientInfo.height || '');
   const [age, setAge] = useState(patientInfo.age || '');
   const [gender, setGender] = useState<'male' | 'female'>((patientInfo.gender || 'male') as 'male' | 'female');
+  // Note: calories and protein are used in sub-component calculations
   
   // Activity factor
   const [activityLevel, setActivityLevel] = useState<string>('bedridden');
@@ -197,7 +198,7 @@ export default function NutritionCalculator({ patientInfo }: Props) {
     setResult(calculationResult);
   };
 
-  const generateAfricanMealPlan = (calories: number, protein: number) => {
+  const generateAfricanMealPlan = (_calories: number, _protein: number) => {
     const mealPlan = {
       breakfast: [
         'Akamu/Ogi (corn pap) with milk and sugar - 250 kcal',
@@ -308,6 +309,7 @@ export default function NutritionCalculator({ patientInfo }: Props) {
             value={gender}
             onChange={(e) => setGender(e.target.value as 'male' | 'female')}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900"
+            title="Select gender"
           >
             <option value="male">Male</option>
             <option value="female">Female</option>

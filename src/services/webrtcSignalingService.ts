@@ -13,7 +13,8 @@ import { v4 as uuidv4 } from 'uuid';
 import type { 
   ConferenceParticipant, 
   RTCSignalingMessage,
-  VideoConference 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  VideoConference as _VideoConference
 } from '../types';
 
 // STUN/TURN servers for NAT traversal

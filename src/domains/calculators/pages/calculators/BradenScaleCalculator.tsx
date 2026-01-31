@@ -9,7 +9,7 @@ interface Props {
   patientInfo: PatientCalculatorInfo;
 }
 
-export default function BradenScaleCalculator({ patientInfo }: Props) {
+export default function BradenScaleCalculator({ patientInfo: _patientInfo }: Props) {
   // Braden Scale Components (1-4, lower = worse)
   const [sensoryPerception, setSensoryPerception] = useState(4);
   const [moisture, setMoisture] = useState(4);
@@ -66,7 +66,6 @@ export default function BradenScaleCalculator({ patientInfo }: Props) {
     
     // Risk stratification
     let riskLevel: 'No Risk' | 'Mild Risk' | 'Moderate Risk' | 'High Risk' | 'Very High Risk';
-    let riskColor: string;
     let turningSchedule: string;
     let interventions: string[] = [];
     let preventionMeasures: string[] = [];
@@ -391,7 +390,7 @@ export default function BradenScaleCalculator({ patientInfo }: Props) {
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <h4 className="font-semibold mb-3">Score Breakdown:</h4>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {Object.entries(result.scoreBreakdown).map(([key, { score, label }]) => (
+                {Object.entries(result.scoreBreakdown ?? {}).map(([key, { score, label }]) => (
                   <div key={key} className="flex items-center gap-2 text-sm">
                     <span className={`font-bold px-2 py-0.5 rounded ${
                       score <= 1 ? 'bg-red-200 text-red-800' :
@@ -406,11 +405,11 @@ export default function BradenScaleCalculator({ patientInfo }: Props) {
             </div>
 
             {/* Problem Areas */}
-            {result.problemAreas.length > 0 && (
+            {(result.problemAreas?.length ?? 0) > 0 && (
               <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded-r-lg">
                 <h4 className="font-bold text-red-800 mb-2">⚠️ Priority Problem Areas (Score ≤2):</h4>
                 <div className="flex flex-wrap gap-2">
-                  {result.problemAreas.map((area, index) => (
+                  {result.problemAreas?.map((area, index) => (
                     <span key={index} className="bg-red-200 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
                       {area}
                     </span>
@@ -432,7 +431,7 @@ export default function BradenScaleCalculator({ patientInfo }: Props) {
             <div className="bg-purple-50 border-l-4 border-purple-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-purple-800 mb-2">Interventions:</h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                {result.interventions.map((item, index) => (
+                {result.interventions?.map((item, index) => (
                   <li key={index} className={item.includes('⚠️') || item.includes('🚨') ? 'font-semibold text-red-600' : ''}>
                     {item}
                   </li>
@@ -441,11 +440,11 @@ export default function BradenScaleCalculator({ patientInfo }: Props) {
             </div>
 
             {/* Support Surfaces */}
-            {result.supportSurfaces.length > 0 && (
+            {(result.supportSurfaces?.length ?? 0) > 0 && (
               <div className="bg-indigo-50 border-l-4 border-indigo-600 p-4 mb-4 rounded-r-lg">
                 <h4 className="font-bold text-indigo-800 mb-2">Support Surface Recommendations:</h4>
                 <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                  {result.supportSurfaces.map((item, index) => (
+                  {result.supportSurfaces?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}
                 </ul>
@@ -456,18 +455,18 @@ export default function BradenScaleCalculator({ patientInfo }: Props) {
             <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-green-800 mb-2">Prevention Measures:</h4>
               <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                {result.preventionMeasures.map((item, index) => (
+                {result.preventionMeasures?.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>
             </div>
 
             {/* Nutrition Recommendations */}
-            {result.nutritionRecommendations.length > 0 && (
+            {(result.nutritionRecommendations?.length ?? 0) > 0 && (
               <div className="bg-amber-50 border-l-4 border-amber-600 p-4 mb-4 rounded-r-lg">
                 <h4 className="font-bold text-amber-800 mb-2">Nutrition for Wound Healing:</h4>
                 <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                  {result.nutritionRecommendations.map((item, index) => (
+                  {result.nutritionRecommendations?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}
                 </ul>
@@ -475,11 +474,11 @@ export default function BradenScaleCalculator({ patientInfo }: Props) {
             )}
 
             {/* Skin Care */}
-            {result.skinCare.length > 0 && (
+            {(result.skinCare?.length ?? 0) > 0 && (
               <div className="bg-pink-50 border-l-4 border-pink-600 p-4 mb-4 rounded-r-lg">
                 <h4 className="font-bold text-pink-800 mb-2">Skin Care Protocol:</h4>
                 <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                  {result.skinCare.map((item, index) => (
+                  {result.skinCare?.map((item, index) => (
                     <li key={index}>{item}</li>
                   ))}
                 </ul>
@@ -490,7 +489,7 @@ export default function BradenScaleCalculator({ patientInfo }: Props) {
             <div className="bg-gray-50 border-l-4 border-gray-600 p-4 rounded-r-lg">
               <h4 className="font-bold text-gray-800 mb-2">High-Risk Body Sites to Monitor:</h4>
               <div className="grid md:grid-cols-3 gap-1 text-sm text-gray-700">
-                {result.highRiskSites.map((site, index) => (
+                {result.highRiskSites?.map((site, index) => (
                   <div key={index} className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-gray-400"></span>
                     {site}

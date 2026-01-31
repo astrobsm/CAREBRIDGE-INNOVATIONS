@@ -21,6 +21,17 @@ import type {
   VideoConference,
 } from '../types';
 
+// Type declarations for Web Speech API (not in standard lib)
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message?: string;
+}
+
 // ============================================================
 // ROOM CODE GENERATOR
 // ============================================================

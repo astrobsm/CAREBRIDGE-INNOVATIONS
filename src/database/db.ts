@@ -305,7 +305,7 @@ export async function initializeDemoData(): Promise<void> {
         hospitalId: 'hospital-1',
         isActive: true,
         hasAcceptedAgreement: true,
-        agreementAcceptedAt: new Date(),
+        agreementAcceptedAt: new Date().toISOString(),
         agreementVersion: '1.0',
         mustChangePassword: false,
         createdAt: new Date(),

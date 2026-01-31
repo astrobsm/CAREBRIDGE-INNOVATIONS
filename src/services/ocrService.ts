@@ -184,11 +184,13 @@ function applyAdaptiveContrast(imageData: ImageData, contrastFactor: number): Im
 }
 
 // Adaptive thresholding (better for handwriting than fixed threshold)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function applyAdaptiveThreshold(
   imageData: ImageData, 
   width: number, 
   height: number, 
-  baseThreshold: number
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _baseThreshold: number
 ): ImageData {
   const data = imageData.data;
   const blockSize = 15; // Size of local neighborhood

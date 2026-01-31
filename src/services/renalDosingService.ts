@@ -7,7 +7,7 @@
  * Designed for Nigerian clinical context with locally available medications.
  */
 
-import { calculateGFR, getGFRForDrugDosing, GFRResult, CKDStage } from './gfrCalculationService';
+import type { CKDStage } from './gfrCalculationService';
 
 export interface DrugRenalAdjustment {
   gfrThreshold: number; // Below this GFR, adjustment applies
@@ -562,7 +562,7 @@ export const RENAL_DOSING_DATABASE: Record<string, DrugInformation> = {
 export function getRenalDosingRecommendation(
   drugKey: string,
   gfr: number,
-  weight?: number
+  _weight?: number // Reserved for weight-based dosing calculations
 ): RenalDosingResult | null {
   const drug = RENAL_DOSING_DATABASE[drugKey.toLowerCase().replace(/[\s-]/g, '')];
   
@@ -637,7 +637,8 @@ function getCKDStageFromGFR(gfr: number): CKDStage {
 /**
  * Get alternative drugs for a contraindicated medication
  */
-function getAlternativeDrugs(drugKey: string, drugClass: string): string[] {
+function getAlternativeDrugs(drugKey: string, _drugClass?: string): string[] {
+  // drugClass reserved for future class-based alternative suggestions
   const alternatives: Record<string, string[]> = {
     morphine: ['Fentanyl (no active renal metabolites)', 'Hydromorphone (less accumulation)', 'Oxycodone (use cautiously)'],
     tramadol: ['Paracetamol', 'Fentanyl patch'],

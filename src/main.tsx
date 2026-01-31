@@ -79,7 +79,7 @@ function setupNetworkHandlers() {
   // Listen for service worker messages
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', (event) => {
-      const { type, synced, failed, remaining } = event.data || {};
+      const { type, synced, failed, remaining: _remaining } = event.data || {};
       
       switch (type) {
         case 'SW_ACTIVATED':

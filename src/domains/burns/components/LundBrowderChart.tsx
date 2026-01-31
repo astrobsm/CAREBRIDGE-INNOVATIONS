@@ -2,7 +2,7 @@
 // WHO/ISBI Recommended Method for Burn Area Calculation
 
 import { useState, useEffect, useMemo } from 'react';
-import { Calculator, Info, AlertTriangle, Check } from 'lucide-react';
+import { Calculator, AlertTriangle } from 'lucide-react';
 import type { LundBrowderEntry, BurnDepthType, TBSACalculation } from '../types';
 import { LUND_BROWDER_CHART } from '../types';
 import { calculateTBSALundBrowder, getAgeGroup } from '../services/burnScoringService';
@@ -93,10 +93,6 @@ export default function LundBrowderChart({
 
   const getMaxPercent = (regionId: string): number => {
     return LUND_BROWDER_CHART[regionId]?.[ageGroup] || 0;
-  };
-
-  const getDepthColor = (depth: BurnDepthType): string => {
-    return DEPTH_OPTIONS.find(d => d.value === depth)?.bgColor || 'bg-gray-100';
   };
 
   // Group regions by body section
@@ -290,6 +286,7 @@ function RegionRow({ region, entry, maxPercent, onUpdate }: RegionRowProps) {
         className={`px-2 py-1 border rounded text-xs ${
           entry.percent > 0 ? DEPTH_OPTIONS.find(d => d.value === entry.depth)?.bgColor : 'bg-gray-50'
         } ${entry.percent > 0 ? DEPTH_OPTIONS.find(d => d.value === entry.depth)?.color : 'text-gray-400'}`}
+        title="Select burn depth"
       >
         {DEPTH_OPTIONS.map(opt => (
           <option key={opt.value} value={opt.value}>{opt.label}</option>

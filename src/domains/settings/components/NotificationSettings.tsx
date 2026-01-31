@@ -102,9 +102,9 @@ export default function NotificationSettings({ onClose }: NotificationSettingsPr
         body: 'This is a test notification from AstroHEALTH. Notifications are working correctly!',
         icon: '/icons/icon-192x192.png',
         badge: '/icons/icon-72x72.png',
-        vibrate: [100, 50, 100],
+        // Note: vibrate is not in NotificationOptions type but is supported by browsers
         tag: 'test-notification',
-      });
+      } as NotificationOptions);
 
       if (voiceEnabled) {
         playVoiceAlarm('Test notification sent successfully.', 'low');
@@ -197,6 +197,7 @@ export default function NotificationSettings({ onClose }: NotificationSettingsPr
             </div>
             <button
               onClick={handleVoiceToggle}
+              title="Toggle voice announcements"
               className={`w-14 h-8 rounded-full relative transition-colors ${
                 voiceEnabled ? 'bg-blue-600' : 'bg-gray-300'
               }`}

@@ -2,9 +2,9 @@
 // Comprehensive push notifications with voice alarms for surgeries, appointments, and treatment plans
 // Works even when app is not open via Service Worker
 
-import { format, differenceInMinutes, addMinutes, isToday, isTomorrow, parseISO } from 'date-fns';
+import { format, addMinutes } from 'date-fns';
 import { db } from '../database';
-import type { Surgery, Appointment, TreatmentPlan, Patient, Hospital, Investigation, LabRequest, Prescription } from '../types';
+import type { TreatmentPlan, Investigation, LabRequest, Prescription } from '../types';
 
 // ============================================
 // TYPES
@@ -172,7 +172,7 @@ const notificationDB = new NotificationScheduleDB();
 // ============================================
 
 let speechSynthesis: SpeechSynthesis | null = null;
-let voiceEnabled = true;
+// voiceEnabled is stored in localStorage, not in memory
 
 export function initVoiceAlarm(): void {
   if ('speechSynthesis' in window) {
@@ -186,7 +186,6 @@ export function initVoiceAlarm(): void {
 }
 
 export function setVoiceEnabled(enabled: boolean): void {
-  voiceEnabled = enabled;
   localStorage.setItem('carebridge_voice_alarms', enabled ? 'true' : 'false');
 }
 
@@ -312,7 +311,7 @@ export async function showPushNotification(
       body,
       icon: '/icons/icon-192x192.png',
       badge: '/icons/icon-72x72.png',
-      vibrate: urgency === 'high' ? [200, 100, 200, 100, 200] : [100, 50, 100],
+      // vibrate: urgency === 'high' ? [200, 100, 200, 100, 200] : [100, 50, 100], // Not in NotificationOptions type
       tag: `carebridge-${Date.now()}`,
       requireInteraction: urgency === 'high',
       ...notificationOptions,
@@ -360,12 +359,13 @@ export async function fetchUpcomingSurgeries(): Promise<ScheduledEvent[]> {
   for (const surgery of surgeries) {
     const patientName = await getPatientName(surgery.patientId);
     const hospitalName = await getHospitalName(surgery.hospitalId);
+    const surgeryAny = surgery as any;
     
     // Parse scheduled date and time
     const scheduledDate = new Date(surgery.scheduledDate);
     // If surgery has a specific time, use it
-    if (surgery.scheduledTime) {
-      const [hours, minutes] = surgery.scheduledTime.split(':').map(Number);
+    if (surgeryAny.scheduledTime) {
+      const [hours, minutes] = surgeryAny.scheduledTime.split(':').map(Number);
       scheduledDate.setHours(hours, minutes, 0, 0);
     } else {
       // Default to 8 AM if no time specified
@@ -380,9 +380,9 @@ export async function fetchUpcomingSurgeries(): Promise<ScheduledEvent[]> {
       patientId: surgery.patientId,
       hospitalName,
       scheduledDateTime: scheduledDate,
-      location: surgery.operatingRoom || 'Theatre',
+      location: (surgery as any).operatingRoom || 'Theatre',
       details: `Surgeon: ${surgery.surgeon || 'Not assigned'}`,
-      priority: surgery.priority as any || 'routine',
+      priority: (surgery as any).priority || 'routine',
       notificationTimes: DEFAULT_SURGERY_NOTIFICATION_TIMES,
     });
   }
@@ -447,9 +447,10 @@ export async function fetchUpcomingTreatmentPlans(): Promise<ScheduledEvent[]> {
   
   for (const plan of plans) {
     // Check if plan has scheduled activities for today/tomorrow
-    if (!plan.scheduledActivities) continue;
+    const planAny = plan as any;
+    if (!planAny.scheduledActivities) continue;
     
-    for (const activity of plan.scheduledActivities) {
+    for (const activity of planAny.scheduledActivities) {
       if (!activity.scheduledTime) continue;
       
       const scheduledTime = new Date(activity.scheduledTime);
@@ -457,7 +458,7 @@ export async function fetchUpcomingTreatmentPlans(): Promise<ScheduledEvent[]> {
       if (activity.status === 'completed') continue;
 
       const patientName = await getPatientName(plan.patientId);
-      const hospitalName = plan.hospitalId ? await getHospitalName(plan.hospitalId) : 'Hospital';
+      const _hospitalName = planAny.hospitalId ? await getHospitalName(planAny.hospitalId) : 'Hospital';
 
       events.push({
         id: `${plan.id}-${activity.id}`,
@@ -465,10 +466,10 @@ export async function fetchUpcomingTreatmentPlans(): Promise<ScheduledEvent[]> {
         title: activity.name || 'Treatment Activity',
         patientName,
         patientId: plan.patientId,
-        hospitalName,
+        hospitalName: _hospitalName,
         scheduledDateTime: scheduledTime,
-        details: activity.description || plan.treatmentType || 'Scheduled treatment',
-        priority: plan.priority as any || 'routine',
+        details: activity.description || planAny.treatmentType || 'Scheduled treatment',
+        priority: planAny.priority || 'routine',
         notificationTimes: DEFAULT_TREATMENT_NOTIFICATION_TIMES,
       });
     }
@@ -576,6 +577,7 @@ async function getEventDetails(schedule: NotificationSchedule): Promise<Schedule
       case 'surgery': {
         const surgery = await db.surgeries.get(schedule.eventId);
         if (!surgery) return null;
+        const surgeryAny = surgery as any;
         return {
           id: surgery.id,
           type: 'surgery',
@@ -584,9 +586,9 @@ async function getEventDetails(schedule: NotificationSchedule): Promise<Schedule
           patientId: surgery.patientId,
           hospitalName: await getHospitalName(surgery.hospitalId),
           scheduledDateTime: new Date(surgery.scheduledDate),
-          location: surgery.operatingRoom || 'Theatre',
+          location: surgeryAny.operatingRoom || 'Theatre',
           details: `Surgeon: ${surgery.surgeon || 'Not assigned'}`,
-          priority: surgery.priority as any || 'routine',
+          priority: surgeryAny.priority || 'routine',
           notificationTimes: [],
         };
       }
@@ -615,16 +617,17 @@ async function getEventDetails(schedule: NotificationSchedule): Promise<Schedule
         const planId = parts.slice(0, -1).join('-');
         const plan = await db.treatmentPlans.get(planId);
         if (!plan) return null;
+        const planAny = plan as any;
         return {
           id: schedule.eventId,
           type: 'treatment_plan',
-          title: plan.treatmentType || 'Treatment',
+          title: planAny.treatmentType || 'Treatment',
           patientName: await getPatientName(plan.patientId),
           patientId: plan.patientId,
           hospitalName: 'Hospital',
           scheduledDateTime: new Date(schedule.scheduledTime),
           details: 'Scheduled treatment activity',
-          priority: plan.priority as any || 'routine',
+          priority: planAny.priority || 'routine',
           notificationTimes: [],
         };
       }
@@ -814,12 +817,12 @@ export async function notifyInvestigationRequest(investigation: Investigation): 
  */
 export async function notifyLabRequest(labRequest: LabRequest): Promise<void> {
   const patientName = await getPatientName(labRequest.patientId);
-  const hospitalName = await getHospitalName(labRequest.hospitalId);
+  const _hospitalName = await getHospitalName(labRequest.hospitalId);
   
-  const testNames = labRequest.tests?.map(t => t.name || t.code).join(', ') || 'Lab tests';
+  const testNames = labRequest.tests?.map(t => t.name || (t as any).code).join(', ') || 'Lab tests';
   
   const title = '🧪 New Lab Request';
-  const body = `${testNames} requested for ${patientName}\n${hospitalName}`;
+  const body = `${testNames} requested for ${patientName}\n${_hospitalName}`;
   
   await showPushNotification(title, body, {
     tag: `lab-${labRequest.id}`,
@@ -839,10 +842,9 @@ export async function notifyLabRequest(labRequest: LabRequest): Promise<void> {
  */
 export async function notifyPrescription(prescription: Prescription): Promise<void> {
   const patientName = await getPatientName(prescription.patientId);
-  const hospitalName = await getHospitalName(prescription.hospitalId);
   
   const medicationCount = prescription.medications?.length || 0;
-  const medicationNames = prescription.medications?.slice(0, 3).map(m => m.name || m.drugName).join(', ') || 'Medications';
+  const medicationNames = prescription.medications?.slice(0, 3).map(m => m.name || (m as any).drugName).join(', ') || 'Medications';
   
   const title = '💊 New Prescription';
   const body = `${medicationCount} medication${medicationCount !== 1 ? 's' : ''} prescribed for ${patientName}\n${medicationNames}${medicationCount > 3 ? '...' : ''}`;
@@ -865,10 +867,10 @@ export async function notifyPrescription(prescription: Prescription): Promise<vo
  */
 export async function notifyNewTreatmentPlan(treatmentPlan: TreatmentPlan): Promise<void> {
   const patientName = await getPatientName(treatmentPlan.patientId);
-  const hospitalName = treatmentPlan.hospitalId ? await getHospitalName(treatmentPlan.hospitalId) : 'Hospital';
+  const planAny = treatmentPlan as any;
   
   const title = '📋 New Treatment Plan';
-  const body = `${treatmentPlan.treatmentType || 'Treatment plan'} created for ${patientName}\n${treatmentPlan.diagnosis || 'View details for more information'}`;
+  const body = `${planAny.treatmentType || 'Treatment plan'} created for ${patientName}\n${planAny.diagnosis || 'View details for more information'}`;
   
   await showPushNotification(title, body, {
     tag: `treatment-plan-${treatmentPlan.id}`,
@@ -879,12 +881,12 @@ export async function notifyNewTreatmentPlan(treatmentPlan: TreatmentPlan): Prom
       patientId: treatmentPlan.patientId,
       url: `/treatment-plans/${treatmentPlan.id}`,
     },
-    voiceMessage: isVoiceEnabled() ? `New treatment plan created. ${treatmentPlan.treatmentType || 'Treatment plan'} for patient ${patientName}.` : undefined,
-    urgency: treatmentPlan.priority === 'high' || treatmentPlan.priority === 'urgent' ? 'high' : 'medium',
+    voiceMessage: isVoiceEnabled() ? `New treatment plan created. ${planAny.treatmentType || 'Treatment plan'} for patient ${patientName}.` : undefined,
+    urgency: planAny.priority === 'high' || planAny.priority === 'urgent' ? 'high' : 'medium',
   });
   
   // Also schedule future notifications for this treatment plan
-  if (treatmentPlan.scheduledActivities && treatmentPlan.scheduledActivities.length > 0) {
+  if (planAny.scheduledActivities && planAny.scheduledActivities.length > 0) {
     const events = await fetchUpcomingTreatmentPlans();
     const relatedEvents = events.filter(e => e.id.startsWith(treatmentPlan.id));
     for (const event of relatedEvents) {
@@ -921,7 +923,7 @@ export async function notifyInvestigationResults(investigation: Investigation): 
  */
 export async function notifyLabResults(labRequest: LabRequest): Promise<void> {
   const patientName = await getPatientName(labRequest.patientId);
-  const testNames = labRequest.tests?.map(t => t.name || t.code).join(', ') || 'Lab tests';
+  const testNames = labRequest.tests?.map(t => t.name || (t as any).code).join(', ') || 'Lab tests';
   
   const title = '🧪 Lab Results Ready';
   const body = `${testNames} results for ${patientName} are now available`;

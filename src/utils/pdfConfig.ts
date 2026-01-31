@@ -408,7 +408,83 @@ export function validatePDFStandards(doc: jsPDF): string[] {
 }
 
 // ============================================================
-// SECTION 8: EXPORTS
+// SECTION 8: TEXT SANITIZATION FOR PDF COMPATIBILITY
+// ============================================================
+
+/**
+ * Sanitize text for PDF rendering
+ * 
+ * Replaces Unicode characters that don't render properly with jsPDF's
+ * built-in fonts (Helvetica, Times, Courier). These fonts don't support
+ * extended Unicode characters like superscripts, subscripts, and special
+ * math symbols.
+ * 
+ * @param text - The text to sanitize
+ * @returns Text with Unicode characters replaced with ASCII equivalents
+ */
+export function sanitizeTextForPDF(text: string): string {
+  if (!text) return '';
+  
+  return text
+    // Superscript/subscript numbers
+    .replace(/⁰/g, '0')
+    .replace(/¹/g, '1')
+    .replace(/²/g, '2')
+    .replace(/³/g, '3')
+    .replace(/⁴/g, '4')
+    .replace(/⁵/g, '5')
+    .replace(/⁶/g, '6')
+    .replace(/⁷/g, '7')
+    .replace(/⁸/g, '8')
+    .replace(/⁹/g, '9')
+    .replace(/₀/g, '0')
+    .replace(/₁/g, '1')
+    .replace(/₂/g, '2')
+    .replace(/₃/g, '3')
+    .replace(/₄/g, '4')
+    .replace(/₅/g, '5')
+    .replace(/₆/g, '6')
+    .replace(/₇/g, '7')
+    .replace(/₈/g, '8')
+    .replace(/₉/g, '9')
+    // Superscript/subscript signs
+    .replace(/⁺/g, '+')
+    .replace(/⁻/g, '-')
+    .replace(/₊/g, '+')
+    .replace(/₋/g, '-')
+    // Math symbols
+    .replace(/≥/g, '>=')
+    .replace(/≤/g, '<=')
+    .replace(/≠/g, '!=')
+    .replace(/±/g, '+/-')
+    .replace(/×/g, 'x')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/–/g, '-')
+    .replace(/—/g, '-')
+    // Greek letters commonly used in medicine
+    .replace(/α/g, 'alpha')
+    .replace(/β/g, 'beta')
+    .replace(/γ/g, 'gamma')
+    .replace(/δ/g, 'delta')
+    .replace(/μ/g, 'u')
+    // Special quotes and punctuation
+    .replace(/[""]/g, '"')
+    .replace(/['']/g, "'")
+    .replace(/…/g, '...')
+    .replace(/•/g, '*')
+    // Degree symbol (common in temperature)
+    .replace(/°/g, ' deg ')
+    // Other special characters
+    .replace(/™/g, '(TM)')
+    .replace(/®/g, '(R)')
+    .replace(/©/g, '(C)')
+    // Remove any remaining non-printable characters
+    .replace(/[\u200B-\u200D\uFEFF]/g, '');
+}
+
+// ============================================================
+// SECTION 9: EXPORTS
 // ============================================================
 
 export default {
@@ -435,4 +511,5 @@ export default {
   validatePDFStandards,
   getContentWidth,
   getContentHeight,
+  sanitizeTextForPDF,
 };

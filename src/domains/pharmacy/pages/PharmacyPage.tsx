@@ -531,8 +531,20 @@ export default function PharmacyPage() {
 
   // Track selected patient's GFR for renal dosing
   const [patientGFR, setPatientGFR] = useState<GFRResult | null>(null);
-  const [renalDosingWarnings, setRenalDosingWarnings] = useState<RenalDosingResult[]>([]);
-  
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_renalDosingWarnings, _setRenalDosingWarnings] = useState<RenalDosingResult[]>([]);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    formState: { errors },
+  } = useForm<PrescriptionFormData>({
+    resolver: zodResolver(prescriptionSchema),
+  });
+
   // Watch patientId to fetch GFR
   const selectedPatientId = watch('patientId');
   
@@ -554,17 +566,6 @@ export default function PharmacyPage() {
     fetchPatientGFR();
   }, [selectedPatientId]);
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    reset,
-    formState: { errors },
-  } = useForm<PrescriptionFormData>({
-    resolver: zodResolver(prescriptionSchema),
-  });
-
   const availableMeds = useMemo(() => {
     if (!currentMed.category) return [];
     return medicationDatabase[currentMed.category as keyof typeof medicationDatabase] || [];
@@ -579,7 +580,7 @@ export default function PharmacyPage() {
     if (!selectedMedInfo || !patientGFR) return null;
     try {
       const drugName = selectedMedInfo.genericName || selectedMedInfo.name;
-      return getDrugDosingRecommendation(drugName.toLowerCase().replace(/\s+/g, '_'), patientGFR.gfr);
+      return getDrugDosingRecommendation(drugName.toLowerCase().replace(/\s+/g, '_'), patientGFR.gfrCKDEPI);
     } catch {
       return null;
     }
@@ -1318,27 +1319,27 @@ export default function PharmacyPage() {
                   {/* GFR Display - Shows when patient is selected */}
                   {selectedPatientId && patientGFR && (
                     <div className={`p-4 rounded-lg border ${
-                      patientGFR.gfr < 30 ? 'bg-red-50 border-red-200' :
-                      patientGFR.gfr < 60 ? 'bg-amber-50 border-amber-200' :
+                      patientGFR.gfrCKDEPI < 30 ? 'bg-red-50 border-red-200' :
+                      patientGFR.gfrCKDEPI < 60 ? 'bg-amber-50 border-amber-200' :
                       'bg-green-50 border-green-200'
                     }`}>
                       <div className="flex items-start gap-3">
                         <AlertCircle className={`w-5 h-5 flex-shrink-0 ${
-                          patientGFR.gfr < 30 ? 'text-red-600' :
-                          patientGFR.gfr < 60 ? 'text-amber-600' :
+                          patientGFR.gfrCKDEPI < 30 ? 'text-red-600' :
+                          patientGFR.gfrCKDEPI < 60 ? 'text-amber-600' :
                           'text-green-600'
                         }`} />
                         <div>
                           <p className="font-medium text-gray-900">
-                            Patient Renal Function: GFR {Math.round(patientGFR.gfr)} mL/min/1.73m²
+                            Patient Renal Function: GFR {Math.round(patientGFR.gfrCKDEPI)} mL/min/1.73m²
                           </p>
                           <p className={`text-sm ${
-                            patientGFR.gfr < 30 ? 'text-red-700' :
-                            patientGFR.gfr < 60 ? 'text-amber-700' :
+                            patientGFR.gfrCKDEPI < 30 ? 'text-red-700' :
+                            patientGFR.gfrCKDEPI < 60 ? 'text-amber-700' :
                             'text-green-700'
                           }`}>
-                            {patientGFR.stage.description}
-                            {patientGFR.gfr < 60 && ' - Renal dose adjustments may be required'}
+                            {patientGFR.stageDescription}
+                            {patientGFR.gfrCKDEPI < 60 && ' - Renal dose adjustments may be required'}
                           </p>
                         </div>
                       </div>
@@ -1517,7 +1518,7 @@ export default function PharmacyPage() {
                     )}
 
                     {/* Renal Dosing Warning - Shows when medication requires adjustment and patient has impaired renal function */}
-                    {selectedMedInfo?.renalAdjust && patientGFR && patientGFR.gfr < 60 && currentRenalDosing && (
+                    {selectedMedInfo?.renalAdjust && patientGFR && patientGFR.gfrCKDEPI < 60 && currentRenalDosing && (
                       <div className="mt-3 p-3 bg-red-50 border border-red-300 rounded-lg">
                         <div className="flex items-start gap-2">
                           <Activity className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -1527,16 +1528,16 @@ export default function PharmacyPage() {
                               Renal Dosing Adjustment Required
                             </h4>
                             <div className="mt-2 space-y-1 text-xs text-red-700">
-                              <p><strong>Patient GFR:</strong> {patientGFR.gfr.toFixed(1)} mL/min/1.73m² ({patientGFR.stage})</p>
-                              <p><strong>Normal Dose:</strong> {currentRenalDosing.normalDose}</p>
-                              <p><strong>Recommended Adjusted Dose:</strong> <span className="font-semibold text-red-900">{currentRenalDosing.adjustedDose}</span></p>
-                              {currentRenalDosing.adjustment && (
-                                <p><strong>Adjustment:</strong> {currentRenalDosing.adjustment}</p>
+                              <p><strong>Patient GFR:</strong> {patientGFR.gfrCKDEPI.toFixed(1)} mL/min/1.73m² ({patientGFR.ckdStage})</p>
+                              <p><strong>Normal Dose:</strong> {currentRenalDosing.originalDose}</p>
+                              <p><strong>Recommended Adjusted Dose:</strong> <span className="font-semibold text-red-900">{currentRenalDosing.recommendedDose}</span></p>
+                              {currentRenalDosing.adjustmentType && (
+                                <p><strong>Adjustment:</strong> {currentRenalDosing.adjustmentType}</p>
                               )}
-                              {currentRenalDosing.notes && (
-                                <p className="italic mt-1 p-2 bg-red-100 rounded">{currentRenalDosing.notes}</p>
+                              {currentRenalDosing.warnings && currentRenalDosing.warnings.length > 0 && (
+                                <p className="italic mt-1 p-2 bg-red-100 rounded">{currentRenalDosing.warnings.join('; ')}</p>
                               )}
-                              {currentRenalDosing.requiresMonitoring && (
+                              {currentRenalDosing.monitoringRequired && currentRenalDosing.monitoringRequired.length > 0 && (
                                 <p className="flex items-center gap-1 mt-1 font-medium">
                                   <AlertCircle className="w-3 h-3" /> Therapeutic drug monitoring recommended
                                 </p>

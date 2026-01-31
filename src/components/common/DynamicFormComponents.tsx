@@ -7,8 +7,8 @@
 
 import React, { useMemo } from 'react';
 import { AlertTriangle, AlertCircle, Info, Baby, User, Users, Heart } from 'lucide-react';
-import type { PatientCategory, PregnancyStatus, BroadCategory, AgeCategory } from '../services/patientCategoryService';
-import { usePatientContext, type UsePatientContextResult, VITAL_SIGNS_BY_AGE } from '../hooks/usePatientContext';
+import type { PatientCategory, PregnancyStatus, BroadCategory } from '../../services/patientCategoryService';
+import { type UsePatientContextResult } from '../../hooks/usePatientContext';
 
 // ==============================================
 // Patient Category Badge
@@ -93,7 +93,7 @@ export function ClinicalConsiderations({ context, variant = 'compact' }: Clinica
             </p>
             {gfr && (
               <p className="text-xs text-amber-700 mt-1">
-                GFR: {Math.round(gfr.gfr)} mL/min ({gfr.stage.description})
+                GFR: {Math.round(gfr.gfrCKDEPI)} mL/min ({gfr.ckdStage} - {gfr.stageDescription})
               </p>
             )}
           </div>
@@ -140,26 +140,26 @@ export function ClinicalConsiderations({ context, variant = 'compact' }: Clinica
 
       {gfr && (
         <div className={`border rounded-lg p-4 ${
-          gfr.gfr < 30 ? 'bg-red-50 border-red-200' :
-          gfr.gfr < 60 ? 'bg-amber-50 border-amber-200' :
+          gfr.gfrCKDEPI < 30 ? 'bg-red-50 border-red-200' :
+          gfr.gfrCKDEPI < 60 ? 'bg-amber-50 border-amber-200' :
           'bg-green-50 border-green-200'
         }`}>
           <div className="flex items-start gap-2">
             <AlertCircle className={`w-5 h-5 flex-shrink-0 ${
-              gfr.gfr < 30 ? 'text-red-600' :
-              gfr.gfr < 60 ? 'text-amber-600' :
+              gfr.gfrCKDEPI < 30 ? 'text-red-600' :
+              gfr.gfrCKDEPI < 60 ? 'text-amber-600' :
               'text-green-600'
             }`} />
             <div>
               <h4 className={`text-sm font-medium ${
-                gfr.gfr < 30 ? 'text-red-800' :
-                gfr.gfr < 60 ? 'text-amber-800' :
+                gfr.gfrCKDEPI < 30 ? 'text-red-800' :
+                gfr.gfrCKDEPI < 60 ? 'text-amber-800' :
                 'text-green-800'
               }`}>
-                Renal Function: {gfr.stage.description}
+                Renal Function: {gfr.stageDescription}
               </h4>
               <p className="text-xs mt-1">
-                eGFR: {Math.round(gfr.gfr)} mL/min/1.73m² ({gfr.formula})
+                eGFR: {Math.round(gfr.gfrCKDEPI)} mL/min/1.73m² (CKD-EPI)
               </p>
             </div>
           </div>
@@ -428,6 +428,7 @@ export function PregnancyFields({ context, onLMPChange, onEDDChange, lmp, edd }:
             value={lmp || ''}
             onChange={(e) => onLMPChange?.(e.target.value)}
             className="w-full px-3 py-2 border rounded-lg text-sm"
+            title="Last Menstrual Period date"
           />
         </div>
         <div>
@@ -592,15 +593,15 @@ export function GeriatricFields({ context, values = {}, onChange }: GeriatricFie
 
       {gfr && (
         <div className={`p-3 rounded-lg ${
-          gfr.gfr < 30 ? 'bg-red-50 border-red-200' :
-          gfr.gfr < 60 ? 'bg-amber-50 border-amber-200' :
+          gfr.gfrCKDEPI < 30 ? 'bg-red-50 border-red-200' :
+          gfr.gfrCKDEPI < 60 ? 'bg-amber-50 border-amber-200' :
           'bg-green-50 border-green-200'
         } border`}>
           <p className="text-sm font-medium">
-            Renal Function: eGFR {Math.round(gfr.gfr)} mL/min - {gfr.stage.description}
+            Renal Function: eGFR {Math.round(gfr.gfrCKDEPI)} mL/min - {gfr.stageDescription}
           </p>
           <p className="text-xs text-gray-600 mt-1">
-            {gfr.stage.recommendation}
+            {gfr.recommendations?.[0] || 'Continue routine monitoring'}
           </p>
         </div>
       )}
@@ -629,6 +630,7 @@ export function GeriatricFields({ context, values = {}, onChange }: GeriatricFie
             value={values.fallRisk || ''}
             onChange={(e) => onChange?.('fallRisk', e.target.value)}
             className="w-full px-3 py-2 border rounded-lg text-sm"
+            title="Select fall risk level"
           >
             <option value="">Select...</option>
             <option value="low">Low Risk</option>
@@ -645,6 +647,7 @@ export function GeriatricFields({ context, values = {}, onChange }: GeriatricFie
             value={values.functionalStatus || ''}
             onChange={(e) => onChange?.('functionalStatus', e.target.value)}
             className="w-full px-3 py-2 border rounded-lg text-sm"
+            title="Select functional status for activities of daily living"
           >
             <option value="">Select...</option>
             <option value="independent">Independent</option>

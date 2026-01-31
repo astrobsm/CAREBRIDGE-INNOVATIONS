@@ -12,8 +12,9 @@ import {
   subscribeSyncState, 
   fullSync,
   getSyncState,
-  type CloudSyncState 
 } from './cloudSyncService';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { CloudSyncState as _CloudSyncState } from './cloudSyncService';
 import type {
   Patient,
   VitalSigns,
@@ -27,6 +28,8 @@ import type {
   EscharotomyRecord,
   SkinGraftRecord,
   BurnCarePlan,
+  ClinicalEncounter,
+  LabRequest,
 } from '../types';
 
 // ============================================================
@@ -135,12 +138,16 @@ export function usePatient(patientId: string | undefined) {
   );
 
   // Use separate state for details since it's an async API call
+  // Type matches the return type of API.patients.getWithDetails
   const [details, setDetails] = useState<{
-    patient: Patient;
+    patient: Patient | undefined;
     vitals: VitalSigns[];
-    admissions: Admission[];
+    encounters: ClinicalEncounter[];
     surgeries: Surgery[];
-    burns: BurnAssessment[];
+    admissions: Admission[];
+    prescriptions: Prescription[];
+    labRequests: LabRequest[];
+    investigations: Investigation[];
   } | null>(null);
 
   useEffect(() => {

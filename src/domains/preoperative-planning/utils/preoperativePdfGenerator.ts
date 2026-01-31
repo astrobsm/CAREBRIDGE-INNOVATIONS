@@ -15,7 +15,7 @@ import type {
   OptimizationRecommendation,
 } from '../types';
 import { PDF_COLORS, addBrandedHeader, PDFDocumentInfo } from '../../../utils/pdfUtils';
-import { PDF_FONTS } from '../../../utils/pdfConfig';
+import { PDF_FONTS, sanitizeTextForPDF } from '../../../utils/pdfConfig';
 import { INVESTIGATION_INFO, getProtocolForComorbidity } from '../data/protocols';
 import type { ProcedureEducation } from '../../../data/patientEducation';
 
@@ -28,7 +28,8 @@ const addWrappedText = (
   maxWidth: number,
   lineHeight: number = 5
 ): number => {
-  const lines = doc.splitTextToSize(text, maxWidth);
+  const sanitizedText = sanitizeTextForPDF(text);
+  const lines = doc.splitTextToSize(sanitizedText, maxWidth);
   doc.text(lines, x, y);
   return y + (lines.length * lineHeight);
 };
@@ -40,7 +41,7 @@ const addSectionHeader = (doc: jsPDF, title: string, y: number): number => {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(11);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text(title.toUpperCase(), 17, y);
+  doc.text(sanitizeTextForPDF(title.toUpperCase()), 17, y);
   doc.setTextColor(0, 0, 0);
   return y + 10;
 };
@@ -50,7 +51,7 @@ const addSubsectionHeader = (doc: jsPDF, title: string, y: number): number => {
   doc.setTextColor(PDF_COLORS.primary[0], PDF_COLORS.primary[1], PDF_COLORS.primary[2]);
   doc.setFontSize(10);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text(title, 15, y);
+  doc.text(sanitizeTextForPDF(title), 15, y);
   doc.setTextColor(0, 0, 0);
   return y + 6;
 };
@@ -100,9 +101,9 @@ const addTableRow = (
   
   doc.setFontSize(8);
   doc.setTextColor(0, 0, 0);
-  doc.text(col1, margin + 2, y);
-  doc.text(col2, margin + col1Width + 2, y);
-  doc.text(col3, margin + col1Width + col2Width + 2, y);
+  doc.text(sanitizeTextForPDF(col1), margin + 2, y);
+  doc.text(sanitizeTextForPDF(col2), margin + col1Width + 2, y);
+  doc.text(sanitizeTextForPDF(col3), margin + col1Width + col2Width + 2, y);
   
   return y + 6;
 };
@@ -164,14 +165,14 @@ export async function generatePreoperativeAssessmentPDF(
   doc.setTextColor(PDF_COLORS.primary[0], PDF_COLORS.primary[1], PDF_COLORS.primary[2]);
   doc.setFontSize(12);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text(`Procedure: ${assessment.plannedProcedure}`, margin + 5, y + 8);
+  doc.text(sanitizeTextForPDF(`Procedure: ${assessment.plannedProcedure}`), margin + 5, y + 8);
   
   doc.setFontSize(9);
   doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(100, 100, 100);
-  doc.text(`Urgency: ${assessment.surgicalUrgency.replace('_', ' ').toUpperCase()}`, margin + 5, y + 15);
-  doc.text(`Anaesthesia: ${assessment.plannedAnaesthesia.replace('_', ' ').toUpperCase()}`, margin + 80, y + 15);
-  doc.text(`ASA Class: ${assessment.asaClass}`, margin + 150, y + 15);
+  doc.text(sanitizeTextForPDF(`Urgency: ${assessment.surgicalUrgency.replace('_', ' ').toUpperCase()}`), margin + 5, y + 15);
+  doc.text(sanitizeTextForPDF(`Anaesthesia: ${assessment.plannedAnaesthesia.replace('_', ' ').toUpperCase()}`), margin + 80, y + 15);
+  doc.text(sanitizeTextForPDF(`ASA Class: ${assessment.asaClass}`), margin + 150, y + 15);
   
   y += 28;
 
@@ -186,16 +187,16 @@ export async function generatePreoperativeAssessmentPDF(
   const col1 = margin;
   const col2 = margin + 90;
   
-  doc.text(`Name: ${patient.firstName} ${patient.lastName}`, col1, y);
-  doc.text(`Hospital No: ${patient.hospitalNumber || 'N/A'}`, col2, y);
+  doc.text(sanitizeTextForPDF(`Name: ${patient.firstName} ${patient.lastName}`), col1, y);
+  doc.text(sanitizeTextForPDF(`Hospital No: ${patient.hospitalNumber || 'N/A'}`), col2, y);
   y += 5;
   
-  doc.text(`Gender: ${patient.gender || 'N/A'}`, col1, y);
-  doc.text(`Date of Birth: ${patient.dateOfBirth ? format(new Date(patient.dateOfBirth), 'dd MMM yyyy') : 'N/A'}`, col2, y);
+  doc.text(sanitizeTextForPDF(`Gender: ${patient.gender || 'N/A'}`), col1, y);
+  doc.text(sanitizeTextForPDF(`Date of Birth: ${patient.dateOfBirth ? format(new Date(patient.dateOfBirth), 'dd MMM yyyy') : 'N/A'}`), col2, y);
   y += 5;
   
-  doc.text(`Phone: ${patient.phone || 'N/A'}`, col1, y);
-  doc.text(`Assessment Date: ${format(new Date(), 'dd MMM yyyy')}`, col2, y);
+  doc.text(sanitizeTextForPDF(`Phone: ${patient.phone || 'N/A'}`), col1, y);
+  doc.text(sanitizeTextForPDF(`Assessment Date: ${format(new Date(), 'dd MMM yyyy')}`), col2, y);
   y += 10;
 
   // === COMORBIDITIES ===
@@ -246,7 +247,7 @@ export async function generatePreoperativeAssessmentPDF(
       
       doc.setFontSize(9);
       doc.setFont(PDF_FONTS.primary, 'bold');
-      doc.text(`${rec.category.replace('_', ' ').toUpperCase()} (${rec.priority})`, margin + 7, y);
+      doc.text(sanitizeTextForPDF(`${rec.category.replace('_', ' ').toUpperCase()} (${rec.priority})`), margin + 7, y);
       y += 5;
       
       // Recommendation details
@@ -369,13 +370,13 @@ export async function generatePreoperativeAssessmentPDF(
       y = checkPageBreak(doc, y, 15);
       doc.setFontSize(9);
       doc.setFont(PDF_FONTS.primary, 'normal');
-      doc.text(`Expected Hospital Stay: ${procedureEducation.hospitalStay}`, margin, y);
+      doc.text(sanitizeTextForPDF(`Expected Hospital Stay: ${procedureEducation.hospitalStay}`), margin, y);
       y += 5;
     }
     
     // Healing Time
     if (procedureEducation.healingTime) {
-      doc.text(`Expected Healing Time: ${procedureEducation.healingTime}`, margin, y);
+      doc.text(sanitizeTextForPDF(`Expected Healing Time: ${procedureEducation.healingTime}`), margin, y);
       y += 5;
     }
     

@@ -88,7 +88,7 @@ export function calculateCKDEPI(
   gender: 'male' | 'female'
 ): number {
   const kappa = gender === 'female' ? 0.7 : 0.9;
-  const alpha = gender === 'female' ? -0.241 : -0.302;
+  // Alpha value used in CKD-EPI formula variants (kept for reference): gender === 'female' ? -0.241 : -0.302
   const crKappa = creatinine / kappa;
   
   let gfr: number;
@@ -533,42 +533,29 @@ export async function getGFRForPatient(patientId: string): Promise<GFRResult | n
     const age = Math.floor((today.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
     
     // Get latest lab results with creatinine
-    const labResults = await db.labResults
+    const labResults = await db.labRequests
       .where('patientId')
       .equals(patientId)
       .reverse()
-      .sortBy('collectedAt');
+      .sortBy('requestedAt');
     
     // Find the most recent creatinine result
     let creatinine: number | null = null;
     let creatinineUnit: CreatinineUnit = 'mg/dL';
     
     for (const lab of labResults) {
-      // Check if this lab has creatinine results
-      if (lab.results) {
-        const results = typeof lab.results === 'string' ? JSON.parse(lab.results) : lab.results;
-        
-        // Look for creatinine in various formats
-        if (results.creatinine !== undefined) {
-          creatinine = typeof results.creatinine === 'number' 
-            ? results.creatinine 
-            : parseFloat(results.creatinine);
-          break;
-        }
-        
-        // Check for individual result items
-        if (Array.isArray(results)) {
-          const creatResult = results.find((r: any) => 
-            r.name?.toLowerCase().includes('creatinine') || 
-            r.test?.toLowerCase().includes('creatinine')
-          );
-          if (creatResult?.value) {
-            creatinine = parseFloat(creatResult.value);
-            if (creatResult.unit?.toLowerCase().includes('umol') || creatResult.unit?.toLowerCase().includes('μmol')) {
-              creatinineUnit = 'μmol/L';
-            }
-            break;
+      // Check if this lab has tests with results
+      if (lab.tests && Array.isArray(lab.tests)) {
+        // Find creatinine test in the tests array
+        const creatTest = lab.tests.find((t: any) => 
+          t.name?.toLowerCase().includes('creatinine')
+        );
+        if (creatTest?.result) {
+          creatinine = parseFloat(creatTest.result);
+          if (creatTest.unit?.toLowerCase().includes('umol') || creatTest.unit?.toLowerCase().includes('μmol')) {
+            creatinineUnit = 'μmol/L';
           }
+          break;
         }
       }
     }
@@ -595,14 +582,21 @@ export async function getGFRForPatient(patientId: string): Promise<GFRResult | n
       return null;
     }
     
+    // Get weight and height from recent vitals if available
+    const latestVitals = await db.vitalSigns
+      .where('patientId')
+      .equals(patientId)
+      .reverse()
+      .first();
+    
     // Calculate GFR
     const gfrResult = calculateGFR({
       creatinine,
       creatinineUnit,
       age,
       gender: patient.gender as 'male' | 'female',
-      weight: patient.weight,
-      height: patient.height,
+      weight: latestVitals?.weight,
+      height: latestVitals?.height,
     });
     
     return gfrResult;

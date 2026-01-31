@@ -13,7 +13,13 @@ export type UserRole =
   | 'physiotherapist'
   | 'accountant'
   | 'home_care_giver'
-  | 'driver';
+  | 'driver'
+  | 'consultant'
+  | 'resident'
+  | 'registrar'
+  | 'senior_registrar'
+  | 'medical_officer'
+  | 'house_officer';
 
 // User
 export interface User {
