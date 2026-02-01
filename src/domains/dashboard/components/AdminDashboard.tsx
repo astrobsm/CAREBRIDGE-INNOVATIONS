@@ -70,7 +70,7 @@ export default function AdminDashboard() {
   const currentAdmissions = useLiveQuery(async () => {
     return db.admissions
       .where('status')
-      .equals('admitted')
+      .equals('active')
       .count();
   }, []);
 
