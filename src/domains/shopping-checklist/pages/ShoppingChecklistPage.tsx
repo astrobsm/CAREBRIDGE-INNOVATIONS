@@ -289,12 +289,20 @@ export const ShoppingChecklistPage: React.FC = () => {
           itemName += ` (${sel.selectedVariant})`;
         }
 
-        // Wrap long text
-        const maxTextWidth = contentWidth - 40;
+        // Draw checkbox (empty square)
+        const checkboxSize = 8;
+        const checkboxX = margin;
+        const checkboxY = y - 7;
+        doc.setLineWidth(0.8);
+        doc.rect(checkboxX, checkboxY, checkboxSize, checkboxSize);
+        
+        // Item text after checkbox
+        const textStartX = margin + checkboxSize + 4;
+        const maxTextWidth = contentWidth - checkboxSize - 44;
         const lines = doc.splitTextToSize(itemName, maxTextWidth);
         
         lines.forEach((line: string, idx: number) => {
-          doc.text(`[ ] ${line}`, margin, y);
+          doc.text(line, textStartX, y);
           if (idx === 0) {
             doc.text(`${sel.quantity} ${sel.item.unit}`, pageWidth - margin, y, { align: 'right' });
           }
@@ -304,6 +312,38 @@ export const ShoppingChecklistPage: React.FC = () => {
 
       y += 4;
     });
+
+    // Pre-procedure verification section
+    y += 8;
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 12;
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('PRE-PROCEDURE CHECKLIST:', margin, y);
+    y += 14;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    
+    const verificationItems = [
+      'All items verified & available',
+      'Sterility checked',
+      'Expiry dates confirmed',
+      'Equipment functional'
+    ];
+    
+    verificationItems.forEach(item => {
+      // Draw checkbox
+      const checkboxSize = 7;
+      doc.setLineWidth(0.6);
+      doc.rect(margin, y - 6, checkboxSize, checkboxSize);
+      doc.text(item, margin + checkboxSize + 4, y);
+      y += 12;
+    });
+    
+    y += 4;
 
     // Divider
     y += 4;

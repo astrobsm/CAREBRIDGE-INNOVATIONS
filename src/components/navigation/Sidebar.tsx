@@ -29,6 +29,7 @@ import {
   FileText,
   Send,
   Activity,
+  ShoppingCart,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -182,6 +183,11 @@ const navigation: NavItem[] = [
     href: '/billing/surgical-estimate', 
     icon: <Calculator size={20} />,
     permission: 'view_invoices',
+  },
+  { 
+    name: 'Shopping Checklist', 
+    href: '/shopping-checklist', 
+    icon: <ShoppingCart size={20} />,
   },
   { 
     name: 'Payroll', 
