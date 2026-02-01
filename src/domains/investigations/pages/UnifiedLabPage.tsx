@@ -1336,6 +1336,139 @@ function DetailsModal({
   investigation: Investigation;
   onClose: () => void;
 }) {
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      toast.error('Failed to open print window. Please allow popups.');
+      return;
+    }
+
+    const resultsTable = investigation.results && investigation.results.length > 0 
+      ? `<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
+              <th style="text-align: left; padding: 10px; font-size: 13px; font-weight: 600; color: #374151;">Parameter</th>
+              <th style="text-align: left; padding: 10px; font-size: 13px; font-weight: 600; color: #374151;">Result</th>
+              <th style="text-align: left; padding: 10px; font-size: 13px; font-weight: 600; color: #374151;">Unit</th>
+              <th style="text-align: left; padding: 10px; font-size: 13px; font-weight: 600; color: #374151;">Reference</th>
+              <th style="text-align: left; padding: 10px; font-size: 13px; font-weight: 600; color: #374151;">Flag</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${investigation.results.map((result) => `
+              <tr style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 10px; font-size: 13px;">${result.parameter}</td>
+                <td style="padding: 10px; font-size: 13px; font-weight: 600;">${result.value}</td>
+                <td style="padding: 10px; font-size: 13px; color: #6b7280;">${result.unit || '-'}</td>
+                <td style="padding: 10px; font-size: 13px; color: #6b7280;">${result.referenceRange || '-'}</td>
+                <td style="padding: 10px;">
+                  ${result.flag && result.flag !== 'normal' 
+                    ? `<span style="padding: 2px 8px; font-size: 11px; border-radius: 4px; background: ${
+                        result.flag === 'H' || result.flag === 'HH' || result.flag === 'high' ? '#fee2e2' :
+                        result.flag === 'L' || result.flag === 'LL' || result.flag === 'low' ? '#dbeafe' : '#fef3c7'
+                      }; color: ${
+                        result.flag === 'H' || result.flag === 'HH' || result.flag === 'high' ? '#dc2626' :
+                        result.flag === 'L' || result.flag === 'LL' || result.flag === 'low' ? '#2563eb' : '#d97706'
+                      };">${result.flag}</span>`
+                    : ''
+                  }
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`
+      : '<p style="text-align: center; color: #6b7280; padding: 20px;">No results available</p>';
+
+    const interpretation = investigation.interpretation
+      ? `<div style="margin-top: 20px; padding: 15px; background: #f9fafb; border-radius: 8px;">
+          <h4 style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 10px;">Interpretation</h4>
+          <p style="font-size: 13px; color: #4b5563; margin: 0;">${investigation.interpretation}</p>
+        </div>`
+      : '';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Investigation Results - ${investigation.patientName}</title>
+        <style>
+          @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { margin: 15mm; size: A4; }
+          }
+          body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; color: #1f2937; }
+          .header { text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 15px; margin-bottom: 20px; }
+          .hospital-name { font-size: 22px; font-weight: 700; color: #4f46e5; margin: 0; }
+          .subtitle { font-size: 14px; color: #6b7280; margin-top: 5px; }
+          .document-title { font-size: 18px; font-weight: 600; color: #1f2937; margin: 15px 0 5px 0; }
+          .patient-info { background: #f3f4f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+          .patient-name { font-size: 16px; font-weight: 600; color: #1f2937; }
+          .test-name { font-size: 14px; color: #4f46e5; margin-top: 5px; }
+          .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; font-size: 12px; }
+          .meta-item { display: flex; }
+          .meta-label { color: #6b7280; min-width: 100px; }
+          .meta-value { color: #1f2937; }
+          .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <p class="hospital-name">AstroHEALTH</p>
+          <p class="subtitle">Laboratory Investigation Report</p>
+        </div>
+        
+        <div class="patient-info">
+          <p class="patient-name">${investigation.patientName}</p>
+          <p class="test-name">${investigation.typeName}</p>
+        </div>
+        
+        <h3 class="document-title">Results</h3>
+        ${resultsTable}
+        ${interpretation}
+        
+        <div class="meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Requested:</span>
+            <span class="meta-value">${format(new Date(investigation.requestedAt), 'MMM d, yyyy HH:mm')}</span>
+          </div>
+          ${investigation.completedAt ? `
+            <div class="meta-item">
+              <span class="meta-label">Completed:</span>
+              <span class="meta-value">${format(new Date(investigation.completedAt), 'MMM d, yyyy HH:mm')}</span>
+            </div>
+          ` : ''}
+          <div class="meta-item">
+            <span class="meta-label">Requested by:</span>
+            <span class="meta-value">${investigation.requestedByName}</span>
+          </div>
+          ${investigation.completedByName ? `
+            <div class="meta-item">
+              <span class="meta-label">Completed by:</span>
+              <span class="meta-value">${investigation.completedByName}</span>
+            </div>
+          ` : ''}
+        </div>
+        
+        <div class="footer">
+          <p>Printed on ${format(new Date(), 'MMMM d, yyyy \'at\' HH:mm')}</p>
+          <p>AstroHEALTH - Innovations in Healthcare</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 250);
+    };
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1453,7 +1586,10 @@ function DetailsModal({
         </div>
 
         <div className="flex justify-end gap-3 p-4 border-t bg-gray-50">
-          <button className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center gap-2">
+          <button 
+            onClick={handlePrint}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center gap-2"
+          >
             <Printer size={16} />
             Print
           </button>
