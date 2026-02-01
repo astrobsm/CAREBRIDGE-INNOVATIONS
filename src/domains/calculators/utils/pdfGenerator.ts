@@ -272,6 +272,98 @@ export function generateDVTRiskPDF(result: DVTRiskResult, patientInfo: PatientCa
   doc.save(`dvt-risk-${patientInfo.name || 'patient'}-${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
+// DVT Risk Calculator PDF - Returns jsPDF doc for flexible export
+export function getDVTRiskPDFDoc(result: DVTRiskResult, patientInfo: PatientCalculatorInfo): jsPDF {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  
+  let yPos = addHeader(doc, 'DVT Risk Assessment (Caprini Score)', patientInfo);
+  
+  // Score badge
+  const scoreColor = result.score <= 2 ? SUCCESS_COLOR : 
+                     result.score <= 4 ? WARNING_COLOR : DANGER_COLOR;
+  doc.setFillColor(...scoreColor);
+  doc.roundedRect(15, yPos, 180, 30, 3, 3, 'F');
+  doc.setFontSize(18);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text(`Caprini Score: ${result.score}`, 105, yPos + 12, { align: 'center' });
+  doc.setFontSize(12);
+  doc.text(`${result.riskLevel} - VTE Risk: ${result.riskPercentage}`, 105, yPos + 23, { align: 'center' });
+  yPos += 40;
+  
+  // Score breakdown
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(12);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Risk Factor Breakdown', 20, yPos);
+  yPos += 8;
+  
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(9);
+  
+  const breakdownSections = [
+    { label: '5-Point Factors', items: result.scoreBreakdown['5-point'], color: DANGER_COLOR },
+    { label: '3-Point Factors', items: result.scoreBreakdown['3-point'], color: [234, 88, 12] as [number, number, number] },
+    { label: '2-Point Factors', items: result.scoreBreakdown['2-point'], color: WARNING_COLOR },
+    { label: '1-Point Factors', items: result.scoreBreakdown['1-point'], color: PRIMARY_COLOR },
+  ];
+  
+  breakdownSections.forEach(section => {
+    if (section.items.length > 0) {
+      doc.setTextColor(...section.color);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text(`${section.label}:`, 20, yPos);
+      yPos += 5;
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.setTextColor(0, 0, 0);
+      section.items.forEach(item => {
+        doc.text(`• ${item}`, 25, yPos);
+        yPos += 5;
+      });
+      yPos += 3;
+    }
+  });
+  
+  // Recommendations
+  yPos += 5;
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setFontSize(11);
+  doc.text('Clinical Recommendations', 20, yPos);
+  yPos += 7;
+  
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(9);
+  result.recommendations.forEach(rec => {
+    const lines = doc.splitTextToSize(`• ${rec}`, 170);
+    doc.text(lines, 20, yPos);
+    yPos += lines.length * 4 + 2;
+  });
+  
+  // Prophylaxis
+  yPos += 5;
+  doc.setFillColor(220, 252, 231);
+  doc.roundedRect(15, yPos, 180, 8 + result.prophylaxis.length * 5, 3, 3, 'F');
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(21, 128, 61);
+  doc.text('Prophylaxis Protocol', 20, yPos + 6);
+  yPos += 10;
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(9);
+  result.prophylaxis.forEach(item => {
+    doc.text(item, 20, yPos);
+    yPos += 5;
+  });
+  
+  addFooter(doc, 1);
+  return doc;
+}
+
 // GFR Calculator PDF
 export function generateGFRPDF(result: GFRResult, patientInfo: PatientCalculatorInfo): void {
   const doc = new jsPDF();

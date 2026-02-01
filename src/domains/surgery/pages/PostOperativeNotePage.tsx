@@ -5,7 +5,7 @@
  * following WHO Surgical Safety Checklist standards.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion } from 'framer-motion';
@@ -13,8 +13,6 @@ import {
   FileText,
   CheckCircle,
   AlertTriangle,
-  Download,
-  Share2,
   ArrowLeft,
   User,
   Scissors,
@@ -23,26 +21,23 @@ import {
   Heart,
   BookOpen,
   Eye,
-  Printer,
+  Share2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import jsPDF from 'jspdf';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
-import { downloadPostOpNotePDF, sharePostOpNoteViaWhatsApp } from '../../../utils/postOpNotePdfGenerator';
-import { markPdfGenerated, markSharedViaWhatsApp, markEducationDelivered } from '../../../services/postOperativeNoteService';
-import {
-  printThermalDocument,
-  type PrintableDocument,
-  type PrintSection,
-} from '../../../services/thermalPrintService';
+import { getPostOpNotePDFBlob } from '../../../utils/postOpNotePdfGenerator';
+import { markPdfGenerated, markEducationDelivered } from '../../../services/postOperativeNoteService';
+import { ExportOptionsModal } from '../../../components/common/ExportOptionsModal';
+import { createThermalPDF, type ThermalDocumentSection } from '../../../utils/thermalPdfGenerator';
 
 export default function PostOperativeNotePage() {
   const { surgeryId } = useParams<{ surgeryId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'summary' | 'education' | 'specimens'>('summary');
   
   // Check user role for access control
@@ -77,45 +72,55 @@ export default function PostOperativeNotePage() {
     return db.hospitals.get(surgery.hospitalId);
   }, [surgery?.hospitalId]);
 
-  // Handle PDF download
-  const handleDownloadPDF = async () => {
+  // Generate A4 PDF
+  const generateA4PDF = useCallback(async (): Promise<Blob> => {
     if (!postOpNote || !patient || !hospital) {
-      toast.error('Missing required data');
-      return;
+      throw new Error('Missing required data');
+    }
+    const blob = await getPostOpNotePDFBlob(postOpNote, patient, hospital);
+    await markPdfGenerated(postOpNote.id);
+    return blob;
+  }, [postOpNote, patient, hospital]);
+
+  // Generate Thermal PDF (80mm width, Georgia/Times 12pt)
+  const generateThermalPDF = useCallback((): jsPDF => {
+    if (!postOpNote || !patient) {
+      throw new Error('Missing required data');
     }
 
-    setIsDownloading(true);
-    try {
-      await downloadPostOpNotePDF(postOpNote, patient, hospital);
-      await markPdfGenerated(postOpNote.id);
-      toast.success('PDF downloaded successfully');
-    } catch (error) {
-      console.error('Error downloading PDF:', error);
-      toast.error('Failed to download PDF');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
+    const sections: ThermalDocumentSection[] = [
+      { type: 'keyValue', key: 'Patient', value: `${patient.firstName} ${patient.lastName}` },
+      { type: 'keyValue', key: 'Hospital #', value: patient.hospitalNumber || 'N/A' },
+      { type: 'divider' },
+      { type: 'header', content: 'Procedure Details' },
+      { type: 'keyValue', key: 'Procedure', value: postOpNote.procedureName },
+      { type: 'keyValue', key: 'Date', value: format(new Date(postOpNote.procedureDate), 'dd/MM/yyyy') },
+      { type: 'keyValue', key: 'Surgeon', value: postOpNote.surgeon },
+    ];
 
-  // Handle WhatsApp share
-  const handleShareWhatsApp = async () => {
-    if (!postOpNote || !patient || !hospital) {
-      toast.error('Missing required data');
-      return;
+    if (postOpNote.anaesthetist) {
+      sections.push({ type: 'keyValue', key: 'Anaesthetist', value: postOpNote.anaesthetist });
     }
 
-    setIsSharing(true);
-    try {
-      await sharePostOpNoteViaWhatsApp(postOpNote, patient, hospital, patient.phone);
-      await markSharedViaWhatsApp(postOpNote.id);
-      toast.success('PDF ready for sharing');
-    } catch (error) {
-      console.error('Error sharing:', error);
-      toast.error('Failed to prepare for sharing');
-    } finally {
-      setIsSharing(false);
+    sections.push({ type: 'divider' });
+    sections.push({ type: 'header', content: 'Operative Findings' });
+    sections.push({ type: 'text', content: postOpNote.findings || 'Not documented' });
+
+    if (postOpNote.monitoringInstructions?.length) {
+      sections.push({ type: 'divider' });
+      sections.push({ type: 'header', content: 'Post-Op Orders' });
+      sections.push({ type: 'text', content: postOpNote.monitoringInstructions.join(', ') });
     }
-  };
+
+    return createThermalPDF({
+      title: 'POST-OP NOTE',
+      subtitle: postOpNote.procedureName,
+      timestamp: new Date(),
+      sections,
+      preparedBy: user ? `${user.firstName} ${user.lastName}` : undefined,
+      footer: hospital?.name || 'AstroHEALTH EMR'
+    });
+  }, [postOpNote, patient, hospital, user]);
 
   // Handle marking education as delivered
   const handleMarkEducationDelivered = async () => {
@@ -127,51 +132,6 @@ export default function PostOperativeNotePage() {
     } catch (error) {
       toast.error('Failed to update');
     }
-  };
-
-  // Thermal print (XP-T80Q, 80mm, Georgia 12pt)
-  const handleThermalPrint = () => {
-    if (!postOpNote || !patient) {
-      toast.error('Missing required data');
-      return;
-    }
-
-    const content: PrintSection[] = [
-      { type: 'header', data: 'Patient' },
-      { type: 'text', data: { key: 'Name', value: `${patient.firstName} ${patient.lastName}` } },
-      { type: 'text', data: { key: 'Hospital #', value: patient.hospitalNumber || 'N/A' } },
-      { type: 'divider', data: 'dashed' },
-      { type: 'header', data: 'Procedure Details' },
-      { type: 'text', data: { key: 'Procedure', value: postOpNote.procedureName } },
-      { type: 'text', data: { key: 'Date', value: format(new Date(postOpNote.procedureDate), 'dd/MM/yyyy') } },
-      { type: 'text', data: { key: 'Surgeon', value: postOpNote.surgeon } },
-    ];
-
-    if (postOpNote.anaesthetist) {
-      content.push({ type: 'text', data: { key: 'Anaesthetist', value: postOpNote.anaesthetist } });
-    }
-
-    content.push({ type: 'divider', data: 'dashed' });
-    content.push({ type: 'header', data: 'Operative Findings' });
-    content.push({ type: 'text', data: postOpNote.findings || 'Not documented' });
-
-    if (postOpNote.monitoringInstructions?.length) {
-      content.push({ type: 'divider', data: 'dashed' });
-      content.push({ type: 'header', data: 'Post-Op Orders' });
-      content.push({ type: 'text', data: postOpNote.monitoringInstructions.join(', ') });
-    }
-
-    const thermalDoc: PrintableDocument = {
-      title: 'POST-OP NOTE',
-      subtitle: postOpNote.procedureName,
-      hospitalName: hospital?.name,
-      content,
-      footer: 'Official Hospital Document',
-      printDate: true,
-    };
-
-    printThermalDocument(thermalDoc);
-    toast.success('Print dialog opened');
   };
 
   if (!surgery || !postOpNote) {
@@ -234,28 +194,12 @@ export default function PostOperativeNotePage() {
         {/* Action Buttons */}
         <div className="flex gap-2">
           <button
-            onClick={handleThermalPrint}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-300"
-            title="Print Receipt (80mm Thermal)"
-          >
-            <Printer size={18} />
-            Print
-          </button>
-          <button
-            onClick={handleDownloadPDF}
-            disabled={isDownloading}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
-          >
-            <Download size={18} />
-            {isDownloading ? 'Generating...' : 'Download PDF'}
-          </button>
-          <button
-            onClick={handleShareWhatsApp}
-            disabled={isSharing}
-            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
+            title="Export / Print Options"
           >
             <Share2 size={18} />
-            WhatsApp
+            Export / Print
           </button>
         </div>
       </div>
@@ -637,6 +581,17 @@ export default function PostOperativeNotePage() {
           )}
         </div>
       )}
+
+      {/* Export Options Modal */}
+      <ExportOptionsModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="Export Post-Operative Note"
+        generateA4PDF={generateA4PDF}
+        generateThermalPDF={generateThermalPDF}
+        fileNamePrefix={`PostOpNote_${patient?.lastName || 'patient'}`}
+        phoneNumber={patient?.phone}
+      />
     </div>
   );
 }

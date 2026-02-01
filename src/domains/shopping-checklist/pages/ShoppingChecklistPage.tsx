@@ -1,11 +1,9 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { 
   ShoppingCart, 
-  Check, 
   Printer, 
-  FileDown, 
   ArrowLeft, 
   Plus, 
   Minus,
@@ -23,7 +21,10 @@ import {
   X,
   Search,
   User,
-  UserPlus
+  UserPlus,
+  MessageCircle,
+  FileText,
+  Share2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -33,6 +34,7 @@ import { db } from '../../../database';
 import { Patient } from '../../../types';
 import { consumableItems, getProcedurePresets } from '../data/consumables';
 import { ConsumableItem, ConsumableCategory, SelectedItem, categoryLabels } from '../types';
+import { sharePDFOnWhatsApp } from '../../../utils/whatsappShareUtils';
 
 type ProcedurePurpose = 'surgery' | 'bedside_debridement' | 'wound_dressing' | 'intralesional_injection' | 'other';
 
@@ -63,7 +65,6 @@ const categoryIcons: Record<ConsumableCategory, React.ReactNode> = {
 export const ShoppingChecklistPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const printRef = useRef<HTMLDivElement>(null);
   
   const [purpose, setPurpose] = useState<ProcedurePurpose>('surgery');
   const [patientName, setPatientName] = useState('');
@@ -228,93 +229,85 @@ export const ShoppingChecklistPage: React.FC = () => {
     toast.success('All items selected');
   };
 
-  // Generate PDF for thermal printer (80mm width)
-  const generatePDF = () => {
-    if (selectedItemsList.length === 0) {
-      toast.error('Please select at least one item');
-      return;
-    }
-
-    // 80mm thermal printer = ~226 points width (80mm * 2.83)
-    // Using slightly smaller for margins
-    const pageWidth = 226;
+  // Generate A4 PDF for standard printing/sharing
+  const generateA4PDF = (): jsPDF => {
     const doc = new jsPDF({
       unit: 'pt',
-      format: [pageWidth, 800], // Long receipt format
+      format: 'a4',
     });
 
-    const margin = 10;
+    const pageWidth = 595;
+    const pageHeight = 842;
+    const margin = 40;
     const contentWidth = pageWidth - (margin * 2);
     let y = margin;
 
-    // Set font
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-
-    // Title
+    // Header with title
+    doc.setFont('times', 'bold');
+    doc.setFontSize(20);
     doc.text('SHOPPING CHECKLIST', pageWidth / 2, y, { align: 'center' });
-    y += 18;
+    y += 28;
 
     // Date and purpose
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.setFont('times', 'normal');
     doc.text(format(new Date(), 'dd/MM/yyyy HH:mm'), pageWidth / 2, y, { align: 'center' });
-    y += 14;
+    y += 20;
 
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('times', 'bold');
+    doc.setFontSize(14);
     doc.text(purposeLabels[purpose].toUpperCase(), pageWidth / 2, y, { align: 'center' });
-    y += 14;
+    y += 24;
 
-    // Patient details if provided
-    if (patientName.trim()) {
-      doc.setFont('helvetica', 'bold');
-      doc.text('Patient:', margin, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(patientName, margin + 45, y);
-      y += 12;
-    }
-    
-    if (hospitalNumber.trim()) {
-      doc.setFont('helvetica', 'bold');
-      doc.text('Hosp No:', margin, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(hospitalNumber, margin + 45, y);
-      y += 12;
-    }
-    
-    if (procedureName.trim()) {
-      doc.setFont('helvetica', 'bold');
-      doc.text('Procedure:', margin, y);
-      doc.setFont('helvetica', 'normal');
-      const procLines = doc.splitTextToSize(procedureName, contentWidth - 50);
-      procLines.forEach((line: string) => {
-        doc.text(line, margin + 55, y);
-        y += 10;
-      });
-      y += 2;
+    // Patient details box
+    if (patientName.trim() || hospitalNumber.trim() || procedureName.trim()) {
+      doc.setDrawColor(0);
+      doc.setLineWidth(1);
+      doc.rect(margin, y, contentWidth, 60);
+      y += 16;
+
+      doc.setFontSize(11);
+      if (patientName.trim()) {
+        doc.setFont('times', 'bold');
+        doc.text('Patient:', margin + 10, y);
+        doc.setFont('times', 'normal');
+        doc.text(patientName, margin + 70, y);
+        y += 16;
+      }
+      
+      if (hospitalNumber.trim()) {
+        doc.setFont('times', 'bold');
+        doc.text('Hosp No:', margin + 10, y);
+        doc.setFont('times', 'normal');
+        doc.text(hospitalNumber, margin + 70, y);
+        y += 16;
+      }
+      
+      if (procedureName.trim()) {
+        doc.setFont('times', 'bold');
+        doc.text('Procedure:', margin + 10, y);
+        doc.setFont('times', 'normal');
+        doc.text(procedureName, margin + 80, y);
+      }
+      y += 30;
     }
 
     // Divider
-    doc.setLineWidth(0.5);
-    doc.line(margin, y, pageWidth - margin, y);
     y += 10;
+    doc.setLineWidth(1);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 20;
 
     // Items header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('ITEM', margin, y);
-    doc.text('QTY', pageWidth - margin - 30, y);
-    y += 12;
-
-    // Divider
+    doc.setFont('times', 'bold');
+    doc.setFontSize(12);
+    doc.text('ITEM', margin + 20, y);
+    doc.text('QTY', pageWidth - margin - 60, y);
+    y += 16;
     doc.line(margin, y, pageWidth - margin, y);
-    y += 8;
+    y += 16;
 
-    // Items list
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-
-    // Group selected items by category for organized printing
+    // Group selected items by category
     const groupedSelected: Record<string, SelectedItem[]> = {};
     selectedItemsList.forEach(sel => {
       const cat = sel.item.category;
@@ -322,18 +315,205 @@ export const ShoppingChecklistPage: React.FC = () => {
       groupedSelected[cat].push(sel);
     });
 
-    Object.entries(groupedSelected).forEach(([category, items]) => {
-      // Category header
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text(`-- ${categoryLabels[category as ConsumableCategory]} --`, margin, y);
-      y += 12;
+    doc.setFontSize(11);
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
+    Object.entries(groupedSelected).forEach(([category, items]) => {
+      // Check for page break
+      if (y > pageHeight - 100) {
+        doc.addPage();
+        y = margin;
+      }
+
+      // Category header
+      doc.setFont('times', 'bold');
+      doc.setFillColor(240, 240, 240);
+      doc.rect(margin, y - 12, contentWidth, 18, 'F');
+      doc.text(`-- ${categoryLabels[category as ConsumableCategory]} --`, margin + 10, y);
+      y += 18;
+
+      doc.setFont('times', 'normal');
 
       items.forEach(sel => {
-        // Check if we need a new page
+        if (y > pageHeight - 60) {
+          doc.addPage();
+          y = margin;
+        }
+
+        let itemName = sel.item.name;
+        if (sel.selectedVariant) {
+          itemName += ` (${sel.selectedVariant})`;
+        }
+
+        // Draw checkbox
+        const checkboxSize = 10;
+        doc.setLineWidth(0.8);
+        doc.rect(margin, y - 8, checkboxSize, checkboxSize);
+        
+        // Item text
+        doc.text(itemName, margin + 20, y);
+        doc.text(`${sel.quantity} ${sel.item.unit}`, pageWidth - margin - 10, y, { align: 'right' });
+        y += 18;
+      });
+
+      y += 8;
+    });
+
+    // Pre-procedure checklist
+    y += 16;
+    doc.setLineWidth(1);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 20;
+    
+    doc.setFont('times', 'bold');
+    doc.setFontSize(12);
+    doc.text('PRE-PROCEDURE CHECKLIST:', margin, y);
+    y += 20;
+    
+    doc.setFont('times', 'normal');
+    doc.setFontSize(11);
+    
+    const verificationItems = [
+      'All items verified & available',
+      'Sterility checked',
+      'Expiry dates confirmed',
+      'Equipment functional'
+    ];
+    
+    verificationItems.forEach(item => {
+      const checkboxSize = 10;
+      doc.setLineWidth(0.8);
+      doc.rect(margin, y - 8, checkboxSize, checkboxSize);
+      doc.text(item, margin + 18, y);
+      y += 18;
+    });
+
+    // Total count
+    y += 16;
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 20;
+    doc.setFont('times', 'bold');
+    doc.setFontSize(13);
+    doc.text(`TOTAL ITEMS: ${selectedItemsList.length}`, margin, y);
+
+    // Notes if provided
+    if (notes.trim()) {
+      y += 24;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
+      doc.text('Notes:', margin, y);
+      y += 14;
+      const noteLines = doc.splitTextToSize(notes, contentWidth);
+      noteLines.forEach((line: string) => {
+        doc.text(line, margin, y);
+        y += 12;
+      });
+    }
+
+    // Footer
+    y += 24;
+    doc.setFontSize(10);
+    doc.text(`Prepared by: ${user?.firstName || 'Staff'} ${user?.lastName || ''}`, margin, y);
+    doc.text('AstroHEALTH EMR System', pageWidth / 2, y, { align: 'center' });
+
+    return doc;
+  };
+
+  // Generate Thermal PDF (80mm width, Georgia font 12pt)
+  const generateThermalPDF = (): jsPDF => {
+    // 80mm thermal printer = ~226 points width (80mm * 2.83)
+    const pageWidth = 226;
+    const doc = new jsPDF({
+      unit: 'pt',
+      format: [pageWidth, 800],
+    });
+
+    const margin = 8;
+    const contentWidth = pageWidth - (margin * 2);
+    let y = margin + 5;
+
+    // Use Times as closest to Georgia in jsPDF
+    doc.setFont('times', 'bold');
+    doc.setFontSize(14);
+
+    // Title
+    doc.text('SHOPPING CHECKLIST', pageWidth / 2, y, { align: 'center' });
+    y += 18;
+
+    // Date and purpose
+    doc.setFontSize(12);
+    doc.setFont('times', 'normal');
+    doc.text(format(new Date(), 'dd/MM/yyyy HH:mm'), pageWidth / 2, y, { align: 'center' });
+    y += 16;
+
+    doc.setFont('times', 'bold');
+    doc.text(purposeLabels[purpose].toUpperCase(), pageWidth / 2, y, { align: 'center' });
+    y += 16;
+
+    // Patient details
+    doc.setFontSize(12);
+    if (patientName.trim()) {
+      doc.setFont('times', 'bold');
+      doc.text('Patient:', margin, y);
+      doc.setFont('times', 'normal');
+      doc.text(patientName, margin + 50, y);
+      y += 14;
+    }
+    
+    if (hospitalNumber.trim()) {
+      doc.setFont('times', 'bold');
+      doc.text('Hosp No:', margin, y);
+      doc.setFont('times', 'normal');
+      doc.text(hospitalNumber, margin + 50, y);
+      y += 14;
+    }
+    
+    if (procedureName.trim()) {
+      doc.setFont('times', 'bold');
+      doc.text('Procedure:', margin, y);
+      doc.setFont('times', 'normal');
+      const procLines = doc.splitTextToSize(procedureName, contentWidth - 55);
+      procLines.forEach((line: string, idx: number) => {
+        doc.text(line, margin + (idx === 0 ? 58 : 0), y);
+        y += 12;
+      });
+    }
+
+    // Divider
+    y += 4;
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 12;
+
+    // Items header
+    doc.setFont('times', 'bold');
+    doc.setFontSize(12);
+    doc.text('ITEM', margin, y);
+    doc.text('QTY', pageWidth - margin - 30, y);
+    y += 14;
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 10;
+
+    // Group items
+    const groupedSelected: Record<string, SelectedItem[]> = {};
+    selectedItemsList.forEach(sel => {
+      const cat = sel.item.category;
+      if (!groupedSelected[cat]) groupedSelected[cat] = [];
+      groupedSelected[cat].push(sel);
+    });
+
+    doc.setFontSize(12);
+
+    Object.entries(groupedSelected).forEach(([category, items]) => {
+      // Category header
+      doc.setFont('times', 'bold');
+      doc.setFontSize(10);
+      doc.text(`-- ${categoryLabels[category as ConsumableCategory]} --`, margin, y);
+      y += 14;
+
+      doc.setFont('times', 'normal');
+      doc.setFontSize(12);
+
+      items.forEach(sel => {
         if (y > 780) {
           doc.addPage([pageWidth, 800]);
           y = margin;
@@ -344,14 +524,12 @@ export const ShoppingChecklistPage: React.FC = () => {
           itemName += ` (${sel.selectedVariant})`;
         }
 
-        // Draw checkbox (empty square)
+        // Checkbox
         const checkboxSize = 8;
-        const checkboxX = margin;
-        const checkboxY = y - 7;
         doc.setLineWidth(0.8);
-        doc.rect(checkboxX, checkboxY, checkboxSize, checkboxSize);
+        doc.rect(margin, y - 7, checkboxSize, checkboxSize);
         
-        // Item text after checkbox
+        // Item text
         const textStartX = margin + checkboxSize + 4;
         const maxTextWidth = contentWidth - checkboxSize - 44;
         const lines = doc.splitTextToSize(itemName, maxTextWidth);
@@ -361,26 +539,26 @@ export const ShoppingChecklistPage: React.FC = () => {
           if (idx === 0) {
             doc.text(`${sel.quantity} ${sel.item.unit}`, pageWidth - margin, y, { align: 'right' });
           }
-          y += 12;
+          y += 14;
         });
       });
 
       y += 4;
     });
 
-    // Pre-procedure verification section
+    // Pre-procedure checklist
     y += 8;
     doc.setLineWidth(0.5);
     doc.line(margin, y, pageWidth - margin, y);
-    y += 12;
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('PRE-PROCEDURE CHECKLIST:', margin, y);
     y += 14;
     
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(12);
+    doc.text('PRE-PROCEDURE CHECKLIST:', margin, y);
+    y += 16;
+    
+    doc.setFont('times', 'normal');
+    doc.setFontSize(10);
     
     const verificationItems = [
       'All items verified & available',
@@ -390,59 +568,168 @@ export const ShoppingChecklistPage: React.FC = () => {
     ];
     
     verificationItems.forEach(item => {
-      // Draw checkbox
       const checkboxSize = 7;
       doc.setLineWidth(0.6);
       doc.rect(margin, y - 6, checkboxSize, checkboxSize);
       doc.text(item, margin + checkboxSize + 4, y);
-      y += 12;
+      y += 14;
     });
-    
-    y += 4;
 
-    // Divider
-    y += 4;
+    // Total
+    y += 6;
     doc.line(margin, y, pageWidth - margin, y);
-    y += 12;
-
-    // Total count
-    doc.setFont('helvetica', 'bold');
+    y += 14;
+    doc.setFont('times', 'bold');
+    doc.setFontSize(12);
     doc.text(`TOTAL ITEMS: ${selectedItemsList.length}`, margin, y);
-    y += 16;
+    y += 18;
 
-    // Notes if provided
+    // Notes
     if (notes.trim()) {
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
       doc.text('Notes:', margin, y);
-      y += 10;
+      y += 12;
       const noteLines = doc.splitTextToSize(notes, contentWidth);
       noteLines.forEach((line: string) => {
         doc.text(line, margin, y);
-        y += 10;
+        y += 12;
       });
       y += 6;
     }
 
     // Footer
-    doc.setFontSize(8);
-    doc.text(`Prepared by: ${user?.name || 'Staff'}`, margin, y);
-    y += 10;
+    doc.setFontSize(10);
+    doc.text(`Prepared by: ${user?.firstName || 'Staff'}`, margin, y);
+    y += 12;
     doc.text('AstroHEALTH EMR System', pageWidth / 2, y, { align: 'center' });
 
-    // Save PDF
-    const fileName = `shopping-list-${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`;
-    doc.save(fileName);
-    toast.success('Shopping list PDF exported successfully!');
+    return doc;
   };
 
-  // Print directly
-  const handlePrint = () => {
-    generatePDF();
+  // Export A4 PDF
+  const handleExportA4PDF = () => {
+    if (selectedItemsList.length === 0) {
+      toast.error('Please select at least one item');
+      return;
+    }
+    const doc = generateA4PDF();
+    const fileName = `shopping-checklist-${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`;
+    doc.save(fileName);
+    toast.success('A4 PDF exported successfully!');
   };
+
+  // Share A4 PDF on WhatsApp
+  const handleShareWhatsApp = async () => {
+    if (selectedItemsList.length === 0) {
+      toast.error('Please select at least one item');
+      return;
+    }
+    try {
+      const doc = generateA4PDF();
+      const pdfBlob = doc.output('blob');
+      const fileName = `shopping-checklist-${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`;
+      await sharePDFOnWhatsApp(pdfBlob, fileName);
+    } catch (error) {
+      console.error('Error sharing on WhatsApp:', error);
+      toast.error('Failed to share on WhatsApp');
+    }
+  };
+
+  // Print with thermal printer (80mm)
+  const handleThermalPrint = () => {
+    if (selectedItemsList.length === 0) {
+      toast.error('Please select at least one item');
+      return;
+    }
+    const doc = generateThermalPDF();
+    const fileName = `shopping-list-thermal-${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`;
+    doc.save(fileName);
+    toast.success('Thermal print PDF (80mm) exported!');
+  };
+
+  // Show export options modal
+  const [showExportModal, setShowExportModal] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Export Options Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-emerald-600" />
+                Export / Print Options
+              </h3>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {/* Share on WhatsApp (A4) */}
+              <button
+                onClick={() => {
+                  handleShareWhatsApp();
+                  setShowExportModal(false);
+                }}
+                className="w-full flex items-center gap-4 p-4 bg-green-50 hover:bg-green-100 rounded-xl border-2 border-green-200 transition-colors"
+              >
+                <div className="p-3 bg-green-500 rounded-full">
+                  <MessageCircle className="w-6 h-6 text-white" />
+                </div>
+                <div className="text-left flex-1">
+                  <div className="font-semibold text-green-800">Share on WhatsApp</div>
+                  <div className="text-sm text-green-600">A4 PDF format</div>
+                </div>
+              </button>
+
+              {/* Export A4 PDF */}
+              <button
+                onClick={() => {
+                  handleExportA4PDF();
+                  setShowExportModal(false);
+                }}
+                className="w-full flex items-center gap-4 p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border-2 border-blue-200 transition-colors"
+              >
+                <div className="p-3 bg-blue-500 rounded-full">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <div className="text-left flex-1">
+                  <div className="font-semibold text-blue-800">Export PDF</div>
+                  <div className="text-sm text-blue-600">A4 format for standard printers</div>
+                </div>
+              </button>
+
+              {/* Thermal Print (80mm) */}
+              <button
+                onClick={() => {
+                  handleThermalPrint();
+                  setShowExportModal(false);
+                }}
+                className="w-full flex items-center gap-4 p-4 bg-orange-50 hover:bg-orange-100 rounded-xl border-2 border-orange-200 transition-colors"
+              >
+                <div className="p-3 bg-orange-500 rounded-full">
+                  <Printer className="w-6 h-6 text-white" />
+                </div>
+                <div className="text-left flex-1">
+                  <div className="font-semibold text-orange-800">Thermal Print</div>
+                  <div className="text-sm text-orange-600">80mm width, Georgia 12pt</div>
+                </div>
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 text-center mt-4">
+              Choose an export format for your shopping checklist
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -588,7 +875,7 @@ export const ShoppingChecklistPage: React.FC = () => {
                             </div>
                             <div className="text-sm text-gray-500">
                               {patient.hospitalNumber && `Hosp#: ${patient.hospitalNumber}`}
-                              {patient.phoneNumber && ` • ${patient.phoneNumber}`}
+                              {patient.phone && ` • ${patient.phone}`}
                             </div>
                           </button>
                         ))
@@ -803,26 +1090,50 @@ export const ShoppingChecklistPage: React.FC = () => {
 
               {/* Actions */}
               <div className="mt-6 space-y-2">
+                {/* Main Export Button */}
                 <button
-                  onClick={generatePDF}
+                  onClick={() => setShowExportModal(true)}
                   disabled={selectedItemsList.length === 0}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                 >
-                  <FileDown className="w-5 h-5" />
-                  Export PDF (80mm Thermal)
+                  <Share2 className="w-5 h-5" />
+                  Export / Print Options
                 </button>
-                <button
-                  onClick={handlePrint}
-                  disabled={selectedItemsList.length === 0}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-                >
-                  <Printer className="w-5 h-5" />
-                  Print List
-                </button>
+
+                {/* Quick Action Buttons */}
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={handleShareWhatsApp}
+                    disabled={selectedItemsList.length === 0}
+                    className="flex flex-col items-center justify-center gap-1 px-2 py-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Share on WhatsApp (A4)"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    <span className="text-xs font-medium">WhatsApp</span>
+                  </button>
+                  <button
+                    onClick={handleExportA4PDF}
+                    disabled={selectedItemsList.length === 0}
+                    className="flex flex-col items-center justify-center gap-1 px-2 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Export A4 PDF"
+                  >
+                    <FileText className="w-5 h-5" />
+                    <span className="text-xs font-medium">A4 PDF</span>
+                  </button>
+                  <button
+                    onClick={handleThermalPrint}
+                    disabled={selectedItemsList.length === 0}
+                    className="flex flex-col items-center justify-center gap-1 px-2 py-3 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Thermal Print (80mm)"
+                  >
+                    <Printer className="w-5 h-5" />
+                    <span className="text-xs font-medium">Thermal</span>
+                  </button>
+                </div>
               </div>
 
               <p className="text-xs text-gray-500 text-center mt-4">
-                PDF optimized for 80mm thermal printer
+                WhatsApp &amp; A4 PDF: Standard format | Thermal: 80mm, Georgia 12pt
               </p>
             </div>
           </div>

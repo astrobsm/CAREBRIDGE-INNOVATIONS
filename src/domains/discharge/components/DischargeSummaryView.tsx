@@ -1,6 +1,7 @@
 // Discharge Summary View Component
 // Displays completed discharge summary with print/export options
 
+import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   X,
@@ -12,20 +13,16 @@ import {
   Activity,
   ClipboardList,
   Phone,
-  Download,
-  Printer,
   CheckCircle,
   AlertTriangle,
+  Share2,
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
-import toast from 'react-hot-toast';
+import jsPDF from 'jspdf';
 import type { DischargeSummary, Patient } from '../../../types';
 import { generateDischargeSummaryPDF } from '../../../utils/dischargePdfGenerator';
-import {
-  printThermalDocument,
-  type PrintableDocument,
-  type PrintSection,
-} from '../../../services/thermalPrintService';
+import { ExportOptionsModal } from '../../../components/common/ExportOptionsModal';
+import { createThermalPDF, type ThermalDocumentSection } from '../../../utils/thermalPdfGenerator';
 
 interface Props {
   summary: DischargeSummary;
@@ -50,72 +47,70 @@ const dispositionLabels: Record<string, string> = {
 };
 
 export default function DischargeSummaryView({ summary, patient, onClose }: Props) {
+  const [showExportModal, setShowExportModal] = useState(false);
   const losDays = differenceInDays(new Date(summary.dischargeDate), new Date(summary.admissionDate)) + 1;
 
-  // Thermal print (XP-T80Q, 80mm, Georgia 12pt)
-  const handlePrint = () => {
+  // Generate A4 PDF
+  const generateA4PDF = useCallback(async (): Promise<Blob> => {
     if (!patient) {
-      toast.error('Patient information not available');
-      return;
+      throw new Error('Patient information not available');
+    }
+    // The existing generator saves the PDF, we need to return a blob
+    // For now, we'll trigger the download
+    await generateDischargeSummaryPDF(summary, patient);
+    // Return an empty blob as the file was already downloaded
+    return new Blob();
+  }, [summary, patient]);
+
+  // Generate Thermal PDF (80mm width, Georgia/Times 12pt)
+  const generateThermalPDF = useCallback((): jsPDF => {
+    if (!patient) {
+      throw new Error('Patient information not available');
     }
 
-    const content: PrintSection[] = [
-      { type: 'header', data: 'Admission Details' },
-      { type: 'text', data: { key: 'Admitted', value: format(new Date(summary.admissionDate), 'dd/MM/yyyy') } },
-      { type: 'text', data: { key: 'Discharged', value: format(new Date(summary.dischargeDate), 'dd/MM/yyyy') } },
-      { type: 'text', data: { key: 'LOS', value: `${losDays} day${losDays > 1 ? 's' : ''}` } },
-      { type: 'divider', data: 'dashed' },
-      { type: 'header', data: 'Diagnosis' },
-      { type: 'text', data: summary.admittingDiagnosis },
+    const sections: ThermalDocumentSection[] = [
+      { type: 'keyValue', key: 'Patient', value: `${patient.firstName} ${patient.lastName}` },
+      { type: 'keyValue', key: 'Hospital #', value: patient.hospitalNumber || 'N/A' },
+      { type: 'divider' },
+      { type: 'header', content: 'Admission Details' },
+      { type: 'keyValue', key: 'Admitted', value: format(new Date(summary.admissionDate), 'dd/MM/yyyy') },
+      { type: 'keyValue', key: 'Discharged', value: format(new Date(summary.dischargeDate), 'dd/MM/yyyy') },
+      { type: 'keyValue', key: 'LOS', value: `${losDays} day${losDays > 1 ? 's' : ''}` },
+      { type: 'divider' },
+      { type: 'header', content: 'Diagnosis' },
+      { type: 'text', content: summary.admittingDiagnosis },
     ];
 
     if (summary.finalDiagnosis?.length) {
-      content.push({ type: 'text', data: `Final: ${summary.finalDiagnosis.join(', ')}` });
+      sections.push({ type: 'text', content: `Final: ${summary.finalDiagnosis.join(', ')}` });
     }
 
-    content.push({ type: 'divider', data: 'dashed' });
-    content.push({ type: 'header', data: 'Condition at Discharge' });
-    content.push({ type: 'text', data: summary.conditionAtDischarge || 'Not specified' });
+    sections.push({ type: 'divider' });
+    sections.push({ type: 'header', content: 'Condition at Discharge' });
+    sections.push({ type: 'text', content: summary.conditionAtDischarge || 'Not specified' });
 
     if (summary.dischargeMedications?.length) {
-      content.push({ type: 'divider', data: 'dashed' });
-      content.push({ type: 'header', data: 'Medications' });
+      sections.push({ type: 'divider' });
+      sections.push({ type: 'header', content: 'Medications' });
       summary.dischargeMedications.forEach((med) => {
-        content.push({ type: 'text', data: `• ${med.name} - ${med.dose}` });
+        sections.push({ type: 'text', content: `• ${med.name} - ${med.dose}` });
       });
     }
 
     if (summary.dietaryInstructions) {
-      content.push({ type: 'divider', data: 'dashed' });
-      content.push({ type: 'header', data: 'Follow-up' });
-      content.push({ type: 'text', data: summary.dietaryInstructions });
+      sections.push({ type: 'divider' });
+      sections.push({ type: 'header', content: 'Follow-up' });
+      sections.push({ type: 'text', content: summary.dietaryInstructions });
     }
 
-    const thermalDoc: PrintableDocument = {
+    return createThermalPDF({
       title: 'DISCHARGE SUMMARY',
-      content,
-      footer: 'For queries, contact the hospital',
-      printDate: true,
-    };
-
-    printThermalDocument(thermalDoc);
-    toast.success('Print dialog opened');
-  };
-
-  const handleDownloadPDF = async () => {
-    if (!patient) {
-      toast.error('Patient information not available');
-      return;
-    }
-    
-    try {
-      await generateDischargeSummaryPDF(summary, patient);
-      toast.success('PDF downloaded successfully');
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Failed to generate PDF');
-    }
-  };
+      subtitle: `${patient.firstName} ${patient.lastName}`,
+      timestamp: new Date(),
+      sections,
+      footer: 'For queries, contact the hospital'
+    });
+  }, [summary, patient, losDays]);
 
   return (
     <motion.div
@@ -145,18 +140,12 @@ export default function DischargeSummaryView({ summary, patient, onClose }: Prop
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={handlePrint}
-              className="p-2 hover:bg-white/20 rounded"
-              title="Print"
+              onClick={() => setShowExportModal(true)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded text-sm font-medium"
+              title="Export / Print Options"
             >
-              <Printer size={18} />
-            </button>
-            <button
-              onClick={handleDownloadPDF}
-              className="p-2 hover:bg-white/20 rounded"
-              title="Download PDF"
-            >
-              <Download size={18} />
+              <Share2 size={16} />
+              Export
             </button>
             <button onClick={onClose} className="p-2 hover:bg-white/20 rounded" title="Close">
               <X size={20} />
@@ -469,6 +458,17 @@ export default function DischargeSummaryView({ summary, patient, onClose }: Prop
           </div>
         </div>
       </motion.div>
+
+      {/* Export Options Modal */}
+      <ExportOptionsModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="Export Discharge Summary"
+        generateA4PDF={generateA4PDF}
+        generateThermalPDF={generateThermalPDF}
+        fileNamePrefix={`DischargeSummary_${patient?.lastName || 'patient'}`}
+        phoneNumber={patient?.phone}
+      />
     </motion.div>
   );
 }

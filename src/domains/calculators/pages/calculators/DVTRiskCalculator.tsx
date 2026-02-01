@@ -1,10 +1,13 @@
 // DVT Risk Calculator - Caprini Score
 // WHO-Adapted VTE Risk Assessment and Prophylaxis
 
-import { useState } from 'react';
-import { Calculator, AlertCircle, Heart, Download, Shield } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Calculator, AlertCircle, Heart, Shield } from 'lucide-react';
+import jsPDF from 'jspdf';
 import { PatientCalculatorInfo, DVTRiskResult } from '../../types';
-import { generateDVTRiskPDF } from '../../utils/pdfGenerator';
+import { getDVTRiskPDFDoc } from '../../utils/pdfGenerator';
+import { ExportButtonWithModal } from '../../../../components/common/ExportOptionsModal';
+import { createSimpleThermalPDF } from '../../../../utils/thermalPdfGenerator';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -286,11 +289,39 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
     setResult(calculationResult);
   };
 
-  const handleExportPDF = () => {
-    if (result) {
-      generateDVTRiskPDF(result, patientInfo);
-    }
-  };
+  // Generate A4 PDF
+  const generateA4PDF = useCallback((): jsPDF => {
+    if (!result) throw new Error('No result to export');
+    return getDVTRiskPDFDoc(result, patientInfo);
+  }, [result, patientInfo]);
+
+  // Generate Thermal PDF (80mm width)
+  const generateThermalPDF = useCallback((): jsPDF => {
+    if (!result) throw new Error('No result to export');
+    
+    // Collect all risk factors for thermal display
+    const riskFactors = [
+      ...result.scoreBreakdown['5-point'].map(f => `[5pt] ${f}`),
+      ...result.scoreBreakdown['3-point'].map(f => `[3pt] ${f}`),
+      ...result.scoreBreakdown['2-point'].map(f => `[2pt] ${f}`),
+      ...result.scoreBreakdown['1-point'].map(f => `[1pt] ${f}`),
+    ];
+
+    return createSimpleThermalPDF({
+      title: 'DVT RISK ASSESSMENT',
+      subtitle: `Caprini Score: ${result.score}`,
+      patientName: patientInfo.name,
+      patientId: patientInfo.hospitalNumber,
+      date: new Date(),
+      items: [
+        { label: 'Score', value: String(result.score) },
+        { label: 'Risk Level', value: result.riskLevel },
+        { label: 'VTE Risk', value: result.riskPercentage },
+        ...riskFactors.slice(0, 5).map((f, i) => ({ label: `Factor ${i + 1}`, value: f })),
+      ],
+      notes: result.recommendations.slice(0, 3).join('. '),
+    });
+  }, [result, patientInfo]);
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
@@ -578,13 +609,14 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
             </div>
           </div>
 
-          <button
-            onClick={handleExportPDF}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            <Download className="w-5 h-5" />
-            Download Comprehensive PDF Report
-          </button>
+          <ExportButtonWithModal
+            generateA4PDF={generateA4PDF}
+            generateThermalPDF={generateThermalPDF}
+            fileNamePrefix={`DVT_Risk_${patientInfo.name || 'patient'}`}
+            buttonText="Export / Print Report"
+            buttonClassName="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+            modalTitle="Export DVT Risk Assessment"
+          />
         </div>
       )}
     </div>

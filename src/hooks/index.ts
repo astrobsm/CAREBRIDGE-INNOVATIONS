@@ -17,5 +17,12 @@ export {
   type UseSpeechToTextReturn 
 } from './useSpeechToText';
 
+// Export options hook - for unified PDF export (A4, WhatsApp, Thermal)
+export { 
+  useExportOptions, 
+  type UseExportOptionsConfig,
+  type UseExportOptionsReturn 
+} from './useExportOptions';
+
 // Re-export database operations for convenience
 export { dbOps } from './useDatabase';
