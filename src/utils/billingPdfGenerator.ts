@@ -364,7 +364,7 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
   doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Account Name:', 25, yPos);
   doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.text('NNADI EMMANUEL C', 60, yPos);
+  doc.text('NNADI EMMANUEL CHIBUIKE', 60, yPos);
   yPos += 7;
   
   doc.setFont(PDF_FONTS.primary, 'bold');
@@ -647,7 +647,7 @@ export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
   doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Account Name:', 20, yPos);
   doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.text('NNADI EMMANUEL C', 55, yPos);
+  doc.text('NNADI EMMANUEL CHIBUIKE', 55, yPos);
   yPos += 6;
   
   doc.setFont(PDF_FONTS.primary, 'bold');

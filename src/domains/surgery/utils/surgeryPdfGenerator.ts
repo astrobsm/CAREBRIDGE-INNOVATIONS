@@ -613,6 +613,41 @@ export function generateFeeEstimatePDF(
   ];
   yPos = addNumberedList(doc, yPos, paymentInfo);
   yPos += 5;
+
+  // Bank Details Section
+  doc.setFillColor(240, 253, 244); // Light green background
+  doc.roundedRect(15, yPos, 180, 35, 3, 3, 'F');
+  doc.setDrawColor(34, 197, 94); // Green border
+  doc.setLineWidth(0.5);
+  doc.roundedRect(15, yPos, 180, 35, 3, 3, 'S');
+  
+  yPos += 8;
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(22, 101, 52); // Dark green
+  doc.text('BANK ACCOUNT DETAILS FOR PAYMENT', 20, yPos);
+  yPos += 8;
+  
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Bank:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('ZENITH BANK', 55, yPos);
+  yPos += 6;
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Account Name:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('NNADI EMMANUEL CHIBUIKE', 55, yPos);
+  yPos += 6;
+  
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Account Number:', 20, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setTextColor(22, 101, 52);
+  doc.text('2084929453', 55, yPos);
+  
+  yPos += 12;
   
   // Disclaimer with better contrast
   doc.setFillColor(254, 243, 199);

@@ -509,6 +509,36 @@ export default function SurgicalEstimatePage() {
 
     // Signature section
     y += 55;
+    
+    // Bank Details Section
+    doc.setFillColor(240, 253, 244); // Light green background
+    doc.setDrawColor(34, 197, 94); // Green border
+    doc.setLineWidth(0.5);
+    doc.rect(10, y, pageWidth - 20, 32, 'FD');
+    
+    doc.setFont('times', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(22, 101, 52); // Dark green
+    doc.text('BANK ACCOUNT DETAILS FOR PAYMENT', 15, y + 7);
+    
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Bank:', 15, y + 14);
+    doc.setFont('times', 'normal');
+    doc.text('ZENITH BANK', 45, y + 14);
+    
+    doc.setFont('times', 'bold');
+    doc.text('Account Name:', 15, y + 21);
+    doc.setFont('times', 'normal');
+    doc.text('NNADI EMMANUEL CHIBUIKE', 50, y + 21);
+    
+    doc.setFont('times', 'bold');
+    doc.text('Account Number:', 15, y + 28);
+    doc.setFont('times', 'normal');
+    doc.setTextColor(22, 101, 52);
+    doc.text('2084929453', 55, y + 28);
+    
+    y += 38;
     doc.setTextColor(0, 0, 0);
     doc.setFont('times', 'normal');
     doc.setFontSize(10);
