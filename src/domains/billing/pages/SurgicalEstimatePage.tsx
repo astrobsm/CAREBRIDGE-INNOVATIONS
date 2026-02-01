@@ -199,7 +199,7 @@ export default function SurgicalEstimatePage() {
       {
         id: uuidv4(),
         category: 'theatre_fee',
-        description: 'Use of Theatre / Operating Room',
+        description: 'Use of Theatre / Operating Room\n\nTheatre/SURGICAL CONSUMABLES',
         quantity: 1,
         unitPrice: theatreFee,
         totalPrice: theatreFee,
