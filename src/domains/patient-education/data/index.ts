@@ -53,8 +53,14 @@ import { cleftLipPalateEducationList } from './cleftLipPalateEducation';
 import { specializedEducationList } from './specializedEducation';
 import { supportiveCareEducationList } from './supportiveCareEducation';
 
+// Day Case / Minor Procedures (Category N)
+import { minorProceduresEducation as minorProceduresList } from './minorProcedures';
+
 import type { EducationCondition, EducationCategory } from '../types';
 import { EDUCATION_CATEGORIES } from '../types';
+
+// Day Case / Minor Procedures conditions (Category N)
+export const allMinorProceduresConditions: EducationCondition[] = minorProceduresList;
 
 // Combine all burns conditions
 export const allBurnsConditions: EducationCondition[] = [
@@ -308,6 +314,18 @@ export const getDrNnadiBurnsCategory = (): EducationCategory => {
   };
 };
 
+// Get the Day Case / Minor Procedures category with its conditions
+export const getMinorProceduresCategory = (): EducationCategory => {
+  const category = EDUCATION_CATEGORIES.find(c => c.code === 'N');
+  if (!category) {
+    throw new Error('Day Case / Minor Procedures category not found');
+  }
+  return {
+    ...category,
+    conditions: allMinorProceduresConditions
+  };
+};
+
 // Get all available categories with their conditions
 export const getAllEducationCategories = (): EducationCategory[] => {
   return [
@@ -323,7 +341,8 @@ export const getAllEducationCategories = (): EducationCategory[] => {
     getGenitalReconstructionCategory(),
     getReconstructiveTechniquesCategory(),
     getSystemicConditionsCategory(),
-    getDrNnadiBurnsCategory()
+    getDrNnadiBurnsCategory(),
+    getMinorProceduresCategory()
   ];
 };
 
@@ -375,6 +394,9 @@ export { cleftLipPalateEducationList, cleftLipPalateEducation } from './cleftLip
 export { specializedEducationList, breastReconstructionEducation, cosmeticProceduresEducation, keloidManagementEducation, infectedWoundsEducation, handSurgeryEducation } from './specializedEducation';
 export { supportiveCareEducationList, pressureSoreEducation, prostheticsAmputationEducation, minorProceduresEducation, painManagementEducation, nutritionDiabetesEducation, infectionPreventionEducation, culturalPsychosocialEducation, followUpPlanEducation } from './supportiveCareEducation';
 
+// Day Case / Minor Procedures exports
+export { minorProceduresEducation as dayCaseProceduresList, keloidExcision, ingrownToenail, lipomaRemoval } from './minorProcedures';
+
 export default {
   allBurnsConditions,
   allWoundsConditions,
@@ -389,6 +411,7 @@ export default {
   allReconstructiveTechniquesConditions,
   allSystemicConditions,
   allDrNnadiBurnsEducation,
+  allMinorProceduresConditions,
   getBurnsCategory,
   getWoundsCategory,
   getPressureInjuriesCategory,
@@ -402,5 +425,6 @@ export default {
   getReconstructiveTechniquesCategory,
   getSystemicConditionsCategory,
   getDrNnadiBurnsCategory,
+  getMinorProceduresCategory,
   getAllEducationCategories
 };

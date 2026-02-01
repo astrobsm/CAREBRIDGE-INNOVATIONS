@@ -34,6 +34,7 @@ import SurgicalEstimatePage from './domains/billing/pages/SurgicalEstimatePage';
 import HospitalsPage from './domains/hospitals/pages/HospitalsPage';
 import SettingsPage from './domains/settings/pages/SettingsPage';
 import UsersManagementPage from './domains/auth/pages/UsersManagementPage';
+import UserActivityAnalyticsPage from './domains/analytics/pages/UserActivityAnalyticsPage';
 import ClinicalCalculatorsPage from './domains/calculators/pages/ClinicalCalculatorsPage';
 import AdmissionsPage from './domains/admissions/pages/AdmissionsPage';
 import WardRoundsPage from './domains/ward-rounds/pages/WardRoundsPage';
@@ -160,6 +161,11 @@ function App() {
         } />
         <Route path="hospitals" element={<HospitalsPage />} />
         <Route path="users" element={<UsersManagementPage />} />
+        <Route path="user-activity" element={
+          user?.role === 'super_admin' 
+            ? <UserActivityAnalyticsPage /> 
+            : <Navigate to="/" replace />
+        } />
         <Route path="settings" element={<SettingsPage />} />
 
         {/* Communication Routes */}

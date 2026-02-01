@@ -44,6 +44,7 @@ interface NavItem {
   href: string;
   icon: React.ReactNode;
   permission?: string;
+  roles?: string[]; // Only show to specific roles
   children?: { name: string; href: string }[];
 }
 
@@ -241,6 +242,12 @@ const navigation: NavItem[] = [
     permission: 'manage_hospital',
   },
   { 
+    name: 'Activity Analytics', 
+    href: '/user-activity', 
+    icon: <Activity size={20} />,
+    roles: ['super_admin'],
+  },
+  { 
     name: 'Settings', 
     href: '/settings', 
     icon: <Settings size={20} />,
@@ -261,6 +268,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   };
 
   const filteredNavigation = navigation.filter(item => {
+    // Check role-based access first
+    if (item.roles && item.roles.length > 0) {
+      if (!user?.role || !item.roles.includes(user.role)) {
+        return false;
+      }
+    }
+    // Then check permission-based access
     if (!item.permission) return true;
     return hasPermission(item.permission);
   });
