@@ -242,7 +242,9 @@ async function handlePull(res: any, table: string, since?: string) {
     params.push(since);
   }
 
-  query += ` ORDER BY updated_at DESC`;
+  // Add ORDER BY with LIMIT to prevent "Out of sort memory" errors
+  // For large tables, limit results to prevent memory issues
+  query += ` ORDER BY updated_at DESC LIMIT 1000`;
 
   const [rows] = await dbPool.query(query, params);
   const data = (rows as any[]).map(objectToCamelCase);

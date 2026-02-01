@@ -150,8 +150,9 @@ DELIMITER ;
 -- Add indexes to video_conferences to reduce sort memory usage
 CALL AddIndexIfNotExists('video_conferences', 'idx_video_conferences_created_at', 'created_at');
 CALL AddIndexIfNotExists('video_conferences', 'idx_video_conferences_updated_at', 'updated_at');
-CALL AddIndexIfNotExists('video_conferences', 'idx_video_conferences_scheduled_at', 'scheduled_at');
+CALL AddIndexIfNotExists('video_conferences', 'idx_video_conferences_scheduled_start', 'scheduled_start');
 CALL AddIndexIfNotExists('video_conferences', 'idx_video_conferences_status', 'status');
+CALL AddIndexIfNotExists('video_conferences', 'idx_video_conferences_hospital_id', 'hospital_id');
 
 -- Clean up procedures
 DROP PROCEDURE IF EXISTS AddColumnIfNotExists;
