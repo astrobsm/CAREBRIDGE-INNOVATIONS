@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { 
   ShoppingCart, 
   Check, 
@@ -19,12 +20,17 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  X
+  X,
+  Search,
+  User,
+  UserPlus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
+import { db } from '../../../database';
+import { Patient } from '../../../types';
 import { consumableItems, getProcedurePresets } from '../data/consumables';
 import { ConsumableItem, ConsumableCategory, SelectedItem, categoryLabels } from '../types';
 
@@ -69,6 +75,55 @@ export const ShoppingChecklistPage: React.FC = () => {
     Object.keys(categoryLabels).reduce((acc, cat) => ({ ...acc, [cat]: true }), {})
   );
   const [variantSelections, setVariantSelections] = useState<Record<string, string>>({});
+  
+  // Patient search state
+  const [patientSearchTerm, setPatientSearchTerm] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [isManualEntry, setIsManualEntry] = useState(false);
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+
+  // Search patients from database
+  const searchedPatients = useLiveQuery(
+    () => patientSearchTerm.trim().length >= 2
+      ? db.patients
+          .filter(p => 
+            p.firstName.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
+            p.lastName.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
+            p.hospitalNumber?.toLowerCase().includes(patientSearchTerm.toLowerCase())
+          )
+          .limit(10)
+          .toArray()
+      : [],
+    [patientSearchTerm]
+  );
+
+  // Select patient from database
+  const handleSelectPatient = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setPatientName(`${patient.firstName} ${patient.lastName}`);
+    setHospitalNumber(patient.hospitalNumber || '');
+    setPatientSearchTerm('');
+    setShowPatientDropdown(false);
+    setIsManualEntry(false);
+    toast.success(`Selected: ${patient.firstName} ${patient.lastName}`);
+  };
+
+  // Clear patient selection
+  const clearPatientSelection = () => {
+    setSelectedPatient(null);
+    setPatientName('');
+    setHospitalNumber('');
+    setPatientSearchTerm('');
+    setIsManualEntry(false);
+  };
+
+  // Switch to manual entry mode
+  const switchToManualEntry = () => {
+    setSelectedPatient(null);
+    setIsManualEntry(true);
+    setShowPatientDropdown(false);
+    setPatientSearchTerm('');
+  };
 
   // Group items by category
   const itemsByCategory = useMemo(() => {
@@ -467,35 +522,140 @@ export const ShoppingChecklistPage: React.FC = () => {
             {/* Patient Details & Procedure Name */}
             <div className="bg-white rounded-xl shadow-sm p-4">
               <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-emerald-600" />
+                <User className="w-5 h-5 text-emerald-600" />
                 Patient Details & Procedure
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Patient Name
-                  </label>
-                  <input
-                    type="text"
-                    value={patientName}
-                    onChange={(e) => setPatientName(e.target.value)}
-                    placeholder="Enter patient name..."
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hospital Number
-                  </label>
-                  <input
-                    type="text"
-                    value={hospitalNumber}
-                    onChange={(e) => setHospitalNumber(e.target.value)}
-                    placeholder="Enter hospital number..."
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
+              
+              {/* Patient Selection Mode Toggle */}
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => { setIsManualEntry(false); clearPatientSelection(); }}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    !isManualEntry
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <Search className="w-4 h-4" />
+                  Search Database
+                </button>
+                <button
+                  onClick={switchToManualEntry}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isManualEntry
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Manual Entry
+                </button>
               </div>
+
+              {/* Database Search Mode */}
+              {!isManualEntry && !selectedPatient && (
+                <div className="relative mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Search Patient
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={patientSearchTerm}
+                      onChange={(e) => {
+                        setPatientSearchTerm(e.target.value);
+                        setShowPatientDropdown(true);
+                      }}
+                      onFocus={() => setShowPatientDropdown(true)}
+                      placeholder="Search by name or hospital number..."
+                      className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  
+                  {/* Search Results Dropdown */}
+                  {showPatientDropdown && patientSearchTerm.length >= 2 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {searchedPatients && searchedPatients.length > 0 ? (
+                        searchedPatients.map((patient) => (
+                          <button
+                            key={patient.id}
+                            onClick={() => handleSelectPatient(patient)}
+                            className="w-full px-4 py-3 text-left hover:bg-emerald-50 border-b last:border-b-0 transition-colors"
+                          >
+                            <div className="font-medium text-gray-900">
+                              {patient.firstName} {patient.lastName}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {patient.hospitalNumber && `Hosp#: ${patient.hospitalNumber}`}
+                              {patient.phoneNumber && ` • ${patient.phoneNumber}`}
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-gray-500 text-sm">
+                          No patients found. Try different search terms or use manual entry.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Selected Patient Display */}
+              {selectedPatient && (
+                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-emerald-800">
+                        {selectedPatient.firstName} {selectedPatient.lastName}
+                      </div>
+                      <div className="text-sm text-emerald-600">
+                        {selectedPatient.hospitalNumber && `Hosp#: ${selectedPatient.hospitalNumber}`}
+                        {selectedPatient.gender && ` • ${selectedPatient.gender}`}
+                      </div>
+                    </div>
+                    <button
+                      onClick={clearPatientSelection}
+                      className="p-1 text-emerald-600 hover:bg-emerald-100 rounded"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Manual Entry Mode */}
+              {isManualEntry && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Patient Name
+                    </label>
+                    <input
+                      type="text"
+                      value={patientName}
+                      onChange={(e) => setPatientName(e.target.value)}
+                      placeholder="Enter patient name..."
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hospital Number (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={hospitalNumber}
+                      onChange={(e) => setHospitalNumber(e.target.value)}
+                      placeholder="Enter hospital number..."
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Procedure Name - Always visible */}
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Procedure / Operation Name
