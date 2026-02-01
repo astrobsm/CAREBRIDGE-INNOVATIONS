@@ -95,6 +95,8 @@ export function VoiceDictation({
   // Track processed results to prevent duplication (especially on Android)
   const lastProcessedIndexRef = useRef(-1);
   const lastProcessedTranscriptRef = useRef('');
+  const allProcessedTranscriptsRef = useRef<Set<string>>(new Set());
+  const lastResultTimestampRef = useRef(0);
   
   // Keep refs in sync with current values
   useEffect(() => {
@@ -132,6 +134,8 @@ export function VoiceDictation({
       // Reset tracking refs when starting new recognition session
       lastProcessedIndexRef.current = -1;
       lastProcessedTranscriptRef.current = '';
+      allProcessedTranscriptsRef.current = new Set();
+      lastResultTimestampRef.current = Date.now();
     };
 
     recognition.onend = () => {
@@ -196,30 +200,85 @@ export function VoiceDictation({
       if (finalTranscript) {
         const trimmedTranscript = finalTranscript.trim();
         
+        // Skip empty transcripts
+        if (!trimmedTranscript) {
+          return;
+        }
+        
         // Skip if this exact transcript was just processed (Android can duplicate)
         if (trimmedTranscript === lastProcessedTranscriptRef.current) {
           return;
         }
         
-        // Also check if the current value already ends with this transcript (another duplication case)
-        const currentValue = valueRef.current;
-        if (currentValue && currentValue.endsWith(trimmedTranscript)) {
+        // Skip if we've already processed this transcript in this session
+        if (allProcessedTranscriptsRef.current.has(trimmedTranscript)) {
           return;
         }
         
-        // Update last processed transcript
+        // Skip if result comes too quickly (< 100ms) with same/similar content - Android bug
+        const now = Date.now();
+        if (now - lastResultTimestampRef.current < 100) {
+          return;
+        }
+        lastResultTimestampRef.current = now;
+        
+        // Also check if the current value already ends with this transcript (another duplication case)
+        const currentValue = valueRef.current;
+        if (currentValue && currentValue.trim().endsWith(trimmedTranscript)) {
+          return;
+        }
+        
+        // Check if this transcript contains words that are already at the end of current value
+        // This handles the case where Android sends "word word word" pattern
+        if (currentValue) {
+          const currentWords = currentValue.trim().toLowerCase().split(/\s+/);
+          const newWords = trimmedTranscript.toLowerCase().split(/\s+/);
+          
+          // Check if the new transcript starts with the same words that end the current value
+          // This is the "complaints complaints of" pattern
+          if (currentWords.length > 0 && newWords.length > 0) {
+            // Find overlapping words at the junction
+            let overlapCount = 0;
+            for (let i = 1; i <= Math.min(currentWords.length, newWords.length); i++) {
+              const endSlice = currentWords.slice(-i);
+              const startSlice = newWords.slice(0, i);
+              if (endSlice.join(' ') === startSlice.join(' ')) {
+                overlapCount = i;
+              }
+            }
+            
+            // If there's significant overlap, remove the duplicate portion
+            if (overlapCount > 0) {
+              const deduplicatedWords = newWords.slice(overlapCount);
+              if (deduplicatedWords.length === 0) {
+                // Entire transcript was duplicate
+                return;
+              }
+              // Use deduplicated transcript
+              finalTranscript = deduplicatedWords.join(' ');
+            }
+          }
+        }
+        
+        const finalTrimmed = finalTranscript.trim();
+        if (!finalTrimmed) {
+          return;
+        }
+        
+        // Update last processed transcript and add to set
         lastProcessedTranscriptRef.current = trimmedTranscript;
+        allProcessedTranscriptsRef.current.add(trimmedTranscript);
         
         // Determine if we need a space between existing text and new text
         let newValue: string;
         if (!currentValue || currentValue.length === 0) {
           // First entry - just use the transcript
-          newValue = trimmedTranscript;
+          newValue = finalTrimmed;
         } else {
           // Check if current value ends with space or punctuation
           const lastChar = currentValue.charAt(currentValue.length - 1);
           const needsSpace = lastChar !== ' ' && lastChar !== '\n';
-          newValue = currentValue + (needsSpace ? ' ' : '') + trimmedTranscript;
+          newValue = currentValue + (needsSpace ? ' ' : '') + finalTrimmed;
         }
         
         // Update via callback

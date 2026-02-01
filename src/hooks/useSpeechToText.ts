@@ -63,6 +63,11 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
   const onResultRef = useRef(onResult);
   const onErrorRef = useRef(onError);
   
+  // Android-specific deduplication tracking
+  const processedTranscriptsRef = useRef<Set<string>>(new Set());
+  const lastResultTimestampRef = useRef(0);
+  const lastFinalTranscriptRef = useRef('');
+  
   // Keep callback refs updated
   useEffect(() => {
     onResultRef.current = onResult;
@@ -90,6 +95,10 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
     recognition.onstart = () => {
       setIsListening(true);
       setError(null);
+      // Reset Android deduplication tracking
+      processedTranscriptsRef.current.clear();
+      lastResultTimestampRef.current = 0;
+      lastFinalTranscriptRef.current = '';
     };
 
     recognition.onend = () => {
@@ -145,7 +154,55 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
       setInterimTranscript(interim);
 
       if (finalTranscript) {
-        onResultRef.current?.(finalTranscript.trim());
+        const trimmedTranscript = finalTranscript.trim();
+        
+        // Skip empty or already processed transcripts (exact duplicates)
+        if (!trimmedTranscript || processedTranscriptsRef.current.has(trimmedTranscript.toLowerCase())) {
+          return;
+        }
+        
+        // Skip if result comes too quickly (< 100ms) with same/similar content - Android bug
+        const now = Date.now();
+        if (now - lastResultTimestampRef.current < 100) {
+          return;
+        }
+        lastResultTimestampRef.current = now;
+        
+        // Android sends overlapping results that cause "word word word" pattern
+        // Check if the new transcript overlaps with what was just sent
+        let deduplicatedTranscript = trimmedTranscript;
+        const lastTranscript = lastFinalTranscriptRef.current;
+        
+        if (lastTranscript) {
+          const lastWords = lastTranscript.toLowerCase().split(/\s+/);
+          const newWords = trimmedTranscript.toLowerCase().split(/\s+/);
+          const originalNewWords = trimmedTranscript.split(/\s+/);
+          
+          // Find overlapping words at the junction
+          let overlapCount = 0;
+          for (let i = 1; i <= Math.min(lastWords.length, newWords.length); i++) {
+            const endSlice = lastWords.slice(-i);
+            const startSlice = newWords.slice(0, i);
+            if (endSlice.join(' ') === startSlice.join(' ')) {
+              overlapCount = i;
+            }
+          }
+          
+          // If there's overlap, remove the duplicate portion
+          if (overlapCount > 0) {
+            const deduplicatedWords = originalNewWords.slice(overlapCount);
+            if (deduplicatedWords.length === 0) {
+              return; // Entire transcript was duplicate
+            }
+            deduplicatedTranscript = deduplicatedWords.join(' ');
+          }
+        }
+        
+        // Track this transcript to prevent duplicates
+        processedTranscriptsRef.current.add(trimmedTranscript.toLowerCase());
+        lastFinalTranscriptRef.current = trimmedTranscript;
+        
+        onResultRef.current?.(deduplicatedTranscript);
         if (!continuous) {
           // Auto-stop after getting result in non-continuous mode
           recognition.stop();
