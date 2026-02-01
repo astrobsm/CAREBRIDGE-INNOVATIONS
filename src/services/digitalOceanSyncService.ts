@@ -30,6 +30,14 @@ let syncState: DOSyncState = {
 
 const syncListeners: Set<(state: DOSyncState) => void> = new Set();
 let syncInterval: ReturnType<typeof setInterval> | null = null;
+let criticalSyncInterval: ReturnType<typeof setInterval> | null = null;
+let lastFullSyncTime = 0;
+let lastCriticalSyncTime = 0;
+
+// Sync intervals - more conservative to reduce network load
+const FULL_SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const CRITICAL_SYNC_INTERVAL = 2 * 60 * 1000; // 2 minutes
+const MIN_SYNC_GAP = 30 * 1000; // Minimum 30 seconds between syncs
 
 // Subscribe to sync state changes
 export function subscribeDOSyncState(callback: (state: DOSyncState) => void): () => void {
@@ -128,19 +136,25 @@ export function initDOSync() {
       console.error('[DO Sync] Initial sync failed:', err);
     });
     
-    // Set up periodic sync every 2 minutes
+    // Set up periodic full sync every 5 minutes
     syncInterval = setInterval(() => {
-      if (navigator.onLine) {
-        fullDOSync();
+      if (navigator.onLine && !syncState.isSyncing) {
+        const now = Date.now();
+        if (now - lastFullSyncTime >= MIN_SYNC_GAP) {
+          fullDOSync();
+        }
       }
-    }, 120000);
+    }, FULL_SYNC_INTERVAL);
 
-    // Set up critical data sync every 30 seconds
-    setInterval(() => {
-      if (navigator.onLine) {
-        syncCriticalData();
+    // Set up critical data sync every 2 minutes
+    criticalSyncInterval = setInterval(() => {
+      if (navigator.onLine && !syncState.isSyncing) {
+        const now = Date.now();
+        if (now - lastCriticalSyncTime >= MIN_SYNC_GAP) {
+          syncCriticalData();
+        }
       }
-    }, 30000);
+    }, CRITICAL_SYNC_INTERVAL);
   }
 }
 
@@ -176,10 +190,18 @@ export async function fullDOSync(): Promise<void> {
     console.log('[DO Sync] Sync already in progress');
     return;
   }
+  
+  // Debounce - don't sync if we just synced
+  const now = Date.now();
+  if (now - lastFullSyncTime < MIN_SYNC_GAP) {
+    console.log('[DO Sync] Skipping sync - too soon since last sync');
+    return;
+  }
 
   try {
     updateSyncState({ isSyncing: true, error: null });
     console.log('[DO Sync] Starting full sync...');
+    lastFullSyncTime = now;
 
     // Pull from cloud first
     await pullAllFromCloud();
@@ -344,6 +366,13 @@ async function pushAllToCloud(): Promise<void> {
 async function syncCriticalData(): Promise<void> {
   if (syncState.isSyncing) return;
   
+  // Debounce critical sync
+  const now = Date.now();
+  if (now - lastCriticalSyncTime < MIN_SYNC_GAP) {
+    return;
+  }
+  lastCriticalSyncTime = now;
+  
   try {
     for (const localTable of CRITICAL_TABLES) {
       const mapping = SYNC_TABLES.find(t => t.local === localTable);
@@ -485,5 +514,9 @@ export function stopDOSync(): void {
   if (syncInterval) {
     clearInterval(syncInterval);
     syncInterval = null;
+  }
+  if (criticalSyncInterval) {
+    clearInterval(criticalSyncInterval);
+    criticalSyncInterval = null;
   }
 }

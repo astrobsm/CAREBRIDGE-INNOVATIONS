@@ -125,8 +125,8 @@ export default function VitalsPage() {
     // Sync on mount
     triggerSync();
     
-    // Set up polling every 15 seconds for this page
-    const interval = setInterval(triggerSync, 15000);
+    // Set up polling every 2 minutes for this page (reduced from 15 seconds)
+    const interval = setInterval(triggerSync, 120000);
     
     return () => clearInterval(interval);
   }, []);
