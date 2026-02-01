@@ -220,9 +220,42 @@ export default function SurgeryPlanningPage() {
   // Risk factors state
   const [selectedRiskFactors, setSelectedRiskFactors] = useState<string[]>([]);
   
+  // Investigation results state - tracks all lab values
+  const [investigationResults, setInvestigationResults] = useState<Record<string, { value: string; status: 'pending' | 'normal' | 'abnormal' }>>({});
+  
   // Fee estimate state
   const [feeEstimate, setFeeEstimate] = useState<SurgicalFeeEstimate | null>(null);
   const [customSurgeonFee, setCustomSurgeonFee] = useState<number | undefined>();
+
+  // Handle investigation value change
+  const handleInvestigationChange = (testName: string, value: string, normalRange: string) => {
+    let status: 'pending' | 'normal' | 'abnormal' = 'pending';
+    
+    if (value.trim()) {
+      // Try to determine if value is within normal range
+      const numValue = parseFloat(value);
+      if (!isNaN(numValue)) {
+        // Parse normal range (e.g., "13-17" or "3.5-5.0")
+        const rangeMatch = normalRange.match(/(\d+\.?\d*)-(\d+\.?\d*)/);
+        if (rangeMatch) {
+          const min = parseFloat(rangeMatch[1]);
+          const max = parseFloat(rangeMatch[2]);
+          status = (numValue >= min && numValue <= max) ? 'normal' : 'abnormal';
+        } else {
+          // Non-numeric range, mark as normal if value entered
+          status = 'normal';
+        }
+      } else {
+        // Text value entered (e.g., blood group, ECG result)
+        status = 'normal';
+      }
+    }
+    
+    setInvestigationResults(prev => ({
+      ...prev,
+      [testName]: { value, status }
+    }));
+  };
 
   const patient = useLiveQuery(
     () => patientId ? db.patients.get(patientId) : undefined,
@@ -352,6 +385,20 @@ export default function SurgeryPlanningPage() {
     setIsLoading(true);
 
     try {
+      // Build investigations list from entered values
+      const completedInvestigations: string[] = [];
+      Object.entries(investigationResults).forEach(([name, result]) => {
+        if (result.value.trim()) {
+          completedInvestigations.push(`${name}: ${result.value} (${result.status})`);
+        }
+      });
+      
+      // Add any additional investigations from the text field
+      if (data.investigations) {
+        const additional = data.investigations.split(',').map(i => i.trim()).filter(Boolean);
+        completedInvestigations.push(...additional);
+      }
+
       const preOpAssessment: PreOperativeAssessment = {
         asaScore: data.asaScore as 1 | 2 | 3 | 4 | 5,
         capriniScore: calculatedCapriniScore,
@@ -359,7 +406,7 @@ export default function SurgeryPlanningPage() {
         npoStatus: data.npoStatus,
         consentSigned: data.consentSigned,
         bloodTyped: data.bloodTyped,
-        investigations: data.investigations ? data.investigations.split(',').map(i => i.trim()) : [],
+        investigations: completedInvestigations,
         riskFactors: selectedRiskFactors,
         specialInstructions: data.specialInstructions,
       };
@@ -953,27 +1000,39 @@ export default function SurgeryPlanningPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {tests.map(test => (
-                          <tr key={test.name} className="text-sm">
-                            <td className="py-3 font-medium text-gray-900">{test.name}</td>
-                            <td className="py-3">
-                              <input
-                                type="text"
-                                placeholder="Enter value"
-                                className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
-                              />
-                            </td>
-                            <td className="py-3 text-gray-500">{test.unit}</td>
-                            <td className="py-3 text-gray-500 text-xs">
-                              {patient.gender === 'male' ? test.normalMale : test.normalFemale}
-                            </td>
-                            <td className="py-3">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                                Pending
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {tests.map(test => {
+                          const normalRange = patient?.gender === 'male' ? test.normalMale : test.normalFemale;
+                          const result = investigationResults[test.name];
+                          const status = result?.status || 'pending';
+                          
+                          return (
+                            <tr key={test.name} className="text-sm">
+                              <td className="py-3 font-medium text-gray-900">{test.name}</td>
+                              <td className="py-3">
+                                <input
+                                  type="text"
+                                  placeholder="Enter value"
+                                  value={result?.value || ''}
+                                  onChange={(e) => handleInvestigationChange(test.name, e.target.value, normalRange)}
+                                  className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                />
+                              </td>
+                              <td className="py-3 text-gray-500">{test.unit}</td>
+                              <td className="py-3 text-gray-500 text-xs">
+                                {normalRange}
+                              </td>
+                              <td className="py-3">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                  status === 'normal' ? 'bg-green-100 text-green-700' :
+                                  status === 'abnormal' ? 'bg-red-100 text-red-700' :
+                                  'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {status === 'normal' ? 'Normal' : status === 'abnormal' ? 'Abnormal' : 'Pending'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
