@@ -53,6 +53,7 @@ import ExternalReviewPage from './domains/external-review/pages/ExternalReviewPa
 import PostOpCarePage from './domains/post-op-care/pages/PostOpCarePage';
 import PostOpMonitoringChartsPage from './domains/post-op-care/pages/PostOpMonitoringChartsPage';
 import PreoperativePlanningPage from './domains/preoperative-planning/pages/PreoperativePlanningPage';
+import ShoppingChecklistPage from './domains/shopping-checklist/pages/ShoppingChecklistPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
 import InstallPrompt from './components/pwa/InstallPrompt';
@@ -149,6 +150,7 @@ function App() {
         <Route path="billing" element={<BillingPage />} />
         <Route path="billing/payroll" element={<PayrollDashboardPage />} />
         <Route path="billing/surgical-estimate" element={<SurgicalEstimatePage />} />
+        <Route path="shopping-checklist" element={<ShoppingChecklistPage />} />
         <Route path="calculators" element={<ClinicalCalculatorsPage />} />
         <Route path="dr-reviews" element={<DrReviewsPage />} />
         <Route path="external-review" element={
