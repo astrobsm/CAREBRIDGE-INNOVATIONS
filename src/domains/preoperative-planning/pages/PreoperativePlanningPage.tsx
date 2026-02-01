@@ -67,6 +67,36 @@ interface InvestigationResultEntry {
   interpretation: string;
 }
 
+// Multi-parameter investigation result type
+interface MultiParameterResult {
+  [paramKey: string]: {
+    value: string;
+    isAbnormal: boolean;
+    withinSafeRange: boolean;
+    interpretation: string;
+  };
+}
+
+// Investigation parameter definition
+interface InvestigationParameter {
+  key: string;
+  name: string;
+  unit: string;
+  min: number;
+  max: number;
+  criticalMin?: number;
+  criticalMax?: number;
+  genderSpecific?: {
+    male: { min: number; max: number };
+    female: { min: number; max: number };
+  };
+}
+
+// Multi-parameter investigation definition
+interface MultiParameterInvestigation {
+  parameters: InvestigationParameter[];
+}
+
 // Surgical readiness assessment
 interface SurgicalReadinessAssessment {
   overallStatus: 'ready' | 'needs_optimization' | 'not_ready' | 'incomplete';
@@ -110,8 +140,92 @@ const PreoperativePlanningPage: React.FC = () => {
   // State for ASA class
   const [asaClass, setAsaClass] = useState<ASAClass>('I');
 
-  // State for investigation results entry
+  // State for investigation results entry (single value investigations)
   const [investigationResults, setInvestigationResults] = useState<Record<InvestigationType, InvestigationResultEntry>>({} as Record<InvestigationType, InvestigationResultEntry>);
+  
+  // State for multi-parameter investigation results
+  const [multiParamResults, setMultiParamResults] = useState<Record<InvestigationType, MultiParameterResult>>({} as Record<InvestigationType, MultiParameterResult>);
+  
+  // Multi-parameter investigations configuration
+  const multiParameterInvestigations: Partial<Record<InvestigationType, MultiParameterInvestigation>> = {
+    fbc: {
+      parameters: [
+        { key: 'haemoglobin', name: 'Haemoglobin (Hb)', unit: 'g/dL', min: 12, max: 17, criticalMin: 7, criticalMax: 20, genderSpecific: { male: { min: 13, max: 17 }, female: { min: 12, max: 15.5 } } },
+        { key: 'platelets', name: 'Platelets', unit: '×10⁹/L', min: 150, max: 450, criticalMin: 50, criticalMax: 1000 },
+        { key: 'wbc', name: 'WBC (White Blood Cells)', unit: '×10⁹/L', min: 4.0, max: 11.0, criticalMin: 2, criticalMax: 30 },
+        { key: 'pcv', name: 'PCV/Haematocrit', unit: '%', min: 36, max: 50, criticalMin: 20, criticalMax: 60 },
+      ]
+    },
+    electrolytes: {
+      parameters: [
+        { key: 'sodium', name: 'Sodium (Na⁺)', unit: 'mmol/L', min: 135, max: 145, criticalMin: 120, criticalMax: 160 },
+        { key: 'potassium', name: 'Potassium (K⁺)', unit: 'mmol/L', min: 3.5, max: 5.0, criticalMin: 2.5, criticalMax: 6.5 },
+        { key: 'chloride', name: 'Chloride (Cl⁻)', unit: 'mmol/L', min: 98, max: 106, criticalMin: 80, criticalMax: 120 },
+        { key: 'bicarbonate', name: 'Bicarbonate (HCO₃⁻)', unit: 'mmol/L', min: 22, max: 28, criticalMin: 15, criticalMax: 35 },
+      ]
+    },
+    renal_function: {
+      parameters: [
+        { key: 'creatinine', name: 'Creatinine', unit: 'mg/dL', min: 0.6, max: 1.2, criticalMin: 0, criticalMax: 4.0 },
+        { key: 'urea', name: 'Urea/BUN', unit: 'mg/dL', min: 7, max: 20, criticalMin: 0, criticalMax: 100 },
+        { key: 'egfr', name: 'eGFR', unit: 'mL/min/1.73m²', min: 90, max: 120, criticalMin: 15, criticalMax: 200 },
+      ]
+    },
+    liver_function: {
+      parameters: [
+        { key: 'alt', name: 'ALT', unit: 'U/L', min: 0, max: 40, criticalMin: 0, criticalMax: 200 },
+        { key: 'ast', name: 'AST', unit: 'U/L', min: 0, max: 40, criticalMin: 0, criticalMax: 200 },
+        { key: 'alp', name: 'ALP', unit: 'U/L', min: 44, max: 147, criticalMin: 0, criticalMax: 500 },
+        { key: 'bilirubin', name: 'Total Bilirubin', unit: 'mg/dL', min: 0.1, max: 1.2, criticalMin: 0, criticalMax: 10 },
+        { key: 'albumin', name: 'Albumin', unit: 'g/dL', min: 3.5, max: 5.0, criticalMin: 2.0, criticalMax: 6.0 },
+      ]
+    },
+    coagulation: {
+      parameters: [
+        { key: 'pt', name: 'Prothrombin Time (PT)', unit: 'seconds', min: 11, max: 13.5, criticalMin: 0, criticalMax: 25 },
+        { key: 'inr', name: 'INR', unit: 'ratio', min: 0.9, max: 1.2, criticalMin: 0, criticalMax: 4.0 },
+        { key: 'aptt', name: 'aPTT', unit: 'seconds', min: 25, max: 35, criticalMin: 0, criticalMax: 60 },
+      ]
+    },
+    blood_glucose: {
+      parameters: [
+        { key: 'fasting', name: 'Fasting Blood Glucose', unit: 'mmol/L', min: 4.0, max: 7.0, criticalMin: 2.5, criticalMax: 20 },
+        { key: 'random', name: 'Random Blood Glucose', unit: 'mmol/L', min: 4.0, max: 7.8, criticalMin: 2.5, criticalMax: 25 },
+      ]
+    },
+    urinalysis: {
+      parameters: [
+        { key: 'protein', name: 'Protein', unit: '', min: 0, max: 0, criticalMin: 0, criticalMax: 3 },
+        { key: 'glucose', name: 'Glucose', unit: '', min: 0, max: 0, criticalMin: 0, criticalMax: 3 },
+        { key: 'ketones', name: 'Ketones', unit: '', min: 0, max: 0, criticalMin: 0, criticalMax: 3 },
+        { key: 'blood', name: 'Blood', unit: '', min: 0, max: 0, criticalMin: 0, criticalMax: 3 },
+        { key: 'leukocytes', name: 'Leukocytes/WBC', unit: '', min: 0, max: 0, criticalMin: 0, criticalMax: 3 },
+        { key: 'nitrites', name: 'Nitrites', unit: '', min: 0, max: 0, criticalMin: 0, criticalMax: 1 },
+      ]
+    },
+    abg: {
+      parameters: [
+        { key: 'ph', name: 'pH', unit: '', min: 7.35, max: 7.45, criticalMin: 7.1, criticalMax: 7.6 },
+        { key: 'pao2', name: 'PaO₂', unit: 'mmHg', min: 80, max: 100, criticalMin: 60, criticalMax: 150 },
+        { key: 'paco2', name: 'PaCO₂', unit: 'mmHg', min: 35, max: 45, criticalMin: 20, criticalMax: 70 },
+        { key: 'hco3', name: 'HCO₃⁻', unit: 'mmol/L', min: 22, max: 26, criticalMin: 15, criticalMax: 35 },
+        { key: 'spo2', name: 'SpO₂', unit: '%', min: 95, max: 100, criticalMin: 85, criticalMax: 100 },
+      ]
+    },
+    thyroid_function: {
+      parameters: [
+        { key: 'tsh', name: 'TSH', unit: 'mIU/L', min: 0.4, max: 4.0, criticalMin: 0.1, criticalMax: 10 },
+        { key: 't3', name: 'Free T3', unit: 'pmol/L', min: 3.1, max: 6.8, criticalMin: 1.0, criticalMax: 15 },
+        { key: 't4', name: 'Free T4', unit: 'pmol/L', min: 12, max: 22, criticalMin: 5, criticalMax: 50 },
+      ]
+    },
+    cardiac_enzymes: {
+      parameters: [
+        { key: 'troponin', name: 'Troponin I/T', unit: 'ng/mL', min: 0, max: 0.04, criticalMin: 0, criticalMax: 0.4 },
+        { key: 'ckmb', name: 'CK-MB', unit: 'ng/mL', min: 0, max: 5, criticalMin: 0, criticalMax: 25 },
+      ]
+    },
+  };
   
   // State for UI
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -286,15 +400,172 @@ const PreoperativePlanningPage: React.FC = () => {
     }));
   };
 
+  // Update multi-parameter investigation result
+  const updateMultiParamResult = (type: InvestigationType, paramKey: string, value: string) => {
+    setMultiParamResults(prev => ({
+      ...prev,
+      [type]: {
+        ...(prev[type] || {}),
+        [paramKey]: value
+      }
+    }));
+  };
+
+  // Analyze individual parameter result
+  const analyzeParameter = (param: InvestigationParameter, value: string, patientGender?: string): {
+    isAbnormal: boolean;
+    withinSafeRange: boolean;
+    interpretation: string;
+  } => {
+    const numValue = parseFloat(value);
+    
+    if (!value || isNaN(numValue)) {
+      return { isAbnormal: false, withinSafeRange: true, interpretation: 'Pending' };
+    }
+
+    // Get gender-specific ranges if available
+    let min = param.min;
+    let max = param.max;
+    if (param.genderSpecific && patientGender) {
+      if (patientGender === 'male' && param.genderSpecific.male) {
+        min = param.genderSpecific.male.min;
+        max = param.genderSpecific.male.max;
+      } else if (patientGender === 'female' && param.genderSpecific.female) {
+        min = param.genderSpecific.female.min;
+        max = param.genderSpecific.female.max;
+      }
+    }
+
+    const isWithinNormal = numValue >= min && numValue <= max;
+    const isWithinSafe = param.criticalMin !== undefined && param.criticalMax !== undefined
+      ? numValue >= param.criticalMin && numValue <= param.criticalMax
+      : isWithinNormal;
+
+    let interpretation = '';
+    if (isWithinNormal) {
+      interpretation = 'Normal';
+    } else if (isWithinSafe) {
+      interpretation = numValue < min ? 'Low' : 'High';
+    } else {
+      interpretation = numValue < min ? 'CRITICAL LOW' : 'CRITICAL HIGH';
+    }
+
+    return { isAbnormal: !isWithinNormal, withinSafeRange: isWithinSafe, interpretation };
+  };
+
+  // Analyze all parameters for a multi-param investigation
+  const analyzeMultiParamInvestigation = (type: InvestigationType): {
+    hasAnyResults: boolean;
+    allNormal: boolean;
+    hasAbnormal: boolean;
+    hasCritical: boolean;
+    parameterResults: Record<string, { value: string; analysis: { isAbnormal: boolean; withinSafeRange: boolean; interpretation: string } }>;
+  } => {
+    const config = multiParameterInvestigations[type];
+    const results = multiParamResults[type] || {};
+    
+    if (!config) {
+      return { hasAnyResults: false, allNormal: true, hasAbnormal: false, hasCritical: false, parameterResults: {} };
+    }
+
+    const parameterResults: Record<string, { value: string; analysis: { isAbnormal: boolean; withinSafeRange: boolean; interpretation: string } }> = {};
+    let hasAnyResults = false;
+    let allNormal = true;
+    let hasAbnormal = false;
+    let hasCritical = false;
+
+    config.parameters.forEach(param => {
+      const value = results[param.key] || '';
+      if (value) hasAnyResults = true;
+      
+      const analysis = analyzeParameter(param, value, selectedPatient?.gender);
+      parameterResults[param.key] = { value, analysis };
+      
+      if (analysis.isAbnormal) {
+        allNormal = false;
+        hasAbnormal = true;
+        if (!analysis.withinSafeRange) {
+          hasCritical = true;
+        }
+      }
+    });
+
+    return { hasAnyResults, allNormal, hasAbnormal, hasCritical, parameterResults };
+  };
+
+  // Check if investigation type is multi-parameter
+  const isMultiParameterInvestigation = (type: InvestigationType): boolean => {
+    return type in multiParameterInvestigations;
+  };
+
   // Calculate surgical readiness assessment
   const surgicalReadiness = useMemo((): SurgicalReadinessAssessment => {
     const mandatoryInvestigations = requiredInvestigations.filter(inv => inv.requirement === 'mandatory');
     const recommendedInvestigations = requiredInvestigations.filter(inv => inv.requirement === 'recommended');
     
+    // Helper to check if an investigation has results (supports both single and multi-param)
+    const hasInvestigationResults = (type: InvestigationType): boolean => {
+      if (isMultiParameterInvestigation(type)) {
+        const multiResults = multiParamResults[type];
+        if (!multiResults) return false;
+        const config = multiParameterInvestigations[type];
+        // Check if at least one parameter has a value
+        return config?.parameters.some(p => multiResults[p.key]?.trim()) || false;
+      }
+      return investigationResults[type]?.value?.trim() !== '' && investigationResults[type]?.value !== undefined;
+    };
+
+    // Helper to analyze investigation (supports both single and multi-param)
+    const getInvestigationAnalysis = (inv: { type: InvestigationType; name: string }) => {
+      if (isMultiParameterInvestigation(inv.type)) {
+        const config = multiParameterInvestigations[inv.type];
+        const results = multiParamResults[inv.type] || {};
+        
+        let hasAnyValue = false;
+        let allNormal = true;
+        let hasCritical = false;
+        const abnormalParams: string[] = [];
+        const criticalParams: string[] = [];
+        
+        config?.parameters.forEach(param => {
+          const value = results[param.key] || '';
+          if (value.trim()) {
+            hasAnyValue = true;
+            const analysis = analyzeParameter(param, value, selectedPatient?.gender);
+            if (analysis.isAbnormal) {
+              allNormal = false;
+              if (!analysis.withinSafeRange) {
+                hasCritical = true;
+                criticalParams.push(`${param.name}: ${value} ${param.unit}`);
+              } else {
+                abnormalParams.push(`${param.name}: ${value} ${param.unit}`);
+              }
+            }
+          }
+        });
+        
+        return {
+          hasValue: hasAnyValue,
+          isNormal: allNormal,
+          isSafe: !hasCritical,
+          abnormalDetails: abnormalParams,
+          criticalDetails: criticalParams
+        };
+      }
+      
+      // Single-param investigation
+      const result = investigationResults[inv.type];
+      return {
+        hasValue: !!result?.value,
+        isNormal: !result?.isAbnormal,
+        isSafe: result?.withinSafeRange ?? true,
+        abnormalDetails: result?.isAbnormal && result?.withinSafeRange ? [`${result.value} ${result.unit}`] : [],
+        criticalDetails: result?.isAbnormal && !result?.withinSafeRange ? [`${result.value} ${result.unit}`] : []
+      };
+    };
+    
     // Check how many mandatory investigations have results
-    const mandatoryWithResults = mandatoryInvestigations.filter(inv => 
-      investigationResults[inv.type]?.value && investigationResults[inv.type]?.value.trim() !== ''
-    );
+    const mandatoryWithResults = mandatoryInvestigations.filter(inv => hasInvestigationResults(inv.type));
     
     // Check how many are abnormal
     const abnormalFindings: string[] = [];
@@ -306,15 +577,19 @@ const PreoperativePlanningPage: React.FC = () => {
 
     // Analyze mandatory investigations
     mandatoryInvestigations.forEach(inv => {
-      const result = investigationResults[inv.type];
-      if (result?.value) {
-        if (!result.isAbnormal) {
+      const analysis = getInvestigationAnalysis(inv);
+      if (analysis.hasValue) {
+        if (analysis.isNormal) {
           score += 10;
-        } else if (result.withinSafeRange) {
+        } else if (analysis.isSafe) {
           score += 5;
-          abnormalFindings.push(`${inv.name}: ${result.value} ${result.unit} (mildly abnormal)`);
+          if (analysis.abnormalDetails.length > 0) {
+            abnormalFindings.push(`${inv.name}: ${analysis.abnormalDetails.join(', ')} (mildly abnormal)`);
+          }
         } else {
-          abnormalFindings.push(`${inv.name}: ${result.value} ${result.unit} (CRITICAL)`);
+          if (analysis.criticalDetails.length > 0) {
+            abnormalFindings.push(`${inv.name}: ${analysis.criticalDetails.join(', ')} (CRITICAL)`);
+          }
           optimizationRequired.push(`Correct ${inv.name.toLowerCase()} before surgery`);
         }
       }
@@ -322,28 +597,30 @@ const PreoperativePlanningPage: React.FC = () => {
 
     // Analyze recommended investigations
     recommendedInvestigations.forEach(inv => {
-      const result = investigationResults[inv.type];
-      if (result?.value) {
-        if (!result.isAbnormal) {
+      const analysis = getInvestigationAnalysis(inv);
+      if (analysis.hasValue) {
+        if (analysis.isNormal) {
           score += 5;
-        } else if (result.withinSafeRange) {
+        } else if (analysis.isSafe) {
           score += 2;
         } else {
-          abnormalFindings.push(`${inv.name}: ${result.value} ${result.unit}`);
+          if (analysis.criticalDetails.length > 0) {
+            abnormalFindings.push(`${inv.name}: ${analysis.criticalDetails.join(', ')}`);
+          }
         }
       }
     });
 
     // Determine overall status
     const mandatoryMet = mandatoryWithResults.length === mandatoryInvestigations.length &&
-      mandatoryWithResults.every(inv => {
-        const result = investigationResults[inv.type];
-        return result?.withinSafeRange;
+      mandatoryInvestigations.every(inv => {
+        const analysis = getInvestigationAnalysis(inv);
+        return analysis.isSafe;
       });
 
     const hasCriticalAbnormality = mandatoryInvestigations.some(inv => {
-      const result = investigationResults[inv.type];
-      return result?.value && !result.withinSafeRange;
+      const analysis = getInvestigationAnalysis(inv);
+      return analysis.hasValue && !analysis.isSafe;
     });
 
     const hasIncompleteData = mandatoryWithResults.length < mandatoryInvestigations.length;
@@ -388,7 +665,7 @@ const PreoperativePlanningPage: React.FC = () => {
       canProceed,
       recommendations
     };
-  }, [investigationResults, requiredInvestigations, surgicalUrgency]);
+  }, [investigationResults, multiParamResults, requiredInvestigations, surgicalUrgency, selectedPatient?.gender]);
 
   // Toggle comorbidity selection
   const toggleComorbidity = (category: ComorbidityCategory) => {
@@ -900,65 +1177,169 @@ const PreoperativePlanningPage: React.FC = () => {
                   </p>
                   
                   {requiredInvestigations.map((inv, idx) => {
+                    const isMultiParam = isMultiParameterInvestigation(inv.type);
+                    const multiParamConfig = multiParameterInvestigations[inv.type];
+                    const multiAnalysis = isMultiParam ? analyzeMultiParamInvestigation(inv.type) : null;
+                    
+                    // For single-param investigations (legacy behavior)
                     const result = investigationResults[inv.type];
                     const range = normalRanges[inv.type];
                     
+                    // Determine card border color based on results
+                    const getCardStyle = () => {
+                      if (isMultiParam && multiAnalysis) {
+                        if (!multiAnalysis.hasAnyResults) return 'border-gray-200 bg-gray-50';
+                        if (multiAnalysis.hasCritical) return 'border-red-300 bg-red-50';
+                        if (multiAnalysis.hasAbnormal) return 'border-yellow-300 bg-yellow-50';
+                        return 'border-green-300 bg-green-50';
+                      }
+                      if (!result?.value) return 'border-gray-200 bg-gray-50';
+                      if (result.isAbnormal) {
+                        return result.withinSafeRange ? 'border-yellow-300 bg-yellow-50' : 'border-red-300 bg-red-50';
+                      }
+                      return 'border-green-300 bg-green-50';
+                    };
+
+                    const getStatusIcon = () => {
+                      if (isMultiParam && multiAnalysis) {
+                        if (!multiAnalysis.hasAnyResults) return null;
+                        if (multiAnalysis.hasCritical) return <TrendingDown className="w-4 h-4 text-red-600" />;
+                        if (multiAnalysis.hasAbnormal) return <TrendingUp className="w-4 h-4 text-yellow-600" />;
+                        return <CheckCircle className="w-4 h-4 text-green-600" />;
+                      }
+                      if (!result?.value) return null;
+                      if (result.isAbnormal) {
+                        return result.withinSafeRange ? <TrendingUp className="w-4 h-4 text-yellow-600" /> : <TrendingDown className="w-4 h-4 text-red-600" />;
+                      }
+                      return <CheckCircle className="w-4 h-4 text-green-600" />;
+                    };
+                    
                     return (
-                      <div key={idx} className={`p-4 rounded-lg border-2 transition-colors ${
-                        result?.value 
-                          ? result.isAbnormal 
-                            ? result.withinSafeRange 
-                              ? 'border-yellow-300 bg-yellow-50' 
-                              : 'border-red-300 bg-red-50'
-                            : 'border-green-300 bg-green-50'
-                          : 'border-gray-200 bg-gray-50'
-                      }`}>
-                        <div className="flex items-start justify-between mb-2">
+                      <div key={idx} className={`p-4 rounded-lg border-2 transition-colors ${getCardStyle()}`}>
+                        <div className="flex items-start justify-between mb-3">
                           <div>
                             <div className="font-medium text-gray-900 flex items-center gap-2">
                               {inv.name}
-                              {result?.value && (
-                                result.isAbnormal ? (
-                                  result.withinSafeRange ? (
-                                    <TrendingUp className="w-4 h-4 text-yellow-600" />
-                                  ) : (
-                                    <TrendingDown className="w-4 h-4 text-red-600" />
-                                  )
-                                ) : (
-                                  <CheckCircle className="w-4 h-4 text-green-600" />
-                                )
-                              )}
+                              {getStatusIcon()}
                             </div>
-                            <div className="text-xs text-gray-500">
-                              Normal: {range.min}-{range.max} {range.unit}
-                            </div>
+                            {!isMultiParam && (
+                              <div className="text-xs text-gray-500">
+                                Normal: {range.min}-{range.max} {range.unit}
+                              </div>
+                            )}
                           </div>
                           <span className={`px-2 py-1 text-xs rounded-full border ${getRequirementBadgeColor(inv.requirement)}`}>
                             {inv.requirement.replace('_', ' ')}
                           </span>
                         </div>
                         
-                        <div className="flex gap-2 items-center">
-                          <input
-                            type="text"
-                            placeholder={`Enter ${inv.name.toLowerCase()} result...`}
-                            value={result?.value || ''}
-                            onChange={(e) => updateInvestigationResult(inv.type, e.target.value)}
-                            className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                          />
-                          <span className="text-sm text-gray-500 min-w-[60px]">{range.unit}</span>
-                        </div>
-                        
-                        {result?.value && (
-                          <div className={`mt-2 text-sm p-2 rounded ${
-                            result.isAbnormal
-                              ? result.withinSafeRange
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-red-100 text-red-800'
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {result.interpretation}
+                        {/* Multi-Parameter Investigation Input Fields */}
+                        {isMultiParam && multiParamConfig ? (
+                          <div className="space-y-3">
+                            {multiParamConfig.parameters.map((param) => {
+                              const paramResult = multiAnalysis?.parameterResults[param.key];
+                              const paramValue = paramResult?.value || '';
+                              const paramAnalysis = paramResult?.analysis;
+                              
+                              // Get gender-specific range if applicable
+                              let displayMin = param.min;
+                              let displayMax = param.max;
+                              if (param.genderSpecific && selectedPatient?.gender) {
+                                if (selectedPatient.gender === 'male' && param.genderSpecific.male) {
+                                  displayMin = param.genderSpecific.male.min;
+                                  displayMax = param.genderSpecific.male.max;
+                                } else if (selectedPatient.gender === 'female' && param.genderSpecific.female) {
+                                  displayMin = param.genderSpecific.female.min;
+                                  displayMax = param.genderSpecific.female.max;
+                                }
+                              }
+                              
+                              return (
+                                <div key={param.key} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <label className="text-sm font-medium text-gray-700 min-w-[140px]">
+                                        {param.name}
+                                      </label>
+                                      {paramValue && paramAnalysis && (
+                                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                          paramAnalysis.isAbnormal
+                                            ? paramAnalysis.withinSafeRange
+                                              ? 'bg-yellow-100 text-yellow-700'
+                                              : 'bg-red-100 text-red-700'
+                                            : 'bg-green-100 text-green-700'
+                                        }`}>
+                                          {paramAnalysis.interpretation}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-gray-400">
+                                      Normal: {displayMin}-{displayMax} {param.unit}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      placeholder="Result"
+                                      value={paramValue}
+                                      onChange={(e) => updateMultiParamResult(inv.type, param.key, e.target.value)}
+                                      className={`w-24 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 ${
+                                        paramValue && paramAnalysis?.isAbnormal
+                                          ? paramAnalysis.withinSafeRange
+                                            ? 'border-yellow-400 bg-yellow-50'
+                                            : 'border-red-400 bg-red-50'
+                                          : 'border-gray-300'
+                                      }`}
+                                    />
+                                    <span className="text-xs text-gray-500 min-w-[50px]">{param.unit}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            
+                            {/* Multi-param summary */}
+                            {multiAnalysis?.hasAnyResults && (
+                              <div className={`mt-3 text-sm p-2 rounded ${
+                                multiAnalysis.hasCritical
+                                  ? 'bg-red-100 text-red-800'
+                                  : multiAnalysis.hasAbnormal
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {multiAnalysis.hasCritical
+                                  ? 'Critical values detected - requires optimization before surgery'
+                                  : multiAnalysis.hasAbnormal
+                                  ? 'Some values mildly abnormal - can proceed with caution'
+                                  : 'All values within normal limits - proceed'}
+                              </div>
+                            )}
                           </div>
+                        ) : (
+                          /* Single-Parameter Investigation Input (legacy) */
+                          <>
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="text"
+                                placeholder={`Enter ${inv.name.toLowerCase()} result...`}
+                                value={result?.value || ''}
+                                onChange={(e) => updateInvestigationResult(inv.type, e.target.value)}
+                                className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                              />
+                              <span className="text-sm text-gray-500 min-w-[60px]">{range.unit}</span>
+                            </div>
+                            
+                            {result?.value && (
+                              <div className={`mt-2 text-sm p-2 rounded ${
+                                result.isAbnormal
+                                  ? result.withinSafeRange
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-red-100 text-red-800'
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {result.interpretation}
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     );
