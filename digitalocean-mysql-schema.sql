@@ -624,14 +624,25 @@ CREATE TABLE IF NOT EXISTS treatment_plans (
   patient_id VARCHAR(36),
   hospital_id VARCHAR(36),
   created_by VARCHAR(36),
+  related_entity_id VARCHAR(36) NULL,
+  related_entity_type VARCHAR(50) NULL,
+  title VARCHAR(255) NULL,
+  description TEXT NULL,
   diagnosis TEXT,
   goals JSON,
+  clinical_goals JSON NULL,
+  orders JSON NULL,
   interventions JSON,
   expected_outcomes JSON,
   timeline VARCHAR(100),
+  frequency VARCHAR(100) NULL,
   start_date DATE,
   target_date DATE,
+  expected_end_date DATE NULL,
+  actual_end_date DATE NULL,
   status VARCHAR(50) DEFAULT 'active',
+  phase VARCHAR(100) NULL,
+  procedures JSON NULL,
   review_date DATE,
   notes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1206,24 +1217,74 @@ CREATE TABLE IF NOT EXISTS limb_salvage_assessments (
   patient_id VARCHAR(36),
   hospital_id VARCHAR(36),
   assessed_by VARCHAR(36),
+  assessed_by_name VARCHAR(255) NULL,
+  encounter_id VARCHAR(36) NULL,
+  admission_id VARCHAR(36) NULL,
+  patient_age INT NULL,
+  patient_gender VARCHAR(20) NULL,
   assessment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   limb VARCHAR(50),
+  affected_side VARCHAR(20) NULL,
   indication TEXT,
   mangled_extremity_score INT,
   mess_score INT,
   ganga_score INT,
   limb_salvage_index DECIMAL(4,2),
+  lsi_score DECIMAL(4,2) NULL,
+  psi_score DECIMAL(4,2) NULL,
+  nisssa_score INT NULL,
+  hotcross_score INT NULL,
+  lsi_category VARCHAR(50) NULL,
+  psi_category VARCHAR(50) NULL,
   vascular_status JSON,
   neurological_status JSON,
   skeletal_status JSON,
   soft_tissue_status JSON,
   contamination_status JSON,
   patient_factors JSON,
+  clinical_presentation JSON NULL,
+  diabetes_status JSON NULL,
+  foot_infection JSON NULL,
+  ischemia_assessment JSON NULL,
+  wagner_grade INT NULL,
+  wifi_classification JSON NULL,
+  pedis_classification JSON NULL,
+  idsa_classification VARCHAR(50) NULL,
+  sinbad_score INT NULL,
+  abi_left DECIMAL(4,2) NULL,
+  abi_right DECIMAL(4,2) NULL,
+  tbi_left DECIMAL(4,2) NULL,
+  tbi_right DECIMAL(4,2) NULL,
+  tcpo2_left DECIMAL(5,2) NULL,
+  tcpo2_right DECIMAL(5,2) NULL,
+  angiography_findings TEXT NULL,
+  duplex_findings TEXT NULL,
+  mra_cta_findings TEXT NULL,
+  neuropathy_assessment JSON NULL,
+  charcot_assessment JSON NULL,
+  wound_characteristics JSON NULL,
+  amputation_history JSON NULL,
+  revascularization_history JSON NULL,
+  previous_ulcer_history JSON NULL,
+  risk_stratification JSON NULL,
+  quality_of_life_assessment JSON NULL,
+  functional_status JSON NULL,
   recommendation VARCHAR(100),
+  amputation_level_recommended VARCHAR(100) NULL,
+  primary_recommendation TEXT NULL,
+  alternative_options JSON NULL,
   surgical_plan TEXT,
+  multidisciplinary_input JSON NULL,
   prognosis TEXT,
+  wound_healing_probability DECIMAL(5,2) NULL,
+  limb_preservation_probability DECIMAL(5,2) NULL,
+  one_year_survival_probability DECIMAL(5,2) NULL,
   photos JSON,
+  attachments JSON NULL,
   notes TEXT,
+  follow_up_plan JSON NULL,
+  status VARCHAR(50) DEFAULT 'active',
+  is_deleted TINYINT(1) DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
@@ -1335,6 +1396,25 @@ CREATE TABLE IF NOT EXISTS consumable_bom_items (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (bom_id) REFERENCES consumable_boms(id) ON DELETE CASCADE
 );
+
+-- ============================================
+-- INDEXES FOR PERFORMANCE
+-- ============================================
+
+-- Video Conferences Indexes (helps with sort operations)
+CREATE INDEX IF NOT EXISTS idx_video_conferences_hospital_id ON video_conferences(hospital_id);
+CREATE INDEX IF NOT EXISTS idx_video_conferences_status ON video_conferences(status);
+CREATE INDEX IF NOT EXISTS idx_video_conferences_scheduled_start ON video_conferences(scheduled_start);
+CREATE INDEX IF NOT EXISTS idx_video_conferences_created_at ON video_conferences(created_at);
+
+-- Treatment Plans Indexes
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_patient_id ON treatment_plans(patient_id);
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_hospital_id ON treatment_plans(hospital_id);
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_status ON treatment_plans(status);
+
+-- Limb Salvage Assessments Indexes
+CREATE INDEX IF NOT EXISTS idx_limb_salvage_assessments_patient_id ON limb_salvage_assessments(patient_id);
+CREATE INDEX IF NOT EXISTS idx_limb_salvage_assessments_hospital_id ON limb_salvage_assessments(hospital_id);
 
 -- Success message
 SELECT 'AstroHEALTH MySQL Schema Created Successfully!' as status;
