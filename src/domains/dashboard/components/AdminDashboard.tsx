@@ -385,14 +385,14 @@ export default function AdminDashboard() {
         <h2 className="font-semibold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Link
-            to="/users/new"
+            to="/users"
             className="flex flex-col items-center p-4 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
           >
             <Users size={24} className="text-indigo-600 mb-2" />
             <span className="text-sm text-indigo-700 text-center">Add User</span>
           </Link>
           <Link
-            to="/hospitals/new"
+            to="/hospitals"
             className="flex flex-col items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
           >
             <Building2 size={24} className="text-purple-600 mb-2" />
@@ -406,7 +406,7 @@ export default function AdminDashboard() {
             <span className="text-sm text-gray-700 text-center">Settings</span>
           </Link>
           <Link
-            to="/reports"
+            to="/billing"
             className="flex flex-col items-center p-4 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
           >
             <FileText size={24} className="text-emerald-600 mb-2" />
