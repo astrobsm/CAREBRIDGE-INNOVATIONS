@@ -538,6 +538,12 @@ export default function SurgicalEstimatePage() {
     doc.setTextColor(22, 101, 52);
     doc.text('2084929453', 55, y + 28);
     
+    // WhatsApp payment evidence instruction
+    doc.setFontSize(9);
+    doc.setFont('times', 'bold');
+    doc.setTextColor(161, 98, 7); // Dark yellow/brown
+    doc.text('Send Payment Evidence To: 0902 872 4839 (WhatsApp)', 110, y + 28);
+    
     y += 38;
     doc.setTextColor(0, 0, 0);
     doc.setFont('times', 'normal');

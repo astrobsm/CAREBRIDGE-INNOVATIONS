@@ -646,8 +646,15 @@ export function generateFeeEstimatePDF(
   doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setTextColor(22, 101, 52);
   doc.text('2084929453', 55, yPos);
+  yPos += 8;
   
-  yPos += 12;
+  // WhatsApp payment evidence instruction
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setTextColor(161, 98, 7); // Dark yellow/brown
+  doc.text('Send Payment Evidence To: 0902 872 4839 (WhatsApp)', 20, yPos);
+  
+  yPos += 10;
   
   // Disclaimer with better contrast
   doc.setFillColor(254, 243, 199);
