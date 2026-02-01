@@ -68,6 +68,10 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
   const lastResultTimestampRef = useRef(0);
   const lastFinalTranscriptRef = useRef('');
   
+  // Track if user manually stopped - to prevent auto-restart on Android
+  const userStoppedRef = useRef(false);
+  const isRestartingRef = useRef(false);
+  
   // Keep callback refs updated
   useEffect(() => {
     onResultRef.current = onResult;
@@ -95,6 +99,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
     recognition.onstart = () => {
       setIsListening(true);
       setError(null);
+      isRestartingRef.current = false;
       // Reset Android deduplication tracking
       processedTranscriptsRef.current.clear();
       lastResultTimestampRef.current = 0;
@@ -102,18 +107,50 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
     };
 
     recognition.onend = () => {
-      setIsListening(false);
       setInterimTranscript('');
+      
+      // Auto-restart if user didn't manually stop and continuous mode is enabled
+      // This handles Android's tendency to stop after a few seconds of silence
+      if (continuous && !userStoppedRef.current && !isRestartingRef.current) {
+        isRestartingRef.current = true;
+        // Small delay before restarting to avoid rapid restart loops
+        setTimeout(() => {
+          if (!userStoppedRef.current && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch (err) {
+              // Recognition might already be running or failed to restart
+              console.log('Auto-restart failed, recognition may have been stopped manually');
+              setIsListening(false);
+              isRestartingRef.current = false;
+            }
+          } else {
+            setIsListening(false);
+            isRestartingRef.current = false;
+          }
+        }, 100);
+      } else {
+        setIsListening(false);
+      }
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
-      setIsListening(false);
+      
+      // Handle errors that should NOT trigger auto-restart
+      const fatalErrors = ['audio-capture', 'not-allowed', 'network', 'service-not-allowed'];
+      
+      if (fatalErrors.includes(event.error)) {
+        // These are real errors - stop completely
+        userStoppedRef.current = true;
+        setIsListening(false);
+      }
       
       let errorMessage: string;
       switch (event.error) {
         case 'no-speech':
-          errorMessage = 'No speech detected. Please try again.';
+          // On Android, this fires frequently - don't show error, let auto-restart handle it
+          errorMessage = '';
           break;
         case 'audio-capture':
           errorMessage = 'No microphone found. Please check your microphone.';
@@ -229,6 +266,8 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
       return;
     }
 
+    // User starting - clear the stopped flag to allow auto-restart
+    userStoppedRef.current = false;
     setError(null);
     setInterimTranscript('');
 
@@ -248,6 +287,8 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
   }, []);
 
   const stopListening = useCallback(() => {
+    // User manually stopping - set flag to prevent auto-restart
+    userStoppedRef.current = true;
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();

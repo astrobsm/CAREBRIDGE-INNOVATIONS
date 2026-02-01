@@ -98,6 +98,10 @@ export function VoiceDictation({
   const allProcessedTranscriptsRef = useRef<Set<string>>(new Set());
   const lastResultTimestampRef = useRef(0);
   
+  // Track if user manually stopped - to prevent auto-restart on Android
+  const userStoppedRef = useRef(false);
+  const isRestartingRef = useRef(false);
+  
   // Keep refs in sync with current values
   useEffect(() => {
     valueRef.current = value;
@@ -131,6 +135,7 @@ export function VoiceDictation({
     recognition.onstart = () => {
       setIsListening(true);
       setRecognitionError(null);
+      isRestartingRef.current = false;
       // Reset tracking refs when starting new recognition session
       lastProcessedIndexRef.current = -1;
       lastProcessedTranscriptRef.current = '';
@@ -139,7 +144,6 @@ export function VoiceDictation({
     };
 
     recognition.onend = () => {
-      setIsListening(false);
       // Append any remaining interim transcript using refs for current values
       const currentInterim = interimTranscriptRef.current;
       if (currentInterim && currentInterim.trim()) {
@@ -151,15 +155,53 @@ export function VoiceDictation({
         valueRef.current = newValue;
       }
       setInterimTranscript('');
+      
+      // Auto-restart if user didn't manually stop (handles Android timeout)
+      // Android speech recognition often stops after a few seconds of silence
+      if (!userStoppedRef.current && !isRestartingRef.current) {
+        isRestartingRef.current = true;
+        // Small delay before restarting to avoid rapid restart loops
+        setTimeout(() => {
+          if (!userStoppedRef.current && recognitionRef.current) {
+            try {
+              // Reset processed index for new session but keep transcript history
+              lastProcessedIndexRef.current = -1;
+              recognitionRef.current.start();
+            } catch (err) {
+              // Recognition might already be running or failed to restart
+              console.log('Auto-restart failed, recognition may have been stopped manually');
+              setIsListening(false);
+              isRestartingRef.current = false;
+            }
+          } else {
+            setIsListening(false);
+            isRestartingRef.current = false;
+          }
+        }, 100);
+      } else {
+        setIsListening(false);
+      }
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
-      setIsListening(false);
+      
+      // Handle errors that should NOT trigger auto-restart
+      const fatalErrors = ['audio-capture', 'not-allowed', 'network', 'service-not-allowed'];
+      
+      if (fatalErrors.includes(event.error)) {
+        // These are real errors - stop completely
+        userStoppedRef.current = true;
+        setIsListening(false);
+      }
       
       switch (event.error) {
         case 'no-speech':
-          setRecognitionError('No speech detected. Please try again.');
+          // On Android, this fires frequently - don't show error, just let auto-restart handle it
+          // The onend event will trigger auto-restart
+          break;
+        case 'aborted':
+          // User or system aborted - don't show error
           break;
         case 'audio-capture':
           setRecognitionError('No microphone found. Please check your microphone.');
@@ -171,6 +213,7 @@ export function VoiceDictation({
           setRecognitionError('Network error. Please check your connection.');
           break;
         default:
+          // For unknown errors, show but don't prevent auto-restart
           setRecognitionError(`Error: ${event.error}`);
       }
     };
@@ -305,8 +348,12 @@ export function VoiceDictation({
     }
 
     if (isListening) {
+      // User manually stopping - set flag to prevent auto-restart
+      userStoppedRef.current = true;
       recognitionRef.current.stop();
     } else {
+      // User starting - clear the stopped flag
+      userStoppedRef.current = false;
       setRecognitionError(null);
       try {
         recognitionRef.current.start();
@@ -320,6 +367,8 @@ export function VoiceDictation({
   // Stop listening
   const stopListening = useCallback(() => {
     if (recognitionRef.current && isListening) {
+      // User manually stopping - set flag to prevent auto-restart
+      userStoppedRef.current = true;
       recognitionRef.current.stop();
     }
   }, [isListening]);
