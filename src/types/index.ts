@@ -19,7 +19,15 @@ export type UserRole =
   | 'registrar'
   | 'senior_registrar'
   | 'medical_officer'
-  | 'house_officer';
+  | 'house_officer'
+  | 'endocrinologist'
+  | 'cardiologist'
+  | 'nephrologist'
+  | 'neurologist'
+  | 'gastroenterologist'
+  | 'obstetrician'
+  | 'radio_oncologist'
+  | 'pathologist';
 
 // User
 export interface User {

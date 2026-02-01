@@ -46,7 +46,9 @@ const nigerianStates = [
 const validRoles: UserRole[] = [
   'super_admin', 'hospital_admin', 'surgeon', 'anaesthetist', 'nurse',
   'pharmacist', 'lab_scientist', 'dietician', 'physiotherapist',
-  'accountant', 'home_care_giver', 'driver',
+  'accountant', 'home_care_giver', 'driver', 'endocrinologist',
+  'cardiologist', 'nephrologist', 'neurologist', 'gastroenterologist',
+  'obstetrician', 'radio_oncologist', 'pathologist',
 ];
 
 const hospitalTypes = ['primary', 'secondary', 'tertiary'];

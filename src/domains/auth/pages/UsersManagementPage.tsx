@@ -37,6 +37,14 @@ const roles: { value: UserRole; label: string }[] = [
   { value: 'accountant', label: 'Accountant' },
   { value: 'home_care_giver', label: 'Home Care Giver' },
   { value: 'driver', label: 'Driver' },
+  { value: 'endocrinologist', label: 'Endocrinologist' },
+  { value: 'cardiologist', label: 'Cardiologist' },
+  { value: 'nephrologist', label: 'Nephrologist' },
+  { value: 'neurologist', label: 'Neurologist' },
+  { value: 'gastroenterologist', label: 'Gastroenterologist' },
+  { value: 'obstetrician', label: 'Obstetrician' },
+  { value: 'radio_oncologist', label: 'Radio Oncologist' },
+  { value: 'pathologist', label: 'Pathologist' },
 ];
 
 const roleColors: Record<string, string> = {
@@ -52,6 +60,14 @@ const roleColors: Record<string, string> = {
   accountant: 'bg-gray-100 text-gray-800',
   home_care_giver: 'bg-rose-100 text-rose-800',
   driver: 'bg-slate-100 text-slate-800',
+  endocrinologist: 'bg-amber-100 text-amber-800',
+  cardiologist: 'bg-red-100 text-red-800',
+  nephrologist: 'bg-sky-100 text-sky-800',
+  neurologist: 'bg-violet-100 text-violet-800',
+  gastroenterologist: 'bg-lime-100 text-lime-800',
+  obstetrician: 'bg-fuchsia-100 text-fuchsia-800',
+  radio_oncologist: 'bg-emerald-100 text-emerald-800',
+  pathologist: 'bg-stone-100 text-stone-800',
 };
 
 interface EditUserModalProps {

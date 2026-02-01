@@ -715,6 +715,14 @@ export const EARNINGS_ELIGIBLE_ROLES: UserRole[] = [
   'house_officer',
   'senior_registrar',
   'registrar',
+  'endocrinologist',
+  'cardiologist',
+  'nephrologist',
+  'neurologist',
+  'gastroenterologist',
+  'obstetrician',
+  'radio_oncologist',
+  'pathologist',
 ];
 
 /**
@@ -730,6 +738,14 @@ export const DASHBOARD_EARNINGS_ROLES: UserRole[] = [
   'resident',
   'medical_officer',
   'house_officer',
+  'endocrinologist',
+  'cardiologist',
+  'nephrologist',
+  'neurologist',
+  'gastroenterologist',
+  'obstetrician',
+  'radio_oncologist',
+  'pathologist',
 ];
 
 /**
