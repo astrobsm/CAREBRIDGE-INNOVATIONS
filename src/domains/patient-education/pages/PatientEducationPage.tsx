@@ -12,7 +12,6 @@ import {
   BookOpen,
   ChevronRight,
   ChevronDown,
-  Download,
   Search,
   FileText,
   AlertCircle,
@@ -33,7 +32,9 @@ import {
 import { EDUCATION_CATEGORIES } from '../types';
 import type { EducationCondition, EducationCategory } from '../types';
 import { allBurnsConditions, allWoundsConditions, allPressureInjuriesConditions, allReconstructiveSurgeryConditions, allHerniaConditions, allPediatricSurgeryConditions, allVascularConditions, allBreastConditions, allCosmeticConditions, allGenitalReconstructionConditions, allReconstructiveTechniquesConditions, allSystemicConditions, allDrNnadiBurnsEducation } from '../data';
-import { downloadPatientEducationPDF, downloadCategorySummaryPDF } from '../../../utils/educationPdfGenerator';
+import { getPatientEducationPDFDoc, getCategorySummaryPDFDoc } from '../../../utils/educationPdfGenerator';
+import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
+import { ExportButtonWithModal } from '../../../components/common/ExportOptionsModal';
 
 // Get icon for category
 const getCategoryIcon = (code: string) => {
@@ -130,14 +131,55 @@ const PatientEducationPage: React.FC = () => {
     })).filter(cat => cat.conditions.length > 0);
   }, [categoriesWithConditions, searchTerm]);
 
-  const handleDownloadConditionPDF = () => {
+  // Generate A4 PDF for condition education
+  const generateConditionA4PDF = () => {
     if (selectedCondition && selectedCategory) {
-      downloadPatientEducationPDF(selectedCondition, selectedCategory);
+      return getPatientEducationPDFDoc(selectedCondition, selectedCategory);
     }
+    throw new Error('No condition selected');
   };
 
-  const handleDownloadCategoryPDF = (category: EducationCategory) => {
-    downloadCategorySummaryPDF(category);
+  // Generate Thermal PDF for condition education
+  const generateConditionThermalPDF = () => {
+    if (!selectedCondition) throw new Error('No condition selected');
+    
+    const items: { label: string; value: string }[] = [
+      { label: 'Condition', value: selectedCondition.name },
+      { label: 'Overview', value: selectedCondition.overview.definition.slice(0, 200) },
+      { label: 'Causes', value: selectedCondition.overview.causes.slice(0, 3).join(', ') },
+      { label: 'Symptoms', value: selectedCondition.overview.symptoms.slice(0, 3).join(', ') },
+      { label: 'Risk Factors', value: selectedCondition.overview.riskFactors.slice(0, 3).join(', ') },
+    ];
+    
+    return createSimpleThermalPDF({
+      title: 'PATIENT EDUCATION',
+      subtitle: selectedCondition.name,
+      items,
+      notes: 'For detailed information, please request the A4 PDF version.',
+    });
+  };
+
+  // Generate A4 PDF for category summary
+  const generateCategoryA4PDF = (category: EducationCategory) => {
+    return getCategorySummaryPDFDoc(category);
+  };
+
+  // Generate Thermal PDF for category summary
+  const generateCategoryThermalPDF = (category: EducationCategory) => {
+    const items: { label: string; value: string }[] = [
+      { label: 'Category', value: category.name },
+      { label: 'Conditions', value: `${category.conditions.length} available` },
+    ];
+    
+    category.conditions.slice(0, 10).forEach((c, idx) => {
+      items.push({ label: `${idx + 1}`, value: c.name });
+    });
+    
+    return createSimpleThermalPDF({
+      title: 'CATEGORY SUMMARY',
+      subtitle: category.name,
+      items,
+    });
   };
 
   // Render section toggle
@@ -255,13 +297,14 @@ const PatientEducationPage: React.FC = () => {
                 >
                   <div className="flex items-center justify-between mb-3 sm:mb-4">
                     <h2 className="font-semibold text-base sm:text-lg">{selectedCategory.name}</h2>
-                    <button
-                      onClick={() => handleDownloadCategoryPDF(selectedCategory)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                      title="Download category summary"
-                    >
-                      <Download className="h-5 w-5" />
-                    </button>
+                    <ExportButtonWithModal
+                      generateA4PDF={() => generateCategoryA4PDF(selectedCategory)}
+                      generateThermalPDF={() => generateCategoryThermalPDF(selectedCategory)}
+                      fileNamePrefix={`Category_${selectedCategory.code}_${selectedCategory.name.replace(/\s+/g, '_')}`}
+                      buttonText=""
+                      buttonClassName="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      modalTitle={`Export Category: ${selectedCategory.name}`}
+                    />
                   </div>
                   
                   {selectedCategory.conditions.length > 0 ? (
@@ -326,14 +369,15 @@ const PatientEducationPage: React.FC = () => {
                   </div>
 
                   <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
-                    {/* Download Button */}
-                    <button
-                      onClick={handleDownloadConditionPDF}
-                      className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-2.5 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
-                    >
-                      <Download className="h-4 w-4 sm:h-5 sm:w-5" />
-                      Download Patient Education PDF
-                    </button>
+                    {/* Export Button with Options */}
+                    <ExportButtonWithModal
+                      generateA4PDF={generateConditionA4PDF}
+                      generateThermalPDF={generateConditionThermalPDF}
+                      fileNamePrefix={`Patient_Education_${selectedCondition.name.replace(/\s+/g, '_')}`}
+                      buttonText="Export / Print Education PDF"
+                      buttonClassName="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-2.5 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
+                      modalTitle={`Export: ${selectedCondition.name}`}
+                    />
 
                     {/* Sections */}
                     <div className="space-y-2 mt-3 sm:mt-4">

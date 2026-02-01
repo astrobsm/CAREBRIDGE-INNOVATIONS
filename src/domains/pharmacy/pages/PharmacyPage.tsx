@@ -17,8 +17,6 @@ import {
   Save,
   Trash2,
   Info,
-  FileText,
-  Download,
   AlertCircle,
   Activity,
 } from 'lucide-react';
@@ -27,8 +25,10 @@ import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { format } from 'date-fns';
-import { generatePrescriptionPDF, generateDispensingSlipPDF } from '../../../utils/prescriptionPdfGenerator';
+import { getPrescriptionPDFDoc, getDispensingSlipPDFDoc, type PrescriptionPDFOptions, type DispensingSlipPDFOptions } from '../../../utils/prescriptionPdfGenerator';
 import { downloadDrugInformationPDF } from '../../../utils/drugInformationPdfGenerator';
+import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
+import { ExportButtonWithModal } from '../../../components/common/ExportOptionsModal';
 import type { Prescription, Medication, MedicationRoute } from '../../../types';
 import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
@@ -686,95 +686,140 @@ export default function PharmacyPage() {
     }
   };
 
-  const handleExportPrescription = async (prescription: Prescription) => {
+  // Generate PDF options for a prescription
+  const getPrescriptionPDFOptions = async (prescription: Prescription): Promise<PrescriptionPDFOptions> => {
     const patient = patientMap.get(prescription.patientId);
-    if (!patient) {
-      toast.error('Patient information not found');
-      return;
-    }
-
-    try {
-      // Get prescriber info
-      const prescriber = await db.users.get(prescription.prescribedBy);
-      
-      generatePrescriptionPDF({
-        prescriptionId: prescription.id,
-        prescribedDate: new Date(prescription.prescribedAt),
-        patient: {
-          name: `${patient.firstName} ${patient.lastName}`,
-          hospitalNumber: patient.hospitalNumber,
-          age: patient.dateOfBirth ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
-          gender: patient.gender,
-          phone: patient.phone,
-          address: patient.address,
-        },
-        hospitalName: 'AstroHEALTH Innovations in Healthcare',
-        hospitalPhone: '+234 902 872 4839',
-        hospitalEmail: 'info.astrohealth@gmail.com',
-        prescribedBy: prescriber ? `${prescriber.firstName} ${prescriber.lastName}`  : 'Unknown',
-        prescriberTitle: prescriber?.role || 'Doctor',
-        medications: prescription.medications.map(med => ({
-          name: med.name,
-          genericName: med.genericName,
-          dosage: med.dosage,
-          frequency: med.frequency,
-          route: med.route,
-          duration: med.duration,
-          quantity: med.quantity,
-          instructions: med.instructions,
-          isDispensed: med.isDispensed,
-        })),
-        status: prescription.status,
-        notes: prescription.notes,
-      });
-
-      toast.success('Prescription PDF downloaded');
-    } catch (error) {
-      console.error('Error generating prescription PDF:', error);
-      toast.error('Failed to generate PDF');
-    }
+    if (!patient) throw new Error('Patient information not found');
+    
+    const prescriber = await db.users.get(prescription.prescribedBy);
+    
+    return {
+      prescriptionId: prescription.id,
+      prescribedDate: new Date(prescription.prescribedAt),
+      patient: {
+        name: `${patient.firstName} ${patient.lastName}`,
+        hospitalNumber: patient.hospitalNumber,
+        age: patient.dateOfBirth ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
+        gender: patient.gender,
+        phone: patient.phone,
+        address: patient.address,
+      },
+      hospitalName: 'AstroHEALTH Innovations in Healthcare',
+      hospitalPhone: '+234 902 872 4839',
+      hospitalEmail: 'info.astrohealth@gmail.com',
+      prescribedBy: prescriber ? `${prescriber.firstName} ${prescriber.lastName}` : 'Unknown',
+      prescriberTitle: prescriber?.role || 'Doctor',
+      medications: prescription.medications.map(med => ({
+        name: med.name,
+        genericName: med.genericName,
+        dosage: med.dosage,
+        frequency: med.frequency,
+        route: med.route,
+        duration: med.duration,
+        quantity: med.quantity,
+        instructions: med.instructions,
+        isDispensed: med.isDispensed,
+      })),
+      status: prescription.status,
+      notes: prescription.notes,
+    };
   };
 
-  const handleExportDispensingSlip = async (prescription: Prescription) => {
+  // Generate dispensing slip PDF options
+  const getDispensingSlipPDFOptions = async (prescription: Prescription): Promise<DispensingSlipPDFOptions> => {
     const patient = patientMap.get(prescription.patientId);
-    if (!patient) {
-      toast.error('Patient information not found');
-      return;
-    }
+    if (!patient) throw new Error('Patient information not found');
+    
+    const prescriber = await db.users.get(prescription.prescribedBy);
+    
+    return {
+      prescriptionId: prescription.id,
+      prescribedDate: new Date(prescription.prescribedAt),
+      patient: {
+        name: `${patient.firstName} ${patient.lastName}`,
+        hospitalNumber: patient.hospitalNumber,
+      },
+      hospitalName: 'AstroHEALTH Innovations in Healthcare',
+      prescribedBy: prescriber ? `${prescriber.firstName} ${prescriber.lastName}` : 'Unknown',
+      medications: prescription.medications.map(med => ({
+        name: med.name,
+        genericName: med.genericName,
+        dosage: med.dosage,
+        frequency: med.frequency,
+        route: med.route,
+        duration: med.duration,
+        quantity: med.quantity,
+        instructions: med.instructions,
+        isDispensed: med.isDispensed,
+      })),
+      status: prescription.status,
+      dispensedBy: user ? `${user.firstName} ${user.lastName}` : undefined,
+      dispensedAt: prescription.dispensedAt ? new Date(prescription.dispensedAt) : undefined,
+    };
+  };
 
-    try {
-      const prescriber = await db.users.get(prescription.prescribedBy);
-      
-      generateDispensingSlipPDF({
-        prescriptionId: prescription.id,
-        prescribedDate: new Date(prescription.prescribedAt),
-        patient: {
-          name: `${patient.firstName} ${patient.lastName}`,
-          hospitalNumber: patient.hospitalNumber,
-        },
-        hospitalName: 'AstroHEALTH Innovations in Healthcare',
-        prescribedBy: prescriber ? `${prescriber.firstName} ${prescriber.lastName}` : 'Unknown',
-        medications: prescription.medications.map(med => ({
-          name: med.name,
-          genericName: med.genericName,
-          dosage: med.dosage,
-          frequency: med.frequency,
-          route: med.route,
-          duration: med.duration,
-          quantity: med.quantity,
-          instructions: med.instructions,
-          isDispensed: med.isDispensed,
-        })),
-        status: prescription.status,
-        dispensedBy: user ? `${user.firstName} ${user.lastName}` : undefined,
-        dispensedAt: prescription.dispensedAt ? new Date(prescription.dispensedAt) : undefined,
+  // Generate thermal PDF for prescription
+  const generatePrescriptionThermalPDF = async (prescription: Prescription) => {
+    const patient = patientMap.get(prescription.patientId);
+    if (!patient) throw new Error('Patient information not found');
+    
+    const prescriber = await db.users.get(prescription.prescribedBy);
+    const prescriberName = prescriber ? `${prescriber.firstName} ${prescriber.lastName}` : 'Unknown';
+    
+    const items: { label: string; value: string }[] = [
+      { label: 'Rx #', value: prescription.id.slice(0, 8).toUpperCase() },
+      { label: 'Date', value: format(new Date(prescription.prescribedAt), 'dd/MM/yyyy h:mm a') },
+      { label: 'Prescriber', value: prescriberName },
+      { label: 'Status', value: prescription.status.toUpperCase() },
+    ];
+    
+    // Add medications
+    prescription.medications.forEach((med, idx) => {
+      items.push({
+        label: `${idx + 1}. ${med.name}`,
+        value: `${med.dosage} ${med.frequency} x${med.duration} Qty:${med.quantity}`
       });
+    });
+    
+    return createSimpleThermalPDF({
+      title: 'PRESCRIPTION',
+      subtitle: `${patient.firstName} ${patient.lastName}`,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      patientId: patient.hospitalNumber,
+      date: new Date(prescription.prescribedAt),
+      items,
+    });
+  };
 
-      toast.success('Dispensing slip PDF downloaded');
-    } catch (error) {
-      console.error('Error generating dispensing slip:', error);
-      toast.error('Failed to generate PDF');
-    }
+  // Generate thermal PDF for dispensing slip
+  const generateDispensingThermalPDF = async (prescription: Prescription) => {
+    const patient = patientMap.get(prescription.patientId);
+    if (!patient) throw new Error('Patient information not found');
+    
+    const items: { label: string; value: string }[] = [
+      { label: 'Rx #', value: prescription.id.slice(0, 8).toUpperCase() },
+      { label: 'Date', value: format(new Date(prescription.prescribedAt), 'dd/MM/yyyy') },
+    ];
+    
+    prescription.medications.forEach((med, idx) => {
+      const dispensedMark = med.isDispensed ? '✓' : '☐';
+      items.push({
+        label: `${idx + 1}. ${med.name}`,
+        value: `${dispensedMark} Qty:${med.quantity}`
+      });
+    });
+    
+    const dispenserName = user ? `${user.firstName} ${user.lastName}` : undefined;
+    
+    return createSimpleThermalPDF({
+      title: 'DISPENSING SLIP',
+      subtitle: `${patient.firstName} ${patient.lastName}`,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      patientId: patient.hospitalNumber,
+      date: new Date(prescription.prescribedAt),
+      items,
+      preparedBy: dispenserName,
+    });
   };
 
   const handleExportDrugInformation = async (prescription: Prescription) => {
@@ -1232,13 +1277,17 @@ export default function PharmacyPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleExportPrescription(rx)}
-                            className="p-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
-                            title="Download Prescription PDF"
-                          >
-                            <FileText size={18} />
-                          </button>
+                          <ExportButtonWithModal
+                            generateA4PDF={async () => {
+                              const options = await getPrescriptionPDFOptions(rx);
+                              return getPrescriptionPDFDoc(options);
+                            }}
+                            generateThermalPDF={() => generatePrescriptionThermalPDF(rx)}
+                            fileNamePrefix={`Prescription_${patientMap.get(rx.patientId)?.firstName || 'Patient'}`}
+                            buttonText=""
+                            buttonClassName="p-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                            modalTitle="Export Prescription"
+                          />
                           <button
                             onClick={() => handleExportDrugInformation(rx)}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -1247,13 +1296,17 @@ export default function PharmacyPage() {
                             <Info size={18} />
                           </button>
                           {(rx.status === 'dispensed' || rx.status === 'partially_dispensed') && (
-                            <button
-                              onClick={() => handleExportDispensingSlip(rx)}
-                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                              title="Download Dispensing Slip"
-                            >
-                              <Download size={18} />
-                            </button>
+                            <ExportButtonWithModal
+                              generateA4PDF={async () => {
+                                const options = await getDispensingSlipPDFOptions(rx);
+                                return getDispensingSlipPDFDoc(options);
+                              }}
+                              generateThermalPDF={() => generateDispensingThermalPDF(rx)}
+                              fileNamePrefix={`Dispensing_Slip_${patientMap.get(rx.patientId)?.firstName || 'Patient'}`}
+                              buttonText=""
+                              buttonClassName="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              modalTitle="Export Dispensing Slip"
+                            />
                           )}
                         </div>
                       </td>

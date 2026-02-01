@@ -24,7 +24,6 @@ import {
   Phone,
   Calendar,
   Droplets,
-  Download,
   Scan,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -33,7 +32,9 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { recordLabResultUploadEarning, createEntryTracking } from '../../../services/staffEarningsService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
-import { generateLabResultPDF, generateLabRequestFormPDF } from '../../../utils/clinicalPdfGenerators';
+import { getLabResultPDFDoc, getLabRequestFormPDFDoc, type LabResultPDFOptions, type LabRequestFormPDFOptions } from '../../../utils/clinicalPdfGenerators';
+import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
+import { ExportButtonWithModal } from '../../../components/common/ExportOptionsModal';
 import { OCRScanner } from '../../../components/common';
 import type { LabRequest, LabTest, LabCategory } from '../../../types';
 import { PatientSelector } from '../../../components/patient';
@@ -450,95 +451,139 @@ export default function LaboratoryPage() {
     }
   };
 
-  const handleExportLabReport = async (request: LabRequest) => {
+  // Generate Lab Result PDF options
+  const getLabResultOptions = async (request: LabRequest): Promise<LabResultPDFOptions> => {
     const patient = patientMap.get(request.patientId);
-    if (!patient) {
-      toast.error('Patient information not found');
-      return;
-    }
+    if (!patient) throw new Error('Patient information not found');
+    
+    const requester = await db.users.get(request.requestedBy);
+    const category = request.tests[0]?.category || 'General';
 
-    try {
-      const requester = await db.users.get(request.requestedBy);
-      const category = request.tests[0]?.category || 'General';
-
-      generateLabResultPDF({
-        requestId: request.id,
-        requestedDate: new Date(request.requestedAt),
-        completedDate: request.completedAt ? new Date(request.completedAt) : undefined,
-        patient: {
-          name: `${patient.firstName} ${patient.lastName}`,
-          hospitalNumber: patient.hospitalNumber,
-          age: patient.dateOfBirth ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
-          gender: patient.gender,
-          phone: patient.phone,
-        },
-        hospitalName: 'AstroHEALTH Innovations in Healthcare',
-        hospitalPhone: '+234 902 872 4839',
-        hospitalEmail: 'info.astrohealth@gmail.com',
-        requestedBy: requester ? `${requester.firstName} ${requester.lastName}` : 'Unknown',
-        priority: request.priority,
-        category: category.charAt(0).toUpperCase() + category.slice(1),
-        tests: request.tests.map(test => ({
-          name: test.name,
-          result: test.result,
-          unit: test.unit,
-          referenceRange: test.referenceRange,
-          status: test.result ? (test.isAbnormal ? 'high' : 'normal') : undefined,
-          specimen: test.specimen,
-        })),
-        clinicalInfo: request.clinicalInfo,
-        // Map LabRequest status to PDF status format
-        status: request.status === 'collected' || request.status === 'processing' 
-          ? 'in_progress' 
-          : request.status as 'pending' | 'in_progress' | 'completed' | 'cancelled',
-      });
-
-      toast.success('Lab report PDF downloaded');
-    } catch (error) {
-      console.error('Error generating lab report PDF:', error);
-      toast.error('Failed to generate PDF');
-    }
+    return {
+      requestId: request.id,
+      requestedDate: new Date(request.requestedAt),
+      completedDate: request.completedAt ? new Date(request.completedAt) : undefined,
+      patient: {
+        name: `${patient.firstName} ${patient.lastName}`,
+        hospitalNumber: patient.hospitalNumber,
+        age: patient.dateOfBirth ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
+        gender: patient.gender,
+        phone: patient.phone,
+      },
+      hospitalName: 'AstroHEALTH Innovations in Healthcare',
+      hospitalPhone: '+234 902 872 4839',
+      hospitalEmail: 'info.astrohealth@gmail.com',
+      requestedBy: requester ? `${requester.firstName} ${requester.lastName}` : 'Unknown',
+      priority: request.priority,
+      category: category.charAt(0).toUpperCase() + category.slice(1),
+      tests: request.tests.map(test => ({
+        name: test.name,
+        result: test.result,
+        unit: test.unit,
+        referenceRange: test.referenceRange,
+        status: test.result ? (test.isAbnormal ? 'high' : 'normal') : undefined,
+        specimen: test.specimen,
+      })),
+      clinicalInfo: request.clinicalInfo,
+      status: request.status === 'collected' || request.status === 'processing' 
+        ? 'in_progress' 
+        : request.status as 'pending' | 'in_progress' | 'completed' | 'cancelled',
+    };
   };
 
-  const handleDownloadRequestForm = async (request: LabRequest) => {
+  // Generate Lab Request Form PDF options
+  const getLabRequestFormOptions = async (request: LabRequest): Promise<LabRequestFormPDFOptions> => {
     const patient = patientMap.get(request.patientId);
-    if (!patient) {
-      toast.error('Patient information not found');
-      return;
-    }
+    if (!patient) throw new Error('Patient information not found');
+    
+    const requester = await db.users.get(request.requestedBy);
 
-    try {
-      const requester = await db.users.get(request.requestedBy);
-
-      generateLabRequestFormPDF({
-        requestId: request.id,
-        requestedDate: new Date(request.requestedAt),
-        patient: {
-          name: `${patient.firstName} ${patient.lastName}`,
-          hospitalNumber: patient.hospitalNumber,
-          age: patient.dateOfBirth ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
-          gender: patient.gender,
-          phone: patient.phone,
-        },
-        hospitalName: 'AstroHEALTH Innovations in Healthcare',
-        hospitalPhone: '+234 902 872 4839',
-        hospitalEmail: 'info.astrohealth@gmail.com',
-        requestedBy: requester ? `${requester.firstName} ${requester.lastName}` : 'Unknown',
-        priority: request.priority,
-        tests: request.tests.map(test => ({
-          name: test.name,
-          specimen: test.specimen,
-          category: test.category,
-        })),
-        clinicalInfo: request.clinicalInfo,
-      });
-
-      toast.success('Lab request form downloaded');
-    } catch (error) {
-      console.error('Error generating lab request form PDF:', error);
-      toast.error('Failed to generate PDF');
-    }
+    return {
+      requestId: request.id,
+      requestedDate: new Date(request.requestedAt),
+      patient: {
+        name: `${patient.firstName} ${patient.lastName}`,
+        hospitalNumber: patient.hospitalNumber,
+        age: patient.dateOfBirth ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined,
+        gender: patient.gender,
+        phone: patient.phone,
+      },
+      hospitalName: 'AstroHEALTH Innovations in Healthcare',
+      hospitalPhone: '+234 902 872 4839',
+      hospitalEmail: 'info.astrohealth@gmail.com',
+      requestedBy: requester ? `${requester.firstName} ${requester.lastName}` : 'Unknown',
+      priority: request.priority,
+      tests: request.tests.map(test => ({
+        name: test.name,
+        specimen: test.specimen,
+        category: test.category,
+      })),
+      clinicalInfo: request.clinicalInfo,
+    };
   };
+
+  // Generate thermal PDF for lab result
+  const generateLabResultThermalPDF = async (request: LabRequest) => {
+    const patient = patientMap.get(request.patientId);
+    if (!patient) throw new Error('Patient information not found');
+    
+    const items: { label: string; value: string }[] = [
+      { label: 'Lab #', value: request.id.slice(0, 8).toUpperCase() },
+      { label: 'Date', value: format(new Date(request.requestedAt), 'dd/MM/yyyy h:mm a') },
+      { label: 'Priority', value: request.priority.toUpperCase() },
+    ];
+    
+    // Add test results
+    request.tests.forEach((test, idx) => {
+      const resultText = test.result 
+        ? `${test.result} ${test.unit || ''} ${test.isAbnormal ? '⚠️' : '✓'}`
+        : 'Pending';
+      items.push({
+        label: `${idx + 1}. ${test.name}`,
+        value: resultText
+      });
+    });
+    
+    return createSimpleThermalPDF({
+      title: 'LAB REPORT',
+      subtitle: `${patient.firstName} ${patient.lastName}`,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      patientId: patient.hospitalNumber,
+      date: new Date(request.requestedAt),
+      items,
+    });
+  };
+
+  // Generate thermal PDF for lab request form
+  const generateLabRequestThermalPDF = async (request: LabRequest) => {
+    const patient = patientMap.get(request.patientId);
+    if (!patient) throw new Error('Patient information not found');
+    
+    const items: { label: string; value: string }[] = [
+      { label: 'Request #', value: request.id.slice(0, 8).toUpperCase() },
+      { label: 'Date', value: format(new Date(request.requestedAt), 'dd/MM/yyyy h:mm a') },
+      { label: 'Priority', value: request.priority.toUpperCase() },
+    ];
+    
+    // Add tests requested
+    request.tests.forEach((test, idx) => {
+      items.push({
+        label: `${idx + 1}. Test`,
+        value: test.name
+      });
+    });
+    
+    return createSimpleThermalPDF({
+      title: 'LAB REQUEST',
+      subtitle: `${patient.firstName} ${patient.lastName}`,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      patientId: patient.hospitalNumber,
+      date: new Date(request.requestedAt),
+      items,
+      notes: request.clinicalInfo,
+    });
+  };
+
   const stats = useMemo(() => {
     if (!labRequests) return { pending: 0, processing: 0, completed: 0, today: 0 };
     const today = new Date();
@@ -751,13 +796,17 @@ export default function LaboratoryPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1">
                           {/* Download Request Form - always available */}
-                          <button
-                            onClick={() => handleDownloadRequestForm(request)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Download Lab Request Form"
-                          >
-                            <Download size={18} />
-                          </button>
+                          <ExportButtonWithModal
+                            generateA4PDF={async () => {
+                              const options = await getLabRequestFormOptions(request);
+                              return getLabRequestFormPDFDoc(options);
+                            }}
+                            generateThermalPDF={() => generateLabRequestThermalPDF(request)}
+                            fileNamePrefix={`Lab_Request_${patientMap.get(request.patientId)?.firstName || 'Patient'}`}
+                            buttonText=""
+                            buttonClassName="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            modalTitle="Export Lab Request Form"
+                          />
                           {/* Collect Sample - only for pending requests */}
                           {request.status === 'pending' && (
                             <button
@@ -779,13 +828,17 @@ export default function LaboratoryPage() {
                             </button>
                           )}
                           {/* Download Lab Report PDF - when results are available */}
-                          <button
-                            onClick={() => handleExportLabReport(request)}
-                            className="p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
-                            title="Download Lab Report PDF"
-                          >
-                            <FileText size={18} />
-                          </button>
+                          <ExportButtonWithModal
+                            generateA4PDF={async () => {
+                              const options = await getLabResultOptions(request);
+                              return getLabResultPDFDoc(options);
+                            }}
+                            generateThermalPDF={() => generateLabResultThermalPDF(request)}
+                            fileNamePrefix={`Lab_Report_${patientMap.get(request.patientId)?.firstName || 'Patient'}`}
+                            buttonText=""
+                            buttonClassName="p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                            modalTitle="Export Lab Report"
+                          />
                         </div>
                       </td>
                     </tr>

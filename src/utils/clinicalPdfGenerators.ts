@@ -3672,3 +3672,505 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
   // Save
   doc.save('Limb_Salvage_Investigation_Request_' + format(new Date(), 'yyyyMMdd') + '.pdf');
 }
+
+/**
+ * Get Lab Result PDF document (returns jsPDF instead of saving)
+ * Use this for export modal integration
+ */
+export function getLabResultPDFDoc(options: LabResultPDFOptions): jsPDF {
+  const {
+    requestId,
+    requestedDate,
+    completedDate,
+    patient,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+    requestedBy,
+    priority,
+    category,
+    tests,
+    clinicalInfo,
+    interpretation,
+    performedBy,
+    verifiedBy,
+  } = options;
+  void options.status;
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // Add logo watermark
+  addLogoWatermark(doc, 0.06);
+
+  const info: PDFDocumentInfo = {
+    title: 'LABORATORY REPORT',
+    subtitle: `Lab #${requestId.slice(0, 8).toUpperCase()}`,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+  };
+
+  let yPos = addBrandedHeader(doc, info);
+
+  // Priority badge
+  const priorityColors: Record<string, [number, number, number]> = {
+    routine: [34, 197, 94],
+    urgent: [234, 179, 8],
+    stat: [220, 38, 38],
+  };
+
+  doc.setFillColor(...(priorityColors[priority] || PDF_COLORS.gray));
+  doc.roundedRect(pageWidth - 40, yPos - 5, 25, 8, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text(priority.toUpperCase(), pageWidth - 27.5, yPos, { align: 'center' });
+
+  yPos += 5;
+
+  // Patient information
+  yPos = addPatientInfoBox(doc, yPos, patient);
+  yPos += 5;
+
+  // Request details
+  doc.setFillColor(243, 244, 246);
+  doc.roundedRect(15, yPos, pageWidth - 30, 18, 2, 2, 'F');
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(`Category: ${category}`, 20, yPos + 6);
+  doc.text(`Requested: ${format(requestedDate, 'MMM d, yyyy h:mm a')}`, 20, yPos + 12);
+  doc.text(`Requested By: ${requestedBy}`, pageWidth / 2, yPos + 6);
+  if (completedDate) {
+    doc.text(`Completed: ${format(completedDate, 'MMM d, yyyy h:mm a')}`, pageWidth / 2, yPos + 12);
+  }
+  yPos += 25;
+
+  // Clinical information
+  if (clinicalInfo) {
+    doc.setFillColor(254, 249, 195);
+    doc.roundedRect(15, yPos, pageWidth - 30, 12, 2, 2, 'F');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(8);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Clinical Info:', 20, yPos + 5);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.text(clinicalInfo.substring(0, 80), 48, yPos + 5);
+    yPos += 18;
+  }
+
+  // Test results section
+  yPos = addSectionTitle(doc, yPos, 'Test Results');
+  yPos += 3;
+
+  // Results table header
+  const colWidths = [70, 35, 25, 35];
+  const cols = ['Test Name', 'Result', 'Unit', 'Reference Range'];
+  const startX = 15;
+
+  doc.setFillColor(59, 130, 246);
+  doc.rect(startX, yPos, pageWidth - 30, 8, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+
+  let xPos = startX + 3;
+  cols.forEach((col, index) => {
+    doc.text(col, xPos, yPos + 5);
+    xPos += colWidths[index];
+  });
+
+  yPos += 10;
+
+  // Results rows
+  tests.forEach((test, index) => {
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    // Alternating row colors
+    if (index % 2 === 0) {
+      doc.setFillColor(249, 250, 251);
+      doc.rect(startX, yPos - 2, pageWidth - 30, 8, 'F');
+    }
+
+    // Status indicator
+    if (test.status && test.status !== 'normal') {
+      const statusColors = {
+        high: PDF_COLORS.danger,
+        low: PDF_COLORS.info,
+        critical: PDF_COLORS.danger,
+      };
+      doc.setFillColor(...(statusColors[test.status] || PDF_COLORS.gray));
+      doc.circle(startX + 2, yPos + 2, 1.5, 'F');
+    }
+
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(8);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+
+    xPos = startX + 5;
+    doc.text(test.name.substring(0, 35), xPos, yPos + 3);
+    xPos += colWidths[0];
+
+    // Result with color coding
+    if (test.result) {
+      if (test.status === 'high' || test.status === 'critical') {
+        doc.setTextColor(...PDF_COLORS.danger);
+        doc.setFont(PDF_FONTS.primary, 'bold');
+      } else if (test.status === 'low') {
+        doc.setTextColor(...PDF_COLORS.info);
+        doc.setFont(PDF_FONTS.primary, 'bold');
+      }
+      doc.text(test.result, xPos, yPos + 3);
+      doc.setTextColor(...PDF_COLORS.dark);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+    } else {
+      doc.setTextColor(...PDF_COLORS.gray);
+      doc.text('Pending', xPos, yPos + 3);
+      doc.setTextColor(...PDF_COLORS.dark);
+    }
+    xPos += colWidths[1];
+
+    doc.text(test.unit || '', xPos, yPos + 3);
+    xPos += colWidths[2];
+
+    doc.setFontSize(7);
+    doc.text(test.referenceRange || '', xPos, yPos + 3);
+
+    yPos += 8;
+  });
+
+  yPos += 10;
+
+  // Interpretation
+  if (interpretation) {
+    yPos = checkNewPage(doc, yPos);
+    yPos = addSectionTitle(doc, yPos, 'Interpretation', 'info');
+    yPos += 3;
+
+    doc.setFillColor(239, 246, 255);
+    doc.roundedRect(15, yPos, pageWidth - 30, 20, 2, 2, 'F');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    const lines = doc.splitTextToSize(interpretation, pageWidth - 40);
+    doc.text(lines, 20, yPos + 6);
+    yPos += 25;
+  }
+
+  // Signatures
+  yPos = checkNewPage(doc, yPos);
+  yPos += 10;
+
+  if (performedBy) {
+    doc.setFontSize(8);
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.text(`Performed by: ${performedBy}`, 20, yPos);
+  }
+  if (verifiedBy) {
+    doc.text(`Verified by: ${verifiedBy}`, pageWidth / 2, yPos);
+  }
+
+  // Footer note
+  yPos += 15;
+  doc.setFillColor(254, 242, 242);
+  doc.roundedRect(15, yPos, pageWidth - 30, 10, 2, 2, 'F');
+  doc.setTextColor(...PDF_COLORS.danger);
+  doc.setFontSize(6);
+  doc.text('This report is for the exclusive use of the referring physician. Clinical correlation is advised.', pageWidth / 2, yPos + 6, { align: 'center' });
+
+  addBrandedFooter(doc, 1, 1);
+
+  return doc;
+}
+
+/**
+ * Get Lab Request Form PDF document (returns jsPDF instead of saving)
+ * Use this for export modal integration
+ */
+export function getLabRequestFormPDFDoc(options: LabRequestFormPDFOptions): jsPDF {
+  const {
+    requestId,
+    requestedDate,
+    patient,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+    requestedBy,
+    priority,
+    tests,
+    clinicalInfo,
+  } = options;
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  const info: PDFDocumentInfo = {
+    title: 'LABORATORY REQUEST FORM',
+    subtitle: `Request #${requestId.slice(0, 8).toUpperCase()}`,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+  };
+
+  let yPos = addBrandedHeader(doc, info);
+
+  // Priority badge - prominently displayed
+  const priorityColors: Record<string, [number, number, number]> = {
+    routine: [34, 197, 94],
+    urgent: [234, 179, 8],
+    stat: [220, 38, 38],
+  };
+
+  // Large priority indicator
+  doc.setFillColor(...(priorityColors[priority] || PDF_COLORS.gray));
+  doc.roundedRect(pageWidth - 50, yPos - 8, 35, 12, 3, 3, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text(priority.toUpperCase(), pageWidth - 32.5, yPos, { align: 'center' });
+
+  yPos += 8;
+
+  // Patient information box
+  yPos = addPatientInfoBox(doc, yPos, patient);
+  yPos += 5;
+
+  // Request details section
+  doc.setFillColor(240, 249, 255);
+  doc.roundedRect(15, yPos, pageWidth - 30, 20, 3, 3, 'F');
+  doc.setDrawColor(59, 130, 246);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(15, yPos, pageWidth - 30, 20, 3, 3, 'S');
+
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Request Details', 20, yPos + 6);
+
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(`Requested By: ${requestedBy}`, 20, yPos + 13);
+  doc.text(`Date/Time: ${format(requestedDate, 'EEEE, MMMM d, yyyy \'at\' h:mm a')}`, pageWidth / 2 - 10, yPos + 13);
+
+  yPos += 28;
+
+  // Clinical information
+  if (clinicalInfo) {
+    if (yPos > pageHeight - 80) {
+      addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+      doc.addPage();
+      doc.setFillColor(...PDF_COLORS.white);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      yPos = 20;
+    }
+
+    doc.setFillColor(254, 249, 195);
+    doc.roundedRect(15, yPos, pageWidth - 30, 16, 2, 2, 'F');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Clinical Information:', 20, yPos + 6);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(8);
+    const clinicalLines = doc.splitTextToSize(clinicalInfo, pageWidth - 45);
+    doc.text(clinicalLines.slice(0, 2), 20, yPos + 11);
+    yPos += 22;
+  }
+
+  if (yPos > pageHeight - 80) {
+    addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+    doc.addPage();
+    doc.setFillColor(...PDF_COLORS.white);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    yPos = 20;
+  }
+
+  // Requested Tests Section
+  yPos = addSectionTitle(doc, yPos, 'Requested Investigations');
+  yPos += 5;
+
+  // Group tests by category
+  const testsByCategory = new Map<string, { name: string; specimen: string }[]>();
+  tests.forEach(test => {
+    const category = test.category || 'Other';
+    if (!testsByCategory.has(category)) {
+      testsByCategory.set(category, []);
+    }
+    testsByCategory.get(category)!.push({ name: test.name, specimen: test.specimen });
+  });
+
+  // Render tests table with categories
+  const colWidths = [90, 60];
+  const startX = 15;
+
+  // Table header
+  doc.setFillColor(59, 130, 246);
+  doc.rect(startX, yPos, pageWidth - 30, 8, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Investigation', startX + 5, yPos + 5.5);
+  doc.text('Specimen Required', startX + colWidths[0] + 5, yPos + 5.5);
+  yPos += 8;
+
+  let rowIndex = 0;
+  testsByCategory.forEach((categoryTests, category) => {
+    if (yPos > pageHeight - 70) {
+      addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+      doc.addPage();
+      doc.setFillColor(...PDF_COLORS.white);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      yPos = 20;
+      
+      doc.setFillColor(59, 130, 246);
+      doc.rect(startX, yPos, pageWidth - 30, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('Investigation', startX + 5, yPos + 5.5);
+      doc.text('Specimen Required', startX + colWidths[0] + 5, yPos + 5.5);
+      yPos += 8;
+    }
+
+    // Category header
+    doc.setFillColor(243, 244, 246);
+    doc.rect(startX, yPos, pageWidth - 30, 7, 'F');
+    doc.setTextColor(59, 130, 246);
+    doc.setFontSize(8);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text(category.charAt(0).toUpperCase() + category.slice(1), startX + 3, yPos + 5);
+    yPos += 7;
+
+    // Tests in this category
+    categoryTests.forEach(test => {
+      if (yPos > pageHeight - 60) {
+        addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+        doc.addPage();
+        doc.setFillColor(...PDF_COLORS.white);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
+        yPos = 20;
+        
+        doc.setFillColor(59, 130, 246);
+        doc.rect(startX, yPos, pageWidth - 30, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont(PDF_FONTS.primary, 'bold');
+        doc.text('Investigation', startX + 5, yPos + 5.5);
+        doc.text('Specimen Required', startX + colWidths[0] + 5, yPos + 5.5);
+        yPos += 8;
+      }
+
+      if (rowIndex % 2 === 0) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(startX, yPos, pageWidth - 30, 7, 'F');
+      }
+
+      // Checkbox
+      doc.setDrawColor(...PDF_COLORS.primary);
+      doc.setLineWidth(0.3);
+      doc.rect(startX + 3, yPos + 1.5, 4, 4, 'S');
+      // Check mark
+      doc.setDrawColor(34, 197, 94);
+      doc.setLineWidth(0.8);
+      doc.line(startX + 3.8, yPos + 3.5, startX + 4.8, yPos + 4.8);
+      doc.line(startX + 4.8, yPos + 4.8, startX + 6.5, yPos + 2.2);
+
+      doc.setTextColor(...PDF_COLORS.dark);
+      doc.setFontSize(8);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      doc.text(test.name, startX + 10, yPos + 5);
+      doc.setTextColor(...PDF_COLORS.gray);
+      doc.text(test.specimen, startX + colWidths[0] + 5, yPos + 5);
+
+      yPos += 7;
+      rowIndex++;
+    });
+  });
+
+  // Bottom border for table
+  doc.setDrawColor(...PDF_COLORS.primary);
+  doc.setLineWidth(0.5);
+  doc.line(startX, yPos, pageWidth - 15, yPos);
+
+  yPos += 10;
+
+  // Total tests count
+  if (yPos > pageHeight - 90) {
+    addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+    doc.addPage();
+    doc.setFillColor(...PDF_COLORS.white);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    yPos = 20;
+  }
+
+  doc.setFillColor(240, 253, 244);
+  doc.roundedRect(15, yPos, pageWidth - 30, 10, 2, 2, 'F');
+  doc.setTextColor(34, 197, 94);
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text(`Total Investigations Requested: ${tests.length}`, 20, yPos + 6.5);
+  yPos += 18;
+
+  // Specimen collection section
+  if (yPos > pageHeight - 90) {
+    addBrandedFooter(doc, doc.internal.pages.length - 1, doc.internal.pages.length);
+    doc.addPage();
+    doc.setFillColor(...PDF_COLORS.white);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    yPos = 20;
+  }
+
+  yPos = addSectionTitle(doc, yPos, 'For Laboratory Use Only');
+  yPos += 5;
+
+  doc.setFillColor(250, 250, 250);
+  doc.roundedRect(15, yPos, pageWidth - 30, 35, 3, 3, 'F');
+  doc.setDrawColor(...PDF_COLORS.gray);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(15, yPos, pageWidth - 30, 35, 3, 3, 'S');
+
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(8);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+
+  // Collection fields
+  doc.text('Date/Time Collected: ____________________', 20, yPos + 8);
+  doc.text('Collected By: ____________________', pageWidth / 2, yPos + 8);
+
+  doc.text('Sample ID: ____________________', 20, yPos + 16);
+  doc.text('Sample Condition: ☐ Adequate  ☐ Hemolyzed  ☐ Lipemic  ☐ Clotted', pageWidth / 2, yPos + 16);
+
+  doc.text('Date/Time Received: ____________________', 20, yPos + 24);
+  doc.text('Received By: ____________________', pageWidth / 2, yPos + 24);
+
+  doc.text('Comments: ______________________________________________________________________________', 20, yPos + 32);
+
+  yPos += 42;
+
+  // Instructions box
+  doc.setFillColor(254, 242, 242);
+  doc.roundedRect(15, yPos, pageWidth - 30, 14, 2, 2, 'F');
+  doc.setTextColor(...PDF_COLORS.danger);
+  doc.setFontSize(7);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('IMPORTANT INSTRUCTIONS', 20, yPos + 5);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('• Ensure proper patient identification on all samples  • Label samples immediately after collection  • Transport at appropriate temperature', 20, yPos + 10);
+
+  addBrandedFooter(doc, 1, 1);
+
+  return doc;
+}

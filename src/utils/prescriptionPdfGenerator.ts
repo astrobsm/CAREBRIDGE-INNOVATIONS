@@ -308,11 +308,23 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
 }
 
 // Generate a pharmacy dispensing slip
+export interface DispensingSlipPDFOptions {
+  prescriptionId: string;
+  prescribedDate: Date;
+  patient: {
+    name: string;
+    hospitalNumber?: string;
+  };
+  hospitalName: string;
+  prescribedBy: string;
+  medications: MedicationPDF[];
+  status: 'pending' | 'dispensed' | 'partially_dispensed' | 'cancelled';
+  dispensedBy?: string;
+  dispensedAt?: Date;
+}
+
 export function generateDispensingSlipPDF(
-  options: PrescriptionPDFOptions & {
-    dispensedBy?: string;
-    dispensedAt?: Date;
-  }
+  options: DispensingSlipPDFOptions
 ): void {
   const {
     prescriptionId,
@@ -370,7 +382,7 @@ export function generateDispensingSlipPDF(
   doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text('Hospital #:', 80, yPos);
   doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.text(patient.hospitalNumber, 105, yPos);
+  doc.text(patient.hospitalNumber || 'N/A', 105, yPos);
 
   yPos += 12;
 
@@ -448,4 +460,404 @@ export function generateDispensingSlipPDF(
   // Save
   const patientName = patient.name.replace(/\s+/g, '_');
   doc.save(`Dispensing_Slip_${patientName}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+}
+
+/**
+ * Get Prescription PDF document (returns jsPDF instead of saving)
+ * Use this for export modal integration
+ */
+export function getPrescriptionPDFDoc(options: PrescriptionPDFOptions): jsPDF {
+  const {
+    prescriptionId,
+    prescribedDate,
+    patient,
+    hospitalName,
+    hospitalAddress,
+    hospitalPhone,
+    hospitalEmail,
+    prescribedBy,
+    prescriberTitle = 'Doctor',
+    prescriberLicense,
+    medications,
+    status,
+    notes,
+    diagnosis,
+  } = options;
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // CRITICAL: Ensure white background
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // Add logo watermark
+  addLogoWatermark(doc, 0.06);
+
+  // Add branded header
+  const info: PDFDocumentInfo = {
+    title: 'PRESCRIPTION',
+    subtitle: `Rx #${prescriptionId.slice(0, 8).toUpperCase()}`,
+    hospitalName,
+    hospitalAddress,
+    hospitalPhone,
+    hospitalEmail,
+  };
+
+  let yPos = addBrandedHeader(doc, info);
+
+  // Status badge
+  const statusColors: Record<string, [number, number, number]> = {
+    pending: [234, 179, 8],
+    dispensed: [34, 197, 94],
+    partially_dispensed: [59, 130, 246],
+    cancelled: [107, 114, 128],
+  };
+
+  const statusLabels: Record<string, string> = {
+    pending: 'PENDING',
+    dispensed: 'DISPENSED',
+    partially_dispensed: 'PARTIAL',
+    cancelled: 'CANCELLED',
+  };
+
+  const statusColor = statusColors[status] || PDF_COLORS.gray;
+  const statusLabel = statusLabels[status] || 'UNKNOWN';
+
+  // Status badge
+  doc.setFillColor(...statusColor);
+  doc.roundedRect(pageWidth - 45, yPos - 5, 30, 8, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text(statusLabel, pageWidth - 30, yPos, { align: 'center' });
+
+  yPos += 5;
+
+  // Patient information box
+  yPos = addPatientInfoBox(doc, yPos, patient);
+
+  // Diagnosis if provided
+  if (diagnosis) {
+    yPos += 5;
+    doc.setFillColor(254, 243, 199); // Amber-100
+    doc.roundedRect(15, yPos, pageWidth - 30, 12, 2, 2, 'F');
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.text('Diagnosis:', 20, yPos + 5);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.text(diagnosis, 45, yPos + 5);
+    yPos += 18;
+  } else {
+    yPos += 8;
+  }
+
+  // Medications section
+  yPos = addSectionTitle(doc, yPos, 'Prescribed Medications');
+  yPos += 5;
+
+  // Medication table header
+  const colWidths = [8, 55, 25, 30, 25, 22, 15];
+  const cols = ['#', 'Medication', 'Dose', 'Frequency', 'Route', 'Duration', 'Qty'];
+  const startX = 15;
+
+  doc.setFillColor(243, 244, 246); // Gray-100
+  doc.rect(startX, yPos, pageWidth - 30, 8, 'F');
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(8);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+
+  let xPos = startX + 2;
+  cols.forEach((col, index) => {
+    doc.text(col, xPos, yPos + 5);
+    xPos += colWidths[index];
+  });
+
+  yPos += 10;
+
+  // Medication rows
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  medications.forEach((med, index) => {
+    // Check if we need a new page
+    if (yPos > pageHeight - 60) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    const rowHeight = med.instructions ? 14 : 8;
+
+    // Alternating row colors
+    if (index % 2 === 0) {
+      doc.setFillColor(249, 250, 251); // Gray-50
+      doc.rect(startX, yPos - 2, pageWidth - 30, rowHeight, 'F');
+    }
+
+    // Dispensed indicator
+    if (med.isDispensed) {
+      doc.setFillColor(...PDF_COLORS.success);
+      doc.circle(startX + 3, yPos + 2, 1.5, 'F');
+    }
+
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(8);
+
+    xPos = startX + 2;
+    
+    // Row number
+    doc.text(`${index + 1}`, xPos, yPos + 3);
+    xPos += colWidths[0];
+
+    // Medication name
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    const medName = med.name.length > 22 ? med.name.substring(0, 22) + '...' : med.name;
+    doc.text(medName, xPos, yPos + 3);
+    if (med.genericName && med.genericName !== med.name) {
+      doc.setFont(PDF_FONTS.primary, 'italic');
+      doc.setFontSize(6);
+      doc.setTextColor(...PDF_COLORS.gray);
+      const genericName = med.genericName.length > 25 ? med.genericName.substring(0, 25) + '...' : med.genericName;
+      doc.text(`(${genericName})`, xPos, yPos + 7);
+    }
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFontSize(8);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    xPos += colWidths[1];
+
+    // Dosage
+    doc.text(med.dosage.substring(0, 12), xPos, yPos + 3);
+    xPos += colWidths[2];
+
+    // Frequency
+    doc.text(med.frequency.substring(0, 15), xPos, yPos + 3);
+    xPos += colWidths[3];
+
+    // Route
+    doc.text(med.route.substring(0, 12), xPos, yPos + 3);
+    xPos += colWidths[4];
+
+    // Duration
+    doc.text(med.duration.substring(0, 10), xPos, yPos + 3);
+    xPos += colWidths[5];
+
+    // Quantity
+    doc.text(String(med.quantity), xPos, yPos + 3);
+
+    yPos += rowHeight;
+
+    // Instructions if present
+    if (med.instructions) {
+      doc.setFontSize(7);
+      doc.setTextColor(...PDF_COLORS.gray);
+      doc.text(`Instructions: ${med.instructions}`, startX + 10, yPos);
+      doc.setTextColor(...PDF_COLORS.dark);
+      yPos += 5;
+    }
+  });
+
+  // Notes section if present
+  if (notes) {
+    yPos += 5;
+    yPos = checkNewPage(doc, yPos);
+    yPos = addSectionTitle(doc, yPos, 'Additional Notes');
+    doc.setFontSize(9);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    const noteLines = doc.splitTextToSize(notes, pageWidth - 40);
+    doc.text(noteLines, 20, yPos + 5);
+    yPos += noteLines.length * 5 + 10;
+  }
+
+  // Signature section
+  yPos += 10;
+  yPos = checkNewPage(doc, yPos);
+  
+  // Prescriber signature box
+  doc.setDrawColor(...PDF_COLORS.gray);
+  doc.rect(pageWidth - 70, yPos, 55, 40);
+  
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(8);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('Prescriber\'s Signature:', pageWidth - 68, yPos + 5);
+  
+  doc.setFontSize(10);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text(prescribedBy, pageWidth - 48, yPos + 20, { align: 'center' });
+  
+  doc.setFontSize(8);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(prescriberTitle, pageWidth - 48, yPos + 26, { align: 'center' });
+  
+  if (prescriberLicense) {
+    doc.text(`License: ${prescriberLicense}`, pageWidth - 48, yPos + 32, { align: 'center' });
+  }
+
+  // Date prescribed
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(9);
+  doc.text(`Date: ${format(prescribedDate, 'MMMM d, yyyy')}`, 20, yPos + 22);
+  doc.text(`Time: ${format(prescribedDate, 'h:mm a')}`, 20, yPos + 28);
+
+  // Legal disclaimer
+  yPos += 45;
+  yPos = checkNewPage(doc, yPos);
+  doc.setFillColor(254, 242, 242); // Red-50
+  doc.roundedRect(15, yPos, pageWidth - 30, 15, 2, 2, 'F');
+  doc.setTextColor(...PDF_COLORS.danger);
+  doc.setFontSize(7);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('IMPORTANT:', 20, yPos + 5);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text('This prescription is valid for 30 days from the date of issue. Do not dispense if prescription', 45, yPos + 5);
+  doc.text('appears altered. Controlled substances require proper documentation. Keep out of reach of children.', 20, yPos + 10);
+
+  // Add branded footer
+  addBrandedFooter(doc, 1, 1);
+
+  return doc;
+}
+
+/**
+ * Get Dispensing Slip PDF document (returns jsPDF instead of saving)
+ * Use this for export modal integration
+ */
+export function getDispensingSlipPDFDoc(options: DispensingSlipPDFOptions): jsPDF {
+  const {
+    prescriptionId,
+    prescribedDate,
+    patient,
+    hospitalName,
+    prescribedBy,
+    medications,
+    status,
+    dispensedBy,
+    dispensedAt,
+  } = options;
+
+  const doc = new jsPDF('p', 'mm', [148, 210]); // A5 size
+  const pageWidth = doc.internal.pageSize.getWidth();
+  // pageHeight not needed for this function
+
+  // Header
+  doc.setFillColor(...PDF_COLORS.primary);
+  doc.rect(0, 0, pageWidth, 20, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('DISPENSING SLIP', pageWidth / 2, 10, { align: 'center' });
+  doc.setFontSize(8);
+  doc.text(hospitalName, pageWidth / 2, 16, { align: 'center' });
+
+  let yPos = 28;
+
+  // Prescription and date info
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFontSize(9);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(`Rx #: ${prescriptionId.slice(0, 8).toUpperCase()}`, 10, yPos);
+  doc.text(`Date: ${format(prescribedDate, 'dd/MM/yyyy')}`, 80, yPos);
+  yPos += 6;
+
+  // Patient info
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Patient:', 10, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.text(patient.name, 30, yPos);
+  yPos += 5;
+  
+  if (patient.hospitalNumber) {
+    doc.text(`Hosp #: ${patient.hospitalNumber}`, 10, yPos);
+  }
+  yPos += 6;
+
+  // Prescribed by
+  doc.text(`Prescribed by: ${prescribedBy}`, 10, yPos);
+  yPos += 8;
+
+  // Status indicator
+  const statusColors: Record<string, [number, number, number]> = {
+    pending: [234, 179, 8],
+    dispensed: [34, 197, 94],
+    partially_dispensed: [59, 130, 246],
+    cancelled: [107, 114, 128],
+  };
+
+  doc.setFillColor(...(statusColors[status] || PDF_COLORS.gray));
+  doc.roundedRect(10, yPos - 3, 30, 7, 1, 1, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(7);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text(status.toUpperCase().replace('_', ' '), 25, yPos + 1, { align: 'center' });
+  
+  yPos += 10;
+
+  // Medications table
+  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setFillColor(243, 244, 246);
+  doc.rect(10, yPos - 3, pageWidth - 20, 6, 'F');
+  
+  doc.setFontSize(7);
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.text('Medication', 12, yPos);
+  doc.text('Qty', 90, yPos);
+  doc.text('✓', pageWidth - 15, yPos);
+  
+  yPos += 5;
+  doc.setFont(PDF_FONTS.primary, 'normal');
+
+  medications.forEach((med) => {
+    doc.setFontSize(8);
+    doc.text(med.name.substring(0, 35), 12, yPos + 4);
+    doc.setFontSize(7);
+    doc.text(`${med.frequency} x ${med.duration} | Qty: ${med.quantity}`, 20, yPos + 4);
+    
+    // Dispensed checkbox
+    doc.setDrawColor(...PDF_COLORS.dark);
+    doc.rect(pageWidth - 20, yPos - 3, 5, 5);
+    if (med.isDispensed) {
+      doc.setTextColor(...PDF_COLORS.success);
+      doc.text('✓', pageWidth - 19, yPos);
+    }
+
+    doc.setTextColor(...PDF_COLORS.dark);
+    yPos += 12;
+  });
+
+  yPos += 5;
+
+  // Divider
+  doc.setDrawColor(...PDF_COLORS.gray);
+  doc.line(10, yPos, pageWidth - 10, yPos);
+
+  yPos += 10;
+
+  // Dispensed by
+  if (dispensedBy) {
+    doc.setFontSize(8);
+    doc.setTextColor(...PDF_COLORS.dark);
+    doc.text(`Dispensed by: ${dispensedBy}`, 10, yPos);
+    if (dispensedAt) {
+      doc.text(`Date: ${format(dispensedAt, 'dd/MM/yyyy h:mm a')}`, 80, yPos);
+    }
+    yPos += 8;
+  }
+
+  // Signature line
+  yPos += 10;
+  doc.setDrawColor(...PDF_COLORS.dark);
+  doc.line(10, yPos, 60, yPos);
+  doc.line(80, yPos, 130, yPos);
+
+  doc.setFontSize(7);
+  doc.setTextColor(...PDF_COLORS.gray);
+  doc.text('Patient/Guardian Signature', 15, yPos + 5);
+  doc.text('Pharmacist Signature', 90, yPos + 5);
+
+  // Footer
+  doc.setFontSize(6);
+  doc.text('Keep this slip for your records. Report any adverse reactions to your doctor.', pageWidth / 2, 200, { align: 'center' });
+
+  return doc;
 }
