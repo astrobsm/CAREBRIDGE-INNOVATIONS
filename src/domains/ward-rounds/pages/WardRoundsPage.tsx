@@ -121,11 +121,11 @@ export default function WardRoundsPage() {
   const [, setSelectedRound] = useState<WardRound | null>(null);
   const [patientSearchQuery, setPatientSearchQuery] = useState('');
 
-  // Fetch data
-  const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive === true).toArray(), []);
-  const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
+  // Fetch data - include records where isActive is true or undefined (backward compatibility)
+  const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive !== false).toArray(), []);
+  const patients = useLiveQuery(() => db.patients.filter(p => p.isActive !== false).toArray(), []);
   const admissions = useLiveQuery(() => db.admissions.where('status').equals('active').toArray(), []);
-  const users = useLiveQuery(() => db.users.filter(u => u.isActive === true).toArray(), []);
+  const users = useLiveQuery(() => db.users.filter(u => u.isActive !== false).toArray(), []);
   const wardRounds = useLiveQuery(() => db.wardRounds.orderBy('roundDate').reverse().toArray(), []);
   const doctorAssignments = useLiveQuery(() => db.doctorAssignments.where('status').equals('active').toArray(), []);
   const nurseAssignments = useLiveQuery(() => db.nurseAssignments.where('status').equals('active').toArray(), []);
