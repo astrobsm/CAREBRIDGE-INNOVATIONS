@@ -940,7 +940,7 @@ export function generateInvestigationList(
     }
   }
 
-  // Add pregnancy test for women of reproductive age
+  // Handle pregnancy test: ONLY include for women of reproductive age (15-50 years)
   if (isFemaleReproductiveAge) {
     investigationsMap.set('pregnancy_test', {
       type: 'pregnancy_test',
@@ -950,6 +950,9 @@ export function generateInvestigationList(
       expectedValue: 'Negative (unless known pregnancy)',
       minSafeLevel: 'Result documented',
     });
+  } else {
+    // Remove pregnancy test for males or females outside reproductive age
+    investigationsMap.delete('pregnancy_test');
   }
 
   return Array.from(investigationsMap.values());

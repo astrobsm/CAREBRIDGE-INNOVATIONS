@@ -78,9 +78,9 @@ export default function ClinicSchedulingTab({ searchQuery, selectedHospital }: C
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'all'>('week');
   const [isSendingNotifications, setIsSendingNotifications] = useState(false);
 
-  // Fetch data
-  const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive === true).toArray(), []);
-  const users = useLiveQuery(() => db.users.filter(u => u.isActive === true).toArray(), []);
+  // Fetch data - include records where isActive is true or undefined (backward compatibility)
+  const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive !== false).toArray(), []);
+  const users = useLiveQuery(() => db.users.filter(u => u.isActive !== false).toArray(), []);
   const clinicSessions = useLiveQuery(() => db.clinicSessions.orderBy('sessionDate').reverse().toArray(), []);
 
   // Get doctors for clinicians
