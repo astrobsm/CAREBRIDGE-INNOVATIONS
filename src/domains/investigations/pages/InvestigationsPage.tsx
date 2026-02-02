@@ -1,13 +1,14 @@
 // Investigations Page
 // Handles investigation requests, result uploads, and trend tracking
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
+import jsPDF from 'jspdf';
 import {
   Plus,
   Search,
@@ -29,6 +30,8 @@ import {
   ChevronUp,
   FlaskConical,
   Scan,
+  Download,
+  Printer,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -46,7 +49,8 @@ import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { HospitalSelector } from '../../../components/hospital';
-import { OCRScanner } from '../../../components/common';
+import { OCRScanner, ExportOptionsModal } from '../../../components/common';
+import { createSimpleThermalPDF, THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT, THERMAL_MARGIN } from '../../../utils/thermalPdfGenerator';
 import type { Investigation, InvestigationResult } from '../../../types';
 
 // Investigation category type for type safety
@@ -171,6 +175,8 @@ export default function InvestigationsPage() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showOCRScanner, setShowOCRScanner] = useState(false);
   const [ocrExtractedText, setOcrExtractedText] = useState<string>('');
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportInvestigation, setExportInvestigation] = useState<Investigation | null>(null);
 
   // Fetch data
   const hospitals = useLiveQuery(() => db.hospitals.where('isActive').equals(1).toArray(), []);
@@ -410,6 +416,132 @@ export default function InvestigationsPage() {
       return { icon: TrendingUp, color: 'text-red-500', label: `+${change.toFixed(1)}%` };
     }
     return { icon: TrendingDown, color: 'text-green-500', label: `${change.toFixed(1)}%` };
+  };
+
+  // Generate A4 PDF for investigation request
+  const generateInvestigationA4PDF = useCallback((investigation: Investigation): jsPDF => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    let y = 20;
+
+    // Header
+    doc.setFont('times', 'bold');
+    doc.setFontSize(18);
+    doc.text('INVESTIGATION REQUEST', 105, y, { align: 'center' });
+    y += 10;
+
+    doc.setFont('times', 'normal');
+    doc.setFontSize(10);
+    doc.text(investigation.hospitalName || 'AstroHEALTH Hospital', 105, y, { align: 'center' });
+    y += 8;
+
+    doc.setFontSize(9);
+    doc.text(`Date: ${format(new Date(investigation.requestedAt), 'dd/MM/yyyy HH:mm')}`, 105, y, { align: 'center' });
+    y += 12;
+
+    // Divider
+    doc.setLineWidth(0.5);
+    doc.line(20, y, 190, y);
+    y += 10;
+
+    // Patient Info
+    doc.setFont('times', 'bold');
+    doc.setFontSize(12);
+    doc.text('PATIENT INFORMATION', 20, y);
+    y += 8;
+
+    doc.setFont('times', 'normal');
+    doc.setFontSize(11);
+    doc.text(`Name: ${investigation.patientName || 'N/A'}`, 20, y);
+    y += 6;
+    doc.text(`Hospital Number: ${investigation.hospitalNumber || 'N/A'}`, 20, y);
+    y += 10;
+
+    // Investigation Details
+    doc.setFont('times', 'bold');
+    doc.setFontSize(12);
+    doc.text('INVESTIGATION DETAILS', 20, y);
+    y += 8;
+
+    const categoryInfo = investigationCategories.find(c => c.category === investigation.category);
+    doc.setFont('times', 'normal');
+    doc.setFontSize(11);
+    doc.text(`Category: ${categoryInfo?.label || investigation.category}`, 20, y);
+    y += 6;
+    doc.text(`Investigation: ${investigation.typeName || investigation.type}`, 20, y);
+    y += 6;
+    doc.text(`Priority: ${investigation.priority.toUpperCase()}`, 20, y);
+    y += 6;
+    doc.text(`Status: ${investigation.status.replace('_', ' ').toUpperCase()}`, 20, y);
+    y += 6;
+    if (investigation.fasting) {
+      doc.text('Fasting Required: YES', 20, y);
+      y += 6;
+    }
+    y += 4;
+
+    // Clinical Details
+    if (investigation.clinicalDetails) {
+      doc.setFont('times', 'bold');
+      doc.setFontSize(12);
+      doc.text('CLINICAL DETAILS', 20, y);
+      y += 8;
+
+      doc.setFont('times', 'normal');
+      doc.setFontSize(11);
+      const clinicalLines = doc.splitTextToSize(investigation.clinicalDetails, 170);
+      clinicalLines.forEach((line: string) => {
+        doc.text(line, 20, y);
+        y += 6;
+      });
+      y += 4;
+    }
+
+    // Requested By
+    doc.setFont('times', 'bold');
+    doc.setFontSize(12);
+    doc.text('REQUESTED BY', 20, y);
+    y += 8;
+
+    doc.setFont('times', 'normal');
+    doc.setFontSize(11);
+    doc.text(`Clinician: ${investigation.requestedByName || 'N/A'}`, 20, y);
+    y += 6;
+    doc.text(`Date/Time: ${format(new Date(investigation.requestedAt), 'dd/MM/yyyy HH:mm')}`, 20, y);
+    y += 15;
+
+    // Footer
+    doc.setFontSize(9);
+    doc.text('Generated by AstroHEALTH EMR System', 105, 280, { align: 'center' });
+
+    return doc;
+  }, []);
+
+  // Generate Thermal PDF for investigation request (80mm width, Georgia/Times 12pt)
+  const generateInvestigationThermalPDF = useCallback((investigation: Investigation): jsPDF => {
+    const categoryInfo = investigationCategories.find(c => c.category === investigation.category);
+    
+    return createSimpleThermalPDF({
+      title: 'INVESTIGATION REQUEST',
+      subtitle: investigation.hospitalName || 'AstroHEALTH Hospital',
+      patientName: investigation.patientName,
+      patientId: investigation.hospitalNumber,
+      date: new Date(investigation.requestedAt),
+      items: [
+        { label: 'Category', value: categoryInfo?.label || investigation.category },
+        { label: 'Investigation', value: investigation.typeName || investigation.type },
+        { label: 'Priority', value: investigation.priority.toUpperCase() },
+        { label: 'Status', value: investigation.status.replace('_', ' ').toUpperCase() },
+        ...(investigation.fasting ? [{ label: 'Fasting', value: 'YES' }] : []),
+        ...(investigation.clinicalDetails ? [{ label: 'Clinical Details', value: investigation.clinicalDetails }] : []),
+      ],
+      preparedBy: investigation.requestedByName,
+    });
+  }, []);
+
+  // Handle export modal open
+  const handleOpenExport = (investigation: Investigation) => {
+    setExportInvestigation(investigation);
+    setShowExportModal(true);
   };
 
   return (
@@ -769,6 +901,14 @@ export default function InvestigationsPage() {
                           View Results
                         </button>
                       )}
+                      {/* Download/Print Button for all pending investigations */}
+                      <button
+                        onClick={() => handleOpenExport(investigation)}
+                        className="btn btn-sm btn-secondary"
+                        title="Download PDF / Print (80mm Thermal)"
+                      >
+                        <Download size={14} />
+                      </button>
                     </div>
                   </div>
                 </motion.div>
@@ -1221,6 +1361,18 @@ export default function InvestigationsPage() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
-  );
-}
+
+      {/* Export Options Modal */}
+      {exportInvestigation && (
+        <ExportOptionsModal
+          isOpen={showExportModal}
+          onClose={() => {
+            setShowExportModal(false);
+            setExportInvestigation(null);
+          }}
+          title="Export Investigation Request"
+          generateA4PDF={() => generateInvestigationA4PDF(exportInvestigation)}
+          generateThermalPDF={() => generateInvestigationThermalPDF(exportInvestigation)}
+          fileNamePrefix={`investigation_${exportInvestigation.typeName?.replace(/\s+/g, '_') || 'request'}`}
+        />
+      )}

@@ -18,3 +18,5 @@ export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as BulkImportModal } from './BulkImportModal';
 export { ThermalPrintButton, quickPrint, createReceiptDocument, createClinicalDocument } from './ThermalPrintButton';
 export type { PrintableDocument, PrintSection } from './ThermalPrintButton';
+export { ExportOptionsModal } from './ExportOptionsModal';
+export type { ExportOptionsModalProps } from './ExportOptionsModal';

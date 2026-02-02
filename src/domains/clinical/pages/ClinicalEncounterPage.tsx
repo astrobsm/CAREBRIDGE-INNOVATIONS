@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useCallback } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import jsPDF from 'jspdf';
+import { format } from 'date-fns';
 import {
   ArrowLeft,
   Save,
@@ -17,13 +19,20 @@ import {
   Trash2,
   CheckCircle,
   UserCheck,
+  FlaskConical,
+  Pill,
+  Scissors,
+  Download,
+  Printer,
+  X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
-import { VoiceDictation } from '../../../components/common';
-import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination } from '../../../types';
+import { VoiceDictation, ExportOptionsModal } from '../../../components/common';
+import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
+import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination, Investigation, Prescription } from '../../../types';
 
 const encounterSchema = z.object({
   type: z.enum(['outpatient', 'inpatient', 'emergency', 'surgical', 'follow_up', 'home_visit']),
@@ -57,6 +66,14 @@ export default function ClinicalEncounterPage() {
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [newDiagnosis, setNewDiagnosis] = useState<{ description: string; type: 'primary' | 'secondary' | 'differential' }>({ description: '', type: 'primary' });
   const [physicalExam, setPhysicalExam] = useState<PhysicalExamination>({});
+  
+  // Post-submission state for showing export options
+  const [showPostSubmitModal, setShowPostSubmitModal] = useState(false);
+  const [savedEncounter, setSavedEncounter] = useState<ClinicalEncounter | null>(null);
+  const [showInvestigationExport, setShowInvestigationExport] = useState(false);
+  const [showPrescriptionExport, setShowPrescriptionExport] = useState(false);
+  const [patientInvestigations, setPatientInvestigations] = useState<Investigation[]>([]);
+  const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([]);
 
   const patient = useLiveQuery(
     () => patientId ? db.patients.get(patientId) : undefined,
@@ -150,8 +167,26 @@ export default function ClinicalEncounterPage() {
 
       await db.clinicalEncounters.add(encounter);
       await syncRecord('clinicalEncounters', encounter as unknown as Record<string, unknown>);
+      
+      // Fetch recent investigations and prescriptions for this patient
+      const recentInvestigations = await db.investigations
+        .where('patientId')
+        .equals(patientId)
+        .filter(inv => inv.status === 'requested')
+        .toArray();
+      
+      const recentPrescriptions = await db.prescriptions
+        .where('patientId')
+        .equals(patientId)
+        .filter(rx => rx.status === 'pending')
+        .toArray();
+      
+      setPatientInvestigations(recentInvestigations);
+      setPatientPrescriptions(recentPrescriptions);
+      setSavedEncounter(encounter);
+      setShowPostSubmitModal(true);
+      
       toast.success('Clinical encounter saved successfully!');
-      navigate(`/patients/${patientId}`);
     } catch (error) {
       console.error('Error saving encounter:', error);
       toast.error('Failed to save encounter');
@@ -190,14 +225,41 @@ export default function ClinicalEncounterPage() {
               Patient: {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate(`/patients/${patientId}/clinical-summary`)}
-            className="btn btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center"
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => navigate(`/patients/${patientId}/clinical-summary`)}
+              className="btn btn-secondary flex items-center gap-2"
+            >
+              <UserCheck size={18} />
+              Patient Summary
+            </button>
+          </div>
+        </div>
+        
+        {/* Quick Action Buttons */}
+        <div className="flex flex-wrap gap-2 mt-4">
+          <Link
+            to="/investigations"
+            className="btn btn-sm btn-secondary flex items-center gap-2"
           >
-            <UserCheck size={18} />
-            Patient Summary
-          </button>
+            <FlaskConical size={16} />
+            Investigations
+          </Link>
+          <Link
+            to="/pharmacy"
+            className="btn btn-sm btn-secondary flex items-center gap-2"
+          >
+            <Pill size={16} />
+            Pharmacy / Prescriptions
+          </Link>
+          <Link
+            to={`/patients/${patientId}/wounds`}
+            className="btn btn-sm btn-secondary flex items-center gap-2"
+          >
+            <Scissors size={16} />
+            Wound Assessment
+          </Link>
         </div>
       </div>
 
@@ -624,6 +686,268 @@ export default function ClinicalEncounterPage() {
           </button>
         </div>
       </form>
+
+      {/* Post-Submission Modal */}
+      <AnimatePresence>
+        {showPostSubmitModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <CheckCircle className="w-6 h-6 text-emerald-500" />
+                  Encounter Saved!
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowPostSubmitModal(false);
+                    navigate(`/patients/${patientId}`);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className="text-gray-600 mb-6">
+                The clinical encounter has been saved successfully. What would you like to do next?
+              </p>
+
+              <div className="space-y-3">
+                {/* Investigations Section */}
+                {patientInvestigations.length > 0 && (
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <FlaskConical className="w-5 h-5 text-purple-600" />
+                        <span className="font-medium text-purple-900">
+                          {patientInvestigations.length} Pending Investigation{patientInvestigations.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => setShowInvestigationExport(true)}
+                        className="btn btn-sm btn-secondary flex-1 flex items-center justify-center gap-2"
+                      >
+                        <Download size={14} />
+                        Download PDF
+                      </button>
+                      <Link
+                        to="/investigations"
+                        className="btn btn-sm btn-primary flex-1 flex items-center justify-center gap-2"
+                      >
+                        <FlaskConical size={14} />
+                        Go to Lab
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {/* Prescriptions Section */}
+                {patientPrescriptions.length > 0 && (
+                  <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Pill className="w-5 h-5 text-emerald-600" />
+                        <span className="font-medium text-emerald-900">
+                          {patientPrescriptions.length} Pending Prescription{patientPrescriptions.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => setShowPrescriptionExport(true)}
+                        className="btn btn-sm btn-secondary flex-1 flex items-center justify-center gap-2"
+                      >
+                        <Download size={14} />
+                        Download PDF
+                      </button>
+                      <Link
+                        to="/pharmacy"
+                        className="btn btn-sm btn-primary flex-1 flex items-center justify-center gap-2"
+                      >
+                        <Pill size={14} />
+                        Go to Pharmacy
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {/* Wound Assessment Link */}
+                <Link
+                  to={`/patients/${patientId}/wounds`}
+                  className="flex items-center gap-3 p-4 bg-amber-50 rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors"
+                >
+                  <Scissors className="w-5 h-5 text-amber-600" />
+                  <div>
+                    <span className="font-medium text-amber-900">Wound Assessment</span>
+                    <p className="text-sm text-amber-700">If patient has wounds, click here to document</p>
+                  </div>
+                </Link>
+
+                {/* Done Button */}
+                <button
+                  onClick={() => {
+                    setShowPostSubmitModal(false);
+                    navigate(`/patients/${patientId}`);
+                  }}
+                  className="btn btn-primary w-full mt-4"
+                >
+                  Done - Back to Patient
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Investigation Export Modal */}
+      {showInvestigationExport && patientInvestigations.length > 0 && (
+        <ExportOptionsModal
+          isOpen={showInvestigationExport}
+          onClose={() => setShowInvestigationExport(false)}
+          title="Export Investigation Requests"
+          generateA4PDF={() => {
+            const doc = new jsPDF('p', 'mm', 'a4');
+            let y = 20;
+            
+            doc.setFont('times', 'bold');
+            doc.setFontSize(18);
+            doc.text('INVESTIGATION REQUESTS', 105, y, { align: 'center' });
+            y += 15;
+            
+            doc.setFont('times', 'normal');
+            doc.setFontSize(12);
+            doc.text(`Patient: ${patient?.firstName} ${patient?.lastName}`, 20, y);
+            y += 7;
+            doc.text(`Hospital No: ${patient?.hospitalNumber}`, 20, y);
+            y += 7;
+            doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 20, y);
+            y += 12;
+            
+            doc.setLineWidth(0.5);
+            doc.line(20, y, 190, y);
+            y += 10;
+            
+            patientInvestigations.forEach((inv, idx) => {
+              if (y > 270) {
+                doc.addPage();
+                y = 20;
+              }
+              doc.setFont('times', 'bold');
+              doc.text(`${idx + 1}. ${inv.typeName || inv.type}`, 20, y);
+              y += 6;
+              doc.setFont('times', 'normal');
+              doc.text(`   Category: ${inv.category}`, 20, y);
+              y += 6;
+              doc.text(`   Priority: ${inv.priority.toUpperCase()}`, 20, y);
+              y += 6;
+              if (inv.clinicalDetails) {
+                doc.text(`   Details: ${inv.clinicalDetails}`, 20, y);
+                y += 6;
+              }
+              y += 4;
+            });
+            
+            return doc;
+          }}
+          generateThermalPDF={() => {
+            return createSimpleThermalPDF({
+              title: 'INVESTIGATION REQUESTS',
+              patientName: `${patient?.firstName} ${patient?.lastName}`,
+              patientId: patient?.hospitalNumber,
+              date: new Date(),
+              items: patientInvestigations.map(inv => ({
+                label: inv.typeName || inv.type,
+                value: `${inv.category} - ${inv.priority.toUpperCase()}`
+              })),
+            });
+          }}
+          fileNamePrefix={`investigations_${patient?.hospitalNumber || 'patient'}`}
+        />
+      )}
+
+      {/* Prescription Export Modal */}
+      {showPrescriptionExport && patientPrescriptions.length > 0 && (
+        <ExportOptionsModal
+          isOpen={showPrescriptionExport}
+          onClose={() => setShowPrescriptionExport(false)}
+          title="Export Prescriptions"
+          generateA4PDF={() => {
+            const doc = new jsPDF('p', 'mm', 'a4');
+            let y = 20;
+            
+            doc.setFont('times', 'bold');
+            doc.setFontSize(18);
+            doc.text('PRESCRIPTIONS', 105, y, { align: 'center' });
+            y += 15;
+            
+            doc.setFont('times', 'normal');
+            doc.setFontSize(12);
+            doc.text(`Patient: ${patient?.firstName} ${patient?.lastName}`, 20, y);
+            y += 7;
+            doc.text(`Hospital No: ${patient?.hospitalNumber}`, 20, y);
+            y += 7;
+            doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 20, y);
+            y += 12;
+            
+            doc.setLineWidth(0.5);
+            doc.line(20, y, 190, y);
+            y += 10;
+            
+            patientPrescriptions.forEach((rx) => {
+              rx.medications?.forEach((med, idx) => {
+                if (y > 270) {
+                  doc.addPage();
+                  y = 20;
+                }
+                doc.setFont('times', 'bold');
+                doc.text(`${idx + 1}. ${med.name}`, 20, y);
+                y += 6;
+                doc.setFont('times', 'normal');
+                doc.text(`   Dose: ${med.dose} ${med.unit}`, 20, y);
+                y += 6;
+                doc.text(`   Frequency: ${med.frequency}`, 20, y);
+                y += 6;
+                doc.text(`   Duration: ${med.duration}`, 20, y);
+                y += 6;
+                if (med.instructions) {
+                  doc.text(`   Instructions: ${med.instructions}`, 20, y);
+                  y += 6;
+                }
+                y += 4;
+              });
+            });
+            
+            return doc;
+          }}
+          generateThermalPDF={() => {
+            const allMeds = patientPrescriptions.flatMap(rx => rx.medications || []);
+            return createSimpleThermalPDF({
+              title: 'PRESCRIPTIONS',
+              patientName: `${patient?.firstName} ${patient?.lastName}`,
+              patientId: patient?.hospitalNumber,
+              date: new Date(),
+              items: allMeds.map(med => ({
+                label: med.name,
+                value: `${med.dose} ${med.unit} - ${med.frequency}`
+              })),
+            });
+          }}
+          fileNamePrefix={`prescriptions_${patient?.hospitalNumber || 'patient'}`}
+        />
+      )}
     </div>
   );
 }
+
