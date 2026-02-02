@@ -33,6 +33,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { format, differenceInDays, differenceInHours } from 'date-fns';
 import type { BurnAssessment, BurnDepth, BurnArea } from '../../../types';
 import { generateBurnsPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
+import { PatientSelector } from '../../../components/patient';
 
 // Import new WHO/ISBI components
 import LundBrowderChart from '../components/LundBrowderChart';
@@ -132,6 +133,7 @@ export default function EnhancedBurnsAssessmentPage() {
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<BurnFormData>({
     resolver: zodResolver(burnSchema),
@@ -899,14 +901,24 @@ export default function EnhancedBurnsAssessmentPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="label">Patient *</label>
-                    <select {...register('patientId')} className={`input ${errors.patientId ? 'input-error' : ''}`}>
-                      <option value="">Select patient</option>
-                      {patients?.map((patient) => (
-                        <option key={patient.id} value={patient.id}>
-                          {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
-                        </option>
-                      ))}
-                    </select>
+                    <PatientSelector
+                      value={watch('patientId')}
+                      onChange={(patientId, patient) => {
+                        setValue('patientId', patientId || '');
+                        if (patient) {
+                          // Auto-fill age, weight, and gender from patient record
+                          const age = patient.dateOfBirth
+                            ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+                            : 0;
+                          setValue('patientAge', age);
+                          setPatientAge(age);
+                          setValue('gender', patient.gender as 'male' | 'female');
+                          setPatientGender(patient.gender as 'male' | 'female');
+                        }
+                      }}
+                      error={errors.patientId?.message}
+                      placeholder="Search patient by name or hospital number..."
+                    />
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">

@@ -111,6 +111,7 @@ function App() {
           <Route path=":patientId/encounter" element={<ClinicalEncounterPage />} />
           <Route path=":patientId/clinical-summary" element={<PatientClinicalSummaryPage />} />
           <Route path=":patientId/vitals" element={<VitalsPage />} />
+          <Route path=":patientId/wounds" element={<WoundsPage />} />
         </Route>
 
         {/* Surgery Routes */}

@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useParams } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -138,6 +139,7 @@ const tissueTypes: { value: TissueType; label: string; color: string }[] = [
 
 export default function WoundsPage() {
   const { user } = useAuth();
+  const { patientId: urlPatientId } = useParams<{ patientId?: string }>();
   const [showModal, setShowModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPhase, setSelectedPhase] = useState<keyof typeof woundPhases | null>(null);
@@ -147,7 +149,13 @@ export default function WoundsPage() {
   const [woundImageData, setWoundImageData] = useState<string | null>(null);
   const [woundPhotos, setWoundPhotos] = useState<string[]>([]);
 
-  const wounds = useLiveQuery(() => db.wounds.orderBy('createdAt').reverse().toArray(), []);
+  // If patientId is passed in URL, filter wounds to only that patient
+  const wounds = useLiveQuery(() => {
+    if (urlPatientId) {
+      return db.wounds.where('patientId').equals(urlPatientId).reverse().sortBy('createdAt');
+    }
+    return db.wounds.orderBy('createdAt').reverse().toArray();
+  }, [urlPatientId]);
   
   // Use the new patient map hook for efficient lookups
   const patientMap = usePatientMap();
@@ -166,8 +174,16 @@ export default function WoundsPage() {
       painLevel: 5,
       odor: false,
       tissueTypes: [],
+      patientId: urlPatientId || '',
     },
   });
+
+  // Set patientId in form when coming from URL
+  useEffect(() => {
+    if (urlPatientId) {
+      setValue('patientId', urlPatientId);
+    }
+  }, [urlPatientId, setValue]);
 
   const selectedTissueTypes = watch('tissueTypes') || [];
 
@@ -417,7 +433,7 @@ export default function WoundsPage() {
                       <p className="text-xs text-gray-500">W (cm)</p>
                     </div>
                     <div className="text-center p-2 bg-gray-50 rounded-lg">
-                      <p className="text-lg font-bold text-gray-900">{wound.area?.toFixed(1)}</p>
+                      <p className="text-lg font-bold text-gray-900">{wound.area != null && !isNaN(Number(wound.area)) ? Number(wound.area).toFixed(1) : '-'}</p>
                       <p className="text-xs text-gray-500">Area (cm²)</p>
                     </div>
                   </div>
@@ -885,7 +901,7 @@ export default function WoundsPage() {
                           <p className="text-xs text-gray-500">Depth (cm)</p>
                         </div>
                         <div className="text-center p-3 bg-white rounded-lg">
-                          <p className="text-2xl font-bold text-rose-600">{selectedWound.area?.toFixed(1)}</p>
+                          <p className="text-2xl font-bold text-rose-600">{selectedWound.area != null && !isNaN(Number(selectedWound.area)) ? Number(selectedWound.area).toFixed(1) : '-'}</p>
                           <p className="text-xs text-gray-500">Area (cm²)</p>
                         </div>
                       </div>

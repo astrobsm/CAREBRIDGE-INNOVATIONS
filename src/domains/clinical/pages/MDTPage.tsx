@@ -61,6 +61,7 @@ import {
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
+import { PatientSelector } from '../../../components/patient';
 import {
   mdtService,
   specialtyDefinitions,
@@ -874,19 +875,11 @@ export default function MDTPage() {
             {/* Patient Selection */}
             <div className="bg-white rounded-xl p-4 border">
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Patient</label>
-              <select
+              <PatientSelector
                 value={selectedPatientId}
-                onChange={(e) => setSelectedPatientId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
-                title="Select patient for MDT discussion"
-              >
-                <option value="">Choose a patient...</option>
-                {patients?.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.firstName} {p.lastName} ({p.hospitalNumber})
-                  </option>
-                ))}
-              </select>
+                onChange={(patientId) => setSelectedPatientId(patientId || '')}
+                placeholder="Search patient by name or hospital number..."
+              />
             </div>
 
             {selectedPatientId && (
@@ -2607,22 +2600,14 @@ export default function MDTPage() {
               <div className="p-6 space-y-4 overflow-y-auto flex-1">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Patient *</label>
-                  <select
+                  <PatientSelector
                     value={selectedPatientId}
-                    onChange={(e) => {
-                      setSelectedPatientId(e.target.value);
+                    onChange={(patientId) => {
+                      setSelectedPatientId(patientId || '');
                       setShowPatientSummary(false);
                     }}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    title="Select patient for meeting"
-                  >
-                    <option value="">Select patient...</option>
-                    {patients?.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.firstName} {p.lastName} ({p.hospitalNumber})
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Search patient by name or hospital number..."
+                  />
                 </div>
 
                 {/* Patient Details Card - Shows when patient is selected */}

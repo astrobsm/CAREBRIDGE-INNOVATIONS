@@ -24,6 +24,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { format } from 'date-fns';
 import type { NutritionAssessment } from '../../../types';
 import { generateNutritionPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
+import { PatientSelector } from '../../../components/patient';
 
 // African Food Composition Table (Nigerian foods)
 const africanFoodDatabase = {
@@ -493,14 +494,11 @@ export default function NutritionPage() {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
                       <label className="label">Patient *</label>
-                      <select {...register('patientId')} className="input">
-                        <option value="">Select patient</option>
-                        {patients?.map((patient) => (
-                          <option key={patient.id} value={patient.id}>
-                            {patient.firstName} {patient.lastName}
-                          </option>
-                        ))}
-                      </select>
+                      <PatientSelector
+                        value={watch('patientId')}
+                        onChange={(patientId) => setValue('patientId', patientId || '')}
+                        placeholder="Search patient by name or hospital number..."
+                      />
                     </div>
                     <div>
                       <label className="label">Weight (kg) *</label>

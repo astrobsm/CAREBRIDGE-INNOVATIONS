@@ -197,9 +197,9 @@ export default function AIWoundPlanimetry({
       const dy = newPoints[1].y - newPoints[0].y;
       const pixelDistance = Math.sqrt(dx * dx + dy * dy);
       const refSize = selectedReference.id === 'custom' ? customReferenceSize : selectedReference.diameter;
-      const ppcm = pixelDistance / refSize;
+      const ppcm = refSize > 0 ? pixelDistance / refSize : 0;
       setPixelsPerCm(ppcm);
-      toast.success(`Calibration complete: ${ppcm.toFixed(1)} pixels/cm`);
+      toast.success(`Calibration complete: ${ppcm && !isNaN(ppcm) ? ppcm.toFixed(1) : '0'} pixels/cm`);
     }
   };
 
@@ -683,7 +683,7 @@ export default function AIWoundPlanimetry({
                 )}
               </div>
 
-              {pixelsPerCm > 0 && (
+              {typeof pixelsPerCm === 'number' && pixelsPerCm > 0 && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="text-green-600" size={20} />
@@ -906,7 +906,7 @@ export default function AIWoundPlanimetry({
                   AI Confidence: <span className="font-medium">{Math.round(measurement.confidence * 100)}%</span>
                 </span>
                 <span className="text-xs text-gray-400 ml-auto">
-                  Calibration: {pixelsPerCm.toFixed(1)} px/cm
+                  Calibration: {typeof pixelsPerCm === 'number' && !isNaN(pixelsPerCm) ? pixelsPerCm.toFixed(1) : '0'} px/cm
                 </span>
               </div>
 

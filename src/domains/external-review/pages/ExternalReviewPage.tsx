@@ -31,6 +31,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { PatientSelector } from '../../../components/patient';
 import type { ExternalReview, Patient, Hospital } from '../../../types';
 import { generateExternalReviewPDF } from '../utils/pdfGenerator';
 
@@ -580,20 +581,12 @@ export default function ExternalReviewPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Patient Name *
                   </label>
-                  <select
+                  <PatientSelector
                     value={formData.patientId}
-                    onChange={(e) => handlePatientChange(e.target.value)}
-                    className="input"
+                    onChange={(patientId) => handlePatientChange(patientId || '')}
+                    placeholder="Search patient by name or hospital number..."
                     required
-                    title="Select patient"
-                  >
-                    <option value="">Select patient...</option>
-                    {patients?.map(patient => (
-                      <option key={patient.id} value={patient.id}>
-                        {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 {/* Hospital Select */}

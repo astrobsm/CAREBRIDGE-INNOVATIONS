@@ -603,6 +603,204 @@ function InvestigationsList({
   getPriorityBadge: (priority: string) => JSX.Element;
   getStatusBadge: (status: string) => JSX.Element | null;
 }) {
+  // Thermal print function for investigation request (80mm, Font 12, Georgia)
+  const handlePrintRequest = (inv: Investigation) => {
+    const printWindow = window.open('', '_blank', 'width=320,height=600');
+    if (!printWindow) {
+      toast.error('Failed to open print window. Please allow popups.');
+      return;
+    }
+
+    const priorityLabel = inv.priority === 'stat' ? 'STAT (URGENT!)' : 
+                          inv.priority === 'urgent' ? 'URGENT' : 'Routine';
+    
+    const priorityStyle = inv.priority === 'stat' ? 'background: #000; color: #fff; padding: 4px 8px; font-weight: 700;' :
+                          inv.priority === 'urgent' ? 'background: #f97316; color: #fff; padding: 4px 8px; font-weight: 700;' :
+                          'background: #e5e7eb; color: #374151; padding: 4px 8px;';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Lab Request - ${inv.patientName}</title>
+        <style>
+          @media print {
+            @page { 
+              margin: 2mm; 
+              size: 80mm auto;
+            }
+            body { 
+              -webkit-print-color-adjust: exact; 
+              print-color-adjust: exact; 
+            }
+          }
+          * { box-sizing: border-box; }
+          body { 
+            font-family: Georgia, 'Times New Roman', serif; 
+            font-size: 12px; 
+            font-weight: 700;
+            margin: 0; 
+            padding: 4mm; 
+            width: 80mm;
+            max-width: 80mm;
+            color: #000; 
+            line-height: 1.3;
+          }
+          .header { 
+            text-align: center; 
+            border-bottom: 2px solid #000; 
+            padding-bottom: 6px; 
+            margin-bottom: 8px; 
+          }
+          .hospital-name { 
+            font-size: 14px; 
+            font-weight: 700; 
+            margin: 0; 
+            letter-spacing: 1px;
+          }
+          .subtitle { 
+            font-size: 11px; 
+            margin-top: 2px; 
+          }
+          .priority-badge {
+            display: inline-block;
+            margin-top: 4px;
+            font-size: 11px;
+            ${priorityStyle}
+          }
+          .patient-section { 
+            border: 1px solid #000; 
+            padding: 6px; 
+            margin-bottom: 8px; 
+          }
+          .patient-name { 
+            font-size: 13px; 
+            font-weight: 700; 
+          }
+          .hospital-number {
+            font-size: 11px;
+            margin-top: 2px;
+          }
+          .test-section { 
+            border: 1px solid #000; 
+            padding: 6px; 
+            margin-bottom: 8px; 
+          }
+          .test-name { 
+            font-size: 13px; 
+            font-weight: 700; 
+          }
+          .test-category {
+            font-size: 10px;
+            margin-top: 2px;
+            text-transform: uppercase;
+          }
+          .clinical-details {
+            margin-top: 8px;
+            padding: 6px;
+            border: 1px dashed #000;
+            font-size: 11px;
+          }
+          .meta-section { 
+            margin-top: 8px; 
+            font-size: 10px; 
+            border-top: 1px dashed #000; 
+            padding-top: 6px; 
+          }
+          .meta-row { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 2px; 
+          }
+          .footer { 
+            margin-top: 8px; 
+            padding-top: 6px; 
+            border-top: 2px solid #000; 
+            text-align: center; 
+            font-size: 10px; 
+          }
+          .barcode-placeholder {
+            text-align: center;
+            margin: 8px 0;
+            font-family: monospace;
+            font-size: 14px;
+            letter-spacing: 2px;
+          }
+          .cut-line {
+            border-top: 1px dashed #000;
+            margin-top: 10px;
+            padding-top: 4px;
+            text-align: center;
+            font-size: 9px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <p class="hospital-name">ASTROHEALTH</p>
+          <p class="subtitle">LABORATORY REQUEST</p>
+          <span class="priority-badge">${priorityLabel}</span>
+        </div>
+        
+        <div class="patient-section">
+          <div class="patient-name">${inv.patientName || 'Unknown Patient'}</div>
+          <div class="hospital-number">Hospital No: ${inv.hospitalNumber || 'N/A'}</div>
+        </div>
+        
+        <div class="test-section">
+          <div class="test-name">${inv.typeName || inv.type || 'Investigation'}</div>
+          <div class="test-category">${inv.category || 'Laboratory'}</div>
+          ${inv.fasting ? '<div style="margin-top: 4px; font-weight: 700; color: #dc2626;">⚠ FASTING REQUIRED</div>' : ''}
+        </div>
+        
+        ${inv.clinicalDetails ? `
+          <div class="clinical-details">
+            <strong>Clinical Details:</strong><br/>
+            ${inv.clinicalDetails}
+          </div>
+        ` : ''}
+        
+        <div class="barcode-placeholder">
+          ID: ${inv.id.substring(0, 8).toUpperCase()}
+        </div>
+        
+        <div class="meta-section">
+          <div class="meta-row">
+            <span>Requested:</span>
+            <span>${format(new Date(inv.requestedAt), 'dd/MM/yy HH:mm')}</span>
+          </div>
+          <div class="meta-row">
+            <span>By:</span>
+            <span>${inv.requestedByName || 'Unknown'}</span>
+          </div>
+          <div class="meta-row">
+            <span>Hospital:</span>
+            <span>${inv.hospitalName || 'N/A'}</span>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <div>Printed: ${format(new Date(), 'dd/MM/yyyy HH:mm')}</div>
+          <div>AstroHEALTH Laboratory Services</div>
+        </div>
+        
+        <div class="cut-line">--- ✂ ---</div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 250);
+    };
+  };
+
   if (investigations.length === 0) {
     return (
       <div className="text-center py-12">
@@ -649,6 +847,18 @@ function InvestigationsList({
             </div>
             
             <div className="flex items-center gap-2">
+              {/* Print Request Button - always visible for requested/sample_collected/processing status */}
+              {['requested', 'sample_collected', 'processing'].includes(inv.status) && (
+                <button
+                  onClick={() => handlePrintRequest(inv)}
+                  className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                  title="Print Lab Request"
+                >
+                  <Printer size={14} className="inline mr-1" />
+                  Print
+                </button>
+              )}
+              
               {inv.status === 'requested' && (
                 <button
                   onClick={() => onStatusUpdate(inv, 'sample_collected')}

@@ -39,6 +39,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
+import { PatientSelector } from '../../../components/patient';
 import {
   bloodTransfusionService,
   bloodProductInfo,
@@ -1516,19 +1517,11 @@ Note: Uploaded chart stored successfully.
                 {/* Patient Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Patient *</label>
-                  <select
+                  <PatientSelector
                     value={selectedPatientId}
-                    onChange={(e) => handlePatientSelect(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg"
-                    title="Select patient for transfusion"
-                  >
-                    <option value="">Select patient...</option>
-                    {patients?.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.firstName} {p.lastName} ({p.hospitalNumber})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(patientId) => handlePatientSelect(patientId || '')}
+                    placeholder="Search patient by name or hospital number..."
+                  />
                 </div>
                 
                 {/* Selected Patient Details Card */}
@@ -2057,22 +2050,13 @@ Note: Uploaded chart stored successfully.
                 {/* Patient Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Select Patient *</label>
-                  <select
+                  <PatientSelector
                     value={selectedPatientForChart?.id || ''}
-                    onChange={(e) => {
-                      const patient = patients?.find(p => p.id === e.target.value);
+                    onChange={(patientId, patient) => {
                       setSelectedPatientForChart(patient || null);
                     }}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg"
-                    title="Select patient for monitoring chart"
-                  >
-                    <option value="">Select patient...</option>
-                    {patients?.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.firstName} {p.lastName} ({p.hospitalNumber})
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Search patient for monitoring chart..."
+                  />
                 </div>
 
                 {/* Upload Options */}
@@ -2546,19 +2530,11 @@ Note: Uploaded chart stored successfully.
 
                 <div>
                   <label className="block text-sm font-medium mb-1">Patient *</label>
-                  <select
+                  <PatientSelector
                     value={digitalChartPatientId}
-                    onChange={(e) => setDigitalChartPatientId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
-                    title="Select patient for digital monitoring chart"
-                  >
-                    <option value="">Select patient</option>
-                    {patients?.map(patient => (
-                      <option key={patient.id} value={patient.id}>
-                        {patient.firstName} {patient.lastName} ({patient.hospitalNumber})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(patientId) => setDigitalChartPatientId(patientId || '')}
+                    placeholder="Search patient for digital monitoring chart..."
+                  />
                 </div>
 
                 <div>

@@ -50,6 +50,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { HospitalSelector } from '../../../components/hospital';
 import { OCRScanner, ExportOptionsModal } from '../../../components/common';
+import { PatientSelector } from '../../../components/patient';
 import { createSimpleThermalPDF, THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT, THERMAL_MARGIN } from '../../../utils/thermalPdfGenerator';
 import type { Investigation, InvestigationResult } from '../../../types';
 
@@ -644,19 +645,11 @@ export default function InvestigationsPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
               <div>
                 <label className="label">Patient</label>
-                <select
+                <PatientSelector
                   value={selectedPatientForTrend}
-                  onChange={(e) => setSelectedPatientForTrend(e.target.value)}
-                  className="input"
-                  title="Select patient for trend analysis"
-                >
-                  <option value="">Select patient</option>
-                  {patients?.map((patient) => (
-                    <option key={patient.id} value={patient.id}>
-                      {patient.firstName} {patient.lastName} - {patient.hospitalNumber}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(patientId) => setSelectedPatientForTrend(patientId || '')}
+                  placeholder="Search patient for trend analysis..."
+                />
               </div>
               <div>
                 <label className="label">Parameter</label>
@@ -953,17 +946,12 @@ export default function InvestigationsPage() {
               <form onSubmit={requestForm.handleSubmit(handleRequestInvestigation)} className="p-6 space-y-4">
                 <div>
                   <label className="label">Patient</label>
-                  <select {...requestForm.register('patientId')} className="input">
-                    <option value="">Select patient</option>
-                    {patients?.map((patient) => (
-                      <option key={patient.id} value={patient.id}>
-                        {patient.firstName} {patient.lastName} - {patient.hospitalNumber}
-                      </option>
-                    ))}
-                  </select>
-                  {requestForm.formState.errors.patientId && (
-                    <p className="text-sm text-red-500 mt-1">{requestForm.formState.errors.patientId.message}</p>
-                  )}
+                  <PatientSelector
+                    value={requestForm.watch('patientId')}
+                    onChange={(patientId) => requestForm.setValue('patientId', patientId || '')}
+                    placeholder="Search patient by name or hospital number..."
+                    error={requestForm.formState.errors.patientId?.message}
+                  />
                 </div>
 
                 <div>
@@ -1375,4 +1363,6 @@ export default function InvestigationsPage() {
           generateThermalPDF={() => generateInvestigationThermalPDF(exportInvestigation)}
           fileNamePrefix={`investigation_${exportInvestigation.typeName?.replace(/\s+/g, '_') || 'request'}`}
         />
-      )}
+      )}    </div>
+  );
+}
