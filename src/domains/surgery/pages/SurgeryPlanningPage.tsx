@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
@@ -6,6 +6,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import { subDays, isWithinInterval } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -28,7 +29,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
-import type { Surgery, PreOperativeAssessment, AnaesthesiaType } from '../../../types';
+import type { Surgery, PreOperativeAssessment, AnaesthesiaType, OutstandingPreparationItem, Investigation } from '../../../types';
 import {
   surgicalProcedures,
   procedureCategories,
@@ -262,6 +263,59 @@ export default function SurgeryPlanningPage() {
     [patientId]
   );
 
+  // Fetch recent investigations for this patient (within one week of surgery date)
+  const recentInvestigations = useLiveQuery(
+    async () => {
+      if (!patientId) return [];
+      const investigations = await db.investigations
+        .where('patientId')
+        .equals(patientId)
+        .toArray();
+      // Filter to completed investigations within the last 7 days
+      const oneWeekAgo = subDays(new Date(), 7);
+      return investigations.filter(inv => 
+        inv.status === 'completed' && 
+        inv.completedAt && 
+        isWithinInterval(new Date(inv.completedAt), { start: oneWeekAgo, end: new Date() })
+      );
+    },
+    [patientId]
+  );
+
+  // Auto-fill investigation results from recent completed investigations
+  const autoFillInvestigations = useCallback((investigations: Investigation[]) => {
+    if (!investigations || investigations.length === 0) return;
+
+    const newResults: Record<string, { value: string; status: 'pending' | 'normal' | 'abnormal' }> = {};
+    
+    investigations.forEach(inv => {
+      if (inv.results && inv.results.length > 0) {
+        inv.results.forEach(result => {
+          // Map result parameter to our pre-op investigation names
+          const status = result.status === 'normal' ? 'normal' : 
+                        result.status === 'low' || result.status === 'high' || result.status === 'critical' || result.status === 'abnormal' ? 'abnormal' : 
+                        'pending';
+          newResults[result.parameter] = {
+            value: String(result.value),
+            status
+          };
+        });
+      }
+    });
+
+    if (Object.keys(newResults).length > 0) {
+      setInvestigationResults(prev => ({ ...prev, ...newResults }));
+      toast.success(`Auto-filled ${Object.keys(newResults).length} investigation results from recent tests`);
+    }
+  }, []);
+
+  // Effect to auto-fill when recent investigations are loaded
+  useEffect(() => {
+    if (recentInvestigations && recentInvestigations.length > 0) {
+      autoFillInvestigations(recentInvestigations);
+    }
+  }, [recentInvestigations, autoFillInvestigations]);
+
   // Fetch surgical team members from database by role
   const surgicalTeamMembers = useLiveQuery(async () => {
     const allUsers = await db.users.toArray();
@@ -411,6 +465,86 @@ export default function SurgeryPlanningPage() {
         specialInstructions: data.specialInstructions,
       };
 
+      // Calculate outstanding preparation items
+      const outstandingItems: OutstandingPreparationItem[] = [];
+      
+      // Check risk assessment completion (ASA + Caprini)
+      const hasRiskAssessment = selectedCapriniFactors.length > 0 || calculatedCapriniScore > 0;
+      outstandingItems.push({
+        id: uuidv4(),
+        type: 'risk_assessment',
+        label: 'Risk Assessment',
+        description: 'Complete ASA classification and Caprini VTE risk score',
+        completed: hasRiskAssessment,
+        completedAt: hasRiskAssessment ? new Date() : undefined,
+      });
+
+      // Check investigations completion
+      const hasInvestigations = completedInvestigations.length > 0;
+      outstandingItems.push({
+        id: uuidv4(),
+        type: 'investigations',
+        label: 'Pre-operative Investigations',
+        description: 'Complete required blood work and imaging studies',
+        completed: hasInvestigations,
+        completedAt: hasInvestigations ? new Date() : undefined,
+      });
+
+      // Check consent
+      outstandingItems.push({
+        id: uuidv4(),
+        type: 'consent',
+        label: 'Informed Consent',
+        description: 'Patient must sign informed consent form',
+        completed: data.consentSigned,
+        completedAt: data.consentSigned ? new Date() : undefined,
+      });
+
+      // Check blood typing
+      outstandingItems.push({
+        id: uuidv4(),
+        type: 'blood_typing',
+        label: 'Blood Typing & Grouping',
+        description: 'Complete blood type and cross-match',
+        completed: data.bloodTyped,
+        completedAt: data.bloodTyped ? new Date() : undefined,
+      });
+
+      // Check team assignment
+      const hasTeam = !!data.assistant && !!data.anaesthetist;
+      outstandingItems.push({
+        id: uuidv4(),
+        type: 'team_assignment',
+        label: 'Surgical Team Assignment',
+        description: 'Assign assistant surgeon and anaesthetist',
+        completed: hasTeam,
+        completedAt: hasTeam ? new Date() : undefined,
+      });
+
+      // Check NPO status (only flagged if surgery is within 24 hours)
+      const surgeryDate = new Date(data.scheduledDate);
+      const isWithin24Hours = (surgeryDate.getTime() - Date.now()) < 24 * 60 * 60 * 1000;
+      if (isWithin24Hours) {
+        outstandingItems.push({
+          id: uuidv4(),
+          type: 'npo_status',
+          label: 'NPO Status Confirmed',
+          description: 'Confirm patient is nil per os (fasting)',
+          completed: data.npoStatus,
+          completedAt: data.npoStatus ? new Date() : undefined,
+        });
+      }
+
+      // Determine surgery status based on completion
+      const incompleteItems = outstandingItems.filter(item => !item.completed);
+      let surgeryStatus: Surgery['status'];
+      
+      if (incompleteItems.length === 0) {
+        surgeryStatus = 'ready_for_preanaesthetic_review';
+      } else {
+        surgeryStatus = 'incomplete_preparation';
+      }
+
       const surgery: Surgery = {
         id: uuidv4(),
         patientId,
@@ -421,7 +555,8 @@ export default function SurgeryPlanningPage() {
         category: data.category as 'minor' | 'intermediate' | 'major' | 'super_major',
         preOperativeAssessment: preOpAssessment,
         scheduledDate: new Date(data.scheduledDate),
-        status: 'scheduled',
+        status: surgeryStatus,
+        outstandingItems: incompleteItems.length > 0 ? outstandingItems : undefined,
         surgeon: `${user.firstName} ${user.lastName}` || user.email || 'Unknown Surgeon',
         surgeonId: user.id,
         surgeonFee: data.surgeonFee,
@@ -436,7 +571,12 @@ export default function SurgeryPlanningPage() {
 
       await db.surgeries.add(surgery);
       syncRecord('surgeries', surgery as unknown as Record<string, unknown>);
-      toast.success('Surgery scheduled successfully!');
+      
+      if (surgeryStatus === 'incomplete_preparation') {
+        toast.success(`Surgery scheduled with ${incompleteItems.length} outstanding items to complete`);
+      } else {
+        toast.success('Surgery scheduled - Ready for pre-anaesthetic review!');
+      }
       navigate('/surgery');
     } catch (error) {
       console.error('Error scheduling surgery:', error);

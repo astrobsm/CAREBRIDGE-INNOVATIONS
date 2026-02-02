@@ -20,6 +20,8 @@ import {
   MessageSquare,
   Eye,
   X,
+  ClipboardCheck,
+  ListChecks,
 } from 'lucide-react';
 import { db } from '../../../database';
 import { format } from 'date-fns';
@@ -33,12 +35,14 @@ function SurgeryActionDropdown({
   onCancel,
   onReschedule,
   onSendReminder,
+  onViewOutstanding,
 }: { 
   surgery: Surgery; 
   patientName: string;
   onCancel: (surgery: Surgery) => void;
   onReschedule: (surgery: Surgery) => void;
   onSendReminder: (surgery: Surgery, patientName: string) => void;
+  onViewOutstanding: (surgery: Surgery) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -76,18 +80,29 @@ function SurgeryActionDropdown({
       case 'reminder':
         onSendReminder(surgery, patientName);
         break;
+      case 'outstanding':
+        onViewOutstanding(surgery);
+        break;
     }
   };
+
+  // Count outstanding (incomplete) items
+  const outstandingCount = surgery.outstandingItems?.filter(item => !item.completed).length || 0;
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative"
         title="Surgery actions"
         aria-label="Surgery actions menu"
       >
         <MoreVertical size={18} className="text-gray-500" />
+        {outstandingCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+            {outstandingCount}
+          </span>
+        )}
       </button>
       
       <AnimatePresence>
@@ -97,8 +112,36 @@ function SurgeryActionDropdown({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+            className="absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
           >
+            {/* Show outstanding items section for incomplete preparation */}
+            {surgery.status === 'incomplete_preparation' && surgery.outstandingItems && (
+              <>
+                <div className="px-4 py-2 bg-amber-50 border-b border-amber-100">
+                  <p className="text-xs font-semibold text-amber-800 flex items-center gap-2">
+                    <AlertTriangle size={14} />
+                    Outstanding Items ({outstandingCount})
+                  </p>
+                </div>
+                <div className="max-h-40 overflow-y-auto">
+                  {surgery.outstandingItems.filter(item => !item.completed).map(item => (
+                    <div key={item.id} className="px-4 py-2 text-xs border-b border-gray-50">
+                      <p className="font-medium text-gray-700">{item.label}</p>
+                      <p className="text-gray-500 text-xs">{item.description}</p>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => handleAction('outstanding')}
+                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-amber-50 flex items-center gap-3 text-amber-700 font-medium"
+                >
+                  <ListChecks size={16} className="text-amber-600" />
+                  Complete Outstanding Items
+                </button>
+                <div className="border-t border-gray-100 my-1" />
+              </>
+            )}
+            
             <button
               onClick={() => handleAction('preop')}
               className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700"
@@ -163,6 +206,7 @@ function SurgeryActionDropdown({
 }
 
 export default function SurgeryListPage() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -171,6 +215,7 @@ export default function SurgeryListPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
+  const [showOutstandingModal, setShowOutstandingModal] = useState(false);
   const [selectedSurgery, setSelectedSurgery] = useState<Surgery | null>(null);
   const [selectedPatientName, setSelectedPatientName] = useState('');
   const [cancelReason, setCancelReason] = useState('');
@@ -208,10 +253,14 @@ export default function SurgeryListPage() {
 
   const getStatusBadge = (status: Surgery['status']) => {
     switch (status) {
+      case 'incomplete_preparation':
+        return <span className="badge badge-warning"><AlertTriangle size={12} /> Incomplete Preparation</span>;
+      case 'ready_for_preanaesthetic_review':
+        return <span className="badge badge-info"><ClipboardCheck size={12} /> Ready for Pre-Anaesthetic Review</span>;
       case 'scheduled':
-        return <span className="badge badge-info"><Clock size={12} /> Scheduled</span>;
+        return <span className="badge badge-success"><Clock size={12} /> Scheduled</span>;
       case 'in-progress':
-        return <span className="badge badge-warning"><AlertTriangle size={12} /> In Progress</span>;
+        return <span className="badge badge-primary"><AlertTriangle size={12} /> In Progress</span>;
       case 'completed':
         return <span className="badge badge-success"><CheckCircle size={12} /> Completed</span>;
       case 'postponed':
@@ -242,6 +291,81 @@ export default function SurgeryListPage() {
     const defaultMessage = `Dear ${patientName},\n\nThis is a reminder for your upcoming surgery:\n\nProcedure: ${surgery.procedureName}\nDate: ${format(new Date(surgery.scheduledDate), 'MMMM d, yyyy')}\nTime: ${format(new Date(surgery.scheduledDate), 'h:mm a')}\n\nPlease remember to:\n- Fast for 6 hours before surgery (no food)\n- Stop clear fluids 2 hours before surgery\n- Bring your medications and medical records\n- Arrive 1 hour before scheduled time\n\nIf you have any questions, please contact us.\n\nBest regards,\nDr Nnadi-Burns Plastic & Reconstructive Surgery`;
     setReminderMessage(defaultMessage);
     setShowReminderModal(true);
+  };
+
+  const handleViewOutstanding = (surgery: Surgery) => {
+    setSelectedSurgery(surgery);
+    setShowOutstandingModal(true);
+  };
+
+  // Mark an outstanding item as complete
+  const markItemComplete = async (itemId: string) => {
+    if (!selectedSurgery || !selectedSurgery.outstandingItems) return;
+    
+    try {
+      const updatedItems = selectedSurgery.outstandingItems.map(item => 
+        item.id === itemId 
+          ? { ...item, completed: true, completedAt: new Date() }
+          : item
+      );
+      
+      const incompleteCount = updatedItems.filter(item => !item.completed).length;
+      
+      // Update status if all items are complete
+      const newStatus: Surgery['status'] = incompleteCount === 0 
+        ? 'ready_for_preanaesthetic_review' 
+        : 'incomplete_preparation';
+      
+      await db.surgeries.update(selectedSurgery.id, {
+        outstandingItems: updatedItems,
+        status: newStatus,
+        updatedAt: new Date(),
+      });
+      
+      // Update local state
+      setSelectedSurgery({
+        ...selectedSurgery,
+        outstandingItems: updatedItems,
+        status: newStatus,
+      });
+      
+      if (incompleteCount === 0) {
+        toast.success('All items complete! Surgery is ready for pre-anaesthetic review.');
+        setShowOutstandingModal(false);
+      } else {
+        toast.success('Item marked as complete');
+      }
+    } catch (error) {
+      console.error('Error updating outstanding item:', error);
+      toast.error('Failed to update item');
+    }
+  };
+
+  // Navigate to complete outstanding item
+  const handleCompleteItem = (itemType: string) => {
+    if (!selectedSurgery) return;
+    
+    setShowOutstandingModal(false);
+    
+    switch (itemType) {
+      case 'risk_assessment':
+      case 'investigations':
+        // Navigate back to surgery planning to complete these
+        navigate(`/surgery/planning/${selectedSurgery.patientId}?edit=${selectedSurgery.id}`);
+        break;
+      case 'consent':
+        toast('Please complete consent form with patient');
+        break;
+      case 'blood_typing':
+        toast('Request blood typing from laboratory');
+        break;
+      case 'team_assignment':
+        navigate(`/surgery/planning/${selectedSurgery.patientId}?edit=${selectedSurgery.id}&tab=team`);
+        break;
+      case 'npo_status':
+        toast('Confirm NPO status with nursing staff');
+        break;
+    }
   };
 
   const confirmCancelSurgery = async () => {
@@ -435,6 +559,8 @@ export default function SurgeryListPage() {
               aria-label="Filter surgeries by status"
             >
               <option value="all">All Status</option>
+              <option value="incomplete_preparation">Incomplete Preparation</option>
+              <option value="ready_for_preanaesthetic_review">Ready for Review</option>
               <option value="scheduled">Scheduled</option>
               <option value="in-progress">In Progress</option>
               <option value="completed">Completed</option>
@@ -553,6 +679,7 @@ export default function SurgeryListPage() {
                             onCancel={handleCancelSurgery}
                             onReschedule={handleRescheduleSurgery}
                             onSendReminder={handleSendReminder}
+                            onViewOutstanding={handleViewOutstanding}
                           />
                         </div>
                       </td>
@@ -772,6 +899,125 @@ export default function SurgeryListPage() {
                     Send Reminder
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Outstanding Items Modal */}
+      <AnimatePresence>
+        {showOutstandingModal && selectedSurgery && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowOutstandingModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden"
+            >
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-amber-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 rounded-lg">
+                    <ListChecks className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-gray-900">Outstanding Preparation Items</h2>
+                    <p className="text-sm text-gray-500">{selectedSurgery.procedureName}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowOutstandingModal(false)} 
+                  className="p-2 hover:bg-amber-100 rounded-lg"
+                  title="Close"
+                  aria-label="Close outstanding items modal"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-4 overflow-y-auto max-h-[60vh]">
+                {selectedSurgery.outstandingItems && selectedSurgery.outstandingItems.length > 0 ? (
+                  <div className="space-y-3">
+                    {selectedSurgery.outstandingItems.map(item => (
+                      <div 
+                        key={item.id} 
+                        className={`p-4 rounded-lg border ${
+                          item.completed 
+                            ? 'bg-green-50 border-green-200' 
+                            : 'bg-amber-50 border-amber-200'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            {item.completed ? (
+                              <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                            ) : (
+                              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+                            )}
+                            <div>
+                              <p className={`font-medium ${item.completed ? 'text-green-800' : 'text-amber-800'}`}>
+                                {item.label}
+                              </p>
+                              <p className={`text-sm ${item.completed ? 'text-green-600' : 'text-amber-600'}`}>
+                                {item.description}
+                              </p>
+                              {item.completed && item.completedAt && (
+                                <p className="text-xs text-green-500 mt-1">
+                                  Completed on {format(new Date(item.completedAt), 'MMM d, yyyy h:mm a')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          {!item.completed && (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleCompleteItem(item.type)}
+                                className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded hover:bg-amber-200"
+                              >
+                                Complete
+                              </button>
+                              <button
+                                onClick={() => markItemComplete(item.id)}
+                                className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200"
+                                title="Mark as done without navigating"
+                              >
+                                <CheckCircle size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-3" />
+                    <p className="text-gray-600">All preparation items are complete!</p>
+                    <p className="text-sm text-gray-500 mt-1">This surgery is ready for pre-anaesthetic review.</p>
+                  </div>
+                )}
+              </div>
+              <div className="p-4 border-t border-gray-200 flex justify-between">
+                <div className="text-sm text-gray-500">
+                  {selectedSurgery.outstandingItems && (
+                    <>
+                      {selectedSurgery.outstandingItems.filter(i => i.completed).length} of{' '}
+                      {selectedSurgery.outstandingItems.length} items complete
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowOutstandingModal(false)}
+                  className="btn btn-outline"
+                >
+                  Close
+                </button>
               </div>
             </motion.div>
           </motion.div>

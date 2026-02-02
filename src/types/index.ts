@@ -262,7 +262,8 @@ export interface Surgery {
   scheduledDate: Date;
   actualStartTime?: Date;
   actualEndTime?: Date;
-  status: 'scheduled' | 'in-progress' | 'completed' | 'postponed' | 'cancelled';
+  status: 'incomplete_preparation' | 'ready_for_preanaesthetic_review' | 'scheduled' | 'in-progress' | 'completed' | 'postponed' | 'cancelled';
+  outstandingItems?: OutstandingPreparationItem[];
   surgeon: string;
   surgeonId?: string; // User ID for billing
   surgeonFee?: number; // Fee charged for surgeon
@@ -286,6 +287,16 @@ export interface Surgery {
   postOperativeInstructions?: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface OutstandingPreparationItem {
+  id: string;
+  type: 'risk_assessment' | 'investigations' | 'consent' | 'blood_typing' | 'team_assignment' | 'npo_status';
+  label: string;
+  description: string;
+  completed: boolean;
+  completedAt?: Date;
+  completedBy?: string;
 }
 
 export interface PreOperativeAssessment {
