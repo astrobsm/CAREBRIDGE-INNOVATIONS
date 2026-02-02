@@ -31,9 +31,11 @@ import {
   Eye,
   Syringe,
   AlertCircle,
+  Send,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation } from '../../../components/common';
@@ -46,7 +48,7 @@ import {
   fastingGuidelines,
 } from '../../../services/preoperativeService';
 import type { ASAClassification } from '../../../services/preoperativeService';
-import type { PreoperativeAssessment } from '../../../types';
+import type { PreoperativeAssessment, Investigation } from '../../../types';
 import { getGFRForPatient, type GFRResult } from '../../../services/gfrCalculationService';
 import { categorizePatient, type PatientCategory } from '../../../services/patientCategoryService';
 
@@ -116,11 +118,28 @@ export default function PreoperativeAssessmentPage() {
   const [patientGFR, setPatientGFR] = useState<GFRResult | null>(null);
   const [patientCategory, setPatientCategory] = useState<PatientCategory | null>(null);
   
+  // Selected investigations for auto-request
+  const [selectedInvestigations, setSelectedInvestigations] = useState<Set<string>>(new Set());
+  const [isRequestingInvestigations, setIsRequestingInvestigations] = useState(false);
+  
   // Navigation
   const navigate = useNavigate();
   
-  // Data queries
-  const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
+  // Data queries - fetch all patients
+  const allPatients = useLiveQuery(() => db.patients.filter(p => p.isActive !== false).toArray(), []);
+  
+  // Fetch all scheduled surgeries (patients ready for preanaesthetic review)
+  const scheduledSurgeries = useLiveQuery(
+    () => db.surgeries.filter(surgery => surgery.status === 'scheduled').toArray(),
+    []
+  );
+  
+  // Filter patients to only show those with scheduled surgeries
+  const patients = useMemo(() => {
+    if (!allPatients || !scheduledSurgeries) return [];
+    const patientIdsWithScheduledSurgery = new Set(scheduledSurgeries.map(s => s.patientId));
+    return allPatients.filter(p => patientIdsWithScheduledSurgery.has(p.id));
+  }, [allPatients, scheduledSurgeries]);
   
   // Fetch all preoperative assessments
   const assessments = useLiveQuery(
@@ -386,6 +405,94 @@ export default function PreoperativeAssessmentPage() {
     setAnticoagulantType('');
     setBleedingHistory(false);
     setSurgeryDateTime('');
+    setSelectedInvestigations(new Set());
+  };
+
+  // Toggle investigation selection
+  const toggleInvestigation = (inv: string) => {
+    setSelectedInvestigations(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(inv)) {
+        newSet.delete(inv);
+      } else {
+        newSet.add(inv);
+      }
+      return newSet;
+    });
+  };
+
+  // Request selected investigations automatically
+  const handleRequestInvestigations = async () => {
+    if (selectedInvestigations.size === 0) {
+      toast.error('Please select at least one investigation');
+      return;
+    }
+    
+    if (!selectedPatientId || !selectedPatient) {
+      toast.error('Please select a patient first');
+      return;
+    }
+
+    setIsRequestingInvestigations(true);
+    
+    try {
+      const investigationsToRequest = Array.from(selectedInvestigations);
+      const currentUser = await db.users.toArray().then(users => users.find(u => u.email));
+      
+      // Map investigation names to proper test categories
+      const investigationCategoryMap: Record<string, Investigation['category']> = {
+        'Full Blood Count': 'haematology',
+        'FBC': 'haematology',
+        'Urea, Electrolytes, Creatinine': 'biochemistry',
+        'Electrolytes': 'biochemistry',
+        'Blood Group and Save': 'haematology',
+        'Blood Glucose': 'biochemistry',
+        'ECG': 'cardiology',
+        '12-Lead ECG': 'cardiology',
+        'Chest X-Ray': 'radiology',
+        'CXR': 'radiology',
+        'Urinalysis': 'biochemistry',
+        'Coagulation Profile': 'haematology',
+        'PT/INR': 'haematology',
+        'Liver Function Tests': 'biochemistry',
+        'LFT': 'biochemistry',
+        'Pregnancy Test': 'biochemistry',
+        'HbA1c': 'biochemistry',
+        'Thyroid Function': 'biochemistry',
+      };
+      
+      for (const invName of investigationsToRequest) {
+        const investigation: Investigation = {
+          id: uuidv4(),
+          patientId: selectedPatientId,
+          patientName: `${selectedPatient.firstName} ${selectedPatient.lastName}`,
+          hospitalNumber: selectedPatient.hospitalNumber,
+          hospitalId: selectedPatient.registeredHospitalId || '',
+          type: invName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+          typeName: invName,
+          category: investigationCategoryMap[invName] || 'biochemistry',
+          priority: 'routine',
+          status: 'requested',
+          clinicalDetails: `Preoperative assessment - ${form.watch('surgeryName') || 'Surgical procedure'}`,
+          requestedBy: currentUser?.id || 'system',
+          requestedByName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'System',
+          requestedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        
+        await db.investigations.add(investigation);
+        await syncRecord('investigations', investigation as unknown as Record<string, unknown>);
+      }
+      
+      toast.success(`${investigationsToRequest.length} investigation(s) requested successfully! Lab scientist can now see them.`);
+      setSelectedInvestigations(new Set());
+    } catch (error) {
+      console.error('Error requesting investigations:', error);
+      toast.error('Failed to request investigations');
+    } finally {
+      setIsRequestingInvestigations(false);
+    }
   };
 
   // Render step content
@@ -1142,22 +1249,62 @@ export default function PreoperativeAssessmentPage() {
               </div>
             </div>
 
-            {/* Required Investigations */}
-            <div>
-              <h4 className="font-medium mb-2">Required Investigations:</h4>
-              <ul className="text-sm space-y-1">
+            {/* Required Investigations - With Auto-Request Feature */}
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium">Required Investigations:</h4>
+                {selectedInvestigations.size > 0 && (
+                  <span className="text-sm text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                    {selectedInvestigations.size} selected
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-600 mb-3">
+                Check the investigations to request, then click "Send to Lab" to automatically create lab requests.
+              </p>
+              <ul className="text-sm space-y-2">
                 {preoperativeService.getRequiredInvestigations(
                   asaClass,
                   form.watch('surgeryType') || 'intermediate',
-                  45, // Would get from patient
+                  selectedPatient?.dateOfBirth ? Math.floor((Date.now() - new Date(selectedPatient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 45,
                   []
                 ).map((inv, idx) => (
                   <li key={idx} className="flex items-center gap-2">
-                    <input type="checkbox" className="rounded" title={`Mark ${inv} as completed`} />
-                    <span>{inv}</span>
+                    <input 
+                      type="checkbox" 
+                      className="rounded text-green-600 focus:ring-green-500"
+                      checked={selectedInvestigations.has(inv)}
+                      onChange={() => toggleInvestigation(inv)}
+                      title={`Select ${inv} for lab request`} 
+                    />
+                    <span className={selectedInvestigations.has(inv) ? 'font-medium text-green-800' : ''}>{inv}</span>
                   </li>
                 ))}
               </ul>
+              
+              {/* Send to Lab Button */}
+              <button
+                type="button"
+                onClick={handleRequestInvestigations}
+                disabled={selectedInvestigations.size === 0 || isRequestingInvestigations || !selectedPatientId}
+                className={`mt-4 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-white font-medium transition-all ${
+                  selectedInvestigations.size > 0 && selectedPatientId
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {isRequestingInvestigations ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    Send {selectedInvestigations.size > 0 ? `${selectedInvestigations.size} Investigation(s)` : ''} to Lab
+                  </>
+                )}
+              </button>
             </div>
 
             {/* Key Recommendations */}

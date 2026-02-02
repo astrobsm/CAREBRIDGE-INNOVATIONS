@@ -315,9 +315,16 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
       pdf.setFont(PDF_FONTS.primary, 'normal');
       phaseResponsibilities.forEach((resp) => {
         addNewPageIfNeeded(12);
-        const importanceMarker = resp.importance === 'critical' ? '⚠️' : resp.importance === 'important' ? '•' : '○';
-        pdf.text(`${importanceMarker} ${resp.responsibility}`, margin + 5, yPos);
-        yPos += 4.5;
+        // Use ASCII-safe markers instead of emojis for proper PDF rendering
+        const importanceMarker = resp.importance === 'critical' ? '[!]' : resp.importance === 'important' ? '*' : '-';
+        // Wrap text to prevent overflow beyond margins
+        const maxTextWidth = contentWidth - 15;
+        const wrappedText = pdf.splitTextToSize(`${importanceMarker} ${resp.responsibility}`, maxTextWidth);
+        wrappedText.forEach((line: string, lineIdx: number) => {
+          addNewPageIfNeeded(5);
+          pdf.text(line, margin + 5, yPos);
+          yPos += 4.5;
+        });
       });
       yPos += 3;
     }
@@ -352,7 +359,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   yPos += 7;
   
   pdf.setFillColor(255, 240, 240);
-  const warningBoxHeight = procedure.warningSignsToReport.length * 5 + 8;
+  const warningBoxHeight = procedure.warningSignsToReport.length * 6 + 8;
   pdf.rect(margin, yPos - 2, contentWidth, warningBoxHeight, 'F');
   
   pdf.setFontSize(9);
@@ -361,8 +368,12 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   
   procedure.warningSignsToReport.forEach((sign) => {
     addNewPageIfNeeded(10);
-    pdf.text(`⚠ ${sign}`, margin + 3, yPos);
-    yPos += 5;
+    // Use ASCII-safe marker instead of Unicode warning symbol
+    const warningLine = pdf.splitTextToSize(`[!] ${sign}`, contentWidth - 10);
+    warningLine.forEach((line: string) => {
+      pdf.text(line, margin + 3, yPos);
+      yPos += 5;
+    });
   });
   yPos += 10;
 

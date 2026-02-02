@@ -239,6 +239,9 @@ export default function SurgeryPlanningPage() {
   // Fee estimate state
   const [feeEstimate, setFeeEstimate] = useState<SurgicalFeeEstimate | null>(null);
   const [customSurgeonFee, setCustomSurgeonFee] = useState<number | undefined>();
+  const [customAnaesthesiaFee, setCustomAnaesthesiaFee] = useState<number | undefined>();
+  const [customTheatreConsumables, setCustomTheatreConsumables] = useState<number | undefined>();
+  const [customPostOpMedications, setCustomPostOpMedications] = useState<number | undefined>();
 
   // Handle investigation value change
   const handleInvestigationChange = (testName: string, value: string, normalRange: string) => {
@@ -499,14 +502,31 @@ export default function SurgeryPlanningPage() {
   // Update fee estimate when procedure or options change
   useEffect(() => {
     if (selectedProcedure) {
-      const estimate = calculateSurgicalFeeEstimate(selectedProcedure, {
+      const baseEstimate = calculateSurgicalFeeEstimate(selectedProcedure, {
         customSurgeonFee,
         includeHistology: includeHistology || false,
         anaesthesiaType: anaesthesiaType as 'local' | 'regional' | 'general' | undefined,
       });
-      setFeeEstimate(estimate);
+      
+      // Apply custom overrides if set
+      const surgeonFee = customSurgeonFee ?? baseEstimate.surgeonFee;
+      const anaesthesiaFee = customAnaesthesiaFee ?? baseEstimate.anaesthesiaFee;
+      const theatreConsumables = customTheatreConsumables ?? baseEstimate.theatreConsumables;
+      const postOpMedications = customPostOpMedications ?? baseEstimate.postOpMedications;
+      const histologyFee = baseEstimate.histologyFee;
+      
+      const totalEstimate = surgeonFee + anaesthesiaFee + theatreConsumables + postOpMedications + histologyFee;
+      
+      setFeeEstimate({
+        ...baseEstimate,
+        surgeonFee,
+        anaesthesiaFee,
+        theatreConsumables,
+        postOpMedications,
+        totalEstimate,
+      });
     }
-  }, [selectedProcedure, customSurgeonFee, includeHistology, anaesthesiaType]);
+  }, [selectedProcedure, customSurgeonFee, customAnaesthesiaFee, customTheatreConsumables, customPostOpMedications, includeHistology, anaesthesiaType]);
 
   // Handle procedure selection
   const handleProcedureSelect = (procedure: SurgicalProcedure) => {
@@ -1801,42 +1821,79 @@ export default function SurgeryPlanningPage() {
                       <p className="text-sm opacity-80">ICD-10: {selectedProcedure.icdCode} | {selectedProcedure.complexityLabel}</p>
                     </div>
 
-                    {/* Custom Fee Adjustment */}
-                    <div>
-                      <label className="label">Surgeon's Fee (Adjustable)</label>
-                      <div className="flex items-center gap-4">
-                        <input
-                          type="number"
-                          value={customSurgeonFee || selectedProcedure.defaultFee}
-                          onChange={(e) => setCustomSurgeonFee(Number(e.target.value))}
-                          className="input"
-                          step={50000}
-                          title="Surgeon's Fee"
-                        />
-                        <div className="text-sm text-gray-500">
-                          Range: {formatNaira(selectedProcedure.minFee)} - {formatNaira(selectedProcedure.maxFee)}
+                    {/* Fee Breakdown - All Editable */}
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+                      {/* Surgeon's Fee */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 border-b">
+                        <label className="text-gray-600 flex-1">Surgeon's Professional Fee</label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">₦</span>
+                          <input
+                            type="number"
+                            value={customSurgeonFee ?? feeEstimate.surgeonFee}
+                            onChange={(e) => setCustomSurgeonFee(Number(e.target.value))}
+                            className="input w-32 text-right font-bold"
+                            step={10000}
+                            min={0}
+                            title="Surgeon's Fee"
+                          />
                         </div>
                       </div>
-                    </div>
+                      <div className="text-xs text-gray-500 -mt-2 mb-2">
+                        Range: {formatNaira(selectedProcedure.minFee)} - {formatNaira(selectedProcedure.maxFee)}
+                      </div>
 
-                    {/* Fee Breakdown */}
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b">
-                        <span className="text-gray-600">Surgeon's Professional Fee</span>
-                        <span className="font-bold">{formatNaira(feeEstimate.surgeonFee)}</span>
+                      {/* Anaesthesia Fee */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 border-b">
+                        <label className="text-gray-600 flex-1">Anaesthesia Fee</label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">₦</span>
+                          <input
+                            type="number"
+                            value={customAnaesthesiaFee ?? feeEstimate.anaesthesiaFee}
+                            onChange={(e) => setCustomAnaesthesiaFee(Number(e.target.value))}
+                            className="input w-32 text-right font-bold"
+                            step={10000}
+                            min={0}
+                            title="Anaesthesia Fee"
+                          />
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b">
-                        <span className="text-gray-600">Anaesthesia Fee</span>
-                        <span className="font-bold">{formatNaira(feeEstimate.anaesthesiaFee)}</span>
+
+                      {/* Theatre Consumables */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 border-b">
+                        <label className="text-gray-600 flex-1">Theatre Consumables</label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">₦</span>
+                          <input
+                            type="number"
+                            value={customTheatreConsumables ?? feeEstimate.theatreConsumables}
+                            onChange={(e) => setCustomTheatreConsumables(Number(e.target.value))}
+                            className="input w-32 text-right font-bold"
+                            step={10000}
+                            min={0}
+                            title="Theatre Consumables"
+                          />
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b">
-                        <span className="text-gray-600">Theatre Consumables</span>
-                        <span className="font-bold">{formatNaira(feeEstimate.theatreConsumables)}</span>
+
+                      {/* Post-Op Medications */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 border-b">
+                        <label className="text-gray-600 flex-1">Post-Op Medications (Estimated)</label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">₦</span>
+                          <input
+                            type="number"
+                            value={customPostOpMedications ?? feeEstimate.postOpMedications}
+                            onChange={(e) => setCustomPostOpMedications(Number(e.target.value))}
+                            className="input w-32 text-right font-bold"
+                            step={5000}
+                            min={0}
+                            title="Post-Op Medications"
+                          />
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b">
-                        <span className="text-gray-600">Post-Op Medications (Estimated)</span>
-                        <span className="font-bold">{formatNaira(feeEstimate.postOpMedications)}</span>
-                      </div>
+
                       {feeEstimate.histologyFee > 0 && (
                         <div className="flex justify-between items-center py-2 border-b">
                           <span className="text-gray-600">Histopathology Fee</span>
