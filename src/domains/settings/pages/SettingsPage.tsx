@@ -30,6 +30,7 @@ import {
   Stethoscope,
 } from 'lucide-react';
 import DataMigration from '../../../components/common/DataMigration';
+import PushNotificationSettings from '../../../components/settings/PushNotificationSettings';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../database';
@@ -553,6 +554,9 @@ export default function SettingsPage() {
                 </label>
               </div>
             </div>
+
+            {/* Web Push Notifications - Advanced Settings */}
+            <PushNotificationSettings />
 
             <div className="flex justify-end">
               <button onClick={handleSaveNotifications} disabled={isSaving} className="btn btn-primary">

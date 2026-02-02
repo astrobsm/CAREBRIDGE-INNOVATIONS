@@ -538,61 +538,289 @@ async function syncPendingData() {
   });
 }
 
-// Handle push notifications
+// Handle push notifications (works even when app is closed)
 self.addEventListener('push', (event) => {
-  const data = event.data?.json() || {};
+  console.log('[SW] Push event received');
   
+  let data = {};
+  
+  try {
+    if (event.data) {
+      // Try to parse as JSON first
+      try {
+        data = event.data.json();
+      } catch (e) {
+        // If not JSON, use text
+        data = { body: event.data.text() };
+      }
+    }
+  } catch (error) {
+    console.error('[SW] Error parsing push data:', error);
+    data = { body: 'New notification' };
+  }
+
+  // Determine notification type and customize appearance
+  const notificationType = data.type || data.data?.type || 'general';
+  const urgency = data.urgency || data.data?.urgency || 'medium';
+  
+  // Get appropriate vibration pattern
+  const getVibrationPattern = (type, urgency) => {
+    if (type === 'vital_alert' || type === 'critical' || urgency === 'critical') {
+      return [1000, 200, 1000, 200, 1000]; // Urgent pattern
+    }
+    if (type === 'patient_assignment' || type === 'surgery_reminder' || urgency === 'high') {
+      return [500, 200, 500, 200, 500]; // Important pattern
+    }
+    if (urgency === 'low') {
+      return [100]; // Subtle pattern
+    }
+    return [200, 100, 200]; // Default pattern
+  };
+
+  // Get appropriate icon based on type
+  const getIcon = (type) => {
+    // Could use different icons for different notification types
+    return '/icons/icon-192x192.png';
+  };
+
+  // Determine default actions based on notification type
+  const getDefaultActions = (type) => {
+    switch (type) {
+      case 'patient_assignment':
+        return [
+          { action: 'view', title: 'View Patient' },
+          { action: 'acknowledge', title: '✓ Acknowledge' }
+        ];
+      case 'surgery_reminder':
+        return [
+          { action: 'view', title: 'View Surgery' },
+          { action: 'dismiss', title: 'Dismiss' }
+        ];
+      case 'lab_results':
+      case 'investigation_results':
+        return [
+          { action: 'view', title: 'View Results' },
+          { action: 'dismiss', title: 'Later' }
+        ];
+      case 'vital_alert':
+        return [
+          { action: 'view', title: 'View Patient' },
+          { action: 'acknowledge', title: 'Acknowledge' }
+        ];
+      case 'appointment_reminder':
+        return [
+          { action: 'view', title: 'View Appointment' },
+          { action: 'checkin', title: 'Check In' }
+        ];
+      default:
+        return [
+          { action: 'open', title: 'Open' },
+          { action: 'dismiss', title: 'Dismiss' }
+        ];
+    }
+  };
+
   const options = {
     body: data.body || 'New notification from CareBridge',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-192x192.png',
-    vibrate: [100, 50, 100],
-    tag: data.tag || 'carebridge-notification',
-    requireInteraction: data.requireInteraction || false,
+    icon: data.icon || getIcon(notificationType),
+    badge: data.badge || '/icons/icon-72x72.png',
+    image: data.image,
+    vibrate: data.vibrate || getVibrationPattern(notificationType, urgency),
+    tag: data.tag || `carebridge-${notificationType}-${Date.now()}`,
+    requireInteraction: data.requireInteraction !== undefined 
+      ? data.requireInteraction 
+      : (urgency === 'high' || urgency === 'critical' || notificationType === 'vital_alert'),
+    renotify: data.renotify !== undefined ? data.renotify : true,
+    silent: data.silent || false,
+    timestamp: data.timestamp || Date.now(),
     data: {
-      url: data.url || '/',
+      url: data.url || data.data?.url || '/',
+      type: notificationType,
+      ...data.data,
       ...data
     },
-    actions: data.actions || [
-      { action: 'open', title: 'Open' },
-      { action: 'dismiss', title: 'Dismiss' }
-    ]
+    actions: data.actions || getDefaultActions(notificationType)
   };
+
+  // Log the notification for debugging
+  console.log('[SW] Showing push notification:', {
+    title: data.title || 'CareBridge',
+    type: notificationType,
+    tag: options.tag
+  });
 
   event.waitUntil(
     self.registration.showNotification(data.title || 'CareBridge', options)
+      .then(() => {
+        console.log('[SW] Push notification displayed successfully');
+        // Track notification receipt
+        trackNotificationEvent('received', options.tag, notificationType);
+      })
+      .catch((error) => {
+        console.error('[SW] Error showing push notification:', error);
+      })
   );
 });
 
-// Handle notification clicks
+// Track notification events for analytics
+async function trackNotificationEvent(eventType, tag, notificationType) {
+  try {
+    // Store event in IndexedDB for analytics
+    const ANALYTICS_DB = 'carebridge-notification-analytics';
+    const ANALYTICS_STORE = 'events';
+    
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open(ANALYTICS_DB, 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = (event) => {
+        const database = event.target.result;
+        if (!database.objectStoreNames.contains(ANALYTICS_STORE)) {
+          const store = database.createObjectStore(ANALYTICS_STORE, { keyPath: 'id', autoIncrement: true });
+          store.createIndex('timestamp', 'timestamp', { unique: false });
+          store.createIndex('type', 'type', { unique: false });
+        }
+      };
+    });
+    
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction([ANALYTICS_STORE], 'readwrite');
+      const store = transaction.objectStore(ANALYTICS_STORE);
+      store.add({
+        eventType,
+        tag,
+        notificationType,
+        timestamp: Date.now()
+      });
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    
+    db.close();
+  } catch (error) {
+    console.warn('[SW] Error tracking notification event:', error);
+  }
+}
+
+// Handle notification clicks (works when notification is clicked)
 self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked:', event.action, event.notification.tag);
+  
   event.notification.close();
 
   const notificationData = event.notification.data || {};
+  const notificationType = notificationData.type || 'general';
+  
+  // Track click event
+  trackNotificationEvent('clicked', event.notification.tag, notificationType);
   
   // Handle dismiss action
-  if (event.action === 'dismiss') {
+  if (event.action === 'dismiss' || event.action === 'later') {
+    console.log('[SW] Notification dismissed');
     return;
   }
 
   // Handle patient assignment acknowledgment
-  if (event.action === 'acknowledge' && notificationData.type === 'patient_assignment') {
-    event.waitUntil(handleAssignmentAcknowledge(notificationData.notificationId));
+  if (event.action === 'acknowledge') {
+    if (notificationData.type === 'patient_assignment' && notificationData.notificationId) {
+      event.waitUntil(handleAssignmentAcknowledge(notificationData.notificationId));
+    } else if (notificationData.type === 'vital_alert') {
+      // Handle vital alert acknowledgment
+      event.waitUntil(
+        sendMessageToClients({
+          type: 'VITAL_ALERT_ACKNOWLEDGED',
+          data: notificationData
+        })
+      );
+    }
     return;
   }
 
-  // Handle view patient for assignment notifications
-  if (event.action === 'view' && notificationData.type === 'patient_assignment') {
-    const url = `/patients/${notificationData.patientId}`;
+  // Handle check-in for appointments
+  if (event.action === 'checkin' && notificationData.appointmentId) {
+    event.waitUntil(
+      Promise.all([
+        sendMessageToClients({
+          type: 'APPOINTMENT_CHECKIN',
+          appointmentId: notificationData.appointmentId
+        }),
+        openAppWindow(notificationData.url || '/appointments')
+      ])
+    );
+    return;
+  }
+
+  // Handle view actions for different types
+  if (event.action === 'view' || event.action === 'open' || !event.action) {
+    let url = notificationData.url || '/';
+    
+    // Determine URL based on notification type if not provided
+    if (!notificationData.url) {
+      switch (notificationType) {
+        case 'patient_assignment':
+          url = notificationData.patientId 
+            ? `/patients/${notificationData.patientId}` 
+            : '/dashboard';
+          break;
+        case 'surgery_reminder':
+          url = notificationData.surgeryId 
+            ? `/surgery/${notificationData.surgeryId}` 
+            : '/surgery';
+          break;
+        case 'lab_results':
+        case 'investigation_results':
+          url = notificationData.labId 
+            ? `/laboratory/${notificationData.labId}` 
+            : '/laboratory';
+          break;
+        case 'vital_alert':
+          url = notificationData.patientId 
+            ? `/patients/${notificationData.patientId}/vitals` 
+            : '/vitals';
+          break;
+        case 'appointment_reminder':
+          url = notificationData.appointmentId 
+            ? `/appointments?view=${notificationData.appointmentId}` 
+            : '/appointments';
+          break;
+        case 'prescription_ready':
+          url = '/pharmacy';
+          break;
+        default:
+          url = '/dashboard';
+      }
+    }
+
     event.waitUntil(openAppWindow(url));
-    // Also acknowledge
-    handleAssignmentAcknowledge(notificationData.notificationId);
+    
+    // Also acknowledge patient assignments when viewing
+    if (notificationType === 'patient_assignment' && notificationData.notificationId) {
+      handleAssignmentAcknowledge(notificationData.notificationId);
+    }
     return;
   }
 
+  // Default: open the app
   const url = notificationData.url || '/';
   event.waitUntil(openAppWindow(url));
 });
+
+// Handle notification close (user swiped away)
+self.addEventListener('notificationclose', (event) => {
+  const notificationData = event.notification.data || {};
+  console.log('[SW] Notification closed:', event.notification.tag);
+  
+  // Track close event
+  trackNotificationEvent('closed', event.notification.tag, notificationData.type || 'general');
+});
+
+// Send message to all open clients
+async function sendMessageToClients(message) {
+  const clients = await self.clients.matchAll({ type: 'window' });
+  clients.forEach((client) => {
+    client.postMessage(message);
+  });
+}
 
 // Open app window helper
 async function openAppWindow(url) {
