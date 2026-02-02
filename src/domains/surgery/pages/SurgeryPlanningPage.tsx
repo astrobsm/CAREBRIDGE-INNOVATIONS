@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { subDays, isWithinInterval } from 'date-fns';
+import { differenceInYears } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -208,6 +209,17 @@ export default function SurgeryPlanningPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'assessment' | 'investigations' | 'team' | 'estimate' | 'documents'>('details');
   
+  // Surgery record state - for independent section saves
+  const [surgeryId, setSurgeryId] = useState<string | null>(null);
+  const [sectionCompletion, setSectionCompletion] = useState({
+    details: false,
+    assessment: false,
+    investigations: false,
+    team: false,
+    estimate: false,
+    documents: false,
+  });
+  
   // Procedure selection state
   const [procedureSearch, setProcedureSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -345,6 +357,108 @@ export default function SurgeryPlanningPage() {
     },
   });
 
+  // Auto-populate risk factors from patient data
+  useEffect(() => {
+    if (!patient) return;
+
+    const autoCapriniFactors: string[] = [];
+    const autoRiskFactors: string[] = [];
+
+    // Calculate age and set appropriate Caprini age factor
+    const age = differenceInYears(new Date(), new Date(patient.dateOfBirth));
+    if (age >= 75) {
+      autoCapriniFactors.push('≥75 years');
+    } else if (age >= 61) {
+      autoCapriniFactors.push('61-74 years');
+    } else if (age >= 41) {
+      autoCapriniFactors.push('41-60 years');
+    }
+
+    // Auto-fill from patient's existing DVT risk assessment
+    if (patient.dvtRiskAssessment?.riskFactors) {
+      patient.dvtRiskAssessment.riskFactors.forEach(factor => {
+        if (!autoCapriniFactors.includes(factor)) {
+          autoCapriniFactors.push(factor);
+        }
+      });
+    }
+
+    // Map chronic conditions to WHO risk factors
+    const conditionMapping: Record<string, string> = {
+      'diabetes': 'Diabetes Mellitus',
+      'hypertension': 'Hypertension',
+      'heart disease': 'Cardiovascular Disease',
+      'cardiac': 'Cardiovascular Disease',
+      'kidney disease': 'Chronic Kidney Disease',
+      'renal': 'Chronic Kidney Disease',
+      'liver disease': 'Chronic Liver Disease',
+      'hepatitis': 'Chronic Liver Disease',
+      'asthma': 'Respiratory Disease (COPD/Asthma)',
+      'copd': 'Respiratory Disease (COPD/Asthma)',
+      'obesity': 'Obesity (BMI >30)',
+      'hiv': 'HIV/AIDS',
+      'cancer': 'Active Malignancy',
+      'malignancy': 'Active Malignancy',
+      'stroke': 'Previous Stroke/TIA',
+      'tia': 'Previous Stroke/TIA',
+      'bleeding': 'Bleeding Disorder',
+      'anemia': 'Anemia',
+      'sickle cell': 'Sickle Cell Disease',
+      'sleep apnea': 'Sleep Apnea',
+    };
+
+    patient.chronicConditions?.forEach(condition => {
+      const lowerCondition = condition.toLowerCase();
+      Object.entries(conditionMapping).forEach(([key, value]) => {
+        if (lowerCondition.includes(key) && !autoRiskFactors.includes(value)) {
+          autoRiskFactors.push(value);
+        }
+      });
+    });
+
+    // Map comorbidities to WHO risk factors
+    patient.comorbidities?.forEach(comorbidity => {
+      const lowerCondition = comorbidity.condition.toLowerCase();
+      Object.entries(conditionMapping).forEach(([key, value]) => {
+        if (lowerCondition.includes(key) && !autoRiskFactors.includes(value)) {
+          autoRiskFactors.push(value);
+        }
+      });
+    });
+
+    // Add elderly risk factor if age > 65
+    if (age > 65 && !autoRiskFactors.includes('Elderly (>65 years)')) {
+      autoRiskFactors.push('Elderly (>65 years)');
+    }
+
+    // Update state if we found factors
+    if (autoCapriniFactors.length > 0) {
+      setSelectedCapriniFactors(prev => {
+        const merged = [...prev];
+        autoCapriniFactors.forEach(f => {
+          if (!merged.includes(f)) merged.push(f);
+        });
+        return merged;
+      });
+    }
+
+    if (autoRiskFactors.length > 0) {
+      setSelectedRiskFactors(prev => {
+        const merged = [...prev];
+        autoRiskFactors.forEach(f => {
+          if (!merged.includes(f)) merged.push(f);
+        });
+        return merged;
+      });
+      toast.success(`Auto-populated ${autoRiskFactors.length} risk factors from patient record`);
+    }
+
+    // Pre-check blood typing if patient has blood group recorded
+    if (patient.bloodGroup) {
+      setValue('bloodTyped', true);
+    }
+  }, [patient, setValue]);
+
   const asaScore = watch('asaScore');
   const anaesthesiaType = watch('anaesthesiaType');
   const includeHistology = watch('includeHistology');
@@ -432,6 +546,350 @@ export default function SurgeryPlanningPage() {
         ? prev.filter(f => f !== factor)
         : [...prev, factor]
     );
+  };
+
+  // Save Procedure Details section
+  const saveDetailsSection = async () => {
+    const data = watch();
+    if (!patientId || !user) return;
+    
+    if (!data.procedureName || !data.scheduledDate) {
+      toast.error('Please fill in procedure name and scheduled date');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (surgeryId) {
+        // Update existing surgery
+        await db.surgeries.update(surgeryId, {
+          procedureName: data.procedureName,
+          procedureCode: data.procedureCode,
+          type: data.type,
+          category: data.category as 'minor' | 'intermediate' | 'major' | 'super_major',
+          scheduledDate: new Date(data.scheduledDate),
+          anaesthesiaType: data.anaesthesiaType as AnaesthesiaType | undefined,
+          updatedAt: new Date(),
+        });
+        toast.success('Procedure details saved!');
+      } else {
+        // Create new surgery record with minimal data
+        const newSurgeryId = uuidv4();
+        const surgery: Surgery = {
+          id: newSurgeryId,
+          patientId,
+          hospitalId: user.hospitalId || 'hospital-1',
+          procedureName: data.procedureName,
+          procedureCode: data.procedureCode,
+          type: data.type,
+          category: data.category as 'minor' | 'intermediate' | 'major' | 'super_major',
+          preOperativeAssessment: {
+            asaScore: 1,
+            npoStatus: false,
+            consentSigned: false,
+            bloodTyped: false,
+            investigations: [],
+            riskFactors: [],
+          },
+          scheduledDate: new Date(data.scheduledDate),
+          status: 'incomplete_preparation',
+          outstandingItems: [
+            { id: uuidv4(), type: 'risk_assessment', label: 'Risk Assessment', description: 'Complete ASA and Caprini assessment', completed: false },
+            { id: uuidv4(), type: 'investigations', label: 'Investigations', description: 'Complete pre-operative investigations', completed: false },
+            { id: uuidv4(), type: 'consent', label: 'Informed Consent', description: 'Patient must sign consent form', completed: false },
+            { id: uuidv4(), type: 'blood_typing', label: 'Blood Typing', description: 'Complete blood type and cross-match', completed: false },
+            { id: uuidv4(), type: 'team_assignment', label: 'Team Assignment', description: 'Assign surgical team', completed: false },
+          ],
+          surgeon: `${user.firstName} ${user.lastName}` || user.email || 'Unknown Surgeon',
+          surgeonId: user.id,
+          anaesthesiaType: data.anaesthesiaType as AnaesthesiaType | undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        await db.surgeries.add(surgery);
+        syncRecord('surgeries', surgery as unknown as Record<string, unknown>);
+        setSurgeryId(newSurgeryId);
+        toast.success('Surgery created! Continue filling in other sections.');
+      }
+      setSectionCompletion(prev => ({ ...prev, details: true }));
+    } catch (error) {
+      console.error('Error saving details:', error);
+      toast.error('Failed to save procedure details');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save Risk Assessment section
+  const saveAssessmentSection = async () => {
+    const data = watch();
+    if (!surgeryId) {
+      toast.error('Please save Procedure Details first');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const existingSurgery = await db.surgeries.get(surgeryId);
+      if (!existingSurgery) {
+        toast.error('Surgery record not found');
+        return;
+      }
+
+      const updatedAssessment: PreOperativeAssessment = {
+        ...existingSurgery.preOperativeAssessment,
+        asaScore: data.asaScore as 1 | 2 | 3 | 4 | 5,
+        capriniScore: calculatedCapriniScore,
+        mallampatiScore: data.mallampatiScore as 1 | 2 | 3 | 4 | undefined,
+        riskFactors: selectedRiskFactors,
+        specialInstructions: data.specialInstructions,
+      };
+
+      // Update outstanding items
+      const outstandingItems = existingSurgery.outstandingItems?.map(item => 
+        item.type === 'risk_assessment' 
+          ? { ...item, completed: true, completedAt: new Date() }
+          : item
+      ) || [];
+
+      await db.surgeries.update(surgeryId, {
+        preOperativeAssessment: updatedAssessment,
+        outstandingItems,
+        updatedAt: new Date(),
+      });
+
+      // Sync the updated record
+      const updatedSurgery = await db.surgeries.get(surgeryId);
+      if (updatedSurgery) {
+        syncRecord('surgeries', updatedSurgery as unknown as Record<string, unknown>);
+      }
+
+      setSectionCompletion(prev => ({ ...prev, assessment: true }));
+      toast.success('Risk assessment saved!');
+    } catch (error) {
+      console.error('Error saving assessment:', error);
+      toast.error('Failed to save risk assessment');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save Investigations section
+  const saveInvestigationsSection = async () => {
+    if (!surgeryId) {
+      toast.error('Please save Procedure Details first');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const existingSurgery = await db.surgeries.get(surgeryId);
+      if (!existingSurgery) {
+        toast.error('Surgery record not found');
+        return;
+      }
+
+      // Build investigations list from entered values
+      const completedInvestigations: string[] = [];
+      Object.entries(investigationResults).forEach(([name, result]) => {
+        if (result.value.trim()) {
+          completedInvestigations.push(`${name}: ${result.value} (${result.status})`);
+        }
+      });
+
+      const updatedAssessment: PreOperativeAssessment = {
+        ...existingSurgery.preOperativeAssessment,
+        investigations: completedInvestigations,
+      };
+
+      // Update outstanding items
+      const hasInvestigations = completedInvestigations.length > 0;
+      const outstandingItems = existingSurgery.outstandingItems?.map(item => 
+        item.type === 'investigations' 
+          ? { ...item, completed: hasInvestigations, completedAt: hasInvestigations ? new Date() : undefined }
+          : item
+      ) || [];
+
+      await db.surgeries.update(surgeryId, {
+        preOperativeAssessment: updatedAssessment,
+        outstandingItems,
+        updatedAt: new Date(),
+      });
+
+      const updatedSurgery = await db.surgeries.get(surgeryId);
+      if (updatedSurgery) {
+        syncRecord('surgeries', updatedSurgery as unknown as Record<string, unknown>);
+      }
+
+      setSectionCompletion(prev => ({ ...prev, investigations: true }));
+      toast.success(`Saved ${completedInvestigations.length} investigation results!`);
+    } catch (error) {
+      console.error('Error saving investigations:', error);
+      toast.error('Failed to save investigations');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save Surgical Team section
+  const saveTeamSection = async () => {
+    const data = watch();
+    if (!surgeryId) {
+      toast.error('Please save Procedure Details first');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const existingSurgery = await db.surgeries.get(surgeryId);
+      if (!existingSurgery) {
+        toast.error('Surgery record not found');
+        return;
+      }
+
+      const hasTeam = !!data.assistant && !!data.anaesthetist;
+      
+      // Update outstanding items
+      const outstandingItems = existingSurgery.outstandingItems?.map(item => 
+        item.type === 'team_assignment' 
+          ? { ...item, completed: hasTeam, completedAt: hasTeam ? new Date() : undefined }
+          : item
+      ) || [];
+
+      await db.surgeries.update(surgeryId, {
+        assistant: data.assistant,
+        anaesthetist: data.anaesthetist,
+        scrubNurse: data.scrubNurse,
+        circulatingNurse: data.circulatingNurse,
+        outstandingItems,
+        updatedAt: new Date(),
+      });
+
+      const updatedSurgery = await db.surgeries.get(surgeryId);
+      if (updatedSurgery) {
+        syncRecord('surgeries', updatedSurgery as unknown as Record<string, unknown>);
+      }
+
+      setSectionCompletion(prev => ({ ...prev, team: true }));
+      toast.success('Surgical team saved!');
+    } catch (error) {
+      console.error('Error saving team:', error);
+      toast.error('Failed to save surgical team');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save Fee Estimate section
+  const saveEstimateSection = async () => {
+    const data = watch();
+    if (!surgeryId) {
+      toast.error('Please save Procedure Details first');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await db.surgeries.update(surgeryId, {
+        surgeonFee: data.surgeonFee || customSurgeonFee,
+        updatedAt: new Date(),
+      });
+
+      const updatedSurgery = await db.surgeries.get(surgeryId);
+      if (updatedSurgery) {
+        syncRecord('surgeries', updatedSurgery as unknown as Record<string, unknown>);
+      }
+
+      setSectionCompletion(prev => ({ ...prev, estimate: true }));
+      toast.success('Fee estimate saved!');
+    } catch (error) {
+      console.error('Error saving estimate:', error);
+      toast.error('Failed to save fee estimate');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save Pre-op Checklist section
+  const saveChecklistSection = async () => {
+    const data = watch();
+    if (!surgeryId) {
+      toast.error('Please save Procedure Details first');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const existingSurgery = await db.surgeries.get(surgeryId);
+      if (!existingSurgery) {
+        toast.error('Surgery record not found');
+        return;
+      }
+
+      const updatedAssessment: PreOperativeAssessment = {
+        ...existingSurgery.preOperativeAssessment,
+        npoStatus: data.npoStatus,
+        consentSigned: data.consentSigned,
+        bloodTyped: data.bloodTyped,
+        specialInstructions: data.specialInstructions,
+      };
+
+      // Update outstanding items
+      const outstandingItems = existingSurgery.outstandingItems?.map(item => {
+        if (item.type === 'consent') {
+          return { ...item, completed: data.consentSigned, completedAt: data.consentSigned ? new Date() : undefined };
+        }
+        if (item.type === 'blood_typing') {
+          return { ...item, completed: data.bloodTyped, completedAt: data.bloodTyped ? new Date() : undefined };
+        }
+        if (item.type === 'npo_status') {
+          return { ...item, completed: data.npoStatus, completedAt: data.npoStatus ? new Date() : undefined };
+        }
+        return item;
+      }) || [];
+
+      // Check if all items are complete
+      const allComplete = outstandingItems.every(item => item.completed);
+      const newStatus: Surgery['status'] = allComplete ? 'ready_for_preanaesthetic_review' : 'incomplete_preparation';
+
+      await db.surgeries.update(surgeryId, {
+        preOperativeAssessment: updatedAssessment,
+        outstandingItems,
+        status: newStatus,
+        updatedAt: new Date(),
+      });
+
+      const updatedSurgery = await db.surgeries.get(surgeryId);
+      if (updatedSurgery) {
+        syncRecord('surgeries', updatedSurgery as unknown as Record<string, unknown>);
+      }
+
+      setSectionCompletion(prev => ({ ...prev, documents: true }));
+      
+      if (allComplete) {
+        toast.success('All sections complete! Surgery is ready for pre-anaesthetic review.');
+      } else {
+        toast.success('Checklist saved!');
+      }
+    } catch (error) {
+      console.error('Error saving checklist:', error);
+      toast.error('Failed to save checklist');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Get section save function based on active tab
+  const getSectionSaveFunction = () => {
+    switch (activeTab) {
+      case 'details': return saveDetailsSection;
+      case 'assessment': return saveAssessmentSection;
+      case 'investigations': return saveInvestigationsSection;
+      case 'team': return saveTeamSection;
+      case 'estimate': return saveEstimateSection;
+      case 'documents': return saveChecklistSection;
+      default: return saveDetailsSection;
+    }
   };
 
   const onSubmit = async (data: SurgeryFormData) => {
@@ -545,37 +1003,64 @@ export default function SurgeryPlanningPage() {
         surgeryStatus = 'incomplete_preparation';
       }
 
-      const surgery: Surgery = {
-        id: uuidv4(),
-        patientId,
-        hospitalId: user.hospitalId || 'hospital-1',
-        procedureName: data.procedureName,
-        procedureCode: data.procedureCode,
-        type: data.type,
-        category: data.category as 'minor' | 'intermediate' | 'major' | 'super_major',
-        preOperativeAssessment: preOpAssessment,
-        scheduledDate: new Date(data.scheduledDate),
-        status: surgeryStatus,
-        outstandingItems: incompleteItems.length > 0 ? outstandingItems : undefined,
-        surgeon: `${user.firstName} ${user.lastName}` || user.email || 'Unknown Surgeon',
-        surgeonId: user.id,
-        surgeonFee: data.surgeonFee,
-        assistant: data.assistant,
-        anaesthetist: data.anaesthetist,
-        scrubNurse: data.scrubNurse,
-        circulatingNurse: data.circulatingNurse,
-        anaesthesiaType: data.anaesthesiaType as AnaesthesiaType | undefined,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      if (surgeryId) {
+        // Update existing surgery record
+        await db.surgeries.update(surgeryId, {
+          procedureName: data.procedureName,
+          procedureCode: data.procedureCode,
+          type: data.type,
+          category: data.category as 'minor' | 'intermediate' | 'major' | 'super_major',
+          preOperativeAssessment: preOpAssessment,
+          scheduledDate: new Date(data.scheduledDate),
+          status: surgeryStatus,
+          outstandingItems: incompleteItems.length > 0 ? outstandingItems : undefined,
+          surgeonFee: data.surgeonFee,
+          assistant: data.assistant,
+          anaesthetist: data.anaesthetist,
+          scrubNurse: data.scrubNurse,
+          circulatingNurse: data.circulatingNurse,
+          anaesthesiaType: data.anaesthesiaType as AnaesthesiaType | undefined,
+          updatedAt: new Date(),
+        });
 
-      await db.surgeries.add(surgery);
-      syncRecord('surgeries', surgery as unknown as Record<string, unknown>);
+        const updatedSurgery = await db.surgeries.get(surgeryId);
+        if (updatedSurgery) {
+          syncRecord('surgeries', updatedSurgery as unknown as Record<string, unknown>);
+        }
+      } else {
+        // Create new surgery record
+        const surgery: Surgery = {
+          id: uuidv4(),
+          patientId,
+          hospitalId: user.hospitalId || 'hospital-1',
+          procedureName: data.procedureName,
+          procedureCode: data.procedureCode,
+          type: data.type,
+          category: data.category as 'minor' | 'intermediate' | 'major' | 'super_major',
+          preOperativeAssessment: preOpAssessment,
+          scheduledDate: new Date(data.scheduledDate),
+          status: surgeryStatus,
+          outstandingItems: incompleteItems.length > 0 ? outstandingItems : undefined,
+          surgeon: `${user.firstName} ${user.lastName}` || user.email || 'Unknown Surgeon',
+          surgeonId: user.id,
+          surgeonFee: data.surgeonFee,
+          assistant: data.assistant,
+          anaesthetist: data.anaesthetist,
+          scrubNurse: data.scrubNurse,
+          circulatingNurse: data.circulatingNurse,
+          anaesthesiaType: data.anaesthesiaType as AnaesthesiaType | undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        await db.surgeries.add(surgery);
+        syncRecord('surgeries', surgery as unknown as Record<string, unknown>);
+      }
       
       if (surgeryStatus === 'incomplete_preparation') {
-        toast.success(`Surgery scheduled with ${incompleteItems.length} outstanding items to complete`);
+        toast.success(`Surgery ${surgeryId ? 'updated' : 'scheduled'} with ${incompleteItems.length} outstanding items to complete`);
       } else {
-        toast.success('Surgery scheduled - Ready for pre-anaesthetic review!');
+        toast.success(`Surgery ${surgeryId ? 'finalized' : 'scheduled'} - Ready for pre-anaesthetic review!`);
       }
       navigate('/surgery');
     } catch (error) {
@@ -629,22 +1114,28 @@ export default function SurgeryPlanningPage() {
             { id: 'team', label: 'Surgical Team', icon: Users },
             { id: 'estimate', label: 'Fee Estimate', icon: DollarSign },
             { id: 'documents', label: 'Documents', icon: FileText },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'border-purple-500 text-purple-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <tab.icon size={16} />
-              <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
-            </button>
-          ))}
+          ].map(tab => {
+            const isComplete = sectionCompletion[tab.id as keyof typeof sectionCompletion];
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap relative ${
+                  activeTab === tab.id
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <tab.icon size={16} />
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+                {isComplete && (
+                  <CheckCircle size={14} className="text-green-500 ml-1" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Procedure Details Tab */}
@@ -1680,32 +2171,81 @@ export default function SurgeryPlanningPage() {
           </motion.div>
         )}
 
-        {/* Submit Button */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end sm:gap-4">
-          <button
-            type="button"
-            onClick={() => navigate(`/patients/${patientId}`)}
-            className="btn btn-secondary w-full sm:w-auto order-2 sm:order-1"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="btn btn-primary w-full sm:w-auto order-1 sm:order-2"
-          >
-            {isLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Scheduling...
-              </>
-            ) : (
-              <>
-                <Save size={18} />
-                Schedule Surgery
-              </>
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+          {/* Section Progress */}
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <span className="font-medium">Progress:</span>
+            <div className="flex gap-1">
+              {Object.entries(sectionCompletion).map(([key, completed]) => (
+                <div
+                  key={key}
+                  className={`w-6 h-2 rounded ${completed ? 'bg-green-500' : 'bg-gray-200'}`}
+                  title={`${key}: ${completed ? 'Complete' : 'Pending'}`}
+                />
+              ))}
+            </div>
+            <span className="text-xs">
+              ({Object.values(sectionCompletion).filter(Boolean).length}/6 sections)
+            </span>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+            <button
+              type="button"
+              onClick={() => navigate(`/patients/${patientId}`)}
+              className="btn btn-secondary w-full sm:w-auto"
+            >
+              Cancel
+            </button>
+            
+            {/* Save Current Section Button */}
+            <button
+              type="button"
+              onClick={getSectionSaveFunction()}
+              disabled={isLoading}
+              className="btn btn-outline border-purple-500 text-purple-600 hover:bg-purple-50 w-full sm:w-auto"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save size={18} />
+                  Save {activeTab === 'details' ? 'Details' : 
+                        activeTab === 'assessment' ? 'Assessment' :
+                        activeTab === 'investigations' ? 'Investigations' :
+                        activeTab === 'team' ? 'Team' :
+                        activeTab === 'estimate' ? 'Estimate' : 'Checklist'}
+                </>
+              )}
+            </button>
+
+            {/* Final Submit - only show when all sections are complete or on last tab */}
+            {(Object.values(sectionCompletion).filter(Boolean).length >= 2 || activeTab === 'documents') && (
+              <button
+                type="submit"
+                disabled={isLoading || !sectionCompletion.details}
+                className="btn btn-primary w-full sm:w-auto"
+                title={!sectionCompletion.details ? 'Save Procedure Details first' : ''}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Scheduling...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle size={18} />
+                    {surgeryId ? 'Finalize Surgery' : 'Schedule Surgery'}
+                  </>
+                )}
+              </button>
             )}
-          </button>
+          </div>
         </div>
       </form>
     </div>
