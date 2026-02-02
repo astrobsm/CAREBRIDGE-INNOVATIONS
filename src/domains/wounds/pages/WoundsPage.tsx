@@ -34,7 +34,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format, differenceInDays } from 'date-fns';
-import type { Wound, WoundType, TissueType } from '../../../types';
+import type { Wound, WoundType, TissueType, WoundPhoto } from '../../../types';
 import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
 import { generateWoundPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { generateCalibrationRulerPDF } from '../../../utils/calibrationRulerPdf';
@@ -147,7 +147,7 @@ export default function WoundsPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showAIPlanimetry, setShowAIPlanimetry] = useState(false);
   const [woundImageData, setWoundImageData] = useState<string | null>(null);
-  const [woundPhotos, setWoundPhotos] = useState<string[]>([]);
+  const [woundPhotos, setWoundPhotos] = useState<WoundPhoto[]>([]);
 
   // If patientId is passed in URL, filter wounds to only that patient
   const wounds = useLiveQuery(() => {
@@ -618,7 +618,12 @@ export default function WoundsPage() {
                               const reader = new FileReader();
                               reader.onload = (event) => {
                                 const base64 = event.target?.result as string;
-                                setWoundPhotos((prev) => [...prev, base64]);
+                                const newPhoto: WoundPhoto = {
+                                  id: uuidv4(),
+                                  url: base64,
+                                  capturedAt: new Date(),
+                                };
+                                setWoundPhotos((prev) => [...prev, newPhoto]);
                               };
                               reader.readAsDataURL(file);
                             });
@@ -631,9 +636,9 @@ export default function WoundsPage() {
                       {woundPhotos.length > 0 && (
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                           {woundPhotos.map((photo, index) => (
-                            <div key={index} className="relative group aspect-square">
+                            <div key={photo.id} className="relative group aspect-square">
                               <img
-                                src={photo}
+                                src={photo.url}
                                 alt={`Wound photo ${index + 1}`}
                                 className="w-full h-full object-cover rounded-lg border border-gray-200"
                               />

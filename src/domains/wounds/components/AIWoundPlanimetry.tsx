@@ -683,11 +683,11 @@ export default function AIWoundPlanimetry({
                 )}
               </div>
 
-              {typeof pixelsPerCm === 'number' && pixelsPerCm > 0 && (
+              {typeof pixelsPerCm === 'number' && pixelsPerCm > 0 && !isNaN(pixelsPerCm) && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="text-green-600" size={20} />
-                    <span className="text-green-800 font-medium">Calibration complete: {pixelsPerCm.toFixed(1)} px/cm</span>
+                    <span className="text-green-800 font-medium">Calibration complete: {Number(pixelsPerCm).toFixed(1)} px/cm</span>
                   </div>
                   <button
                     onClick={proceedToSegmentation}
