@@ -26,6 +26,8 @@ import {
   Target,
   Printer,
   Download,
+  ImagePlus,
+  Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -143,6 +145,7 @@ export default function WoundsPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showAIPlanimetry, setShowAIPlanimetry] = useState(false);
   const [woundImageData, setWoundImageData] = useState<string | null>(null);
+  const [woundPhotos, setWoundPhotos] = useState<string[]>([]);
 
   const wounds = useLiveQuery(() => db.wounds.orderBy('createdAt').reverse().toArray(), []);
   
@@ -226,7 +229,7 @@ export default function WoundsPage() {
         odor: data.odor,
         periWoundCondition: data.periWoundCondition,
         painLevel: data.painLevel,
-        photos: [],
+        photos: woundPhotos,
         healingProgress: phase === 'repair' ? 'improving' : phase === 'extension' ? 'deteriorating' : 'stable',
         dressingType: woundPhases[phase].protocol.join('; '),
         dressingFrequency: woundPhases[phase].dressingFrequency,
@@ -239,6 +242,7 @@ export default function WoundsPage() {
       toast.success('Wound assessment saved successfully!');
       setShowModal(false);
       reset();
+      setWoundPhotos([]);
     } catch (error) {
       console.error('Error saving wound:', error);
       toast.error('Failed to save wound assessment');
@@ -577,6 +581,68 @@ export default function WoundsPage() {
                       ))}
                     </div>
                     {errors.tissueTypes && <p className="text-sm text-red-500 mt-1">{errors.tissueTypes.message}</p>}
+                  </div>
+
+                  {/* Wound Photos Upload */}
+                  <div>
+                    <label className="label">Wound Photos</label>
+                    <div className="space-y-3">
+                      {/* Upload Button */}
+                      <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-sky-400 hover:bg-sky-50 transition-colors">
+                        <ImagePlus size={20} className="text-gray-500" />
+                        <span className="text-sm text-gray-600">Click to upload wound images</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || []);
+                            files.forEach((file) => {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                const base64 = event.target?.result as string;
+                                setWoundPhotos((prev) => [...prev, base64]);
+                              };
+                              reader.readAsDataURL(file);
+                            });
+                            e.target.value = ''; // Reset input
+                          }}
+                        />
+                      </label>
+
+                      {/* Photo Previews */}
+                      {woundPhotos.length > 0 && (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {woundPhotos.map((photo, index) => (
+                            <div key={index} className="relative group aspect-square">
+                              <img
+                                src={photo}
+                                alt={`Wound photo ${index + 1}`}
+                                className="w-full h-full object-cover rounded-lg border border-gray-200"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setWoundPhotos((prev) => prev.filter((_, i) => i !== index))}
+                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Remove photo"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                              <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 text-white text-xs rounded">
+                                {index + 1}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {woundPhotos.length > 0 && (
+                        <p className="text-xs text-gray-500">
+                          {woundPhotos.length} photo{woundPhotos.length > 1 ? 's' : ''} uploaded. Hover to remove.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Exudate */}
