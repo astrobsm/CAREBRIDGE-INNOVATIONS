@@ -272,8 +272,8 @@ export default function MDTPage() {
     );
   };
 
-  // Data queries
-  const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
+  // Data queries - include patients where isActive is true or undefined (for backward compatibility)
+  const patients = useLiveQuery(() => db.patients.filter(p => p.isActive !== false).toArray(), []);
   const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive === true).toArray(), []);
   
   // Patient history queries - only fetch when patient is selected
