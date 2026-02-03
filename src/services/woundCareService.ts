@@ -210,6 +210,83 @@ const woundHealingPhases: Record<string, WoundHealingPhase> = {
   }
 };
 
+// Skin Graft Site Protocol - Dressings commence Day 5 post-op
+export interface SkinGraftSiteProtocol {
+  siteType: 'donor' | 'recipient';
+  postOpDay: number;
+  dressingCommencement: number; // Day 5 post-op
+  initialDressing: string;
+  subsequentDressing: string;
+  changeFrequency: string;
+  specialInstructions: string[];
+  monitoringParameters: string[];
+  contraindications: string[];
+}
+
+const skinGraftProtocols: Record<'donor' | 'recipient', SkinGraftSiteProtocol> = {
+  donor: {
+    siteType: 'donor',
+    postOpDay: 0,
+    dressingCommencement: 5, // Day 5 post-op
+    initialDressing: 'Leave initial surgical dressing undisturbed until Day 5',
+    subsequentDressing: 'Paraffin gauze or non-adherent dressing',
+    changeFrequency: 'Every 2-3 days after Day 5',
+    specialInstructions: [
+      'DO NOT disturb initial dressing until Day 5 post-op',
+      'Keep site dry and protected for first 5 days',
+      'First dressing change on Day 5 post-op',
+      'Assess for signs of infection at Day 5',
+      'Use non-adherent dressing to prevent trauma to healing epithelium',
+      'Keep donor site exposed to air once healed',
+      'Apply moisturizer once epithelialized'
+    ],
+    monitoringParameters: [
+      'Signs of infection (erythema, purulent discharge, odor)',
+      'Epithelialization progress',
+      'Exudate amount',
+      'Pain level',
+      'Surrounding skin condition'
+    ],
+    contraindications: [
+      'Do not apply adhesive dressings directly to healing skin',
+      'Avoid early dressing changes unless clinically indicated',
+      'Do not soak or submerge in water'
+    ]
+  },
+  recipient: {
+    siteType: 'recipient',
+    postOpDay: 0,
+    dressingCommencement: 5, // Day 5 post-op
+    initialDressing: 'Leave surgical bolster/tie-over dressing undisturbed until Day 5',
+    subsequentDressing: 'Paraffin gauze with light protective cover',
+    changeFrequency: 'Every 2-3 days after Day 5',
+    specialInstructions: [
+      'DO NOT disturb graft or initial dressing until Day 5 post-op',
+      'Immobilize graft site for first 5 days',
+      'Keep site dry and protected',
+      'First dressing change and graft inspection on Day 5 post-op',
+      'Assess graft take percentage at Day 5',
+      'Gentle cleansing with saline after Day 5',
+      'Avoid shearing forces on graft',
+      'Use non-adherent dressing to protect graft'
+    ],
+    monitoringParameters: [
+      'Graft take percentage',
+      'Signs of hematoma or seroma under graft',
+      'Graft color and perfusion',
+      'Signs of infection',
+      'Surrounding skin condition',
+      'Graft adherence'
+    ],
+    contraindications: [
+      'Do not remove or lift graft for inspection before Day 5',
+      'Avoid moisture on graft site before Day 5',
+      'Do not apply compression directly over graft initially',
+      'Avoid activities that cause shearing'
+    ]
+  }
+};
+
 // WHO-aligned dressing materials and their indications
 const dressingMaterials = {
   hydrogel: {
@@ -547,6 +624,99 @@ class WoundCareService {
    */
   getDressingMaterials() {
     return dressingMaterials;
+  }
+
+  /**
+   * Get skin graft site protocols
+   * NOTE: Dressings for both donor and recipient sites commence on Day 5 post-op
+   */
+  getSkinGraftProtocols(): Record<'donor' | 'recipient', SkinGraftSiteProtocol> {
+    return skinGraftProtocols;
+  }
+
+  /**
+   * Get specific skin graft site protocol
+   * @param siteType - 'donor' or 'recipient' site
+   */
+  getSkinGraftSiteProtocol(siteType: 'donor' | 'recipient'): SkinGraftSiteProtocol {
+    return skinGraftProtocols[siteType];
+  }
+
+  /**
+   * Check if skin graft site is ready for dressing change
+   * @param surgeryDate - Date of skin grafting surgery
+   * @returns Object with readiness status and days until dressing commencement
+   */
+  isSkinGraftReadyForDressing(surgeryDate: Date): {
+    isReady: boolean;
+    postOpDay: number;
+    daysUntilDressingChange: number;
+    message: string;
+  } {
+    const now = new Date();
+    const surgeryTime = new Date(surgeryDate).getTime();
+    const daysSinceSurgery = Math.floor((now.getTime() - surgeryTime) / (1000 * 60 * 60 * 24));
+    const DRESSING_COMMENCEMENT_DAY = 5;
+    
+    const daysUntilDressingChange = Math.max(0, DRESSING_COMMENCEMENT_DAY - daysSinceSurgery);
+    const isReady = daysSinceSurgery >= DRESSING_COMMENCEMENT_DAY;
+
+    let message: string;
+    if (isReady) {
+      message = `Day ${daysSinceSurgery} post-op: Skin graft dressing change may proceed`;
+    } else {
+      message = `Day ${daysSinceSurgery} post-op: Do NOT disturb dressing. Wait ${daysUntilDressingChange} more day(s) until Day 5`;
+    }
+
+    return {
+      isReady,
+      postOpDay: daysSinceSurgery,
+      daysUntilDressingChange,
+      message
+    };
+  }
+
+  /**
+   * Generate skin graft care protocol based on post-op day
+   * @param siteType - 'donor' or 'recipient' site
+   * @param surgeryDate - Date of skin grafting surgery
+   */
+  generateSkinGraftCareProtocol(
+    siteType: 'donor' | 'recipient',
+    surgeryDate: Date
+  ): {
+    protocol: SkinGraftSiteProtocol;
+    dressingStatus: ReturnType<WoundCareService['isSkinGraftReadyForDressing']>;
+    currentInstructions: string[];
+  } {
+    const protocol = this.getSkinGraftSiteProtocol(siteType);
+    const dressingStatus = this.isSkinGraftReadyForDressing(surgeryDate);
+
+    let currentInstructions: string[];
+    if (dressingStatus.isReady) {
+      currentInstructions = [
+        `Post-op Day ${dressingStatus.postOpDay}: Dressing change may proceed`,
+        `Use ${protocol.subsequentDressing}`,
+        `Change frequency: ${protocol.changeFrequency}`,
+        ...protocol.specialInstructions.filter(
+          instruction => !instruction.includes('until Day 5')
+        )
+      ];
+    } else {
+      currentInstructions = [
+        `Post-op Day ${dressingStatus.postOpDay}: DO NOT disturb dressing`,
+        protocol.initialDressing,
+        `Dressing change scheduled for Day 5 (in ${dressingStatus.daysUntilDressingChange} day${dressingStatus.daysUntilDressingChange !== 1 ? 's' : ''})`,
+        'Keep site dry and protected',
+        'Monitor for signs of infection only'
+      ];
+    }
+
+    return {
+      protocol,
+      dressingStatus,
+      currentInstructions
+    };
   }
 
   /**
