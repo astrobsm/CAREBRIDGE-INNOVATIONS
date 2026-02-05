@@ -771,13 +771,25 @@ export default function PharmacyPage() {
       { label: 'Date', value: format(new Date(prescription.prescribedAt), 'dd/MM/yyyy h:mm a') },
       { label: 'Prescriber', value: prescriberName },
       { label: 'Status', value: prescription.status.toUpperCase() },
+      { label: '---', value: '---' }, // Divider
     ];
     
-    // Add medications
+    // Add medications - each medication on separate lines to avoid overlap
     prescription.medications.forEach((med, idx) => {
+      // Medication name on its own line
       items.push({
-        label: `${idx + 1}. ${med.name}`,
-        value: `${med.dosage} ${med.frequency} x${med.duration} Qty:${med.quantity}`
+        label: `${idx + 1}.`,
+        value: med.name
+      });
+      // Dosage details on next line (indented)
+      items.push({
+        label: '',
+        value: `  ${med.dosage} ${med.frequency}`
+      });
+      // Duration and quantity on another line
+      items.push({
+        label: '',
+        value: `  x${med.duration} | Qty: ${med.quantity}`
       });
     });
     
@@ -799,13 +811,20 @@ export default function PharmacyPage() {
     const items: { label: string; value: string }[] = [
       { label: 'Rx #', value: prescription.id.slice(0, 8).toUpperCase() },
       { label: 'Date', value: format(new Date(prescription.prescribedAt), 'dd/MM/yyyy') },
+      { label: '---', value: '---' }, // Divider
     ];
     
     prescription.medications.forEach((med, idx) => {
-      const dispensedMark = med.isDispensed ? '✓' : '☐';
+      const dispensedMark = med.isDispensed ? '✓ DISPENSED' : '☐ PENDING';
+      // Medication name on its own line
       items.push({
-        label: `${idx + 1}. ${med.name}`,
-        value: `${dispensedMark} Qty:${med.quantity}`
+        label: `${idx + 1}.`,
+        value: med.name
+      });
+      // Quantity and status on next line
+      items.push({
+        label: '',
+        value: `  Qty: ${med.quantity} | ${dispensedMark}`
       });
     });
     

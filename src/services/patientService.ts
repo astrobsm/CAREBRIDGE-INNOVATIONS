@@ -242,25 +242,79 @@ class PatientService {
 
   /**
    * Quick search for autocomplete (lightweight)
+   * Enhanced to handle more patients and better matching
    */
-  async quickSearch(query: string, limit: number = 10): Promise<Patient[]> {
+  async quickSearch(query: string, limit: number = 50): Promise<Patient[]> {
     if (!query || query.length < 2) return [];
     
     try {
       const lowerQuery = query.toLowerCase().trim();
+      const queryParts = lowerQuery.split(/\s+/).filter(p => p.length > 0);
+      
+      // Get all active patients that match any part of the query
       const patients = await db.patients
-        .filter(p => 
-          p.isActive !== false && (
-            p.firstName?.toLowerCase().includes(lowerQuery) ||
-            p.lastName?.toLowerCase().includes(lowerQuery) ||
-            p.hospitalNumber?.toLowerCase().includes(lowerQuery) ||
-            p.phone?.includes(lowerQuery)
-          )
-        )
-        .limit(limit)
+        .filter(p => {
+          if (p.isActive === false) return false;
+          
+          const firstName = (p.firstName || '').toLowerCase();
+          const lastName = (p.lastName || '').toLowerCase();
+          const hospitalNumber = (p.hospitalNumber || '').toLowerCase();
+          const phone = (p.phone || '');
+          const fullName = `${firstName} ${lastName}`;
+          
+          // Match if any query part is found in any field
+          return queryParts.some(part => 
+            firstName.includes(part) ||
+            lastName.includes(part) ||
+            hospitalNumber.includes(part) ||
+            phone.includes(part) ||
+            fullName.includes(part)
+          );
+        })
         .toArray();
       
-      return patients;
+      // Score and sort patients by relevance
+      const scoredPatients = patients.map(p => {
+        let score = 0;
+        const firstName = (p.firstName || '').toLowerCase();
+        const lastName = (p.lastName || '').toLowerCase();
+        const hospitalNumber = (p.hospitalNumber || '').toLowerCase();
+        const fullName = `${firstName} ${lastName}`;
+        
+        // Exact match scores highest
+        if (fullName === lowerQuery) score += 100;
+        if (firstName === lowerQuery || lastName === lowerQuery) score += 80;
+        if (hospitalNumber === lowerQuery) score += 90;
+        
+        // Starts with query
+        if (firstName.startsWith(lowerQuery) || lastName.startsWith(lowerQuery)) score += 50;
+        if (fullName.startsWith(lowerQuery)) score += 60;
+        if (hospitalNumber.startsWith(lowerQuery)) score += 55;
+        
+        // Contains query
+        if (firstName.includes(lowerQuery)) score += 20;
+        if (lastName.includes(lowerQuery)) score += 20;
+        if (fullName.includes(lowerQuery)) score += 25;
+        if (hospitalNumber.includes(lowerQuery)) score += 15;
+        
+        // Match multiple query parts (for "Chibundu NWOSU" type searches)
+        const matchedParts = queryParts.filter(part => 
+          firstName.includes(part) || lastName.includes(part)
+        );
+        score += matchedParts.length * 30;
+        
+        return { patient: p, score };
+      });
+      
+      // Sort by score descending, then by name
+      scoredPatients.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        const nameA = `${a.patient.firstName} ${a.patient.lastName}`.toLowerCase();
+        const nameB = `${b.patient.firstName} ${b.patient.lastName}`.toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+      
+      return scoredPatients.slice(0, limit).map(sp => sp.patient);
     } catch (error) {
       console.error('[PatientService] Error in quick search:', error);
       return [];

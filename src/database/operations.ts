@@ -36,6 +36,7 @@ import type {
   NutritionPlan,
   LimbSalvageAssessment,
   MeetingMinutes,
+  SubstanceUseAssessment,
 } from '../types';
 
 // ============================================================
@@ -1242,6 +1243,88 @@ export const MeetingMinutesOps = {
 };
 
 // ============================================================
+// SUBSTANCE USE ASSESSMENT OPERATIONS
+// ============================================================
+
+export const SubstanceUseAssessmentOps = {
+  // Get all assessments
+  async getAll(): Promise<SubstanceUseAssessment[]> {
+    return db.substanceUseAssessments.orderBy('createdAt').reverse().toArray();
+  },
+
+  // Get by ID
+  async getById(id: string): Promise<SubstanceUseAssessment | undefined> {
+    return db.substanceUseAssessments.get(id);
+  },
+
+  // Get by patient
+  async getByPatient(patientId: string): Promise<SubstanceUseAssessment[]> {
+    return db.substanceUseAssessments.where('patientId').equals(patientId).reverse().toArray();
+  },
+
+  // Get by hospital
+  async getByHospital(hospitalId: string): Promise<SubstanceUseAssessment[]> {
+    return db.substanceUseAssessments.where('hospitalId').equals(hospitalId).reverse().toArray();
+  },
+
+  // Get by status
+  async getByStatus(status: 'in_progress' | 'completed' | 'reviewed' | 'archived'): Promise<SubstanceUseAssessment[]> {
+    return db.substanceUseAssessments.where('status').equals(status).reverse().toArray();
+  },
+
+  // Create new assessment
+  async create(data: Omit<SubstanceUseAssessment, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    const now = new Date();
+    const assessment: SubstanceUseAssessment = {
+      ...data,
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    } as SubstanceUseAssessment;
+    
+    await db.substanceUseAssessments.add(assessment);
+    return assessment.id;
+  },
+
+  // Update assessment
+  async update(id: string, data: Partial<SubstanceUseAssessment>): Promise<number> {
+    return db.substanceUseAssessments.update(id, {
+      ...data,
+      updatedAt: new Date(),
+    });
+  },
+
+  // Complete assessment
+  async complete(id: string, completedBy: string): Promise<number> {
+    return db.substanceUseAssessments.update(id, {
+      status: 'completed',
+      completedAt: new Date(),
+      completedBy,
+      updatedAt: new Date(),
+    });
+  },
+
+  // Delete assessment
+  async delete(id: string): Promise<void> {
+    await db.substanceUseAssessments.delete(id);
+  },
+
+  // Get active assessments for today
+  async getActiveToday(): Promise<SubstanceUseAssessment[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return db.substanceUseAssessments
+      .where('assessmentDate')
+      .between(today, tomorrow)
+      .filter(a => a.status === 'in_progress' || a.status === 'completed' || a.status === 'reviewed')
+      .toArray();
+  },
+};
+
+// ============================================================
 // EXPORT ALL OPERATIONS
 // ============================================================
 
@@ -1274,4 +1357,5 @@ export const dbOps = {
   dashboard: DashboardOps,
   limbSalvage: LimbSalvageOps,
   meetingMinutes: MeetingMinutesOps,
+  substanceUse: SubstanceUseAssessmentOps,
 };

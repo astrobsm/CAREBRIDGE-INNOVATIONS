@@ -55,6 +55,7 @@ export {
   AssignmentOps,
   DashboardOps,
   MeetingMinutesOps,
+  SubstanceUseAssessmentOps,
   dbOps,
 } from '../database/operations';
 
@@ -392,3 +393,10 @@ export {
   bookSurgery,
   bookAppointment,
 } from './clinicalSubmissionService';
+
+// Substance Use Disorder Assessment Service (CSUD-DSM)
+export {
+  substanceUseService,
+  SubstanceUseOps,
+  substanceDefinitions,
+} from './substanceUseService';

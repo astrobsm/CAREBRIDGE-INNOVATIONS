@@ -311,7 +311,7 @@ export function PatientSelector({
 
     debounceTimer.current = setTimeout(async () => {
       try {
-        const results = await patientService.quickSearch(searchQuery, 10);
+        const results = await patientService.quickSearch(searchQuery, 50);
         const filtered = hospitalId 
           ? results.filter(p => p.registeredHospitalId === hospitalId)
           : results;

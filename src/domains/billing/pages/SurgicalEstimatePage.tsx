@@ -28,6 +28,7 @@ import {
   Building2,
   X,
   History,
+  Printer,
   Info,
 } from 'lucide-react';
 import { db } from '../../../database';
@@ -588,6 +589,241 @@ export default function SurgicalEstimatePage() {
     toast.success('Estimate PDF downloaded');
   };
 
+  // Generate Thermal Receipt PDF (80mm width)
+  const generateThermalPDF = async () => {
+    if (!selectedPatient || !selectedProcedure || lineItems.length === 0) {
+      toast.error('Please complete all required fields');
+      return;
+    }
+
+    // 80mm thermal paper = ~226 points (1mm ≈ 2.83 points)
+    // Using custom paper size: 80mm width, auto-height
+    const paperWidth = 80; // mm
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [paperWidth, 250] // Start with 250mm height, we'll use as much as needed
+    });
+
+    const margin = 3;
+    const contentWidth = paperWidth - (margin * 2);
+    let y = margin;
+
+    // Set Georgia font (fallback to Times which is similar)
+    doc.setFont('times', 'normal');
+    doc.setFontSize(12);
+
+    // Helper function to center text
+    const centerText = (text: string, yPos: number, fontSize: number = 12, bold: boolean = false) => {
+      doc.setFontSize(fontSize);
+      doc.setFont('times', bold ? 'bold' : 'normal');
+      doc.text(text, paperWidth / 2, yPos, { align: 'center' });
+    };
+
+    // Helper function for left-aligned text
+    const leftText = (text: string, yPos: number, fontSize: number = 12, bold: boolean = false) => {
+      doc.setFontSize(fontSize);
+      doc.setFont('times', bold ? 'bold' : 'normal');
+      doc.text(text, margin, yPos);
+    };
+
+    // Helper function for right-aligned text
+    const rightText = (text: string, yPos: number, fontSize: number = 12, bold: boolean = false) => {
+      doc.setFontSize(fontSize);
+      doc.setFont('times', bold ? 'bold' : 'normal');
+      doc.text(text, paperWidth - margin, yPos, { align: 'right' });
+    };
+
+    // Helper for separator line
+    const drawLine = (yPos: number) => {
+      doc.setLineWidth(0.1);
+      doc.setLineDashPattern([1, 1], 0);
+      doc.line(margin, yPos, paperWidth - margin, yPos);
+      doc.setLineDashPattern([], 0);
+    };
+
+    // Header
+    const hospitalNameThermal = customHospitalName || defaultHospital?.name || 'HOSPITAL';
+    centerText(hospitalNameThermal.toUpperCase(), y + 4, 12, true);
+    y += 7;
+    
+    if (hospitalAddress) {
+      const addressLines = doc.splitTextToSize(hospitalAddress, contentWidth);
+      doc.setFontSize(9);
+      addressLines.forEach((line: string) => {
+        centerText(line, y, 9);
+        y += 4;
+      });
+    }
+    
+    if (hospitalPhone) {
+      centerText(`Tel: ${hospitalPhone}`, y, 9);
+      y += 5;
+    }
+
+    drawLine(y);
+    y += 4;
+
+    // Title
+    centerText('SURGICAL ESTIMATE', y, 12, true);
+    y += 6;
+
+    drawLine(y);
+    y += 5;
+
+    // Date and Estimate Number
+    leftText(`Date: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, y, 10);
+    y += 5;
+    leftText(`Est #: ${uuidv4().slice(0, 8).toUpperCase()}`, y, 10);
+    y += 5;
+
+    drawLine(y);
+    y += 5;
+
+    // Patient Details
+    centerText('PATIENT DETAILS', y, 10, true);
+    y += 5;
+    leftText(`Name: ${selectedPatient.firstName} ${selectedPatient.lastName}`, y, 10);
+    y += 5;
+    leftText(`Hosp No: ${selectedPatient.hospitalNumber || 'N/A'}`, y, 10);
+    y += 5;
+    const patientAge = selectedPatient.dateOfBirth 
+      ? differenceInYears(new Date(), new Date(selectedPatient.dateOfBirth))
+      : 'N/A';
+    leftText(`Age/Sex: ${patientAge}yrs / ${selectedPatient.gender?.charAt(0).toUpperCase() || '-'}`, y, 10);
+    y += 5;
+
+    drawLine(y);
+    y += 5;
+
+    // Procedure
+    centerText('PROCEDURE', y, 10, true);
+    y += 5;
+    const procedureLines = doc.splitTextToSize(selectedProcedure.name, contentWidth);
+    doc.setFontSize(10);
+    procedureLines.forEach((line: string) => {
+      leftText(line, y, 10);
+      y += 4;
+    });
+    y += 2;
+
+    drawLine(y);
+    y += 5;
+
+    // Items
+    centerText('COST BREAKDOWN', y, 10, true);
+    y += 6;
+
+    // Table header
+    doc.setFontSize(9);
+    doc.setFont('times', 'bold');
+    doc.text('Item', margin, y);
+    doc.text('Amount', paperWidth - margin, y, { align: 'right' });
+    y += 4;
+    drawLine(y);
+    y += 4;
+
+    // Line items
+    doc.setFont('times', 'normal');
+    lineItems.forEach((item) => {
+      // Item description (may wrap)
+      const itemDesc = item.quantity > 1 
+        ? `${item.description} x${item.quantity}`
+        : item.description;
+      const descLines = doc.splitTextToSize(itemDesc, contentWidth - 25);
+      
+      doc.setFontSize(9);
+      descLines.forEach((line: string, idx: number) => {
+        doc.text(line, margin, y);
+        if (idx === 0) {
+          // Amount on first line
+          doc.text(formatCurrencyPDF(item.totalPrice), paperWidth - margin, y, { align: 'right' });
+        }
+        y += 4;
+      });
+    });
+
+    y += 2;
+    drawLine(y);
+    y += 5;
+
+    // Totals
+    doc.setFontSize(10);
+    doc.setFont('times', 'bold');
+    doc.text('SUBTOTAL:', margin, y);
+    doc.text(formatCurrencyPDF(totals.subtotal), paperWidth - margin, y, { align: 'right' });
+    y += 5;
+
+    doc.setFontSize(12);
+    doc.text('TOTAL:', margin, y);
+    doc.text(formatCurrencyPDF(totals.total), paperWidth - margin, y, { align: 'right' });
+    y += 6;
+
+    drawLine(y);
+    y += 5;
+
+    // Bank Details
+    centerText('PAYMENT DETAILS', y, 9, true);
+    y += 5;
+    doc.setFontSize(9);
+    doc.setFont('times', 'normal');
+    centerText('Bank: ZENITH BANK', y, 9);
+    y += 4;
+    centerText('A/C: NNADI EMMANUEL CHIBUIKE', y, 9);
+    y += 4;
+    centerText('No: 2084929453', y, 9, true);
+    y += 5;
+    centerText('WhatsApp: 0902 872 4839', y, 8);
+    y += 5;
+
+    drawLine(y);
+    y += 4;
+
+    // Disclaimer (shortened for thermal)
+    doc.setFontSize(7);
+    centerText('NOTICE', y, 7, true);
+    y += 3;
+    const shortDisclaimer = [
+      'This estimate covers surgical costs only.',
+      'Excludes: admission, meds, labs, blood,',
+      'implants (if not listed), complications.'
+    ];
+    shortDisclaimer.forEach(line => {
+      centerText(line, y, 7);
+      y += 3;
+    });
+    y += 2;
+
+    drawLine(y);
+    y += 4;
+
+    // Prepared by
+    if (preparedBy) {
+      doc.setFontSize(8);
+      centerText(`Prepared by: ${preparedBy}`, y, 8);
+      y += 4;
+    }
+    if (preparedByDesignation) {
+      centerText(preparedByDesignation, y, 8);
+      y += 4;
+    }
+
+    y += 2;
+    centerText('Thank you!', y, 10, true);
+    y += 5;
+
+    // Footer
+    doc.setFontSize(6);
+    centerText('Powered by AstroHEALTH', y, 6);
+    y += 3;
+    centerText(format(new Date(), 'dd/MM/yyyy HH:mm:ss'), y, 6);
+
+    // Open print dialog for thermal printer
+    doc.autoPrint();
+    window.open(doc.output('bloburl'), '_blank');
+    toast.success('Thermal receipt ready for printing');
+  };
+
   // Get category icon
   const getCategoryIcon = (category: EstimateLineItem['category']) => {
     switch (category) {
@@ -635,6 +871,15 @@ export default function SurgicalEstimatePage() {
           >
             <History size={18} />
             History
+          </button>
+          <button
+            onClick={generateThermalPDF}
+            disabled={!selectedPatient || !selectedProcedure || lineItems.length === 0}
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            title="Print on 80mm thermal receipt printer"
+          >
+            <Printer size={18} />
+            Thermal Print
           </button>
           <button
             onClick={generatePDF}
@@ -1037,6 +1282,15 @@ export default function SurgicalEstimatePage() {
                 Download PDF Estimate
               </button>
               <button
+                onClick={generateThermalPDF}
+                disabled={!selectedPatient || !selectedProcedure || lineItems.length === 0}
+                className="w-full py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                title="Print on 80mm thermal receipt printer"
+              >
+                <Printer size={18} />
+                Print Thermal Receipt
+              </button>
+              <button
                 onClick={() => setShowEstimatePreview(true)}
                 disabled={!selectedPatient || !selectedProcedure}
                 className="w-full py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -1232,6 +1486,14 @@ export default function SurgicalEstimatePage() {
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold">Estimate Preview</h3>
                 <div className="flex gap-2">
+                  <button
+                    onClick={generateThermalPDF}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
+                    title="Print on 80mm thermal receipt printer"
+                  >
+                    <Printer size={16} />
+                    Thermal
+                  </button>
                   <button
                     onClick={generatePDF}
                     className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 flex items-center gap-2"

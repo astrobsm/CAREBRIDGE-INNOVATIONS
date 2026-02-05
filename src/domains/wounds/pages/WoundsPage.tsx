@@ -48,7 +48,7 @@ import {
   type SkinGraftProtocolData 
 } from '../../../utils/dressingProtocolPrint';
 import { PatientSelector } from '../../../components/patient';
-import { syncRecord } from '../../../services/cloudSyncService';
+import { syncRecord, fullSync } from '../../../services/cloudSyncService';
 import { usePatientMap } from '../../../services/patientHooks';
 import AIWoundPlanimetry from '../components/AIWoundPlanimetry';
 
@@ -148,6 +148,13 @@ export default function WoundsPage() {
   const [showAIPlanimetry, setShowAIPlanimetry] = useState(false);
   const [woundImageData, setWoundImageData] = useState<string | null>(null);
   const [woundPhotos, setWoundPhotos] = useState<WoundPhoto[]>([]);
+
+  // Trigger sync when page loads to ensure latest wound data
+  useEffect(() => {
+    if (navigator.onLine) {
+      fullSync().catch(err => console.warn('[WoundsPage] Sync error:', err));
+    }
+  }, []);
 
   // If patientId is passed in URL, filter wounds to only that patient
   const wounds = useLiveQuery(() => {

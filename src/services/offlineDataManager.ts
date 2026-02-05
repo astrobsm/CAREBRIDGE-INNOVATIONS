@@ -95,19 +95,49 @@ class OfflineChangeTracker {
 
   private async resetDatabase(): Promise<void> {
     console.log('[OfflineTracker] Resetting corrupted database...');
+    
+    // Close existing connection if any
+    if (this.db) {
+      try {
+        this.db.close();
+      } catch (e) {
+        console.warn('[OfflineTracker] Error closing db:', e);
+      }
+      this.db = null;
+    }
+    this.initialized = false;
+    this.initPromise = null;
+    
+    // Wait for connections to fully close
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     return new Promise((resolve, reject) => {
       const deleteRequest = indexedDB.deleteDatabase(this.dbName);
+      
       deleteRequest.onsuccess = () => {
         console.log('[OfflineTracker] Database deleted, reinitializing...');
-        this.initialized = false;
-        this.db = null;
-        this.initPromise = null;
-        // Reinitialize
-        this.init().then(resolve).catch(reject);
+        // Small delay before reinit
+        setTimeout(() => {
+          this.init().then(resolve).catch(reject);
+        }, 50);
       };
+      
       deleteRequest.onerror = () => {
         console.error('[OfflineTracker] Failed to delete database:', deleteRequest.error);
-        reject(deleteRequest.error);
+        // Even on error, try to continue - the DB might be inaccessible
+        console.log('[OfflineTracker] Continuing despite delete error...');
+        // Create an in-memory fallback
+        this.initialized = true;
+        this.db = null; // Will use fallback mode
+        resolve();
+      };
+      
+      deleteRequest.onblocked = () => {
+        console.warn('[OfflineTracker] Database delete blocked, proceeding anyway...');
+        // Proceed anyway - database will be recreated on next page load
+        this.initialized = true;
+        this.db = null;
+        resolve();
       };
     });
   }

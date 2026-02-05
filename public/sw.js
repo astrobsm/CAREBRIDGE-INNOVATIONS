@@ -1,5 +1,5 @@
-// CareBridge Service Worker v2.0.0 - Enhanced Offline-First PWA
-const CACHE_VERSION = '2.0.0';
+// CareBridge Service Worker v2.2.0 - Enhanced Offline-First PWA with IndexedDB Corruption Recovery
+const CACHE_VERSION = '2.2.0';
 const STATIC_CACHE = `carebridge-static-v${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `carebridge-dynamic-v${CACHE_VERSION}`;
 const API_CACHE = `carebridge-api-v${CACHE_VERSION}`;
@@ -47,28 +47,98 @@ const OFFLINE_API_PATTERNS = [
 class OfflineRequestQueue {
   constructor() {
     this.dbPromise = this.initDB();
+    this.fallbackMode = false; // Use in-memory fallback if IndexedDB is corrupted
+    this.fallbackQueue = [];
   }
 
   async initDB() {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(OFFLINE_QUEUE_DB, 1);
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result);
-      
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains(OFFLINE_QUEUE_STORE)) {
-          const store = db.createObjectStore(OFFLINE_QUEUE_STORE, { keyPath: 'id', autoIncrement: true });
-          store.createIndex('timestamp', 'timestamp', { unique: false });
-          store.createIndex('url', 'url', { unique: false });
-        }
+      try {
+        const request = indexedDB.open(OFFLINE_QUEUE_DB, 1);
+        
+        request.onerror = (event) => {
+          const error = request.error || event.target?.error;
+          console.error('[SW] OfflineRequestQueue DB error:', error);
+          
+          // Check for corruption errors
+          if (error && (error.name === 'UnknownError' || 
+              (error.message && error.message.includes('Internal error opening backing store')))) {
+            console.warn('[SW] IndexedDB corrupted, using in-memory fallback');
+            this.fallbackMode = true;
+            resolve(null);
+            return;
+          }
+          
+          // For other errors, try to delete and recreate
+          this.tryRecoverDB().then(db => resolve(db)).catch(() => {
+            this.fallbackMode = true;
+            resolve(null);
+          });
+        };
+        
+        request.onsuccess = () => resolve(request.result);
+        
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(OFFLINE_QUEUE_STORE)) {
+            const store = db.createObjectStore(OFFLINE_QUEUE_STORE, { keyPath: 'id', autoIncrement: true });
+            store.createIndex('timestamp', 'timestamp', { unique: false });
+            store.createIndex('url', 'url', { unique: false });
+          }
+        };
+      } catch (error) {
+        console.error('[SW] Exception in initDB:', error);
+        this.fallbackMode = true;
+        resolve(null);
+      }
+    });
+  }
+  
+  async tryRecoverDB() {
+    console.log('[SW] Attempting to recover OfflineRequestQueue DB...');
+    return new Promise((resolve, reject) => {
+      const deleteReq = indexedDB.deleteDatabase(OFFLINE_QUEUE_DB);
+      deleteReq.onsuccess = () => {
+        console.log('[SW] DB deleted, recreating...');
+        const openReq = indexedDB.open(OFFLINE_QUEUE_DB, 1);
+        openReq.onsuccess = () => resolve(openReq.result);
+        openReq.onerror = () => reject(openReq.error);
+        openReq.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(OFFLINE_QUEUE_STORE)) {
+            const store = db.createObjectStore(OFFLINE_QUEUE_STORE, { keyPath: 'id', autoIncrement: true });
+            store.createIndex('timestamp', 'timestamp', { unique: false });
+            store.createIndex('url', 'url', { unique: false });
+          }
+        };
       };
+      deleteReq.onerror = () => reject(deleteReq.error);
+      deleteReq.onblocked = () => reject(new Error('Delete blocked'));
     });
   }
 
   async add(request, body) {
+    // Use fallback mode if IndexedDB is corrupted
+    if (this.fallbackMode) {
+      const record = {
+        id: Date.now() + Math.random(),
+        url: request.url,
+        method: request.method,
+        headers: Object.fromEntries(request.headers.entries()),
+        body: body,
+        timestamp: Date.now()
+      };
+      this.fallbackQueue.push(record);
+      return record.id;
+    }
+    
     const db = await this.dbPromise;
+    if (!db) {
+      console.warn('[SW] No DB available for add, using fallback');
+      this.fallbackMode = true;
+      return this.add(request, body);
+    }
+    
     const record = {
       url: request.url,
       method: request.method,
@@ -78,55 +148,124 @@ class OfflineRequestQueue {
     };
     
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([OFFLINE_QUEUE_STORE], 'readwrite');
-      const store = transaction.objectStore(OFFLINE_QUEUE_STORE);
-      const req = store.add(record);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      try {
+        const transaction = db.transaction([OFFLINE_QUEUE_STORE], 'readwrite');
+        const store = transaction.objectStore(OFFLINE_QUEUE_STORE);
+        const req = store.add(record);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => {
+          console.warn('[SW] Add failed, falling back to memory');
+          this.fallbackMode = true;
+          this.fallbackQueue.push({ ...record, id: Date.now() });
+          resolve(Date.now());
+        };
+      } catch (error) {
+        console.warn('[SW] Transaction error, falling back to memory:', error);
+        this.fallbackMode = true;
+        this.fallbackQueue.push({ ...record, id: Date.now() });
+        resolve(Date.now());
+      }
     });
   }
 
   async getAll() {
+    if (this.fallbackMode) {
+      return this.fallbackQueue;
+    }
+    
     const db = await this.dbPromise;
+    if (!db) {
+      return this.fallbackQueue;
+    }
+    
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([OFFLINE_QUEUE_STORE], 'readonly');
-      const store = transaction.objectStore(OFFLINE_QUEUE_STORE);
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      try {
+        const transaction = db.transaction([OFFLINE_QUEUE_STORE], 'readonly');
+        const store = transaction.objectStore(OFFLINE_QUEUE_STORE);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => {
+          console.warn('[SW] getAll failed, returning fallback');
+          resolve(this.fallbackQueue);
+        };
+      } catch (error) {
+        console.warn('[SW] getAll transaction error:', error);
+        resolve(this.fallbackQueue);
+      }
     });
   }
 
   async remove(id) {
+    if (this.fallbackMode) {
+      this.fallbackQueue = this.fallbackQueue.filter(r => r.id !== id);
+      return;
+    }
+    
     const db = await this.dbPromise;
+    if (!db) {
+      this.fallbackQueue = this.fallbackQueue.filter(r => r.id !== id);
+      return;
+    }
+    
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([OFFLINE_QUEUE_STORE], 'readwrite');
-      const store = transaction.objectStore(OFFLINE_QUEUE_STORE);
-      const req = store.delete(id);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
+      try {
+        const transaction = db.transaction([OFFLINE_QUEUE_STORE], 'readwrite');
+        const store = transaction.objectStore(OFFLINE_QUEUE_STORE);
+        const req = store.delete(id);
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve(); // Ignore errors on remove
+      } catch (error) {
+        console.warn('[SW] remove error:', error);
+        resolve();
+      }
     });
   }
 
   async clear() {
+    if (this.fallbackMode) {
+      this.fallbackQueue = [];
+      return;
+    }
+    
     const db = await this.dbPromise;
+    if (!db) {
+      this.fallbackQueue = [];
+      return;
+    }
+    
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([OFFLINE_QUEUE_STORE], 'readwrite');
-      const store = transaction.objectStore(OFFLINE_QUEUE_STORE);
-      const req = store.clear();
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
+      try {
+        const transaction = db.transaction([OFFLINE_QUEUE_STORE], 'readwrite');
+        const store = transaction.objectStore(OFFLINE_QUEUE_STORE);
+        const req = store.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve(); // Ignore errors on clear
+      } catch (error) {
+        resolve();
+      }
     });
   }
 
   async count() {
+    if (this.fallbackMode) {
+      return this.fallbackQueue.length;
+    }
+    
     const db = await this.dbPromise;
+    if (!db) {
+      return this.fallbackQueue.length;
+    }
+    
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([OFFLINE_QUEUE_STORE], 'readonly');
-      const store = transaction.objectStore(OFFLINE_QUEUE_STORE);
-      const req = store.count();
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      try {
+        const transaction = db.transaction([OFFLINE_QUEUE_STORE], 'readonly');
+        const store = transaction.objectStore(OFFLINE_QUEUE_STORE);
+        const req = store.count();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(this.fallbackQueue.length);
+      } catch (error) {
+        resolve(this.fallbackQueue.length);
+      }
     });
   }
 }
@@ -135,7 +274,7 @@ const offlineQueue = new OfflineRequestQueue();
 
 // Install event - cache static assets (app shell)
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Service Worker v2.0.0...');
+  console.log('[SW] Installing Service Worker v2.2.0...');
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then(async (cache) => {
@@ -165,7 +304,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches and claim clients
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Service Worker v2.0.0...');
+  console.log('[SW] Activating Service Worker v2.2.0...');
   event.waitUntil(
     Promise.all([
       // Clean up old caches
@@ -720,6 +859,20 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
+  // Handle MDT notification actions
+  if (notificationType === 'mdt-invitation') {
+    if (event.action === 'snooze') {
+      // Just close, the timer will send another notification after the interval
+      console.log('[SW] MDT invitation snoozed - will remind again');
+      return;
+    }
+    
+    // Open MDT page with invitation context
+    const url = notificationData.url || `/clinical/mdt?invitation=${notificationData.invitationId}&meeting=${notificationData.mdtMeetingId}&patient=${notificationData.patientId}`;
+    event.waitUntil(openAppWindow(url));
+    return;
+  }
+
   // Handle patient assignment acknowledgment
   if (event.action === 'acknowledge') {
     if (notificationData.type === 'patient_assignment' && notificationData.notificationId) {
@@ -785,6 +938,11 @@ self.addEventListener('notificationclick', (event) => {
           break;
         case 'prescription_ready':
           url = '/pharmacy';
+          break;
+        case 'mdt-invitation':
+          url = notificationData.invitationId 
+            ? `/clinical/mdt?invitation=${notificationData.invitationId}&meeting=${notificationData.mdtMeetingId}&patient=${notificationData.patientId}`
+            : '/clinical/mdt';
           break;
         default:
           url = '/dashboard';
@@ -1049,7 +1207,19 @@ async function checkVoiceNotificationsFromSW() {
   try {
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open(NOTIFICATION_DB_NAME, 1);
-      request.onerror = () => reject(request.error);
+      
+      request.onerror = (event) => {
+        const error = request.error || event.target?.error;
+        // Check for corruption errors
+        if (error && (error.name === 'UnknownError' || 
+            (error.message && error.message.includes('Internal error opening backing store')))) {
+          console.warn('[SW] Voice notification DB corrupted, skipping check');
+          resolve(null);
+          return;
+        }
+        reject(error);
+      };
+      
       request.onsuccess = () => resolve(request.result);
       request.onupgradeneeded = (event) => {
         const database = event.target.result;
@@ -1061,18 +1231,35 @@ async function checkVoiceNotificationsFromSW() {
       };
     });
     
+    // If DB is null (corrupted), skip this check
+    if (!db) {
+      return;
+    }
+    
+    // Check if the object store exists before trying to access it
+    if (!db.objectStoreNames.contains(NOTIFICATION_STORE_NAME)) {
+      console.warn('[SW] Voice notification store does not exist, skipping check');
+      db.close();
+      return;
+    }
+    
     // Get all unacknowledged notifications
     // Note: IndexedDB doesn't support boolean keys well, so we get all and filter
     const pending = await new Promise((resolve, reject) => {
-      const transaction = db.transaction([NOTIFICATION_STORE_NAME], 'readonly');
-      const store = transaction.objectStore(NOTIFICATION_STORE_NAME);
-      const req = store.getAll();
-      req.onsuccess = () => {
-        const all = req.result || [];
-        // Filter for unacknowledged notifications (acknowledged !== true)
-        resolve(all.filter(n => n.acknowledged !== true && n.acknowledged !== 'true'));
-      };
-      req.onerror = () => reject(req.error);
+      try {
+        const transaction = db.transaction([NOTIFICATION_STORE_NAME], 'readonly');
+        const store = transaction.objectStore(NOTIFICATION_STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const all = req.result || [];
+          // Filter for unacknowledged notifications (acknowledged !== true)
+          resolve(all.filter(n => n.acknowledged !== true && n.acknowledged !== 'true'));
+        };
+        req.onerror = () => resolve([]); // Return empty on error
+      } catch (error) {
+        console.warn('[SW] Error accessing voice notification store:', error);
+        resolve([]);
+      }
     });
     
     if (pending.length === 0) {
@@ -1161,22 +1348,60 @@ async function checkNotificationsFromSW() {
   try {
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open(NOTIFICATION_DB, 2);
-      request.onerror = () => reject(request.error);
+      
+      request.onerror = (event) => {
+        const error = request.error || event.target?.error;
+        // Check for corruption errors
+        if (error && (error.name === 'UnknownError' || 
+            (error.message && error.message.includes('Internal error opening backing store')))) {
+          console.warn('[SW] Notification DB corrupted, skipping check');
+          resolve(null);
+          return;
+        }
+        reject(error);
+      };
+      
       request.onsuccess = () => resolve(request.result);
+      
+      request.onupgradeneeded = (event) => {
+        const database = event.target.result;
+        if (!database.objectStoreNames.contains(NOTIFICATION_STORE)) {
+          const store = database.createObjectStore(NOTIFICATION_STORE, { keyPath: 'id' });
+          store.createIndex('scheduledTime', 'scheduledTime', { unique: false });
+          store.createIndex('notified', 'notified', { unique: false });
+        }
+      };
     });
     
+    // If DB is null (corrupted), skip this check
+    if (!db) {
+      return;
+    }
+    
+    // Check if the object store exists before trying to access it
+    if (!db.objectStoreNames.contains(NOTIFICATION_STORE)) {
+      console.warn('[SW] Notification store does not exist, skipping check');
+      db.close();
+      return;
+    }
+    
     const pending = await new Promise((resolve, reject) => {
-      const transaction = db.transaction([NOTIFICATION_STORE], 'readonly');
-      const store = transaction.objectStore(NOTIFICATION_STORE);
-      const req = store.getAll();
-      req.onsuccess = () => {
-        const now = new Date();
-        const pendingNotifications = req.result.filter(s => 
-          !s.notified && new Date(s.scheduledTime) <= now
-        );
-        resolve(pendingNotifications);
-      };
-      req.onerror = () => reject(req.error);
+      try {
+        const transaction = db.transaction([NOTIFICATION_STORE], 'readonly');
+        const store = transaction.objectStore(NOTIFICATION_STORE);
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const now = new Date();
+          const pendingNotifications = req.result.filter(s => 
+            !s.notified && new Date(s.scheduledTime) <= now
+          );
+          resolve(pendingNotifications);
+        };
+        req.onerror = () => resolve([]); // Return empty array on error
+      } catch (error) {
+        console.warn('[SW] Error accessing notification store:', error);
+        resolve([]);
+      }
     });
     
     for (const schedule of pending) {
@@ -1226,9 +1451,130 @@ async function checkNotificationsFromSW() {
   }
 }
 
+// Check MDT invitations and send repeated push notifications until specialist responds
+async function checkMDTInvitationsFromSW() {
+  const MDT_NOTIFICATION_DB = 'carebridge-mdt-invitations';
+  const MDT_NOTIFICATION_STORE = 'pending-mdt-invitations';
+  
+  try {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open(MDT_NOTIFICATION_DB, 1);
+      
+      request.onerror = (event) => {
+        const error = request.error || event.target?.error;
+        if (error && (error.name === 'UnknownError' || 
+            (error.message && error.message.includes('Internal error opening backing store')))) {
+          console.warn('[SW] MDT Notification DB corrupted, skipping check');
+          resolve(null);
+          return;
+        }
+        reject(error);
+      };
+      
+      request.onsuccess = () => resolve(request.result);
+      
+      request.onupgradeneeded = (event) => {
+        const database = event.target.result;
+        if (!database.objectStoreNames.contains(MDT_NOTIFICATION_STORE)) {
+          const store = database.createObjectStore(MDT_NOTIFICATION_STORE, { keyPath: 'id' });
+          store.createIndex('specialistUserId', 'specialistUserId', { unique: false });
+          store.createIndex('status', 'status', { unique: false });
+        }
+      };
+    });
+    
+    if (!db) return;
+    
+    if (!db.objectStoreNames.contains(MDT_NOTIFICATION_STORE)) {
+      console.warn('[SW] MDT notification store does not exist, skipping check');
+      db.close();
+      return;
+    }
+    
+    const pendingInvitations = await new Promise((resolve, reject) => {
+      try {
+        const transaction = db.transaction([MDT_NOTIFICATION_STORE], 'readonly');
+        const store = transaction.objectStore(MDT_NOTIFICATION_STORE);
+        const req = store.getAll();
+        req.onsuccess = () => {
+          // Filter for pending invitations that haven't been plan_submitted
+          const pending = req.result.filter(inv => 
+            inv.status === 'pending' || inv.status === 'acknowledged'
+          );
+          resolve(pending);
+        };
+        req.onerror = () => resolve([]);
+      } catch (error) {
+        console.warn('[SW] Error accessing MDT notification store:', error);
+        resolve([]);
+      }
+    });
+    
+    const now = Date.now();
+    
+    for (const invitation of pendingInvitations) {
+      // Check if it's time to send another notification (based on repeatIntervalMs)
+      const lastNotified = invitation.lastNotifiedAt || invitation.createdAt;
+      const repeatInterval = invitation.repeatIntervalMs || 45000; // Default 45 seconds
+      
+      if (now - new Date(lastNotified).getTime() >= repeatInterval) {
+        // Show MDT invitation notification
+        await self.registration.showNotification('🏥 MDT Meeting - Action Required', {
+          body: `Patient: ${invitation.patientName}\nHospital: ${invitation.hospitalName}\nInvited by: ${invitation.invitedByName}\n\nPlease submit your specialty treatment plan.`,
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-72x72.png',
+          vibrate: [300, 100, 300, 100, 300],
+          tag: `mdt-invitation-${invitation.id}`,
+          requireInteraction: true,
+          data: {
+            type: 'mdt-invitation',
+            invitationId: invitation.id,
+            mdtMeetingId: invitation.mdtMeetingId,
+            patientId: invitation.patientId,
+            patientName: invitation.patientName,
+            hospitalName: invitation.hospitalName,
+            url: `/clinical/mdt?invitation=${invitation.id}&meeting=${invitation.mdtMeetingId}&patient=${invitation.patientId}`,
+          },
+          actions: [
+            { action: 'open-mdt', title: 'Submit Plan' },
+            { action: 'snooze', title: 'Remind Later' }
+          ]
+        });
+        
+        // Update lastNotifiedAt
+        await new Promise((resolve, reject) => {
+          try {
+            const transaction = db.transaction([MDT_NOTIFICATION_STORE], 'readwrite');
+            const store = transaction.objectStore(MDT_NOTIFICATION_STORE);
+            const getReq = store.get(invitation.id);
+            getReq.onsuccess = () => {
+              const data = getReq.result;
+              if (data) {
+                data.lastNotifiedAt = new Date().toISOString();
+                store.put(data);
+              }
+              resolve();
+            };
+            getReq.onerror = () => resolve();
+          } catch (error) {
+            resolve();
+          }
+        });
+        
+        console.log(`[SW] Sent MDT invitation notification for patient: ${invitation.patientName}`);
+      }
+    }
+    
+    db.close();
+  } catch (error) {
+    console.error('[SW] Error checking MDT invitations from SW:', error);
+  }
+}
+
 // Set up periodic notification check timer (fallback for when periodic sync is not available)
 let notificationCheckTimer = null;
 let voiceNotificationTimer = null;
+let mdtNotificationTimer = null;
 
 function startNotificationTimer() {
   if (notificationCheckTimer) return;
@@ -1254,9 +1600,24 @@ function startVoiceNotificationTimer() {
   console.log('[SW] Voice notification timer started');
 }
 
+// Start MDT invitation notification timer (every 45 seconds)
+function startMDTNotificationTimer() {
+  if (mdtNotificationTimer) return;
+  
+  mdtNotificationTimer = setInterval(() => {
+    checkMDTInvitationsFromSW();
+  }, 45000); // 45 seconds - matches the repeat interval
+  
+  // Also check immediately on start
+  checkMDTInvitationsFromSW();
+  
+  console.log('[SW] MDT notification timer started');
+}
+
 // Start timer when SW activates
 startNotificationTimer();
 startVoiceNotificationTimer();
+startMDTNotificationTimer();
 
 // Handle app lifecycle events
 self.addEventListener('online', () => {
@@ -1265,4 +1626,4 @@ self.addEventListener('online', () => {
   checkAndSendNotifications();
 });
 
-console.log('[SW] Service Worker v2.1.0 loaded - Offline-First PWA with Voice Notifications ready');
+console.log('[SW] Service Worker v2.2.0 loaded - Offline-First PWA with IndexedDB Corruption Recovery ready');

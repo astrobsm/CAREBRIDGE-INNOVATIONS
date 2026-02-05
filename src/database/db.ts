@@ -59,6 +59,12 @@ import type {
   UserSettings,
   HospitalSettings,
   MeetingMinutes,
+  // Substance Use Disorder Assessment types
+  SubstanceUseAssessment,
+  DetoxMonitoringRecord,
+  DetoxFollowUp,
+  SubstanceUseConsent,
+  SubstanceUseClinicalSummary,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -148,11 +154,17 @@ export class AstroHEALTHDatabase extends Dexie {
   hospitalSettings!: Table<HospitalSettings, string>;
   // Meeting Minutes & Transcriptions
   meetingMinutes!: Table<MeetingMinutes, string>;
+  // Substance Use Disorder Assessment & Detoxification
+  substanceUseAssessments!: Table<SubstanceUseAssessment, string>;
+  detoxMonitoringRecords!: Table<DetoxMonitoringRecord, string>;
+  detoxFollowUps!: Table<DetoxFollowUp, string>;
+  substanceUseConsents!: Table<SubstanceUseConsent, string>;
+  substanceUseClinicalSummaries!: Table<SubstanceUseClinicalSummary, string>;
 
   constructor() {
     super('AstroHEALTHDB');
 
-    this.version(66).stores({
+    this.version(67).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -232,6 +244,12 @@ export class AstroHEALTHDatabase extends Dexie {
       hospitalSettings: 'id, hospitalId, createdAt',
       // Meeting Minutes & Transcriptions
       meetingMinutes: 'id, conferenceId, hospitalId, patientId, hostId, status, meetingDate, meetingType, createdAt',
+      // Substance Use Disorder Assessment & Detoxification (CSUD-DSM)
+      substanceUseAssessments: 'id, patientId, hospitalId, encounterId, admissionId, status, primarySubstance, assessedBy, assessmentDate, createdAt',
+      detoxMonitoringRecords: 'id, assessmentId, patientId, recordedBy, recordedAt, createdAt',
+      detoxFollowUps: 'id, assessmentId, patientId, status, scheduledDate, actualDate, createdAt',
+      substanceUseConsents: 'id, assessmentId, consentTimestamp, createdAt',
+      substanceUseClinicalSummaries: 'id, assessmentId, patientId, generatedAt, createdAt',
     });
   }
 }

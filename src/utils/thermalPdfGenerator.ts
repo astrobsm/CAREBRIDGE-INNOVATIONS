@@ -123,15 +123,75 @@ export function createThermalPDF(data: ThermalDocumentData): jsPDF {
         break;
 
       case 'keyValue':
-        doc.setFont('times', 'bold');
         doc.setFontSize(10);
-        doc.text(`${section.key}:`, THERMAL_MARGIN, y);
-        doc.setFont('times', 'normal');
-        const valueLines = doc.splitTextToSize(section.value || '', THERMAL_CONTENT_WIDTH - 60);
-        valueLines.forEach((line: string, idx: number) => {
-          doc.text(line, THERMAL_MARGIN + (idx === 0 ? 55 : 0), y);
+        const keyText = section.key || '';
+        const valText = section.value || '';
+        
+        // Handle divider line (---:---)
+        if (keyText === '---' || valText === '---') {
+          doc.setLineWidth(0.3);
+          doc.setLineDashPattern([2, 2], 0);
+          doc.line(THERMAL_MARGIN, y - 4, THERMAL_PAGE_WIDTH - THERMAL_MARGIN, y - 4);
+          doc.setLineDashPattern([], 0);
+          y += 6;
+          break;
+        }
+        
+        // If no key (empty label), just print the value (for continuation lines)
+        if (!keyText || keyText.trim() === '') {
+          doc.setFont('times', 'normal');
+          const valueOnlyLines = doc.splitTextToSize(valText, THERMAL_CONTENT_WIDTH);
+          valueOnlyLines.forEach((line: string) => {
+            if (y > THERMAL_PAGE_HEIGHT - 30) {
+              doc.addPage([THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT]);
+              y = THERMAL_MARGIN;
+            }
+            doc.text(line, THERMAL_MARGIN, y);
+            y += 12;
+          });
+          break;
+        }
+        
+        // Calculate if key + value can fit on one line
+        doc.setFont('times', 'bold');
+        const keyWidth = doc.getTextWidth(`${keyText}: `);
+        const availableValueWidth = THERMAL_CONTENT_WIDTH - keyWidth;
+        
+        // If key is short (number like "1.") or simple label, try inline format
+        if (keyWidth < 40 && availableValueWidth > 80) {
+          // Short key - try to fit value on same line
+          doc.text(`${keyText}`, THERMAL_MARGIN, y);
+          doc.setFont('times', 'normal');
+          const valueLines = doc.splitTextToSize(valText, availableValueWidth - 5);
+          valueLines.forEach((line: string, idx: number) => {
+            if (idx === 0) {
+              doc.text(line, THERMAL_MARGIN + keyWidth + 2, y);
+            } else {
+              y += 12;
+              if (y > THERMAL_PAGE_HEIGHT - 30) {
+                doc.addPage([THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT]);
+                y = THERMAL_MARGIN;
+              }
+              doc.text(line, THERMAL_MARGIN + keyWidth + 2, y);
+            }
+          });
           y += 12;
-        });
+        } else {
+          // Long key - stack key and value on separate lines
+          doc.setFont('times', 'bold');
+          doc.text(`${keyText}:`, THERMAL_MARGIN, y);
+          y += 12;
+          doc.setFont('times', 'normal');
+          const valueLines = doc.splitTextToSize(valText, THERMAL_CONTENT_WIDTH);
+          valueLines.forEach((line: string) => {
+            if (y > THERMAL_PAGE_HEIGHT - 30) {
+              doc.addPage([THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT]);
+              y = THERMAL_MARGIN;
+            }
+            doc.text(`  ${line}`, THERMAL_MARGIN, y); // Indent value
+            y += 12;
+          });
+        }
         break;
 
       case 'table':

@@ -55,6 +55,7 @@ import PostOpCarePage from './domains/post-op-care/pages/PostOpCarePage';
 import PostOpMonitoringChartsPage from './domains/post-op-care/pages/PostOpMonitoringChartsPage';
 import PreoperativePlanningPage from './domains/preoperative-planning/pages/PreoperativePlanningPage';
 import ShoppingChecklistPage from './domains/shopping-checklist/pages/ShoppingChecklistPage';
+import SubstanceUseAssessmentPage from './domains/substance-use/pages/SubstanceUseAssessmentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
 import InstallPrompt from './components/pwa/InstallPrompt';
@@ -143,6 +144,7 @@ function App() {
         <Route path="burns" element={<BurnsAssessmentPage />} />
         <Route path="limb-salvage" element={<LimbSalvagePage />} />
         <Route path="npwt" element={<NPWTPage />} />
+        <Route path="substance-use" element={<SubstanceUseAssessmentPage />} />
         <Route path="medication-chart" element={<MedicationChartPage />} />
         <Route path="patient-education" element={<PatientEducationPage />} />
         <Route path="patient-education/:conditionId" element={<PatientEducationDetailPage />} />

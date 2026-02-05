@@ -123,10 +123,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await db.open();
       } catch (error) {
         console.warn('[Auth] Database open failed, attempting recovery...', error);
-        // If database fails to open (version conflict), delete and recreate
-        if (error instanceof Dexie.VersionError || error instanceof Dexie.UpgradeError) {
-          console.log('[Auth] Deleting old database due to version conflict...');
-          await Dexie.delete('AstroHEALTHDB');
+        
+        // Check for various database corruption errors
+        const errorName = error instanceof Error ? error.name : String(error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isCorruptionError = 
+          error instanceof Dexie.VersionError || 
+          error instanceof Dexie.UpgradeError ||
+          errorName === 'UnknownError' ||
+          errorMessage.includes('Internal error opening backing store') ||
+          errorMessage.includes('corrupted') ||
+          errorMessage.includes('UnknownError');
+        
+        if (isCorruptionError) {
+          console.log('[Auth] Deleting corrupted database...');
+          try {
+            // Close any open connections first
+            if (db.isOpen()) {
+              db.close();
+            }
+            // Wait a moment for connections to close
+            await new Promise(resolve => setTimeout(resolve, 100));
+            // Delete the database
+            await Dexie.delete('AstroHEALTHDB');
+            console.log('[Auth] Database deleted successfully, reloading...');
+          } catch (deleteError) {
+            console.error('[Auth] Failed to delete database:', deleteError);
+            // Try using native IndexedDB delete as fallback
+            try {
+              await new Promise<void>((resolve, reject) => {
+                const req = indexedDB.deleteDatabase('AstroHEALTHDB');
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+                req.onblocked = () => {
+                  console.warn('[Auth] Database delete blocked, will try reload anyway');
+                  resolve();
+                };
+              });
+            } catch {
+              console.error('[Auth] Native delete also failed');
+            }
+          }
           // Reload the page to reinitialize with fresh database
           window.location.reload();
           return;

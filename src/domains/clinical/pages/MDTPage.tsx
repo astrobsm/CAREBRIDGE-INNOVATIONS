@@ -7,6 +7,7 @@
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -44,6 +45,8 @@ import {
   Minus,
   Thermometer,
   Droplets,
+  Bell,
+  UserPlus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -63,6 +66,14 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { PatientSelector } from '../../../components/patient';
 import {
+  mdtNotificationService,
+  initMDTNotificationService,
+  getPendingMDTInvitations,
+  acknowledgeMDTInvitation,
+  markPlanSubmittedByMeetingAndSpecialist,
+  type MDTInvitation,
+} from '../../../services/mdtNotificationService';
+import {
   mdtService,
   specialtyDefinitions,
   type SpecialtyType,
@@ -77,14 +88,30 @@ import {
 
 type TabType = 'meetings' | 'plans' | 'harmonize' | 'approvals';
 
+// Specialist selection interface
+interface SelectedSpecialist {
+  userId: string;
+  name: string;
+  specialty: string;
+  email?: string;
+  role: string;
+}
+
 export default function MDTPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>('meetings');
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [showHarmonizeModal, setShowHarmonizeModal] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [expandedSections, setExpandedSections] = useState<string[]>(['overview']);
+  
+  // Specialist invitation states
+  const [selectedSpecialists, setSelectedSpecialists] = useState<SelectedSpecialist[]>([]);
+  const [specialistSearch, setSpecialistSearch] = useState<string>('');
+  const [myPendingInvitations, setMyPendingInvitations] = useState<MDTInvitation[]>([]);
   
   // Meeting form states
   const [meetingDate, setMeetingDate] = useState<string>('');
@@ -275,6 +302,77 @@ export default function MDTPage() {
 
   // Data queries - include patients where isActive is true or undefined (for backward compatibility)
   const patients = useLiveQuery(() => db.patients.filter(p => p.isActive !== false).toArray(), []);
+  
+  // Query all active users who can be specialists (doctors, surgeons, consultants, etc.)
+  const allSpecialists = useLiveQuery(async () => {
+    const users = await db.users.filter(u => 
+      u.isActive !== false && 
+      ['surgeon', 'doctor', 'consultant', 'senior_consultant', 'medical_officer', 
+       'anaesthetist', 'radiologist', 'pathologist', 'pharmacist', 'physiotherapist',
+       'nutritionist', 'psychologist', 'oncologist', 'nurse'].includes(u.role || '')
+    ).toArray();
+    return users;
+  }, []);
+
+  // Filter specialists based on search
+  const filteredSpecialists = useMemo(() => {
+    if (!allSpecialists) return [];
+    if (!specialistSearch.trim()) return allSpecialists;
+    const search = specialistSearch.toLowerCase();
+    return allSpecialists.filter(s => 
+      `${s.firstName} ${s.lastName}`.toLowerCase().includes(search) ||
+      s.role?.toLowerCase().includes(search) ||
+      s.specialization?.toLowerCase().includes(search) ||
+      s.email?.toLowerCase().includes(search)
+    );
+  }, [allSpecialists, specialistSearch]);
+
+  // Initialize MDT notification service and check for invitations on mount
+  useEffect(() => {
+    const initNotifications = async () => {
+      await initMDTNotificationService();
+      
+      // Check if we came from a notification click (deep link)
+      const invitationId = searchParams.get('invitation');
+      const patientId = searchParams.get('patient');
+      
+      if (invitationId) {
+        // Acknowledge the invitation
+        await acknowledgeMDTInvitation(invitationId);
+        toast.success('MDT invitation acknowledged. Please review the patient and submit your specialty plan.');
+        
+        // Set the patient and switch to plans tab
+        if (patientId) {
+          setSelectedPatientId(patientId);
+        }
+        setActiveTab('plans');
+        setShowPlanModal(true);
+        
+        // Clear URL params
+        navigate('/clinical/mdt', { replace: true });
+      }
+      
+      // Load my pending invitations
+      if (user?.id) {
+        const pending = getPendingMDTInvitations(user.id);
+        setMyPendingInvitations(pending);
+      }
+    };
+    
+    initNotifications();
+  }, [searchParams, navigate, user?.id]);
+
+  // Refresh pending invitations periodically
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const interval = setInterval(() => {
+      const pending = getPendingMDTInvitations(user.id);
+      setMyPendingInvitations(pending);
+    }, 10000); // Check every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, [user?.id]);
   const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive === true).toArray(), []);
   
   // Patient history queries - only fetch when patient is selected
@@ -506,7 +604,7 @@ export default function MDTPage() {
   };
 
   // Handle meeting creation
-  const handleCreateMeeting = () => {
+  const handleCreateMeeting = async () => {
     if (!selectedPatientId) {
       toast.error('Please select a patient');
       return;
@@ -632,9 +730,47 @@ export default function MDTPage() {
     newMeeting.virtualLink = meetingLocation === 'virtual' ? 'https://meet.astrohealth.com/' + newMeeting.id : undefined;
     (newMeeting as any).objectives = meetingObjectives;
     (newMeeting as any).patientSummary = summaryText;
+    (newMeeting as any).invitedSpecialists = selectedSpecialists;
 
     setMeetings(prev => [...prev, newMeeting]);
-    toast.success('MDT meeting scheduled with comprehensive patient summary');
+    
+    // Send invitations to selected specialists with push notifications and voice announcements
+    const hospitalName = patientHospital?.name || 'Hospital';
+    const patientDetails = {
+      age: selectedPatient?.dateOfBirth ? calculateAge(selectedPatient.dateOfBirth) : undefined,
+      gender: selectedPatient?.gender,
+      admissionDiagnosis: patientSummary?.currentAdmission?.admissionDiagnosis,
+      wardName: patientSummary?.currentAdmission?.wardName,
+      bedNumber: patientSummary?.currentAdmission?.bedNumber,
+    };
+    
+    // Send invitations to each selected specialist
+    for (const specialist of selectedSpecialists) {
+      try {
+        await mdtNotificationService.createInvitation({
+          mdtMeetingId: newMeeting.id,
+          patientId: selectedPatientId,
+          patientName: `${selectedPatient?.firstName} ${selectedPatient?.lastName}`,
+          hospitalId: selectedPatient?.registeredHospitalId || '',
+          hospitalName,
+          specialistId: specialist.userId,
+          specialistName: specialist.name,
+          specialty: specialist.specialty,
+          invitedBy: user?.id || '',
+          invitedByName: `${user?.firstName} ${user?.lastName}`,
+          patientDetails,
+        });
+        console.log(`[MDT] Invitation sent to ${specialist.name} (${specialist.specialty})`);
+      } catch (error) {
+        console.error(`[MDT] Failed to send invitation to ${specialist.name}:`, error);
+      }
+    }
+    
+    if (selectedSpecialists.length > 0) {
+      toast.success(`MDT meeting scheduled. ${selectedSpecialists.length} specialist(s) invited with push notifications.`);
+    } else {
+      toast.success('MDT meeting scheduled with comprehensive patient summary');
+    }
     
     // Reset form
     setShowMeetingModal(false);
@@ -643,10 +779,12 @@ export default function MDTPage() {
     setMeetingDuration(60);
     setMeetingLocation('in-person');
     setShowPatientSummary(false);
+    setSelectedSpecialists([]);
+    setSpecialistSearch('');
   };
 
   // Handle specialty plan submission
-  const handleSubmitPlan = () => {
+  const handleSubmitPlan = async () => {
     if (!selectedPatientId) {
       toast.error('Please select a patient');
       return;
@@ -675,7 +813,22 @@ export default function MDTPage() {
 
     newPlan.status = 'submitted';
     setSpecialtyPlans(prev => [...prev, newPlan]);
-    toast.success('Treatment plan submitted for review');
+    
+    // Mark any pending MDT invitations for this patient as plan_submitted
+    // This stops the repeated notifications
+    if (user?.id) {
+      const pendingInvitations = getPendingMDTInvitations(user.id);
+      for (const inv of pendingInvitations) {
+        if (inv.patientId === selectedPatientId) {
+          await markPlanSubmittedByMeetingAndSpecialist(inv.mdtMeetingId, user.id);
+          console.log(`[MDT] Marked invitation ${inv.id} as plan_submitted`);
+        }
+      }
+      // Refresh pending invitations
+      setMyPendingInvitations(getPendingMDTInvitations(user.id));
+    }
+    
+    toast.success('Treatment plan submitted for review. Notifications stopped.');
     setShowPlanModal(false);
     resetPlanForm();
   };
@@ -2111,6 +2264,65 @@ export default function MDTPage() {
         </div>
       </div>
 
+      {/* Pending MDT Invitations Banner - Shows for specialists with pending invitations */}
+      {myPendingInvitations.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl p-4 shadow-lg"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+              <Bell className="text-white" size={22} />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">You Have {myPendingInvitations.length} MDT Invitation{myPendingInvitations.length > 1 ? 's' : ''}</h3>
+              <p className="text-purple-100 text-sm">Please review and submit your specialty treatment plans</p>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            {myPendingInvitations.map((invitation) => (
+              <div 
+                key={invitation.id}
+                className="bg-white/10 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center gap-3"
+              >
+                <div className="flex-1">
+                  <p className="font-semibold">
+                    Patient: {invitation.patientName}
+                  </p>
+                  <p className="text-purple-100 text-sm">
+                    Hospital: {invitation.hospitalName} • Invited by {invitation.invitedByName}
+                  </p>
+                  <p className="text-purple-200 text-xs mt-1">
+                    {format(new Date(invitation.createdAt), 'PPP p')}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      // Acknowledge and go to plans tab with patient selected
+                      await acknowledgeMDTInvitation(invitation.id);
+                      setSelectedPatientId(invitation.patientId);
+                      setActiveTab('plans');
+                      // Refresh invitations
+                      if (user?.id) {
+                        setMyPendingInvitations(getPendingMDTInvitations(user.id));
+                      }
+                      toast.success(`Selected patient: ${invitation.patientName}. Please submit your specialty plan.`);
+                    }}
+                    className="px-4 py-2 bg-white text-purple-700 rounded-lg font-medium hover:bg-purple-50 transition-colors flex items-center gap-2"
+                  >
+                    <FileText size={16} />
+                    Add My Plan
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
@@ -2975,6 +3187,115 @@ export default function MDTPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Invite Specialists Section */}
+                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 border border-purple-200">
+                  <label className="text-sm font-medium text-purple-700 mb-2 flex items-center gap-2">
+                    <UserPlus size={16} />
+                    Invite Specialists (Push Notifications)
+                    <span className="text-purple-400 font-normal ml-1">(They will receive repeated alerts until they respond)</span>
+                  </label>
+                  
+                  {/* Search Input */}
+                  <div className="relative mb-3">
+                    <input
+                      type="text"
+                      value={specialistSearch}
+                      onChange={(e) => setSpecialistSearch(e.target.value)}
+                      placeholder="Search specialists by name, role, or specialty..."
+                      className="w-full px-4 py-2 pl-10 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 bg-white"
+                    />
+                    <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-400" size={16} />
+                  </div>
+                  
+                  {/* Selected Specialists */}
+                  {selectedSpecialists.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs text-purple-600 mb-2">Selected ({selectedSpecialists.length}):</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedSpecialists.map((specialist) => (
+                          <div
+                            key={specialist.userId}
+                            className="flex items-center gap-2 bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full text-sm"
+                          >
+                            <User size={14} />
+                            <span>{specialist.name}</span>
+                            <span className="text-purple-500">({specialist.specialty})</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSpecialists(prev => prev.filter(s => s.userId !== specialist.userId))}
+                              className="ml-1 text-purple-500 hover:text-purple-700"
+                              title={`Remove ${specialist.name}`}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Available Specialists List */}
+                  <div className="max-h-48 overflow-y-auto bg-white rounded-lg border border-purple-100">
+                    {filteredSpecialists.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500 text-sm">
+                        {specialistSearch ? 'No specialists found matching your search' : 'No specialists available'}
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-100">
+                        {filteredSpecialists
+                          .filter(s => s.id !== user?.id) // Exclude current user
+                          .filter(s => !selectedSpecialists.some(sel => sel.userId === s.id)) // Exclude already selected
+                          .slice(0, 20)
+                          .map((specialist) => (
+                            <button
+                              key={specialist.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedSpecialists(prev => [...prev, {
+                                  userId: specialist.id,
+                                  name: `${specialist.firstName} ${specialist.lastName}`,
+                                  specialty: specialist.specialization || specialist.role || 'General',
+                                  email: specialist.email,
+                                  role: specialist.role || 'doctor',
+                                }]);
+                              }}
+                              className="w-full flex items-center gap-3 p-3 hover:bg-purple-50 transition-colors text-left"
+                            >
+                              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <User className="text-purple-600" size={18} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-800">
+                                  {specialist.firstName} {specialist.lastName}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {specialist.specialization || specialist.role} 
+                                  {specialist.email && ` • ${specialist.email}`}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs capitalize">
+                                  {specialist.role}
+                                </span>
+                                <Plus size={16} className="text-purple-500" />
+                              </div>
+                            </button>
+                          ))
+                        }
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Notification Info */}
+                  <div className="mt-3 flex items-start gap-2 text-xs text-purple-600 bg-purple-100/50 rounded p-2">
+                    <Bell size={14} className="flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Push Notifications with Voice Announcements</p>
+                      <p className="text-purple-500">Selected specialists will receive repeated push notifications with voice announcements (patient name + hospital) until they submit their specialty plan for this patient.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
@@ -2984,6 +3305,8 @@ export default function MDTPage() {
                     setMeetingObjectives('');
                     setMeetingDate('');
                     setShowPatientSummary(false);
+                    setSelectedSpecialists([]);
+                    setSpecialistSearch('');
                   }}
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
                 >
@@ -2991,7 +3314,7 @@ export default function MDTPage() {
                 </button>
                 <button
                   onClick={handleCreateMeeting}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
                 >
                   Schedule Meeting
                 </button>

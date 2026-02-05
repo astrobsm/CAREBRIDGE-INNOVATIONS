@@ -341,7 +341,11 @@ const CRITICAL_TABLES = [
   'medicationCharts',
   'wardRounds',
   'burnMonitoringRecords',
-  'transfusionOrders'
+  'transfusionOrders',
+  'wounds',
+  'woundMeasurements',
+  'prescriptions',
+  'investigations'
 ];
 
 // Pull all data from cloud

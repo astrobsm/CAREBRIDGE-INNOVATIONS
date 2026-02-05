@@ -4619,3 +4619,447 @@ export interface MeetingAttendee {
   participationDuration?: number; // minutes
   contributions: number; // number of transcript segments
 }
+
+// ==================== SUBSTANCE USE DISORDER ASSESSMENT & DETOXIFICATION MODULE (CSUD-DSM) ====================
+
+// Substance Types
+export type SubstanceCategory = 
+  | 'opioids'
+  | 'cannabinoids'
+  | 'sedatives'
+  | 'stimulants'
+  | 'alcohol'
+  | 'hallucinogens'
+  | 'inhalants'
+  | 'tobacco'
+  | 'other';
+
+export type RouteOfAdministration = 
+  | 'oral'
+  | 'intravenous'
+  | 'intramuscular'
+  | 'subcutaneous'
+  | 'inhalation'
+  | 'intranasal'
+  | 'transdermal'
+  | 'sublingual'
+  | 'rectal'
+  | 'other';
+
+export type AddictionSeverity = 'mild' | 'moderate' | 'severe' | 'complicated';
+
+export type WithdrawalSeverity = 'minimal' | 'mild' | 'moderate' | 'severe' | 'life_threatening';
+
+export type WithdrawalPhase = 'early' | 'peak' | 'late' | 'post_acute';
+
+export type CareSettingRecommendation = 
+  | 'outpatient_detox'
+  | 'supervised_outpatient'
+  | 'inpatient_admission'
+  | 'icu_hdu_alert';
+
+export type PainType = 'nociceptive' | 'neuropathic' | 'mixed' | 'psychogenic' | 'unknown';
+
+export type DetoxStatus = 
+  | 'assessment_pending'
+  | 'in_assessment'
+  | 'detox_planned'
+  | 'detox_in_progress'
+  | 'detox_completed'
+  | 'transferred'
+  | 'discharged'
+  | 'relapsed'
+  | 'abandoned';
+
+// Substance Intake Record
+export interface SubstanceIntake {
+  id: string;
+  substanceCategory: SubstanceCategory;
+  substanceName: string; // e.g., "Pentazocine", "Tramadol", "Indian Hemp"
+  durationOfUseMonths: number;
+  averageDailyDose: string;
+  doseUnit: string; // mg, ml, tabs, etc.
+  routeOfAdministration: RouteOfAdministration;
+  escalationPattern: 'stable' | 'increasing' | 'decreasing' | 'erratic';
+  lastUseDateTime: Date;
+  frequencyPerDay: number;
+  isPrimaryConcern: boolean;
+  notes?: string;
+}
+
+// Physical Dependence Score Components
+export interface PhysicalDependenceScore {
+  tolerance: number; // 0-4
+  withdrawalSymptoms: number; // 0-4
+  compulsiveUse: number; // 0-4
+  physicalCravings: number; // 0-4
+  totalScore: number; // 0-16
+}
+
+// Psychological Dependence Score Components
+export interface PsychologicalDependenceScore {
+  emotionalReliance: number; // 0-4
+  copingMechanism: number; // 0-4
+  preoccupation: number; // 0-4
+  anxietyWithoutSubstance: number; // 0-4
+  totalScore: number; // 0-16
+}
+
+// Behavioral Dysfunction Score
+export interface BehavioralDysfunctionScore {
+  prioritizingSubstance: number; // 0-4
+  failedAttemptsToCut: number; // 0-4
+  timeSpentObtaining: number; // 0-4
+  givingUpActivities: number; // 0-4
+  totalScore: number; // 0-16
+}
+
+// Social Impairment Score
+export interface SocialImpairmentScore {
+  occupationalImpact: number; // 0-4
+  relationshipImpact: number; // 0-4
+  financialImpact: number; // 0-4
+  legalIssues: number; // 0-4
+  totalScore: number; // 0-16
+}
+
+// Medical Complications Score
+export interface MedicalComplicationsScore {
+  liverDysfunction: number; // 0-4
+  renalDysfunction: number; // 0-4
+  cardiacComplications: number; // 0-4
+  neurologicalComplications: number; // 0-4
+  infectiousComplications: number; // 0-4
+  psychiatricComorbidity: number; // 0-4
+  totalScore: number; // 0-24
+}
+
+// Composite Addiction Severity Score
+export interface AddictionSeverityScore {
+  physicalDependence: PhysicalDependenceScore;
+  psychologicalDependence: PsychologicalDependenceScore;
+  behavioralDysfunction: BehavioralDysfunctionScore;
+  socialImpairment: SocialImpairmentScore;
+  medicalComplications: MedicalComplicationsScore;
+  totalCompositeScore: number; // 0-88
+  severityLevel: AddictionSeverity;
+  interpretationNotes: string;
+}
+
+// Expected Withdrawal Symptoms
+export interface WithdrawalSymptom {
+  symptom: string;
+  phase: WithdrawalPhase;
+  expectedOnsetHours: number;
+  expectedPeakHours: number;
+  expectedDurationDays: number;
+  severity: WithdrawalSeverity;
+  isRedFlag: boolean;
+  managementNotes: string;
+}
+
+// Withdrawal Risk Prediction
+export interface WithdrawalRiskPrediction {
+  overallRisk: WithdrawalSeverity;
+  riskScore: number; // 0-100
+  expectedSymptoms: WithdrawalSymptom[];
+  earlyPhaseSymptoms: string[];
+  peakPhaseSymptoms: string[];
+  latePhaseSymptoms: string[];
+  redFlagComplications: string[];
+  timelineDescription: string;
+  monitoringRecommendations: string[];
+  pharmacologicalSupport: string[];
+}
+
+// Pain Context Assessment
+export interface PainContextAssessment {
+  hasPainCondition: boolean;
+  painType: PainType;
+  painCause: string; // e.g., "Sickle Cell Disease", "Cancer", "Chronic Wound"
+  currentPainScore: number; // 0-10
+  averagePainScore: number; // 0-10
+  worstPainScore: number; // 0-10
+  currentAnalgesics: string[];
+  analgesicMisuseRisk: 'low' | 'moderate' | 'high';
+  analgesicMisuseIndicators: string[];
+}
+
+// Analgesic Replacement Recommendation
+export interface AnalgesicRecommendation {
+  category: 'primary' | 'adjuvant' | 'non_pharmacological' | 'escalation';
+  recommendation: string;
+  rationale: string;
+  cautions: string[];
+  requiresClinicianConfirmation: boolean;
+  contraindications?: string[];
+}
+
+// Pain Management Decision Support
+export interface PainManagementSupport {
+  painContext: PainContextAssessment;
+  nonOpioidPrimaryOptions: AnalgesicRecommendation[];
+  adjuvantTherapies: AnalgesicRecommendation[];
+  nonPharmacologicalStrategies: AnalgesicRecommendation[];
+  escalationCriteria: string[];
+  highRiskCombinationsWarning: string[];
+  monitoringRequirements: string[];
+}
+
+// Comorbidity-Aware Modifications
+export interface ComorbidityModification {
+  condition: string;
+  affectsWithdrawal: boolean;
+  withdrawalModifications: string[];
+  affectsAnalgesics: boolean;
+  analgesicModifications: string[];
+  affectsInpatientThreshold: boolean;
+  inpatientThresholdNotes: string;
+  specialConsiderations: string[];
+}
+
+// Care Setting Recommendation
+export interface CareSettingDecision {
+  recommendation: CareSettingRecommendation;
+  confidenceLevel: 'low' | 'medium' | 'high';
+  triggerFactors: string[];
+  supportingEvidence: string[];
+  alternativeOptions: CareSettingRecommendation[];
+  escalationCriteria: string[];
+  clinicianOverrideReason?: string;
+  clinicianOverrideBy?: string;
+  clinicianOverrideAt?: Date;
+}
+
+// Informed Consent Document
+export interface SubstanceUseConsent {
+  id: string;
+  assessmentId: string;
+  diagnosisExplanation: string;
+  detoxificationRisks: string[];
+  possibleWithdrawalEffects: string[];
+  painManagementPlan: string;
+  monitoringRequirements: string[];
+  patientAcknowledged: boolean;
+  witnessName?: string;
+  witnessSignature?: string;
+  consentTimestamp?: Date;
+  consentDeviceInfo?: string;
+  documentVersion: string;
+}
+
+// Patient Information Leaflet
+export interface PatientInfoLeaflet {
+  id: string;
+  assessmentId: string;
+  dayByDayExpectations: Array<{
+    day: number;
+    description: string;
+    symptoms: string[];
+    selfCareAdvice: string[];
+  }>;
+  warningSymptoms: string[];
+  complianceExpectations: string[];
+  familyInvolvement: string[];
+  followUpSchedule: Array<{
+    date: Date;
+    purpose: string;
+    location: string;
+  }>;
+  emergencyContacts: Array<{
+    name: string;
+    phone: string;
+    role: string;
+  }>;
+  generatedAt: Date;
+  generatedBy: string;
+}
+
+// Detox Monitoring Record
+export interface DetoxMonitoringRecord {
+  id: string;
+  assessmentId: string;
+  patientId: string;
+  recordedAt: Date;
+  recordedBy: string;
+  // Vital Signs
+  temperature: number;
+  pulse: number;
+  bloodPressure: string;
+  respiratoryRate: number;
+  oxygenSaturation: number;
+  // Withdrawal Assessment
+  withdrawalSymptoms: string[];
+  ciwaScore?: number; // Clinical Institute Withdrawal Assessment (for alcohol)
+  cowsScore?: number; // Clinical Opiate Withdrawal Scale
+  pawsPresent: boolean; // Post-Acute Withdrawal Syndrome
+  // Pain & Discomfort
+  painScore: number;
+  painLocation?: string;
+  // Mental Status
+  anxietyLevel: 'none' | 'mild' | 'moderate' | 'severe';
+  agitationLevel: 'none' | 'mild' | 'moderate' | 'severe';
+  sleepQuality: 'good' | 'fair' | 'poor' | 'none';
+  hallucinationsPresent: boolean;
+  suicidalIdeation: boolean;
+  // Compliance
+  medicationCompliance: boolean;
+  fluidIntakeAdequate: boolean;
+  nutritionIntakeAdequate: boolean;
+  // Actions Taken
+  interventions: string[];
+  medicationsGiven: Array<{
+    medication: string;
+    dose: string;
+    route: string;
+    time: Date;
+  }>;
+  // Clinical Notes
+  notes: string;
+  alertsTriggered: string[];
+  requiresEscalation: boolean;
+  escalationReason?: string;
+}
+
+// Follow-up Record
+export interface DetoxFollowUp {
+  id: string;
+  assessmentId: string;
+  patientId: string;
+  scheduledDate: Date;
+  actualDate?: Date;
+  status: 'scheduled' | 'completed' | 'missed' | 'rescheduled';
+  followUpType: 'phone' | 'in_person' | 'video' | 'home_visit';
+  // Assessment at follow-up
+  currentStatus?: 'abstinent' | 'reduced_use' | 'same_level' | 'increased_use' | 'relapsed';
+  relapseRiskLevel?: 'low' | 'moderate' | 'high';
+  adherenceToRecommendations?: 'full' | 'partial' | 'none';
+  withdrawalSymptomsResolved?: boolean;
+  // Support & Resources
+  supportSystemStrength?: 'strong' | 'moderate' | 'weak' | 'none';
+  referralsProvided?: string[];
+  counselingRecommended?: boolean;
+  // Notes
+  clinicalNotes?: string;
+  nextSteps?: string[];
+  conductedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Main Substance Use Assessment
+export interface SubstanceUseAssessment {
+  id: string;
+  patientId: string;
+  hospitalId: string;
+  encounterId?: string;
+  admissionId?: string;
+  
+  // Assessment Status
+  status: DetoxStatus;
+  assessmentDate: Date;
+  assessedBy: string;
+  assessedByName: string;
+  
+  // Patient Context
+  demographics: {
+    age: number;
+    sex: 'male' | 'female';
+    weight: number;
+    occupation?: string;
+  };
+  socialFactors: {
+    housingStability: 'stable' | 'unstable' | 'homeless';
+    employmentStatus: 'employed' | 'unemployed' | 'retired' | 'student' | 'disabled';
+    familySupportLevel: 'strong' | 'moderate' | 'minimal' | 'none';
+    legalIssues: boolean;
+    legalIssuesDetails?: string;
+  };
+  previousDetoxAttempts: number;
+  previousDetoxDetails?: string;
+  psychiatricHistory: string[];
+  psychiatricHistoryNotes?: string;
+  
+  // Substance Intake
+  substances: SubstanceIntake[];
+  primarySubstance: string;
+  polySubstanceUse: boolean;
+  
+  // Addiction Severity
+  addictionSeverityScore: AddictionSeverityScore;
+  
+  // Withdrawal Risk
+  withdrawalRiskPrediction: WithdrawalRiskPrediction;
+  
+  // Pain Management
+  painManagementSupport?: PainManagementSupport;
+  
+  // Comorbidity Considerations
+  relevantComorbidities: string[];
+  comorbidityModifications: ComorbidityModification[];
+  
+  // Care Setting Decision
+  careSettingDecision: CareSettingDecision;
+  
+  // Clinical Override
+  clinicianOverride?: {
+    originalRecommendation: CareSettingRecommendation;
+    overriddenTo: CareSettingRecommendation;
+    reason: string;
+    overriddenBy: string;
+    overriddenAt: Date;
+  };
+  
+  // Consent & Documentation
+  consent?: SubstanceUseConsent;
+  patientInfoLeaflet?: PatientInfoLeaflet;
+  
+  // Exclusion Criteria Check
+  exclusionCriteriaFlags: {
+    isPregnant: boolean;
+    isPediatric: boolean; // < 18 years
+    hasSeverePsychiatricIllness: boolean;
+    requiresSpecialistReferral: boolean;
+    exclusionReason?: string;
+  };
+  
+  // Audit Trail
+  auditLog: Array<{
+    action: string;
+    performedBy: string;
+    performedAt: Date;
+    details?: string;
+  }>;
+  
+  // Metadata
+  clinicalSummary?: string;
+  nextReviewDate?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date;
+  completedBy?: string;
+}
+
+// Clinical Summary Document (for PDF generation)
+export interface SubstanceUseClinicalSummary {
+  id: string;
+  assessmentId: string;
+  patientId: string;
+  patientName: string;
+  hospitalName: string;
+  assessmentDate: Date;
+  addictionScoreSummary: {
+    compositeScore: number;
+    severityLevel: AddictionSeverity;
+    interpretation: string;
+  };
+  riskClassification: WithdrawalSeverity;
+  recommendedPathway: CareSettingRecommendation;
+  keyFindings: string[];
+  recommendedInterventions: string[];
+  monitoringChecklist: string[];
+  followUpSchedule: string[];
+  disclaimers: string[];
+  generatedAt: Date;
+  generatedBy: string;
+}

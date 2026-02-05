@@ -25,6 +25,13 @@ import {
   Download,
   Printer,
   X,
+  History,
+  Calendar,
+  User as UserIcon,
+  Filter,
+  Eye,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -74,11 +81,77 @@ export default function ClinicalEncounterPage() {
   const [showPrescriptionExport, setShowPrescriptionExport] = useState(false);
   const [patientInvestigations, setPatientInvestigations] = useState<Investigation[]>([]);
   const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([]);
+  
+  // Previous Encounters Modal State
+  const [showPreviousEncountersModal, setShowPreviousEncountersModal] = useState(false);
+  const [selectedEncounterForView, setSelectedEncounterForView] = useState<ClinicalEncounter | null>(null);
+  const [encounterFilterClinicianId, setEncounterFilterClinicianId] = useState<string>('');
+  const [encounterFilterDateFrom, setEncounterFilterDateFrom] = useState<string>('');
+  const [encounterFilterDateTo, setEncounterFilterDateTo] = useState<string>('');
+  const [encounterFilterType, setEncounterFilterType] = useState<string>('');
 
   const patient = useLiveQuery(
     () => patientId ? db.patients.get(patientId) : undefined,
     [patientId]
   );
+
+  // Previous encounters for this patient
+  const previousEncounters = useLiveQuery(
+    async () => {
+      if (!patientId) return [];
+      let encounters = await db.clinicalEncounters
+        .where('patientId')
+        .equals(patientId)
+        .toArray();
+      
+      // Sort by date descending
+      encounters.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      return encounters;
+    },
+    [patientId]
+  );
+
+  // Get all clinicians for filter dropdown
+  const clinicians = useLiveQuery(
+    () => db.users.filter(u => 
+      ['doctor', 'surgeon', 'consultant', 'resident', 'registrar', 'senior_registrar', 'medical_officer', 'house_officer'].includes(u.role)
+    ).toArray(),
+    []
+  );
+
+  // Filtered encounters based on filters
+  const filteredPreviousEncounters = useMemo(() => {
+    if (!previousEncounters) return [];
+    
+    return previousEncounters.filter(enc => {
+      // Filter by clinician
+      if (encounterFilterClinicianId && enc.attendingClinician !== encounterFilterClinicianId) {
+        return false;
+      }
+      
+      // Filter by encounter type
+      if (encounterFilterType && enc.type !== encounterFilterType) {
+        return false;
+      }
+      
+      // Filter by date from
+      if (encounterFilterDateFrom) {
+        const fromDate = new Date(encounterFilterDateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        if (new Date(enc.createdAt) < fromDate) return false;
+      }
+      
+      // Filter by date to
+      if (encounterFilterDateTo) {
+        const toDate = new Date(encounterFilterDateTo);
+        toDate.setHours(23, 59, 59, 999);
+        if (new Date(enc.createdAt) > toDate) return false;
+      }
+      
+      return true;
+    });
+  }, [previousEncounters, encounterFilterClinicianId, encounterFilterDateFrom, encounterFilterDateTo, encounterFilterType]);
 
   const latestVitals = useLiveQuery(
     async () => {
@@ -195,6 +268,223 @@ export default function ClinicalEncounterPage() {
     }
   };
 
+  // Print encounter as A4 PDF
+  const printEncounterA4 = async (encounter: ClinicalEncounter) => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    let y = margin;
+
+    // Get clinician name
+    const clinician = clinicians?.find(c => c.id === encounter.attendingClinician);
+    const clinicianName = clinician ? `Dr. ${clinician.firstName} ${clinician.lastName}` : 'Attending Clinician';
+
+    // Header
+    doc.setFillColor(0, 102, 153);
+    doc.rect(0, 0, pageWidth, 30, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLINICAL ENCOUNTER REPORT', pageWidth / 2, 12, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Date: ${format(new Date(encounter.createdAt), 'PPP p')}`, pageWidth / 2, 20, { align: 'center' });
+    doc.text(`Encounter ID: ${encounter.id.slice(0, 8).toUpperCase()}`, pageWidth / 2, 26, { align: 'center' });
+
+    y = 40;
+
+    // Patient Information Box
+    doc.setFillColor(240, 248, 255);
+    doc.setDrawColor(0, 102, 153);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, y, pageWidth - 2 * margin, 25, 'FD');
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PATIENT INFORMATION', margin + 3, y + 6);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Name: ${patient?.firstName} ${patient?.lastName}`, margin + 3, y + 13);
+    doc.text(`Hospital No: ${patient?.hospitalNumber || 'N/A'}`, margin + 80, y + 13);
+    doc.text(`Encounter Type: ${encounter.type?.replace('_', ' ').toUpperCase()}`, margin + 3, y + 20);
+    doc.text(`Clinician: ${clinicianName}`, margin + 80, y + 20);
+
+    y += 32;
+
+    // Chief Complaint
+    if (encounter.chiefComplaint) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(0, 102, 153);
+      doc.text('CHIEF COMPLAINT', margin, y);
+      y += 6;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      const chiefLines = doc.splitTextToSize(encounter.chiefComplaint, pageWidth - 2 * margin);
+      doc.text(chiefLines, margin, y);
+      y += chiefLines.length * 5 + 5;
+    }
+
+    // History of Present Illness
+    if (encounter.historyOfPresentIllness) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(0, 102, 153);
+      doc.text('HISTORY OF PRESENT ILLNESS', margin, y);
+      y += 6;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      const hpiLines = doc.splitTextToSize(encounter.historyOfPresentIllness, pageWidth - 2 * margin);
+      doc.text(hpiLines, margin, y);
+      y += hpiLines.length * 5 + 5;
+    }
+
+    // Check for page break
+    if (y > pageHeight - 60) {
+      doc.addPage();
+      y = margin;
+    }
+
+    // Past Medical History
+    if (encounter.pastMedicalHistory) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(0, 102, 153);
+      doc.text('PAST MEDICAL HISTORY', margin, y);
+      y += 6;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      const pmhLines = doc.splitTextToSize(encounter.pastMedicalHistory, pageWidth - 2 * margin);
+      doc.text(pmhLines, margin, y);
+      y += pmhLines.length * 5 + 5;
+    }
+
+    // Past Surgical History
+    if (encounter.pastSurgicalHistory) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(0, 102, 153);
+      doc.text('PAST SURGICAL HISTORY', margin, y);
+      y += 6;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      const pshLines = doc.splitTextToSize(encounter.pastSurgicalHistory, pageWidth - 2 * margin);
+      doc.text(pshLines, margin, y);
+      y += pshLines.length * 5 + 5;
+    }
+
+    // Check for page break
+    if (y > pageHeight - 60) {
+      doc.addPage();
+      y = margin;
+    }
+
+    // Physical Examination
+    if (encounter.physicalExamination && Object.keys(encounter.physicalExamination).length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(0, 102, 153);
+      doc.text('PHYSICAL EXAMINATION', margin, y);
+      y += 6;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      
+      const examFields = ['general', 'head', 'neck', 'chest', 'cardiovascular', 'abdomen', 'musculoskeletal', 'neurological', 'skin'] as const;
+      for (const field of examFields) {
+        const value = encounter.physicalExamination[field];
+        if (value) {
+          doc.setFont('helvetica', 'bold');
+          doc.text(`${field.charAt(0).toUpperCase() + field.slice(1)}:`, margin, y);
+          doc.setFont('helvetica', 'normal');
+          const examLines = doc.splitTextToSize(value, pageWidth - 2 * margin - 40);
+          doc.text(examLines, margin + 40, y);
+          y += examLines.length * 5 + 2;
+          
+          if (y > pageHeight - 40) {
+            doc.addPage();
+            y = margin;
+          }
+        }
+      }
+      y += 3;
+    }
+
+    // Diagnosis
+    if (encounter.diagnosis && encounter.diagnosis.length > 0) {
+      if (y > pageHeight - 50) {
+        doc.addPage();
+        y = margin;
+      }
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(0, 102, 153);
+      doc.text('DIAGNOSIS', margin, y);
+      y += 6;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      
+      encounter.diagnosis.forEach((dx, idx) => {
+        const typeLabel = dx.type === 'primary' ? '[PRIMARY]' : dx.type === 'secondary' ? '[SECONDARY]' : '[DIFFERENTIAL]';
+        doc.text(`${idx + 1}. ${typeLabel} ${dx.description}`, margin, y);
+        y += 5;
+      });
+      y += 3;
+    }
+
+    // Treatment Plan
+    if (encounter.treatmentPlan) {
+      if (y > pageHeight - 40) {
+        doc.addPage();
+        y = margin;
+      }
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(0, 102, 153);
+      doc.text('TREATMENT PLAN', margin, y);
+      y += 6;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      const planLines = doc.splitTextToSize(encounter.treatmentPlan, pageWidth - 2 * margin);
+      doc.text(planLines, margin, y);
+      y += planLines.length * 5 + 5;
+    }
+
+    // Footer
+    const footerY = pageHeight - 15;
+    doc.setDrawColor(0, 102, 153);
+    doc.setLineWidth(0.5);
+    doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
+    
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated: ${format(new Date(), 'PPP p')} | AstroHEALTH EMR`, pageWidth / 2, footerY, { align: 'center' });
+
+    // Open print dialog
+    doc.autoPrint();
+    window.open(doc.output('bloburl'), '_blank');
+  };
+
   if (!patient) {
     return (
       <div className="text-center py-12">
@@ -233,6 +523,14 @@ export default function ClinicalEncounterPage() {
             >
               <UserCheck size={18} />
               Patient Summary
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPreviousEncountersModal(true)}
+              className="btn btn-secondary flex items-center gap-2"
+            >
+              <History size={18} />
+              Previous Encounters
             </button>
           </div>
         </div>
@@ -947,6 +1245,306 @@ export default function ClinicalEncounterPage() {
           fileNamePrefix={`prescriptions_${patient?.hospitalNumber || 'patient'}`}
         />
       )}
+
+      {/* Previous Encounters Modal */}
+      <AnimatePresence>
+        {showPreviousEncountersModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowPreviousEncountersModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-sky-500 to-indigo-600 text-white p-4 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <History className="w-6 h-6" />
+                    <h2 className="text-lg sm:text-xl font-bold">Previous Encounters</h2>
+                  </div>
+                  <button
+                    onClick={() => setShowPreviousEncountersModal(false)}
+                    className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <p className="text-white/80 text-sm mt-1">
+                  {patient?.firstName} {patient?.lastName} - {patient?.hospitalNumber}
+                </p>
+              </div>
+
+              {/* Filters Section */}
+              <div className="p-4 border-b bg-gray-50">
+                <div className="flex items-center gap-2 mb-3">
+                  <Filter size={18} className="text-gray-500" />
+                  <span className="font-medium text-gray-700">Filters</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Clinician Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Clinician</label>
+                    <select
+                      value={encounterFilterClinicianId}
+                      onChange={(e) => setEncounterFilterClinicianId(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-sky-500"
+                    >
+                      <option value="">All Clinicians</option>
+                      {clinicians?.map(c => (
+                        <option key={c.id} value={c.id}>
+                          Dr. {c.firstName} {c.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Encounter Type Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Encounter Type</label>
+                    <select
+                      value={encounterFilterType}
+                      onChange={(e) => setEncounterFilterType(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-sky-500"
+                    >
+                      <option value="">All Types</option>
+                      <option value="outpatient">Outpatient</option>
+                      <option value="inpatient">Inpatient</option>
+                      <option value="emergency">Emergency</option>
+                      <option value="follow_up">Follow Up</option>
+                      <option value="consultation">Consultation</option>
+                    </select>
+                  </div>
+
+                  {/* Date From Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">From Date</label>
+                    <input
+                      type="date"
+                      value={encounterFilterDateFrom}
+                      onChange={(e) => setEncounterFilterDateFrom(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+
+                  {/* Date To Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">To Date</label>
+                    <input
+                      type="date"
+                      value={encounterFilterDateTo}
+                      onChange={(e) => setEncounterFilterDateTo(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Clear Filters */}
+                {(encounterFilterClinicianId || encounterFilterType || encounterFilterDateFrom || encounterFilterDateTo) && (
+                  <button
+                    onClick={() => {
+                      setEncounterFilterClinicianId('');
+                      setEncounterFilterType('');
+                      setEncounterFilterDateFrom('');
+                      setEncounterFilterDateTo('');
+                    }}
+                    className="mt-3 text-sm text-sky-600 hover:text-sky-800 font-medium"
+                  >
+                    Clear All Filters
+                  </button>
+                )}
+              </div>
+
+              {/* Encounters List */}
+              <div className="overflow-y-auto max-h-[50vh] p-4">
+                {filteredPreviousEncounters.length === 0 ? (
+                  <div className="text-center py-10">
+                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No encounters found</p>
+                    <p className="text-gray-400 text-sm">Try adjusting your filters</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredPreviousEncounters.map((encounter) => {
+                      const isExpanded = selectedEncounterForView === encounter.id;
+                      const clinician = clinicians?.find(c => c.id === encounter.attendingClinician);
+                      
+                      return (
+                        <motion.div
+                          key={encounter.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          {/* Encounter Header */}
+                          <div
+                            className="p-4 cursor-pointer flex items-center justify-between"
+                            onClick={() => setSelectedEncounterForView(isExpanded ? null : encounter.id)}
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className={`p-2 rounded-full ${
+                                encounter.type === 'emergency' ? 'bg-red-100 text-red-600' :
+                                encounter.type === 'inpatient' ? 'bg-purple-100 text-purple-600' :
+                                encounter.type === 'outpatient' ? 'bg-green-100 text-green-600' :
+                                'bg-blue-100 text-blue-600'
+                              }`}>
+                                <Stethoscope size={20} />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-gray-900">
+                                  {encounter.type?.replace('_', ' ').toUpperCase()}
+                                </p>
+                                <p className="text-sm text-gray-500 flex items-center gap-2">
+                                  <Calendar size={14} />
+                                  {format(new Date(encounter.createdAt), 'PPP p')}
+                                </p>
+                                <p className="text-sm text-gray-500 flex items-center gap-2">
+                                  <UserIcon size={14} />
+                                  {clinician ? `Dr. ${clinician.firstName} ${clinician.lastName}` : 'Unknown Clinician'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  printEncounterA4(encounter);
+                                }}
+                                className="p-2 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                                title="Print A4"
+                              >
+                                <Printer size={18} />
+                              </button>
+                              {isExpanded ? (
+                                <ChevronUp size={20} className="text-gray-400" />
+                              ) : (
+                                <ChevronDown size={20} className="text-gray-400" />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Expanded Details */}
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden border-t"
+                              >
+                                <div className="p-4 bg-gray-50 space-y-4">
+                                  {/* Chief Complaint */}
+                                  {encounter.chiefComplaint && (
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-gray-700 mb-1">Chief Complaint</h4>
+                                      <p className="text-sm text-gray-600 bg-white p-3 rounded border">
+                                        {encounter.chiefComplaint}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {/* History of Present Illness */}
+                                  {encounter.historyOfPresentIllness && (
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-gray-700 mb-1">History of Present Illness</h4>
+                                      <p className="text-sm text-gray-600 bg-white p-3 rounded border whitespace-pre-wrap">
+                                        {encounter.historyOfPresentIllness}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {/* Physical Examination Summary */}
+                                  {encounter.physicalExamination && Object.values(encounter.physicalExamination).some(v => v) && (
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-gray-700 mb-1">Physical Examination</h4>
+                                      <div className="text-sm text-gray-600 bg-white p-3 rounded border grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {Object.entries(encounter.physicalExamination).map(([key, value]) => (
+                                          value && (
+                                            <div key={key}>
+                                              <span className="font-medium capitalize">{key}:</span>{' '}
+                                              <span className="text-gray-500">{value}</span>
+                                            </div>
+                                          )
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Diagnosis */}
+                                  {encounter.diagnosis && encounter.diagnosis.length > 0 && (
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-gray-700 mb-1">Diagnoses</h4>
+                                      <ul className="text-sm text-gray-600 bg-white p-3 rounded border space-y-1">
+                                        {encounter.diagnosis.map((dx, idx) => (
+                                          <li key={idx} className="flex items-start gap-2">
+                                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                              dx.type === 'primary' ? 'bg-red-100 text-red-700' :
+                                              dx.type === 'secondary' ? 'bg-orange-100 text-orange-700' :
+                                              'bg-gray-100 text-gray-700'
+                                            }`}>
+                                              {dx.type?.toUpperCase()}
+                                            </span>
+                                            <span>{dx.description}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {/* Treatment Plan */}
+                                  {encounter.treatmentPlan && (
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-gray-700 mb-1">Treatment Plan</h4>
+                                      <p className="text-sm text-gray-600 bg-white p-3 rounded border whitespace-pre-wrap">
+                                        {encounter.treatmentPlan}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {/* Print Button */}
+                                  <div className="flex justify-end pt-2">
+                                    <button
+                                      onClick={() => printEncounterA4(encounter)}
+                                      className="btn btn-primary flex items-center gap-2"
+                                    >
+                                      <Printer size={16} />
+                                      Print A4 Report
+                                    </button>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t bg-gray-50 flex justify-between items-center">
+                <p className="text-sm text-gray-600">
+                  Showing {filteredPreviousEncounters.length} of {previousEncounters?.length || 0} encounters
+                </p>
+                <button
+                  onClick={() => setShowPreviousEncountersModal(false)}
+                  className="btn btn-secondary"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

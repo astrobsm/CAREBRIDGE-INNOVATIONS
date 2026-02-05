@@ -30,6 +30,7 @@ import {
   Send,
   Activity,
   ShoppingCart,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -148,6 +149,12 @@ const navigation: NavItem[] = [
     href: '/npwt', 
     icon: <Wind size={20} />,
     permission: 'manage_wounds',
+  },
+  { 
+    name: 'Substance Use', 
+    href: '/substance-use', 
+    icon: <AlertTriangle size={20} />,
+    permission: 'create_encounters',
   },
   { 
     name: 'Medication Chart', 
