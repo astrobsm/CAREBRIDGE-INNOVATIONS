@@ -120,6 +120,52 @@ export default function ClinicalEncounterPage() {
     [patientId]
   );
 
+  // All prescriptions for this patient (for Previous Encounters)
+  const allPatientPrescriptions = useLiveQuery(
+    async () => {
+      if (!patientId) return [];
+      return db.prescriptions.where('patientId').equals(patientId).toArray();
+    },
+    [patientId]
+  );
+
+  // All investigations for this patient (for Previous Encounters)
+  const allPatientInvestigations = useLiveQuery(
+    async () => {
+      if (!patientId) return [];
+      return db.investigations.where('patientId').equals(patientId).toArray();
+    },
+    [patientId]
+  );
+
+  // Helper function to get prescriptions for a specific encounter date
+  const getPrescriptionsForDate = useCallback((encounterDate: Date) => {
+    if (!allPatientPrescriptions) return [];
+    const encDate = new Date(encounterDate);
+    encDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(encDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    return allPatientPrescriptions.filter(rx => {
+      const rxDate = new Date(rx.createdAt);
+      return rxDate >= encDate && rxDate < nextDay;
+    });
+  }, [allPatientPrescriptions]);
+
+  // Helper function to get investigations for a specific encounter date
+  const getInvestigationsForDate = useCallback((encounterDate: Date) => {
+    if (!allPatientInvestigations) return [];
+    const encDate = new Date(encounterDate);
+    encDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(encDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    return allPatientInvestigations.filter(inv => {
+      const invDate = new Date(inv.createdAt);
+      return invDate >= encDate && invDate < nextDay;
+    });
+  }, [allPatientInvestigations]);
+
   // Get all clinicians for filter dropdown
   const clinicians = useLiveQuery(
     () => db.users.filter(u => 
@@ -1677,6 +1723,79 @@ export default function ClinicalEncounterPage() {
                                       </p>
                                     </div>
                                   )}
+
+                                  {/* Prescriptions on Same Date */}
+                                  {(() => {
+                                    const datePrescriptions = getPrescriptionsForDate(encounter.createdAt);
+                                    return datePrescriptions.length > 0 && (
+                                      <div>
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-2">
+                                          <Pill size={16} className="text-green-600" />
+                                          Prescriptions ({datePrescriptions.length})
+                                        </h4>
+                                        <div className="bg-white p-3 rounded border space-y-2">
+                                          {datePrescriptions.map((rx, idx) => (
+                                            <div key={rx.id || idx} className="text-sm border-b last:border-0 pb-2 last:pb-0">
+                                              <div className="font-medium text-gray-900">{rx.medicationName}</div>
+                                              <div className="text-gray-600 text-xs">
+                                                {rx.dosage} • {rx.frequency} • {rx.duration}
+                                                {rx.quantity && ` • Qty: ${rx.quantity}`}
+                                              </div>
+                                              {rx.instructions && (
+                                                <div className="text-gray-500 text-xs italic mt-1">{rx.instructions}</div>
+                                              )}
+                                              <div className="text-xs text-gray-400 mt-1">
+                                                Status: <span className={`font-medium ${
+                                                  rx.status === 'dispensed' ? 'text-green-600' :
+                                                  rx.status === 'pending' ? 'text-amber-600' :
+                                                  'text-gray-600'
+                                                }`}>{rx.status}</span>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {/* Investigations on Same Date */}
+                                  {(() => {
+                                    const dateInvestigations = getInvestigationsForDate(encounter.createdAt);
+                                    return dateInvestigations.length > 0 && (
+                                      <div>
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-2">
+                                          <FlaskConical size={16} className="text-purple-600" />
+                                          Investigations ({dateInvestigations.length})
+                                        </h4>
+                                        <div className="bg-white p-3 rounded border space-y-2">
+                                          {dateInvestigations.map((inv, idx) => (
+                                            <div key={inv.id || idx} className="text-sm border-b last:border-0 pb-2 last:pb-0">
+                                              <div className="font-medium text-gray-900">{inv.testName}</div>
+                                              {inv.category && (
+                                                <div className="text-gray-600 text-xs">Category: {inv.category}</div>
+                                              )}
+                                              <div className="flex items-center gap-2 mt-1">
+                                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                                  inv.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                  inv.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                                                  inv.status === 'requested' ? 'bg-amber-100 text-amber-700' :
+                                                  'bg-gray-100 text-gray-700'
+                                                }`}>
+                                                  {inv.status?.replace('_', ' ').toUpperCase()}
+                                                </span>
+                                                {inv.result && (
+                                                  <span className="text-xs text-gray-600">Result: {inv.result}</span>
+                                                )}
+                                              </div>
+                                              {inv.notes && (
+                                                <div className="text-gray-500 text-xs italic mt-1">{inv.notes}</div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
 
                                   {/* Print Button */}
                                   <div className="flex justify-end pt-2">
