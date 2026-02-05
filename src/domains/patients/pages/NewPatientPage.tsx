@@ -102,28 +102,29 @@ const patientSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
   lastName: z.string().min(2, 'Last name must be at least 2 characters'),
   middleName: z.string().optional(),
-  dateOfBirth: z.string().min(1, 'Date of birth is required'),
-  gender: z.enum(['male', 'female']),
+  folderNumber: z.string().optional(), // Auto-generated if left empty
+  dateOfBirth: z.string().optional(), // Made optional
+  gender: z.enum(['male', 'female']).optional(),
   bloodGroup: z.string().optional(),
   genotype: z.string().optional(),
-  maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed']),
-  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed']).optional(),
+  phone: z.string().optional(), // Made optional
   alternatePhone: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
-  address: z.string().optional(), // Made optional
-  city: z.string().optional(), // Made optional
-  state: z.string().optional(), // Made optional
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
   occupation: z.string().optional(),
   religion: z.string().optional(),
   tribe: z.string().optional(),
   allergies: z.string().optional(),
   chronicConditions: z.string().optional(),
-  nextOfKinName: z.string().optional(), // Made optional
-  nextOfKinRelationship: z.string().optional(), // Made optional
-  nextOfKinPhone: z.string().optional(), // Made optional
-  nextOfKinAddress: z.string().optional(), // Made optional
+  nextOfKinName: z.string().optional(),
+  nextOfKinRelationship: z.string().optional(),
+  nextOfKinPhone: z.string().optional(),
+  nextOfKinAddress: z.string().optional(),
   // Care type and hospital fields
-  careType: z.enum(['home_care', 'hospital']),
+  careType: z.enum(['home_care', 'hospital']).optional(),
   hospitalId: z.string().optional(),
   otherHospitalName: z.string().optional(),
   ward: z.string().optional(),
@@ -366,18 +367,21 @@ export default function NewPatientPage() {
         currentlyManaged: true,
       }));
 
+      // Use provided folder number or auto-generate one
+      const hospitalNumber = data.folderNumber?.trim() || generateHospitalNumber();
+
       const patient: Patient = {
         id: uuidv4(),
-        hospitalNumber: generateHospitalNumber(),
+        hospitalNumber,
         firstName: data.firstName,
         lastName: data.lastName,
         middleName: data.middleName,
-        dateOfBirth: new Date(data.dateOfBirth),
-        gender: data.gender,
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : new Date(),
+        gender: data.gender || 'male',
         bloodGroup: data.bloodGroup as BloodGroup | undefined,
         genotype: data.genotype as Genotype | undefined,
-        maritalStatus: data.maritalStatus,
-        phone: data.phone,
+        maritalStatus: data.maritalStatus || 'single',
+        phone: data.phone || '',
         alternatePhone: data.alternatePhone,
         email: data.email || undefined,
         address: data.address || '',
@@ -399,7 +403,7 @@ export default function NewPatientPage() {
         pressureSoreRiskAssessment,
         comorbidities,
         // Care Setting fields
-        careType: data.careType as 'hospital' | 'homecare',
+        careType: (data.careType as 'hospital' | 'homecare') || 'hospital',
         hospitalId: data.careType === 'hospital' ? data.hospitalId : undefined,
         hospitalName: hospitalName,
         ward: data.careType === 'hospital' ? data.ward : undefined,
@@ -487,9 +491,17 @@ export default function NewPatientPage() {
               <input {...register('middleName')} className="input" />
             </div>
             <div>
-              <label className="label">Date of Birth *</label>
-              <input type="date" {...register('dateOfBirth')} className={`input ${errors.dateOfBirth ? 'input-error' : ''}`} />
-              {errors.dateOfBirth && <p className="text-sm text-red-500 mt-1">{errors.dateOfBirth.message}</p>}
+              <label className="label">Folder Number</label>
+              <input 
+                {...register('folderNumber')} 
+                className="input" 
+                placeholder="Auto-generated if left empty"
+              />
+              <p className="text-xs text-gray-500 mt-1">Leave empty to auto-generate</p>
+            </div>
+            <div>
+              <label className="label">Date of Birth</label>
+              <input type="date" {...register('dateOfBirth')} className="input" />
               {/* Show patient category badge when DOB is entered */}
               {patientCategory && (
                 <div className="mt-2">
@@ -502,15 +514,17 @@ export default function NewPatientPage() {
               )}
             </div>
             <div>
-              <label className="label">Gender *</label>
+              <label className="label">Gender</label>
               <select {...register('gender')} className="input" title="Select gender">
+                <option value="">Select gender</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
               </select>
             </div>
             <div>
-              <label className="label">Marital Status *</label>
+              <label className="label">Marital Status</label>
               <select {...register('maritalStatus')} className="input" title="Select marital status">
+                <option value="">Select marital status</option>
                 <option value="single">Single</option>
                 <option value="married">Married</option>
                 <option value="divorced">Divorced</option>
@@ -563,7 +577,7 @@ export default function NewPatientPage() {
           </div>
           <div className="card-body space-y-4">
             <div>
-              <label className="label">Care Type *</label>
+              <label className="label">Care Type</label>
               <div className="flex flex-col xs:flex-row gap-4 xs:gap-6 mt-2">
                 <label className="flex items-center gap-2 cursor-pointer min-h-touch">
                   <input
@@ -596,13 +610,11 @@ export default function NewPatientPage() {
                     control={control}
                     render={({ field }) => (
                       <HospitalSelector
-                        label="Hospital *"
+                        label="Hospital"
                         value={field.value}
                         onChange={(id) => field.onChange(id)}
                         placeholder="Search or select hospital"
-                        required
                         showAddNew
-                        error={errors.hospitalId?.message}
                       />
                     )}
                   />
@@ -658,9 +670,8 @@ export default function NewPatientPage() {
           </div>
           <div className="card-body form-grid-2">
             <div>
-              <label className="label">Phone Number *</label>
-              <input {...register('phone')} type="tel" className={`input ${errors.phone ? 'input-error' : ''}`} placeholder="+234 800 123 4567" />
-              {errors.phone && <p className="text-sm text-red-500 mt-1">{errors.phone.message}</p>}
+              <label className="label">Phone Number</label>
+              <input {...register('phone')} type="tel" className="input" placeholder="+234 800 123 4567" />
             </div>
             <div>
               <label className="label">Alternate Phone</label>
