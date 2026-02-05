@@ -116,7 +116,7 @@ export default function ExternalReviewPage() {
 
   // Live queries
   const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
-  const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive === true).toArray(), []);
+  const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive !== false).toArray(), []);
   const externalReviews = useLiveQuery(() => db.externalReviews.orderBy('createdAt').reverse().toArray(), []);
 
   const isLoading = !patients || !hospitals || !externalReviews;
@@ -168,7 +168,7 @@ export default function ExternalReviewPage() {
 
   // Calculate totals
   const totalFees = useMemo(() => {
-    return filteredReviews.reduce((sum, r) => sum + r.fee, 0);
+    return filteredReviews.reduce((sum, r) => sum + (Number(r.fee) || 0), 0);
   }, [filteredReviews]);
 
   // Export-filtered reviews based on export modal filters
@@ -194,7 +194,7 @@ export default function ExternalReviewPage() {
 
   // Export totals
   const exportTotalFees = useMemo(() => {
-    return exportFilteredReviews.reduce((sum, r) => sum + r.fee, 0);
+    return exportFilteredReviews.reduce((sum, r) => sum + (Number(r.fee) || 0), 0);
   }, [exportFilteredReviews]);
 
   // Reset form
@@ -367,7 +367,7 @@ export default function ExternalReviewPage() {
     }
     
     summary += `📊 Total Records: ${reviews.length}\n`;
-    summary += `💰 Total Fees: ₦${reviews.reduce((sum, r) => sum + r.fee, 0).toLocaleString()}\n\n`;
+    summary += `💰 Total Fees: ₦${reviews.reduce((sum, r) => sum + (Number(r.fee) || 0), 0).toLocaleString()}\n\n`;
     
     summary += `-------------------\n\n`;
     
@@ -376,7 +376,7 @@ export default function ExternalReviewPage() {
       summary += `   📁 Folder: ${review.folderNumber}\n`;
       summary += `   🏥 ${review.hospitalName}\n`;
       summary += `   📋 ${review.servicesRendered}\n`;
-      summary += `   💵 ₦${review.fee.toLocaleString()}\n`;
+      summary += `   💵 ₦${(Number(review.fee) || 0).toLocaleString()}\n`;
       summary += `   📆 ${format(parseISO(review.serviceDate), 'dd MMM yyyy')}\n\n`;
     });
     
@@ -609,7 +609,7 @@ export default function ExternalReviewPage() {
                       {review.servicesRendered}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                      ₦{review.fee.toLocaleString()}
+                      ₦{(Number(review.fee) || 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                       {format(parseISO(review.serviceDate), 'dd MMM yyyy')}
