@@ -629,6 +629,16 @@ async function pullAllFromCloud(): Promise<void> {
   await pullTable(TABLES.userSettings, 'userSettings');
   await pullTable(TABLES.hospitalSettings, 'hospitalSettings');
   
+  // Meeting Minutes
+  await pullTable(TABLES.meetingMinutes, 'meetingMinutes');
+  
+  // Substance Use Disorder Assessment & Detoxification (CSUD-DSM)
+  await pullTable(TABLES.substanceUseAssessments, 'substanceUseAssessments');
+  await pullTable(TABLES.detoxMonitoringRecords, 'detoxMonitoringRecords');
+  await pullTable(TABLES.detoxFollowUps, 'detoxFollowUps');
+  await pullTable(TABLES.substanceUseConsents, 'substanceUseConsents');
+  await pullTable(TABLES.substanceUseClinicalSummaries, 'substanceUseClinicalSummaries');
+  
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
 }
@@ -749,6 +759,16 @@ async function pushAllToCloud(): Promise<void> {
   // User & Hospital Settings
   await pushTable('userSettings', TABLES.userSettings);
   await pushTable('hospitalSettings', TABLES.hospitalSettings);
+  
+  // Meeting Minutes
+  await pushTable('meetingMinutes', TABLES.meetingMinutes);
+  
+  // Substance Use Disorder Assessment & Detoxification (CSUD-DSM)
+  await pushTable('substanceUseAssessments', TABLES.substanceUseAssessments);
+  await pushTable('detoxMonitoringRecords', TABLES.detoxMonitoringRecords);
+  await pushTable('detoxFollowUps', TABLES.detoxFollowUps);
+  await pushTable('substanceUseConsents', TABLES.substanceUseConsents);
+  await pushTable('substanceUseClinicalSummaries', TABLES.substanceUseClinicalSummaries);
   
   // Audit Logs (for accountability across devices)
   await pushTable('auditLogs', TABLES.auditLogs);

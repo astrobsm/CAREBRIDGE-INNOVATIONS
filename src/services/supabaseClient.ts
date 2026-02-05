@@ -152,6 +152,13 @@ export const TABLES = {
   
   // Meeting Minutes & Transcription
   meetingMinutes: 'meeting_minutes',
+  
+  // Substance Use Disorder Assessment & Detoxification (CSUD-DSM)
+  substanceUseAssessments: 'substance_use_assessments',
+  detoxMonitoringRecords: 'detox_monitoring_records',
+  detoxFollowUps: 'detox_follow_ups',
+  substanceUseConsents: 'substance_use_consents',
+  substanceUseClinicalSummaries: 'substance_use_clinical_summaries',
 } as const;
 
 // Local to cloud table name mapping
@@ -232,6 +239,13 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   hospitalSettings: 'hospital_settings',
   // Meeting Minutes & Transcription
   meetingMinutes: 'meeting_minutes',
+  
+  // Substance Use Disorder Assessment & Detoxification (CSUD-DSM)
+  substanceUseAssessments: 'substance_use_assessments',
+  detoxMonitoringRecords: 'detox_monitoring_records',
+  detoxFollowUps: 'detox_follow_ups',
+  substanceUseConsents: 'substance_use_consents',
+  substanceUseClinicalSummaries: 'substance_use_clinical_summaries',
 };
 
 // Type for sync status
