@@ -35,6 +35,43 @@ import { PatientSelector } from '../../../components/patient';
 import type { ExternalReview, Patient, Hospital } from '../../../types';
 import { generateExternalReviewPDF } from '../utils/pdfGenerator';
 
+// Predefined services catalog with fees
+interface ServiceItem {
+  id: string;
+  category: string;
+  name: string;
+  fee: number;
+}
+
+const EXTERNAL_REVIEW_SERVICES: ServiceItem[] = [
+  // Consultation
+  { id: 'consultation_emergency', category: 'Consultation', name: 'Emergency Consultation', fee: 20000 },
+  { id: 'consultation_first_visit', category: 'Consultation', name: 'Normal Clinic Review (First Visit)', fee: 15000 },
+  { id: 'consultation_followup', category: 'Consultation', name: 'Normal Clinic Review (Follow-up)', fee: 10000 },
+  
+  // Surgery
+  { id: 'surgery_minor', category: 'Surgery', name: 'Minor Surgery', fee: 200000 },
+  { id: 'surgery_intermediate', category: 'Surgery', name: 'Intermediate Surgery', fee: 300000 },
+  { id: 'surgery_major', category: 'Surgery', name: 'Major Surgery', fee: 400000 },
+  
+  // Wound Care
+  { id: 'wound_care_review', category: 'Wound Care', name: 'Wound Care Review', fee: 20000 },
+  { id: 'bedside_debridement', category: 'Wound Care', name: 'Bedside Debridement', fee: 30000 },
+  
+  // Negative Pressure Wound Therapy (NPWT/VAC)
+  { id: 'npwt_small', category: 'Negative Pressure Wound Therapy', name: 'Small VAC', fee: 30000 },
+  { id: 'npwt_medium', category: 'Negative Pressure Wound Therapy', name: 'Medium VAC', fee: 50000 },
+  { id: 'npwt_large', category: 'Negative Pressure Wound Therapy', name: 'Large VAC', fee: 80000 },
+  { id: 'npwt_bilateral', category: 'Negative Pressure Wound Therapy', name: 'Bilateral VAC', fee: 100000 },
+  
+  // Ward Round
+  { id: 'ward_round_no_dressing', category: 'Ward Round', name: 'Normal Ward Round (Without Wound Dressing)', fee: 7500 },
+  { id: 'ward_round_with_dressing', category: 'Ward Round', name: 'Normal Ward Round (With Wound Dressing)', fee: 10000 },
+];
+
+// Group services by category for dropdown display
+const SERVICE_CATEGORIES = [...new Set(EXTERNAL_REVIEW_SERVICES.map(s => s.category))];
+
 export default function ExternalReviewPage() {
   const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
@@ -50,11 +87,26 @@ export default function ExternalReviewPage() {
     patientId: '',
     hospitalId: '',
     folderNumber: '',
-    servicesRendered: '',
-    fee: '',
+    selectedServices: [] as string[], // Array of service IDs
     serviceDate: format(new Date(), 'yyyy-MM-dd'),
     notes: '',
   });
+
+  // Calculate total fee from selected services
+  const calculatedFee = useMemo(() => {
+    return formData.selectedServices.reduce((total, serviceId) => {
+      const service = EXTERNAL_REVIEW_SERVICES.find(s => s.id === serviceId);
+      return total + (service?.fee || 0);
+    }, 0);
+  }, [formData.selectedServices]);
+
+  // Get selected services names for display
+  const selectedServicesText = useMemo(() => {
+    return formData.selectedServices
+      .map(serviceId => EXTERNAL_REVIEW_SERVICES.find(s => s.id === serviceId)?.name)
+      .filter(Boolean)
+      .join(', ');
+  }, [formData.selectedServices]);
 
   // Live queries
   const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
@@ -119,8 +171,7 @@ export default function ExternalReviewPage() {
       patientId: '',
       hospitalId: '',
       folderNumber: '',
-      servicesRendered: '',
-      fee: '',
+      selectedServices: [],
       serviceDate: format(new Date(), 'yyyy-MM-dd'),
       notes: '',
     });
@@ -136,8 +187,8 @@ export default function ExternalReviewPage() {
       return;
     }
 
-    if (!formData.patientId || !formData.hospitalId || !formData.servicesRendered || !formData.fee) {
-      toast.error('Please fill in all required fields');
+    if (!formData.patientId || !formData.hospitalId || formData.selectedServices.length === 0) {
+      toast.error('Please fill in all required fields and select at least one service');
       return;
     }
 
@@ -158,8 +209,8 @@ export default function ExternalReviewPage() {
         hospitalId: formData.hospitalId,
         hospitalName: hospital.name,
         folderNumber: formData.folderNumber || patient.hospitalNumber,
-        servicesRendered: formData.servicesRendered,
-        fee: parseFloat(formData.fee),
+        servicesRendered: selectedServicesText,
+        fee: calculatedFee,
         serviceDate: formData.serviceDate,
         notes: formData.notes || undefined,
         createdBy: user.id,
@@ -182,17 +233,31 @@ export default function ExternalReviewPage() {
 
   // Handle edit
   const handleEdit = (review: ExternalReview) => {
+    // Try to match existing services from the review text
+    const matchedServiceIds = EXTERNAL_REVIEW_SERVICES
+      .filter(s => review.servicesRendered.toLowerCase().includes(s.name.toLowerCase()))
+      .map(s => s.id);
+    
     setFormData({
       patientId: review.patientId,
       hospitalId: review.hospitalId,
       folderNumber: review.folderNumber,
-      servicesRendered: review.servicesRendered,
-      fee: review.fee.toString(),
+      selectedServices: matchedServiceIds,
       serviceDate: review.serviceDate,
       notes: review.notes || '',
     });
     setEditingReview(review);
     setShowForm(true);
+  };
+
+  // Toggle service selection
+  const toggleService = (serviceId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedServices: prev.selectedServices.includes(serviceId)
+        ? prev.selectedServices.filter(id => id !== serviceId)
+        : [...prev.selectedServices, serviceId],
+    }));
   };
 
   // Handle delete
@@ -624,37 +689,73 @@ export default function ExternalReviewPage() {
                   />
                 </div>
 
-                {/* Services Rendered */}
+                {/* Services Rendered - Checkbox Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Services Rendered *
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Services Rendered * <span className="text-xs text-gray-500">(Select one or more)</span>
                   </label>
-                  <textarea
-                    value={formData.servicesRendered}
-                    onChange={(e) => setFormData(prev => ({ ...prev, servicesRendered: e.target.value }))}
-                    className="input"
-                    rows={3}
-                    placeholder="Describe the services rendered..."
-                    required
-                  />
+                  <div className="border rounded-lg p-3 max-h-64 overflow-y-auto bg-gray-50 space-y-4">
+                    {SERVICE_CATEGORIES.map(category => (
+                      <div key={category}>
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 border-b pb-1">
+                          {category}
+                        </h4>
+                        <div className="space-y-1">
+                          {EXTERNAL_REVIEW_SERVICES
+                            .filter(s => s.category === category)
+                            .map(service => (
+                              <label
+                                key={service.id}
+                                className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${
+                                  formData.selectedServices.includes(service.id)
+                                    ? 'bg-indigo-100 border border-indigo-300'
+                                    : 'bg-white border border-gray-200 hover:bg-gray-100'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.selectedServices.includes(service.id)}
+                                    onChange={() => toggleService(service.id)}
+                                    className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                  />
+                                  <span className="text-sm text-gray-900">{service.name}</span>
+                                </div>
+                                <span className="text-sm font-medium text-green-600">
+                                  ₦{service.fee.toLocaleString()}
+                                </span>
+                              </label>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {formData.selectedServices.length === 0 && (
+                    <p className="text-xs text-red-500 mt-1">Please select at least one service</p>
+                  )}
                 </div>
 
-                {/* Fee */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fee (₦) *
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.fee}
-                    onChange={(e) => setFormData(prev => ({ ...prev, fee: e.target.value }))}
-                    className="input"
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                </div>
+                {/* Selected Services Summary & Total Fee */}
+                {formData.selectedServices.length > 0 && (
+                  <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-indigo-900 mb-2">Selected Services:</h4>
+                    <ul className="text-sm text-indigo-700 space-y-1 mb-3">
+                      {formData.selectedServices.map(serviceId => {
+                        const service = EXTERNAL_REVIEW_SERVICES.find(s => s.id === serviceId);
+                        return service && (
+                          <li key={serviceId} className="flex justify-between">
+                            <span>• {service.name}</span>
+                            <span>₦{service.fee.toLocaleString()}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <div className="border-t border-indigo-300 pt-2 flex justify-between items-center">
+                      <span className="font-semibold text-indigo-900">Total Fee:</span>
+                      <span className="text-xl font-bold text-green-600">₦{calculatedFee.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Service Date */}
                 <div>
