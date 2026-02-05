@@ -29,6 +29,9 @@ import {
   Download,
   ImagePlus,
   Trash2,
+  RefreshCw,
+  Cloud,
+  CloudOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -48,7 +51,7 @@ import {
   type SkinGraftProtocolData 
 } from '../../../utils/dressingProtocolPrint';
 import { PatientSelector } from '../../../components/patient';
-import { syncRecord, fullSync } from '../../../services/cloudSyncService';
+import { syncRecord, fullSync, testSupabaseConnection } from '../../../services/cloudSyncService';
 import { usePatientMap } from '../../../services/patientHooks';
 import AIWoundPlanimetry from '../components/AIWoundPlanimetry';
 
@@ -148,11 +151,43 @@ export default function WoundsPage() {
   const [showAIPlanimetry, setShowAIPlanimetry] = useState(false);
   const [woundImageData, setWoundImageData] = useState<string | null>(null);
   const [woundPhotos, setWoundPhotos] = useState<WoundPhoto[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+
+  // Manual sync function with feedback
+  const handleManualSync = async () => {
+    if (isSyncing) return;
+    
+    setIsSyncing(true);
+    try {
+      // First test connection
+      const connTest = await testSupabaseConnection();
+      if (!connTest.success) {
+        toast.error(`Sync failed: ${connTest.message}`);
+        console.error('[WoundsPage] Connection test failed:', connTest);
+        return;
+      }
+      
+      // Run full sync
+      await fullSync();
+      setLastSyncTime(new Date());
+      
+      // Count local wounds after sync
+      const localCount = await db.wounds.count();
+      toast.success(`Synced! ${localCount} wound assessments available locally.`);
+      console.log('[WoundsPage] Sync completed. Local wounds:', localCount);
+    } catch (err) {
+      console.error('[WoundsPage] Sync error:', err);
+      toast.error('Sync failed. Check console for details.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Trigger sync when page loads to ensure latest wound data
   useEffect(() => {
     if (navigator.onLine) {
-      fullSync().catch(err => console.warn('[WoundsPage] Sync error:', err));
+      handleManualSync();
     }
   }, []);
 
@@ -297,6 +332,26 @@ export default function WoundsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Sync Button */}
+          <button 
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className={`btn flex items-center gap-2 ${
+              navigator.onLine ? 'btn-secondary' : 'btn-outline opacity-50'
+            }`}
+            title={navigator.onLine ? (lastSyncTime ? `Last sync: ${format(lastSyncTime, 'HH:mm:ss')}` : 'Sync with cloud') : 'Offline'}
+          >
+            {isSyncing ? (
+              <RefreshCw size={18} className="animate-spin" />
+            ) : navigator.onLine ? (
+              <Cloud size={18} />
+            ) : (
+              <CloudOff size={18} />
+            )}
+            <span className="hidden sm:inline">
+              {isSyncing ? 'Syncing...' : 'Sync'}
+            </span>
+          </button>
           <button 
             onClick={() => {
               generateCalibrationRulerPDF();
