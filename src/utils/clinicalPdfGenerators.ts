@@ -632,7 +632,7 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
   const pageHeight = doc.internal.pageSize.getHeight();
 
   // CRITICAL: Ensure white background
-  doc.setFillColor(...PDF_COLORS.white);
+  doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
   const info: PDFDocumentInfo = {
@@ -650,22 +650,24 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
   yPos = addPatientInfoBox(doc, yPos, patient);
   yPos += 8;
 
-  // Chief Complaint
-  yPos = addSectionTitle(doc, yPos, 'Chief Complaint', 'warning');
-  doc.setTextColor(...PDF_COLORS.dark);
+  // Chief Complaint - 10pt, black text
+  yPos = addSectionTitle(doc, yPos, 'Chief Complaint');
+  doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(chiefComplaint, 20, yPos + 3);
   yPos += 10;
 
-  // Vitals if available
+  // Vitals if available - white background, black text
   if (vitals && Object.keys(vitals).length > 0) {
     yPos = checkNewPage(doc, yPos);
     yPos = addSectionTitle(doc, yPos, 'Vital Signs');
-    doc.setFillColor(240, 253, 244);
-    doc.roundedRect(15, yPos, pageWidth - 30, 12, 2, 2, 'F');
-    doc.setFontSize(8);
-    doc.setTextColor(...PDF_COLORS.dark);
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(15, yPos, pageWidth - 30, 12, 2, 2, 'FD');
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
     
     let vitalX = 20;
     if (vitals.bloodPressure) {
@@ -690,59 +692,57 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
     yPos += 18;
   }
 
-  // History of Present Illness
+  // History of Present Illness - 10pt
   if (historyOfPresentIllness) {
     yPos = checkNewPage(doc, yPos);
     yPos = addSectionTitle(doc, yPos, 'History of Present Illness');
-    doc.setFontSize(9);
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
     doc.setFont(PDF_FONTS.primary, 'normal');
     const hpiLines = doc.splitTextToSize(historyOfPresentIllness, pageWidth - 40);
     doc.text(hpiLines, 20, yPos + 3);
     yPos += hpiLines.length * 4 + 8;
   }
 
-  // Past histories in columns
+  // Past histories in columns - 10pt, black text
   if (pastMedicalHistory || pastSurgicalHistory) {
     yPos = checkNewPage(doc, yPos);
     const halfWidth = (pageWidth - 40) / 2;
     
     if (pastMedicalHistory) {
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setFont(PDF_FONTS.primary, 'bold');
-      doc.setTextColor(...PDF_COLORS.primaryDark);
+      doc.setTextColor(0, 0, 0);
       doc.text('Past Medical History', 20, yPos);
       doc.setFont(PDF_FONTS.primary, 'normal');
-      doc.setTextColor(...PDF_COLORS.dark);
       const pmhLines = doc.splitTextToSize(pastMedicalHistory, halfWidth - 5);
       doc.text(pmhLines, 20, yPos + 5);
     }
     
     if (pastSurgicalHistory) {
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setFont(PDF_FONTS.primary, 'bold');
-      doc.setTextColor(...PDF_COLORS.primaryDark);
+      doc.setTextColor(0, 0, 0);
       doc.text('Past Surgical History', pageWidth / 2 + 5, yPos);
       doc.setFont(PDF_FONTS.primary, 'normal');
-      doc.setTextColor(...PDF_COLORS.dark);
       const pshLines = doc.splitTextToSize(pastSurgicalHistory, halfWidth - 5);
       doc.text(pshLines, pageWidth / 2 + 5, yPos + 5);
     }
     yPos += 20;
   }
 
-  // Physical Examination
+  // Physical Examination - 10pt, black text
   if (physicalExamination && Object.keys(physicalExamination).length > 0) {
     yPos = checkNewPage(doc, yPos);
     yPos = addSectionTitle(doc, yPos, 'Physical Examination');
     
     Object.entries(physicalExamination).forEach(([system, findings]) => {
       if (findings) {
-        doc.setFontSize(8);
+        doc.setFontSize(10);
         doc.setFont(PDF_FONTS.primary, 'bold');
-        doc.setTextColor(...PDF_COLORS.primaryDark);
+        doc.setTextColor(0, 0, 0);
         doc.text(`${system}:`, 20, yPos + 3);
         doc.setFont(PDF_FONTS.primary, 'normal');
-        doc.setTextColor(...PDF_COLORS.dark);
         doc.text(findings.substring(0, 80), 55, yPos + 3);
         yPos += 6;
       }
@@ -750,58 +750,54 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
     yPos += 5;
   }
 
-  // Diagnoses
+  // Diagnoses - 10pt, black text, black bullet
   if (diagnoses.length > 0) {
     yPos = checkNewPage(doc, yPos);
-    yPos = addSectionTitle(doc, yPos, 'Diagnoses', 'danger');
+    yPos = addSectionTitle(doc, yPos, 'Diagnoses');
     
     diagnoses.forEach((dx, _index) => {
-      const typeColors = {
-        primary: PDF_COLORS.danger,
-        secondary: PDF_COLORS.warning,
-        differential: PDF_COLORS.info,
-      };
+      // Black bullet point
+      doc.setFillColor(0, 0, 0);
+      doc.circle(20, yPos + 2, 1.5, 'F');
       
-      doc.setFillColor(...(typeColors[dx.type] || PDF_COLORS.gray));
-      doc.circle(20, yPos + 2, 2, 'F');
-      
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setFont(PDF_FONTS.primary, 'normal');
-      doc.setTextColor(...PDF_COLORS.dark);
+      doc.setTextColor(0, 0, 0);
       doc.text(`${dx.description} (${dx.type})`, 25, yPos + 3);
       
-      doc.setFontSize(7);
-      doc.setTextColor(...PDF_COLORS.gray);
-      doc.text(`[${dx.status}]`, pageWidth - 30, yPos + 3);
+      doc.setFontSize(10);
+      doc.text(`[${dx.status}]`, pageWidth - 35, yPos + 3);
       
       yPos += 7;
     });
     yPos += 5;
   }
 
-  // Treatment Plan
+  // Treatment Plan - white background, black border
   if (treatmentPlan) {
     yPos = checkNewPage(doc, yPos);
-    yPos = addSectionTitle(doc, yPos, 'Treatment Plan', 'success');
-    doc.setFillColor(240, 253, 244);
-    doc.roundedRect(15, yPos, pageWidth - 30, 20, 2, 2, 'F');
-    doc.setFontSize(9);
-    doc.setTextColor(...PDF_COLORS.dark);
+    yPos = addSectionTitle(doc, yPos, 'Treatment Plan');
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(15, yPos, pageWidth - 30, 20, 2, 2, 'FD');
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
     const planLines = doc.splitTextToSize(treatmentPlan, pageWidth - 40);
     doc.text(planLines, 20, yPos + 5);
     yPos += 25;
   }
 
-  // Clinician signature
+  // Clinician signature - black line, black text
   yPos = checkNewPage(doc, yPos);
   yPos += 15;
-  doc.setDrawColor(...PDF_COLORS.gray);
+  doc.setDrawColor(0, 0, 0);
   doc.line(pageWidth - 80, yPos, pageWidth - 15, yPos);
-  doc.setTextColor(...PDF_COLORS.dark);
+  doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
   doc.setFont(PDF_FONTS.primary, 'bold');
   doc.text(clinician, pageWidth - 47.5, yPos + 7, { align: 'center' });
-  doc.setFontSize(8);
+  doc.setFontSize(10);
   doc.setFont(PDF_FONTS.primary, 'normal');
   doc.text(clinicianTitle || 'Attending Physician', pageWidth - 47.5, yPos + 12, { align: 'center' });
 

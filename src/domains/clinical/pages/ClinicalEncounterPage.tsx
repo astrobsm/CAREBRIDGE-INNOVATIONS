@@ -365,139 +365,144 @@ export default function ClinicalEncounterPage() {
     }
   };
 
-  // Print encounter as A4 PDF
+  // Print encounter as A4 PDF - Updated to new standards
   const printEncounterA4 = async (encounter: ClinicalEncounter) => {
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
+    const margin = 12.7; // 0.5 inch margins
     let y = margin;
+
+    // CRITICAL: Ensure white background
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
     // Get clinician name
     const clinician = clinicians?.find(c => c.id === encounter.attendingClinician);
     const clinicianName = clinician ? `Dr. ${clinician.firstName} ${clinician.lastName}` : 'Attending Clinician';
 
-    // Header
-    doc.setFillColor(0, 102, 153);
-    doc.rect(0, 0, pageWidth, 30, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CLINICAL ENCOUNTER REPORT', pageWidth / 2, 12, { align: 'center' });
+    // Header - white background, black text
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.setFont('times', 'bold');
+    doc.text('CLINICAL ENCOUNTER REPORT', pageWidth / 2, y + 5, { align: 'center' });
     
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Date: ${format(new Date(encounter.createdAt), 'PPP p')}`, pageWidth / 2, 20, { align: 'center' });
-    doc.text(`Encounter ID: ${encounter.id.slice(0, 8).toUpperCase()}`, pageWidth / 2, 26, { align: 'center' });
+    doc.setFont('times', 'normal');
+    doc.text(`Date: ${format(new Date(encounter.createdAt), 'PPP p')}`, pageWidth / 2, y + 12, { align: 'center' });
+    doc.text(`Encounter ID: ${encounter.id.slice(0, 8).toUpperCase()}`, pageWidth / 2, y + 18, { align: 'center' });
 
-    y = 40;
-
-    // Patient Information Box
-    doc.setFillColor(240, 248, 255);
-    doc.setDrawColor(0, 102, 153);
+    // Separator line
+    y = y + 22;
+    doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(margin, y, pageWidth - 2 * margin, 25, 'FD');
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 5;
+
+    // Patient Information Box - white background, black border
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, y, pageWidth - 2 * margin, 20, 'FD');
     
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setFont('times', 'bold');
     doc.text('PATIENT INFORMATION', margin + 3, y + 6);
     
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(`Name: ${patient?.firstName} ${patient?.lastName}`, margin + 3, y + 13);
-    doc.text(`Hospital No: ${patient?.hospitalNumber || 'N/A'}`, margin + 80, y + 13);
-    doc.text(`Encounter Type: ${encounter.type?.replace('_', ' ').toUpperCase()}`, margin + 3, y + 20);
-    doc.text(`Clinician: ${clinicianName}`, margin + 80, y + 20);
+    doc.setFont('times', 'normal');
+    doc.text(`Name: ${patient?.firstName} ${patient?.lastName}`, margin + 3, y + 12);
+    doc.text(`Hospital No: ${patient?.hospitalNumber || 'N/A'}`, margin + 80, y + 12);
+    doc.text(`Encounter Type: ${encounter.type?.replace('_', ' ').toUpperCase()}`, margin + 3, y + 18);
+    doc.text(`Clinician: ${clinicianName}`, margin + 80, y + 18);
 
-    y += 32;
+    y += 27;
 
-    // Chief Complaint
+    // Chief Complaint - 10pt, black text
     if (encounter.chiefComplaint) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(0, 102, 153);
-      doc.text('CHIEF COMPLAINT', margin, y);
-      y += 6;
-      
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('times', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
+      doc.text('CHIEF COMPLAINT', margin, y);
+      y += 5;
+      
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
       const chiefLines = doc.splitTextToSize(encounter.chiefComplaint, pageWidth - 2 * margin);
       doc.text(chiefLines, margin, y);
-      y += chiefLines.length * 5 + 5;
+      y += chiefLines.length * 4 + 5;
     }
 
-    // History of Present Illness
+    // History of Present Illness - 10pt, black text
     if (encounter.historyOfPresentIllness) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(0, 102, 153);
-      doc.text('HISTORY OF PRESENT ILLNESS', margin, y);
-      y += 6;
-      
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('times', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
+      doc.text('HISTORY OF PRESENT ILLNESS', margin, y);
+      y += 5;
+      
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
       const hpiLines = doc.splitTextToSize(encounter.historyOfPresentIllness, pageWidth - 2 * margin);
       doc.text(hpiLines, margin, y);
-      y += hpiLines.length * 5 + 5;
+      y += hpiLines.length * 4 + 5;
     }
 
     // Check for page break
     if (y > pageHeight - 60) {
       doc.addPage();
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
       y = margin;
     }
 
-    // Past Medical History
+    // Past Medical History - 10pt, black text
     if (encounter.pastMedicalHistory) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(0, 102, 153);
-      doc.text('PAST MEDICAL HISTORY', margin, y);
-      y += 6;
-      
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('times', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
+      doc.text('PAST MEDICAL HISTORY', margin, y);
+      y += 5;
+      
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
       const pmhLines = doc.splitTextToSize(encounter.pastMedicalHistory, pageWidth - 2 * margin);
       doc.text(pmhLines, margin, y);
-      y += pmhLines.length * 5 + 5;
+      y += pmhLines.length * 4 + 5;
     }
 
-    // Past Surgical History
+    // Past Surgical History - 10pt, black text
     if (encounter.pastSurgicalHistory) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(0, 102, 153);
-      doc.text('PAST SURGICAL HISTORY', margin, y);
-      y += 6;
-      
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('times', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
+      doc.text('PAST SURGICAL HISTORY', margin, y);
+      y += 5;
+      
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
       const pshLines = doc.splitTextToSize(encounter.pastSurgicalHistory, pageWidth - 2 * margin);
       doc.text(pshLines, margin, y);
-      y += pshLines.length * 5 + 5;
+      y += pshLines.length * 4 + 5;
     }
 
     // Check for page break
     if (y > pageHeight - 60) {
       doc.addPage();
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
       y = margin;
     }
 
-    // Physical Examination
+    // Physical Examination - 10pt, black text
     if (encounter.physicalExamination && Object.keys(encounter.physicalExamination).length > 0) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(0, 102, 153);
+      doc.setFont('times', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
       doc.text('PHYSICAL EXAMINATION', margin, y);
-      y += 6;
+      y += 5;
       
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('times', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
       
@@ -505,15 +510,17 @@ export default function ClinicalEncounterPage() {
       for (const field of examFields) {
         const value = encounter.physicalExamination[field];
         if (value) {
-          doc.setFont('helvetica', 'bold');
+          doc.setFont('times', 'bold');
           doc.text(`${field.charAt(0).toUpperCase() + field.slice(1)}:`, margin, y);
-          doc.setFont('helvetica', 'normal');
+          doc.setFont('times', 'normal');
           const examLines = doc.splitTextToSize(value, pageWidth - 2 * margin - 40);
           doc.text(examLines, margin + 40, y);
-          y += examLines.length * 5 + 2;
+          y += examLines.length * 4 + 2;
           
           if (y > pageHeight - 40) {
             doc.addPage();
+            doc.setFillColor(255, 255, 255);
+            doc.rect(0, 0, pageWidth, pageHeight, 'F');
             y = margin;
           }
         }
@@ -521,60 +528,63 @@ export default function ClinicalEncounterPage() {
       y += 3;
     }
 
-    // Diagnosis
+    // Diagnosis - 10pt, black text
     if (encounter.diagnosis && encounter.diagnosis.length > 0) {
       if (y > pageHeight - 50) {
         doc.addPage();
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
         y = margin;
       }
       
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(0, 102, 153);
-      doc.text('DIAGNOSIS', margin, y);
-      y += 6;
-      
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('times', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
+      doc.text('DIAGNOSIS', margin, y);
+      y += 5;
+      
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
       
       encounter.diagnosis.forEach((dx, idx) => {
         const typeLabel = dx.type === 'primary' ? '[PRIMARY]' : dx.type === 'secondary' ? '[SECONDARY]' : '[DIFFERENTIAL]';
         doc.text(`${idx + 1}. ${typeLabel} ${dx.description}`, margin, y);
-        y += 5;
+        y += 4;
       });
       y += 3;
     }
 
-    // Treatment Plan
+    // Treatment Plan - 10pt, black text
     if (encounter.treatmentPlan) {
       if (y > pageHeight - 40) {
         doc.addPage();
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
         y = margin;
       }
       
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(0, 102, 153);
-      doc.text('TREATMENT PLAN', margin, y);
-      y += 6;
-      
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('times', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
+      doc.text('TREATMENT PLAN', margin, y);
+      y += 5;
+      
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
       const planLines = doc.splitTextToSize(encounter.treatmentPlan, pageWidth - 2 * margin);
       doc.text(planLines, margin, y);
-      y += planLines.length * 5 + 5;
+      y += planLines.length * 4 + 5;
     }
 
-    // Footer
+    // Footer - black line, black text
     const footerY = pageHeight - 15;
-    doc.setDrawColor(0, 102, 153);
-    doc.setLineWidth(0.5);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
     doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
     
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(10);
+    doc.setFont('times', 'normal');
+    doc.setTextColor(0, 0, 0);
     doc.text(`Generated: ${format(new Date(), 'PPP p')} | AstroHEALTH EMR`, pageWidth / 2, footerY, { align: 'center' });
 
     // Open print dialog
@@ -1333,44 +1343,57 @@ export default function ClinicalEncounterPage() {
           title="Export Investigation Requests"
           generateA4PDF={() => {
             const doc = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            
+            // White background
+            doc.setFillColor(255, 255, 255);
+            doc.rect(0, 0, pageWidth, pageHeight, 'F');
+            
             let y = 20;
             
             doc.setFont('times', 'bold');
-            doc.setFontSize(18);
+            doc.setFontSize(14);
+            doc.setTextColor(0, 0, 0);
             doc.text('INVESTIGATION REQUESTS', 105, y, { align: 'center' });
-            y += 15;
+            y += 10;
             
             doc.setFont('times', 'normal');
-            doc.setFontSize(12);
-            doc.text(`Patient: ${patient?.firstName} ${patient?.lastName}`, 20, y);
-            y += 7;
-            doc.text(`Hospital No: ${patient?.hospitalNumber}`, 20, y);
-            y += 7;
-            doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 20, y);
-            y += 12;
+            doc.setFontSize(10);
+            doc.text(`Patient: ${patient?.firstName} ${patient?.lastName}`, 12.7, y);
+            y += 5;
+            doc.text(`Hospital No: ${patient?.hospitalNumber}`, 12.7, y);
+            y += 5;
+            doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 12.7, y);
+            y += 8;
             
-            doc.setLineWidth(0.5);
-            doc.line(20, y, 190, y);
-            y += 10;
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.3);
+            doc.line(12.7, y, 197.3, y);
+            y += 8;
             
             patientInvestigations.forEach((inv, idx) => {
               if (y > 270) {
                 doc.addPage();
+                doc.setFillColor(255, 255, 255);
+                doc.rect(0, 0, pageWidth, pageHeight, 'F');
+                doc.setTextColor(0, 0, 0);
                 y = 20;
               }
               doc.setFont('times', 'bold');
-              doc.text(`${idx + 1}. ${inv.typeName || inv.type}`, 20, y);
-              y += 6;
+              doc.setFontSize(10);
+              doc.text(`${idx + 1}. ${inv.typeName || inv.type}`, 12.7, y);
+              y += 5;
               doc.setFont('times', 'normal');
-              doc.text(`   Category: ${inv.category}`, 20, y);
-              y += 6;
-              doc.text(`   Priority: ${inv.priority.toUpperCase()}`, 20, y);
-              y += 6;
+              doc.text(`   Category: ${inv.category}`, 12.7, y);
+              y += 5;
+              doc.text(`   Priority: ${inv.priority.toUpperCase()}`, 12.7, y);
+              y += 5;
               if (inv.clinicalDetails) {
-                doc.text(`   Details: ${inv.clinicalDetails}`, 20, y);
-                y += 6;
+                doc.text(`   Details: ${inv.clinicalDetails}`, 12.7, y);
+                y += 5;
               }
-              y += 4;
+              y += 3;
             });
             
             return doc;
@@ -1399,47 +1422,60 @@ export default function ClinicalEncounterPage() {
           title="Export Prescriptions"
           generateA4PDF={() => {
             const doc = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            
+            // White background
+            doc.setFillColor(255, 255, 255);
+            doc.rect(0, 0, pageWidth, pageHeight, 'F');
+            
             let y = 20;
             
             doc.setFont('times', 'bold');
-            doc.setFontSize(18);
+            doc.setFontSize(14);
+            doc.setTextColor(0, 0, 0);
             doc.text('PRESCRIPTIONS', 105, y, { align: 'center' });
-            y += 15;
+            y += 10;
             
             doc.setFont('times', 'normal');
-            doc.setFontSize(12);
-            doc.text(`Patient: ${patient?.firstName} ${patient?.lastName}`, 20, y);
-            y += 7;
-            doc.text(`Hospital No: ${patient?.hospitalNumber}`, 20, y);
-            y += 7;
-            doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 20, y);
-            y += 12;
+            doc.setFontSize(10);
+            doc.text(`Patient: ${patient?.firstName} ${patient?.lastName}`, 12.7, y);
+            y += 5;
+            doc.text(`Hospital No: ${patient?.hospitalNumber}`, 12.7, y);
+            y += 5;
+            doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 12.7, y);
+            y += 8;
             
-            doc.setLineWidth(0.5);
-            doc.line(20, y, 190, y);
-            y += 10;
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.3);
+            doc.line(12.7, y, 197.3, y);
+            y += 8;
             
             patientPrescriptions.forEach((rx) => {
               rx.medications?.forEach((med, idx) => {
                 if (y > 270) {
                   doc.addPage();
+                  doc.setFillColor(255, 255, 255);
+                  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+                  doc.setTextColor(0, 0, 0);
                   y = 20;
                 }
                 doc.setFont('times', 'bold');
-                doc.text(`${idx + 1}. ${med.name}`, 20, y);
-                y += 6;
+                doc.setFontSize(10);
+                doc.text(`${idx + 1}. ${med.name}`, 12.7, y);
+                y += 5;
                 doc.setFont('times', 'normal');
-                doc.text(`   Dose: ${med.dose} ${med.unit}`, 20, y);
-                y += 6;
-                doc.text(`   Frequency: ${med.frequency}`, 20, y);
-                y += 6;
-                doc.text(`   Duration: ${med.duration}`, 20, y);
-                y += 6;
+                doc.text(`   Dose: ${med.dose} ${med.unit}`, 12.7, y);
+                y += 5;
+                doc.text(`   Frequency: ${med.frequency}`, 12.7, y);
+                y += 5;
+                doc.text(`   Duration: ${med.duration}`, 12.7, y);
+                y += 5;
                 if (med.instructions) {
-                  doc.text(`   Instructions: ${med.instructions}`, 20, y);
-                  y += 6;
+                  doc.text(`   Instructions: ${med.instructions}`, 12.7, y);
+                  y += 5;
                 }
-                y += 4;
+                y += 3;
               });
             });
             
