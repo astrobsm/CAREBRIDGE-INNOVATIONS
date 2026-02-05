@@ -82,6 +82,11 @@ export default function ExternalReviewPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showExportModal, setShowExportModal] = useState(false);
+  
+  // Export-specific filters
+  const [exportDateFrom, setExportDateFrom] = useState('');
+  const [exportDateTo, setExportDateTo] = useState('');
+  const [exportHospitalId, setExportHospitalId] = useState<string>('all');
 
   // Form state
   const [formData, setFormData] = useState({
@@ -165,6 +170,32 @@ export default function ExternalReviewPage() {
   const totalFees = useMemo(() => {
     return filteredReviews.reduce((sum, r) => sum + r.fee, 0);
   }, [filteredReviews]);
+
+  // Export-filtered reviews based on export modal filters
+  const exportFilteredReviews = useMemo(() => {
+    if (!externalReviews) return [];
+    
+    return externalReviews.filter(review => {
+      // Hospital filter for export
+      if (exportHospitalId !== 'all' && review.hospitalId !== exportHospitalId) {
+        return false;
+      }
+      
+      // Date range filter for export
+      if (exportDateFrom || exportDateTo) {
+        const reviewDate = parseISO(review.serviceDate);
+        if (exportDateFrom && reviewDate < startOfDay(parseISO(exportDateFrom))) return false;
+        if (exportDateTo && reviewDate > endOfDay(parseISO(exportDateTo))) return false;
+      }
+      
+      return true;
+    });
+  }, [externalReviews, exportHospitalId, exportDateFrom, exportDateTo]);
+
+  // Export totals
+  const exportTotalFees = useMemo(() => {
+    return exportFilteredReviews.reduce((sum, r) => sum + r.fee, 0);
+  }, [exportFilteredReviews]);
 
   // Reset form
   const resetForm = () => {
@@ -276,16 +307,16 @@ export default function ExternalReviewPage() {
 
   // Export to PDF
   const handleExportPDF = async () => {
-    if (filteredReviews.length === 0) {
+    if (exportFilteredReviews.length === 0) {
       toast.error('No reviews to export');
       return;
     }
 
     try {
-      const pdfBlob = await generateExternalReviewPDF(filteredReviews, {
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-        hospitalName: filterHospital !== 'all' ? hospitalMap.get(filterHospital)?.name : undefined,
+      const pdfBlob = await generateExternalReviewPDF(exportFilteredReviews, {
+        dateFrom: exportDateFrom || undefined,
+        dateTo: exportDateTo || undefined,
+        hospitalName: exportHospitalId !== 'all' ? hospitalMap.get(exportHospitalId)?.name : undefined,
         generatedBy: user ? `${user.firstName} ${user.lastName}` : 'Admin',
       });
       
@@ -307,14 +338,14 @@ export default function ExternalReviewPage() {
 
   // Share on WhatsApp
   const handleShareWhatsApp = async () => {
-    if (filteredReviews.length === 0) {
+    if (exportFilteredReviews.length === 0) {
       toast.error('No reviews to share');
       return;
     }
 
     try {
       // Generate summary text
-      const summary = generateWhatsAppSummary(filteredReviews, dateFrom, dateTo);
+      const summary = generateWhatsAppSummary(exportFilteredReviews, exportDateFrom, exportDateTo);
       
       // Open WhatsApp with the message
       const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(summary)}`;
@@ -813,7 +844,7 @@ export default function ExternalReviewPage() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl max-w-md w-full"
+              className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
@@ -829,45 +860,167 @@ export default function ExternalReviewPage() {
                 </div>
               </div>
 
-              <div className="p-6 space-y-4">
-                <p className="text-gray-600">
-                  Export {filteredReviews.length} review(s) based on current filters.
-                </p>
+              <div className="p-6 space-y-5">
+                {/* Date Range Selection */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <FileText size={16} className="text-primary" />
+                    Select Date Range
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">From Date</label>
+                      <input
+                        type="date"
+                        value={exportDateFrom}
+                        onChange={(e) => setExportDateFrom(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">To Date</label>
+                      <input
+                        type="date"
+                        value={exportDateTo}
+                        onChange={(e) => setExportDateTo(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
 
+                {/* Hospital Selection */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Building2 size={16} className="text-primary" />
+                    Select Hospital
+                  </h3>
+                  <select
+                    value={exportHospitalId}
+                    onChange={(e) => setExportHospitalId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="all">All Hospitals</option>
+                    {hospitals?.map(hospital => (
+                      <option key={hospital.id} value={hospital.id}>
+                        {hospital.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Quick Date Presets */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date();
+                      setExportDateFrom(format(today, 'yyyy-MM-dd'));
+                      setExportDateTo(format(today, 'yyyy-MM-dd'));
+                    }}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date();
+                      const weekAgo = new Date(today);
+                      weekAgo.setDate(weekAgo.getDate() - 7);
+                      setExportDateFrom(format(weekAgo, 'yyyy-MM-dd'));
+                      setExportDateTo(format(today, 'yyyy-MM-dd'));
+                    }}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+                  >
+                    Last 7 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date();
+                      const monthAgo = new Date(today);
+                      monthAgo.setMonth(monthAgo.getMonth() - 1);
+                      setExportDateFrom(format(monthAgo, 'yyyy-MM-dd'));
+                      setExportDateTo(format(today, 'yyyy-MM-dd'));
+                    }}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+                  >
+                    Last 30 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date();
+                      setExportDateFrom(format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd'));
+                      setExportDateTo(format(today, 'yyyy-MM-dd'));
+                    }}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+                  >
+                    This Month
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExportDateFrom('');
+                      setExportDateTo('');
+                      setExportHospitalId('all');
+                    }}
+                    className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-full hover:bg-red-200 transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+
+                {/* Export Summary */}
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Total Records:</span>
-                    <span className="font-medium">{filteredReviews.length}</span>
+                    <span className="font-medium">{exportFilteredReviews.length}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Total Fees:</span>
-                    <span className="font-medium text-green-600">₦{totalFees.toLocaleString()}</span>
+                    <span className="font-medium text-green-600">₦{exportTotalFees.toLocaleString()}</span>
                   </div>
-                  {dateFrom && (
+                  {exportDateFrom && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">From:</span>
-                      <span className="font-medium">{format(parseISO(dateFrom), 'dd MMM yyyy')}</span>
+                      <span className="font-medium">{format(parseISO(exportDateFrom), 'dd MMM yyyy')}</span>
                     </div>
                   )}
-                  {dateTo && (
+                  {exportDateTo && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">To:</span>
-                      <span className="font-medium">{format(parseISO(dateTo), 'dd MMM yyyy')}</span>
+                      <span className="font-medium">{format(parseISO(exportDateTo), 'dd MMM yyyy')}</span>
+                    </div>
+                  )}
+                  {exportHospitalId !== 'all' && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Hospital:</span>
+                      <span className="font-medium">{hospitalMap.get(exportHospitalId)?.name || 'Unknown'}</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex gap-3 pt-4">
+                {exportFilteredReviews.length === 0 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+                    <p className="text-sm text-yellow-700">No reviews match the selected filters.</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
                   <button
                     onClick={handleExportPDF}
-                    className="btn-primary flex-1 flex items-center justify-center gap-2"
+                    disabled={exportFilteredReviews.length === 0}
+                    className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Download size={18} />
                     Download PDF
                   </button>
                   <button
                     onClick={handleShareWhatsApp}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    disabled={exportFilteredReviews.length === 0}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <MessageCircle size={18} />
                     Share WhatsApp
