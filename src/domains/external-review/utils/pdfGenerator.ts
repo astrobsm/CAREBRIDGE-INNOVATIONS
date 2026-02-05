@@ -108,7 +108,7 @@ export async function generateExternalReviewPDF(
   doc.setFont(fontName, 'bold');
   doc.text('Summary:', col2X, statsY);
   
-  const totalFees = reviews.reduce((sum, r) => sum + r.fee, 0);
+  const totalFees = reviews.reduce((sum, r) => sum + (Number(r.fee) || 0), 0);
   
   doc.setFont(fontName, 'normal');
   doc.text('Total Reviews: ' + reviews.length, col2X, statsY + lineHeight + 1);
@@ -123,7 +123,7 @@ export async function generateExternalReviewPDF(
     review.hospitalName.length > 25 ? review.hospitalName.substring(0, 25) + '...' : review.hospitalName,
     review.folderNumber,
     review.servicesRendered.length > 35 ? review.servicesRendered.substring(0, 35) + '...' : review.servicesRendered,
-    formatCurrency(review.fee),
+    formatCurrency(Number(review.fee) || 0),
     format(parseISO(review.serviceDate), 'dd/MM/yyyy'),
   ]);
   
@@ -171,7 +171,7 @@ export async function generateExternalReviewPDF(
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    ensureWhiteBackground(doc);
+    // NOTE: Do NOT call ensureWhiteBackground here - it would erase all content!
     
     // Footer line
     doc.setDrawColor(0, 0, 0);
