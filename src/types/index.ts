@@ -205,6 +205,7 @@ export interface ClinicalEncounter {
   familyHistory?: string;
   socialHistory?: string;
   physicalExamination?: PhysicalExamination;
+  clinicalPhotos?: ClinicalPhoto[];
   diagnosis: Diagnosis[];
   treatmentPlan?: string;
   notes?: string;
@@ -213,6 +214,15 @@ export interface ClinicalEncounter {
   completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Clinical Photo for encounter documentation
+export interface ClinicalPhoto {
+  id: string;
+  imageData: string; // Base64 encoded image
+  description?: string;
+  bodyLocation?: string;
+  capturedAt: Date;
 }
 
 export type EncounterType = 

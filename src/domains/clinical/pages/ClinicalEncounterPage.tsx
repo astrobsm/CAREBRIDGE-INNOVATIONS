@@ -32,6 +32,9 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
+  Camera,
+  ImagePlus,
+  Image as ImageIcon,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -39,7 +42,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation, ExportOptionsModal } from '../../../components/common';
 import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
-import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination, Investigation, Prescription } from '../../../types';
+import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination, Investigation, Prescription, ClinicalPhoto } from '../../../types';
 
 const encounterSchema = z.object({
   type: z.enum(['outpatient', 'inpatient', 'emergency', 'surgical', 'follow_up', 'home_visit']),
@@ -73,6 +76,11 @@ export default function ClinicalEncounterPage() {
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [newDiagnosis, setNewDiagnosis] = useState<{ description: string; type: 'primary' | 'secondary' | 'differential' }>({ description: '', type: 'primary' });
   const [physicalExam, setPhysicalExam] = useState<PhysicalExamination>({});
+  
+  // Clinical Photos State
+  const [clinicalPhotos, setClinicalPhotos] = useState<ClinicalPhoto[]>([]);
+  const [photoDescription, setPhotoDescription] = useState('');
+  const [photoBodyLocation, setPhotoBodyLocation] = useState('');
   
   // Post-submission state for showing export options
   const [showPostSubmitModal, setShowPostSubmitModal] = useState(false);
@@ -210,6 +218,48 @@ export default function ClinicalEncounterPage() {
     setPhysicalExam({ ...physicalExam, [field]: value });
   };
 
+  // Clinical Photo Handlers
+  const handlePhotoCapture = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image too large. Please use an image under 5MB.');
+      return;
+    }
+
+    try {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        const newPhoto: ClinicalPhoto = {
+          id: uuidv4(),
+          imageData: base64,
+          description: photoDescription || undefined,
+          bodyLocation: photoBodyLocation || undefined,
+          capturedAt: new Date(),
+        };
+        setClinicalPhotos([...clinicalPhotos, newPhoto]);
+        setPhotoDescription('');
+        setPhotoBodyLocation('');
+        toast.success('Clinical photo added');
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error capturing photo:', error);
+      toast.error('Failed to capture photo');
+    }
+    
+    // Reset input
+    event.target.value = '';
+  };
+
+  const removePhoto = (photoId: string) => {
+    setClinicalPhotos(clinicalPhotos.filter(p => p.id !== photoId));
+    toast.success('Photo removed');
+  };
+
   const onSubmit = async (data: EncounterFormData) => {
     if (!patientId || !user) return;
     setIsLoading(true);
@@ -228,6 +278,7 @@ export default function ClinicalEncounterPage() {
         familyHistory: data.familyHistory,
         socialHistory: data.socialHistory,
         physicalExamination: physicalExam,
+        clinicalPhotos: clinicalPhotos.length > 0 ? clinicalPhotos : undefined,
         diagnosis: diagnoses,
         treatmentPlan: data.treatmentPlan,
         notes: data.notes,
@@ -843,6 +894,125 @@ export default function ClinicalEncounterPage() {
                 medicalContext="examination"
                 showAIEnhance={true}
               />
+            </div>
+
+            {/* Clinical Photographs Section */}
+            <div className="border-t pt-4 mt-4">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Camera size={20} className="text-sky-600" />
+                Clinical Photographs (Optional)
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Capture or upload photos of lesions, wounds, rashes, or any relevant clinical findings for documentation.
+              </p>
+              
+              {/* Photo Input Controls */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="label">Body Location</label>
+                  <select
+                    value={photoBodyLocation}
+                    onChange={(e) => setPhotoBodyLocation(e.target.value)}
+                    className="input"
+                  >
+                    <option value="">Select location...</option>
+                    <option value="head">Head</option>
+                    <option value="face">Face</option>
+                    <option value="neck">Neck</option>
+                    <option value="chest">Chest</option>
+                    <option value="back">Back</option>
+                    <option value="abdomen">Abdomen</option>
+                    <option value="left_arm">Left Arm</option>
+                    <option value="right_arm">Right Arm</option>
+                    <option value="left_hand">Left Hand</option>
+                    <option value="right_hand">Right Hand</option>
+                    <option value="left_leg">Left Leg</option>
+                    <option value="right_leg">Right Leg</option>
+                    <option value="left_foot">Left Foot</option>
+                    <option value="right_foot">Right Foot</option>
+                    <option value="groin">Groin</option>
+                    <option value="perineum">Perineum</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Description</label>
+                  <input
+                    type="text"
+                    value={photoDescription}
+                    onChange={(e) => setPhotoDescription(e.target.value)}
+                    placeholder="e.g., Diabetic foot ulcer, left heel"
+                    className="input"
+                  />
+                </div>
+              </div>
+
+              {/* Photo Capture/Upload Buttons */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <label className="btn btn-secondary flex items-center gap-2 cursor-pointer">
+                  <Camera size={18} />
+                  Take Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoCapture}
+                    className="hidden"
+                  />
+                </label>
+                <label className="btn btn-outline flex items-center gap-2 cursor-pointer">
+                  <ImagePlus size={18} />
+                  Upload from Gallery
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoCapture}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Photo Gallery */}
+              {clinicalPhotos.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {clinicalPhotos.map((photo) => (
+                    <div key={photo.id} className="relative group">
+                      <img
+                        src={photo.imageData}
+                        alt={photo.description || 'Clinical photo'}
+                        className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all rounded-lg flex items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(photo.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 text-white p-2 rounded-full"
+                          title="Remove photo"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      {(photo.bodyLocation || photo.description) && (
+                        <div className="mt-1 text-xs text-gray-600 truncate">
+                          {photo.bodyLocation && (
+                            <span className="font-medium capitalize">{photo.bodyLocation.replace('_', ' ')}</span>
+                          )}
+                          {photo.bodyLocation && photo.description && ' - '}
+                          {photo.description}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {clinicalPhotos.length === 0 && (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                  <ImageIcon size={32} className="mx-auto text-gray-400 mb-2" />
+                  <p className="text-gray-500 text-sm">No clinical photos added</p>
+                  <p className="text-gray-400 text-xs mt-1">Use the buttons above to capture or upload photos</p>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
