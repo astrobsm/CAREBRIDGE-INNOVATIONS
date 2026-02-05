@@ -42,14 +42,14 @@ export const PDF_PAGE_CONFIG = {
 };
 
 /**
- * Margin configuration - minimum 20mm on all sides
- * This ensures proper printing on all devices and prevents text cutoff
+ * Margin configuration - 0.5 inches (12.7mm) on all sides
+ * Standard A4 professional document margins
  */
 export const PDF_MARGINS = {
-  top: 20,
-  right: 20,
-  bottom: 25, // Extra space for footer
-  left: 20,
+  top: 12.7,      // 0.5 inches
+  right: 12.7,    // 0.5 inches
+  bottom: 15,     // Slightly more for footer
+  left: 12.7,     // 0.5 inches
 } as const;
 
 /**
@@ -105,26 +105,26 @@ export const PDF_FONT_STYLES = {
 
 /**
  * Font sizes in POINTS (pt)
- * All sizes are chosen for optimal readability and accessibility
+ * Standard: 10pt body text for compact professional documents
  */
 export const PDF_FONT_SIZES = {
   // Headers
-  title: 18,           // Document title
-  sectionHeader: 14,   // Section titles
-  subsectionHeader: 12,// Subsection titles
+  title: 14,           // Document title
+  sectionHeader: 12,   // Section titles (BOLD)
+  subsectionHeader: 11,// Subsection titles (BOLD)
   
-  // Body text - minimum 11pt for accessibility
-  body: 11,
-  bodyLarge: 12,
+  // Body text - 10pt standard
+  body: 10,
+  bodyLarge: 11,
   
-  // Tables - minimum 10pt
+  // Tables - 10pt
   tableHeader: 10,
   tableBody: 10,
   
   // Supporting text
   label: 10,
-  caption: 9,
-  footnote: 9,         // Minimum allowed
+  caption: 10,         // Captions same size, BOLD
+  footnote: 9,
   
   // Special
   badge: 8,
@@ -132,13 +132,37 @@ export const PDF_FONT_SIZES = {
 } as const;
 
 /**
- * Line height multipliers for proper spacing
- * Range: 1.4 - 1.6 for optimal readability
+ * Line height multipliers for compact spacing
+ * Using 0.5 line spacing (1.0 = single, 0.5 = half)
+ * In practice, multiplier of 1.0-1.2 gives compact readable text
  */
 export const PDF_LINE_HEIGHT = {
-  tight: 1.4,
-  normal: 1.5,
-  relaxed: 1.6,
+  tight: 1.0,      // 0.5 line spacing equivalent
+  normal: 1.15,    // Compact but readable
+  relaxed: 1.3,    // For special cases
+} as const;
+
+// ============================================================
+// SECTION 2.5: TWO-COLUMN LAYOUT CONFIGURATION
+// ============================================================
+
+/**
+ * Two-column layout configuration for A4 documents
+ * Standard professional medical document format
+ */
+export const PDF_COLUMN_CONFIG = {
+  enabled: true,
+  count: 2,
+  gutter: 6,       // 6mm gap between columns
+  getColumnWidth: (pageWidth: number = PDF_PAGE_SIZES.A4.width): number => {
+    const contentWidth = pageWidth - PDF_MARGINS.left - PDF_MARGINS.right;
+    return (contentWidth - 6) / 2; // (content - gutter) / 2 columns
+  },
+  getColumnX: (column: 0 | 1, pageWidth: number = PDF_PAGE_SIZES.A4.width): number => {
+    const colWidth = PDF_COLUMN_CONFIG.getColumnWidth(pageWidth);
+    if (column === 0) return PDF_MARGINS.left;
+    return PDF_MARGINS.left + colWidth + 6; // First column + gutter
+  },
 } as const;
 
 // ============================================================
@@ -382,6 +406,177 @@ export function truncateText(
 }
 
 // ============================================================
+// SECTION 6.5: TWO-COLUMN LAYOUT HELPERS
+// ============================================================
+
+/**
+ * Two-column document state tracker
+ */
+export interface TwoColumnState {
+  currentColumn: 0 | 1;
+  columnYPositions: [number, number];
+  columnWidth: number;
+}
+
+/**
+ * Initialize two-column layout state
+ */
+export function initTwoColumnLayout(doc: jsPDF): TwoColumnState {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const columnWidth = PDF_COLUMN_CONFIG.getColumnWidth(pageWidth);
+  
+  return {
+    currentColumn: 0,
+    columnYPositions: [PDF_MARGINS.top, PDF_MARGINS.top],
+    columnWidth,
+  };
+}
+
+/**
+ * Get the X position for current column
+ */
+export function getColumnX(state: TwoColumnState, doc: jsPDF): number {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  return PDF_COLUMN_CONFIG.getColumnX(state.currentColumn, pageWidth);
+}
+
+/**
+ * Add text to current column with automatic column switching
+ * Returns updated state
+ */
+export function addTextToColumn(
+  doc: jsPDF,
+  state: TwoColumnState,
+  text: string,
+  options?: {
+    isBold?: boolean;
+    isCaption?: boolean;
+    fontSize?: number;
+  }
+): TwoColumnState {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const maxY = pageHeight - PDF_MARGINS.bottom;
+  
+  // Set font style
+  if (options?.isCaption || options?.isBold) {
+    doc.setFont(PDF_FONTS.primary, PDF_FONT_STYLES.bold);
+  } else {
+    doc.setFont(PDF_FONTS.primary, PDF_FONT_STYLES.normal);
+  }
+  
+  const fontSize = options?.fontSize || PDF_FONT_SIZES.body;
+  doc.setFontSize(fontSize);
+  doc.setTextColor(...PDF_COLORS.text);
+  
+  const lineHeight = fontSize * PDF_LINE_HEIGHT.normal * 0.3528;
+  const x = PDF_COLUMN_CONFIG.getColumnX(state.currentColumn, pageWidth);
+  const lines = doc.splitTextToSize(text, state.columnWidth);
+  const requiredHeight = lines.length * lineHeight;
+  
+  let currentY = state.columnYPositions[state.currentColumn];
+  
+  // Check if we need to switch columns or add new page
+  if (currentY + requiredHeight > maxY) {
+    if (state.currentColumn === 0) {
+      // Switch to second column
+      state.currentColumn = 1;
+      currentY = state.columnYPositions[1];
+    } else {
+      // Add new page and reset to first column
+      doc.addPage();
+      ensureWhiteBackground(doc);
+      state.currentColumn = 0;
+      state.columnYPositions = [PDF_MARGINS.top, PDF_MARGINS.top];
+      currentY = PDF_MARGINS.top;
+    }
+  }
+  
+  // Draw the text
+  const newX = PDF_COLUMN_CONFIG.getColumnX(state.currentColumn, pageWidth);
+  doc.text(lines, newX, currentY);
+  
+  // Update Y position
+  state.columnYPositions[state.currentColumn] = currentY + requiredHeight + 2;
+  
+  // Reset to normal style
+  resetTextStyle(doc);
+  
+  return state;
+}
+
+/**
+ * Add a section header spanning both columns (full width)
+ */
+export function addFullWidthHeader(
+  doc: jsPDF,
+  state: TwoColumnState,
+  text: string
+): TwoColumnState {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const maxY = pageHeight - PDF_MARGINS.bottom;
+  
+  // Get the maximum Y from both columns
+  const currentY = Math.max(state.columnYPositions[0], state.columnYPositions[1]);
+  
+  // Check if we need a new page
+  if (currentY + 15 > maxY) {
+    doc.addPage();
+    ensureWhiteBackground(doc);
+    state.columnYPositions = [PDF_MARGINS.top, PDF_MARGINS.top];
+  }
+  
+  const y = Math.max(state.columnYPositions[0], state.columnYPositions[1]) + 3;
+  
+  // Draw section header
+  doc.setFont(PDF_FONTS.primary, PDF_FONT_STYLES.bold);
+  doc.setFontSize(PDF_FONT_SIZES.sectionHeader);
+  doc.setTextColor(...PDF_COLORS.text);
+  
+  const contentWidth = pageWidth - PDF_MARGINS.left - PDF_MARGINS.right;
+  doc.text(text, PDF_MARGINS.left, y);
+  
+  // Draw underline
+  doc.setDrawColor(...PDF_COLORS.gray[400]);
+  doc.setLineWidth(0.3);
+  doc.line(PDF_MARGINS.left, y + 2, PDF_MARGINS.left + contentWidth, y + 2);
+  
+  // Reset both column positions below the header
+  const newY = y + 6;
+  state.columnYPositions = [newY, newY];
+  state.currentColumn = 0;
+  
+  resetTextStyle(doc);
+  
+  return state;
+}
+
+/**
+ * Add caption (bold text) to column
+ */
+export function addCaptionToColumn(
+  doc: jsPDF,
+  state: TwoColumnState,
+  caption: string
+): TwoColumnState {
+  return addTextToColumn(doc, state, caption, { isCaption: true, isBold: true });
+}
+
+/**
+ * Add a key-value pair in current column
+ */
+export function addKeyValueToColumn(
+  doc: jsPDF,
+  state: TwoColumnState,
+  label: string,
+  value: string
+): TwoColumnState {
+  const text = `${label}: ${value}`;
+  return addTextToColumn(doc, state, text);
+}
+
+// ============================================================
 // SECTION 7: VALIDATION
 // ============================================================
 
@@ -498,6 +693,7 @@ export default {
   COLORS: PDF_COLORS,
   TABLE: PDF_TABLE_CONFIG,
   METADATA: PDF_METADATA,
+  COLUMN_CONFIG: PDF_COLUMN_CONFIG,
   
   // Functions
   createStandardPDF,
@@ -512,4 +708,12 @@ export default {
   getContentWidth,
   getContentHeight,
   sanitizeTextForPDF,
+  
+  // Two-column layout functions
+  initTwoColumnLayout,
+  getColumnX,
+  addTextToColumn,
+  addFullWidthHeader,
+  addCaptionToColumn,
+  addKeyValueToColumn,
 };

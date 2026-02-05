@@ -8,12 +8,14 @@
  * pdfConfig.ts to ensure consistency, cross-platform compatibility,
  * and professional medical-grade document quality.
  * 
- * CRITICAL STANDARDS ENFORCED:
+ * PDF STANDARDS (Updated):
  * - White background (#FFFFFF) on ALL pages
- * - Black text (#000000) for body content
- * - Helvetica font (embedded in PDF)
- * - Minimum 11pt body text, 9pt footnotes
- * - A4 page size with 20mm margins
+ * - Deep Black text (#000000) for ALL content
+ * - Georgia font (Times in jsPDF as closest match)
+ * - 10pt body text, bold captions
+ * - A4 page size with 0.5 inch (12.7mm) margins
+ * - 0.5 line spacing (compact)
+ * - 2-column layout for content
  * ============================================================
  */
 
@@ -22,6 +24,10 @@ import {
   PDF_COLORS as CONFIG_COLORS,
   PDF_FONTS,
   PDF_FONT_SIZES,
+  PDF_MARGINS,
+  PDF_LINE_HEIGHT,
+  PDF_COLUMN_CONFIG,
+  ensureWhiteBackground,
 } from './pdfConfig';
 
 // Re-export colors for backward compatibility
@@ -174,7 +180,7 @@ export interface PDFPatientInfo {
 }
 
 // Add branded header with logo to any PDF document
-// CRITICAL: This function ensures white background below header
+// CRITICAL: Uses white background with deep black text per PDF standards
 export function addBrandedHeader(
   doc: jsPDF, 
   info: PDFDocumentInfo,
@@ -183,91 +189,88 @@ export function addBrandedHeader(
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const { includeDate = true, yOffset = 0 } = options || {};
-  let y = 10 + yOffset;
+  let y = PDF_MARGINS.top + yOffset;
 
   // CRITICAL: Ensure entire page has white background first
-  // This prevents any dark mode or transparency issues
-  doc.setFillColor(...PDF_COLORS.white);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  ensureWhiteBackground(doc);
 
-  // Header background with brand color
-  doc.setFillColor(...PDF_COLORS.primary);
-  doc.rect(0, 0, pageWidth, 38, 'F');
-  
-  // Add darker accent bar
-  doc.setFillColor(...PDF_COLORS.primaryDark);
-  doc.rect(0, 35, pageWidth, 3, 'F');
-
-  // Try to add logo image from cache
+  // Header - white background with black text (no colored header)
+  // Logo placeholder (if needed)
   const logoBase64 = getCachedLogo();
   if (logoBase64) {
     try {
-      doc.addImage(logoBase64, 'PNG', 15, y, 20, 20);
+      doc.addImage(logoBase64, 'PNG', PDF_MARGINS.left, y - 5, 15, 15);
     } catch {
-      addLogoPlaceholder(doc, y);
+      addLogoPlaceholder(doc, y - 5);
     }
   } else {
-    addLogoPlaceholder(doc, y);
+    addLogoPlaceholder(doc, y - 5);
   }
 
-  // App name - white text on colored header
-  doc.setTextColor(255, 255, 255);
+  // App name - deep black text
+  doc.setTextColor(0, 0, 0);
   doc.setFontSize(PDF_FONT_SIZES.title);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text('AstroHEALTH', 40, y + 10);
+  doc.text('AstroHEALTH', PDF_MARGINS.left + 18, y + 2);
   
   // Tagline
-  doc.setFontSize(8);
+  doc.setFontSize(PDF_FONT_SIZES.body);
   doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.text('Innovations in Healthcare', 40, y + 16);
+  doc.text('Innovations in Healthcare', PDF_MARGINS.left + 18, y + 7);
 
   // Hospital name on the right
-  doc.setFontSize(10);
+  doc.setFontSize(PDF_FONT_SIZES.body);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text(info.hospitalName, pageWidth - 15, y + 8, { align: 'right' });
+  doc.text(info.hospitalName, pageWidth - PDF_MARGINS.right, y, { align: 'right' });
   
   if (info.hospitalPhone) {
-    doc.setFontSize(8);
+    doc.setFontSize(PDF_FONT_SIZES.body);
     doc.setFont(PDF_FONTS.primary, 'normal');
-    doc.text(info.hospitalPhone, pageWidth - 15, y + 14, { align: 'right' });
+    doc.text(info.hospitalPhone, pageWidth - PDF_MARGINS.right, y + 5, { align: 'right' });
   }
   
   if (info.hospitalEmail) {
-    doc.text(info.hospitalEmail, pageWidth - 15, y + 19, { align: 'right' });
+    doc.text(info.hospitalEmail, pageWidth - PDF_MARGINS.right, y + 10, { align: 'right' });
   }
 
-  y = 48;
+  // Horizontal line separator
+  y = y + 15;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.line(PDF_MARGINS.left, y, pageWidth - PDF_MARGINS.right, y);
+  
+  y = y + 8;
 
-  // CRITICAL: Reset to black text on white background for document body
-  // Document title - use black text color per PDF standards
-  doc.setTextColor(...PDF_COLORS.text);
+  // Document title - deep black, bold
+  doc.setTextColor(0, 0, 0);
   doc.setFontSize(PDF_FONT_SIZES.sectionHeader);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text(info.title, 15, y);
+  doc.text(info.title, PDF_MARGINS.left, y);
   
   if (info.subtitle) {
-    doc.setFontSize(10);
+    doc.setFontSize(PDF_FONT_SIZES.body);
     doc.setFont(PDF_FONTS.primary, 'normal');
-    doc.setTextColor(...PDF_COLORS.text);
-    doc.text(info.subtitle, 15, y + 6);
-    y += 8;
+    doc.text(info.subtitle, PDF_MARGINS.left, y + 5);
+    y += 6;
   }
 
-  // Date generated - use gray for secondary text
+  // Date generated
   if (includeDate) {
-    doc.setFontSize(PDF_FONT_SIZES.footnote);
-    doc.setTextColor(...PDF_COLORS.gray);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 15, y, { align: 'right' });
+    doc.setFontSize(PDF_FONT_SIZES.body);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - PDF_MARGINS.right, y, { align: 'right' });
   }
 
-  // Reset text color to black for content that follows
-  doc.setTextColor(...PDF_COLORS.text);
+  // Reset text style
+  doc.setTextColor(0, 0, 0);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(PDF_FONT_SIZES.body);
 
-  return y + 10;
+  return y + 8;
 }
 
 // Add patient information box
-// Uses light background with sufficient contrast for readability
+// Uses white background with black border per PDF standards
 export function addPatientInfoBox(
   doc: jsPDF,
   yPos: number,
@@ -275,29 +278,29 @@ export function addPatientInfoBox(
   additionalInfo?: Record<string, string>
 ): number {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const boxWidth = pageWidth - 30;
+  const boxWidth = pageWidth - (PDF_MARGINS.left * 2);
   
-  // Box background - very light blue for subtle highlight (maintains print compatibility)
-  doc.setFillColor(240, 245, 255);
-  doc.roundedRect(15, yPos, boxWidth, 40, 3, 3, 'F');
-  doc.setDrawColor(...PDF_COLORS.primary);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(15, yPos, boxWidth, 40, 3, 3, 'S');
+  // Box background - white with black border
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(PDF_MARGINS.left, yPos, boxWidth, 35, 2, 2, 'FD');
 
-  // Title - use brand color for accent
-  doc.setFontSize(PDF_FONT_SIZES.tableHeader);
+  // Title - bold black
+  doc.setFontSize(PDF_FONT_SIZES.body);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.setTextColor(...PDF_COLORS.primaryDark);
-  doc.text('Patient Information', 20, yPos + 8);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Patient Information', PDF_MARGINS.left + 3, yPos + 6);
 
-  // Patient details - black text for maximum readability
+  // Patient details - two columns, black text
   doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.setFontSize(PDF_FONT_SIZES.footnote);
-  doc.setTextColor(...PDF_COLORS.text);
+  doc.setFontSize(PDF_FONT_SIZES.body);
+  doc.setTextColor(0, 0, 0);
 
-  const leftCol = 20;
+  const leftCol = PDF_MARGINS.left + 3;
   const rightCol = pageWidth / 2;
-  let lineY = yPos + 16;
+  const lineHeight = PDF_FONT_SIZES.body * PDF_LINE_HEIGHT.tight * 0.3528;
+  let lineY = yPos + 12;
 
   doc.text(`Name: ${patient.name}`, leftCol, lineY);
   doc.text(`Hospital No: ${patient.hospitalNumber}`, rightCol, lineY);
@@ -365,25 +368,21 @@ export function addBrandedFooter(
 }
 
 // Create a new branded PDF document
-// CRITICAL: This function ensures white background for entire page
-// Now includes watermark functionality
+// CRITICAL: Uses white background for entire page, 0.5" margins
 export function createBrandedPDF(
   info: PDFDocumentInfo,
   patientInfo?: PDFPatientInfo,
   options?: { includeWatermark?: boolean }
 ): { doc: jsPDF; yPos: number } {
   const doc = new jsPDF('p', 'mm', 'a4');
-  const { includeWatermark = true } = options || {};
+  const { includeWatermark = false } = options || {}; // Default to no watermark for cleaner documents
   
   // CRITICAL: Ensure white background for the entire page
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  doc.setFillColor(...PDF_COLORS.white);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  ensureWhiteBackground(doc);
   
-  // Add watermark first so it appears behind content
+  // Add watermark first if requested (behind content)
   if (includeWatermark) {
-    addLogoWatermark(doc, 0.06);
+    addLogoWatermark(doc, 0.05);
   }
   
   let yPos = addBrandedHeader(doc, info);
@@ -392,8 +391,8 @@ export function createBrandedPDF(
     yPos = addPatientInfoBox(doc, yPos, patientInfo);
   }
   
-  // Ensure text is reset to black for body content
-  doc.setTextColor(...PDF_COLORS.text);
+  // Ensure text is reset to black, 10pt, normal
+  doc.setTextColor(0, 0, 0);
   doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(PDF_FONT_SIZES.body);
   
@@ -401,39 +400,35 @@ export function createBrandedPDF(
 }
 
 // Helper to add a section title
-// Uses accent colors for visual hierarchy while maintaining black text
+// Uses bold black text on white background
 export function addSectionTitle(
   doc: jsPDF,
   yPos: number,
   title: string,
   icon?: 'warning' | 'info' | 'success' | 'danger'
 ): number {
-  const colors: Record<string, [number, number, number]> = {
-    warning: PDF_COLORS.warning,
-    info: PDF_COLORS.info,
-    success: PDF_COLORS.success,
-    danger: PDF_COLORS.danger,
-  };
-
-  const color = icon ? colors[icon] : PDF_COLORS.primaryDark;
-
-  doc.setFillColor(...color);
-  doc.roundedRect(15, yPos, 4, 10, 1, 1, 'F');
-
+  // Section header - bold black text
   doc.setFontSize(PDF_FONT_SIZES.sectionHeader);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.setTextColor(...PDF_COLORS.text);  // Use black text for readability
-  doc.text(title, 23, yPos + 7);
+  doc.setTextColor(0, 0, 0);
+  doc.text(title, PDF_MARGINS.left, yPos + 5);
+
+  // Underline
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  const textWidth = doc.getTextWidth(title);
+  doc.line(PDF_MARGINS.left, yPos + 7, PDF_MARGINS.left + textWidth, yPos + 7);
 
   // Reset to body text style
-  doc.setTextColor(...PDF_COLORS.text);
+  doc.setTextColor(0, 0, 0);
   doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(PDF_FONT_SIZES.body);
 
-  return yPos + 15;
+  return yPos + 12;
 }
 
 // Helper to add a simple table
-// Uses proper font sizes per PDF standards (min 10pt for tables)
+// Uses 10pt font, white background, black text per PDF standards
 export function addSimpleTable(
   doc: jsPDF,
   yPos: number,
@@ -442,40 +437,40 @@ export function addSimpleTable(
   columnWidths?: number[]
 ): number {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const tableWidth = pageWidth - 30;
+  const tableWidth = pageWidth - (PDF_MARGINS.left * 2);
   const defaultColWidth = tableWidth / headers.length;
   const colWidths = columnWidths || headers.map(() => defaultColWidth);
-  const rowHeight = 8;
+  const rowHeight = 6; // Compact row height for 0.5 line spacing
 
-  // Header row with brand color background
-  doc.setFillColor(...PDF_COLORS.primary);
-  doc.rect(15, yPos, tableWidth, rowHeight, 'F');
+  // Header row - white background, bold black text
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(PDF_MARGINS.left, yPos, tableWidth, rowHeight, 'FD');
   
-  // Header text: white on colored background, minimum 10pt
+  // Header text: bold black, 10pt
   doc.setFontSize(PDF_FONT_SIZES.tableHeader);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(0, 0, 0);
 
-  let xPos = 17;
+  let xPos = PDF_MARGINS.left + 2;
   headers.forEach((header, i) => {
-    doc.text(header, xPos, yPos + 5.5);
+    doc.text(header, xPos, yPos + 4);
     xPos += colWidths[i];
   });
 
   yPos += rowHeight;
 
-  // Data rows - use black text on white/light backgrounds
+  // Data rows - normal black text on white background
   doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.setTextColor(...PDF_COLORS.text);
+  doc.setTextColor(0, 0, 0);
 
   rows.forEach((row, rowIndex) => {
-    // Alternate row colors - very light gray for even rows
-    if (rowIndex % 2 === 0) {
-      doc.setFillColor(248, 250, 252);
-      doc.rect(15, yPos, tableWidth, rowHeight, 'F');
-    }
+    // Draw row with border (no alternating colors - all white)
+    doc.setFillColor(255, 255, 255);
+    doc.rect(PDF_MARGINS.left, yPos, tableWidth, rowHeight, 'FD');
 
-    xPos = 17;
+    xPos = PDF_MARGINS.left + 2;
     row.forEach((cell, i) => {
       // Truncate text if too long
       const maxWidth = colWidths[i] - 4;
@@ -483,22 +478,19 @@ export function addSimpleTable(
       while (doc.getTextWidth(displayText) > maxWidth && displayText.length > 3) {
         displayText = displayText.slice(0, -4) + '...';
       }
-      doc.text(displayText, xPos, yPos + 5.5);
+      doc.text(displayText, xPos, yPos + 4);
       xPos += colWidths[i];
     });
 
     yPos += rowHeight;
   });
 
-  // Table border
-  doc.setDrawColor(...PDF_COLORS.lightGray);
-  doc.setLineWidth(0.3);
-  doc.rect(15, yPos - (rows.length + 1) * rowHeight, tableWidth, (rows.length + 1) * rowHeight, 'S');
+  // Reset text style
+  doc.setTextColor(0, 0, 0);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(PDF_FONT_SIZES.body);
 
-  // Reset text color to black for content that follows
-  doc.setTextColor(...PDF_COLORS.text);
-
-  return yPos + 5;
+  return yPos + 3;
 }
 
 // Format currency for Nigerian Naira
@@ -606,23 +598,21 @@ export function formatAmountInWords(amount: number): string {
 }
 
 // Check if we need a new page
-// CRITICAL: Ensures white background and watermark on new pages
-export function checkNewPage(doc: jsPDF, yPos: number, requiredSpace: number = 30, includeWatermark: boolean = true): number {
+// CRITICAL: Ensures white background on new pages
+export function checkNewPage(doc: jsPDF, yPos: number, requiredSpace: number = 25, includeWatermark: boolean = false): number {
   const pageHeight = doc.internal.pageSize.getHeight();
   
-  if (yPos + requiredSpace > pageHeight - 25) {
+  if (yPos + requiredSpace > pageHeight - PDF_MARGINS.bottom) {
     doc.addPage();
     // CRITICAL: Ensure white background on new page
-    const pageWidth = doc.internal.pageSize.getWidth();
-    doc.setFillColor(...PDF_COLORS.white);
-    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    ensureWhiteBackground(doc);
     
-    // Add watermark to new page
+    // Add watermark to new page if requested
     if (includeWatermark) {
-      addLogoWatermark(doc, 0.06);
+      addLogoWatermark(doc, 0.05);
     }
     
-    return 20;
+    return PDF_MARGINS.top;
   }
   
   return yPos;
