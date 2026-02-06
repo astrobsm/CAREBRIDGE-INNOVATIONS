@@ -323,8 +323,13 @@ export default function FollowUpEncounterPage() {
         hospitalId,
         type: 'follow_up',
         status: 'completed',
+        isFirstEncounter: false,
         chiefComplaint: `Follow-up Visit: ${data.intervalHistory}`,
         historyOfPresentIllness: data.symptomsUpdate,
+        // Follow-up specific fields
+        intervalHistory: data.intervalHistory,
+        complianceAssessment: data.medicationCompliance,
+        newSymptoms: data.symptomsUpdate,
         treatmentPlan: data.treatmentPlanUpdate,
         notes: `Medication Compliance: ${data.medicationCompliance}\n${data.sideEffects ? `Side Effects: ${data.sideEffects}\n` : ''}${data.notes || ''}`,
         diagnosis: mergedDiagnoses,
@@ -366,6 +371,32 @@ export default function FollowUpEncounterPage() {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">Loading patient...</p>
+      </div>
+    );
+  }
+
+  // Redirect to initial encounter if no previous encounters exist
+  if (previousEncounters !== undefined && previousEncounters.length === 0) {
+    return (
+      <div className="max-w-2xl mx-auto text-center py-12">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-8"
+        >
+          <AlertTriangle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-amber-800 mb-2">No Previous Encounters Found</h2>
+          <p className="text-amber-700 mb-6">
+            This patient has no previous clinical encounters. Please complete an Initial Encounter first to document their baseline clinical evaluation.
+          </p>
+          <button
+            onClick={() => navigate(`/patients/${patientId}/encounter`)}
+            className="btn btn-primary flex items-center gap-2 mx-auto"
+          >
+            <Stethoscope size={18} />
+            Start Initial Encounter
+          </button>
+        </motion.div>
       </div>
     );
   }

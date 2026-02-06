@@ -35,6 +35,10 @@ import {
   Camera,
   ImagePlus,
   Image as ImageIcon,
+  UserPlus,
+  RefreshCw,
+  AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -103,6 +107,10 @@ export default function ClinicalEncounterPage() {
   const [encounterFilterDateFrom, setEncounterFilterDateFrom] = useState<string>('');
   const [encounterFilterDateTo, setEncounterFilterDateTo] = useState<string>('');
   const [encounterFilterType, setEncounterFilterType] = useState<string>('');
+  
+  // Encounter mode detection state
+  const [encounterMode, setEncounterMode] = useState<'initial' | 'follow_up' | 'loading'>('loading');
+  const [showEncounterModeChoice, setShowEncounterModeChoice] = useState(false);
 
   const patient = useLiveQuery(
     () => patientId ? db.patients.get(patientId) : undefined,
@@ -125,6 +133,26 @@ export default function ClinicalEncounterPage() {
     },
     [patientId]
   );
+
+  // Auto-detect encounter mode based on previous encounters
+  // This runs when previousEncounters data is loaded
+  useMemo(() => {
+    if (previousEncounters === undefined) {
+      // Still loading
+      setEncounterMode('loading');
+      return;
+    }
+    
+    if (previousEncounters.length === 0) {
+      // No previous encounters - this is an INITIAL encounter
+      setEncounterMode('initial');
+      setValue('type', 'initial');
+    } else {
+      // Has previous encounters - this is a FOLLOW-UP
+      setEncounterMode('follow_up');
+      setValue('type', 'follow_up');
+    }
+  }, [previousEncounters, setValue]);
 
   // All prescriptions for this patient (for Previous Encounters)
   const allPatientPrescriptions = useLiveQuery(
@@ -317,12 +345,15 @@ export default function ClinicalEncounterPage() {
     setIsLoading(true);
 
     try {
+      const isInitialEncounter = encounterMode === 'initial';
+      
       const encounter: ClinicalEncounter = {
         id: uuidv4(),
         patientId,
         hospitalId: user.hospitalId || 'hospital-1',
         type: data.type,
         status: 'completed',
+        isFirstEncounter: isInitialEncounter,
         chiefComplaint: data.chiefComplaint,
         historyOfPresentIllness: data.historyOfPresentIllness,
         pastMedicalHistory: data.pastMedicalHistory,
@@ -606,8 +637,101 @@ export default function ClinicalEncounterPage() {
     );
   }
 
+  // Show loading while detecting encounter mode
+  if (encounterMode === 'loading') {
+    return (
+      <div className="max-w-5xl mx-auto text-center py-12">
+        <div className="animate-pulse">
+          <Stethoscope className="w-12 h-12 text-sky-500 mx-auto mb-4" />
+          <p className="text-gray-500">Checking patient history...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto">
+      {/* Encounter Mode Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`mb-6 p-4 rounded-xl border-2 ${
+          encounterMode === 'initial'
+            ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300'
+            : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300'
+        }`}
+      >
+        <div className="flex items-start gap-4">
+          <div className={`p-3 rounded-xl ${
+            encounterMode === 'initial' ? 'bg-emerald-100' : 'bg-blue-100'
+          }`}>
+            {encounterMode === 'initial' ? (
+              <UserPlus className="w-8 h-8 text-emerald-600" />
+            ) : (
+              <RefreshCw className="w-8 h-8 text-blue-600" />
+            )}
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className={`text-lg font-bold ${
+                encounterMode === 'initial' ? 'text-emerald-800' : 'text-blue-800'
+              }`}>
+                {encounterMode === 'initial' ? 'Initial Encounter' : 'Follow-Up Encounter'}
+              </h2>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                encounterMode === 'initial' 
+                  ? 'bg-emerald-200 text-emerald-700' 
+                  : 'bg-blue-200 text-blue-700'
+              }`}>
+                Auto-detected
+              </span>
+            </div>
+            <p className={`text-sm mt-1 ${
+              encounterMode === 'initial' ? 'text-emerald-700' : 'text-blue-700'
+            }`}>
+              {encounterMode === 'initial' 
+                ? 'This is the first clinical encounter for this patient. Complete a comprehensive evaluation including full history and examination.'
+                : `This patient has ${previousEncounters?.length || 0} previous encounter(s). Last visit: ${previousEncounters?.[0] ? format(new Date(previousEncounters[0].createdAt), 'PPP') : 'N/A'}`
+              }
+            </p>
+            
+            {/* Option to switch mode */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {encounterMode === 'follow_up' && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/patients/${patientId}/follow-up`)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  <RefreshCw size={16} />
+                  Quick Follow-Up Form
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (encounterMode === 'initial') {
+                    setEncounterMode('follow_up');
+                    setValue('type', 'follow_up');
+                  } else {
+                    setEncounterMode('initial');
+                    setValue('type', 'initial');
+                  }
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  encounterMode === 'initial'
+                    ? 'bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50'
+                    : 'bg-white border border-blue-300 text-blue-700 hover:bg-blue-50'
+                }`}
+              >
+                <AlertCircle size={16} />
+                Switch to {encounterMode === 'initial' ? 'Follow-Up' : 'Initial'} Mode
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Header */}
       <div className="mb-6">
         <button
@@ -621,8 +745,12 @@ export default function ClinicalEncounterPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3">
-              <Stethoscope className="w-7 h-7 text-sky-500" />
-              Clinical Encounter
+              {encounterMode === 'initial' ? (
+                <UserPlus className="w-7 h-7 text-emerald-500" />
+              ) : (
+                <RefreshCw className="w-7 h-7 text-blue-500" />
+              )}
+              {encounterMode === 'initial' ? 'Initial Clinical Encounter' : 'Follow-Up Encounter'}
             </h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">
               Patient: {patient.firstName} {patient.lastName} ({patient.hospitalNumber})

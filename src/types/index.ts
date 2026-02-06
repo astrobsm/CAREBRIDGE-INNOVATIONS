@@ -198,22 +198,47 @@ export interface ClinicalEncounter {
   hospitalId: string;
   type: EncounterType;
   status: 'in-progress' | 'completed' | 'cancelled';
+  
+  // Flag to distinguish initial vs follow-up encounters
+  isFirstEncounter?: boolean;
+  
+  // Common fields
   chiefComplaint: string;
   historyOfPresentIllness?: string;
-  pastMedicalHistory?: string;
-  pastSurgicalHistory?: string;
-  familyHistory?: string;
-  socialHistory?: string;
   physicalExamination?: PhysicalExamination;
   clinicalPhotos?: ClinicalPhoto[];
   diagnosis: Diagnosis[];
   treatmentPlan?: string;
   notes?: string;
+  
+  // Initial encounter specific - comprehensive history
+  pastMedicalHistory?: string;
+  pastSurgicalHistory?: string;
+  familyHistory?: string;
+  socialHistory?: string;
+  allergyHistory?: string;
+  medicationHistory?: string;
+  immunizationHistory?: string;
+  obstetricHistory?: string;        // For female patients
+  developmentalHistory?: string;    // For pediatric patients
+  
+  // Follow-up encounter specific
+  intervalHistory?: string;          // Changes since last visit
+  complianceAssessment?: string;     // Medication/treatment compliance
+  treatmentResponse?: string;        // How patient is responding to treatment
+  newSymptoms?: string;              // New symptoms since last visit
+  previousEncounterId?: string;      // Reference to previous encounter (for follow-ups)
+  
+  // Clinician and timing
   attendingClinician: string;
   startedAt: Date;
   completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  
+  // Sync tracking
+  syncedAt?: Date;
+  localId?: string;
 }
 
 // Clinical Photo for encounter documentation

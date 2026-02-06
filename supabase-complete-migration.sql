@@ -147,21 +147,41 @@ CREATE TABLE IF NOT EXISTS clinical_encounters (
   hospital_id TEXT,
   type TEXT,
   status TEXT,
+  -- Flag to distinguish initial vs follow-up
+  is_first_encounter BOOLEAN DEFAULT false,
+  -- Common fields
   chief_complaint TEXT,
   history_of_present_illness TEXT,
+  physical_examination JSONB,
+  clinical_photos JSONB DEFAULT '[]'::jsonb,
+  diagnosis JSONB, -- array of diagnosis objects
+  treatment_plan TEXT,
+  notes TEXT,
+  -- Initial encounter - comprehensive history
   past_medical_history TEXT,
   past_surgical_history TEXT,
   family_history TEXT,
   social_history TEXT,
-  physical_examination JSONB,
-  diagnosis JSONB, -- array of diagnosis objects
-  treatment_plan TEXT,
-  notes TEXT,
+  allergy_history TEXT,
+  medication_history TEXT,
+  immunization_history TEXT,
+  obstetric_history TEXT,
+  developmental_history TEXT,
+  -- Follow-up encounter specific
+  interval_history TEXT,
+  compliance_assessment TEXT,
+  treatment_response TEXT,
+  new_symptoms TEXT,
+  previous_encounter_id TEXT,
+  -- Clinician and timing
   attending_clinician TEXT,
   started_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Sync tracking
+  synced_at TIMESTAMPTZ,
+  local_id TEXT
 );
 
 -- =====================================================
