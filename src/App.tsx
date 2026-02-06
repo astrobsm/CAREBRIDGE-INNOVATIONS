@@ -10,6 +10,7 @@ import PatientsListPage from './domains/patients/pages/PatientsListPage';
 import PatientDetailsPage from './domains/patients/pages/PatientDetailsPage';
 import NewPatientPage from './domains/patients/pages/NewPatientPage';
 import ClinicalEncounterPage from './domains/clinical/pages/ClinicalEncounterPage';
+import FollowUpEncounterPage from './domains/clinical/pages/FollowUpEncounterPage';
 import PatientClinicalSummaryPage from './domains/clinical/pages/PatientClinicalSummaryPage';
 import VitalsPage from './domains/clinical/pages/VitalsPage';
 import MDTPage from './domains/clinical/pages/MDTPage';
@@ -110,6 +111,7 @@ function App() {
           <Route path="new" element={<NewPatientPage />} />
           <Route path=":patientId" element={<PatientDetailsPage />} />
           <Route path=":patientId/encounter" element={<ClinicalEncounterPage />} />
+          <Route path=":patientId/follow-up" element={<FollowUpEncounterPage />} />
           <Route path=":patientId/clinical-summary" element={<PatientClinicalSummaryPage />} />
           <Route path=":patientId/vitals" element={<VitalsPage />} />
           <Route path=":patientId/wounds" element={<WoundsPage />} />

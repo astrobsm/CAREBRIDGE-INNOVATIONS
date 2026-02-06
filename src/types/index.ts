@@ -226,12 +226,28 @@ export interface ClinicalPhoto {
 }
 
 export type EncounterType = 
+  | 'initial'
+  | 'follow_up'
   | 'outpatient'
   | 'inpatient'
   | 'emergency'
   | 'surgical'
-  | 'follow_up'
   | 'home_visit';
+
+// Encounter Category for UI grouping
+export type EncounterCategory = 'initial' | 'follow_up';
+
+// Investigation Result with tracking for flagging
+export interface InvestigationResult {
+  parameterId: string;
+  parameterName: string;
+  value: number | string;
+  unit?: string;
+  referenceRange?: string;
+  isAbnormal: boolean;
+  abnormalityType?: 'high' | 'low' | 'critical_high' | 'critical_low';
+  recommendation?: string;
+}
 
 export interface PhysicalExamination {
   generalAppearance?: string;

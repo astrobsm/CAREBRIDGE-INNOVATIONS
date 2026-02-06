@@ -42,10 +42,12 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation, ExportOptionsModal } from '../../../components/common';
 import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
+import AISummaryButton from '../components/AISummaryButton';
+import TrackedInvestigations from '../components/TrackedInvestigations';
 import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination, Investigation, Prescription, ClinicalPhoto } from '../../../types';
 
 const encounterSchema = z.object({
-  type: z.enum(['outpatient', 'inpatient', 'emergency', 'surgical', 'follow_up', 'home_visit']),
+  type: z.enum(['initial', 'outpatient', 'inpatient', 'emergency', 'surgical', 'follow_up', 'home_visit']),
   chiefComplaint: z.string().min(5, 'Chief complaint is required'),
   historyOfPresentIllness: z.string().optional(),
   pastMedicalHistory: z.string().optional(),
@@ -59,11 +61,12 @@ const encounterSchema = z.object({
 type EncounterFormData = z.infer<typeof encounterSchema>;
 
 const encounterTypes: { value: EncounterType; label: string }[] = [
+  { value: 'initial', label: 'Initial Encounter (New Patient)' },
+  { value: 'follow_up', label: 'Follow-up Visit' },
   { value: 'outpatient', label: 'Outpatient Visit' },
   { value: 'inpatient', label: 'Inpatient Admission' },
   { value: 'emergency', label: 'Emergency' },
   { value: 'surgical', label: 'Surgical Consultation' },
-  { value: 'follow_up', label: 'Follow-up' },
   { value: 'home_visit', label: 'Home Visit' },
 ];
 
@@ -89,6 +92,9 @@ export default function ClinicalEncounterPage() {
   const [showPrescriptionExport, setShowPrescriptionExport] = useState(false);
   const [patientInvestigations, setPatientInvestigations] = useState<Investigation[]>([]);
   const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([]);
+  
+  // Tracked Investigations Modal State
+  const [showTrackedInvestigations, setShowTrackedInvestigations] = useState(false);
   
   // Previous Encounters Modal State
   const [showPreviousEncountersModal, setShowPreviousEncountersModal] = useState(false);
@@ -638,6 +644,22 @@ export default function ClinicalEncounterPage() {
             >
               <History size={18} />
               Previous Encounters
+            </button>
+            {/* AI Summary Button */}
+            {patientId && (
+              <AISummaryButton 
+                patientId={patientId} 
+                patientName={`${patient.firstName} ${patient.lastName}`}
+              />
+            )}
+            {/* Tracked Investigations Button */}
+            <button
+              type="button"
+              onClick={() => setShowTrackedInvestigations(true)}
+              className="btn btn-secondary flex items-center gap-2 bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+            >
+              <FlaskConical size={18} />
+              <span className="hidden sm:inline">Tracked Investigations</span>
             </button>
           </div>
         </div>
@@ -1866,6 +1888,31 @@ export default function ClinicalEncounterPage() {
                   Close
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tracked Investigations Modal */}
+      <AnimatePresence>
+        {showTrackedInvestigations && patientId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowTrackedInvestigations(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <TrackedInvestigations 
+                patientId={patientId} 
+                onClose={() => setShowTrackedInvestigations(false)} 
+              />
             </motion.div>
           </motion.div>
         )}
