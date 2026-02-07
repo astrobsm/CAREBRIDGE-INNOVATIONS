@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
@@ -134,26 +134,6 @@ export default function ClinicalEncounterPage() {
     [patientId]
   );
 
-  // Auto-detect encounter mode based on previous encounters
-  // This runs when previousEncounters data is loaded
-  useMemo(() => {
-    if (previousEncounters === undefined) {
-      // Still loading
-      setEncounterMode('loading');
-      return;
-    }
-    
-    if (previousEncounters.length === 0) {
-      // No previous encounters - this is an INITIAL encounter
-      setEncounterMode('initial');
-      setValue('type', 'initial');
-    } else {
-      // Has previous encounters - this is a FOLLOW-UP
-      setEncounterMode('follow_up');
-      setValue('type', 'follow_up');
-    }
-  }, [previousEncounters, setValue]);
-
   // All prescriptions for this patient (for Previous Encounters)
   const allPatientPrescriptions = useLiveQuery(
     async () => {
@@ -264,6 +244,26 @@ export default function ClinicalEncounterPage() {
       type: 'outpatient',
     },
   });
+
+  // Auto-detect encounter mode based on previous encounters
+  // This runs when previousEncounters data is loaded
+  useEffect(() => {
+    if (previousEncounters === undefined) {
+      // Still loading
+      setEncounterMode('loading');
+      return;
+    }
+    
+    if (previousEncounters.length === 0) {
+      // No previous encounters - this is an INITIAL encounter
+      setEncounterMode('initial');
+      setValue('type', 'initial');
+    } else {
+      // Has previous encounters - this is a FOLLOW-UP
+      setEncounterMode('follow_up');
+      setValue('type', 'follow_up');
+    }
+  }, [previousEncounters, setValue]);
 
   // Watch form values for VoiceDictation
   const chiefComplaint = watch('chiefComplaint') || '';

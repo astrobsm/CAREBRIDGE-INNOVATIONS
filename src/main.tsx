@@ -55,9 +55,9 @@ function setupNetworkHandlers() {
         icon: '🌐',
         duration: 3000
       });
-      // Trigger DigitalOcean sync when coming back online
+      // Trigger Supabase sync when coming back online
       setTimeout(() => {
-        fullDOSync();
+        fullSync();
       }, 1000);
     }
     wasOffline = false;
