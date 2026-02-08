@@ -29,12 +29,16 @@ import {
   ThumbsUp,
   ThumbsDown,
   CalendarCheck,
+  Send,
+  CheckSquare,
+  RefreshCw,
 } from 'lucide-react';
-import { differenceInYears } from 'date-fns';
+import { differenceInYears, subDays, isAfter } from 'date-fns';
 import toast from 'react-hot-toast';
+import { v4 as uuidv4 } from 'uuid';
 
 import { db } from '../../../database';
-import type { Patient } from '../../../types';
+import type { Patient, LabRequest, LabTest } from '../../../types';
 import type { 
   SurgicalUrgency, 
   AnaesthesiaType, 
@@ -227,6 +231,12 @@ const PreoperativePlanningPage: React.FC = () => {
     },
   };
   
+  // State for investigation request workflow
+  const [isRequestingInvestigations, setIsRequestingInvestigations] = useState(false);
+  const [investigationsRequested, setInvestigationsRequested] = useState(false);
+  const [recentLabResults, setRecentLabResults] = useState<LabRequest[]>([]);
+  const [autoFilledInvestigations, setAutoFilledInvestigations] = useState<Set<string>>(new Set());
+  
   // State for UI
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     investigations: true,
@@ -269,6 +279,163 @@ const PreoperativePlanningPage: React.FC = () => {
     const suggested = suggestASAClass(selectedComorbidities);
     setAsaClass(suggested as ASAClass);
   }, [selectedComorbidities]);
+
+  // Fetch recent lab results for patient (within last 7 days) and auto-fill
+  useEffect(() => {
+    const fetchRecentLabResults = async () => {
+      if (!selectedPatient) {
+        setRecentLabResults([]);
+        setAutoFilledInvestigations(new Set());
+        return;
+      }
+
+      try {
+        const oneWeekAgo = subDays(new Date(), 7);
+        const labResults = await db.labRequests
+          .where('patientId')
+          .equals(selectedPatient.id)
+          .filter(lab => {
+            const completedDate = lab.completedAt ? new Date(lab.completedAt) : 
+                                  lab.requestedAt ? new Date(lab.requestedAt) : new Date('1970-01-01');
+            return lab.status === 'completed' && isAfter(completedDate, oneWeekAgo);
+          })
+          .toArray();
+
+        setRecentLabResults(labResults);
+
+        // Auto-fill investigation results from recent lab results
+        if (labResults.length > 0) {
+          const autoFilled = new Set<string>();
+          const newMultiParams: Record<InvestigationType, MultiParameterResult> = { ...multiParamResults };
+          const newSingleResults: Record<InvestigationType, InvestigationResultEntry> = { ...investigationResults };
+
+          // Map lab test names to investigation types
+          const testNameMapping: Record<string, InvestigationType> = {
+            'fbc': 'fbc',
+            'full blood count': 'fbc',
+            'hematology': 'fbc',
+            'complete blood count': 'fbc',
+            'cbc': 'fbc',
+            'electrolytes': 'electrolytes',
+            'serum electrolytes': 'electrolytes',
+            'urea electrolytes': 'electrolytes',
+            'e/u/cr': 'electrolytes',
+            'renal function': 'renal_function',
+            'kidney function': 'renal_function',
+            'rft': 'renal_function',
+            'liver function': 'liver_function',
+            'lft': 'liver_function',
+            'hepatic function': 'liver_function',
+            'coagulation': 'coagulation',
+            'pt/inr': 'coagulation',
+            'clotting profile': 'coagulation',
+            'blood glucose': 'blood_glucose',
+            'glucose': 'blood_glucose',
+            'fbs': 'blood_glucose',
+            'rbs': 'blood_glucose',
+            'hba1c': 'hba1c',
+            'glycated hemoglobin': 'hba1c',
+            'urinalysis': 'urinalysis',
+            'urine analysis': 'urinalysis',
+            'urine microscopy': 'urinalysis',
+            'hiv': 'hiv_screening',
+            'hiv screening': 'hiv_screening',
+            'hiv test': 'hiv_screening',
+            'hepatitis b': 'hbsag_screening',
+            'hbsag': 'hbsag_screening',
+            'hbsag screening': 'hbsag_screening',
+            'hepatitis c': 'hcv_screening',
+            'hcv': 'hcv_screening',
+            'hcv screening': 'hcv_screening',
+            'blood group': 'blood_group',
+            'blood grouping': 'blood_group',
+            'abo/rh': 'blood_group',
+            'pregnancy test': 'pregnancy_test',
+            'hcg': 'pregnancy_test',
+            'beta hcg': 'pregnancy_test',
+            'ecg': 'ecg',
+            'electrocardiogram': 'ecg',
+          };
+
+          labResults.forEach(lab => {
+            // LabRequest has tests: LabTest[] array
+            if (!lab.tests || lab.tests.length === 0) return;
+            
+            lab.tests.forEach(test => {
+              if (!test.result) return;
+              
+              const testNameLower = test.name?.toLowerCase()?.trim() || '';
+              const investigationType = testNameMapping[testNameLower] as InvestigationType;
+              
+              if (investigationType) {
+                autoFilled.add(investigationType);
+                
+                // Handle multi-parameter investigations
+                if (multiParameterInvestigations[investigationType]) {
+                  const params = multiParameterInvestigations[investigationType]!.parameters;
+                  const paramResults: MultiParameterResult = {};
+                  
+                  // For multi-param tests, try to parse the result as JSON or use as single value
+                  let resultsData: Record<string, string | number> = {};
+                  try {
+                    if (typeof test.result === 'string' && test.result.startsWith('{')) {
+                      resultsData = JSON.parse(test.result);
+                    } else {
+                      resultsData = { value: test.result };
+                    }
+                  } catch {
+                    resultsData = { value: test.result };
+                  }
+                  
+                  params.forEach(param => {
+                    const value = resultsData[param.key] || resultsData[param.name] || resultsData.value;
+                    if (value !== undefined) {
+                      const numVal = typeof value === 'number' ? value : parseFloat(String(value));
+                      const isAbnormal = !isNaN(numVal) && (numVal < param.min || numVal > param.max);
+                      const withinSafe = !isNaN(numVal) && numVal >= (param.criticalMin || 0) && numVal <= (param.criticalMax || Infinity);
+                      paramResults[param.key] = {
+                        value: String(value),
+                        isAbnormal,
+                        withinSafeRange: withinSafe,
+                        interpretation: isAbnormal ? 'Abnormal (auto-filled from recent lab)' : 'Normal (auto-filled)',
+                      };
+                    }
+                  });
+                  
+                  if (Object.keys(paramResults).length > 0) {
+                    newMultiParams[investigationType] = paramResults;
+                  }
+                } else {
+                  // Handle single-value investigations
+                  const analysis = analyzeInvestigationResult(investigationType, test.result);
+                  newSingleResults[investigationType] = {
+                    type: investigationType,
+                    value: test.result,
+                    unit: test.unit || normalRanges[investigationType]?.unit || '',
+                    ...analysis,
+                  };
+                }
+              }
+            });
+          });
+
+          if (autoFilled.size > 0) {
+            setAutoFilledInvestigations(autoFilled);
+            setMultiParamResults(newMultiParams);
+            setInvestigationResults(newSingleResults);
+            toast.success(`Auto-filled ${autoFilled.size} investigation(s) from recent lab results (within 7 days)`, {
+              icon: '🔄',
+              duration: 4000,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching recent lab results:', error);
+      }
+    };
+
+    fetchRecentLabResults();
+  }, [selectedPatient]);
 
   // Generate investigation list based on selections
   const requiredInvestigations = useMemo(() => {
@@ -500,7 +667,8 @@ const PreoperativePlanningPage: React.FC = () => {
     let hasCritical = false;
 
     config.parameters.forEach(param => {
-      const value = results[param.key] || '';
+      const paramResult = results[param.key];
+      const value = paramResult?.value || '';
       if (value) hasAnyResults = true;
       
       const analysis = analyzeParameter(param, value, selectedPatient?.gender);
@@ -535,7 +703,7 @@ const PreoperativePlanningPage: React.FC = () => {
         if (!multiResults) return false;
         const config = multiParameterInvestigations[type];
         // Check if at least one parameter has a value
-        return config?.parameters.some(p => multiResults[p.key]?.trim()) || false;
+        return config?.parameters.some(p => multiResults[p.key]?.value?.trim()) || false;
       }
       return investigationResults[type]?.value?.trim() !== '' && investigationResults[type]?.value !== undefined;
     };
@@ -553,7 +721,8 @@ const PreoperativePlanningPage: React.FC = () => {
         const criticalParams: string[] = [];
         
         config?.parameters.forEach(param => {
-          const value = results[param.key] || '';
+          const paramResult = results[param.key];
+          const value = paramResult?.value || '';
           if (value.trim()) {
             hasAnyValue = true;
             const analysis = analyzeParameter(param, value, selectedPatient?.gender);
@@ -827,6 +996,217 @@ const PreoperativePlanningPage: React.FC = () => {
       console.error('Error sharing PDF on WhatsApp:', error);
       toast.dismiss(loadingToast);
       toast.error('Failed to share on WhatsApp');
+    }
+  };
+
+  // Handle Request & Approve Investigations (creates lab requests)
+  const handleRequestInvestigations = async () => {
+    if (!selectedPatient) {
+      toast.error('Please select a patient first');
+      return;
+    }
+
+    if (!selectedHospitalId) {
+      toast.error('Please select a hospital first');
+      return;
+    }
+
+    if (requiredInvestigations.length === 0) {
+      toast.error('No investigations to request');
+      return;
+    }
+
+    setIsRequestingInvestigations(true);
+    const loadingToast = toast.loading('Creating lab requests...');
+
+    try {
+      const now = new Date();
+      const oneWeekAgo = subDays(now, 7);
+      const investigationRequests: LabRequest[] = [];
+
+      // Map investigation types to lab test categories (matching LabCategory type)
+      const categoryMapping: Record<string, 'haematology' | 'biochemistry' | 'microbiology' | 'serology' | 'urinalysis' | 'histopathology' | 'imaging'> = {
+        'fbc': 'haematology',
+        'electrolytes': 'biochemistry',
+        'renal_function': 'biochemistry',
+        'liver_function': 'biochemistry',
+        'coagulation': 'haematology',
+        'blood_glucose': 'biochemistry',
+        'hba1c': 'biochemistry',
+        'urinalysis': 'urinalysis',
+        'hiv_screening': 'serology',
+        'hbsag_screening': 'serology',
+        'hcv_screening': 'serology',
+        'blood_group': 'haematology',
+        'pregnancy_test': 'biochemistry',
+        'ecg': 'imaging',
+      };
+
+      // Create lab requests for each required investigation
+      for (const inv of requiredInvestigations) {
+        // Check if a similar request already exists in the last 7 days
+        const existingRequest = await db.labRequests
+          .where('patientId')
+          .equals(selectedPatient.id)
+          .filter(lab => {
+            const requestDate = lab.requestedAt ? new Date(lab.requestedAt) : new Date('1970-01-01');
+            // Check if any of the tests in this lab request match the investigation
+            const hasMatchingTest = lab.tests?.some(test => 
+              test.name?.toLowerCase().includes(inv.type.toLowerCase()) ||
+              inv.name.toLowerCase().includes(test.name?.toLowerCase() || '')
+            );
+            return lab.status !== 'cancelled' && isAfter(requestDate, oneWeekAgo) && hasMatchingTest;
+          })
+          .first();
+
+        if (existingRequest) {
+          console.log(`Skipping ${inv.name} - recent request already exists`);
+          continue;
+        }
+
+        // Create the LabTest object for this investigation
+        const labTest: LabTest = {
+          id: uuidv4(),
+          name: inv.name,
+          category: categoryMapping[inv.type] || 'biochemistry',
+          specimen: inv.type === 'urinalysis' ? 'urine' : 
+                   inv.type === 'ecg' ? 'n/a' : 'blood',
+        };
+
+        // Create the LabRequest with proper structure
+        const labRequest: LabRequest = {
+          id: uuidv4(),
+          patientId: selectedPatient.id,
+          hospitalId: selectedHospitalId,
+          tests: [labTest],
+          priority: inv.requirement === 'mandatory' ? 'urgent' : 'routine',
+          status: 'pending',
+          clinicalInfo: `Preoperative assessment for ${plannedProcedure}. ${inv.rationale}`,
+          requestedBy: user?.id || '',
+          requestedAt: now,
+        };
+
+        investigationRequests.push(labRequest);
+      }
+
+      // Save all lab requests
+      if (investigationRequests.length > 0) {
+        await db.labRequests.bulkAdd(investigationRequests);
+        
+        toast.dismiss(loadingToast);
+        toast.success(`✅ ${investigationRequests.length} investigation(s) requested successfully!`, {
+          duration: 5000,
+        });
+        
+        setInvestigationsRequested(true);
+      } else {
+        toast.dismiss(loadingToast);
+        toast('All investigations have been requested recently (within 7 days)', {
+          icon: 'ℹ️',
+          duration: 4000,
+        });
+      }
+    } catch (error) {
+      console.error('Error creating lab requests:', error);
+      toast.dismiss(loadingToast);
+      toast.error('Failed to create lab requests');
+    } finally {
+      setIsRequestingInvestigations(false);
+    }
+  };
+
+  // Print Investigation Request Form
+  const handlePrintInvestigationRequests = async () => {
+    if (!selectedPatient) {
+      toast.error('Please select a patient first');
+      return;
+    }
+
+    if (requiredInvestigations.length === 0) {
+      toast.error('No investigations to print');
+      return;
+    }
+
+    // Generate a simple printable investigation request form
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Investigation Request Form</title>
+        <style>
+          body { font-family: Georgia, serif; font-size: 12pt; margin: 20mm; }
+          h1 { font-size: 16pt; text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; }
+          h2 { font-size: 14pt; margin-top: 20px; color: #333; }
+          .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+          .patient-info { margin-bottom: 20px; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+          .patient-info p { margin: 5px 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+          th { background: #333; color: white; }
+          .mandatory { color: #dc2626; font-weight: bold; }
+          .recommended { color: #ca8a04; }
+          .footer { margin-top: 30px; }
+          .signature-line { border-top: 1px solid #333; width: 200px; margin-top: 50px; padding-top: 5px; }
+          @media print { body { margin: 10mm; } }
+        </style>
+      </head>
+      <body>
+        <h1>🏥 Investigation Request Form</h1>
+        <p style="text-align: center; font-size: 10pt; color: #666;">AstroHEALTH - Preoperative Planning</p>
+        
+        <div class="patient-info">
+          <p><strong>Patient:</strong> ${selectedPatient.firstName} ${selectedPatient.lastName}</p>
+          <p><strong>Hospital #:</strong> ${selectedPatient.hospitalNumber || 'N/A'}</p>
+          <p><strong>Age:</strong> ${patientAge} years | <strong>Gender:</strong> ${selectedPatient.gender}</p>
+          <p><strong>Planned Procedure:</strong> ${plannedProcedure || 'Not specified'}</p>
+          <p><strong>Request Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+          <p><strong>Requested By:</strong> ${user ? `${user.firstName} ${user.lastName}` : 'System'}</p>
+        </div>
+
+        <h2>Required Investigations</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Investigation</th>
+              <th>Priority</th>
+              <th>Clinical Indication</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${requiredInvestigations.map((inv, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>${inv.name}</td>
+                <td class="${inv.requirement === 'mandatory' ? 'mandatory' : inv.requirement === 'recommended' ? 'recommended' : ''}">${inv.requirement.replace('_', ' ').toUpperCase()}</td>
+                <td style="font-size: 10pt;">${inv.rationale}</td>
+                <td style="min-width: 100px;"></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <p><strong>Note:</strong> Please complete all mandatory investigations before scheduled surgery date.</p>
+          <p><strong>Urgency:</strong> ${surgicalUrgency.toUpperCase()}</p>
+          
+          <div class="signature-line">
+            Requesting Clinician's Signature
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => printWindow.print(), 500);
+    } else {
+      toast.error('Unable to open print window. Please allow popups.');
     }
   };
 
@@ -1155,16 +1535,45 @@ const PreoperativePlanningPage: React.FC = () => {
                 <h2 className="font-semibold text-gray-900 flex items-center gap-2">
                   <FileText className="w-5 h-5 text-primary" />
                   Required Investigations ({requiredInvestigations.length})
+                  {autoFilledInvestigations.size > 0 && (
+                    <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                      {autoFilledInvestigations.size} auto-filled
+                    </span>
+                  )}
                 </h2>
                 {expandedSections.investigations ? <ChevronUp /> : <ChevronDown />}
               </button>
               {expandedSections.investigations && (
                 <div className="p-4 space-y-3">
+                  {/* Auto-fill notification */}
+                  {recentLabResults.length > 0 && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
+                      <RefreshCw className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-800">
+                          Recent lab results detected ({recentLabResults.length} tests within 7 days)
+                        </p>
+                        <p className="text-xs text-blue-600">
+                          Results have been auto-filled where applicable
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
                   {requiredInvestigations.map((inv, idx) => (
-                    <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                    <div key={idx} className={`p-3 rounded-lg ${
+                      autoFilledInvestigations.has(inv.type) 
+                        ? 'bg-green-50 border border-green-200' 
+                        : 'bg-gray-50'
+                    }`}>
                       <div className="flex items-start justify-between">
                         <div>
-                          <div className="font-medium text-gray-900">{inv.name}</div>
+                          <div className="font-medium text-gray-900 flex items-center gap-2">
+                            {inv.name}
+                            {autoFilledInvestigations.has(inv.type) && (
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            )}
+                          </div>
                           <div className="text-xs text-gray-500 mt-1">{inv.rationale}</div>
                         </div>
                         <span className={`px-2 py-1 text-xs rounded-full border ${getRequirementBadgeColor(inv.requirement)}`}>
@@ -1179,6 +1588,45 @@ const PreoperativePlanningPage: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                  
+                  {/* Investigation Action Buttons */}
+                  <div className="pt-4 mt-4 border-t border-gray-200 space-y-2">
+                    <button
+                      onClick={handleRequestInvestigations}
+                      disabled={isRequestingInvestigations || !selectedPatient || requiredInvestigations.length === 0}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
+                        investigationsRequested
+                          ? 'bg-green-600 text-white'
+                          : 'bg-primary text-white hover:bg-primary/90'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {isRequestingInvestigations ? (
+                        <>
+                          <RefreshCw className="w-5 h-5 animate-spin" />
+                          Creating Lab Requests...
+                        </>
+                      ) : investigationsRequested ? (
+                        <>
+                          <CheckSquare className="w-5 h-5" />
+                          Investigations Requested ✓
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5" />
+                          Request & Approve Investigations
+                        </>
+                      )}
+                    </button>
+                    
+                    <button
+                      onClick={handlePrintInvestigationRequests}
+                      disabled={!selectedPatient || requiredInvestigations.length === 0}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Printer className="w-5 h-5" />
+                      Print Investigation Requests
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
