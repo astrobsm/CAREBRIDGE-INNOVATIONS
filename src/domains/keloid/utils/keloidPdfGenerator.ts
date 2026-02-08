@@ -95,7 +95,7 @@ export function generateKeloidCarePlanPDF(
   const assessments = (plan.keloidAssessments || []) as KeloidAssessment[];
   if (assessments.length > 0) {
     yPos = checkNewPage(doc, yPos, 40);
-    yPos = addSectionTitle(doc, yPos, `Keloid Assessment(s) — ${assessments.length} site(s)`);
+    yPos = addSectionTitle(doc, yPos, `Keloid Assessment(s) - ${assessments.length} site(s)`);
 
     assessments.forEach((assess, idx) => {
       yPos = checkNewPage(doc, yPos, 25);
@@ -108,7 +108,7 @@ export function generateKeloidCarePlanPDF(
       doc.setFont('times', 'normal');
       doc.setFontSize(9);
       const details = [
-        `Size: ${assess.size.length} × ${assess.size.width} × ${assess.size.height} ${assess.size.unit}`,
+        `Size: ${assess.size.length} x ${assess.size.width} x ${assess.size.height} ${assess.size.unit}`,
         `Duration: ${assess.duration || 'N/A'}`,
         `Vascularity: ${assess.vascularity} | Firmness: ${assess.firmness}`,
         assess.color ? `Color: ${assess.color}` : '',
@@ -192,10 +192,10 @@ export function generateKeloidCarePlanPDF(
     doc.setFontSize(9);
     tests.forEach(test => {
       yPos = checkNewPage(doc, yPos, 6);
-      const statusSymbol = test.status === 'completed' ? '✓' :
-                          test.status === 'not_required' ? '—' :
-                          test.status === 'ordered' ? '◷' : '○';
-      doc.text(`${statusSymbol}  ${test.testName}  (${test.status.replace('_', ' ')})`, margin + 2, yPos);
+      const statusLabel = test.status === 'completed' ? '[DONE]' :
+                          test.status === 'not_required' ? '[N/A]' :
+                          test.status === 'ordered' ? '[ORDERED]' : '[PENDING]';
+      doc.text(`${statusLabel}  ${test.testName}  (${test.status.replace('_', ' ')})`, margin + 2, yPos);
       yPos += 4.5;
     });
 
@@ -205,7 +205,7 @@ export function generateKeloidCarePlanPDF(
     doc.setFontSize(9);
     doc.setTextColor(...(allCleared ? PDF_COLORS.success : PDF_COLORS.warning));
     doc.text(
-      allCleared ? '✓ All required tests cleared — safe to proceed' : '⚠ Some tests still pending',
+      allCleared ? '[CLEARED] All required tests cleared - safe to proceed' : '[!] Some tests still pending',
       margin + 2,
       yPos
     );
@@ -441,8 +441,19 @@ export function generateKeloidCarePlanPDF(
   ];
 
   consentItems.forEach(item => {
-    const symbol = item.value ? '☑' : '☐';
-    doc.text(`${symbol}  ${item.label}`, margin + 2, yPos);
+    yPos = checkNewPage(doc, yPos, 6);
+    // Draw checkbox rectangle
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.rect(margin + 2, yPos - 3, 3.5, 3.5);
+    if (item.value) {
+      // Draw X inside checkbox
+      doc.setLineWidth(0.5);
+      doc.line(margin + 2.3, yPos - 2.7, margin + 5.2, yPos + 0.2);
+      doc.line(margin + 5.2, yPos - 2.7, margin + 2.3, yPos + 0.2);
+    }
+    doc.setLineWidth(0.1);
+    doc.text(`  ${item.label}`, margin + 7, yPos);
     yPos += 5;
   });
 
@@ -530,7 +541,7 @@ export function generateKeloidCarePlanPDFBlob(
   const assessments = (plan.keloidAssessments || []) as KeloidAssessment[];
   if (assessments.length > 0) {
     yPos = checkNewPage(doc, yPos, 40);
-    yPos = addSectionTitle(doc, yPos, `Keloid Assessment(s) — ${assessments.length} site(s)`);
+    yPos = addSectionTitle(doc, yPos, `Keloid Assessment(s) - ${assessments.length} site(s)`);
     assessments.forEach((assess, idx) => {
       yPos = checkNewPage(doc, yPos, 25);
       doc.setFont('times', 'bold');
@@ -540,7 +551,7 @@ export function generateKeloidCarePlanPDFBlob(
       doc.setFont('times', 'normal');
       doc.setFontSize(9);
       const details = [
-        `Size: ${assess.size.length} × ${assess.size.width} × ${assess.size.height} ${assess.size.unit}`,
+        `Size: ${assess.size.length} x ${assess.size.width} x ${assess.size.height} ${assess.size.unit}`,
         `Duration: ${assess.duration || 'N/A'}`,
         `Vascularity: ${assess.vascularity} | Firmness: ${assess.firmness}`,
         assess.color ? `Color: ${assess.color}` : '',
@@ -651,8 +662,19 @@ export function generateKeloidCarePlanPDFBlob(
     { label: 'Compliance importance discussed', value: plan.complianceImportanceExplained },
     { label: 'Patient consent obtained', value: plan.patientConsentObtained },
   ].forEach(item => {
-    const symbol = item.value ? '☑' : '☐';
-    doc.text(`${symbol}  ${item.label}`, margin + 2, yPos);
+    yPos = checkNewPage(doc, yPos, 6);
+    // Draw checkbox rectangle
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.rect(margin + 2, yPos - 3, 3.5, 3.5);
+    if (item.value) {
+      // Draw X inside checkbox
+      doc.setLineWidth(0.5);
+      doc.line(margin + 2.3, yPos - 2.7, margin + 5.2, yPos + 0.2);
+      doc.line(margin + 5.2, yPos - 2.7, margin + 2.3, yPos + 0.2);
+    }
+    doc.setLineWidth(0.1);
+    doc.text(`  ${item.label}`, margin + 7, yPos);
     yPos += 5;
   });
 
