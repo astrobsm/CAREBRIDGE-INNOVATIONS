@@ -1,5 +1,5 @@
-// CareBridge Service Worker v2.2.0 - Enhanced Offline-First PWA with IndexedDB Corruption Recovery
-const CACHE_VERSION = '2.2.0';
+// CareBridge Service Worker v2.3.0 - Enhanced Offline-First PWA with IndexedDB Corruption Recovery
+const CACHE_VERSION = '2.3.0';
 const STATIC_CACHE = `carebridge-static-v${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `carebridge-dynamic-v${CACHE_VERSION}`;
 const API_CACHE = `carebridge-api-v${CACHE_VERSION}`;
