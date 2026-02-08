@@ -191,14 +191,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAndCheckAuth();
   }, []);
 
-  const login = useCallback(async (email: string, _password: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
       // Ensure database is open
       if (!db.isOpen()) {
         await db.open();
       }
 
-      // In a real app, you'd validate the password against a hash
+      // Seeded super admin credentials
+      const SEEDED_ADMINS = [
+        {
+          email: 'admin@astrohealth.ng',
+          password: 'admin',
+          firstName: 'System',
+          lastName: 'Administrator',
+        },
+        {
+          email: 'emmanuelnnadi@unth.edu.ng',
+          password: 'blackvelvet',
+          firstName: 'Emmanuel',
+          lastName: 'Nnadi',
+        },
+      ];
+
+      // Check if login matches a seeded admin
+      const seededAdmin = SEEDED_ADMINS.find(
+        a => a.email === email.toLowerCase()
+      );
+
+      if (seededAdmin) {
+        // Validate password for seeded admins
+        if (password !== seededAdmin.password) {
+          return false;
+        }
+
+        // Check if user already exists in DB
+        let existingUser = await db.users
+          .where('email')
+          .equals(seededAdmin.email)
+          .first();
+
+        if (!existingUser) {
+          // Create the seeded admin user
+          const newUser: User = {
+            id: uuidv4(),
+            email: seededAdmin.email,
+            firstName: seededAdmin.firstName,
+            lastName: seededAdmin.lastName,
+            role: 'super_admin',
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          await db.users.add(newUser);
+          syncRecord('users', newUser as unknown as Record<string, unknown>);
+          existingUser = newUser;
+        }
+
+        if (existingUser.isActive) {
+          setUser(existingUser);
+          localStorage.setItem('AstroHEALTH_user_id', existingUser.id);
+          return true;
+        }
+        return false;
+      }
+
+      // Regular user login — lookup by email
       const foundUser = await db.users
         .where('email')
         .equals(email.toLowerCase())
@@ -207,27 +265,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (foundUser && foundUser.isActive) {
         setUser(foundUser);
         localStorage.setItem('AstroHEALTH_user_id', foundUser.id);
-        return true;
-      }
-
-      // For demo: create a default admin user if none exists
-      const userCount = await db.users.count();
-      if (userCount === 0 && email.toLowerCase() === 'admin@astrohealth.ng') {
-        const newUser: User = {
-          id: uuidv4(),
-          email: 'admin@astrohealth.ng',
-          firstName: 'System',
-          lastName: 'Administrator',
-          role: 'super_admin',
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        await db.users.add(newUser);
-        // Sync new user to cloud immediately
-        syncRecord('users', newUser as unknown as Record<string, unknown>);
-        setUser(newUser);
-        localStorage.setItem('AstroHEALTH_user_id', newUser.id);
         return true;
       }
 
