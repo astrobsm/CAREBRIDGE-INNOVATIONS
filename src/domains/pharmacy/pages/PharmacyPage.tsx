@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +19,7 @@ import {
   Info,
   AlertCircle,
   Activity,
+  MessageCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -29,11 +30,14 @@ import { getPrescriptionPDFDoc, getDispensingSlipPDFDoc, type PrescriptionPDFOpt
 import { downloadDrugInformationPDF } from '../../../utils/drugInformationPdfGenerator';
 import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
 import { ExportButtonWithModal } from '../../../components/common/ExportOptionsModal';
+import ClinicalCommentsSection from '../../../components/clinical/ClinicalCommentsSection';
 import type { Prescription, Medication, MedicationRoute } from '../../../types';
 import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
 import { getGFRForPatient, type GFRResult } from '../../../services/gfrCalculationService';
 import { getDrugDosingRecommendation, type RenalDosingResult } from '../../../services/renalDosingService';
+import MedicationTypeahead from '../../../components/pharmacy/MedicationTypeahead';
+import type { BNFMedication } from '../../../data/bnfMedicationDatabase';
 
 // Comprehensive Nigerian medication database (BNF & NAFDAC-adapted)
 const medicationDatabase = {
@@ -510,6 +514,8 @@ interface MedicationEntry {
   duration: string;
   quantity: number;
   instructions: string;
+  // BNF medication reference
+  bnfMedication?: BNFMedication | null;
 }
 
 export default function PharmacyPage() {
@@ -518,11 +524,15 @@ export default function PharmacyPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [medications, setMedications] = useState<MedicationEntry[]>([]);
+  const [expandedPrescriptionId, setExpandedPrescriptionId] = useState<string | null>(null);
   const [currentMed, setCurrentMed] = useState<Partial<MedicationEntry>>({
-    category: 'analgesics',
+    category: '',
     route: 'oral',
     quantity: 1,
   });
+  // Track selected BNF medication from typeahead
+  const [selectedBNFMed, setSelectedBNFMed] = useState<BNFMedication | null>(null);
+  const [medicationSearchValue, setMedicationSearchValue] = useState('');
 
   const prescriptions = useLiveQuery(() => db.prescriptions.orderBy('prescribedAt').reverse().toArray(), []);
   
@@ -575,16 +585,16 @@ export default function PharmacyPage() {
     return availableMeds.find(m => m.name === currentMed.name);
   }, [availableMeds, currentMed.name]);
 
-  // Get renal dosing recommendation for selected medication
+  // Get renal dosing recommendation for selected medication (using BNF med now)
   const currentRenalDosing = useMemo((): RenalDosingResult | null => {
-    if (!selectedMedInfo || !patientGFR) return null;
+    if (!selectedBNFMed || !patientGFR) return null;
     try {
-      const drugName = selectedMedInfo.genericName || selectedMedInfo.name;
+      const drugName = selectedBNFMed.genericName || selectedBNFMed.name;
       return getDrugDosingRecommendation(drugName.toLowerCase().replace(/\s+/g, '_'), patientGFR.gfrCKDEPI);
     } catch {
       return null;
     }
-  }, [selectedMedInfo, patientGFR]);
+  }, [selectedBNFMed, patientGFR]);
 
   const addMedication = () => {
     if (!currentMed.name || !currentMed.dosage || !currentMed.frequency || !currentMed.duration) {
@@ -596,21 +606,26 @@ export default function PharmacyPage() {
       id: uuidv4(),
       category: currentMed.category || 'others',
       name: currentMed.name,
-      genericName: selectedMedInfo?.genericName || currentMed.name,
+      genericName: selectedBNFMed?.genericName || currentMed.genericName || currentMed.name,
       dosage: currentMed.dosage,
       frequency: currentMed.frequency,
       route: currentMed.route || 'oral',
       duration: currentMed.duration,
       quantity: currentMed.quantity || 1,
       instructions: currentMed.instructions || '',
+      bnfMedication: selectedBNFMed,
     };
 
     setMedications([...medications, med]);
+    // Reset form including typeahead
     setCurrentMed({
-      category: 'analgesics',
+      category: '',
       route: 'oral',
       quantity: 1,
     });
+    setSelectedBNFMed(null);
+    setMedicationSearchValue('');
+    toast.success(`${med.name} added to prescription`);
   };
 
   const removeMedication = (id: string) => {
@@ -1264,7 +1279,8 @@ export default function PharmacyPage() {
                 filteredPrescriptions.map((rx) => {
                   const patient = patientMap.get(rx.patientId);
                   return (
-                    <tr key={rx.id} className="hover:bg-gray-50">
+                    <React.Fragment key={rx.id}>
+                    <tr className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         {patient ? (
                           <div className="flex items-center gap-2">
@@ -1327,9 +1343,37 @@ export default function PharmacyPage() {
                               modalTitle="Export Dispensing Slip"
                             />
                           )}
+                          <button
+                            onClick={() => setExpandedPrescriptionId(expandedPrescriptionId === rx.id ? null : rx.id)}
+                            className={`p-2 rounded-lg transition-colors ${
+                              expandedPrescriptionId === rx.id 
+                                ? 'bg-primary text-white' 
+                                : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                            title="Add/View Comments"
+                          >
+                            <MessageCircle size={18} />
+                          </button>
                         </div>
                       </td>
                     </tr>
+                    {/* Expanded Comments Section */}
+                    {expandedPrescriptionId === rx.id && (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-4 bg-gray-50">
+                          <ClinicalCommentsSection
+                            entityType="prescription"
+                            entityId={rx.id}
+                            patientId={rx.patientId}
+                            hospitalId={rx.hospitalId}
+                            title="Prescription Notes & Comments"
+                            placeholder="Add notes about this prescription (e.g., patient education provided, special instructions, dispensing notes)..."
+                            collapsed={false}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                   );
                 })
               ) : (
@@ -1435,49 +1479,105 @@ export default function PharmacyPage() {
 
                   {/* Add Medication Form */}
                   <div className="card border-2 border-dashed border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4">Add Medication</h3>
+                    <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <Search size={16} className="text-violet-500" />
+                      Add Medication (Type to Search)
+                    </h3>
+                    
+                    {/* Medication Typeahead Search */}
+                    <div className="mb-4">
+                      <label className="label text-xs">Search Medication</label>
+                      <MedicationTypeahead
+                        value={medicationSearchValue}
+                        onChange={(med, customName) => {
+                          if (med) {
+                            setSelectedBNFMed(med);
+                            setMedicationSearchValue(med.name);
+                            setCurrentMed({
+                              ...currentMed,
+                              name: med.name,
+                              genericName: med.genericName,
+                              category: (med as any).categoryId || '',
+                              dosage: '',
+                              frequency: '',
+                              route: (med.routes[0] as MedicationRoute) || 'oral',
+                            });
+                          } else if (customName) {
+                            setSelectedBNFMed(null);
+                            setMedicationSearchValue(customName);
+                            setCurrentMed({
+                              ...currentMed,
+                              name: customName,
+                              genericName: customName,
+                              category: 'others',
+                            });
+                          } else {
+                            setSelectedBNFMed(null);
+                            setMedicationSearchValue('');
+                            setCurrentMed({
+                              ...currentMed,
+                              name: '',
+                              genericName: '',
+                            });
+                          }
+                        }}
+                        placeholder="Type medication name to search (e.g., Paracetamol, Amoxicillin)..."
+                        showCategoryFilter={true}
+                      />
+                    </div>
+
+                    {/* Selected Medication Info */}
+                    {selectedBNFMed && (
+                      <div className="mb-4 p-3 bg-violet-50 rounded-lg border border-violet-200">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium text-violet-900">{selectedBNFMed.name}</p>
+                            <p className="text-sm text-violet-700">{selectedBNFMed.genericName}</p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {selectedBNFMed.renalAdjust && (
+                                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">Renal Adjust</span>
+                              )}
+                              {selectedBNFMed.controlledDrug && (
+                                <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Controlled Drug</span>
+                              )}
+                              {selectedBNFMed.maxDaily && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Max: {selectedBNFMed.maxDaily}</span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedBNFMed(null);
+                              setMedicationSearchValue('');
+                              setCurrentMed({ ...currentMed, name: '', genericName: '', dosage: '', frequency: '' });
+                            }}
+                            className="text-violet-500 hover:text-violet-700"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                        {selectedBNFMed.specialInstructions && (
+                          <p className="text-xs text-violet-600 mt-2 italic">{selectedBNFMed.specialInstructions}</p>
+                        )}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       <div>
-                        <label className="label text-xs">Category</label>
-                        <select
-                          value={currentMed.category}
-                          onChange={(e) => setCurrentMed({ ...currentMed, category: e.target.value, name: '' })}
-                          className="input text-sm"
-                          title="Select medication category"
-                        >
-                          {medicationCategories.map((cat) => (
-                            <option key={cat.value} value={cat.value}>{cat.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="label text-xs">Medication</label>
-                        <select
-                          value={currentMed.name || ''}
-                          onChange={(e) => setCurrentMed({ ...currentMed, name: e.target.value })}
-                          className="input text-sm"
-                          title="Select medication"
-                        >
-                          <option value="">Select...</option>
-                          {availableMeds.map((med) => (
-                            <option key={med.name} value={med.name}>{med.name}</option>
-                          ))}
-                          <option value="OTHER">Other (specify)</option>
-                        </select>
-                      </div>
-                      <div>
                         <label className="label text-xs">Dose</label>
-                        {selectedMedInfo ? (
+                        {selectedBNFMed && selectedBNFMed.doses.length > 0 ? (
                           <select
                             value={currentMed.dosage || ''}
                             onChange={(e) => setCurrentMed({ ...currentMed, dosage: e.target.value })}
                             className="input text-sm"
                             title="Select dose"
                           >
-                            <option value="">Select...</option>
-                            {selectedMedInfo.doses.map((dose) => (
+                            <option value="">Select dose...</option>
+                            {selectedBNFMed.doses.map((dose) => (
                               <option key={dose} value={dose}>{dose}</option>
                             ))}
+                            <option value="OTHER">Other (type below)</option>
                           </select>
                         ) : (
                           <input
@@ -1487,10 +1587,18 @@ export default function PharmacyPage() {
                             placeholder="e.g., 500mg"
                           />
                         )}
+                        {currentMed.dosage === 'OTHER' && (
+                          <input
+                            value=""
+                            onChange={(e) => setCurrentMed({ ...currentMed, dosage: e.target.value })}
+                            className="input text-sm mt-1"
+                            placeholder="Enter custom dose"
+                          />
+                        )}
                       </div>
                       <div>
                         <label className="label text-xs">Frequency</label>
-                        {selectedMedInfo ? (
+                        {selectedBNFMed && selectedBNFMed.frequency.length > 0 ? (
                           <select
                             value={currentMed.frequency || ''}
                             onChange={(e) => {
@@ -1506,8 +1614,8 @@ export default function PharmacyPage() {
                             className="input text-sm"
                             title="Select frequency"
                           >
-                            <option value="">Select...</option>
-                            {selectedMedInfo.frequency.map((freq) => (
+                            <option value="">Select frequency...</option>
+                            {selectedBNFMed.frequency.map((freq) => (
                               <option key={freq} value={freq}>{freq}</option>
                             ))}
                           </select>
@@ -1531,16 +1639,34 @@ export default function PharmacyPage() {
                       </div>
                       <div>
                         <label className="label text-xs">Route</label>
-                        <select
-                          value={currentMed.route}
-                          onChange={(e) => setCurrentMed({ ...currentMed, route: e.target.value as MedicationRoute })}
-                          className="input text-sm"
-                          title="Select route"
-                        >
-                          {routes.map((route) => (
-                            <option key={route.value} value={route.value}>{route.label}</option>
-                          ))}
-                        </select>
+                        {selectedBNFMed && selectedBNFMed.routes.length > 0 ? (
+                          <select
+                            value={currentMed.route}
+                            onChange={(e) => setCurrentMed({ ...currentMed, route: e.target.value as MedicationRoute })}
+                            className="input text-sm"
+                            title="Select route"
+                          >
+                            {selectedBNFMed.routes.map((route) => {
+                              const routeInfo = routes.find(r => r.value === route);
+                              return (
+                                <option key={route} value={route}>
+                                  {routeInfo?.label || route}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        ) : (
+                          <select
+                            value={currentMed.route}
+                            onChange={(e) => setCurrentMed({ ...currentMed, route: e.target.value as MedicationRoute })}
+                            className="input text-sm"
+                            title="Select route"
+                          >
+                            {routes.map((route) => (
+                              <option key={route.value} value={route.value}>{route.label}</option>
+                            ))}
+                          </select>
+                        )}
                       </div>
                       <div>
                         <label className="label text-xs">Duration</label>

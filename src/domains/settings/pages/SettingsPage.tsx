@@ -35,7 +35,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../database';
 import { useOfflineState, offlineDataManager } from '../../../services/offlineDataManager';
 import { fullSync, testSupabaseConnection } from '../../../services/cloudSyncService';
-import { isSupabaseConfigured } from '../../../services/supabaseClient';
+import { isSupabaseConfigured, supabase } from '../../../services/supabaseClient';
 import { requestBackgroundSync, clearServiceWorkerCache } from '../../../services/pwaService';
 import { UpdatePrompt } from '../../../components/pwa';
 import {
@@ -69,12 +69,16 @@ export default function SettingsPage() {
     supabaseConfigured: boolean;
     connectionTest: { success: boolean; message: string } | null;
     localCounts: Record<string, number>;
+    cloudCounts: Record<string, number>;
     testing: boolean;
+    forcePulling: boolean;
   }>({
     supabaseConfigured: isSupabaseConfigured(),
     connectionTest: null,
     localCounts: {},
+    cloudCounts: {},
     testing: false,
+    forcePulling: false,
   });
 
   // Get storage usage on mount
@@ -184,24 +188,44 @@ export default function SettingsPage() {
     
     try {
       // Get local record counts
-      const counts: Record<string, number> = {};
-      counts.patients = await db.patients.count();
-      counts.admissions = await db.admissions.count();
-      counts.users = await db.users.count();
-      counts.hospitals = await db.hospitals.count();
-      counts.surgeries = await db.surgeries.count();
-      counts.encounters = await db.clinicalEncounters.count();
-      counts.wardRounds = await db.wardRounds.count();
-      counts.vitals = await db.vitalSigns.count();
+      const localCounts: Record<string, number> = {};
+      localCounts.patients = await db.patients.count();
+      localCounts.admissions = await db.admissions.count();
+      localCounts.users = await db.users.count();
+      localCounts.hospitals = await db.hospitals.count();
+      localCounts.surgeries = await db.surgeries.count();
+      localCounts.encounters = await db.clinicalEncounters.count();
+      localCounts.wardRounds = await db.wardRounds.count();
+      localCounts.vitals = await db.vitalSigns.count();
       
       // Test Supabase connection
       const connectionTest = await testSupabaseConnection();
       
+      // Get cloud record counts if connected
+      const cloudCounts: Record<string, number> = {};
+      if (connectionTest.success && supabase) {
+        try {
+          const tables = ['patients', 'admissions', 'users', 'hospitals', 'surgeries', 'clinical_encounters', 'ward_rounds', 'vital_signs'];
+          const displayNames = ['patients', 'admissions', 'users', 'hospitals', 'surgeries', 'encounters', 'wardRounds', 'vitals'];
+          
+          for (let i = 0; i < tables.length; i++) {
+            const { count, error } = await supabase.from(tables[i]).select('*', { count: 'exact', head: true });
+            if (!error && count !== null) {
+              cloudCounts[displayNames[i]] = count;
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to get cloud counts:', e);
+        }
+      }
+      
       setSyncDebugInfo({
         supabaseConfigured: isSupabaseConfigured(),
         connectionTest,
-        localCounts: counts,
+        localCounts,
+        cloudCounts,
         testing: false,
+        forcePulling: false,
       });
       
       if (connectionTest.success) {
@@ -217,6 +241,54 @@ export default function SettingsPage() {
         connectionTest: { success: false, message: error instanceof Error ? error.message : 'Unknown error' }
       }));
       toast.error('Failed to test connection');
+    }
+  };
+
+  // Force pull all data from cloud (useful for new devices)
+  const handleForcePullFromCloud = async () => {
+    if (!isSupabaseConfigured()) {
+      toast.error('Supabase is not configured. Cannot pull from cloud.');
+      return;
+    }
+    
+    setSyncDebugInfo(prev => ({ ...prev, forcePulling: true }));
+    toast.loading('Pulling all data from cloud...', { id: 'force-pull' });
+    
+    try {
+      // Clear sync state to force fresh pull
+      await fullSync();
+      
+      // Get updated local counts
+      const localCounts: Record<string, number> = {};
+      localCounts.patients = await db.patients.count();
+      localCounts.admissions = await db.admissions.count();
+      localCounts.users = await db.users.count();
+      localCounts.hospitals = await db.hospitals.count();
+      localCounts.surgeries = await db.surgeries.count();
+      localCounts.encounters = await db.clinicalEncounters.count();
+      localCounts.wardRounds = await db.wardRounds.count();
+      localCounts.vitals = await db.vitalSigns.count();
+      
+      setSyncDebugInfo(prev => ({ 
+        ...prev, 
+        localCounts,
+        forcePulling: false 
+      }));
+      
+      const patientCount = localCounts.patients || 0;
+      toast.success(`Sync complete! ${patientCount} patients now available.`, { id: 'force-pull' });
+      
+      // Show alert for user
+      if (patientCount === 0) {
+        toast('No patients found in cloud. Make sure RLS policies allow access.', { 
+          icon: '⚠️', 
+          duration: 5000 
+        });
+      }
+    } catch (error) {
+      console.error('Force pull failed:', error);
+      setSyncDebugInfo(prev => ({ ...prev, forcePulling: false }));
+      toast.error(`Pull failed: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'force-pull' });
     }
   };
 
@@ -948,36 +1020,99 @@ export default function SettingsPage() {
               {/* Local Data Counts */}
               {Object.keys(syncDebugInfo.localCounts).length > 0 && (
                 <div className="mb-4">
-                  <h4 className="font-medium text-gray-700 mb-2">Local Data Counts:</h4>
+                  <h4 className="font-medium text-gray-700 mb-2">Data Comparison (Local vs Cloud):</h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {Object.entries(syncDebugInfo.localCounts).map(([table, count]) => (
-                      <div key={table} className="p-2 bg-gray-50 rounded text-center">
-                        <p className="text-xs text-gray-500 capitalize">{table}</p>
-                        <p className="font-bold text-gray-900">{count}</p>
-                      </div>
-                    ))}
+                    {Object.entries(syncDebugInfo.localCounts).map(([table, localCount]) => {
+                      const cloudCount = syncDebugInfo.cloudCounts[table];
+                      const hasCloudData = cloudCount !== undefined;
+                      const isMismatch = hasCloudData && cloudCount !== localCount;
+                      const needsSync = hasCloudData && cloudCount > localCount;
+                      
+                      return (
+                        <div 
+                          key={table} 
+                          className={`p-2 rounded text-center border ${
+                            needsSync ? 'bg-yellow-50 border-yellow-300' : 
+                            isMismatch ? 'bg-orange-50 border-orange-300' : 
+                            'bg-gray-50 border-gray-200'
+                          }`}
+                        >
+                          <p className="text-xs text-gray-500 capitalize">{table}</p>
+                          <p className="font-bold text-gray-900">{localCount}</p>
+                          {hasCloudData && (
+                            <p className={`text-xs ${needsSync ? 'text-yellow-700 font-medium' : 'text-gray-400'}`}>
+                              Cloud: {cloudCount}
+                            </p>
+                          )}
+                          {needsSync && (
+                            <p className="text-xs text-yellow-600 font-medium">⚠️ Sync needed</p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
+                  
+                  {/* Warning if cloud has more data */}
+                  {Object.entries(syncDebugInfo.localCounts).some(([table, localCount]) => {
+                    const cloudCount = syncDebugInfo.cloudCounts[table];
+                    return cloudCount !== undefined && cloudCount > localCount;
+                  }) && (
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-300 rounded-lg">
+                      <p className="text-sm text-yellow-800 font-medium">
+                        ⚠️ Cloud has more data than this device. Click "Force Pull from Cloud" below to sync.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
               
-              {/* Test Connection Button */}
-              <button
-                onClick={handleTestSyncConnection}
-                disabled={syncDebugInfo.testing}
-                className="btn btn-secondary w-full"
-              >
-                {syncDebugInfo.testing ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Testing Connection...
-                  </>
-                ) : (
-                  <>
-                    <Stethoscope className="w-4 h-4" />
-                    Test Sync Connection
-                  </>
+              {/* Buttons */}
+              <div className="space-y-3">
+                {/* Test Connection Button */}
+                <button
+                  onClick={handleTestSyncConnection}
+                  disabled={syncDebugInfo.testing}
+                  className="btn btn-secondary w-full"
+                >
+                  {syncDebugInfo.testing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Testing Connection...
+                    </>
+                  ) : (
+                    <>
+                      <Stethoscope className="w-4 h-4" />
+                      Test Sync Connection
+                    </>
+                  )}
+                </button>
+                
+                {/* Force Pull from Cloud Button */}
+                <button
+                  onClick={handleForcePullFromCloud}
+                  disabled={syncDebugInfo.forcePulling || !syncDebugInfo.supabaseConfigured || !offlineState.isOnline}
+                  className="btn btn-primary w-full"
+                >
+                  {syncDebugInfo.forcePulling ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Pulling Data from Cloud...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      Force Pull from Cloud
+                    </>
+                  )}
+                </button>
+                
+                {!offlineState.isOnline && (
+                  <p className="text-sm text-center text-red-600">
+                    <WifiOff className="w-4 h-4 inline mr-1" />
+                    You are offline. Connect to the internet to sync.
+                  </p>
                 )}
-              </button>
+              </div>
             </div>
           </motion.div>
         );

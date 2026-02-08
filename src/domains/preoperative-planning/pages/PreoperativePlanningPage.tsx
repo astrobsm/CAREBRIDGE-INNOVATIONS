@@ -345,6 +345,10 @@ const PreoperativePlanningPage: React.FC = () => {
     bnp: { min: 0, max: 100, unit: 'pg/mL', criticalMin: 0, criticalMax: 400 },
     echo: { min: 50, max: 70, unit: '%', criticalMin: 30, criticalMax: 100 }, // Ejection fraction
     pulmonary_function: { min: 80, max: 120, unit: '%', criticalMin: 50, criticalMax: 150 }, // FEV1
+    // Mandatory Surgical Screening (Qualitative - result must be documented)
+    hiv_screening: { min: 0, max: 0, unit: 'result' }, // Non-reactive expected
+    hbsag_screening: { min: 0, max: 0, unit: 'result' }, // Negative expected
+    hcv_screening: { min: 0, max: 0, unit: 'result' }, // Negative expected
   };
 
   // Analyze investigation results
@@ -356,10 +360,31 @@ const PreoperativePlanningPage: React.FC = () => {
       return { isAbnormal: false, withinSafeRange: true, interpretation: 'Pending or qualitative result' };
     }
 
-    // Qualitative tests
-    if (['urinalysis', 'chest_xray', 'blood_group', 'pregnancy_test', 'sickling_test'].includes(type)) {
-      const normalKeywords = ['normal', 'negative', 'clear', 'no abnormality'];
+    // Qualitative tests (including mandatory surgical screening)
+    if (['urinalysis', 'chest_xray', 'blood_group', 'pregnancy_test', 'sickling_test', 'hiv_screening', 'hbsag_screening', 'hcv_screening'].includes(type)) {
+      const normalKeywords = ['normal', 'negative', 'clear', 'no abnormality', 'non-reactive', 'non reactive', 'not detected'];
+      const positiveKeywords = ['positive', 'reactive', 'detected', 'abnormal'];
+      
       const isNormal = normalKeywords.some(k => value.toLowerCase().includes(k));
+      const isPositive = positiveKeywords.some(k => value.toLowerCase().includes(k));
+      
+      // For viral screening tests, a positive result means surgery proceeds with enhanced precautions
+      // It's NOT a contraindication but MUST be documented
+      if (['hiv_screening', 'hbsag_screening', 'hcv_screening'].includes(type)) {
+        if (isPositive) {
+          return {
+            isAbnormal: true,
+            withinSafeRange: true, // Surgery can proceed with enhanced precautions
+            interpretation: 'POSITIVE - Surgery proceeds with enhanced universal precautions (double gloving, face shields)'
+          };
+        }
+        return {
+          isAbnormal: false,
+          withinSafeRange: true,
+          interpretation: isNormal ? 'Negative/Non-reactive' : 'Result documented'
+        };
+      }
+      
       return {
         isAbnormal: !isNormal,
         withinSafeRange: isNormal,

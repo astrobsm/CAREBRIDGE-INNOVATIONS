@@ -46,7 +46,11 @@ export type InvestigationType =
   | 'cardiac_enzymes'
   | 'bnp'
   | 'echo'
-  | 'pulmonary_function';
+  | 'pulmonary_function'
+  // Mandatory Surgical Screening - WHO Blood Safety Guidelines
+  | 'hiv_screening'
+  | 'hbsag_screening'
+  | 'hcv_screening';
 
 // Investigation requirement level
 export type RequirementLevel = 'mandatory' | 'recommended' | 'if_indicated' | 'not_required';

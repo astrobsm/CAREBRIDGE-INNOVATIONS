@@ -241,6 +241,41 @@ export interface ClinicalEncounter {
   localId?: string;
 }
 
+// ==================== INVESTIGATION APPROVAL WORKFLOW ====================
+
+// Approval action types
+export type InvestigationApprovalAction = 'approved' | 'rejected' | 'auto_requested' | 'cancelled';
+
+// Investigation Approval Log - tracks all approval workflow actions
+export interface InvestigationApprovalLog {
+  id: string;
+  investigationId: string;
+  patientId: string;
+  hospitalId: string;
+  
+  // Approval action
+  action: InvestigationApprovalAction;
+  reason?: string;
+  
+  // Performer info
+  performedBy: string;
+  performedByName: string;
+  performedByRole: UserRole;
+  performedAt: Date;
+  
+  // Auto-request tracking
+  sourceInvestigationId?: string;
+  autoRequestTriggered?: boolean;
+  labRequestId?: string;
+  
+  // Timestamps
+  createdAt: Date;
+  
+  // Sync tracking
+  syncedAt?: Date;
+  localId?: string;
+}
+
 // Clinical Photo for encounter documentation
 export interface ClinicalPhoto {
   id: string;
@@ -1802,6 +1837,19 @@ export interface Investigation {
   requestedBy: string;
   requestedByName?: string;
   requestedAt: Date;
+  
+  // Approval Workflow Fields
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  approvedBy?: string;
+  approvedByName?: string;
+  approvedAt?: Date;
+  rejectedBy?: string;
+  rejectedByName?: string;
+  rejectedAt?: Date;
+  rejectionReason?: string;
+  autoRequested?: boolean; // True if auto-created after approval
+  sourceApprovalId?: string; // Link to the approval that triggered auto-request
+  
   collectedAt?: Date;
   sampleCollectedAt?: Date;
   collectedBy?: string;
@@ -5113,4 +5161,62 @@ export interface SubstanceUseClinicalSummary {
   disclaimers: string[];
   generatedAt: Date;
   generatedBy: string;
+}
+
+// ============================================
+// CLINICAL COMMENTS (Post-Submission Notes)
+// ============================================
+
+// Entity types that can have comments attached
+export type CommentableEntityType = 
+  | 'clinical_encounter'
+  | 'investigation'
+  | 'prescription'
+  | 'surgery'
+  | 'admission'
+  | 'wound'
+  | 'burn_assessment'
+  | 'lab_request'
+  | 'treatment_plan';
+
+// Priority/urgency level of comment
+export type CommentPriority = 'normal' | 'important' | 'urgent' | 'critical';
+
+// Clinical Comment interface for post-submission notes/emphasis
+export interface ClinicalComment {
+  id: string;
+  // Entity reference
+  entityType: CommentableEntityType;
+  entityId: string;
+  patientId: string;
+  hospitalId: string;
+  
+  // Comment content
+  comment: string;
+  priority: CommentPriority;
+  
+  // Optional categorization
+  category?: 'clarification' | 'update' | 'correction' | 'follow_up' | 'warning' | 'instruction' | 'other';
+  
+  // Flags
+  isResolved?: boolean;
+  resolvedAt?: Date;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  
+  // Related to another comment (for threaded replies)
+  parentCommentId?: string;
+  
+  // Author information
+  authorId: string;
+  authorName: string;
+  authorRole: string;
+  
+  // Timestamps
+  createdAt: Date;
+  updatedAt: Date;
+  
+  // Sync tracking
+  syncedAt?: Date;
+  localId?: string;
 }

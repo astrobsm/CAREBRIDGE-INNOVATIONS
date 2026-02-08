@@ -159,6 +159,12 @@ export const TABLES = {
   detoxFollowUps: 'detox_follow_ups',
   substanceUseConsents: 'substance_use_consents',
   substanceUseClinicalSummaries: 'substance_use_clinical_summaries',
+  
+  // Clinical Comments (Post-Submission Notes)
+  clinicalComments: 'clinical_comments',
+  
+  // Investigation Approval Logs
+  investigationApprovalLogs: 'investigation_approval_logs',
 } as const;
 
 // Local to cloud table name mapping
@@ -246,6 +252,12 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   detoxFollowUps: 'detox_follow_ups',
   substanceUseConsents: 'substance_use_consents',
   substanceUseClinicalSummaries: 'substance_use_clinical_summaries',
+  
+  // Clinical Comments (Post-Submission Notes)
+  clinicalComments: 'clinical_comments',
+  
+  // Investigation Approval Logs
+  investigationApprovalLogs: 'investigation_approval_logs',
 };
 
 // Type for sync status

@@ -36,13 +36,51 @@ export const INVESTIGATION_INFO: Record<InvestigationType, { name: string; descr
   bnp: { name: 'BNP/NT-proBNP', description: 'Heart failure marker', turnaround: '4-6 hours' },
   echo: { name: 'Echocardiogram', description: 'Cardiac structure and function', turnaround: '24-48 hours' },
   pulmonary_function: { name: 'Pulmonary Function Tests', description: 'Spirometry, PEFR', turnaround: '24-48 hours' },
+  // Mandatory Surgical Screening - WHO Blood Safety Guidelines
+  hiv_screening: { name: 'HIV 1&2 Screening', description: 'HIV Antibody Test - mandatory for all surgical procedures', turnaround: '30-60 minutes' },
+  hbsag_screening: { name: 'Hepatitis B (HBsAg)', description: 'Hepatitis B Surface Antigen - mandatory for all surgical procedures', turnaround: '30-60 minutes' },
+  hcv_screening: { name: 'Hepatitis C (Anti-HCV)', description: 'Hepatitis C Antibody - mandatory for all surgical procedures', turnaround: '30-60 minutes' },
 };
+
+// ============================================================
+// MANDATORY SURGICAL SCREENING - WHO Blood Safety Guidelines
+// These tests are MANDATORY for ALL surgical procedures
+// ============================================================
+
+export const MANDATORY_SURGICAL_SCREENING: InvestigationRequirement[] = [
+  {
+    type: 'hiv_screening',
+    name: 'HIV 1&2 Screening',
+    requirement: 'mandatory',
+    rationale: 'WHO Blood Safety - Universal precautions and occupational safety. Mandatory for all surgical procedures.',
+    expectedValue: 'Non-reactive',
+    minSafeLevel: 'Result documented (surgery proceeds with enhanced precautions if positive)',
+  },
+  {
+    type: 'hbsag_screening',
+    name: 'Hepatitis B (HBsAg)',
+    requirement: 'mandatory',
+    rationale: 'WHO Blood Safety - High-risk blood-borne pathogen. Mandatory for all surgical procedures.',
+    expectedValue: 'Negative',
+    minSafeLevel: 'Result documented (surgery proceeds with enhanced precautions if positive)',
+  },
+  {
+    type: 'hcv_screening',
+    name: 'Hepatitis C (Anti-HCV)',
+    requirement: 'mandatory',
+    rationale: 'WHO Blood Safety - Blood-borne viral infection screening. Mandatory for all surgical procedures.',
+    expectedValue: 'Negative',
+    minSafeLevel: 'Result documented (surgery proceeds with enhanced precautions if positive)',
+  },
+];
 
 // ============================================================
 // BASELINE INVESTIGATIONS (ASA I - NO COMORBIDITIES)
 // ============================================================
 
 export const BASELINE_INVESTIGATIONS: InvestigationRequirement[] = [
+  // Mandatory Surgical Screening - First priority
+  ...MANDATORY_SURGICAL_SCREENING,
   {
     type: 'fbc',
     name: 'Full Blood Count',

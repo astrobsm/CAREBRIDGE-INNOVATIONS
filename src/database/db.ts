@@ -65,6 +65,10 @@ import type {
   DetoxFollowUp,
   SubstanceUseConsent,
   SubstanceUseClinicalSummary,
+  // Clinical Comments (Post-Submission Notes)
+  ClinicalComment,
+  // Investigation Approval Workflow
+  InvestigationApprovalLog,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -160,11 +164,15 @@ export class AstroHEALTHDatabase extends Dexie {
   detoxFollowUps!: Table<DetoxFollowUp, string>;
   substanceUseConsents!: Table<SubstanceUseConsent, string>;
   substanceUseClinicalSummaries!: Table<SubstanceUseClinicalSummary, string>;
+  // Clinical Comments (Post-Submission Notes)
+  clinicalComments!: Table<ClinicalComment, string>;
+  // Investigation Approval Workflow
+  investigationApprovalLogs!: Table<InvestigationApprovalLog, string>;
 
   constructor() {
     super('AstroHEALTHDB');
 
-    this.version(67).stores({
+    this.version(70).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -190,7 +198,7 @@ export class AstroHEALTHDatabase extends Dexie {
       wardRounds: 'id, patientId, hospitalId, wardName, roundDate, roundType, status, leadDoctorId, createdAt',
       doctorAssignments: 'id, hospitalId, doctorId, patientId, assignmentType, status, assignedAt, createdAt',
       nurseAssignments: 'id, hospitalId, nurseId, patientId, shiftType, assignmentDate, status, createdAt',
-      investigations: 'id, patientId, hospitalId, type, category, status, requestedBy, requestedAt, createdAt',
+      investigations: 'id, patientId, hospitalId, type, category, status, approvalStatus, requestedBy, requestedAt, approvedBy, approvedAt, createdAt',
       enhancedVideoConferences: 'id, roomId, hostId, hospitalId, type, status, scheduledAt, createdAt',
       // Discharge, consumables, and histopathology
       dischargeSummaries: 'id, patientId, admissionId, hospitalId, dischargeDate, dischargeType, dischargedBy, createdAt',
@@ -250,6 +258,10 @@ export class AstroHEALTHDatabase extends Dexie {
       detoxFollowUps: 'id, assessmentId, patientId, status, scheduledDate, actualDate, createdAt',
       substanceUseConsents: 'id, assessmentId, consentTimestamp, createdAt',
       substanceUseClinicalSummaries: 'id, assessmentId, patientId, generatedAt, createdAt',
+      // Clinical Comments (Post-Submission Notes)
+      clinicalComments: 'id, entityType, entityId, patientId, hospitalId, priority, authorId, isResolved, createdAt',
+      // Investigation Approval Workflow
+      investigationApprovalLogs: 'id, investigationId, patientId, hospitalId, action, performedBy, performedAt, labRequestId, createdAt',
     });
   }
 }

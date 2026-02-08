@@ -48,6 +48,7 @@ import { VoiceDictation, ExportOptionsModal } from '../../../components/common';
 import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
 import AISummaryButton from '../components/AISummaryButton';
 import TrackedInvestigations from '../components/TrackedInvestigations';
+import ClinicalCommentsSection from '../../../components/clinical/ClinicalCommentsSection';
 import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination, Investigation, Prescription, ClinicalPhoto } from '../../../types';
 
 const encounterSchema = z.object({
@@ -1468,6 +1469,21 @@ export default function ClinicalEncounterPage() {
                     <p className="text-sm text-amber-700">If patient has wounds, click here to document</p>
                   </div>
                 </Link>
+
+                {/* Clinical Comments Section */}
+                {savedEncounter && patient && (
+                  <div className="mt-4">
+                    <ClinicalCommentsSection
+                      entityType="clinical_encounter"
+                      entityId={savedEncounter.id}
+                      patientId={savedEncounter.patientId}
+                      hospitalId={savedEncounter.hospitalId}
+                      title="Add Post-Encounter Notes"
+                      placeholder="Add any additional notes, clarifications, or emphasis after submission..."
+                      collapsed={true}
+                    />
+                  </div>
+                )}
 
                 {/* Done Button */}
                 <button

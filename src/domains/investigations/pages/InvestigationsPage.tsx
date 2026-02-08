@@ -52,6 +52,8 @@ import { HospitalSelector } from '../../../components/hospital';
 import { OCRScanner, ExportOptionsModal } from '../../../components/common';
 import { PatientSelector } from '../../../components/patient';
 import { createSimpleThermalPDF, THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT, THERMAL_MARGIN } from '../../../utils/thermalPdfGenerator';
+import ClinicalCommentsSection from '../../../components/clinical/ClinicalCommentsSection';
+import { InvestigationApprovalPanel } from '../../../components/investigations';
 import type { Investigation, InvestigationResult } from '../../../types';
 
 // Investigation category type for type safety
@@ -368,7 +370,7 @@ type ResultUploadFormData = z.infer<typeof resultUploadSchema>;
 
 export default function InvestigationsPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'trends'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'trends' | 'approvals'>('pending');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
   const [showTrendModal, setShowTrendModal] = useState(false);
@@ -811,10 +813,23 @@ export default function InvestigationsPage() {
             Trends
           </div>
         </button>
+        <button
+          onClick={() => setActiveTab('approvals')}
+          className={`px-3 sm:px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === 'approvals'
+              ? 'border-purple-500 text-purple-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={18} />
+            Approvals
+          </div>
+        </button>
       </div>
 
       {/* Filters */}
-      {activeTab !== 'trends' && (
+      {activeTab !== 'trends' && activeTab !== 'approvals' && (
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -843,7 +858,14 @@ export default function InvestigationsPage() {
       )}
 
       {/* Content */}
-      {activeTab === 'trends' ? (
+      {activeTab === 'approvals' ? (
+        <div className="space-y-4">
+          <InvestigationApprovalPanel 
+            hospitalId={user?.hospitalId}
+            onApprovalComplete={() => toast.success('Approval workflow completed')}
+          />
+        </div>
+      ) : activeTab === 'trends' ? (
         <div className="space-y-4 sm:space-y-6">
           {/* Trend Selection */}
           <div className="card p-4 sm:p-6">
@@ -1550,6 +1572,19 @@ export default function InvestigationsPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Clinical Comments Section */}
+                <div className="mt-6">
+                  <ClinicalCommentsSection
+                    entityType="investigation"
+                    entityId={selectedInvestigation.id}
+                    patientId={selectedInvestigation.patientId}
+                    hospitalId={selectedInvestigation.hospitalId}
+                    title="Post-Investigation Notes"
+                    placeholder="Add any clarifications, important findings to highlight, or follow-up instructions..."
+                    collapsed={false}
+                  />
+                </div>
               </div>
             </motion.div>
           </motion.div>

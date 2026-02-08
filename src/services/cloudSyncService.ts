@@ -639,6 +639,12 @@ async function pullAllFromCloud(): Promise<void> {
   await pullTable(TABLES.substanceUseConsents, 'substanceUseConsents');
   await pullTable(TABLES.substanceUseClinicalSummaries, 'substanceUseClinicalSummaries');
   
+  // Clinical Comments (Post-Submission Notes)
+  await pullTable(TABLES.clinicalComments, 'clinicalComments');
+  
+  // Investigation Approval Logs
+  await pullTable(TABLES.investigationApprovalLogs, 'investigationApprovalLogs');
+  
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
 }
@@ -769,6 +775,12 @@ async function pushAllToCloud(): Promise<void> {
   await pushTable('detoxFollowUps', TABLES.detoxFollowUps);
   await pushTable('substanceUseConsents', TABLES.substanceUseConsents);
   await pushTable('substanceUseClinicalSummaries', TABLES.substanceUseClinicalSummaries);
+  
+  // Clinical Comments (Post-Submission Notes)
+  await pushTable('clinicalComments', TABLES.clinicalComments);
+  
+  // Investigation Approval Logs
+  await pushTable('investigationApprovalLogs', TABLES.investigationApprovalLogs);
   
   // Audit Logs (for accountability across devices)
   await pushTable('auditLogs', TABLES.auditLogs);

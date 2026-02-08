@@ -37,6 +37,9 @@ import type {
   LimbSalvageAssessment,
   MeetingMinutes,
   SubstanceUseAssessment,
+  ClinicalComment,
+  CommentableEntityType,
+  CommentPriority,
 } from '../types';
 
 // ============================================================
@@ -1325,6 +1328,160 @@ export const SubstanceUseAssessmentOps = {
 };
 
 // ============================================================
+// CLINICAL COMMENTS OPERATIONS (Post-Submission Notes)
+// ============================================================
+
+export const ClinicalCommentOps = {
+  // Get all comments for a specific entity
+  async getByEntity(entityType: CommentableEntityType, entityId: string): Promise<ClinicalComment[]> {
+    return db.clinicalComments
+      .where(['entityType', 'entityId'])
+      .equals([entityType, entityId])
+      .reverse()
+      .sortBy('createdAt');
+  },
+
+  // Get comments for a patient (across all entities)
+  async getByPatient(patientId: string): Promise<ClinicalComment[]> {
+    return db.clinicalComments
+      .where('patientId')
+      .equals(patientId)
+      .reverse()
+      .sortBy('createdAt');
+  },
+
+  // Get unresolved comments by entity
+  async getUnresolvedByEntity(entityType: CommentableEntityType, entityId: string): Promise<ClinicalComment[]> {
+    return db.clinicalComments
+      .where(['entityType', 'entityId'])
+      .equals([entityType, entityId])
+      .filter(c => !c.isResolved)
+      .toArray();
+  },
+
+  // Get comments by priority
+  async getByPriority(priority: CommentPriority, hospitalId?: string): Promise<ClinicalComment[]> {
+    let query = db.clinicalComments.where('priority').equals(priority);
+    if (hospitalId) {
+      return query.filter(c => c.hospitalId === hospitalId).toArray();
+    }
+    return query.toArray();
+  },
+
+  // Get urgent/critical comments (unresolved)
+  async getUrgentUnresolved(hospitalId?: string): Promise<ClinicalComment[]> {
+    return db.clinicalComments
+      .filter(c => 
+        !c.isResolved && 
+        (c.priority === 'urgent' || c.priority === 'critical') &&
+        (!hospitalId || c.hospitalId === hospitalId)
+      )
+      .toArray();
+  },
+
+  // Get comment by ID
+  async getById(id: string): Promise<ClinicalComment | undefined> {
+    return db.clinicalComments.get(id);
+  },
+
+  // Get replies to a comment
+  async getReplies(parentCommentId: string): Promise<ClinicalComment[]> {
+    return db.clinicalComments
+      .filter(c => c.parentCommentId === parentCommentId)
+      .sortBy('createdAt');
+  },
+
+  // Create a new comment
+  async create(data: {
+    entityType: CommentableEntityType;
+    entityId: string;
+    patientId: string;
+    hospitalId: string;
+    comment: string;
+    priority?: CommentPriority;
+    category?: ClinicalComment['category'];
+    authorId: string;
+    authorName: string;
+    authorRole: string;
+    parentCommentId?: string;
+  }): Promise<string> {
+    const now = new Date();
+    const commentData: ClinicalComment = {
+      id: crypto.randomUUID(),
+      entityType: data.entityType,
+      entityId: data.entityId,
+      patientId: data.patientId,
+      hospitalId: data.hospitalId,
+      comment: data.comment,
+      priority: data.priority || 'normal',
+      category: data.category,
+      isResolved: false,
+      parentCommentId: data.parentCommentId,
+      authorId: data.authorId,
+      authorName: data.authorName,
+      authorRole: data.authorRole,
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    await db.clinicalComments.add(commentData);
+    return commentData.id;
+  },
+
+  // Update comment
+  async update(id: string, data: Partial<ClinicalComment>): Promise<number> {
+    return db.clinicalComments.update(id, {
+      ...data,
+      updatedAt: new Date(),
+    });
+  },
+
+  // Resolve a comment
+  async resolve(id: string, resolvedBy: string, resolvedByName: string): Promise<number> {
+    return db.clinicalComments.update(id, {
+      isResolved: true,
+      resolvedAt: new Date(),
+      resolvedBy,
+      resolvedByName,
+      updatedAt: new Date(),
+    });
+  },
+
+  // Unresolve a comment
+  async unresolve(id: string): Promise<number> {
+    return db.clinicalComments.update(id, {
+      isResolved: false,
+      resolvedAt: undefined,
+      resolvedBy: undefined,
+      resolvedByName: undefined,
+      updatedAt: new Date(),
+    });
+  },
+
+  // Delete comment
+  async delete(id: string): Promise<void> {
+    await db.clinicalComments.delete(id);
+  },
+
+  // Count comments for an entity
+  async countByEntity(entityType: CommentableEntityType, entityId: string): Promise<number> {
+    return db.clinicalComments
+      .where(['entityType', 'entityId'])
+      .equals([entityType, entityId])
+      .count();
+  },
+
+  // Count unresolved comments for an entity
+  async countUnresolvedByEntity(entityType: CommentableEntityType, entityId: string): Promise<number> {
+    return db.clinicalComments
+      .where(['entityType', 'entityId'])
+      .equals([entityType, entityId])
+      .filter(c => !c.isResolved)
+      .count();
+  },
+};
+
+// ============================================================
 // EXPORT ALL OPERATIONS
 // ============================================================
 
@@ -1358,4 +1515,5 @@ export const dbOps = {
   limbSalvage: LimbSalvageOps,
   meetingMinutes: MeetingMinutesOps,
   substanceUse: SubstanceUseAssessmentOps,
+  clinicalComments: ClinicalCommentOps,
 };
