@@ -1056,6 +1056,54 @@ function RequestModal({
   selectAllInCategory: (cat: UnifiedCategory) => void;
   user: any;
 }) {
+  // Test search state
+  const [testSearchQuery, setTestSearchQuery] = React.useState('');
+  const [showSearchResults, setShowSearchResults] = React.useState(false);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Get all tests flattened for search
+  const allTests = React.useMemo(() => {
+    const tests: Array<{ id: string; name: string; category: string; categoryLabel: string }> = [];
+    categories.forEach((cat: any) => {
+      const categoryTests = testDefinitions[cat.category] || [];
+      categoryTests.forEach((test: any) => {
+        tests.push({
+          id: test.id,
+          name: test.name,
+          category: cat.category,
+          categoryLabel: cat.label,
+        });
+      });
+    });
+    return tests;
+  }, [categories, testDefinitions]);
+
+  // Filter tests based on search query
+  const filteredTests = React.useMemo(() => {
+    if (!testSearchQuery.trim()) return [];
+    const query = testSearchQuery.toLowerCase();
+    return allTests.filter(test => 
+      test.name.toLowerCase().includes(query) ||
+      test.category.toLowerCase().includes(query) ||
+      test.categoryLabel.toLowerCase().includes(query)
+    ).slice(0, 15); // Limit to 15 results
+  }, [testSearchQuery, allTests]);
+
+  // Handle test selection from search
+  const handleSelectFromSearch = (testName: string) => {
+    if (!selectedTests.includes(testName)) {
+      toggleTest(testName);
+    }
+    setTestSearchQuery('');
+    setShowSearchResults(false);
+    searchInputRef.current?.focus();
+  };
+
+  // Handle removing a selected test
+  const handleRemoveTest = (testName: string) => {
+    toggleTest(testName);
+  };
+
   // Pathology form state
   const [pathologyFormData, setPathologyFormData] = React.useState<PathologyFormData>({
     ...defaultPathologyFormData,
@@ -1290,12 +1338,116 @@ function RequestModal({
               />
             </div>
 
-            {/* Test Selection */}
+            {/* Test Selection with Search */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Tests ({selectedTests.length} selected)
               </label>
+
+              {/* Search Input */}
+              <div className="relative mb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={testSearchQuery}
+                    onChange={(e) => {
+                      setTestSearchQuery(e.target.value);
+                      setShowSearchResults(true);
+                    }}
+                    onFocus={() => setShowSearchResults(true)}
+                    placeholder="Search for investigations... (e.g., FBC, glucose, HIV)"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                  {testSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTestSearchQuery('');
+                        setShowSearchResults(false);
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Search Results Dropdown */}
+                {showSearchResults && filteredTests.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                    {filteredTests.map((test) => {
+                      const isSelected = selectedTests.includes(test.name);
+                      return (
+                        <button
+                          key={test.id}
+                          type="button"
+                          onClick={() => handleSelectFromSearch(test.name)}
+                          className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b last:border-b-0 ${
+                            isSelected ? 'bg-primary-50' : ''
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{test.name}</div>
+                            <div className="text-xs text-gray-500">{test.categoryLabel}</div>
+                          </div>
+                          {isSelected ? (
+                            <span className="text-primary-600 text-xs font-medium flex items-center gap-1">
+                              <CheckCircle2 size={14} /> Added
+                            </span>
+                          ) : (
+                            <span className="text-primary-600 text-xs font-medium flex items-center gap-1">
+                              <Plus size={14} /> Add
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* No results message */}
+                {showSearchResults && testSearchQuery.trim() && filteredTests.length === 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-center text-gray-500">
+                    <Search className="mx-auto mb-2 text-gray-400" size={24} />
+                    <p className="text-sm">No tests found matching "{testSearchQuery}"</p>
+                    <p className="text-xs mt-1">Try a different search term or browse categories below</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Selected Tests Tags */}
+              {selectedTests.length > 0 && (
+                <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="text-xs text-gray-500 mb-2 font-medium">Selected Investigations:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTests.map((testName) => (
+                      <span
+                        key={testName}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-100 text-primary-800 rounded-full text-sm"
+                      >
+                        <FlaskConical size={12} />
+                        {testName}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTest(testName)}
+                          className="ml-1 hover:bg-primary-200 rounded-full p-0.5"
+                          title="Remove test"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Category Browser (collapsed by default when search is used) */}
               <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+                <div className="p-2 bg-gray-50 border-b text-xs text-gray-500 font-medium">
+                  Or browse by category:
+                </div>
                 {categories.map(cat => (
                   <div key={cat.category} className="border-b last:border-b-0">
                     <button
