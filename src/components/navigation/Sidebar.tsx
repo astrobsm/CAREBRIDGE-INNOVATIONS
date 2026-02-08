@@ -31,6 +31,7 @@ import {
   Activity,
   ShoppingCart,
   AlertTriangle,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -148,6 +149,12 @@ const navigation: NavItem[] = [
     name: 'NPWT', 
     href: '/npwt', 
     icon: <Wind size={20} />,
+    permission: 'manage_wounds',
+  },
+  { 
+    name: 'Keloid Care', 
+    href: '/keloid-care', 
+    icon: <Shield size={20} />,
     permission: 'manage_wounds',
   },
   { 

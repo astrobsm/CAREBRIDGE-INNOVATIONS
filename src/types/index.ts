@@ -276,6 +276,39 @@ export interface InvestigationApprovalLog {
   localId?: string;
 }
 
+// ==================== KELOID CARE PLANNING ====================
+
+export interface KeloidCarePlanRecord {
+  id: string;
+  patientId: string;
+  hospitalId: string;
+  encounterId?: string;
+  clinicalSummary: string;
+  diagnosisDate?: Date;
+  keloidAssessments: unknown[];
+  identifiedProblems: string[];
+  otherConcerns?: string;
+  riskFactors: string[];
+  comorbidities: string[];
+  hasNoComorbidities: boolean;
+  preTriamcinoloneTests: unknown[];
+  patientGender: 'male' | 'female';
+  patientAge: number;
+  allTestsCleared: boolean;
+  treatmentPlan: unknown;
+  multiModalityExplained: boolean;
+  complianceImportanceExplained: boolean;
+  patientConsentObtained: boolean;
+  status: 'draft' | 'active' | 'completed' | 'cancelled';
+  createdBy: string;
+  createdByName: string;
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date;
+  syncedAt?: Date;
+  localId?: string;
+}
+
 // Clinical Photo for encounter documentation
 export interface ClinicalPhoto {
   id: string;

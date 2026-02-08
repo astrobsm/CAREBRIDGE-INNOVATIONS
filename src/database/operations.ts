@@ -40,6 +40,7 @@ import type {
   ClinicalComment,
   CommentableEntityType,
   CommentPriority,
+  KeloidCarePlanRecord,
 } from '../types';
 
 // ============================================================
@@ -1482,6 +1483,48 @@ export const ClinicalCommentOps = {
 };
 
 // ============================================================
+// KELOID CARE PLAN OPERATIONS
+// ============================================================
+
+export const KeloidOps = {
+  async getAll(): Promise<KeloidCarePlanRecord[]> {
+    return db.keloidCarePlans.reverse().sortBy('createdAt');
+  },
+
+  async getById(id: string): Promise<KeloidCarePlanRecord | undefined> {
+    return db.keloidCarePlans.get(id);
+  },
+
+  async getByPatient(patientId: string): Promise<KeloidCarePlanRecord[]> {
+    return db.keloidCarePlans.where('patientId').equals(patientId).reverse().sortBy('createdAt');
+  },
+
+  async getByStatus(status: string): Promise<KeloidCarePlanRecord[]> {
+    return db.keloidCarePlans.where('status').equals(status).toArray();
+  },
+
+  async getActive(): Promise<KeloidCarePlanRecord[]> {
+    return db.keloidCarePlans.where('status').equals('active').toArray();
+  },
+
+  async create(plan: KeloidCarePlanRecord): Promise<string> {
+    return db.keloidCarePlans.add(plan);
+  },
+
+  async update(id: string, updates: Partial<KeloidCarePlanRecord>): Promise<number> {
+    return db.keloidCarePlans.update(id, { ...updates, updatedAt: new Date() });
+  },
+
+  async delete(id: string): Promise<void> {
+    await db.keloidCarePlans.delete(id);
+  },
+
+  async getByHospital(hospitalId: string): Promise<KeloidCarePlanRecord[]> {
+    return db.keloidCarePlans.where('hospitalId').equals(hospitalId).reverse().sortBy('createdAt');
+  },
+};
+
+// ============================================================
 // EXPORT ALL OPERATIONS
 // ============================================================
 
@@ -1516,4 +1559,5 @@ export const dbOps = {
   meetingMinutes: MeetingMinutesOps,
   substanceUse: SubstanceUseAssessmentOps,
   clinicalComments: ClinicalCommentOps,
+  keloid: KeloidOps,
 };

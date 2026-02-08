@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { 
@@ -32,8 +32,11 @@ import {
   Send,
   CheckSquare,
   RefreshCw,
+  X,
+  Trash2,
+  Eye,
 } from 'lucide-react';
-import { differenceInYears, subDays, isAfter } from 'date-fns';
+import { differenceInYears, subDays, isAfter, format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -54,6 +57,7 @@ import {
   generateInvestigationList,
   getProtocolForComorbidity,
   suggestASAClass,
+  INVESTIGATION_INFO,
 } from '../data/protocols';
 import { getProcedureEducation, type ProcedureEducation } from '../../../data/patientEducation';
 import { downloadPreoperativeAssessmentPDF, generatePreoperativeAssessmentPDF } from '../utils/preoperativePdfGenerator';
@@ -236,6 +240,16 @@ const PreoperativePlanningPage: React.FC = () => {
   const [investigationsRequested, setInvestigationsRequested] = useState(false);
   const [recentLabResults, setRecentLabResults] = useState<LabRequest[]>([]);
   const [autoFilledInvestigations, setAutoFilledInvestigations] = useState<Set<string>>(new Set());
+  
+  // State for investigation management (add/remove)
+  const [removedInvestigations, setRemovedInvestigations] = useState<Set<InvestigationType>>(new Set());
+  const [addedInvestigations, setAddedInvestigations] = useState<InvestigationType[]>([]);
+  const [showAddInvestigationDropdown, setShowAddInvestigationDropdown] = useState(false);
+  const [investigationSearchTerm, setInvestigationSearchTerm] = useState('');
+  const addInvestigationRef = useRef<HTMLDivElement>(null);
+  
+  // State for tracking requested lab statuses
+  const [requestedLabStatuses, setRequestedLabStatuses] = useState<Map<string, { status: string; requestedAt: Date; labRequestId?: string }>>(new Map());
   
   // State for UI
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -437,8 +451,8 @@ const PreoperativePlanningPage: React.FC = () => {
     fetchRecentLabResults();
   }, [selectedPatient]);
 
-  // Generate investigation list based on selections
-  const requiredInvestigations = useMemo(() => {
+  // Generate base investigation list based on selections
+  const baseInvestigations = useMemo(() => {
     return generateInvestigationList(
       selectedComorbidities,
       procedureCategory,
@@ -447,6 +461,88 @@ const PreoperativePlanningPage: React.FC = () => {
       isFemaleReproductiveAge
     );
   }, [selectedComorbidities, procedureCategory, anaesthesiaType, patientAge, isFemaleReproductiveAge]);
+
+  // Final investigation list with added/removed investigations
+  const requiredInvestigations = useMemo(() => {
+    // Start with base investigations, filter out removed ones
+    let investigations = baseInvestigations.filter(inv => !removedInvestigations.has(inv.type));
+    
+    // Add manually added investigations
+    addedInvestigations.forEach(invType => {
+      if (!investigations.some(inv => inv.type === invType)) {
+        const info = INVESTIGATION_INFO[invType];
+        if (info) {
+          investigations.push({
+            type: invType,
+            name: info.name,
+            requirement: 'recommended' as const,
+            rationale: 'Manually added by clinician',
+            expectedValue: 'Normal range',
+          });
+        }
+      }
+    });
+    
+    return investigations;
+  }, [baseInvestigations, removedInvestigations, addedInvestigations]);
+
+  // Available investigations for adding (exclude already included ones)
+  const availableInvestigations = useMemo(() => {
+    const currentTypes = new Set(requiredInvestigations.map(inv => inv.type));
+    return Object.entries(INVESTIGATION_INFO)
+      .filter(([type]) => !currentTypes.has(type as InvestigationType))
+      .filter(([type, info]) => 
+        investigationSearchTerm === '' ||
+        info.name.toLowerCase().includes(investigationSearchTerm.toLowerCase()) ||
+        type.toLowerCase().includes(investigationSearchTerm.toLowerCase())
+      )
+      .map(([type, info]) => ({ type: type as InvestigationType, ...info }));
+  }, [requiredInvestigations, investigationSearchTerm]);
+
+  // Fetch existing lab requests for this patient to track status
+  useEffect(() => {
+    const fetchLabRequestStatuses = async () => {
+      if (!selectedPatient) {
+        setRequestedLabStatuses(new Map());
+        return;
+      }
+      
+      try {
+        const labRequests = await db.labRequests
+          .where('patientId')
+          .equals(selectedPatient.id)
+          .toArray();
+        
+        const statusMap = new Map<string, { status: string; requestedAt: Date; labRequestId?: string }>();
+        
+        labRequests.forEach(lab => {
+          // Match lab tests to investigation types
+          lab.tests?.forEach(test => {
+            const testNameLower = test.name?.toLowerCase() || '';
+            
+            // Map test names to investigation types
+            Object.entries(INVESTIGATION_INFO).forEach(([invType, info]) => {
+              if (info.name.toLowerCase().includes(testNameLower) || 
+                  testNameLower.includes(info.name.toLowerCase()) ||
+                  testNameLower.includes(invType.replace(/_/g, ' '))) {
+                statusMap.set(invType, {
+                  status: lab.status,
+                  requestedAt: new Date(lab.requestedAt),
+                  labRequestId: lab.id,
+                });
+              }
+            });
+          });
+        });
+        
+        setRequestedLabStatuses(statusMap);
+      } catch (error) {
+        console.error('Error fetching lab request statuses:', error);
+      }
+    };
+    
+    fetchLabRequestStatuses();
+  }, [selectedPatient, investigationsRequested]);
 
   // Collect all optimization recommendations from selected comorbidities
   const allOptimizations = useMemo(() => {
@@ -999,6 +1095,71 @@ const PreoperativePlanningPage: React.FC = () => {
     }
   };
 
+  // Handle adding an investigation
+  const handleAddInvestigation = (invType: InvestigationType) => {
+    if (!addedInvestigations.includes(invType)) {
+      setAddedInvestigations(prev => [...prev, invType]);
+      // If it was previously removed, un-remove it
+      setRemovedInvestigations(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(invType);
+        return newSet;
+      });
+    }
+    setShowAddInvestigationDropdown(false);
+    setInvestigationSearchTerm('');
+    toast.success(`Added ${INVESTIGATION_INFO[invType]?.name || invType} to required investigations`);
+  };
+
+  // Handle removing an investigation
+  const handleRemoveInvestigation = (invType: InvestigationType) => {
+    // Check if it's a mandatory investigation
+    const inv = requiredInvestigations.find(i => i.type === invType);
+    if (inv?.requirement === 'mandatory') {
+      toast.error(`Cannot remove mandatory investigation: ${inv.name}. This is required for all surgical procedures.`);
+      return;
+    }
+    
+    setRemovedInvestigations(prev => new Set([...prev, invType]));
+    setAddedInvestigations(prev => prev.filter(t => t !== invType));
+    toast.success(`Removed ${INVESTIGATION_INFO[invType]?.name || invType} from investigations`);
+  };
+
+  // Get status badge for investigation
+  const getInvestigationStatusBadge = (invType: InvestigationType) => {
+    const status = requestedLabStatuses.get(invType);
+    if (!status) return null;
+    
+    switch (status.status) {
+      case 'pending':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+            <Clock className="w-3 h-3" /> Requested
+          </span>
+        );
+      case 'collected':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
+            <FlaskConical className="w-3 h-3" /> Collected
+          </span>
+        );
+      case 'processing':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded-full">
+            <RefreshCw className="w-3 h-3 animate-spin" /> Processing
+          </span>
+        );
+      case 'completed':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
+            <CheckCircle className="w-3 h-3" /> Completed
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
   // Handle Request & Approve Investigations (creates lab requests)
   const handleRequestInvestigations = async () => {
     if (!selectedPatient) {
@@ -1540,6 +1701,11 @@ const PreoperativePlanningPage: React.FC = () => {
                       {autoFilledInvestigations.size} auto-filled
                     </span>
                   )}
+                  {requestedLabStatuses.size > 0 && (
+                    <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">
+                      {requestedLabStatuses.size} tracked
+                    </span>
+                  )}
                 </h2>
                 {expandedSections.investigations ? <ChevronUp /> : <ChevronDown />}
               </button>
@@ -1559,35 +1725,147 @@ const PreoperativePlanningPage: React.FC = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Add Investigation Section */}
+                  <div className="relative" ref={addInvestigationRef}>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search and add more investigations..."
+                          value={investigationSearchTerm}
+                          onChange={(e) => {
+                            setInvestigationSearchTerm(e.target.value);
+                            setShowAddInvestigationDropdown(true);
+                          }}
+                          onFocus={() => setShowAddInvestigationDropdown(true)}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+                        />
+                        {investigationSearchTerm && (
+                          <button
+                            onClick={() => {
+                              setInvestigationSearchTerm('');
+                              setShowAddInvestigationDropdown(false);
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setShowAddInvestigationDropdown(!showAddInvestigationDropdown)}
+                        className="px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 flex items-center gap-1"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add
+                      </button>
+                    </div>
+                    
+                    {/* Dropdown for adding investigations */}
+                    {showAddInvestigationDropdown && availableInvestigations.length > 0 && (
+                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {availableInvestigations.slice(0, 10).map((inv) => (
+                          <button
+                            key={inv.type}
+                            onClick={() => handleAddInvestigation(inv.type)}
+                            className="w-full text-left px-4 py-2 hover:bg-gray-50 border-b last:border-b-0 flex items-center justify-between"
+                          >
+                            <div>
+                              <div className="font-medium text-gray-900 text-sm">{inv.name}</div>
+                              <div className="text-xs text-gray-500">{inv.description}</div>
+                            </div>
+                            <Plus className="w-4 h-4 text-primary" />
+                          </button>
+                        ))}
+                        {availableInvestigations.length > 10 && (
+                          <div className="px-4 py-2 text-xs text-gray-500 bg-gray-50">
+                            Type to search more investigations...
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   
+                  {/* Investigation List */}
                   {requiredInvestigations.map((inv, idx) => (
-                    <div key={idx} className={`p-3 rounded-lg ${
+                    <div key={idx} className={`p-3 rounded-lg border ${
                       autoFilledInvestigations.has(inv.type) 
-                        ? 'bg-green-50 border border-green-200' 
-                        : 'bg-gray-50'
+                        ? 'bg-green-50 border-green-200' 
+                        : requestedLabStatuses.has(inv.type)
+                          ? 'bg-blue-50 border-blue-200'
+                          : 'bg-gray-50 border-gray-200'
                     }`}>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="font-medium text-gray-900 flex items-center gap-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 flex items-center gap-2 flex-wrap">
                             {inv.name}
                             {autoFilledInvestigations.has(inv.type) && (
                               <CheckCircle className="w-4 h-4 text-green-600" />
                             )}
+                            {getInvestigationStatusBadge(inv.type)}
                           </div>
                           <div className="text-xs text-gray-500 mt-1">{inv.rationale}</div>
                         </div>
-                        <span className={`px-2 py-1 text-xs rounded-full border ${getRequirementBadgeColor(inv.requirement)}`}>
-                          {inv.requirement.replace('_', ' ')}
-                        </span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`px-2 py-1 text-xs rounded-full border ${getRequirementBadgeColor(inv.requirement)}`}>
+                            {inv.requirement.replace('_', ' ')}
+                          </span>
+                          {inv.requirement !== 'mandatory' && (
+                            <button
+                              onClick={() => handleRemoveInvestigation(inv.type)}
+                              className="p-1 text-red-500 hover:bg-red-50 rounded-lg"
+                              title="Remove investigation"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="mt-2 text-xs">
-                        <span className="text-green-600">Expected: {inv.expectedValue}</span>
-                        {inv.minSafeLevel && (
-                          <span className="text-orange-600 ml-3">Min Safe: {inv.minSafeLevel}</span>
+                      <div className="mt-2 text-xs flex items-center justify-between">
+                        <div>
+                          <span className="text-green-600">Expected: {inv.expectedValue}</span>
+                          {inv.minSafeLevel && (
+                            <span className="text-orange-600 ml-3">Min Safe: {inv.minSafeLevel}</span>
+                          )}
+                        </div>
+                        {requestedLabStatuses.has(inv.type) && (
+                          <span className="text-gray-400">
+                            Requested: {format(requestedLabStatuses.get(inv.type)!.requestedAt, 'MMM d, h:mm a')}
+                          </span>
                         )}
                       </div>
                     </div>
                   ))}
+
+                  {/* Summary of Tracked Investigations */}
+                  {requestedLabStatuses.size > 0 && (
+                    <div className="p-3 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Eye className="w-5 h-5 text-green-600" />
+                        <h4 className="font-medium text-green-800">Investigation Tracking</h4>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex items-center gap-1">
+                          <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
+                          <span>Pending: {[...requestedLabStatuses.values()].filter(s => s.status === 'pending').length}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                          <span>Collected: {[...requestedLabStatuses.values()].filter(s => s.status === 'collected').length}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                          <span>Processing: {[...requestedLabStatuses.values()].filter(s => s.status === 'processing').length}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                          <span>Completed: {[...requestedLabStatuses.values()].filter(s => s.status === 'completed').length}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Investigation Action Buttons */}
                   <div className="pt-4 mt-4 border-t border-gray-200 space-y-2">

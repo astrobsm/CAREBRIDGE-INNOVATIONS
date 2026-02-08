@@ -69,6 +69,8 @@ import type {
   ClinicalComment,
   // Investigation Approval Workflow
   InvestigationApprovalLog,
+  // Keloid Care Planning
+  KeloidCarePlanRecord,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -168,11 +170,13 @@ export class AstroHEALTHDatabase extends Dexie {
   clinicalComments!: Table<ClinicalComment, string>;
   // Investigation Approval Workflow
   investigationApprovalLogs!: Table<InvestigationApprovalLog, string>;
+  // Keloid Care Planning
+  keloidCarePlans!: Table<KeloidCarePlanRecord, string>;
 
   constructor() {
     super('AstroHEALTHDB');
 
-    this.version(70).stores({
+    this.version(71).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -262,6 +266,8 @@ export class AstroHEALTHDatabase extends Dexie {
       clinicalComments: 'id, entityType, entityId, patientId, hospitalId, priority, authorId, isResolved, createdAt',
       // Investigation Approval Workflow
       investigationApprovalLogs: 'id, investigationId, patientId, hospitalId, action, performedBy, performedAt, labRequestId, createdAt',
+      // Keloid Care Planning
+      keloidCarePlans: 'id, patientId, hospitalId, status, createdBy, createdAt, updatedAt',
     });
   }
 }
