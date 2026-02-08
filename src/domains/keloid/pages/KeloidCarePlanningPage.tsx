@@ -2024,6 +2024,154 @@ function PlanDetailView({
         </div>
       </div>
 
+      {/* ==================== PATIENT EDUCATION ==================== */}
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-5">
+        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-base">
+          <BookOpen size={20} className="text-blue-600" />
+          Patient Education — Understanding Your Keloid Treatment
+        </h3>
+
+        {/* What is a Keloid */}
+        <div className="mb-4">
+          <h4 className="font-semibold text-gray-800 text-sm mb-1">What is a Keloid?</h4>
+          <p className="text-sm text-gray-700 leading-relaxed">
+            A keloid is a type of raised scar that grows beyond the boundaries of the original wound or injury.
+            Unlike normal scars, keloids continue to grow over time due to excessive collagen production.
+            They can occur after surgery, burns, piercings, acne, or even minor skin injuries.
+            Keloids are more common in people with darker skin tones and may run in families.
+            They are benign (non-cancerous) but can cause pain, itching, tenderness, and cosmetic concern.
+          </p>
+        </div>
+
+        {/* Why Multi-Modality */}
+        <div className="mb-4 bg-white/60 rounded-lg p-3 border border-blue-100">
+          <h4 className="font-semibold text-blue-800 text-sm mb-1">Why Multiple Treatments Are Needed</h4>
+          <p className="text-sm text-gray-700 leading-relaxed">
+            Keloids have a high recurrence rate (up to 50-80%) when treated with surgery alone.
+            Research shows that combining multiple treatment modalities significantly reduces recurrence rates to 10-20%.
+            Your care plan uses a multi-modality approach tailored to your specific keloid characteristics, combining
+            {[
+              treatmentPlan?.preOpTriamcinolone?.enabled && ' steroid injections (pre-operative)',
+              treatmentPlan?.surgery?.planned && ' surgical excision',
+              treatmentPlan?.postOpTriamcinolone?.enabled && ' steroid injections (post-operative)',
+              ' silicone sheet and compression therapy',
+              treatmentPlan?.radiotherapy?.indicated && ' low-dose radiotherapy',
+            ].filter(Boolean).join(',')}
+            {' '}for the best possible outcome.
+          </p>
+        </div>
+
+        {/* Treatment-specific education - only show sections relevant to the patient's plan */}
+        <div className="space-y-3">
+          {/* Triamcinolone Education */}
+          {(treatmentPlan?.preOpTriamcinolone?.enabled || treatmentPlan?.postOpTriamcinolone?.enabled) && (
+            <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
+              <h4 className="font-semibold text-blue-800 text-sm mb-1 flex items-center gap-1">
+                <Syringe size={14} /> Triamcinolone (Steroid) Injections
+              </h4>
+              <ul className="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                <li><strong>What it does:</strong> Triamcinolone acetonide is a corticosteroid injected directly into the keloid. It reduces collagen production, softens the scar, and decreases inflammation.</li>
+                <li><strong>Frequency:</strong> Injections are given every 3 weeks (q3 weekly) to allow the tissue to respond between sessions.</li>
+                <li><strong>What to expect:</strong> You may feel a stinging or burning sensation during injection. The keloid typically softens and flattens progressively over the course of treatment.</li>
+                <li><strong>Possible side effects:</strong> Temporary skin lightening (hypopigmentation) around the injection site, skin thinning (atrophy), telangiectasia (tiny blood vessels), or a small depressed area. These are usually reversible.</li>
+                <li><strong>Important:</strong> Completing all scheduled sessions is critical. Missing sessions may allow the keloid to regrow, reducing treatment effectiveness.</li>
+              </ul>
+            </div>
+          )}
+
+          {/* Surgery Education */}
+          {treatmentPlan?.surgery?.planned && (
+            <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
+              <h4 className="font-semibold text-amber-800 text-sm mb-1 flex items-center gap-1">
+                <Scissors size={14} /> Surgical Excision
+              </h4>
+              <ul className="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                <li><strong>Procedure:</strong> The keloid is carefully excised (removed) with precise surgical technique to minimize wound tension — a key factor in keloid recurrence.</li>
+                <li><strong>What to expect:</strong> The procedure is typically performed under local anaesthesia. You will have stitches that will be reviewed and removed as advised by your surgeon.</li>
+                <li><strong>Post-surgery care:</strong> Keep the wound clean and dry. Follow wound care instructions carefully. Avoid stretching or traumatizing the surgical site.</li>
+                <li><strong>Recurrence prevention:</strong> Surgery alone has a high recurrence rate. This is why your plan includes additional treatments (injections, silicone, compression{treatmentPlan?.radiotherapy?.indicated ? ', and radiotherapy' : ''}) to prevent the keloid from returning.</li>
+              </ul>
+            </div>
+          )}
+
+          {/* Silicone & Compression Education */}
+          <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
+            <h4 className="font-semibold text-purple-800 text-sm mb-1 flex items-center gap-1">
+              <Heart size={14} /> Silicone Sheet & Compression Therapy
+            </h4>
+            <ul className="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+              <li><strong>How it works:</strong> Silicone sheets create a moist, occluded environment that regulates collagen production. Compression garments apply constant pressure to flatten the scar and reduce blood flow to the keloid tissue.</li>
+              <li><strong>Duration:</strong> These must be worn for at least {treatmentPlan?.siliconeCompression?.durationWeeks || 24} weeks (approximately {Math.round((treatmentPlan?.siliconeCompression?.durationWeeks || 24) / 4)} months) for optimal results. Longer use (up to 12-24 months) further reduces recurrence.</li>
+              <li><strong>Daily use:</strong> Silicone sheets should be worn for a minimum of 12-23 hours per day. Compression garments should be worn continuously except when bathing.</li>
+              <li><strong>Care:</strong> Wash silicone sheets daily with mild soap and water. Replace when they lose adhesion. Keep the skin underneath clean and dry.</li>
+              <li><strong>Expected outcome:</strong> Gradual softening, flattening, and lightening of the scar. Full results typically visible after 3-6 months of consistent use.</li>
+            </ul>
+          </div>
+
+          {/* Radiotherapy Education */}
+          {treatmentPlan?.radiotherapy?.indicated && (
+            <div className="bg-white/60 rounded-lg p-3 border border-blue-100">
+              <h4 className="font-semibold text-red-800 text-sm mb-1 flex items-center gap-1">
+                <Zap size={14} /> Low-Dose Radiotherapy
+              </h4>
+              <ul className="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                <li><strong>Purpose:</strong> Superficial radiotherapy destroys the rapidly dividing fibroblast cells that cause keloid growth. It is one of the most effective treatments for preventing keloid recurrence.</li>
+                <li><strong>Timing:</strong> Radiotherapy is most effective when given within 24-72 hours after surgical excision, while the wound is still healing.</li>
+                <li><strong>Safety:</strong> Low-dose superficial radiation targets only the skin surface. The doses used for keloids are very low and the risk of serious complications is extremely small.</li>
+                <li><strong>Side effects to know about:</strong> Skin redness (resolves in days-weeks), temporary darkening (2-4 weeks), mild dryness or peeling (use moisturiser), itching (antihistamines if needed).</li>
+                <li><strong>Success rate:</strong> When combined with surgery, radiotherapy reduces keloid recurrence to approximately 10-20%.</li>
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Expected Outcomes & Compliance */}
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+            <h4 className="font-semibold text-green-800 text-sm mb-2 flex items-center gap-1">
+              <CheckCircle2 size={14} /> Expected Treatment Outcomes
+            </h4>
+            <ul className="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+              <li>Significant reduction in keloid size and height</li>
+              <li>Relief from pain, itching, and tenderness</li>
+              <li>Improved cosmetic appearance</li>
+              <li>Restored function if movement was limited</li>
+              <li>Reduced psychological distress and improved quality of life</li>
+              <li>Recurrence rate reduced to 10-20% with full compliance (vs 50-80% with surgery alone)</li>
+            </ul>
+          </div>
+
+          <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+            <h4 className="font-semibold text-amber-800 text-sm mb-2 flex items-center gap-1">
+              <AlertTriangle size={14} /> Importance of Compliance
+            </h4>
+            <ul className="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+              <li><strong>Attend all scheduled appointments</strong> — each treatment session is carefully timed for maximum effectiveness</li>
+              <li><strong>Wear silicone/compression daily</strong> — inconsistent use significantly increases recurrence risk</li>
+              <li><strong>Do not skip injections</strong> — the treatment protocol depends on cumulative effect</li>
+              <li><strong>Report any concerns early</strong> — redness, swelling, pain, or signs of infection should be reported immediately</li>
+              <li><strong>Follow-up visits are essential</strong> — monitoring allows early detection and management of any recurrence</li>
+              <li><strong>Long-term monitoring</strong> — keloids can recur months to years after treatment; regular check-ups are recommended for at least 12-24 months</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* When to Seek Help */}
+        <div className="mt-3 bg-red-50 rounded-lg p-3 border border-red-200">
+          <h4 className="font-semibold text-red-800 text-sm mb-1 flex items-center gap-1">
+            <AlertTriangle size={14} /> When to Contact Your Doctor
+          </h4>
+          <div className="text-sm text-gray-700 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-0.5 ml-4">
+            <p>• Signs of wound infection (pus, increasing redness, fever)</p>
+            <p>• Severe pain not controlled by prescribed medication</p>
+            <p>• Rapid regrowth of the keloid after treatment</p>
+            <p>• Allergic reaction to medications or silicone</p>
+            <p>• Excessive skin thinning or colour change at injection site</p>
+            <p>• Any side effects from radiotherapy that persist beyond 2 weeks</p>
+          </div>
+        </div>
+      </div>
+
       {/* Created Info */}
       <div className="text-xs text-gray-400 text-center">
         Created by {plan.createdByName} on {format(new Date(plan.createdAt), 'dd MMM yyyy, HH:mm')}

@@ -501,6 +501,193 @@ export function generateKeloidCarePlanPDF(
     }
   }
 
+  // ================== PATIENT EDUCATION ==================
+  yPos = checkNewPage(doc, yPos, 30);
+  yPos = addSectionTitle(doc, yPos, 'Patient Education — Understanding Your Keloid Treatment');
+
+  doc.setFont('times', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+
+  // What is a Keloid
+  yPos = checkNewPage(doc, yPos, 20);
+  doc.setFont('times', 'bold');
+  doc.text('What is a Keloid?', margin, yPos);
+  yPos += 4;
+  doc.setFont('times', 'normal');
+  const keloidDesc = doc.splitTextToSize(
+    'A keloid is a type of raised scar that grows beyond the boundaries of the original wound. Unlike normal scars, keloids continue to grow due to excessive collagen production. They can occur after surgery, burns, piercings, acne, or minor skin injuries. Keloids are more common in people with darker skin tones and may run in families. They are benign (non-cancerous) but can cause pain, itching, tenderness, and cosmetic concern.',
+    contentWidth
+  );
+  doc.text(keloidDesc, margin, yPos);
+  yPos += keloidDesc.length * 3.8 + 3;
+
+  // Why Multi-Modality
+  yPos = checkNewPage(doc, yPos, 20);
+  doc.setFont('times', 'bold');
+  doc.text('Why Multiple Treatments Are Needed', margin, yPos);
+  yPos += 4;
+  doc.setFont('times', 'normal');
+  const multiDesc = doc.splitTextToSize(
+    'Keloids have a high recurrence rate (up to 50-80%) when treated with surgery alone. Research shows that combining multiple treatment modalities significantly reduces recurrence rates to 10-20%. Your care plan uses a multi-modality approach tailored to your specific keloid characteristics for the best possible outcome.',
+    contentWidth
+  );
+  doc.text(multiDesc, margin, yPos);
+  yPos += multiDesc.length * 3.8 + 3;
+
+  // Triamcinolone education
+  if (tp?.preOpTriamcinolone?.enabled || tp?.postOpTriamcinolone?.enabled) {
+    yPos = checkNewPage(doc, yPos, 30);
+    doc.setFont('times', 'bold');
+    doc.text('Triamcinolone (Steroid) Injections', margin, yPos);
+    yPos += 4;
+    doc.setFont('times', 'normal');
+    const triamEdu = [
+      '- What it does: Reduces collagen production, softens the scar, and decreases inflammation.',
+      '- Frequency: Given every 3 weeks to allow tissue response between sessions.',
+      '- What to expect: Stinging during injection. Keloid softens and flattens progressively.',
+      '- Possible side effects: Temporary skin lightening, skin thinning, telangiectasia. Usually reversible.',
+      '- Important: Completing ALL scheduled sessions is critical. Missing sessions may allow keloid regrowth.',
+    ];
+    triamEdu.forEach(line => {
+      yPos = checkNewPage(doc, yPos, 5);
+      const wrapped = doc.splitTextToSize(line, contentWidth - 4);
+      doc.text(wrapped, margin + 2, yPos);
+      yPos += wrapped.length * 3.8 + 1;
+    });
+    yPos += 2;
+  }
+
+  // Surgery education
+  if (tp?.surgery?.planned) {
+    yPos = checkNewPage(doc, yPos, 25);
+    doc.setFont('times', 'bold');
+    doc.text('Surgical Excision', margin, yPos);
+    yPos += 4;
+    doc.setFont('times', 'normal');
+    const surgEdu = [
+      '- Procedure: Keloid is excised with precise technique to minimise wound tension.',
+      '- Performed under local anaesthesia. Stitches will be reviewed and removed as advised.',
+      '- Post-surgery: Keep wound clean and dry. Avoid stretching the surgical site.',
+      '- Surgery alone has high recurrence. Additional treatments (injections, silicone, compression) are essential.',
+    ];
+    surgEdu.forEach(line => {
+      yPos = checkNewPage(doc, yPos, 5);
+      const wrapped = doc.splitTextToSize(line, contentWidth - 4);
+      doc.text(wrapped, margin + 2, yPos);
+      yPos += wrapped.length * 3.8 + 1;
+    });
+    yPos += 2;
+  }
+
+  // Silicone & Compression education
+  yPos = checkNewPage(doc, yPos, 25);
+  doc.setFont('times', 'bold');
+  doc.text('Silicone Sheet & Compression Therapy', margin, yPos);
+  yPos += 4;
+  doc.setFont('times', 'normal');
+  const siliconeWeeks = tp?.siliconeCompression?.durationWeeks || 24;
+  const siliconeEdu = [
+    '- How it works: Silicone creates a moist environment that regulates collagen. Compression flattens the scar.',
+    `- Duration: Must be worn for at least ${siliconeWeeks} weeks (~${Math.round(siliconeWeeks / 4)} months). Longer use reduces recurrence.`,
+    '- Silicone sheets: Wear 12-23 hours/day. Wash daily with mild soap. Replace when adhesion is lost.',
+    '- Compression garments: Wear continuously except when bathing.',
+    '- Expected: Gradual softening, flattening, and lightening. Full results after 3-6 months of consistent use.',
+  ];
+  siliconeEdu.forEach(line => {
+    yPos = checkNewPage(doc, yPos, 5);
+    const wrapped = doc.splitTextToSize(line, contentWidth - 4);
+    doc.text(wrapped, margin + 2, yPos);
+    yPos += wrapped.length * 3.8 + 1;
+  });
+  yPos += 2;
+
+  // Radiotherapy education
+  if (tp?.radiotherapy?.indicated) {
+    yPos = checkNewPage(doc, yPos, 30);
+    doc.setFont('times', 'bold');
+    doc.text('Low-Dose Radiotherapy', margin, yPos);
+    yPos += 4;
+    doc.setFont('times', 'normal');
+    const radioEdu = [
+      '- Purpose: Destroys rapidly dividing fibroblast cells that cause keloid growth.',
+      '- Timing: Most effective within 24-72 hours after surgical excision.',
+      '- Safety: Low-dose superficial radiation targets skin surface only. Risk of complications is very low.',
+      '- Side effects: Skin redness (resolves in days-weeks), temporary darkening (2-4 weeks), mild dryness, itching.',
+      '- Success: Combined with surgery, reduces recurrence to approximately 10-20%.',
+    ];
+    radioEdu.forEach(line => {
+      yPos = checkNewPage(doc, yPos, 5);
+      const wrapped = doc.splitTextToSize(line, contentWidth - 4);
+      doc.text(wrapped, margin + 2, yPos);
+      yPos += wrapped.length * 3.8 + 1;
+    });
+    yPos += 2;
+  }
+
+  // Expected Outcomes
+  yPos = checkNewPage(doc, yPos, 20);
+  doc.setFont('times', 'bold');
+  doc.text('Expected Treatment Outcomes', margin, yPos);
+  yPos += 4;
+  doc.setFont('times', 'normal');
+  const outcomes = [
+    '- Significant reduction in keloid size and height',
+    '- Relief from pain, itching, and tenderness',
+    '- Improved cosmetic appearance and restored function',
+    '- Reduced psychological distress and improved quality of life',
+    '- Recurrence rate reduced to 10-20% with full compliance (vs 50-80% with surgery alone)',
+  ];
+  outcomes.forEach(line => {
+    yPos = checkNewPage(doc, yPos, 4);
+    doc.text(line, margin + 2, yPos);
+    yPos += 3.8;
+  });
+  yPos += 3;
+
+  // Compliance
+  yPos = checkNewPage(doc, yPos, 20);
+  doc.setFont('times', 'bold');
+  doc.text('Importance of Compliance', margin, yPos);
+  yPos += 4;
+  doc.setFont('times', 'normal');
+  const compliance = [
+    '- Attend ALL scheduled appointments — each session is carefully timed for maximum effectiveness',
+    '- Wear silicone/compression daily — inconsistent use significantly increases recurrence risk',
+    '- Do not skip injections — the protocol depends on cumulative effect',
+    '- Report concerns early — redness, swelling, pain, or infection signs',
+    '- Follow-up visits are essential — monitoring allows early detection of recurrence',
+    '- Long-term monitoring — check-ups recommended for at least 12-24 months after treatment',
+  ];
+  compliance.forEach(line => {
+    yPos = checkNewPage(doc, yPos, 5);
+    const wrapped = doc.splitTextToSize(line, contentWidth - 4);
+    doc.text(wrapped, margin + 2, yPos);
+    yPos += wrapped.length * 3.8 + 1;
+  });
+  yPos += 3;
+
+  // When to Contact Doctor
+  yPos = checkNewPage(doc, yPos, 20);
+  doc.setFont('times', 'bold');
+  doc.text('When to Contact Your Doctor', margin, yPos);
+  yPos += 4;
+  doc.setFont('times', 'normal');
+  const warnings = [
+    '- Signs of wound infection (pus, increasing redness, fever)',
+    '- Severe pain not controlled by prescribed medication',
+    '- Rapid regrowth of the keloid after treatment',
+    '- Allergic reaction to medications or silicone',
+    '- Excessive skin thinning or colour change at injection site',
+    '- Radiotherapy side effects persisting beyond 2 weeks',
+  ];
+  warnings.forEach(line => {
+    yPos = checkNewPage(doc, yPos, 4);
+    doc.text(line, margin + 2, yPos);
+    yPos += 3.8;
+  });
+  yPos += 4;
+
   // ================== CONSENT & COMPLIANCE ==================
   yPos = checkNewPage(doc, yPos, 25);
   yPos = addSectionTitle(doc, yPos, 'Patient Education & Consent');
@@ -796,6 +983,148 @@ export function generateKeloidCarePlanPDFBlob(
       yPos += 6;
     }
   }
+
+  // ================== PATIENT EDUCATION ==================
+  yPos = checkNewPage(doc, yPos, 30);
+  yPos = addSectionTitle(doc, yPos, 'Patient Education — Understanding Your Keloid Treatment');
+
+  doc.setFont('times', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+
+  // What is a Keloid
+  yPos = checkNewPage(doc, yPos, 20);
+  doc.setFont('times', 'bold');
+  doc.text('What is a Keloid?', margin, yPos);
+  yPos += 4;
+  doc.setFont('times', 'normal');
+  const bKeloidDesc = doc.splitTextToSize(
+    'A keloid is a type of raised scar that grows beyond the boundaries of the original wound. Unlike normal scars, keloids continue to grow due to excessive collagen production. They can occur after surgery, burns, piercings, acne, or minor skin injuries. Keloids are more common in people with darker skin tones and may run in families. They are benign (non-cancerous) but can cause pain, itching, tenderness, and cosmetic concern.',
+    contentWidth
+  );
+  doc.text(bKeloidDesc, margin, yPos);
+  yPos += bKeloidDesc.length * 3.8 + 3;
+
+  // Why Multi-Modality
+  yPos = checkNewPage(doc, yPos, 20);
+  doc.setFont('times', 'bold');
+  doc.text('Why Multiple Treatments Are Needed', margin, yPos);
+  yPos += 4;
+  doc.setFont('times', 'normal');
+  const bMultiDesc = doc.splitTextToSize(
+    'Keloids have a high recurrence rate (up to 50-80%) when treated with surgery alone. Research shows that combining multiple treatment modalities significantly reduces recurrence rates to 10-20%. Your care plan uses a multi-modality approach tailored to your specific keloid characteristics.',
+    contentWidth
+  );
+  doc.text(bMultiDesc, margin, yPos);
+  yPos += bMultiDesc.length * 3.8 + 3;
+
+  // Triamcinolone
+  if (tp?.preOpTriamcinolone?.enabled || tp?.postOpTriamcinolone?.enabled) {
+    yPos = checkNewPage(doc, yPos, 25);
+    doc.setFont('times', 'bold');
+    doc.text('Triamcinolone (Steroid) Injections', margin, yPos);
+    yPos += 4;
+    doc.setFont('times', 'normal');
+    const bTriam = [
+      '- Reduces collagen production, softens the scar, and decreases inflammation.',
+      '- Given every 3 weeks. You may feel stinging during injection.',
+      '- Possible side effects: Temporary skin lightening, skin thinning. Usually reversible.',
+      '- Completing ALL scheduled sessions is critical to prevent keloid regrowth.',
+    ];
+    bTriam.forEach(line => {
+      yPos = checkNewPage(doc, yPos, 5);
+      const w = doc.splitTextToSize(line, contentWidth - 4);
+      doc.text(w, margin + 2, yPos);
+      yPos += w.length * 3.8 + 1;
+    });
+    yPos += 2;
+  }
+
+  // Surgery
+  if (tp?.surgery?.planned) {
+    yPos = checkNewPage(doc, yPos, 20);
+    doc.setFont('times', 'bold');
+    doc.text('Surgical Excision', margin, yPos);
+    yPos += 4;
+    doc.setFont('times', 'normal');
+    const bSurg = [
+      '- Keloid is excised with precise technique under local anaesthesia.',
+      '- Keep wound clean and dry. Avoid stretching the surgical site.',
+      '- Surgery alone has high recurrence. Additional treatments are essential.',
+    ];
+    bSurg.forEach(line => {
+      yPos = checkNewPage(doc, yPos, 5);
+      const w = doc.splitTextToSize(line, contentWidth - 4);
+      doc.text(w, margin + 2, yPos);
+      yPos += w.length * 3.8 + 1;
+    });
+    yPos += 2;
+  }
+
+  // Silicone & Compression
+  yPos = checkNewPage(doc, yPos, 20);
+  doc.setFont('times', 'bold');
+  doc.text('Silicone Sheet & Compression Therapy', margin, yPos);
+  yPos += 4;
+  doc.setFont('times', 'normal');
+  const bSilW = tp?.siliconeCompression?.durationWeeks || 24;
+  const bSilEdu = [
+    '- Silicone creates a moist environment regulating collagen. Compression flattens the scar.',
+    `- Must be worn for at least ${bSilW} weeks (~${Math.round(bSilW / 4)} months).`,
+    '- Silicone: 12-23 hours/day. Compression: continuously except bathing.',
+    '- Gradual softening and flattening. Full results after 3-6 months of consistent use.',
+  ];
+  bSilEdu.forEach(line => {
+    yPos = checkNewPage(doc, yPos, 5);
+    const w = doc.splitTextToSize(line, contentWidth - 4);
+    doc.text(w, margin + 2, yPos);
+    yPos += w.length * 3.8 + 1;
+  });
+  yPos += 2;
+
+  // Radiotherapy
+  if (tp?.radiotherapy?.indicated) {
+    yPos = checkNewPage(doc, yPos, 20);
+    doc.setFont('times', 'bold');
+    doc.text('Low-Dose Radiotherapy', margin, yPos);
+    yPos += 4;
+    doc.setFont('times', 'normal');
+    const bRadio = [
+      '- Destroys fibroblast cells causing keloid growth. Most effective within 24-72 hrs after surgery.',
+      '- Low-dose superficial radiation; risk of complications is very low.',
+      '- Side effects: Temporary redness, darkening, dryness, itching — usually self-resolving.',
+      '- Combined with surgery, reduces recurrence to approximately 10-20%.',
+    ];
+    bRadio.forEach(line => {
+      yPos = checkNewPage(doc, yPos, 5);
+      const w = doc.splitTextToSize(line, contentWidth - 4);
+      doc.text(w, margin + 2, yPos);
+      yPos += w.length * 3.8 + 1;
+    });
+    yPos += 2;
+  }
+
+  // Expected Outcomes + Compliance
+  yPos = checkNewPage(doc, yPos, 25);
+  doc.setFont('times', 'bold');
+  doc.text('Expected Outcomes & Compliance', margin, yPos);
+  yPos += 4;
+  doc.setFont('times', 'normal');
+  const bOutcomes = [
+    '- Significant reduction in keloid size, pain, itching, and tenderness.',
+    '- Improved cosmetic appearance and quality of life.',
+    '- Recurrence reduced to 10-20% with full compliance (vs 50-80% with surgery alone).',
+    '- Attend ALL appointments. Wear silicone/compression daily. Do not skip injections.',
+    '- Report concerns early: infection signs, severe pain, rapid regrowth, or allergic reactions.',
+    '- Long-term monitoring recommended for 12-24 months after treatment completion.',
+  ];
+  bOutcomes.forEach(line => {
+    yPos = checkNewPage(doc, yPos, 5);
+    const w = doc.splitTextToSize(line, contentWidth - 4);
+    doc.text(w, margin + 2, yPos);
+    yPos += w.length * 3.8 + 1;
+  });
+  yPos += 4;
 
   // Consent
   yPos = checkNewPage(doc, yPos, 20);
@@ -1102,6 +1431,41 @@ export function generateKeloidThermalPrintHTML(
       <div class="treatment-value">Timing: ${tp.radiotherapy.timing}</div>
       ${tp.radiotherapy.indications?.length > 0 ? tp.radiotherapy.indications.map((ind: string) => `<div class="schedule-item">• ${ind}</div>`).join('') : ''}
     </div>` : ''}
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-title">PATIENT EDUCATION</div>
+    <div class="item" style="font-weight:bold;margin-bottom:3px;">What is a Keloid?</div>
+    <div class="item">A keloid is a raised scar that grows beyond the original wound due to excessive collagen. They are benign but can cause pain, itching, and cosmetic concern. They are more common in darker skin and may be hereditary.</div>
+
+    <div class="item" style="font-weight:bold;margin-top:4px;margin-bottom:3px;">Why Multiple Treatments?</div>
+    <div class="item">Surgery alone has 50-80% recurrence. Combining treatments (injections + surgery + silicone/compression${tp?.radiotherapy?.indicated ? ' + radiotherapy' : ''}) reduces recurrence to 10-20%.</div>
+
+    ${tp?.preOpTriamcinolone?.enabled || tp?.postOpTriamcinolone?.enabled ? `
+    <div class="item" style="font-weight:bold;margin-top:4px;margin-bottom:3px;">Steroid Injections</div>
+    <div class="item">Given every 3 weeks. Softens and flattens the keloid. May cause temporary skin lightening. Complete ALL sessions.</div>` : ''}
+
+    ${tp?.surgery?.planned ? `
+    <div class="item" style="font-weight:bold;margin-top:4px;margin-bottom:3px;">Surgical Excision</div>
+    <div class="item">Keloid removed under local anaesthesia. Keep wound clean. Additional treatments essential to prevent recurrence.</div>` : ''}
+
+    <div class="item" style="font-weight:bold;margin-top:4px;margin-bottom:3px;">Silicone & Compression</div>
+    <div class="item">Wear silicone 12-23 hrs/day, compression continuously. Duration: ${tp?.siliconeCompression?.durationWeeks || 24} weeks. Results in 3-6 months.</div>
+
+    ${tp?.radiotherapy?.indicated ? `
+    <div class="item" style="font-weight:bold;margin-top:4px;margin-bottom:3px;">Radiotherapy</div>
+    <div class="item">Low-dose radiation within 24-72 hrs after surgery. Side effects mild and temporary (redness, darkening). Very effective.</div>` : ''}
+
+    <div class="item" style="font-weight:bold;margin-top:4px;margin-bottom:3px;">Expected Outcomes</div>
+    <div class="item">Smaller, softer keloid. Pain/itch relief. Better appearance. 10-20% recurrence with compliance.</div>
+
+    <div class="item" style="font-weight:bold;margin-top:4px;margin-bottom:3px;">Compliance is Critical</div>
+    <div class="item">Attend ALL appointments. Wear silicone/compression daily. Do not skip injections. Report any infection, pain, or regrowth immediately.</div>
+
+    <div class="item" style="font-weight:bold;margin-top:4px;margin-bottom:3px;">Contact Doctor If:</div>
+    <div class="item">Infection signs (pus, redness, fever) | Severe uncontrolled pain | Rapid keloid regrowth | Allergic reaction | Skin thinning | Persistent side effects</div>
   </div>
 
   <div class="consent-box">
