@@ -1716,18 +1716,42 @@ function PlanDetailView({
           <User size={18} className="text-primary-600" />
           Patient Information
         </h3>
+        {/* Row 1: Core demographics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
             <span className="text-gray-500">Name:</span>
-            <p className="font-medium">{patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown'}</p>
+            <p className="font-medium">{patient ? `${patient.firstName}${patient.middleName ? ` ${patient.middleName}` : ''} ${patient.lastName}` : 'Unknown'}</p>
           </div>
           <div>
-            <span className="text-gray-500">Age:</span>
-            <p className="font-medium">{plan.patientAge} years</p>
+            <span className="text-gray-500">Hospital No:</span>
+            <p className="font-medium">{patient?.hospitalNumber || 'N/A'}</p>
+          </div>
+          <div>
+            <span className="text-gray-500">Age / DOB:</span>
+            <p className="font-medium">
+              {plan.patientAge} years
+              {patient?.dateOfBirth && <span className="text-gray-400 text-xs ml-1">({format(new Date(patient.dateOfBirth), 'dd MMM yyyy')})</span>}
+            </p>
           </div>
           <div>
             <span className="text-gray-500">Gender:</span>
             <p className="font-medium capitalize">{plan.patientGender}</p>
+          </div>
+        </div>
+
+        {/* Row 2: Clinical identifiers */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-3">
+          <div>
+            <span className="text-gray-500">Blood Group:</span>
+            <p className="font-medium">{patient?.bloodGroup || 'N/A'}</p>
+          </div>
+          <div>
+            <span className="text-gray-500">Genotype:</span>
+            <p className="font-medium">{patient?.genotype || 'N/A'}</p>
+          </div>
+          <div>
+            <span className="text-gray-500">Marital Status:</span>
+            <p className="font-medium capitalize">{patient?.maritalStatus || 'N/A'}</p>
           </div>
           <div>
             <span className="text-gray-500">Status:</span>
@@ -1738,6 +1762,78 @@ function PlanDetailView({
             </span>
           </div>
         </div>
+
+        {/* Row 3: Contact information */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-3">
+          <div>
+            <span className="text-gray-500">Phone:</span>
+            <p className="font-medium">{patient?.phone || 'N/A'}</p>
+          </div>
+          {patient?.alternatePhone && (
+            <div>
+              <span className="text-gray-500">Alt. Phone:</span>
+              <p className="font-medium">{patient.alternatePhone}</p>
+            </div>
+          )}
+          <div>
+            <span className="text-gray-500">Occupation:</span>
+            <p className="font-medium capitalize">{patient?.occupation || 'N/A'}</p>
+          </div>
+          <div>
+            <span className="text-gray-500">Address:</span>
+            <p className="font-medium">{[patient?.address, patient?.city, patient?.state].filter(Boolean).join(', ') || 'N/A'}</p>
+          </div>
+        </div>
+
+        {/* Row 4: Clinical flags */}
+        {(patient?.allergies?.length > 0 || patient?.chronicConditions?.length > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-3 pt-3 border-t border-gray-100">
+            {patient?.allergies?.length > 0 && (
+              <div>
+                <span className="text-gray-500">Allergies:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {patient.allergies.map((a: string) => (
+                    <span key={a} className="px-2 py-0.5 text-xs bg-red-50 text-red-700 rounded-full border border-red-200">{a}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {patient?.chronicConditions?.length > 0 && (
+              <div>
+                <span className="text-gray-500">Chronic Conditions:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {patient.chronicConditions.map((c: string) => (
+                    <span key={c} className="px-2 py-0.5 text-xs bg-amber-50 text-amber-700 rounded-full border border-amber-200">{c}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Row 5: Next of Kin */}
+        {patient?.nextOfKin?.name && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-3 pt-3 border-t border-gray-100">
+            <div>
+              <span className="text-gray-500">Next of Kin:</span>
+              <p className="font-medium">{patient.nextOfKin.name}</p>
+            </div>
+            <div>
+              <span className="text-gray-500">Relationship:</span>
+              <p className="font-medium capitalize">{patient.nextOfKin.relationship || 'N/A'}</p>
+            </div>
+            <div>
+              <span className="text-gray-500">NoK Phone:</span>
+              <p className="font-medium">{patient.nextOfKin.phone || 'N/A'}</p>
+            </div>
+            {patient.nextOfKin.address && (
+              <div>
+                <span className="text-gray-500">NoK Address:</span>
+                <p className="font-medium">{patient.nextOfKin.address}</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Clinical Summary */}

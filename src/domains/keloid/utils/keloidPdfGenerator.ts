@@ -72,6 +72,80 @@ export function generateKeloidCarePlanPDF(
   yPos = addPatientInfoBox(doc, yPos, patientInfo);
   yPos += 4;
 
+  // ================== DETAILED PATIENT DEMOGRAPHICS ==================
+  yPos = checkNewPage(doc, yPos, 40);
+  yPos = addSectionTitle(doc, yPos, 'Patient Demographics & Clinical Identifiers');
+
+  doc.setFont('times', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+
+  const colWidth = contentWidth / 2;
+  const demoRows: [string, string, string, string][] = [
+    ['Date of Birth:', patient?.dateOfBirth ? format(new Date(patient.dateOfBirth), 'dd MMM yyyy') : 'N/A',
+     'Blood Group:', patient?.bloodGroup || 'N/A'],
+    ['Genotype:', patient?.genotype || 'N/A',
+     'Marital Status:', patient?.maritalStatus ? patient.maritalStatus.charAt(0).toUpperCase() + patient.maritalStatus.slice(1) : 'N/A'],
+    ['Phone:', patient?.phone || 'N/A',
+     'Alt. Phone:', patient?.alternatePhone || 'N/A'],
+    ['Occupation:', patient?.occupation ? patient.occupation.charAt(0).toUpperCase() + patient.occupation.slice(1) : 'N/A',
+     'Religion:', patient?.religion || 'N/A'],
+    ['Address:', [patient?.address, patient?.city, patient?.state].filter(Boolean).join(', ') || 'N/A',
+     'Tribe:', patient?.tribe || 'N/A'],
+  ];
+
+  demoRows.forEach(([label1, val1, label2, val2]) => {
+    yPos = checkNewPage(doc, yPos, 5);
+    doc.setFont('times', 'bold');
+    doc.text(label1, margin, yPos);
+    doc.setFont('times', 'normal');
+    doc.text(val1, margin + 28, yPos);
+    doc.setFont('times', 'bold');
+    doc.text(label2, margin + colWidth, yPos);
+    doc.setFont('times', 'normal');
+    doc.text(val2, margin + colWidth + 28, yPos);
+    yPos += 5;
+  });
+
+  // Allergies
+  const allergies = patient?.allergies as string[] | undefined;
+  if (allergies && allergies.length > 0) {
+    yPos = checkNewPage(doc, yPos, 6);
+    doc.setFont('times', 'bold');
+    doc.text('Allergies:', margin, yPos);
+    doc.setFont('times', 'normal');
+    doc.setTextColor(180, 0, 0);
+    doc.text(allergies.join(', '), margin + 28, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 5;
+  }
+
+  // Chronic Conditions
+  const chronic = patient?.chronicConditions as string[] | undefined;
+  if (chronic && chronic.length > 0) {
+    yPos = checkNewPage(doc, yPos, 6);
+    doc.setFont('times', 'bold');
+    doc.text('Chronic Conditions:', margin, yPos);
+    doc.setFont('times', 'normal');
+    doc.text(chronic.join(', '), margin + 38, yPos);
+    yPos += 5;
+  }
+
+  // Next of Kin
+  const nok = patient?.nextOfKin as { name?: string; relationship?: string; phone?: string; address?: string } | undefined;
+  if (nok?.name) {
+    yPos = checkNewPage(doc, yPos, 10);
+    yPos += 2;
+    doc.setFont('times', 'bold');
+    doc.text('Next of Kin:', margin, yPos);
+    doc.setFont('times', 'normal');
+    const nokInfo = [nok.name, nok.relationship, nok.phone, nok.address].filter(Boolean).join(' | ');
+    doc.text(nokInfo, margin + 28, yPos);
+    yPos += 5;
+  }
+
+  yPos += 3;
+
   // ================== CLINICAL SUMMARY ==================
   yPos = checkNewPage(doc, yPos, 30);
   yPos = addSectionTitle(doc, yPos, 'Clinical Summary');
@@ -520,6 +594,77 @@ export function generateKeloidCarePlanPDFBlob(
   yPos = addPatientInfoBox(doc, yPos, patientInfo);
   yPos += 4;
 
+  // ================== DETAILED PATIENT DEMOGRAPHICS ==================
+  yPos = checkNewPage(doc, yPos, 40);
+  yPos = addSectionTitle(doc, yPos, 'Patient Demographics & Clinical Identifiers');
+
+  doc.setFont('times', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+
+  const colWidth = contentWidth / 2;
+  const demoRows: [string, string, string, string][] = [
+    ['Date of Birth:', patient?.dateOfBirth ? format(new Date(patient.dateOfBirth), 'dd MMM yyyy') : 'N/A',
+     'Blood Group:', patient?.bloodGroup || 'N/A'],
+    ['Genotype:', patient?.genotype || 'N/A',
+     'Marital Status:', patient?.maritalStatus ? patient.maritalStatus.charAt(0).toUpperCase() + patient.maritalStatus.slice(1) : 'N/A'],
+    ['Phone:', patient?.phone || 'N/A',
+     'Alt. Phone:', patient?.alternatePhone || 'N/A'],
+    ['Occupation:', patient?.occupation ? patient.occupation.charAt(0).toUpperCase() + patient.occupation.slice(1) : 'N/A',
+     'Religion:', patient?.religion || 'N/A'],
+    ['Address:', [patient?.address, patient?.city, patient?.state].filter(Boolean).join(', ') || 'N/A',
+     'Tribe:', patient?.tribe || 'N/A'],
+  ];
+
+  demoRows.forEach(([label1, val1, label2, val2]) => {
+    yPos = checkNewPage(doc, yPos, 5);
+    doc.setFont('times', 'bold');
+    doc.text(label1, margin, yPos);
+    doc.setFont('times', 'normal');
+    doc.text(val1, margin + 28, yPos);
+    doc.setFont('times', 'bold');
+    doc.text(label2, margin + colWidth, yPos);
+    doc.setFont('times', 'normal');
+    doc.text(val2, margin + colWidth + 28, yPos);
+    yPos += 5;
+  });
+
+  const blobAllergies = patient?.allergies as string[] | undefined;
+  if (blobAllergies && blobAllergies.length > 0) {
+    yPos = checkNewPage(doc, yPos, 6);
+    doc.setFont('times', 'bold');
+    doc.text('Allergies:', margin, yPos);
+    doc.setFont('times', 'normal');
+    doc.setTextColor(180, 0, 0);
+    doc.text(blobAllergies.join(', '), margin + 28, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 5;
+  }
+
+  const blobChronic = patient?.chronicConditions as string[] | undefined;
+  if (blobChronic && blobChronic.length > 0) {
+    yPos = checkNewPage(doc, yPos, 6);
+    doc.setFont('times', 'bold');
+    doc.text('Chronic Conditions:', margin, yPos);
+    doc.setFont('times', 'normal');
+    doc.text(blobChronic.join(', '), margin + 38, yPos);
+    yPos += 5;
+  }
+
+  const blobNok = patient?.nextOfKin as { name?: string; relationship?: string; phone?: string; address?: string } | undefined;
+  if (blobNok?.name) {
+    yPos = checkNewPage(doc, yPos, 10);
+    yPos += 2;
+    doc.setFont('times', 'bold');
+    doc.text('Next of Kin:', margin, yPos);
+    doc.setFont('times', 'normal');
+    const nokInfo = [blobNok.name, blobNok.relationship, blobNok.phone, blobNok.address].filter(Boolean).join(' | ');
+    doc.text(nokInfo, margin + 28, yPos);
+    yPos += 5;
+  }
+
+  yPos += 3;
+
   // Clinical Summary
   yPos = checkNewPage(doc, yPos, 30);
   yPos = addSectionTitle(doc, yPos, 'Clinical Summary');
@@ -869,6 +1014,13 @@ export function generateKeloidThermalPrintHTML(
   <div class="patient-section">
     <div class="patient-name">${patientName}</div>
     <div class="patient-detail">Hosp No: ${hospitalNum} | Age: ${plan.patientAge || 'N/A'} | Gender: ${(plan.patientGender || 'N/A').charAt(0).toUpperCase() + (plan.patientGender || '').slice(1)}</div>
+    <div class="patient-detail">DOB: ${patient?.dateOfBirth ? format(new Date(patient.dateOfBirth), 'dd MMM yyyy') : 'N/A'} | Blood Grp: ${patient?.bloodGroup || 'N/A'} | Genotype: ${patient?.genotype || 'N/A'}</div>
+    <div class="patient-detail">Phone: ${patient?.phone || 'N/A'}${patient?.alternatePhone ? ' | Alt: ' + patient.alternatePhone : ''}</div>
+    <div class="patient-detail">Marital Status: ${patient?.maritalStatus ? patient.maritalStatus.charAt(0).toUpperCase() + patient.maritalStatus.slice(1) : 'N/A'} | Occupation: ${patient?.occupation || 'N/A'}</div>
+    <div class="patient-detail">Address: ${[patient?.address, patient?.city, patient?.state].filter(Boolean).join(', ') || 'N/A'}</div>
+    ${(patient?.allergies as string[] | undefined)?.length ? `<div class="patient-detail" style="color:#900;">Allergies: ${(patient.allergies as string[]).join(', ')}</div>` : ''}
+    ${(patient?.chronicConditions as string[] | undefined)?.length ? `<div class="patient-detail">Chronic: ${(patient.chronicConditions as string[]).join(', ')}</div>` : ''}
+    ${patient?.nextOfKin?.name ? `<div class="patient-detail">NOK: ${patient.nextOfKin.name} (${patient.nextOfKin.relationship || 'N/A'}) Ph: ${patient.nextOfKin.phone || 'N/A'}</div>` : ''}
     <div class="patient-detail">Status: ${(plan.status || 'active').toUpperCase()}</div>
   </div>
 
