@@ -42,6 +42,9 @@ import {
   Target,
   Zap,
   BookOpen,
+  Printer,
+  MessageCircle,
+  Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -49,7 +52,8 @@ import { format, addWeeks, differenceInYears } from 'date-fns';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { HospitalSelector } from '../../../components/hospital';
-import { generateKeloidCarePlanPDF } from '../utils/keloidPdfGenerator';
+import { generateKeloidCarePlanPDF, generateKeloidCarePlanPDFBlob, generateKeloidThermalPrintHTML } from '../utils/keloidPdfGenerator';
+import { sharePDFOnWhatsApp } from '../../../utils/whatsappShareUtils';
 import {
   KELOID_CONCERNS,
   KELOID_RISK_FACTORS,
@@ -114,6 +118,7 @@ export default function KeloidCarePlanningPage() {
   const [complianceExplained, setComplianceExplained] = useState(false);
   const [consentObtained, setConsentObtained] = useState(false);
   const [otherConcerns, setOtherConcerns] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Assessment form state
   const [newAssessment, setNewAssessment] = useState<Partial<KeloidAssessment>>({
@@ -279,6 +284,7 @@ export default function KeloidCarePlanningPage() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const plan: KeloidCarePlan = {
         id: uuidv4(),
@@ -351,6 +357,18 @@ export default function KeloidCarePlanningPage() {
     } catch (error) {
       console.error('Error creating keloid care plan:', error);
       toast.error('Failed to create care plan');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle form validation errors — navigate to the step with the error
+  const handleSubmitError = (errors: any) => {
+    if (errors.patientId || errors.hospitalId || errors.clinicalSummary || errors.diagnosisDate) {
+      setActiveStep(0);
+      const firstError = errors.patientId?.message || errors.hospitalId?.message || errors.clinicalSummary?.message;
+      if (firstError) toast.error(firstError);
+      else toast.error('Please fill in the required fields in Clinical Summary');
     }
   };
 
@@ -382,7 +400,7 @@ export default function KeloidCarePlanningPage() {
     setActiveStep(0);
   };
 
-  // Handle PDF export
+  // Handle PDF export (A4)
   const handleExportPDF = (plan: KeloidCarePlan) => {
     const patient = patients?.find(p => p.id === plan.patientId);
     const hospital = hospitals?.find(h => h.id === plan.hospitalId);
@@ -391,7 +409,47 @@ export default function KeloidCarePlanningPage() {
       return;
     }
     generateKeloidCarePlanPDF(plan, patient, hospital);
-    toast.success('Keloid Care Plan PDF generated');
+    toast.success('Keloid Care Plan A4 PDF generated');
+  };
+
+  // Handle WhatsApp Share
+  const handleWhatsAppShare = async (plan: KeloidCarePlan) => {
+    const patient = patients?.find(p => p.id === plan.patientId);
+    const hospital = hospitals?.find(h => h.id === plan.hospitalId);
+    if (!patient || !hospital) {
+      toast.error('Patient or hospital data not found');
+      return;
+    }
+    try {
+      const { blob, fileName } = generateKeloidCarePlanPDFBlob(plan, patient, hospital);
+      await sharePDFOnWhatsApp(blob, fileName);
+    } catch (error) {
+      console.error('Error sharing on WhatsApp:', error);
+      toast.error('Failed to share on WhatsApp');
+    }
+  };
+
+  // Handle Thermal Print (80mm, Font 12, Georgia)
+  const handleThermalPrint = (plan: KeloidCarePlan) => {
+    const patient = patients?.find(p => p.id === plan.patientId);
+    const hospital = hospitals?.find(h => h.id === plan.hospitalId);
+    if (!patient || !hospital) {
+      toast.error('Patient or hospital data not found');
+      return;
+    }
+    const html = generateKeloidThermalPrintHTML(plan, patient, hospital);
+    const printWindow = window.open('', '_blank', 'width=320,height=800');
+    if (!printWindow) {
+      toast.error('Failed to open print window. Please allow popups.');
+      return;
+    }
+    printWindow.document.write(html);
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 500);
+    toast.success('Thermal print window opened');
   };
 
   // View plan details
@@ -574,7 +632,7 @@ export default function KeloidCarePlanningPage() {
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={() => handleViewPlan(plan as any)}
                             className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
@@ -585,9 +643,23 @@ export default function KeloidCarePlanningPage() {
                           <button
                             onClick={() => handleExportPDF(plan as any)}
                             className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg"
-                            title="Export PDF"
+                            title="A4 PDF"
                           >
                             <Download size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleWhatsAppShare(plan as any)}
+                            className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                            title="Share on WhatsApp"
+                          >
+                            <MessageCircle size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleThermalPrint(plan as any)}
+                            className="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-lg"
+                            title="Thermal Print (80mm)"
+                          >
+                            <Printer size={18} />
                           </button>
                         </div>
                       </div>
@@ -604,6 +676,8 @@ export default function KeloidCarePlanningPage() {
           patient={patients?.find(p => p.id === selectedPlan.patientId)}
           hospital={hospitals?.find(h => h.id === selectedPlan.hospitalId)}
           onExportPDF={() => handleExportPDF(selectedPlan)}
+          onWhatsAppShare={() => handleWhatsAppShare(selectedPlan)}
+          onThermalPrint={() => handleThermalPrint(selectedPlan)}
         />
       ) : null}
 
@@ -661,7 +735,7 @@ export default function KeloidCarePlanningPage() {
               </div>
 
               {/* Step Content */}
-              <form onSubmit={form.handleSubmit(handleSubmit)}>
+              <form onSubmit={form.handleSubmit(handleSubmit, handleSubmitError)}>
                 <div className="p-4 overflow-y-auto max-h-[calc(95vh-14rem)]">
                   {/* STEP 0: Clinical Summary */}
                   {activeStep === 0 && (
@@ -1430,6 +1504,40 @@ export default function KeloidCarePlanningPage() {
                     <div className="space-y-4">
                       <h3 className="font-semibold text-gray-900">Review Care Plan</h3>
                       
+                      {/* Validation Warnings */}
+                      {(!selectedPatient || !form.getValues('clinicalSummary') || keloidAssessments.length === 0 || identifiedProblems.length === 0) && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+                            <div>
+                              <h4 className="font-semibold text-red-900">Please complete the following before saving:</h4>
+                              <ul className="mt-2 space-y-1 text-sm text-red-700">
+                                {!selectedPatient && (
+                                  <li className="cursor-pointer hover:underline" onClick={() => setActiveStep(0)}>
+                                    ⚠ Select a patient (Step 1)
+                                  </li>
+                                )}
+                                {!form.getValues('clinicalSummary') && (
+                                  <li className="cursor-pointer hover:underline" onClick={() => setActiveStep(0)}>
+                                    ⚠ Enter a clinical summary (Step 1)
+                                  </li>
+                                )}
+                                {keloidAssessments.length === 0 && (
+                                  <li className="cursor-pointer hover:underline" onClick={() => setActiveStep(1)}>
+                                    ⚠ Add at least one keloid assessment (Step 2)
+                                  </li>
+                                )}
+                                {identifiedProblems.length === 0 && (
+                                  <li className="cursor-pointer hover:underline" onClick={() => setActiveStep(2)}>
+                                    ⚠ Select at least one problem (Step 3)
+                                  </li>
+                                )}
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="bg-gray-50 rounded-lg p-4 space-y-3 text-sm">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
@@ -1516,10 +1624,20 @@ export default function KeloidCarePlanningPage() {
                     ) : (
                       <button
                         type="submit"
-                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                        disabled={isSubmitting}
+                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Save size={16} />
-                        Create Care Plan
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save size={16} />
+                            Create Care Plan
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -1540,35 +1658,56 @@ function PlanDetailView({
   patient,
   hospital: _hospital,
   onExportPDF,
+  onWhatsAppShare,
+  onThermalPrint,
 }: {
   plan: KeloidCarePlan;
   patient: any;
   hospital: any;
   onExportPDF: () => void;
+  onWhatsAppShare: () => void;
+  onThermalPrint: () => void;
 }) {
   const treatmentPlan = plan.treatmentPlan as any;
 
   return (
     <div className="space-y-6">
       {/* Actions Bar */}
-      <div className="flex items-center justify-end gap-2">
-        <button
-          onClick={onExportPDF}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-        >
-          <Download size={16} />
-          Export PDF
-        </button>
-        <button
-          onClick={() => {
-            onExportPDF();
-            toast.success('PDF ready to share with patient');
-          }}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
-        >
-          <Share2 size={16} />
-          Share with Patient
-        </button>
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <h3 className="font-semibold text-gray-900 mb-3">Export & Share</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={onExportPDF}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
+          >
+            <Download size={16} />
+            A4 PDF
+          </button>
+          <button
+            onClick={onWhatsAppShare}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-sm"
+          >
+            <MessageCircle size={16} />
+            WhatsApp
+          </button>
+          <button
+            onClick={onThermalPrint}
+            className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 flex items-center gap-2 text-sm"
+          >
+            <Printer size={16} />
+            Thermal Print
+          </button>
+          <button
+            onClick={() => {
+              onExportPDF();
+              toast.success('PDF ready to share with patient');
+            }}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2 text-sm"
+          >
+            <Share2 size={16} />
+            Share with Patient
+          </button>
+        </div>
       </div>
 
       {/* Patient Info */}
