@@ -452,8 +452,7 @@ export function VoiceDictation({
           placeholder={placeholder}
           rows={rows}
           disabled={disabled || isListening}
-          className={`input w-full pr-12 ${isListening ? 'bg-red-50 border-red-300' : ''} ${error ? 'border-red-500' : ''}`}
-          style={{ resize: 'vertical' }}
+          className={`input w-full pr-12 resize-y ${isListening ? 'bg-red-50 border-red-300' : ''} ${error ? 'border-red-500' : ''}`}
         />
 
         {/* Interim transcript indicator */}

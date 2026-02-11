@@ -537,6 +537,7 @@ export default function InvestigationApprovalPanel({
                       checked={isSelected}
                       onChange={() => toggleSelection(inv.id)}
                       className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                      title="Select investigation"
                     />
                     
                     {/* Priority indicator */}

@@ -119,6 +119,7 @@ export default function ClinicalPhotographsSlide({ encounters, wounds, patientNa
           <button
             onClick={() => setSelectedPhoto(null)}
             className="absolute top-4 right-4 p-2 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors"
+            title="Close photo"
           >
             <X size={24} />
           </button>

@@ -16,33 +16,21 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import {
   ArrowLeft,
   Save,
   Stethoscope,
-  TrendingUp,
-  TrendingDown,
   Camera,
-  ImagePlus,
-  Image as ImageIcon,
   FlaskConical,
   Pill,
   ClipboardList,
-  FileText,
-  Plus,
-  Trash2,
   CheckCircle,
   AlertTriangle,
   AlertCircle,
   X,
-  Eye,
-  Calendar,
   Activity,
   RefreshCw,
-  Upload,
-  ChevronDown,
-  ChevronUp,
   History,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -53,11 +41,7 @@ import { VoiceDictation } from '../../../components/common';
 import type { 
   ClinicalEncounter, 
   Diagnosis, 
-  PhysicalExamination, 
-  Investigation, 
-  Prescription, 
-  ClinicalPhoto,
-  Patient 
+  ClinicalPhoto
 } from '../../../types';
 
 const followUpSchema = z.object({
@@ -105,7 +89,7 @@ export default function FollowUpEncounterPage() {
   
   // Investigation updates state
   const [investigationUpdates, setInvestigationUpdates] = useState<InvestigationUpdate[]>([]);
-  const [expandedInvestigation, setExpandedInvestigation] = useState<string | null>(null);
+  // expandedInvestigation state removed (unused)
   
   // Medication changes
   const [medicationChanges, setMedicationChanges] = useState<{
@@ -121,7 +105,7 @@ export default function FollowUpEncounterPage() {
   });
   
   // Diagnosis updates
-  const [diagnosisUpdates, setDiagnosisUpdates] = useState<{
+  const [diagnosisUpdates] = useState<{
     resolved: string[];
     ongoing: string[];
     newDiagnoses: Diagnosis[];
@@ -204,7 +188,7 @@ export default function FollowUpEncounterPage() {
       const prescriptions = await db.prescriptions
         .where('patientId')
         .equals(patientId)
-        .filter(rx => rx.status === 'active')
+        .filter(rx => rx.status === 'pending')
         .toArray();
       return prescriptions;
     },
@@ -343,7 +327,7 @@ export default function FollowUpEncounterPage() {
 
       // Save encounter
       await db.clinicalEncounters.add(encounter);
-      await syncRecord('clinicalEncounters', encounter);
+      await syncRecord('clinicalEncounters', encounter as unknown as Record<string, unknown>);
 
       // Update investigation statuses if results were uploaded
       for (const update of investigationUpdates) {
@@ -452,8 +436,8 @@ export default function FollowUpEncounterPage() {
                 BP: {latestVitals.bloodPressureSystolic}/{latestVitals.bloodPressureDiastolic} mmHg
               </span>
             )}
-            {latestVitals.heartRate && (
-              <span className="bg-white px-3 py-1 rounded-full border">HR: {latestVitals.heartRate} bpm</span>
+            {latestVitals.pulse && (
+              <span className="bg-white px-3 py-1 rounded-full border">HR: {latestVitals.pulse} bpm</span>
             )}
             {latestVitals.temperature && (
               <span className="bg-white px-3 py-1 rounded-full border">Temp: {latestVitals.temperature}°C</span>
@@ -508,8 +492,8 @@ export default function FollowUpEncounterPage() {
                   placeholder="Describe any changes in symptoms, condition, or general health since the last visit..."
                 />
                 <VoiceDictation
-                  currentValue={intervalHistory}
-                  onResult={(text) => setValue('intervalHistory', text)}
+                  value={intervalHistory}
+                  onChange={(text: string) => setValue('intervalHistory', text)}
                   className="absolute top-2 right-2"
                 />
               </div>
@@ -530,8 +514,8 @@ export default function FollowUpEncounterPage() {
                   placeholder="Current symptoms and their severity..."
                 />
                 <VoiceDictation
-                  currentValue={symptomsUpdate}
-                  onResult={(text) => setValue('symptomsUpdate', text)}
+                  value={symptomsUpdate}
+                  onChange={(text: string) => setValue('symptomsUpdate', text)}
                   className="absolute top-2 right-2"
                 />
               </div>
@@ -641,7 +625,6 @@ export default function FollowUpEncounterPage() {
                 <input
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   onChange={handlePhotoCapture}
                   className="hidden"
                 />
@@ -668,6 +651,7 @@ export default function FollowUpEncounterPage() {
                         type="button"
                         onClick={() => removePhoto(photo.id)}
                         className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                        title="Remove photo"
                       >
                         <X size={14} />
                       </button>
@@ -779,7 +763,7 @@ export default function FollowUpEncounterPage() {
                       >
                         <div>
                           <p className="font-medium text-gray-900">{inv.typeName || inv.type}</p>
-                          <p className="text-sm text-gray-500">{inv.results || 'No results recorded'}</p>
+                          <p className="text-sm text-gray-500">{inv.interpretation || (inv.results?.length ? `${inv.results.length} result(s)` : 'No results recorded')}</p>
                         </div>
                         <span className="text-xs text-gray-400">
                           {format(new Date(inv.completedAt || inv.createdAt), 'PP')}
@@ -831,7 +815,7 @@ export default function FollowUpEncounterPage() {
                           <div>
                             <p className="font-medium text-gray-900">{med.name}</p>
                             <p className="text-sm text-gray-500">
-                              {med.dose} {med.unit} - {med.frequency} for {med.duration}
+                              {med.dosage} - {med.frequency} for {med.duration}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
@@ -932,8 +916,8 @@ export default function FollowUpEncounterPage() {
                   placeholder="Enter updated treatment plan, modifications, new orders..."
                 />
                 <VoiceDictation
-                  currentValue={treatmentPlanUpdate}
-                  onResult={(text) => setValue('treatmentPlanUpdate', text)}
+                  value={treatmentPlanUpdate}
+                  onChange={(text: string) => setValue('treatmentPlanUpdate', text)}
                   className="absolute top-2 right-2"
                 />
               </div>
@@ -1014,6 +998,7 @@ export default function FollowUpEncounterPage() {
                 <button
                   onClick={() => setShowPhotoCompare(false)}
                   className="p-1 hover:bg-gray-100 rounded"
+                  title="Close"
                 >
                   <X size={20} />
                 </button>

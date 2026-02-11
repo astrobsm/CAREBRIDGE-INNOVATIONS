@@ -1,10 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Search, X, Pill, ChevronDown, AlertTriangle, Plus } from 'lucide-react';
+import { Search, X, Pill, AlertTriangle, Plus } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { 
   bnfMedicationDatabase, 
-  bnfCategories, 
-  searchMedications,
   type BNFMedication 
 } from '../../data/bnfMedicationDatabase';
 
@@ -216,6 +214,7 @@ export default function MedicationTypeahead({
             onChange={handleCategoryFilterChange}
             className="input text-sm"
             disabled={disabled}
+            title="Filter by medication category"
           >
             <option value="">All Categories</option>
             {parentCategories.map(cat => (
@@ -245,6 +244,7 @@ export default function MedicationTypeahead({
             type="button"
             onClick={clearInput}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            title="Clear input"
           >
             <X size={16} />
           </button>
@@ -286,7 +286,7 @@ export default function MedicationTypeahead({
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm truncate">{med.name}</span>
                       {med.renalAdjust && (
-                        <AlertTriangle size={12} className="text-amber-500 flex-shrink-0" title="Requires renal adjustment" />
+                        <span title="Requires renal adjustment"><AlertTriangle size={12} className="text-amber-500 flex-shrink-0" /></span>
                       )}
                       {med.controlledDrug && (
                         <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">CD</span>

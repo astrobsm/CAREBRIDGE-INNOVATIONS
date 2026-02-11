@@ -978,10 +978,7 @@ export default function SettingsPage() {
               </h3>
               
               {/* Supabase Configuration Status */}
-              <div className="mb-4 p-3 rounded-lg border" style={{
-                backgroundColor: syncDebugInfo.supabaseConfigured ? '#f0fdf4' : '#fef2f2',
-                borderColor: syncDebugInfo.supabaseConfigured ? '#86efac' : '#fecaca'
-              }}>
+              <div className={`mb-4 p-3 rounded-lg border ${syncDebugInfo.supabaseConfigured ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-200'}`}>
                 <div className="flex items-center gap-2">
                   {syncDebugInfo.supabaseConfigured ? (
                     <>
@@ -1005,13 +1002,8 @@ export default function SettingsPage() {
               
               {/* Connection Test Result */}
               {syncDebugInfo.connectionTest && (
-                <div className="mb-4 p-3 rounded-lg border" style={{
-                  backgroundColor: syncDebugInfo.connectionTest.success ? '#f0fdf4' : '#fef2f2',
-                  borderColor: syncDebugInfo.connectionTest.success ? '#86efac' : '#fecaca'
-                }}>
-                  <p className="font-medium" style={{ 
-                    color: syncDebugInfo.connectionTest.success ? '#166534' : '#991b1b' 
-                  }}>
+                <div className={`mb-4 p-3 rounded-lg border ${syncDebugInfo.connectionTest.success ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-200'}`}>
+                  <p className={`font-medium ${syncDebugInfo.connectionTest.success ? 'text-green-800' : 'text-red-800'}`}>
                     {syncDebugInfo.connectionTest.message}
                   </p>
                 </div>
@@ -1145,7 +1137,7 @@ export default function SettingsPage() {
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div 
                         className={`h-2 rounded-full ${usagePercent > 80 ? 'bg-red-500' : usagePercent > 50 ? 'bg-yellow-500' : 'bg-violet-600'}`} 
-                        style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                        style={{ width: `${Math.min(usagePercent, 100)}%` }}  // Dynamic width requires inline style
                       ></div>
                     </div>
                   </div>

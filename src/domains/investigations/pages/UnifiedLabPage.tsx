@@ -64,7 +64,7 @@ import PathologyRequestForm, {
 } from '../components/PathologyRequestForm';
 import { generatePathologyRequestPDF } from '../../../utils/clinicalPdfGenerators';
 import { InvestigationApprovalPanel } from '../../../components/investigations';
-import { investigationApprovalService } from '../../../services/investigationApprovalService';
+// investigationApprovalService import removed (unused - approval handled via InvestigationApprovalPanel)
 import type { Investigation } from '../../../types';
 
 // Form schemas
@@ -1420,6 +1420,7 @@ function RequestModal({
                         setShowSearchResults(false);
                       }}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      title="Clear search"
                     >
                       <X size={16} />
                     </button>

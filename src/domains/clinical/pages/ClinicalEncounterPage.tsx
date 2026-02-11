@@ -29,7 +29,6 @@ import {
   Calendar,
   User as UserIcon,
   Filter,
-  Eye,
   ChevronDown,
   ChevronUp,
   Camera,
@@ -38,7 +37,6 @@ import {
   UserPlus,
   RefreshCw,
   AlertCircle,
-  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -103,7 +101,7 @@ export default function ClinicalEncounterPage() {
   
   // Previous Encounters Modal State
   const [showPreviousEncountersModal, setShowPreviousEncountersModal] = useState(false);
-  const [selectedEncounterForView, setSelectedEncounterForView] = useState<ClinicalEncounter | null>(null);
+  const [selectedEncounterForView, setSelectedEncounterForView] = useState<string | null>(null);
   const [encounterFilterClinicianId, setEncounterFilterClinicianId] = useState<string>('');
   const [encounterFilterDateFrom, setEncounterFilterDateFrom] = useState<string>('');
   const [encounterFilterDateTo, setEncounterFilterDateTo] = useState<string>('');
@@ -111,7 +109,7 @@ export default function ClinicalEncounterPage() {
   
   // Encounter mode detection state
   const [encounterMode, setEncounterMode] = useState<'initial' | 'follow_up' | 'loading'>('loading');
-  const [showEncounterModeChoice, setShowEncounterModeChoice] = useState(false);
+  // Encounter mode choice state removed (unused)
 
   const patient = useLiveQuery(
     () => patientId ? db.patients.get(patientId) : undefined,
@@ -162,7 +160,7 @@ export default function ClinicalEncounterPage() {
     nextDay.setDate(nextDay.getDate() + 1);
     
     return allPatientPrescriptions.filter(rx => {
-      const rxDate = new Date(rx.createdAt);
+      const rxDate = new Date(rx.prescribedAt);
       return rxDate >= encDate && rxDate < nextDay;
     });
   }, [allPatientPrescriptions]);
@@ -544,7 +542,7 @@ export default function ClinicalEncounterPage() {
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
       
-      const examFields = ['general', 'head', 'neck', 'chest', 'cardiovascular', 'abdomen', 'musculoskeletal', 'neurological', 'skin'] as const;
+      const examFields = ['generalAppearance', 'head', 'neck', 'chest', 'cardiovascular', 'abdomen', 'musculoskeletal', 'neurological', 'skin'] as const;
       for (const field of examFields) {
         const value = encounter.physicalExamination[field];
         if (value) {
@@ -1121,6 +1119,7 @@ export default function ClinicalEncounterPage() {
                     value={photoBodyLocation}
                     onChange={(e) => setPhotoBodyLocation(e.target.value)}
                     className="input"
+                    title="Body Location"
                   >
                     <option value="">Select location...</option>
                     <option value="head">Head</option>
@@ -1162,7 +1161,6 @@ export default function ClinicalEncounterPage() {
                   <input
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     onChange={handlePhotoCapture}
                     className="hidden"
                   />
@@ -1388,6 +1386,7 @@ export default function ClinicalEncounterPage() {
                     navigate(`/patients/${patientId}`);
                   }}
                   className="p-2 hover:bg-gray-100 rounded-lg"
+                  title="Close"
                 >
                   <X size={18} />
                 </button>
@@ -1631,7 +1630,7 @@ export default function ClinicalEncounterPage() {
                 doc.text(`${idx + 1}. ${med.name}`, 12.7, y);
                 y += 5;
                 doc.setFont('times', 'normal');
-                doc.text(`   Dose: ${med.dose} ${med.unit}`, 12.7, y);
+                doc.text(`   Dose: ${med.dosage}`, 12.7, y);
                 y += 5;
                 doc.text(`   Frequency: ${med.frequency}`, 12.7, y);
                 y += 5;
@@ -1656,7 +1655,7 @@ export default function ClinicalEncounterPage() {
               date: new Date(),
               items: allMeds.map(med => ({
                 label: med.name,
-                value: `${med.dose} ${med.unit} - ${med.frequency}`
+                value: `${med.dosage} - ${med.frequency}`
               })),
             });
           }}
@@ -1691,6 +1690,7 @@ export default function ClinicalEncounterPage() {
                   <button
                     onClick={() => setShowPreviousEncountersModal(false)}
                     className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                    title="Close"
                   >
                     <X size={20} />
                   </button>
@@ -1714,6 +1714,7 @@ export default function ClinicalEncounterPage() {
                       value={encounterFilterClinicianId}
                       onChange={(e) => setEncounterFilterClinicianId(e.target.value)}
                       className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-sky-500"
+                      title="Filter by clinician"
                     >
                       <option value="">All Clinicians</option>
                       {clinicians?.map(c => (
@@ -1731,6 +1732,7 @@ export default function ClinicalEncounterPage() {
                       value={encounterFilterType}
                       onChange={(e) => setEncounterFilterType(e.target.value)}
                       className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-sky-500"
+                      title="Filter by encounter type"
                     >
                       <option value="">All Types</option>
                       <option value="outpatient">Outpatient</option>
@@ -1749,6 +1751,7 @@ export default function ClinicalEncounterPage() {
                       value={encounterFilterDateFrom}
                       onChange={(e) => setEncounterFilterDateFrom(e.target.value)}
                       className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-sky-500"
+                      title="From date"
                     />
                   </div>
 
@@ -1760,6 +1763,7 @@ export default function ClinicalEncounterPage() {
                       value={encounterFilterDateTo}
                       onChange={(e) => setEncounterFilterDateTo(e.target.value)}
                       className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-sky-500"
+                      title="To date"
                     />
                   </div>
                 </div>
@@ -1938,14 +1942,18 @@ export default function ClinicalEncounterPage() {
                                         <div className="bg-white p-3 rounded border space-y-2">
                                           {datePrescriptions.map((rx, idx) => (
                                             <div key={rx.id || idx} className="text-sm border-b last:border-0 pb-2 last:pb-0">
-                                              <div className="font-medium text-gray-900">{rx.medicationName}</div>
-                                              <div className="text-gray-600 text-xs">
-                                                {rx.dosage} • {rx.frequency} • {rx.duration}
-                                                {rx.quantity && ` • Qty: ${rx.quantity}`}
-                                              </div>
-                                              {rx.instructions && (
-                                                <div className="text-gray-500 text-xs italic mt-1">{rx.instructions}</div>
-                                              )}
+                                              {rx.medications?.map((med, medIdx) => (
+                                                <div key={med.id || medIdx} className="mb-1">
+                                                  <div className="font-medium text-gray-900">{med.name}</div>
+                                                  <div className="text-gray-600 text-xs">
+                                                    {med.dosage} • {med.frequency} • {med.duration}
+                                                    {med.quantity && ` • Qty: ${med.quantity}`}
+                                                  </div>
+                                                  {med.instructions && (
+                                                    <div className="text-gray-500 text-xs italic mt-1">{med.instructions}</div>
+                                                  )}
+                                                </div>
+                                              ))}
                                               <div className="text-xs text-gray-400 mt-1">
                                                 Status: <span className={`font-medium ${
                                                   rx.status === 'dispensed' ? 'text-green-600' :
@@ -1972,21 +1980,21 @@ export default function ClinicalEncounterPage() {
                                         <div className="bg-white p-3 rounded border space-y-2">
                                           {dateInvestigations.map((inv, idx) => (
                                             <div key={inv.id || idx} className="text-sm border-b last:border-0 pb-2 last:pb-0">
-                                              <div className="font-medium text-gray-900">{inv.testName}</div>
+                                              <div className="font-medium text-gray-900">{inv.typeName || inv.name}</div>
                                               {inv.category && (
                                                 <div className="text-gray-600 text-xs">Category: {inv.category}</div>
                                               )}
                                               <div className="flex items-center gap-2 mt-1">
                                                 <span className={`text-xs px-2 py-0.5 rounded ${
                                                   inv.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                  inv.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                                                  inv.status === 'processing' ? 'bg-blue-100 text-blue-700' :
                                                   inv.status === 'requested' ? 'bg-amber-100 text-amber-700' :
                                                   'bg-gray-100 text-gray-700'
                                                 }`}>
                                                   {inv.status?.replace('_', ' ').toUpperCase()}
                                                 </span>
-                                                {inv.result && (
-                                                  <span className="text-xs text-gray-600">Result: {inv.result}</span>
+                                                {inv.interpretation && (
+                                                  <span className="text-xs text-gray-600">Result: {inv.interpretation}</span>
                                                 )}
                                               </div>
                                               {inv.notes && (

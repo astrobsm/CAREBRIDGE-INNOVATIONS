@@ -452,7 +452,7 @@ const calculateQuantity = (frequency: string, duration: string): number => {
   return calculated > 0 ? calculated : 1;
 };
 
-const medicationCategories = [
+export const medicationCategories = [
   { value: 'analgesics', label: 'Analgesics/Pain Relief' },
   { value: 'antibiotics', label: 'Antibiotics' },
   { value: 'antiinflammatories', label: 'Anti-inflammatory/Steroids' },
@@ -1553,6 +1553,7 @@ export default function PharmacyPage() {
                               setCurrentMed({ ...currentMed, name: '', genericName: '', dosage: '', frequency: '' });
                             }}
                             className="text-violet-500 hover:text-violet-700"
+                            title="Clear selected medication"
                           >
                             <X size={16} />
                           </button>

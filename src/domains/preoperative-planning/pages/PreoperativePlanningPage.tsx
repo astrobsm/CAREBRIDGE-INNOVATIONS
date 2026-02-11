@@ -478,6 +478,7 @@ const PreoperativePlanningPage: React.FC = () => {
             requirement: 'recommended' as const,
             rationale: 'Manually added by clinician',
             expectedValue: 'Normal range',
+            minSafeLevel: '',
           });
         }
       }
@@ -1749,6 +1750,7 @@ const PreoperativePlanningPage: React.FC = () => {
                               setShowAddInvestigationDropdown(false);
                             }}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            title="Clear search"
                           >
                             <X className="w-4 h-4" />
                           </button>

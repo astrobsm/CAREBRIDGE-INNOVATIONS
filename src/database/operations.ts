@@ -1323,7 +1323,7 @@ export const SubstanceUseAssessmentOps = {
     return db.substanceUseAssessments
       .where('assessmentDate')
       .between(today, tomorrow)
-      .filter(a => a.status === 'in_progress' || a.status === 'completed' || a.status === 'reviewed')
+      .filter(a => a.status === 'detox_in_progress' || a.status === 'detox_completed' || a.status === 'in_assessment')
       .toArray();
   },
 };
