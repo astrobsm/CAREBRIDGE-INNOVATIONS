@@ -176,7 +176,7 @@ export class AstroHEALTHDatabase extends Dexie {
   constructor() {
     super('AstroHEALTHDB');
 
-    this.version(71).stores({
+    this.version(72).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -263,7 +263,7 @@ export class AstroHEALTHDatabase extends Dexie {
       substanceUseConsents: 'id, assessmentId, consentTimestamp, createdAt',
       substanceUseClinicalSummaries: 'id, assessmentId, patientId, generatedAt, createdAt',
       // Clinical Comments (Post-Submission Notes)
-      clinicalComments: 'id, entityType, entityId, patientId, hospitalId, priority, authorId, isResolved, createdAt',
+      clinicalComments: 'id, entityType, entityId, [entityType+entityId], patientId, hospitalId, priority, authorId, isResolved, createdAt',
       // Investigation Approval Workflow
       investigationApprovalLogs: 'id, investigationId, patientId, hospitalId, action, performedBy, performedAt, labRequestId, createdAt',
       // Keloid Care Planning
