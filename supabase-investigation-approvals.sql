@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS investigation_approval_logs (
     
     -- Timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
     -- Sync Tracking
     synced_at TIMESTAMPTZ,

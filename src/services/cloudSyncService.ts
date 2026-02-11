@@ -642,8 +642,8 @@ async function pullAllFromCloud(): Promise<void> {
   // Clinical Comments (Post-Submission Notes)
   await pullTable(TABLES.clinicalComments, 'clinicalComments');
   
-  // Investigation Approval Logs
-  await pullTable(TABLES.investigationApprovalLogs, 'investigationApprovalLogs');
+  // Investigation Approval Logs - uses 'created_at' column instead of 'updated_at'
+  await pullTable(TABLES.investigationApprovalLogs, 'investigationApprovalLogs', 'created_at');
   
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');

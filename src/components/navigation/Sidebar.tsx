@@ -32,6 +32,7 @@ import {
   ShoppingCart,
   AlertTriangle,
   Shield,
+  Presentation,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -92,6 +93,12 @@ const navigation: NavItem[] = [
       { name: 'Preoperative Review', href: '/surgery/preoperative' },
       { name: 'Post-Op Notes', href: '/surgery/post-op-notes' },
     ],
+  },
+  {
+    name: 'Pre-Surgical Conference',
+    href: '/pre-surgical-conference',
+    icon: <Presentation size={20} />,
+    permission: 'manage_surgeries',
   },
   { 
     name: 'Post-Op Care', 

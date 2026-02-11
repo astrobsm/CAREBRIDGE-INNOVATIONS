@@ -58,6 +58,7 @@ import PreoperativePlanningPage from './domains/preoperative-planning/pages/Preo
 import ShoppingChecklistPage from './domains/shopping-checklist/pages/ShoppingChecklistPage';
 import SubstanceUseAssessmentPage from './domains/substance-use/pages/SubstanceUseAssessmentPage';
 import KeloidCarePlanningPage from './domains/keloid/pages/KeloidCarePlanningPage';
+import PreSurgicalConferencePage from './domains/pre-surgical-conference/pages/PreSurgicalConferencePage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
 import InstallPrompt from './components/pwa/InstallPrompt';
@@ -159,6 +160,7 @@ function App() {
         <Route path="billing/payroll" element={<PayrollDashboardPage />} />
         <Route path="billing/surgical-estimate" element={<SurgicalEstimatePage />} />
         <Route path="shopping-checklist" element={<ShoppingChecklistPage />} />
+        <Route path="pre-surgical-conference" element={<PreSurgicalConferencePage />} />
         <Route path="calculators" element={<ClinicalCalculatorsPage />} />
         <Route path="dr-reviews" element={<DrReviewsPage />} />
         <Route path="external-review" element={
