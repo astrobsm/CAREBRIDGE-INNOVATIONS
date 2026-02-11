@@ -334,7 +334,7 @@ export default function FollowUpEncounterPage() {
         if (update.resultValue) {
           await db.investigations.update(update.investigationId, {
             status: 'completed',
-            results: update.resultValue,
+            interpretation: update.resultValue,
             completedAt: update.uploadedAt || new Date(),
             updatedAt: new Date(),
           });
@@ -481,44 +481,27 @@ export default function FollowUpEncounterPage() {
             </h2>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Changes Since Last Visit *
-              </label>
-              <div className="relative">
-                <textarea
-                  {...register('intervalHistory')}
-                  rows={4}
-                  className="input w-full"
-                  placeholder="Describe any changes in symptoms, condition, or general health since the last visit..."
-                />
-                <VoiceDictation
-                  value={intervalHistory}
-                  onChange={(text: string) => setValue('intervalHistory', text)}
-                  className="absolute top-2 right-2"
-                />
-              </div>
-              {errors.intervalHistory && (
-                <p className="text-red-500 text-sm mt-1">{errors.intervalHistory.message}</p>
-              )}
+              <VoiceDictation
+                label="Changes Since Last Visit *"
+                value={intervalHistory}
+                onChange={(text: string) => setValue('intervalHistory', text)}
+                rows={4}
+                placeholder="Describe any changes in symptoms, condition, or general health since the last visit..."
+                medicalContext="clinical_notes"
+                required={true}
+                error={errors.intervalHistory?.message}
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Current Symptoms
-              </label>
-              <div className="relative">
-                <textarea
-                  {...register('symptomsUpdate')}
-                  rows={3}
-                  className="input w-full"
-                  placeholder="Current symptoms and their severity..."
-                />
-                <VoiceDictation
-                  value={symptomsUpdate}
-                  onChange={(text: string) => setValue('symptomsUpdate', text)}
-                  className="absolute top-2 right-2"
-                />
-              </div>
+              <VoiceDictation
+                label="Current Symptoms"
+                value={symptomsUpdate}
+                onChange={(text: string) => setValue('symptomsUpdate', text)}
+                rows={3}
+                placeholder="Current symptoms and their severity..."
+                medicalContext="clinical_notes"
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -905,22 +888,14 @@ export default function FollowUpEncounterPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Updated Treatment Plan
-              </label>
-              <div className="relative">
-                <textarea
-                  {...register('treatmentPlanUpdate')}
-                  rows={5}
-                  className="input w-full"
-                  placeholder="Enter updated treatment plan, modifications, new orders..."
-                />
-                <VoiceDictation
-                  value={treatmentPlanUpdate}
-                  onChange={(text: string) => setValue('treatmentPlanUpdate', text)}
-                  className="absolute top-2 right-2"
-                />
-              </div>
+              <VoiceDictation
+                label="Updated Treatment Plan"
+                value={treatmentPlanUpdate}
+                onChange={(text: string) => setValue('treatmentPlanUpdate', text)}
+                rows={5}
+                placeholder="Enter updated treatment plan, modifications, new orders..."
+                medicalContext="clinical_notes"
+              />
             </div>
 
             <div>

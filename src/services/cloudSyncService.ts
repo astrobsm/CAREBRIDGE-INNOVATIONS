@@ -27,6 +27,37 @@ let syncState: CloudSyncState = {
 const syncListeners: Set<(state: CloudSyncState) => void> = new Set();
 let realtimeChannels: RealtimeChannel[] = [];
 let syncInterval: ReturnType<typeof setInterval> | null = null;
+let criticalSyncInterval: ReturnType<typeof setInterval> | null = null;
+
+// Echo-back prevention: track recently synced record IDs to skip real-time echo
+const recentlySyncedIds = new Map<string, number>(); // id -> timestamp
+const ECHO_BACK_TTL_MS = 10000; // 10 seconds TTL
+
+function markRecentlySynced(id: string): void {
+  recentlySyncedIds.set(id, Date.now());
+  // Cleanup old entries
+  const now = Date.now();
+  for (const [key, ts] of recentlySyncedIds) {
+    if (now - ts > ECHO_BACK_TTL_MS) {
+      recentlySyncedIds.delete(key);
+    }
+  }
+}
+
+function isRecentlySynced(id: string): boolean {
+  const ts = recentlySyncedIds.get(id);
+  if (!ts) return false;
+  if (Date.now() - ts > ECHO_BACK_TTL_MS) {
+    recentlySyncedIds.delete(id);
+    return false;
+  }
+  return true;
+}
+
+// Retry tracking for real-time subscriptions
+const subscriptionRetryCount = new Map<string, number>();
+const MAX_RETRY_COUNT = 5;
+const BASE_RETRY_DELAY_MS = 2000;
 
 // Subscribe to sync state changes
 export function subscribeSyncState(callback: (state: CloudSyncState) => void): () => void {
@@ -240,13 +271,13 @@ export function initCloudSync() {
       }
     }, 300000);
 
-    // Set up aggressive polling for critical clinical data every 30 seconds
-    // This ensures cross-device sync even if real-time fails
-    setInterval(() => {
+    // Set up polling for critical clinical data every 2 minutes
+    // Real-time subscriptions handle immediate updates; this is a safety net
+    criticalSyncInterval = setInterval(() => {
       if (navigator.onLine && isSupabaseConfigured()) {
         syncCriticalClinicalData();
       }
-    }, 30000);
+    }, 120000);
   } else {
     console.log('[CloudSync] Skipping sync - not online or Supabase not configured');
   }
@@ -1049,9 +1080,16 @@ function setupRealtimeSubscriptions() {
           'postgres_changes',
           { event: '*', schema: 'public', table: cloud },
           async (payload) => {
-            console.log(`[CloudSync] Real-time update on ${cloud}:`, payload.eventType);
-            
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              const incomingId = (payload.new as any)?.id;
+              
+              // Skip echo-back: if we just pushed this record, don't re-apply it
+              if (incomingId && isRecentlySynced(incomingId)) {
+                console.log(`[CloudSync] Skipping echo-back for ${cloud}:`, incomingId);
+                return;
+              }
+              
+              console.log(`[CloudSync] Real-time ${payload.eventType} on ${cloud}:`, incomingId);
               const record = convertFromSupabase(payload.new as Record<string, unknown>);
               try {
                 await (db as any)[local].put(record);
@@ -1060,6 +1098,7 @@ function setupRealtimeSubscriptions() {
                 console.warn(`[CloudSync] Failed to apply change to ${local}:`, err);
               }
             } else if (payload.eventType === 'DELETE' && payload.old) {
+              console.log(`[CloudSync] Real-time DELETE on ${cloud}:`, (payload.old as any).id);
               try {
                 await (db as any)[local].delete((payload.old as any).id);
                 console.log(`[CloudSync] Applied DELETE to local ${local}`);
@@ -1072,8 +1111,31 @@ function setupRealtimeSubscriptions() {
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
             console.log(`[CloudSync] ✓ Subscribed to ${cloud}`);
+            // Reset retry count on successful subscription
+            subscriptionRetryCount.delete(cloud);
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             console.warn(`[CloudSync] ✗ Subscription ${status} for ${cloud}`);
+            
+            // Retry with exponential backoff
+            const retries = subscriptionRetryCount.get(cloud) || 0;
+            if (retries < MAX_RETRY_COUNT) {
+              subscriptionRetryCount.set(cloud, retries + 1);
+              const delay = Math.min(BASE_RETRY_DELAY_MS * Math.pow(2, retries), 30000);
+              console.log(`[CloudSync] Retrying ${cloud} subscription in ${delay}ms (attempt ${retries + 1}/${MAX_RETRY_COUNT})`);
+              
+              setTimeout(() => {
+                try {
+                  sb.removeChannel(channel);
+                  // Remove from tracked channels
+                  const idx = realtimeChannels.indexOf(channel);
+                  if (idx !== -1) realtimeChannels.splice(idx, 1);
+                } catch (_e) { /* ignore cleanup errors */ }
+                // Re-setup all subscriptions (simpler than re-subscribing individual)
+                setupRealtimeSubscriptions();
+              }, delay);
+            } else {
+              console.error(`[CloudSync] Max retries reached for ${cloud}, relying on polling`);
+            }
           }
         });
 
@@ -1099,7 +1161,13 @@ export async function syncRecord(localTableName: string, record: Record<string, 
   try {
     const preparedRecord = convertToSupabase(record);
     
-    console.log(`[CloudSync] Syncing record to ${cloudTableName}:`, (record as any).id);
+    const recordId = (record as any).id as string;
+    console.log(`[CloudSync] Syncing record to ${cloudTableName}:`, recordId);
+    
+    // Mark this record to prevent echo-back from real-time subscription
+    if (recordId) {
+      markRecentlySynced(recordId);
+    }
     
     const { error } = await supabase
       .from(cloudTableName)
@@ -1113,7 +1181,7 @@ export async function syncRecord(localTableName: string, record: Record<string, 
       // Log the problematic fields for debugging
       console.error(`[CloudSync] Record keys:`, Object.keys(preparedRecord));
     } else {
-      console.log(`[CloudSync] Record synced successfully to ${cloudTableName}:`, (record as any).id);
+      console.log(`[CloudSync] Record synced successfully to ${cloudTableName}:`, recordId);
     }
   } catch (error) {
     console.error(`[CloudSync] Failed to sync record:`, error);
@@ -1368,6 +1436,13 @@ export function cleanupCloudSync() {
     clearInterval(syncInterval);
     syncInterval = null;
   }
+  if (criticalSyncInterval) {
+    clearInterval(criticalSyncInterval);
+    criticalSyncInterval = null;
+  }
+  // Clear echo-back tracking
+  recentlySyncedIds.clear();
+  subscriptionRetryCount.clear();
   
   if (supabase) {
     realtimeChannels.forEach(channel => {
