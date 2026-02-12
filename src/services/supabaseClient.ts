@@ -165,6 +165,9 @@ export const TABLES = {
   
   // Investigation Approval Logs
   investigationApprovalLogs: 'investigation_approval_logs',
+  
+  // Keloid Care Planning
+  keloidCarePlans: 'keloid_care_plans',
 } as const;
 
 // Local to cloud table name mapping
@@ -258,6 +261,9 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   
   // Investigation Approval Logs
   investigationApprovalLogs: 'investigation_approval_logs',
+  
+  // Keloid Care Planning
+  keloidCarePlans: 'keloid_care_plans',
 };
 
 // Type for sync status

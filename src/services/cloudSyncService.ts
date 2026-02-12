@@ -676,6 +676,9 @@ async function pullAllFromCloud(): Promise<void> {
   // Investigation Approval Logs - uses 'created_at' column instead of 'updated_at'
   await pullTable(TABLES.investigationApprovalLogs, 'investigationApprovalLogs', 'created_at');
   
+  // Keloid Care Planning
+  await pullTable(TABLES.keloidCarePlans, 'keloidCarePlans');
+  
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
 }
@@ -812,6 +815,9 @@ async function pushAllToCloud(): Promise<void> {
   
   // Investigation Approval Logs
   await pushTable('investigationApprovalLogs', TABLES.investigationApprovalLogs);
+  
+  // Keloid Care Planning
+  await pushTable('keloidCarePlans', TABLES.keloidCarePlans);
   
   // Audit Logs (for accountability across devices)
   await pushTable('auditLogs', TABLES.auditLogs);
@@ -1062,6 +1068,22 @@ function setupRealtimeSubscriptions() {
     { cloud: TABLES.treatmentPlans, local: 'treatmentPlans' },
     { cloud: TABLES.treatmentProgress, local: 'treatmentProgress' },
     { cloud: TABLES.dischargeSummaries, local: 'dischargeSummaries' },
+    // Additional clinical tables for cross-device sync
+    { cloud: TABLES.bloodTransfusions, local: 'bloodTransfusions' },
+    { cloud: TABLES.postOperativeNotes, local: 'postOperativeNotes' },
+    { cloud: TABLES.preoperativeAssessments, local: 'preoperativeAssessments' },
+    { cloud: TABLES.nursePatientAssignments, local: 'nursePatientAssignments' },
+    { cloud: TABLES.admissionNotes, local: 'admissionNotes' },
+    { cloud: TABLES.bedAssignments, local: 'bedAssignments' },
+    { cloud: TABLES.nutritionAssessments, local: 'nutritionAssessments' },
+    { cloud: TABLES.npwtSessions, local: 'npwtSessions' },
+    { cloud: TABLES.burnMonitoringRecords, local: 'burnMonitoringRecords' },
+    { cloud: TABLES.clinicalComments, local: 'clinicalComments' },
+    { cloud: TABLES.referrals, local: 'referrals' },
+    { cloud: TABLES.keloidCarePlans, local: 'keloidCarePlans' },
+    { cloud: TABLES.chatRooms, local: 'chatRooms' },
+    { cloud: TABLES.doctorAssignments, local: 'doctorAssignments' },
+    { cloud: TABLES.mdtMeetings, local: 'mdtMeetings' },
   ];
 
   // Batch subscribe to avoid overwhelming Supabase connection limits
