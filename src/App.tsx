@@ -58,6 +58,7 @@ import PreoperativePlanningPage from './domains/preoperative-planning/pages/Preo
 import ShoppingChecklistPage from './domains/shopping-checklist/pages/ShoppingChecklistPage';
 import SubstanceUseAssessmentPage from './domains/substance-use/pages/SubstanceUseAssessmentPage';
 import KeloidCarePlanningPage from './domains/keloid/pages/KeloidCarePlanningPage';
+import STIProtocolPage from './domains/soft-tissue-infection/pages/STIProtocolPage';
 import PreSurgicalConferencePage from './domains/pre-surgical-conference/pages/PreSurgicalConferencePage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
@@ -149,6 +150,7 @@ function App() {
         <Route path="limb-salvage" element={<LimbSalvagePage />} />
         <Route path="npwt" element={<NPWTPage />} />
         <Route path="keloid-care" element={<KeloidCarePlanningPage />} />
+        <Route path="sti-protocol" element={<STIProtocolPage />} />
         <Route path="substance-use" element={<SubstanceUseAssessmentPage />} />
         <Route path="medication-chart" element={<MedicationChartPage />} />
         <Route path="patient-education" element={<PatientEducationPage />} />

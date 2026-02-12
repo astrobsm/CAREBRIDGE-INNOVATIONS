@@ -165,6 +165,22 @@ const navigation: NavItem[] = [
     permission: 'manage_wounds',
   },
   { 
+    name: 'STI / NEC Protocol', 
+    href: '/sti-protocol', 
+    icon: <AlertTriangle size={20} />,
+    permission: 'create_encounters',
+    children: [
+      { name: 'Classifications', href: '/sti-protocol?tab=classifications' },
+      { name: 'LRINEC Score', href: '/sti-protocol?tab=lrinec' },
+      { name: 'qSOFA', href: '/sti-protocol?tab=qsofa' },
+      { name: 'Lab Panels', href: '/sti-protocol?tab=labs' },
+      { name: 'Treatment', href: '/sti-protocol?tab=treatment' },
+      { name: 'Nursing', href: '/sti-protocol?tab=nursing' },
+      { name: 'Patient Education', href: '/sti-protocol?tab=education' },
+      { name: 'CME', href: '/sti-protocol?tab=cme' },
+    ],
+  },
+  { 
     name: 'Substance Use', 
     href: '/substance-use', 
     icon: <AlertTriangle size={20} />,
