@@ -41,6 +41,7 @@ import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import type { Patient, LabRequest, LabTest } from '../../../types';
 import type { 
   SurgicalUrgency, 
@@ -238,7 +239,6 @@ const PreoperativePlanningPage: React.FC = () => {
   // State for investigation request workflow
   const [isRequestingInvestigations, setIsRequestingInvestigations] = useState(false);
   const [investigationsRequested, setInvestigationsRequested] = useState(false);
-  const [recentLabResults, setRecentLabResults] = useState<LabRequest[]>([]);
   const [autoFilledInvestigations, setAutoFilledInvestigations] = useState<Set<string>>(new Set());
   
   // State for investigation management (add/remove)
@@ -294,162 +294,176 @@ const PreoperativePlanningPage: React.FC = () => {
     setAsaClass(suggested as ASAClass);
   }, [selectedComorbidities]);
 
-  // Fetch recent lab results for patient (within last 7 days) and auto-fill
+  // Map lab test names to investigation types (stable reference)
+  const testNameMapping: Record<string, InvestigationType> = useMemo(() => ({
+    'fbc': 'fbc',
+    'full blood count': 'fbc',
+    'hematology': 'fbc',
+    'complete blood count': 'fbc',
+    'cbc': 'fbc',
+    'electrolytes': 'electrolytes',
+    'serum electrolytes': 'electrolytes',
+    'urea electrolytes': 'electrolytes',
+    'e/u/cr': 'electrolytes',
+    'renal function': 'renal_function',
+    'kidney function': 'renal_function',
+    'rft': 'renal_function',
+    'liver function': 'liver_function',
+    'lft': 'liver_function',
+    'hepatic function': 'liver_function',
+    'coagulation': 'coagulation',
+    'pt/inr': 'coagulation',
+    'clotting profile': 'coagulation',
+    'coagulation profile': 'coagulation',
+    'blood glucose': 'blood_glucose',
+    'glucose': 'blood_glucose',
+    'fbs': 'blood_glucose',
+    'rbs': 'blood_glucose',
+    'hba1c': 'hba1c',
+    'glycated hemoglobin': 'hba1c',
+    'glycated haemoglobin': 'hba1c',
+    'glycated haemoglobin (hba1c)': 'hba1c',
+    'urinalysis': 'urinalysis',
+    'urine analysis': 'urinalysis',
+    'urine microscopy': 'urinalysis',
+    'hiv': 'hiv_screening',
+    'hiv screening': 'hiv_screening',
+    'hiv test': 'hiv_screening',
+    'hiv 1&2 screening': 'hiv_screening',
+    'hepatitis b': 'hbsag_screening',
+    'hbsag': 'hbsag_screening',
+    'hbsag screening': 'hbsag_screening',
+    'hepatitis b (hbsag)': 'hbsag_screening',
+    'hepatitis c': 'hcv_screening',
+    'hcv': 'hcv_screening',
+    'hcv screening': 'hcv_screening',
+    'hepatitis c (anti-hcv)': 'hcv_screening',
+    'blood group': 'blood_group',
+    'blood grouping': 'blood_group',
+    'abo/rh': 'blood_group',
+    'blood group & save': 'blood_group',
+    'pregnancy test': 'pregnancy_test',
+    'hcg': 'pregnancy_test',
+    'beta hcg': 'pregnancy_test',
+    'ecg': 'ecg',
+    'electrocardiogram': 'ecg',
+    '12-lead ecg': 'ecg',
+    'arterial blood gas': 'abg',
+    'abg': 'abg',
+    'serum lactate': 'lactate',
+    'lactate': 'lactate',
+    'chest x-ray': 'chest_xray',
+    'cxr': 'chest_xray',
+  }), []);
+
+  // Reactive query: fetch completed lab results for the selected patient (auto-updates when results are uploaded)
+  const recentLabResults = useLiveQuery(
+    async () => {
+      if (!selectedPatient) return [];
+      const oneWeekAgo = subDays(new Date(), 7);
+      return db.labRequests
+        .where('patientId')
+        .equals(selectedPatient.id)
+        .filter(lab => {
+          const completedDate = lab.completedAt ? new Date(lab.completedAt) : 
+                                lab.requestedAt ? new Date(lab.requestedAt) : new Date('1970-01-01');
+          return lab.status === 'completed' && isAfter(completedDate, oneWeekAgo);
+        })
+        .toArray();
+    },
+    [selectedPatient],
+    [] as LabRequest[]
+  );
+
+  // Auto-fill investigation results whenever lab results change (reactive)
   useEffect(() => {
-    const fetchRecentLabResults = async () => {
-      if (!selectedPatient) {
-        setRecentLabResults([]);
-        setAutoFilledInvestigations(new Set());
-        return;
-      }
+    if (!recentLabResults || recentLabResults.length === 0) {
+      setAutoFilledInvestigations(new Set());
+      return;
+    }
 
-      try {
-        const oneWeekAgo = subDays(new Date(), 7);
-        const labResults = await db.labRequests
-          .where('patientId')
-          .equals(selectedPatient.id)
-          .filter(lab => {
-            const completedDate = lab.completedAt ? new Date(lab.completedAt) : 
-                                  lab.requestedAt ? new Date(lab.requestedAt) : new Date('1970-01-01');
-            return lab.status === 'completed' && isAfter(completedDate, oneWeekAgo);
-          })
-          .toArray();
+    const autoFilled = new Set<string>();
+    const newMultiParams: Partial<Record<InvestigationType, MultiParameterResult>> = {};
+    const newSingleResults: Partial<Record<InvestigationType, InvestigationResultEntry>> = {};
 
-        setRecentLabResults(labResults);
-
-        // Auto-fill investigation results from recent lab results
-        if (labResults.length > 0) {
-          const autoFilled = new Set<string>();
-          const newMultiParams: Record<InvestigationType, MultiParameterResult> = { ...multiParamResults };
-          const newSingleResults: Record<InvestigationType, InvestigationResultEntry> = { ...investigationResults };
-
-          // Map lab test names to investigation types
-          const testNameMapping: Record<string, InvestigationType> = {
-            'fbc': 'fbc',
-            'full blood count': 'fbc',
-            'hematology': 'fbc',
-            'complete blood count': 'fbc',
-            'cbc': 'fbc',
-            'electrolytes': 'electrolytes',
-            'serum electrolytes': 'electrolytes',
-            'urea electrolytes': 'electrolytes',
-            'e/u/cr': 'electrolytes',
-            'renal function': 'renal_function',
-            'kidney function': 'renal_function',
-            'rft': 'renal_function',
-            'liver function': 'liver_function',
-            'lft': 'liver_function',
-            'hepatic function': 'liver_function',
-            'coagulation': 'coagulation',
-            'pt/inr': 'coagulation',
-            'clotting profile': 'coagulation',
-            'blood glucose': 'blood_glucose',
-            'glucose': 'blood_glucose',
-            'fbs': 'blood_glucose',
-            'rbs': 'blood_glucose',
-            'hba1c': 'hba1c',
-            'glycated hemoglobin': 'hba1c',
-            'urinalysis': 'urinalysis',
-            'urine analysis': 'urinalysis',
-            'urine microscopy': 'urinalysis',
-            'hiv': 'hiv_screening',
-            'hiv screening': 'hiv_screening',
-            'hiv test': 'hiv_screening',
-            'hepatitis b': 'hbsag_screening',
-            'hbsag': 'hbsag_screening',
-            'hbsag screening': 'hbsag_screening',
-            'hepatitis c': 'hcv_screening',
-            'hcv': 'hcv_screening',
-            'hcv screening': 'hcv_screening',
-            'blood group': 'blood_group',
-            'blood grouping': 'blood_group',
-            'abo/rh': 'blood_group',
-            'pregnancy test': 'pregnancy_test',
-            'hcg': 'pregnancy_test',
-            'beta hcg': 'pregnancy_test',
-            'ecg': 'ecg',
-            'electrocardiogram': 'ecg',
-          };
-
-          labResults.forEach(lab => {
-            // LabRequest has tests: LabTest[] array
-            if (!lab.tests || lab.tests.length === 0) return;
-            
-            lab.tests.forEach(test => {
-              if (!test.result) return;
-              
-              const testNameLower = test.name?.toLowerCase()?.trim() || '';
-              const investigationType = testNameMapping[testNameLower] as InvestigationType;
-              
-              if (investigationType) {
-                autoFilled.add(investigationType);
-                
-                // Handle multi-parameter investigations
-                if (multiParameterInvestigations[investigationType]) {
-                  const params = multiParameterInvestigations[investigationType]!.parameters;
-                  const paramResults: MultiParameterResult = {};
-                  
-                  // For multi-param tests, try to parse the result as JSON or use as single value
-                  let resultsData: Record<string, string | number> = {};
-                  try {
-                    if (typeof test.result === 'string' && test.result.startsWith('{')) {
-                      resultsData = JSON.parse(test.result);
-                    } else {
-                      resultsData = { value: test.result };
-                    }
-                  } catch {
-                    resultsData = { value: test.result };
-                  }
-                  
-                  params.forEach(param => {
-                    const value = resultsData[param.key] || resultsData[param.name] || resultsData.value;
-                    if (value !== undefined) {
-                      const numVal = typeof value === 'number' ? value : parseFloat(String(value));
-                      const isAbnormal = !isNaN(numVal) && (numVal < param.min || numVal > param.max);
-                      const withinSafe = !isNaN(numVal) && numVal >= (param.criticalMin || 0) && numVal <= (param.criticalMax || Infinity);
-                      paramResults[param.key] = {
-                        value: String(value),
-                        isAbnormal,
-                        withinSafeRange: withinSafe,
-                        interpretation: isAbnormal ? 'Abnormal (auto-filled from recent lab)' : 'Normal (auto-filled)',
-                      };
-                    }
-                  });
-                  
-                  if (Object.keys(paramResults).length > 0) {
-                    newMultiParams[investigationType] = paramResults;
-                  }
-                } else {
-                  // Handle single-value investigations
-                  const analysis = analyzeInvestigationResult(investigationType, test.result);
-                  newSingleResults[investigationType] = {
-                    type: investigationType,
-                    value: test.result,
-                    unit: test.unit || normalRanges[investigationType]?.unit || '',
-                    ...analysis,
-                  };
-                }
-              }
-            });
-          });
-
-          if (autoFilled.size > 0) {
-            setAutoFilledInvestigations(autoFilled);
-            setMultiParamResults(newMultiParams);
-            setInvestigationResults(newSingleResults);
-            toast.success(`Auto-filled ${autoFilled.size} investigation(s) from recent lab results (within 7 days)`, {
-              icon: '🔄',
-              duration: 4000,
-            });
+    recentLabResults.forEach(lab => {
+      if (!lab.tests || lab.tests.length === 0) return;
+      
+      lab.tests.forEach(test => {
+        if (!test.result) return;
+        
+        const testNameLower = test.name?.toLowerCase()?.trim() || '';
+        // Try exact match first, then partial match
+        let investigationType = testNameMapping[testNameLower] as InvestigationType | undefined;
+        if (!investigationType) {
+          // Partial match: check if test name contains any mapping key
+          for (const [key, type] of Object.entries(testNameMapping)) {
+            if (testNameLower.includes(key) || key.includes(testNameLower)) {
+              investigationType = type as InvestigationType;
+              break;
+            }
           }
         }
-      } catch (error) {
-        console.error('Error fetching recent lab results:', error);
-      }
-    };
+        
+        if (investigationType) {
+          autoFilled.add(investigationType);
+          
+          // Handle multi-parameter investigations
+          if (multiParameterInvestigations[investigationType]) {
+            const params = multiParameterInvestigations[investigationType]!.parameters;
+            const paramResults: MultiParameterResult = {};
+            
+            let resultsData: Record<string, string | number> = {};
+            try {
+              if (typeof test.result === 'string' && test.result.startsWith('{')) {
+                resultsData = JSON.parse(test.result);
+              } else {
+                resultsData = { value: test.result };
+              }
+            } catch {
+              resultsData = { value: test.result };
+            }
+            
+            params.forEach(param => {
+              const value = resultsData[param.key] || resultsData[param.name] || resultsData.value;
+              if (value !== undefined) {
+                const numVal = typeof value === 'number' ? value : parseFloat(String(value));
+                const isAbnormal = !isNaN(numVal) && (numVal < param.min || numVal > param.max);
+                const withinSafe = !isNaN(numVal) && numVal >= (param.criticalMin || 0) && numVal <= (param.criticalMax || Infinity);
+                paramResults[param.key] = {
+                  value: String(value),
+                  isAbnormal,
+                  withinSafeRange: withinSafe,
+                  interpretation: isAbnormal ? 'Abnormal (auto-filled from lab)' : 'Normal (auto-filled)',
+                };
+              }
+            });
+            
+            if (Object.keys(paramResults).length > 0) {
+              newMultiParams[investigationType] = paramResults;
+            }
+          } else {
+            // Handle single-value investigations
+            const analysis = analyzeInvestigationResult(investigationType, test.result);
+            newSingleResults[investigationType] = {
+              type: investigationType,
+              value: test.result,
+              unit: test.unit || normalRanges[investigationType]?.unit || '',
+              ...analysis,
+            };
+          }
+        }
+      });
+    });
 
-    fetchRecentLabResults();
-  }, [selectedPatient]);
+    if (autoFilled.size > 0) {
+      setAutoFilledInvestigations(autoFilled);
+      setMultiParamResults(prev => ({ ...prev, ...newMultiParams }));
+      setInvestigationResults(prev => ({ ...prev, ...newSingleResults }));
+    } else {
+      setAutoFilledInvestigations(new Set());
+    }
+  }, [recentLabResults, testNameMapping]);
 
   // Generate base investigation list based on selections
   const baseInvestigations = useMemo(() => {
@@ -1161,7 +1175,7 @@ const PreoperativePlanningPage: React.FC = () => {
     }
   };
 
-  // Handle Request & Approve Investigations (creates lab requests)
+  // Handle Request Investigations (creates lab requests automatically)
   const handleRequestInvestigations = async () => {
     if (!selectedPatient) {
       toast.error('Please select a patient first');
@@ -1251,9 +1265,16 @@ const PreoperativePlanningPage: React.FC = () => {
         investigationRequests.push(labRequest);
       }
 
-      // Save all lab requests
+      // Save all lab requests and sync to cloud
       if (investigationRequests.length > 0) {
         await db.labRequests.bulkAdd(investigationRequests);
+        
+        // Sync each lab request to cloud for cross-device tracking
+        for (const req of investigationRequests) {
+          await syncRecord('labRequests', req as unknown as Record<string, unknown>).catch(err => 
+            console.warn('[Preop] Failed to sync lab request:', err)
+          );
+        }
         
         toast.dismiss(loadingToast);
         toast.success(`✅ ${investigationRequests.length} investigation(s) requested successfully!`, {
@@ -1893,7 +1914,7 @@ const PreoperativePlanningPage: React.FC = () => {
                       ) : (
                         <>
                           <Send className="w-5 h-5" />
-                          Request & Approve Investigations
+                          Request Investigations
                         </>
                       )}
                     </button>
