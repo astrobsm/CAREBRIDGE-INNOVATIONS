@@ -1041,12 +1041,49 @@ class InvestigationLabService {
       );
     }
 
+    // Merge new results with any existing results (for partial/incremental uploads)
+    const existingResults = investigation.results || [];
+    const mergedResults = [...existingResults];
+    
+    for (const newResult of processedResults) {
+      const existingIndex = mergedResults.findIndex(
+        r => r.parameter.toLowerCase() === newResult.parameter.toLowerCase()
+      );
+      if (existingIndex >= 0) {
+        // Update existing result with new value
+        mergedResults[existingIndex] = newResult;
+      } else {
+        // Add new result
+        mergedResults.push(newResult);
+      }
+    }
+
+    // Determine expected parameters from investigation type to check completeness
+    const testTypes = investigation.type?.split(',') || [];
+    const allTestDefs = Object.values(testDefinitions).flat();
+    const expectedParams: string[] = [];
+    testTypes.forEach((type: string) => {
+      const test = allTestDefs.find((t: any) => t.id === type.trim() || t.name === type.trim());
+      if (test?.parameters) {
+        expectedParams.push(...test.parameters);
+      } else if (test) {
+        expectedParams.push(test.name);
+      }
+    });
+    const uniqueExpectedParams = [...new Set(expectedParams)];
+
+    // Only mark completed if all expected parameters have results (or no expected params defined)
+    const allResultsFilled = uniqueExpectedParams.length === 0 ||
+      uniqueExpectedParams.every(param =>
+        mergedResults.some(r => r.parameter.toLowerCase() === param.toLowerCase() && r.value !== '' && r.value !== undefined)
+      );
+
     await db.investigations.update(investigationId, {
-      results: processedResults,
+      results: mergedResults,
       attachments: [...(investigation.attachments || []), ...processedAttachments],
-      interpretation,
-      status: 'completed',
-      completedAt: new Date(),
+      interpretation: interpretation || investigation.interpretation,
+      status: allResultsFilled ? 'completed' : 'processing',
+      ...(allResultsFilled ? { completedAt: new Date() } : {}),
       completedBy: userId,
       completedByName: userName,
       updatedAt: new Date(),

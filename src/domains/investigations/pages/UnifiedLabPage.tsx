@@ -941,15 +941,41 @@ function InvestigationsList({
                 </button>
               )}
               
-              {inv.status === 'completed' && (
-                <button
-                  onClick={() => onViewDetails(inv)}
-                  className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                >
-                  <Eye size={14} className="inline mr-1" />
-                  View Results
-                </button>
-              )}
+              {inv.status === 'completed' && (() => {
+                // Check if results are incomplete
+                const testTypes = inv.type?.split(',') || [];
+                const allTests = Object.values(testDefinitions).flat();
+                const expectedParams: string[] = [];
+                testTypes.forEach((type: string) => {
+                  const test = allTests.find((t: any) => t.id === type.trim() || t.name === type.trim());
+                  if (test?.parameters) expectedParams.push(...test.parameters);
+                  else if (test) expectedParams.push(test.name);
+                });
+                const uniqueExpected = [...new Set(expectedParams)];
+                const completedParams = inv.results?.map(r => r.parameter.toLowerCase()) || [];
+                const hasIncomplete = uniqueExpected.length > 0 && uniqueExpected.some(p => !completedParams.includes(p.toLowerCase()));
+                
+                return (
+                  <>
+                    <button
+                      onClick={() => onViewDetails(inv)}
+                      className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                    >
+                      <Eye size={14} className="inline mr-1" />
+                      View Results
+                    </button>
+                    {hasIncomplete && (
+                      <button
+                        onClick={() => onAddResults(inv)}
+                        className="px-3 py-1.5 text-sm bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200"
+                      >
+                        <Upload size={14} className="inline mr-1" />
+                        Add Remaining
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         </motion.div>
@@ -1656,6 +1682,30 @@ function ResultModal({
 
   const uniqueParams = [...new Set(parameters)];
 
+  // Pre-populate with existing results
+  const existingResultMap: Record<string, string> = {};
+  investigation.results?.forEach(r => {
+    existingResultMap[r.parameter] = String(r.value || '');
+  });
+  // On mount, set existing values into resultValues if not already set
+  React.useEffect(() => {
+    if (Object.keys(existingResultMap).length > 0) {
+      setResultValues(prev => {
+        const updated = { ...prev };
+        for (const [param, val] of Object.entries(existingResultMap)) {
+          if (!updated[param]) updated[param] = val;
+        }
+        return updated;
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [investigation.id]);
+
+  const completedCount = uniqueParams.filter(p => {
+    const val = resultValues[p] || existingResultMap[p];
+    return val && val.trim() !== '';
+  }).length;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1672,8 +1722,13 @@ function ResultModal({
       >
         <div className="flex items-center justify-between p-4 border-b">
           <div>
-            <h2 className="text-xl font-semibold">Enter Results</h2>
+            <h2 className="text-xl font-semibold">{investigation.results?.length ? 'Update Results' : 'Enter Results'}</h2>
             <p className="text-sm text-gray-500">{investigation.patientName} - {investigation.typeName}</p>
+            {uniqueParams.length > 0 && (
+              <p className="text-xs text-amber-600 mt-1">
+                {completedCount} of {uniqueParams.length} parameters completed
+              </p>
+            )}
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
             <X size={20} />
@@ -1735,7 +1790,7 @@ function ResultModal({
           </button>
           <button onClick={onSubmit} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
             <CheckCircle2 size={16} />
-            Save Results
+            {completedCount < uniqueParams.length && uniqueParams.length > 0 ? 'Save Partial Results' : 'Save Results'}
           </button>
         </div>
       </motion.div>

@@ -537,14 +537,39 @@ export default function InvestigationsPage() {
         }];
       }
 
+      // Merge new results with any existing results (for partial/incremental uploads)
+      const existingResults = selectedInvestigation.results || [];
+      const mergedResults = [...existingResults];
+      for (const newResult of results) {
+        const existingIdx = mergedResults.findIndex(
+          r => r.parameter.toLowerCase() === newResult.parameter.toLowerCase()
+        );
+        if (existingIdx >= 0) {
+          mergedResults[existingIdx] = newResult;
+        } else {
+          mergedResults.push(newResult);
+        }
+      }
+
+      // Determine expected parameters from test type to check completeness
+      const testTypes = selectedInvestigation.type?.split(',') || [];
+      const allTestDefs = investigationCategories.flatMap(c => c.types);
+      const expectedParams: string[] = [];
+      testTypes.forEach(type => {
+        const test = allTestDefs.find(t => t.type === type.trim() || t.name === type.trim());
+        if (test) expectedParams.push(test.name);
+      });
+      const allResultsFilled = expectedParams.length === 0 ||
+        expectedParams.every(p => mergedResults.some(r => r.parameter.toLowerCase() === p.toLowerCase()));
+
       await db.investigations.update(selectedInvestigation.id, {
-        status: 'completed',
-        results,
-        attachments,
+        status: allResultsFilled ? 'completed' : 'processing',
+        results: mergedResults,
+        attachments: [...(selectedInvestigation.attachments || []), ...(attachments || [])],
         interpretation: resultForm.getValues('interpretation'),
         completedBy: user?.id,
         completedByName: `${user?.firstName} ${user?.lastName}`,
-        completedAt: new Date(),
+        ...(allResultsFilled ? { completedAt: new Date() } : {}),
         updatedAt: new Date(),
       });
       const updatedRecord = await db.investigations.get(selectedInvestigation.id);
@@ -1102,6 +1127,12 @@ export default function InvestigationsPage() {
                         <button
                           onClick={() => {
                             setSelectedInvestigation(investigation);
+                            // Pre-populate existing results
+                            if (investigation.results?.length) {
+                              const existing: Record<string, string> = {};
+                              investigation.results.forEach(r => { existing[r.parameter] = String(r.value || ''); });
+                              setResultValues(existing);
+                            }
                             setShowResultModal(true);
                           }}
                           className="btn btn-sm btn-primary flex-1"
@@ -1111,16 +1142,40 @@ export default function InvestigationsPage() {
                         </button>
                       )}
                       {investigation.status === 'completed' && (
-                        <button
-                          onClick={() => {
-                            setSelectedInvestigation(investigation);
-                            setShowTrendModal(true);
-                          }}
-                          className="btn btn-sm btn-secondary flex-1"
-                        >
-                          <Eye size={14} />
-                          View Results
-                        </button>
+                        <>
+                          <button
+                            onClick={() => {
+                              setSelectedInvestigation(investigation);
+                              setShowTrendModal(true);
+                            }}
+                            className="btn btn-sm btn-secondary flex-1"
+                          >
+                            <Eye size={14} />
+                            View Results
+                          </button>
+                          {(() => {
+                            // Check if any expected results are missing
+                            const totalResults = investigation.results?.length || 0;
+                            const typeNames = investigation.typeName?.split(',').map(s => s.trim()) || [];
+                            const hasIncomplete = typeNames.length > totalResults;
+                            return hasIncomplete ? (
+                              <button
+                                onClick={() => {
+                                  setSelectedInvestigation(investigation);
+                                  // Pre-populate existing results
+                                  const existing: Record<string, string> = {};
+                                  investigation.results?.forEach(r => { existing[r.parameter] = String(r.value || ''); });
+                                  setResultValues(existing);
+                                  setShowResultModal(true);
+                                }}
+                                className="btn btn-sm btn-warning flex-1"
+                              >
+                                <Upload size={14} />
+                                Add Remaining
+                              </button>
+                            ) : null;
+                          })()}
+                        </>
                       )}
                       {/* Download/Print Button for all pending investigations */}
                       <button

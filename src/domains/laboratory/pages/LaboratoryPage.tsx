@@ -827,6 +827,16 @@ export default function LaboratoryPage() {
                               <Upload size={18} />
                             </button>
                           )}
+                          {/* Update Results - for completed requests with missing test results */}
+                          {request.status === 'completed' && request.tests.some(t => !t.result) && (
+                            <button
+                              onClick={() => openResultModal(request)}
+                              className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              title="Add Remaining Results"
+                            >
+                              <Upload size={18} />
+                            </button>
+                          )}
                           {/* Download Lab Report PDF - when results are available */}
                           <ExportButtonWithModal
                             generateA4PDF={async () => {
