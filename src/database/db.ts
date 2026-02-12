@@ -71,6 +71,9 @@ import type {
   InvestigationApprovalLog,
   // Keloid Care Planning
   KeloidCarePlanRecord,
+  // Soft Tissue Infection
+  STIAssessment,
+  STIDebridementRecord,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -172,11 +175,14 @@ export class AstroHEALTHDatabase extends Dexie {
   investigationApprovalLogs!: Table<InvestigationApprovalLog, string>;
   // Keloid Care Planning
   keloidCarePlans!: Table<KeloidCarePlanRecord, string>;
+  // Soft Tissue Infection Assessments
+  stiAssessments!: Table<STIAssessment, string>;
+  stiDebridementRecords!: Table<STIDebridementRecord, string>;
 
   constructor() {
     super('AstroHEALTHDB');
 
-    this.version(72).stores({
+    this.version(73).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -268,6 +274,9 @@ export class AstroHEALTHDatabase extends Dexie {
       investigationApprovalLogs: 'id, investigationId, patientId, hospitalId, action, performedBy, performedAt, labRequestId, createdAt',
       // Keloid Care Planning
       keloidCarePlans: 'id, patientId, hospitalId, status, createdBy, createdAt, updatedAt',
+      // Soft Tissue Infection Assessments
+      stiAssessments: 'id, patientId, hospitalId, classification, severity, status, assessedBy, createdAt, updatedAt',
+      stiDebridementRecords: 'id, assessmentId, patientId, hospitalId, debridementNumber, debridementDate, surgeon, createdAt',
     });
   }
 }

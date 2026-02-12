@@ -599,6 +599,8 @@ export interface TreatmentProgress {
 export interface LabRequest {
   id: string;
   patientId: string;
+  patientName?: string;
+  hospitalNumber?: string;
   encounterId?: string;
   hospitalId: string;
   tests: LabTest[];
@@ -609,6 +611,7 @@ export interface LabRequest {
   requestedAt: Date;
   collectedAt?: Date;
   completedAt?: Date;
+  source?: string; // e.g., 'preoperative-planning'
 }
 
 export interface LabTest {
@@ -5250,6 +5253,133 @@ export interface ClinicalComment {
   updatedAt: Date;
   
   // Sync tracking
+  syncedAt?: Date;
+  localId?: string;
+}
+
+// ============================================================
+// Soft Tissue Infection (STI) Assessment
+// ============================================================
+export interface STIAssessment {
+  id: string;
+  patientId: string;
+  patientName: string;
+  hospitalId: string;
+  encounterId?: string;
+  admissionId?: string;
+
+  // Classification & Severity
+  classification: string;
+  classificationName: string;
+  severity: 'mild' | 'moderate' | 'severe' | 'critical';
+  eronClass: 'I' | 'II' | 'III' | 'IV';
+  location: string;
+  onsetDate?: string;
+  durationHours?: number;
+  painScore?: number;
+
+  // Clinical Features & Red Flags
+  clinicalFeatures: string[];
+  redFlags: {
+    painOutOfProportion: boolean;
+    crepitus: boolean;
+    skinNecrosis: boolean;
+    hemorrhagicBullae: boolean;
+    dishwaterDrainage: boolean;
+    rapidProgression: boolean;
+    systemicToxicity: boolean;
+    failureToRespond: boolean;
+  };
+
+  // Comorbidities
+  comorbidities: {
+    diabetesMellitus: boolean;
+    renalImpairment: boolean;
+    hepaticImpairment: boolean;
+    immunosuppressed: boolean;
+    peripheralVascular: boolean;
+    obesity: boolean;
+    alcoholism: boolean;
+    hivPositive: boolean;
+  };
+  hba1c?: number;
+
+  // Scores
+  lrinecScore?: number;
+  lrinecRisk?: 'Low' | 'Moderate' | 'High';
+  qsofaScore?: number;
+
+  // Treatment Plan (auto-generated)
+  generatedTreatmentPlan?: {
+    antibiotics: { drug: string; dose: string; route: string; frequency: string; duration: string }[];
+    surgicalPlan: string[];
+    supportiveCare: string[];
+    monitoring: string[];
+    labOrders: string[];
+    escalationCriteria: string[];
+  };
+
+  // Status
+  status: 'draft' | 'active' | 'completed' | 'discharged';
+  additionalNotes?: string;
+
+  // Metadata
+  assessedBy: string;
+  assessedByName: string;
+  createdAt: Date;
+  updatedAt: Date;
+  syncedAt?: Date;
+  localId?: string;
+}
+
+// ============================================================
+// STI Debridement Record
+// ============================================================
+export interface STIDebridementRecord {
+  id: string;
+  assessmentId: string;
+  patientId: string;
+  hospitalId: string;
+  surgeryId?: string;
+
+  debridementNumber: number;
+  debridementDate: string;
+  debridementTime?: string;
+  surgeon: string;
+  surgeonName: string;
+  assistants: string[];
+
+  procedureType: 'radical_debridement' | 'serial_debridement' | 'fasciotomy' | 'amputation' | 'wound_washout';
+  anesthesiaType: 'general' | 'regional' | 'local' | 'sedation';
+  areasDebrided: string[];
+  tissueViability: string;
+  extentOfNecrosis: string;
+  fascialInvolvement: boolean;
+  muscleInvolvement: boolean;
+
+  woundDimensions?: { length: number; width: number; depth: number; unit: string };
+  woundBedDescription: string;
+  bleedingStatus: 'healthy_bleeding' | 'minimal' | 'non_bleeding';
+  marginStatus: string;
+  isCultureSent: boolean;
+  cultureResults?: string;
+  isHistopathologySent: boolean;
+
+  closureMethod: 'open' | 'vac_therapy' | 'loose_packing' | 'delayed_primary' | 'skin_graft' | 'flap';
+  dressingType: string;
+  vacSettings?: { pressure: number; mode: string };
+
+  nextDebridementPlanned: boolean;
+  nextDebridementDate?: string;
+  bloodLoss?: number;
+  complications?: string;
+  postOpInstructions: string[];
+
+  findings: string;
+  photos?: string[];
+
+  createdAt: Date;
+  updatedAt: Date;
   syncedAt?: Date;
   localId?: string;
 }

@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   AlertTriangle,
   Activity,
@@ -31,7 +32,14 @@ import {
   Clock,
   FileText,
   Users,
+  Printer,
+  Download,
 } from 'lucide-react';
+import {
+  generatePatientEducationPDF,
+  generateLabPanelsPDF,
+  generateTreatmentProtocolPDF,
+} from '../utils/stiPdfGenerator';
 
 // Data imports
 import {
@@ -454,8 +462,28 @@ function QSOFATab() {
 // LAB PANELS TAB
 // ============================================
 function LabPanelsTab() {
+  const handlePrintAll = () => {
+    try {
+      const doc = generateLabPanelsPDF();
+      doc.save('STI_Lab_Panels_Protocol.pdf');
+      toast.success('Lab Panels PDF downloaded');
+    } catch { toast.error('Failed to generate PDF'); }
+  };
+  const handlePrintPanel = (panelId: string, name: string) => {
+    try {
+      const doc = generateLabPanelsPDF(panelId);
+      doc.save(`Lab_Panel_${name.replace(/\s+/g, '_')}.pdf`);
+      toast.success(`${name} PDF downloaded`);
+    } catch { toast.error('Failed to generate PDF'); }
+  };
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <button onClick={handlePrintAll} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors">
+          <Download size={14} /> Export All Lab Panels (PDF)
+        </button>
+      </div>
       {LAB_PANELS.map((panel) => (
         <CollapsibleSection
           key={panel.id}
@@ -466,9 +494,14 @@ function LabPanelsTab() {
           }
         >
           <div className="space-y-1">
-            <p className="text-xs text-gray-500 mb-2">
-              Applicable to: {panel.applicableStages.join(', ')}
-            </p>
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-xs text-gray-500">
+                Applicable to: {panel.applicableStages.join(', ')}
+              </p>
+              <button onClick={() => handlePrintPanel(panel.id, panel.name)} className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Print this panel">
+                <Printer size={12} /> Print
+              </button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
@@ -509,8 +542,28 @@ function LabPanelsTab() {
 // TREATMENT PROTOCOLS TAB
 // ============================================
 function TreatmentTab() {
+  const handlePrintAll = () => {
+    try {
+      const doc = generateTreatmentProtocolPDF();
+      doc.save('STI_Treatment_Protocols.pdf');
+      toast.success('Treatment Protocols PDF downloaded');
+    } catch { toast.error('Failed to generate PDF'); }
+  };
+  const handlePrintProtocol = (protocolId: string, name: string) => {
+    try {
+      const doc = generateTreatmentProtocolPDF(protocolId);
+      doc.save(`Treatment_${name.replace(/\s+/g, '_')}.pdf`);
+      toast.success(`${name} PDF downloaded`);
+    } catch { toast.error('Failed to generate PDF'); }
+  };
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <button onClick={handlePrintAll} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors">
+          <Download size={14} /> Export All Protocols (PDF)
+        </button>
+      </div>
       {TREATMENT_PROTOCOLS.map((protocol) => (
         <CollapsibleSection
           key={protocol.id}
@@ -519,6 +572,11 @@ function TreatmentTab() {
           badge={<SeverityBadge severity={protocol.severity} />}
         >
           <div className="space-y-4">
+            <div className="flex justify-end mb-1">
+              <button onClick={() => handlePrintProtocol(protocol.id, protocol.stage)} className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Print this protocol">
+                <Printer size={12} /> Print Protocol
+              </button>
+            </div>
             {/* Antibiotics */}
             <div>
               <h4 className="font-semibold text-sm flex items-center gap-1.5 mb-2">
@@ -857,15 +915,40 @@ function NursingTab() {
 // PATIENT EDUCATION TAB
 // ============================================
 function PatientEducationTab() {
+  const handlePrintAll = () => {
+    try {
+      const doc = generatePatientEducationPDF();
+      doc.save('STI_Patient_Education_Leaflets.pdf');
+      toast.success('Patient Education leaflets PDF downloaded');
+    } catch { toast.error('Failed to generate PDF'); }
+  };
+  const handlePrintModule = (moduleId: string, title: string) => {
+    try {
+      const doc = generatePatientEducationPDF(moduleId);
+      doc.save(`Patient_Education_${title.replace(/\s+/g, '_')}.pdf`);
+      toast.success(`${title} leaflet downloaded`);
+    } catch { toast.error('Failed to generate PDF'); }
+  };
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <button onClick={handlePrintAll} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors">
+          <Download size={14} /> Export All Leaflets (PDF)
+        </button>
+      </div>
       {PATIENT_EDUCATION_MODULES.map((module) => (
         <CollapsibleSection
           key={module.id}
           title={module.title}
           defaultOpen={module.id === 'cellulitis-patient-ed'}
           badge={
-            <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">{module.targetAudience}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">{module.targetAudience}</span>
+              <button onClick={(e) => { e.stopPropagation(); handlePrintModule(module.id, module.title); }} className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Print leaflet">
+                <Printer size={11} />
+              </button>
+            </div>
           }
         >
           <div className="space-y-3">

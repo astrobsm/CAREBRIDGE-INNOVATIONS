@@ -1253,6 +1253,8 @@ const PreoperativePlanningPage: React.FC = () => {
         const labRequest: LabRequest = {
           id: uuidv4(),
           patientId: selectedPatient.id,
+          patientName: `${selectedPatient.firstName} ${selectedPatient.lastName}`.trim(),
+          hospitalNumber: selectedPatient.hospitalNumber || '',
           hospitalId: selectedHospitalId,
           tests: [labTest],
           priority: inv.requirement === 'mandatory' ? 'urgent' : 'routine',
@@ -1260,6 +1262,7 @@ const PreoperativePlanningPage: React.FC = () => {
           clinicalInfo: `Preoperative assessment for ${plannedProcedure}. ${inv.rationale}`,
           requestedBy: user?.id || '',
           requestedAt: now,
+          source: 'preoperative-planning',
         };
 
         investigationRequests.push(labRequest);

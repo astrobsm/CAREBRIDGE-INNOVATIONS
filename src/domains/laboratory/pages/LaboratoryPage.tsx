@@ -754,18 +754,21 @@ export default function LaboratoryPage() {
               {filteredRequests.length > 0 ? (
                 filteredRequests.map((request) => {
                   const patient = patientMap.get(request.patientId);
+                  const displayName = request.patientName || (patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown');
+                  const displayHospNum = request.hospitalNumber || patient?.hospitalNumber || '';
                   return (
                     <tr key={request.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
-                        {patient ? (
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-gray-400" />
-                            <div>
-                              <p className="font-medium">{patient.firstName} {patient.lastName}</p>
-                              <p className="text-sm text-gray-500">{patient.hospitalNumber}</p>
-                            </div>
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <p className="font-medium">{displayName}</p>
+                            {displayHospNum && <p className="text-sm text-gray-500">{displayHospNum}</p>}
+                            {request.source === 'preoperative-planning' && (
+                              <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[10px] rounded font-medium">Pre-Op</span>
+                            )}
                           </div>
-                        ) : 'Unknown'}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1 max-w-xs">
