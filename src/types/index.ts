@@ -220,6 +220,7 @@ export interface ClinicalEncounter {
   medicationHistory?: string;
   immunizationHistory?: string;
   obstetricHistory?: string;        // For female patients
+  lmp?: string;                      // Last Menstrual Period (compulsory for female patients)
   developmentalHistory?: string;    // For pediatric patients
   
   // Follow-up encounter specific

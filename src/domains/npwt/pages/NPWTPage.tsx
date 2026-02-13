@@ -1077,7 +1077,7 @@ export default function NPWTPage() {
                       <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-purple-400 hover:bg-purple-50">
                         <Upload className="w-8 h-8 text-gray-400" />
                         <span className="text-xs text-gray-500 mt-1">Upload Photo</span>
-                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                        <input type="file" accept="image/*" capture="environment" onChange={handleImageUpload} className="hidden" />
                       </label>
                     )}
                     <div className="flex-1">

@@ -83,6 +83,10 @@ export default function ClinicalEncounterPage() {
   const [newDiagnosis, setNewDiagnosis] = useState<{ description: string; type: 'primary' | 'secondary' | 'differential' }>({ description: '', type: 'primary' });
   const [physicalExam, setPhysicalExam] = useState<PhysicalExamination>({});
   
+  // LMP State (for female patients)
+  const [lmpDate, setLmpDate] = useState<string>('');
+  const [lmpUnknown, setLmpUnknown] = useState(false);
+
   // Clinical Photos State
   const [clinicalPhotos, setClinicalPhotos] = useState<ClinicalPhoto[]>([]);
   const [photoDescription, setPhotoDescription] = useState('');
@@ -344,6 +348,14 @@ export default function ClinicalEncounterPage() {
     setIsLoading(true);
 
     try {
+      // Validate LMP for female patients
+      if (patient?.gender === 'female' && !lmpDate && !lmpUnknown) {
+        toast.error('LMP is compulsory for female patients. Please enter a date or mark as Unknown/N/A.');
+        setActiveTab('history');
+        setIsLoading(false);
+        return;
+      }
+
       const isInitialEncounter = encounterMode === 'initial';
       
       const encounter: ClinicalEncounter = {
@@ -359,6 +371,7 @@ export default function ClinicalEncounterPage() {
         pastSurgicalHistory: data.pastSurgicalHistory,
         familyHistory: data.familyHistory,
         socialHistory: data.socialHistory,
+        lmp: patient?.gender === 'female' ? (lmpUnknown ? 'Unknown/N/A' : lmpDate) : undefined,
         physicalExamination: physicalExam,
         clinicalPhotos: clinicalPhotos.length > 0 ? clinicalPhotos : undefined,
         diagnosis: diagnoses,
@@ -995,6 +1008,39 @@ export default function ClinicalEncounterPage() {
                 showAIEnhance={true}
               />
             </div>
+
+            {/* LMP Field - Compulsory for Female Patients */}
+            {patient?.gender === 'female' && (
+              <div className="mt-4 p-4 bg-pink-50 border border-pink-200 rounded-lg">
+                <label className="label text-pink-800 font-semibold flex items-center gap-2">
+                  <span className="text-red-500">*</span> Last Menstrual Period (LMP)
+                </label>
+                <p className="text-xs text-pink-600 mb-2">Compulsory for all female patients of reproductive age</p>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="date"
+                    value={lmpDate}
+                    onChange={(e) => { setLmpDate(e.target.value); setLmpUnknown(false); }}
+                    disabled={lmpUnknown}
+                    max={new Date().toISOString().split('T')[0]}
+                    className={`input flex-1 ${!lmpDate && !lmpUnknown ? 'border-red-400 ring-1 ring-red-300' : ''}`}
+                    required={!lmpUnknown}
+                  />
+                  <label className="flex items-center gap-1.5 text-sm text-gray-600 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={lmpUnknown}
+                      onChange={(e) => { setLmpUnknown(e.target.checked); if (e.target.checked) setLmpDate(''); }}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    Unknown / N/A
+                  </label>
+                </div>
+                {!lmpDate && !lmpUnknown && (
+                  <p className="text-xs text-red-500 mt-1">Please enter LMP date or mark as Unknown/N/A</p>
+                )}
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -1161,6 +1207,7 @@ export default function ClinicalEncounterPage() {
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     onChange={handlePhotoCapture}
                     className="hidden"
                   />

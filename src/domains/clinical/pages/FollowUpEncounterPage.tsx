@@ -32,6 +32,7 @@ import {
   Activity,
   RefreshCw,
   History,
+  Calendar,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -104,6 +105,10 @@ export default function FollowUpEncounterPage() {
     newMedications: [],
   });
   
+  // LMP State (for female patients)
+  const [lmpDate, setLmpDate] = useState<string>('');
+  const [lmpUnknown, setLmpUnknown] = useState(false);
+
   // Diagnosis updates
   const [diagnosisUpdates] = useState<{
     resolved: string[];
@@ -272,6 +277,13 @@ export default function FollowUpEncounterPage() {
       return;
     }
 
+    // Validate LMP for female patients
+    if (patient?.gender === 'female' && !lmpDate && !lmpUnknown) {
+      toast.error('LMP is compulsory for female patients. Please enter a date or mark as Unknown/N/A.');
+      setActiveSection('changes');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const hospitalId = user.hospitalId || 'default-hospital';
@@ -318,6 +330,7 @@ export default function FollowUpEncounterPage() {
         notes: `Medication Compliance: ${data.medicationCompliance}\n${data.sideEffects ? `Side Effects: ${data.sideEffects}\n` : ''}${data.notes || ''}`,
         diagnosis: mergedDiagnoses,
         clinicalPhotos,
+        lmp: patient?.gender === 'female' ? (lmpUnknown ? 'Unknown/N/A' : lmpDate) : undefined,
         attendingClinician: user.id,
         startedAt: now,
         completedAt: now,
@@ -528,6 +541,39 @@ export default function FollowUpEncounterPage() {
                 />
               </div>
             </div>
+
+            {/* LMP Field - Compulsory for Female Patients */}
+            {patient?.gender === 'female' && (
+              <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
+                <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Calendar size={16} className="text-pink-500" />
+                  <span className="text-red-500">*</span> Last Menstrual Period (LMP)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="date"
+                    value={lmpDate}
+                    onChange={(e) => { setLmpDate(e.target.value); setLmpUnknown(false); }}
+                    disabled={lmpUnknown}
+                    max={new Date().toISOString().split('T')[0]}
+                    className={`input flex-1 ${!lmpDate && !lmpUnknown ? 'border-red-400 ring-1 ring-red-300' : ''}`}
+                    required={!lmpUnknown}
+                  />
+                  <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={lmpUnknown}
+                      onChange={(e) => { setLmpUnknown(e.target.checked); if (e.target.checked) setLmpDate(''); }}
+                      className="h-4 w-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                    />
+                    Unknown / N/A
+                  </label>
+                </div>
+                {!lmpDate && !lmpUnknown && (
+                  <p className="text-xs text-red-500 mt-1">LMP is compulsory for female patients</p>
+                )}
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -608,6 +654,7 @@ export default function FollowUpEncounterPage() {
                 <input
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   onChange={handlePhotoCapture}
                   className="hidden"
                 />

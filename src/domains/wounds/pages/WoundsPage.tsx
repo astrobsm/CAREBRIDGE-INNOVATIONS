@@ -668,10 +668,11 @@ export default function WoundsPage() {
                       {/* Upload Button */}
                       <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-sky-400 hover:bg-sky-50 transition-colors">
                         <ImagePlus size={20} className="text-gray-500" />
-                        <span className="text-sm text-gray-600">Click to upload wound images</span>
+                        <span className="text-sm text-gray-600">Tap to capture or upload wound images</span>
                         <input
                           type="file"
                           accept="image/*"
+                          capture="environment"
                           multiple
                           className="hidden"
                           onChange={(e) => {
