@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database';
 import { syncRecord } from '../services/cloudSyncService';
+import { logAuthEvent } from '../services/auditService';
 import type { User, UserRole } from '../types';
 import Dexie from 'dexie';
 
@@ -251,6 +252,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (existingUser.isActive) {
           setUser(existingUser);
           localStorage.setItem('AstroHEALTH_user_id', existingUser.id);
+          logAuthEvent(existingUser.id, 'login', { email: existingUser.email, role: existingUser.role });
           return true;
         }
         return false;
@@ -265,6 +267,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (foundUser && foundUser.isActive) {
         setUser(foundUser);
         localStorage.setItem('AstroHEALTH_user_id', foundUser.id);
+        logAuthEvent(foundUser.id, 'login', { email: foundUser.email, role: foundUser.role });
         return true;
       }
 
@@ -319,6 +322,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       syncRecord('users', newUser as unknown as Record<string, unknown>);
       setUser(newUser);
       localStorage.setItem('AstroHEALTH_user_id', newUser.id);
+      logAuthEvent(newUser.id, 'register', { email: newUser.email, role: newUser.role });
       return true;
     } catch (error) {
       console.error('Registration failed:', error);
@@ -327,9 +331,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    if (user) {
+      logAuthEvent(user.id, 'logout', { email: user.email, role: user.role });
+    }
     setUser(null);
     localStorage.removeItem('AstroHEALTH_user_id');
-  }, []);
+  }, [user]);
 
   const updateUser = useCallback(async (updates: Partial<User>) => {
     if (!user) return;

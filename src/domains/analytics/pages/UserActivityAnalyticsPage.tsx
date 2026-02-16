@@ -59,7 +59,7 @@ export default function UserActivityAnalyticsPage() {
   const [selectedUser, setSelectedUser] = useState<string>('all');
   const [selectedAction, setSelectedAction] = useState<string>('all');
   const [selectedEntity, setSelectedEntity] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<'today' | 'yesterday' | '7days' | '30days' | 'all'>('today');
+  const [dateRange, setDateRange] = useState<'today' | 'yesterday' | '7days' | '30days' | 'all'>('7days');
   const [isLive, setIsLive] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 

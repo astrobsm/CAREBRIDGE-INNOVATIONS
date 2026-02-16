@@ -3,7 +3,7 @@
 // Version 2.0 - Fixed React imports
 
 import { useState, useEffect } from 'react';
-import { db } from '../database/db';
+import { db, suppressAudit, resumeAudit } from '../database/db';
 import { supabase, isSupabaseConfigured, TABLES } from './supabaseClient';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -547,6 +547,11 @@ export async function fullSync(): Promise<void> {
 async function pullAllFromCloud(): Promise<void> {
   console.log('[CloudSync] Pulling data from cloud...');
   
+  // Suppress audit logging during sync pulls to avoid noise
+  suppressAudit();
+  
+  try {
+  
   // Core tables - USERS FIRST for authentication
   await pullTable(TABLES.users, 'users');
   await pullTable(TABLES.hospitals, 'hospitals');
@@ -681,6 +686,11 @@ async function pullAllFromCloud(): Promise<void> {
   
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
+  
+  } finally {
+    // Always re-enable audit logging after sync
+    resumeAudit();
+  }
 }
 
 // Push all local data to cloud
@@ -1114,17 +1124,23 @@ function setupRealtimeSubscriptions() {
               console.log(`[CloudSync] Real-time ${payload.eventType} on ${cloud}:`, incomingId);
               const record = convertFromSupabase(payload.new as Record<string, unknown>);
               try {
+                suppressAudit(); // Don't audit incoming sync writes
                 await (db as any)[local].put(record);
+                resumeAudit();
                 console.log(`[CloudSync] Applied ${payload.eventType} to local ${local}`);
               } catch (err) {
+                resumeAudit();
                 console.warn(`[CloudSync] Failed to apply change to ${local}:`, err);
               }
             } else if (payload.eventType === 'DELETE' && payload.old) {
               console.log(`[CloudSync] Real-time DELETE on ${cloud}:`, (payload.old as any).id);
               try {
+                suppressAudit();
                 await (db as any)[local].delete((payload.old as any).id);
+                resumeAudit();
                 console.log(`[CloudSync] Applied DELETE to local ${local}`);
               } catch (err) {
+                resumeAudit();
                 console.warn(`[CloudSync] Failed to delete from ${local}:`, err);
               }
             }

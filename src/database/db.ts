@@ -283,6 +283,140 @@ export class AstroHEALTHDatabase extends Dexie {
 
 export const db = new AstroHEALTHDatabase();
 
+// ============================================================
+// AUTOMATIC AUDIT LOGGING VIA DEXIE HOOKS
+// Intercepts all create/update/delete operations and logs them
+// to the auditLogs table for activity analytics tracking.
+// ============================================================
+
+// Tables to skip auditing (to avoid infinite loops and noise)
+const AUDIT_SKIP_TABLES = new Set([
+  'auditLogs',
+  'syncStatus', 
+  'chatMessages',      // too noisy
+  'webrtcSignaling',   // technical signaling
+]);
+
+// Flag to suppress audit during bulk sync operations
+let _auditSuppressed = false;
+
+/** Suppress audit logging (e.g., during cloud sync pulls) */
+export function suppressAudit() { _auditSuppressed = true; }
+
+/** Re-enable audit logging */
+export function resumeAudit() { _auditSuppressed = false; }
+
+/**
+ * Install Dexie hooks on all tables to automatically log
+ * create, update, and delete operations.
+ */
+function installAuditHooks() {
+  const tableNames = db.tables.map(t => t.name);
+  
+  for (const tableName of tableNames) {
+    if (AUDIT_SKIP_TABLES.has(tableName)) continue;
+    
+    const table = db.table(tableName);
+
+    // Hook: creating (fires on add/put for new records)
+    table.hook('creating', function (_primKey, obj) {
+      if (_auditSuppressed) return;
+      // Fire-and-forget audit log
+      setTimeout(() => {
+        try {
+          const userId = localStorage.getItem('AstroHEALTH_user_id') || 'system';
+          const entityId = obj?.id || _primKey || 'unknown';
+          db.auditLogs.add({
+            id: crypto.randomUUID(),
+            userId,
+            action: 'create',
+            entityType: tableName,
+            entityId: String(entityId),
+            newValue: summarizeRecord(obj),
+            timestamp: new Date(),
+          }).catch(() => {}); // never break main flow
+        } catch { /* ignore */ }
+      }, 0);
+    });
+
+    // Hook: updating (fires on put/update for existing records)
+    table.hook('updating', function (modifications, _primKey, obj) {
+      if (_auditSuppressed) return;
+      setTimeout(() => {
+        try {
+          const userId = localStorage.getItem('AstroHEALTH_user_id') || 'system';
+          const entityId = obj?.id || _primKey || 'unknown';
+          db.auditLogs.add({
+            id: crypto.randomUUID(),
+            userId,
+            action: 'update',
+            entityType: tableName,
+            entityId: String(entityId),
+            oldValue: summarizeRecord(obj),
+            newValue: summarizeRecord(modifications),
+            timestamp: new Date(),
+          }).catch(() => {});
+        } catch { /* ignore */ }
+      }, 0);
+    });
+
+    // Hook: deleting (fires on delete operations)
+    table.hook('deleting', function (_primKey, obj) {
+      if (_auditSuppressed) return;
+      setTimeout(() => {
+        try {
+          const userId = localStorage.getItem('AstroHEALTH_user_id') || 'system';
+          const entityId = obj?.id || _primKey || 'unknown';
+          db.auditLogs.add({
+            id: crypto.randomUUID(),
+            userId,
+            action: 'delete',
+            entityType: tableName,
+            entityId: String(entityId),
+            oldValue: summarizeRecord(obj),
+            timestamp: new Date(),
+          }).catch(() => {});
+        } catch { /* ignore */ }
+      }, 0);
+    });
+  }
+  
+  console.log('[Audit] Hooks installed on', tableNames.length - AUDIT_SKIP_TABLES.size, 'tables');
+}
+
+/**
+ * Create a concise summary of a record for audit logging.
+ * Avoids storing huge blobs and keeps logs manageable.
+ */
+function summarizeRecord(obj: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!obj) return undefined;
+  const summary: Record<string, unknown> = {};
+  const MAX_FIELDS = 15;
+  let count = 0;
+  
+  for (const [key, value] of Object.entries(obj)) {
+    if (count >= MAX_FIELDS) {
+      summary._truncated = true;
+      break;
+    }
+    // Skip large binary/blob fields
+    if (value instanceof ArrayBuffer || value instanceof Blob || value instanceof Uint8Array) {
+      summary[key] = '[binary data]';
+    } else if (typeof value === 'string' && value.length > 200) {
+      summary[key] = value.substring(0, 200) + '...';
+    } else if (Array.isArray(value) && value.length > 10) {
+      summary[key] = `[Array(${value.length})]`;
+    } else {
+      summary[key] = value;
+    }
+    count++;
+  }
+  return summary;
+}
+
+// Install hooks immediately
+installAuditHooks();
+
 // Database utility functions
 export async function clearAllData(): Promise<void> {
   await db.transaction('rw', db.tables, async () => {
