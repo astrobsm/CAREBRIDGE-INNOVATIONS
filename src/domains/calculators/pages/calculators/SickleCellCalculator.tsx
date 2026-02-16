@@ -1,9 +1,23 @@
 // Sickle Cell Crisis Calculator
-// Crisis Management, Hydroxyurea Dosing, and Exchange Transfusion Guidelines
+// Crisis Management, Hydroxyurea Dosing, Wound Healing, and Exchange Transfusion Guidelines
 
 import { useState } from 'react';
-import { Calculator, AlertTriangle, Droplets, Activity, Thermometer } from 'lucide-react';
+import { Calculator, AlertTriangle, Droplets, Activity, Thermometer, FileText, Scissors } from 'lucide-react';
+import { format } from 'date-fns';
+import jsPDF from 'jspdf';
 import { PatientCalculatorInfo, SickleCellResult } from '../../types';
+
+interface WoundHealingAssessment {
+  hasWound: boolean;
+  woundType: string;
+  woundLocation: string;
+  woundDuration: string;
+  woundSize: string;
+  currentTreatment: string;
+  zincLevel: string;
+  albuminLevel: string;
+  nutritionStatus: string;
+}
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -32,6 +46,19 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
   const [onHydroxyurea, setOnHydroxyurea] = useState(false);
   const [currentHUDose, setCurrentHUDose] = useState('');
   const [transfusionHistory, setTransfusionHistory] = useState<string>('none');
+  
+  // Wound healing assessment
+  const [woundAssessment, setWoundAssessment] = useState<WoundHealingAssessment>({
+    hasWound: false,
+    woundType: 'leg_ulcer',
+    woundLocation: 'medial_malleolus',
+    woundDuration: '',
+    woundSize: '',
+    currentTreatment: '',
+    zincLevel: '',
+    albuminLevel: '',
+    nutritionStatus: 'adequate',
+  });
   
   const [result, setResult] = useState<SickleCellResult | null>(null);
 
@@ -235,6 +262,72 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
       'Consider chronic transfusion program if indicated',
     ];
 
+    // Wound Healing Assessment & Recommendations (SCD-specific)
+    const woundHealingRecommendations: string[] = [];
+    if (woundAssessment.hasWound) {
+      woundHealingRecommendations.push('SICKLE CELL WOUND HEALING PROTOCOL');
+      woundHealingRecommendations.push('');
+      woundHealingRecommendations.push('-- Pathophysiology --');
+      woundHealingRecommendations.push('SCD wounds result from chronic microvascular occlusion, endothelial dysfunction, and tissue hypoxia.');
+      woundHealingRecommendations.push('Impaired nitric oxide bioavailability reduces blood flow to wound margins.');
+      woundHealingRecommendations.push('');
+      woundHealingRecommendations.push('-- Wound Care --');
+      woundHealingRecommendations.push('Moist wound healing: Hydrocolloid or foam dressings (change every 2-3 days)');
+      woundHealingRecommendations.push('Gentle debridement of necrotic tissue if present');
+      woundHealingRecommendations.push('Avoid compression bandaging if arterial insufficiency suspected');
+      woundHealingRecommendations.push('Consider topical zinc oxide preparations');
+      woundHealingRecommendations.push('Biofilm management: Apply antimicrobial dressings (silver or PHMB-based)');
+      
+      // Duration-specific
+      const durationWeeks = parseInt(woundAssessment.woundDuration) || 0;
+      if (durationWeeks > 12) {
+        woundHealingRecommendations.push('');
+        woundHealingRecommendations.push('-- Chronic Wound (>12 weeks) --');
+        woundHealingRecommendations.push('Consider biopsy to rule out malignant transformation (Marjolin ulcer)');
+        woundHealingRecommendations.push('Referral to wound care specialist / plastic surgeon');
+        woundHealingRecommendations.push('Consider skin grafting if wound bed prepared');
+        woundHealingRecommendations.push('Negative Pressure Wound Therapy (NPWT) if appropriate');
+      }
+
+      woundHealingRecommendations.push('');
+      woundHealingRecommendations.push('-- Nutrition for Wound Healing --');
+      woundHealingRecommendations.push('High-protein diet: 1.5-2g protein/kg/day');
+      woundHealingRecommendations.push('Zinc supplementation: 220mg zinc sulfate daily (contains 50mg elemental zinc)');
+      woundHealingRecommendations.push('Vitamin C: 500mg twice daily (collagen synthesis)');
+      woundHealingRecommendations.push('Vitamin A: 10,000 IU daily for 10 days (epithelial cell growth)');
+      woundHealingRecommendations.push('Iron supplementation if ferritin low and not on chronic transfusions');
+      woundHealingRecommendations.push('Folic acid: 5mg daily (cell proliferation)');
+      woundHealingRecommendations.push('Ensure adequate caloric intake: 30-35 kcal/kg/day');
+
+      // Albumin-specific
+      const albumin = parseFloat(woundAssessment.albuminLevel) || 0;
+      if (albumin > 0 && albumin < 3.5) {
+        woundHealingRecommendations.push('');
+        woundHealingRecommendations.push('-- Hypoalbuminemia Detected --');
+        woundHealingRecommendations.push(`Serum albumin: ${albumin} g/dL (low - impairs wound healing)`);
+        woundHealingRecommendations.push('Increase oral protein supplements (Ensure Plus, Complan)');
+        woundHealingRecommendations.push('Consider parenteral nutrition if oral intake inadequate');
+      }
+
+      woundHealingRecommendations.push('');
+      woundHealingRecommendations.push('-- SCD-Specific Wound Management --');
+      woundHealingRecommendations.push('Optimize hemoglobin: Target Hb 9-10 g/dL (chronic transfusion if needed)');
+      woundHealingRecommendations.push('Hydroxyurea: Increases HbF, improves microvascular flow to wound');
+      woundHealingRecommendations.push('Avoid tourniquets and tight dressings on affected limb');
+      woundHealingRecommendations.push('Leg elevation when resting to reduce edema');
+      woundHealingRecommendations.push('Ankle-brachial pressure index (ABPI) if lower limb wound');
+      woundHealingRecommendations.push('Pain management: Adequate analgesia improves wound healing');
+      woundHealingRecommendations.push('Smoking cessation counseling (further impairs microcirculation)');
+
+      woundHealingRecommendations.push('');
+      woundHealingRecommendations.push('-- Monitoring --');
+      woundHealingRecommendations.push('Weekly wound measurement (length x width x depth)');
+      woundHealingRecommendations.push('Wound photography for progress documentation');
+      woundHealingRecommendations.push('Wound swab if signs of infection (increasing pain, erythema, exudate)');
+      woundHealingRecommendations.push('Monthly: FBC, reticulocytes, CRP, albumin, zinc levels');
+      woundHealingRecommendations.push('Review at 4 weeks - reassess if <30% reduction in wound area');
+    }
+
     const calculationResult: SickleCellResult = {
       severity,
       severityFactors,
@@ -257,9 +350,203 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
       referralReasons: severity === 'Critical' ? ['Critical severity crisis', hasStroke ? 'Stroke' : '', hasACS ? 'Acute Chest Syndrome' : ''].filter(Boolean) : undefined,
       dischargeCriteria,
       longTermRecommendations,
+      woundHealingRecommendations,
     };
     
     setResult(calculationResult);
+  };
+
+  // B&W PDF Export: Georgia font, size 12, 0.75 line spacing, bold headers/footers
+  const generatePDF = (res: SickleCellResult) => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const contentWidth = pageWidth - margin * 2;
+    const fontSize = 12;
+    const lineHeight = fontSize * 0.3528 * 0.75; // pt to mm * 0.75 spacing
+    let y = margin;
+
+    // White background
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+    // All black text
+    doc.setTextColor(0, 0, 0);
+    doc.setDrawColor(0, 0, 0);
+
+    const addNewPage = () => {
+      doc.addPage();
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      doc.setTextColor(0, 0, 0);
+      doc.setDrawColor(0, 0, 0);
+      y = margin;
+      addFooter();
+    };
+
+    const checkPageBreak = (needed: number = lineHeight + 5) => {
+      if (y + needed > pageHeight - 25) {
+        addNewPage();
+      }
+    };
+
+    const addFooter = () => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('AstroHEALTH Innovations - Sickle Cell Crisis Management Report', margin, pageHeight - 10);
+      doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+      doc.setFontSize(fontSize);
+    };
+
+    const addHeader = (text: string) => {
+      checkPageBreak(lineHeight * 3);
+      y += lineHeight * 0.5;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(fontSize);
+      doc.text(text.toUpperCase(), margin, y);
+      y += lineHeight * 0.3;
+      doc.line(margin, y, margin + contentWidth, y);
+      y += lineHeight;
+      doc.setFont('helvetica', 'normal');
+    };
+
+    const addLine = (text: string, bold = false) => {
+      checkPageBreak();
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFontSize(fontSize);
+      // Word wrap
+      const lines = doc.splitTextToSize(text, contentWidth);
+      for (const line of lines) {
+        checkPageBreak();
+        doc.text(line, margin, y);
+        y += lineHeight;
+      }
+    };
+
+    const addBullet = (text: string) => {
+      checkPageBreak();
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(fontSize);
+      const lines = doc.splitTextToSize(text, contentWidth - 8);
+      doc.text('\u2022', margin + 2, y);
+      for (let i = 0; i < lines.length; i++) {
+        checkPageBreak();
+        doc.text(lines[i], margin + 8, y);
+        y += lineHeight;
+      }
+    };
+
+    // === TITLE ===
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('SICKLE CELL CRISIS MANAGEMENT REPORT', pageWidth / 2, y, { align: 'center' });
+    y += lineHeight * 1.5;
+
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Date: ${format(new Date(), 'dd MMMM yyyy')}`, margin, y);
+    y += lineHeight;
+
+    // Patient info
+    if (patientInfo.name) {
+      addLine(`Patient: ${patientInfo.name}`, true);
+      if (patientInfo.hospitalNumber) addLine(`Hospital Number: ${patientInfo.hospitalNumber}`);
+      if (patientInfo.age) addLine(`Age: ${patientInfo.age} years    Gender: ${patientInfo.gender}`);
+      if (patientInfo.hospital) addLine(`Hospital: ${patientInfo.hospital}`);
+      if (patientInfo.diagnosis) addLine(`Diagnosis: ${patientInfo.diagnosis}`);
+      y += lineHeight * 0.5;
+    }
+
+    // === SEVERITY ===
+    addHeader('Crisis Assessment');
+    addLine(`Severity: ${res.severity}`, true);
+    addLine(`Crisis Type: ${res.crisisType}`);
+    if (res.severityFactors?.length) {
+      for (const f of res.severityFactors) addBullet(f);
+    }
+
+    // === PAIN MANAGEMENT ===
+    addHeader('Pain Management');
+    for (const item of res.painManagement) addBullet(item);
+
+    // === FLUID MANAGEMENT ===
+    addHeader('Fluid Management');
+    if (res.hydrationRecommendation?.length) {
+      for (const item of res.hydrationRecommendation) addBullet(item);
+    }
+
+    // === ACS ===
+    if (res.acsManagement?.length) {
+      addHeader('Acute Chest Syndrome Protocol');
+      for (const item of res.acsManagement) addBullet(item);
+    }
+
+    // === TRANSFUSION ===
+    addHeader('Transfusion Guidelines');
+    if (res.exchangeTransfusion) {
+      addLine(`EMERGENCY EXCHANGE TRANSFUSION - Volume: ${res.exchangeVolume?.toLocaleString()} mL`, true);
+    }
+    if (res.transfusionGuidelines?.length) {
+      for (const item of res.transfusionGuidelines) addBullet(item.replace(/[🚨⚠️]/g, '').trim());
+    }
+
+    // === INFECTION ===
+    if (res.infectionManagement?.length) {
+      addHeader('Infection Management');
+      for (const item of res.infectionManagement) addBullet(item.replace(/[🌡️]/g, '').trim());
+    }
+
+    // === HYDROXYUREA ===
+    addHeader('Hydroxyurea Therapy');
+    if (res.hydroxyureaDosing?.length) {
+      for (const item of res.hydroxyureaDosing) addBullet(item.replace(/[⚡]/g, '').trim());
+    }
+
+    // === WOUND HEALING ===
+    if (res.woundHealingRecommendations?.length) {
+      addHeader('Wound Healing Protocol');
+      for (const item of res.woundHealingRecommendations) {
+        if (item === '' || item === 'SICKLE CELL WOUND HEALING PROTOCOL') continue;
+        if (item.startsWith('--')) {
+          y += lineHeight * 0.3;
+          addLine(item.replace(/--/g, '').trim(), true);
+        } else {
+          addBullet(item);
+        }
+      }
+    }
+
+    // === MONITORING ===
+    addHeader('Monitoring Parameters');
+    for (const item of res.monitoring) addBullet(item);
+
+    // === DISCHARGE ===
+    if (res.dischargeCriteria?.length) {
+      addHeader('Discharge Criteria');
+      for (const item of res.dischargeCriteria) addBullet(item);
+    }
+
+    // === LONG-TERM ===
+    if (res.longTermRecommendations?.length) {
+      addHeader('Long-Term Recommendations');
+      for (const item of res.longTermRecommendations) addBullet(item);
+    }
+
+    // Footer on all pages
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      addFooter();
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    }
+
+    const filename = patientInfo.name
+      ? `SCD_Crisis_${patientInfo.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`
+      : `SCD_Crisis_Report_${format(new Date(), 'yyyyMMdd')}.pdf`;
+    doc.save(filename);
   };
 
   return (
@@ -487,6 +774,104 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
         </div>
       </div>
 
+      {/* Wound Healing Assessment */}
+      <div className="bg-gray-50 rounded-lg p-4 mb-6">
+        <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <Scissors className="w-4 h-4" />
+          Wound Healing Assessment
+        </h4>
+        <label className="flex items-center gap-2 mb-3">
+          <input
+            type="checkbox"
+            checked={woundAssessment.hasWound}
+            onChange={(e) => setWoundAssessment({ ...woundAssessment, hasWound: e.target.checked })}
+            className="w-4 h-4 text-red-600 rounded"
+          />
+          <span className="text-sm font-medium">Patient has wound/ulcer</span>
+        </label>
+        {woundAssessment.hasWound && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Wound Type</label>
+              <select
+                value={woundAssessment.woundType}
+                onChange={(e) => setWoundAssessment({ ...woundAssessment, woundType: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                title="Wound type"
+              >
+                <option value="leg_ulcer">Leg Ulcer (SCD-related)</option>
+                <option value="surgical_wound">Surgical Wound</option>
+                <option value="pressure_sore">Pressure Sore</option>
+                <option value="traumatic">Traumatic Wound</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+              <select
+                value={woundAssessment.woundLocation}
+                onChange={(e) => setWoundAssessment({ ...woundAssessment, woundLocation: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                title="Wound location"
+              >
+                <option value="medial_malleolus">Medial Malleolus</option>
+                <option value="lateral_malleolus">Lateral Malleolus</option>
+                <option value="anterior_shin">Anterior Shin</option>
+                <option value="dorsum_foot">Dorsum of Foot</option>
+                <option value="other_lower_limb">Other Lower Limb</option>
+                <option value="upper_limb">Upper Limb</option>
+                <option value="trunk">Trunk</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Duration (weeks)</label>
+              <input
+                type="number"
+                value={woundAssessment.woundDuration}
+                onChange={(e) => setWoundAssessment({ ...woundAssessment, woundDuration: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                placeholder="e.g., 8"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Size (cm², approx)</label>
+              <input
+                type="number"
+                value={woundAssessment.woundSize}
+                onChange={(e) => setWoundAssessment({ ...woundAssessment, woundSize: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                placeholder="e.g., 12"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Serum Albumin (g/dL)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={woundAssessment.albuminLevel}
+                onChange={(e) => setWoundAssessment({ ...woundAssessment, albuminLevel: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                placeholder="e.g., 3.2"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Nutrition Status</label>
+              <select
+                value={woundAssessment.nutritionStatus}
+                onChange={(e) => setWoundAssessment({ ...woundAssessment, nutritionStatus: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                title="Nutrition status"
+              >
+                <option value="adequate">Adequate</option>
+                <option value="at_risk">At Risk of Malnutrition</option>
+                <option value="malnourished">Malnourished</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
       <button
         onClick={calculate}
         disabled={!weight || !age}
@@ -634,6 +1019,35 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
                   <li key={index}>{item}</li>
                 ))}
               </ul>
+            </div>
+
+            {/* Wound Healing */}
+            {(result.woundHealingRecommendations?.length ?? 0) > 0 && (
+              <div className="bg-amber-50 border-l-4 border-amber-700 p-4 mt-4 rounded-r-lg">
+                <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
+                  <Scissors className="w-5 h-5" />
+                  Wound Healing Protocol (SCD-Specific)
+                </h4>
+                <div className="space-y-1 text-sm text-amber-800">
+                  {result.woundHealingRecommendations?.map((item, index) => {
+                    if (item === '') return <div key={index} className="h-2" />;
+                    if (item.startsWith('--')) return <p key={index} className="font-bold mt-2">{item.replace(/--/g, '').trim()}</p>;
+                    if (item === 'SICKLE CELL WOUND HEALING PROTOCOL') return <p key={index} className="font-bold text-lg">{item}</p>;
+                    return <p key={index} className="ml-4">• {item}</p>;
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* PDF Export Button */}
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={() => generatePDF(result)}
+                className="flex items-center gap-2 px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white font-semibold rounded-lg transition-colors"
+              >
+                <FileText className="w-5 h-5" />
+                Download PDF Report
+              </button>
             </div>
           </div>
         </div>

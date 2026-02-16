@@ -62,6 +62,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { PatientSelector } from '../../../components/patient';
@@ -120,8 +121,9 @@ export default function MDTPage() {
   const [meetingObjectives, setMeetingObjectives] = useState<string>('');
   const [showPatientSummary, setShowPatientSummary] = useState(false);
 
-  // Mock data for meetings and plans (would be from database in production)
-  const [meetings, setMeetings] = useState<MDTMeeting[]>([]);
+  // Load meetings from database (persisted)
+  const dbMeetings = useLiveQuery(() => db.mdtMeetings.orderBy('createdAt').reverse().toArray(), []);
+  const meetings: MDTMeeting[] = (dbMeetings || []) as MDTMeeting[];
   const [specialtyPlans, setSpecialtyPlans] = useState<SpecialtyTreatmentPlan[]>([]);
   const [harmonizedPlans, setHarmonizedPlans] = useState<HarmonizedCarePlan[]>([]);
 
@@ -732,7 +734,18 @@ export default function MDTPage() {
     (newMeeting as any).patientSummary = summaryText;
     (newMeeting as any).invitedSpecialists = selectedSpecialists;
 
-    setMeetings(prev => [...prev, newMeeting]);
+    // Persist meeting to IndexedDB and sync to cloud
+    try {
+      await db.mdtMeetings.put({
+        ...newMeeting,
+        hospitalId: selectedPatient?.registeredHospitalId || '',
+        meetingType: 'mdt',
+        updatedAt: new Date(),
+      } as any);
+      await syncRecord('mdtMeetings', newMeeting.id);
+    } catch (err) {
+      console.error('Failed to persist MDT meeting:', err);
+    }
     
     // Send invitations to selected specialists with push notifications and voice announcements
     const hospitalName = patientHospital?.name || 'Hospital';

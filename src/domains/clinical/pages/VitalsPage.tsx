@@ -20,6 +20,8 @@ import {
   TrendingUp,
   BarChart3,
   RefreshCw,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import {
   LineChart,
@@ -55,6 +57,8 @@ const vitalsSchema = z.object({
   painScore: z.number().min(0).max(10).optional(),
   bloodGlucose: z.number().min(0).max(50).optional(),
   notes: z.string().optional(),
+  vitalsTakenDate: z.string().min(1, 'Date is required'),
+  vitalsTakenTime: z.string().min(1, 'Time is required'),
 });
 
 type VitalsFormData = z.infer<typeof vitalsSchema>;
@@ -158,6 +162,11 @@ export default function VitalsPage() {
       }))
     : [];
 
+  // Default to current date and time
+  const now = new Date();
+  const defaultDate = format(now, 'yyyy-MM-dd');
+  const defaultTime = format(now, 'HH:mm');
+
   const {
     register,
     handleSubmit,
@@ -172,6 +181,8 @@ export default function VitalsPage() {
       bloodPressureSystolic: 120,
       bloodPressureDiastolic: 80,
       oxygenSaturation: 98,
+      vitalsTakenDate: defaultDate,
+      vitalsTakenTime: defaultTime,
     },
   });
 
@@ -232,6 +243,11 @@ export default function VitalsPage() {
       const bmi = calculateBMI();
       const vitalsId = uuidv4();
 
+      // Build the recordedAt from user-specified date and time
+      const recordedAtDate = new Date(`${data.vitalsTakenDate}T${data.vitalsTakenTime}:00`);
+      // Fallback to now if the constructed date is invalid
+      const validRecordedAt = isNaN(recordedAtDate.getTime()) ? new Date() : recordedAtDate;
+
       const vitals: VitalSigns = {
         id: vitalsId,
         patientId,
@@ -253,7 +269,7 @@ export default function VitalsPage() {
           : undefined,
         notes: data.notes,
         recordedBy: user.id,
-        recordedAt: new Date(),
+        recordedAt: validRecordedAt,
       };
 
       await db.vitalSigns.add(vitals);
@@ -565,6 +581,54 @@ export default function VitalsPage() {
         {/* Vitals Form */}
         <div className="lg:col-span-2">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
+            {/* Date & Time of Vitals */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="card"
+            >
+              <div className="card-header flex items-center gap-3">
+                <Clock className="w-5 h-5 text-indigo-500" />
+                <h2 className="font-semibold text-gray-900">Date & Time Vitals Were Taken</h2>
+              </div>
+              <div className="card-body grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label flex items-center gap-2">
+                    <Calendar size={16} className="text-indigo-500" />
+                    Date *
+                  </label>
+                  <input
+                    type="date"
+                    {...register('vitalsTakenDate')}
+                    className={`input ${errors.vitalsTakenDate ? 'input-error' : ''}`}
+                    max={format(new Date(), 'yyyy-MM-dd')}
+                  />
+                  {errors.vitalsTakenDate && (
+                    <p className="text-sm text-red-500 mt-1">{errors.vitalsTakenDate.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="label flex items-center gap-2">
+                    <Clock size={16} className="text-indigo-500" />
+                    Time *
+                  </label>
+                  <input
+                    type="time"
+                    {...register('vitalsTakenTime')}
+                    className={`input ${errors.vitalsTakenTime ? 'input-error' : ''}`}
+                  />
+                  {errors.vitalsTakenTime && (
+                    <p className="text-sm text-red-500 mt-1">{errors.vitalsTakenTime.message}</p>
+                  )}
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-xs text-gray-500">
+                    Specify the exact date and time when these vital signs were measured. Defaults to current date/time.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+
             {/* Core Vitals */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}

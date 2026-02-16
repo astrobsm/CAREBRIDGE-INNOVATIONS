@@ -31,6 +31,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { VoiceDictation } from '../../../components/common';
 import type { WardRound } from '../../../types';
 import ClinicSchedulingTab from '../components/ClinicSchedulingTab';
+import StartWardRoundTab from '../components/StartWardRoundTab';
 
 // Schemas
 const wardRoundSchema = z.object({
@@ -66,7 +67,7 @@ const roundTypes = [
 
 export default function WardRoundsPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'rounds' | 'clinic_scheduling'>('rounds');
+  const [activeTab, setActiveTab] = useState<'rounds' | 'start_round' | 'clinic_scheduling'>('rounds');
   const [showRoundModal, setShowRoundModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedHospital, setSelectedHospital] = useState<string>('all');
@@ -265,6 +266,19 @@ export default function WardRoundsPage() {
           </div>
         </button>
         <button
+          onClick={() => setActiveTab('start_round')}
+          className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === 'start_round'
+              ? 'border-emerald-500 text-emerald-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Play size={18} />
+            Start Ward Round
+          </div>
+        </button>
+        <button
           onClick={() => setActiveTab('clinic_scheduling')}
           className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
             activeTab === 'clinic_scheduling'
@@ -399,6 +413,14 @@ export default function WardRoundsPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Start Ward Round Tab */}
+      {activeTab === 'start_round' && (
+        <StartWardRoundTab
+          searchQuery={searchQuery}
+          selectedHospital={selectedHospital}
+        />
       )}
 
       {/* Clinic Scheduling Tab */}

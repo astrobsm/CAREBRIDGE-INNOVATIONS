@@ -1,7 +1,7 @@
 // Clinical Calculators Hub Page
 // WHO-Aligned Critical Care Management Tools
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calculator,
@@ -22,7 +22,12 @@ import {
   User,
   X,
   ChevronRight,
+  Search,
+  UserCheck,
 } from 'lucide-react';
+import { differenceInYears } from 'date-fns';
+import { db } from '../../../database';
+import type { Patient } from '../../../types';
 import { HospitalSelector } from '../../../components/hospital';
 import { PatientCalculatorInfo, COMMON_COMORBIDITIES } from '../types';
 import SodiumCalculator from './calculators/SodiumCalculator';
@@ -119,6 +124,86 @@ export default function ClinicalCalculatorsPage() {
     comorbidities: [],
   });
 
+  // Patient search/autofill state
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const [patientSearchResults, setPatientSearchResults] = useState<Patient[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const searchDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Debounced patient search
+  const searchPatients = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setPatientSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+    try {
+      const lowerQuery = query.toLowerCase();
+      const results = await db.patients
+        .filter((p: Patient) => {
+          const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
+          const hospitalNum = (p.hospitalNumber || '').toLowerCase();
+          return fullName.includes(lowerQuery) || hospitalNum.includes(lowerQuery);
+        })
+        .limit(10)
+        .toArray();
+      setPatientSearchResults(results);
+      setShowSearchResults(results.length > 0);
+    } catch {
+      setPatientSearchResults([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchPatients(patientSearchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [patientSearchQuery, searchPatients]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
+        setShowSearchResults(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Autofill patient info from DB patient
+  const autofillFromPatient = (patient: Patient) => {
+    const age = patient.dateOfBirth
+      ? differenceInYears(new Date(), new Date(patient.dateOfBirth))
+      : 0;
+    const isElderly = age >= 65;
+    let gender: PatientCalculatorInfo['gender'] = patient.gender === 'female' ? 'female' : 'male';
+    if (isElderly) {
+      gender = patient.gender === 'female' ? 'elderly-female' : 'elderly-male';
+    }
+
+    // Map chronic conditions to comorbidities
+    const matchedComorbidities = (patient.chronicConditions || []).filter(c =>
+      COMMON_COMORBIDITIES.some(cc => cc.toLowerCase() === c.toLowerCase())
+    );
+
+    setPatientInfo({
+      name: `${patient.firstName} ${patient.lastName}`.trim(),
+      age: age > 0 ? String(age) : '',
+      gender,
+      weight: '',
+      height: '',
+      hospital: patient.hospitalName || '',
+      hospitalNumber: patient.hospitalNumber || '',
+      diagnosis: '',
+      comorbidities: matchedComorbidities,
+    });
+    setSelectedPatientId(patient.id);
+    setPatientSearchQuery('');
+    setShowSearchResults(false);
+  };
   const toggleComorbidity = (comorbidity: string) => {
     setPatientInfo(prev => ({
       ...prev,
@@ -271,6 +356,61 @@ export default function ClinicalCalculatorsPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                {/* Patient Search / Autofill */}
+                <div className="relative" ref={searchDropdownRef}>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <Search className="w-4 h-4 inline mr-1" />
+                    Search Patient from Database
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={patientSearchQuery}
+                      onChange={(e) => setPatientSearchQuery(e.target.value)}
+                      onFocus={() => patientSearchResults.length > 0 && setShowSearchResults(true)}
+                      className="w-full px-4 py-2 pl-10 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-blue-50"
+                      placeholder="Type patient name or hospital number to search..."
+                    />
+                    <Search className="w-4 h-4 text-blue-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+                  {selectedPatientId && (
+                    <div className="mt-1 flex items-center gap-1 text-xs text-green-600">
+                      <UserCheck className="w-3 h-3" />
+                      Patient loaded from database
+                    </div>
+                  )}
+                  {showSearchResults && patientSearchResults.length > 0 && (
+                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {patientSearchResults.map((p) => {
+                        const age = p.dateOfBirth
+                          ? differenceInYears(new Date(), new Date(p.dateOfBirth))
+                          : null;
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => autofillFromPatient(p)}
+                            className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                          >
+                            <div className="font-medium text-gray-900">
+                              {p.firstName} {p.lastName}
+                            </div>
+                            <div className="text-xs text-gray-500 flex gap-3 mt-0.5">
+                              {p.hospitalNumber && <span>#{p.hospitalNumber}</span>}
+                              {age !== null && <span>{age}yrs</span>}
+                              <span className="capitalize">{p.gender}</span>
+                              {p.hospitalName && <span>{p.hospitalName}</span>}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-gray-200 pt-3">
+                  <p className="text-xs text-gray-500 mb-3">Or enter patient details manually:</p>
+                </div>
+
                 <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">

@@ -598,6 +598,11 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
     
     if (y > pageHeight - 65) {
       doc.addPage('landscape');
+      // CRITICAL: Ensure white background on new page
+      doc.setFillColor(...PDF_COLORS.white);
+      doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F');
+      doc.setDrawColor(0, 0, 0);
+      doc.setTextColor(0, 0, 0);
       y = 20;
     }
   });

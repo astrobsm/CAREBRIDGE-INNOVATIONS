@@ -7,6 +7,16 @@ import toast from 'react-hot-toast';
 import { PatientCalculatorInfo } from '../../types';
 import { downloadMealPlanPDF, shareMealPlanOnWhatsApp, type MealPlanPDFOptions } from '../../../../utils/mealPlanPdfGenerator';
 
+interface DayMealPlan {
+  day: string;
+  breakfast: string;
+  midMorning: string;
+  lunch: string;
+  afternoon: string;
+  dinner: string;
+  bedtime: string;
+}
+
 interface WoundHealingResult {
   calorieNeeds: number;
   proteinNeeds: number;
@@ -17,6 +27,7 @@ interface WoundHealingResult {
   woundGrade: string;
   healingStage: string;
   estimatedHealingTime: string;
+  weeklyMealPlan: DayMealPlan[];
   mealPlan: {
     breakfast: string[];
     midMorning: string[];
@@ -173,6 +184,73 @@ export default function WoundMealPlanCalculator({ patientInfo }: Props) {
       ],
     };
 
+    // 7-Day Structured Meal Plan
+    const weeklyMealPlan: DayMealPlan[] = [
+      {
+        day: 'Monday',
+        breakfast: 'Akara (bean cakes) - 4 pieces with pap enriched with milk and sugar',
+        midMorning: 'Orange and a handful of groundnuts',
+        lunch: 'Rice with egusi soup, stockfish, and assorted meat. Side of ugu (fluted pumpkin leaves)',
+        afternoon: 'Yogurt with sliced banana',
+        dinner: 'Wheat fufu with oha soup (with chicken, stockfish, and crayfish)',
+        bedtime: 'Warm milk with honey',
+      },
+      {
+        day: 'Tuesday',
+        breakfast: 'Boiled yam with egg sauce (2 eggs, tomato, onion, peppers)',
+        midMorning: 'Pawpaw (papaya) slices and cashew nuts',
+        lunch: 'Jollof rice with grilled chicken, fried plantain, and mixed salad',
+        afternoon: 'Roasted groundnuts with coconut',
+        dinner: 'Amala with ewedu and gbegiri soup with goat meat and ponmo',
+        bedtime: 'Light pap (ogi) with milk',
+      },
+      {
+        day: 'Wednesday',
+        breakfast: 'Moi-moi (2 wraps) with custard and milk',
+        midMorning: 'Guava and tiger nuts (ofio)',
+        lunch: 'Beans porridge with ripe plantain, palm oil, and mackerel fish',
+        afternoon: 'Suya (grilled beef) with vegetables and onion',
+        dinner: 'Eba with ogbono soup (with snails, stockfish, and ugu leaves)',
+        bedtime: 'Warm milk with malt extract',
+      },
+      {
+        day: 'Thursday',
+        breakfast: 'Oatmeal with groundnuts, banana, and honey. Side of boiled egg',
+        midMorning: 'Mango (seasonal) or watermelon slices',
+        lunch: 'Yam porridge with vegetables, crayfish, and smoked fish',
+        afternoon: 'Milk and digestive biscuits',
+        dinner: 'Pepper soup with goat meat, yam chunks, and scent leaves',
+        bedtime: 'Warm pap with soy milk',
+      },
+      {
+        day: 'Friday',
+        breakfast: 'Beans and fried plantain (dodo) with palm oil stew',
+        midMorning: 'Pineapple slices and roasted cashew nuts',
+        lunch: 'Fried rice with grilled fish (tilapia or croaker) and coleslaw',
+        afternoon: 'Fresh fruit salad (pawpaw, orange, banana, watermelon)',
+        dinner: 'Pounded yam with vegetable soup (ugu, water leaf) with assorted meat',
+        bedtime: 'Warm milk with honey',
+      },
+      {
+        day: 'Saturday',
+        breakfast: 'Bread with sardine stew (tomato, pepper, onion) and boiled egg',
+        midMorning: 'Tangerine and a handful of almonds',
+        lunch: 'Tuwo shinkafa with miyan kuka (baobab soup) with beef and fish',
+        afternoon: 'Kunu (millet drink) with groundnuts',
+        dinner: 'Stir-fried noodles with chicken, vegetables, and eggs',
+        bedtime: 'Light pap with milk',
+      },
+      {
+        day: 'Sunday',
+        breakfast: 'Pancakes with groundnut butter and banana. Side of scrambled eggs',
+        midMorning: 'Coconut meat and orange juice',
+        lunch: 'Rice and stew with fried chicken, moi-moi, and salad',
+        afternoon: 'Zobo drink with chin-chin and groundnuts',
+        dinner: 'Semo with edikaikong soup (with periwinkle, stockfish, and crayfish)',
+        bedtime: 'Warm milk with honey',
+      },
+    ];
+
     // Protein-rich Nigerian foods
     const proteinRichFoods = [
       '🥚 Eggs - Scrambled, boiled, or in dishes (7g protein each)',
@@ -281,6 +359,7 @@ export default function WoundMealPlanCalculator({ patientInfo }: Props) {
       woundGrade,
       healingStage: healingStage.charAt(0).toUpperCase() + healingStage.slice(1),
       estimatedHealingTime: healingTime,
+      weeklyMealPlan,
       mealPlan,
       proteinRichFoods,
       vitaminCFoods,
@@ -509,6 +588,7 @@ export default function WoundMealPlanCalculator({ patientInfo }: Props) {
                     vitaminCTarget: result.vitaminCNeeds,
                     zincTarget: result.zincNeeds,
                     mealPlan: result.mealPlan,
+                    weeklyMealPlan: result.weeklyMealPlan,
                     proteinFoods: result.proteinRichFoods,
                     vitaminCFoods: result.vitaminCFoods,
                     zincFoods: result.zincFoods,
@@ -546,6 +626,7 @@ export default function WoundMealPlanCalculator({ patientInfo }: Props) {
                     vitaminCTarget: result.vitaminCNeeds,
                     zincTarget: result.zincNeeds,
                     mealPlan: result.mealPlan,
+                    weeklyMealPlan: result.weeklyMealPlan,
                     proteinFoods: result.proteinRichFoods,
                     vitaminCFoods: result.vitaminCFoods,
                     zincFoods: result.zincFoods,
@@ -615,49 +696,28 @@ export default function WoundMealPlanCalculator({ patientInfo }: Props) {
               </div>
             </div>
 
-            {/* Daily Meal Plan */}
+            {/* 7-Day Meal Plan */}
             <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-green-800 mb-3 flex items-center gap-2">
                 <Apple className="w-5 h-5" />
-                Daily Nigerian Meal Plan for Wound Healing
+                7-Day Nigerian Wound Healing Meal Plan
               </h4>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="bg-white p-3 rounded-lg">
-                  <h5 className="font-semibold text-green-700 mb-2">🌅 Breakfast</h5>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {result.mealPlan.breakfast.map((item, i) => <li key={i}>• {item}</li>)}
-                  </ul>
-                </div>
-                <div className="bg-white p-3 rounded-lg">
-                  <h5 className="font-semibold text-green-700 mb-2">🍎 Mid-Morning</h5>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {result.mealPlan.midMorning.map((item, i) => <li key={i}>• {item}</li>)}
-                  </ul>
-                </div>
-                <div className="bg-white p-3 rounded-lg">
-                  <h5 className="font-semibold text-green-700 mb-2">☀️ Lunch</h5>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {result.mealPlan.lunch.map((item, i) => <li key={i}>• {item}</li>)}
-                  </ul>
-                </div>
-                <div className="bg-white p-3 rounded-lg">
-                  <h5 className="font-semibold text-green-700 mb-2">🍇 Afternoon</h5>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {result.mealPlan.afternoon.map((item, i) => <li key={i}>• {item}</li>)}
-                  </ul>
-                </div>
-                <div className="bg-white p-3 rounded-lg">
-                  <h5 className="font-semibold text-green-700 mb-2">🌙 Dinner</h5>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {result.mealPlan.dinner.map((item, i) => <li key={i}>• {item}</li>)}
-                  </ul>
-                </div>
-                <div className="bg-white p-3 rounded-lg">
-                  <h5 className="font-semibold text-green-700 mb-2">😴 Bedtime</h5>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {result.mealPlan.bedtime.map((item, i) => <li key={i}>• {item}</li>)}
-                  </ul>
-                </div>
+              <div className="space-y-3">
+                {result.weeklyMealPlan.map((day, idx) => (
+                  <div key={idx} className="bg-white rounded-lg p-3 border border-green-200">
+                    <h5 className="font-bold text-green-700 mb-2 text-sm border-b border-green-100 pb-1">
+                      Day {idx + 1} - {day.day}
+                    </h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs text-gray-700">
+                      <div><span className="font-semibold text-green-600">Breakfast:</span> {day.breakfast}</div>
+                      <div><span className="font-semibold text-green-600">Mid-Morning:</span> {day.midMorning}</div>
+                      <div><span className="font-semibold text-green-600">Lunch:</span> {day.lunch}</div>
+                      <div><span className="font-semibold text-green-600">Afternoon:</span> {day.afternoon}</div>
+                      <div><span className="font-semibold text-green-600">Dinner:</span> {day.dinner}</div>
+                      <div><span className="font-semibold text-green-600">Bedtime:</span> {day.bedtime}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 

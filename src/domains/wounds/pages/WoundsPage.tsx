@@ -54,6 +54,7 @@ import { PatientSelector } from '../../../components/patient';
 import { syncRecord, fullSync, testSupabaseConnection } from '../../../services/cloudSyncService';
 import { usePatientMap } from '../../../services/patientHooks';
 import AIWoundPlanimetry from '../components/AIWoundPlanimetry';
+import WoundSurfaceAreaChart from '../components/WoundSurfaceAreaChart';
 
 const woundSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
@@ -974,6 +975,13 @@ export default function WoundsPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Wound Surface Area Chart */}
+                    <WoundSurfaceAreaChart
+                      patientId={selectedWound.patientId}
+                      woundLocation={selectedWound.location}
+                      currentWoundId={selectedWound.id}
+                    />
 
                     {/* Clinical Status */}
                     <div className="bg-gray-50 rounded-lg p-4">

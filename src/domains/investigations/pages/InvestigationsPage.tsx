@@ -1372,10 +1372,10 @@ export default function InvestigationsPage() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[95vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-6 border-b flex items-center justify-between">
+              <div className="p-6 border-b flex items-center justify-between flex-shrink-0">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Upload Results</h2>
                   <p className="text-sm text-gray-500">{selectedInvestigation.typeName} - {selectedInvestigation.patientName}</p>
@@ -1385,7 +1385,7 @@ export default function InvestigationsPage() {
                 </button>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="p-6 space-y-6 overflow-y-auto flex-1">
                 {/* OCR Scanner Toggle */}
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium text-gray-900">Enter Results</h3>
@@ -1516,7 +1516,9 @@ export default function InvestigationsPage() {
                   />
                 </div>
 
-                <div className="flex gap-3 pt-4">
+              </div>
+
+              <div className="flex gap-3 p-6 border-t bg-gray-50 flex-shrink-0">
                   <button
                     type="button"
                     onClick={() => setShowResultModal(false)}
@@ -1532,7 +1534,6 @@ export default function InvestigationsPage() {
                     Save Results
                   </button>
                 </div>
-              </div>
             </motion.div>
           </motion.div>
         )}

@@ -1171,10 +1171,10 @@ export default function LaboratoryPage() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
+              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[95vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-6 border-b bg-purple-50">
+              <div className="flex items-center justify-between p-6 border-b bg-purple-50 flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-purple-100 rounded-lg">
                     <Upload className="w-5 h-5 text-purple-600" />
@@ -1186,7 +1186,7 @@ export default function LaboratoryPage() {
                 </button>
               </div>
 
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <div className="p-6 overflow-y-auto flex-1">
                 {/* Patient Info */}
                 {(() => {
                   const patient = patientMap.get(selectedRequest.patientId);
@@ -1322,7 +1322,7 @@ export default function LaboratoryPage() {
                 </div>
               </div>
 
-              <div className="flex justify-between items-center gap-4 p-6 border-t bg-gray-50">
+              <div className="flex justify-between items-center gap-4 p-6 border-t bg-gray-50 flex-shrink-0">
                 <p className="text-sm text-gray-500">
                   {Object.values(testResults).filter(r => r.result).length} of {selectedRequest.tests.length} results entered
                 </p>

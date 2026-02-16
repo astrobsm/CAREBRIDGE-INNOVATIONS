@@ -44,6 +44,17 @@ export interface MealPlanPDFOptions {
     bedtime?: string[];
   };
   
+  // 7-day meal plan
+  weeklyMealPlan?: {
+    day: string;
+    breakfast: string;
+    midMorning: string;
+    lunch: string;
+    afternoon: string;
+    dinner: string;
+    bedtime: string;
+  }[];
+  
   // Additional info
   proteinFoods?: string[];
   vitaminCFoods?: string[];
@@ -203,9 +214,61 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
     y += 22;
   }
 
-  // Daily Meal Plan
-  y = checkNewPage(doc, y, 80);
-  y = addSectionTitle(doc, y, 'Daily Meal Plan (African Foods)', 'success');
+  // 7-Day Meal Plan (if available)
+  if (options.weeklyMealPlan && options.weeklyMealPlan.length > 0) {
+    y = checkNewPage(doc, y, 40);
+    y = addSectionTitle(doc, y, '7-Day Meal Plan (African Foods)', 'success');
+    
+    const meals = ['Breakfast', 'Mid-Morning', 'Lunch', 'Afternoon', 'Dinner', 'Bedtime'] as const;
+    const mealKeys: Record<typeof meals[number], keyof typeof options.weeklyMealPlan[0]> = {
+      'Breakfast': 'breakfast',
+      'Mid-Morning': 'midMorning',
+      'Lunch': 'lunch',
+      'Afternoon': 'afternoon',
+      'Dinner': 'dinner',
+      'Bedtime': 'bedtime',
+    };
+    
+    for (const dayPlan of options.weeklyMealPlan) {
+      y = checkNewPage(doc, y, 45);
+      
+      // Day header
+      doc.setFillColor(220, 252, 231); // green-100
+      doc.roundedRect(15, y, pageWidth - 30, 7, 1, 1, 'F');
+      doc.setTextColor(...PDF_COLORS.success);
+      doc.setFontSize(10);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text(dayPlan.day, 18, y + 5);
+      y += 10;
+      
+      doc.setTextColor(...PDF_COLORS.dark);
+      doc.setFontSize(8);
+      
+      for (const meal of meals) {
+        y = checkNewPage(doc, y, 8);
+        const key = mealKeys[meal];
+        const text = dayPlan[key] as string;
+        doc.setFont(PDF_FONTS.primary, 'bold');
+        doc.text(`${meal}: `, 18, y);
+        doc.setFont(PDF_FONTS.primary, 'normal');
+        const labelWidth = doc.getTextWidth(`${meal}: `);
+        const lines = doc.splitTextToSize(text, pageWidth - 38 - labelWidth);
+        doc.text(lines[0], 18 + labelWidth, y);
+        if (lines.length > 1) {
+          for (let li = 1; li < lines.length; li++) {
+            y += 4;
+            y = checkNewPage(doc, y, 6);
+            doc.text(lines[li], 18 + labelWidth, y);
+          }
+        }
+        y += 5;
+      }
+      y += 3;
+    }
+  } else {
+    // Fallback: Daily Meal Plan (single day)
+    y = checkNewPage(doc, y, 80);
+    y = addSectionTitle(doc, y, 'Daily Meal Plan (African Foods)', 'success');
   
   const mealSections = [
     { name: '🌅 Breakfast', items: options.mealPlan.breakfast },
@@ -272,6 +335,7 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
   });
   
   y = Math.max(colY, y) + 10;
+  } // close else for fallback daily plan
 
   // Protein-Rich Foods
   if (options.proteinFoods && options.proteinFoods.length > 0) {

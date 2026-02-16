@@ -242,6 +242,7 @@ export interface SickleCellResult {
   infectionManagement?: string[];
   dischargeCriteria?: string[];
   longTermRecommendations?: string[];
+  woundHealingRecommendations?: string[];
 }
 
 // BNF Drug Calculator Types

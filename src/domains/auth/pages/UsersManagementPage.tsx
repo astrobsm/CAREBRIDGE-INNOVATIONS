@@ -17,6 +17,11 @@ import {
   Save,
   AlertCircle,
   CheckCircle,
+  Key,
+  RefreshCw,
+  Copy,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -301,6 +306,8 @@ export default function UsersManagementPage() {
   const [showAddUser, setShowAddUser] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [credentialsUser, setCredentialsUser] = useState<User | null>(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
 
   // Fetch users and hospitals
   const users = useLiveQuery(() => db.users.toArray(), []);
@@ -353,6 +360,40 @@ export default function UsersManagementPage() {
       toast.success('User deactivated successfully');
     } catch (error) {
       toast.error('Failed to deactivate user');
+    }
+  };
+
+  // Generate a random temporary password
+  const generateTempPassword = (): string => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    const specials = '!@#$%&*';
+    let password = '';
+    for (let i = 0; i < 8; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    password += specials.charAt(Math.floor(Math.random() * specials.length));
+    // Shuffle
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
+
+  // Handle password reset
+  const handleResetPassword = async (userId: string) => {
+    try {
+      const tempPassword = generateTempPassword();
+      await db.users.update(userId, {
+        password: tempPassword,
+        mustChangePassword: true,
+        updatedAt: new Date().toISOString(),
+      });
+      // Sync to cloud
+      const updatedUser = await db.users.get(userId);
+      if (updatedUser) {
+        syncRecord('users', updatedUser as unknown as Record<string, unknown>);
+      }
+      return tempPassword;
+    } catch (error) {
+      toast.error('Failed to reset password');
+      return null;
     }
   };
 
@@ -606,7 +647,7 @@ export default function UsersManagementPage() {
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border z-10"
+                        className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border z-10"
                       >
                         <button
                           onClick={() => {
@@ -617,6 +658,26 @@ export default function UsersManagementPage() {
                         >
                           <Edit2 className="w-4 h-4" />
                           Edit User
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCredentialsUser(user);
+                            setActiveMenu(null);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-blue-600"
+                        >
+                          <Key className="w-4 h-4" />
+                          Get Login Details
+                        </button>
+                        <button
+                          onClick={() => {
+                            setResetPasswordUser(user);
+                            setActiveMenu(null);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-amber-600"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          Reset Password
                         </button>
                         <button
                           onClick={() => {
@@ -674,6 +735,27 @@ export default function UsersManagementPage() {
             hospitals={hospitals || []}
             onClose={() => setEditingUser(null)}
             onSave={(updates) => handleUpdateUser(editingUser.id, updates)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Get Login Details Modal */}
+      <AnimatePresence>
+        {credentialsUser && (
+          <UserCredentialsModal
+            user={credentialsUser}
+            onClose={() => setCredentialsUser(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Reset Password Modal */}
+      <AnimatePresence>
+        {resetPasswordUser && (
+          <ResetPasswordModal
+            user={resetPasswordUser}
+            onClose={() => setResetPasswordUser(null)}
+            onReset={handleResetPassword}
           />
         )}
       </AnimatePresence>
@@ -947,6 +1029,334 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
             </button>
           </div>
         </form>
+      </motion.div>
+    </div>
+  );
+}
+
+// User Credentials Modal - Shows current login details
+function UserCredentialsModal({ user, onClose }: { user: User; onClose: () => void }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(label);
+      toast.success(`${label} copied to clipboard`);
+      setTimeout(() => setCopied(null), 2000);
+    }).catch(() => {
+      toast.error('Failed to copy');
+    });
+  };
+
+  const copyAllDetails = () => {
+    const details = `Login Details for ${user.firstName} ${user.lastName}\n` +
+      `Email: ${user.email}\n` +
+      `Password: ${user.password || '(not available)'}\n` +
+      `Role: ${user.role}\n` +
+      `\nPlease change your password after first login.`;
+    copyToClipboard(details, 'All details');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 100 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 100 }}
+        className="bg-white w-full sm:max-w-md sm:rounded-xl rounded-t-2xl"
+      >
+        <div className="border-b px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Key className="w-5 h-5 text-blue-600" />
+            <h3 className="text-lg font-semibold">Login Details</h3>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* User identity */}
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-semibold text-sm">
+                {(user.firstName || '?')[0]}{(user.lastName || '?')[0]}
+              </span>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900">{user.firstName} {user.lastName}</p>
+              <p className="text-sm text-gray-500">{user.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
+            </div>
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Email (Username)</label>
+            <div className="mt-1 flex items-center gap-2">
+              <div className="flex-1 px-3 py-2 bg-gray-50 border rounded-lg font-mono text-sm text-gray-900">
+                {user.email}
+              </div>
+              <button
+                onClick={() => copyToClipboard(user.email, 'Email')}
+                className={`p-2 rounded-lg transition-colors ${copied === 'Email' ? 'bg-green-100 text-green-600' : 'hover:bg-gray-100 text-gray-500'}`}
+                title="Copy email"
+              >
+                {copied === 'Email' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Password */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Password</label>
+            <div className="mt-1 flex items-center gap-2">
+              <div className="flex-1 px-3 py-2 bg-gray-50 border rounded-lg font-mono text-sm text-gray-900">
+                {user.password ? (showPassword ? user.password : '••••••••••') : '(not available)'}
+              </div>
+              {user.password && (
+                <>
+                  <button
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => copyToClipboard(user.password!, 'Password')}
+                    className={`p-2 rounded-lg transition-colors ${copied === 'Password' ? 'bg-green-100 text-green-600' : 'hover:bg-gray-100 text-gray-500'}`}
+                    title="Copy password"
+                  >
+                    {copied === 'Password' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Must change password notice */}
+          {user.mustChangePassword && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-700">
+                This user will be required to change their password on next login.
+              </p>
+            </div>
+          )}
+
+          {/* Copy all button */}
+          <button
+            onClick={copyAllDetails}
+            className={`w-full py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors ${
+              copied === 'All details'
+                ? 'bg-green-100 text-green-700 border border-green-200'
+                : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+            }`}
+          >
+            {copied === 'All details' ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                Copied All Details!
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" />
+                Copy All Login Details
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="border-t p-4">
+          <button onClick={onClose} className="btn btn-secondary w-full">
+            Close
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// Reset Password Modal
+function ResetPasswordModal({
+  user,
+  onClose,
+  onReset,
+}: {
+  user: User;
+  onClose: () => void;
+  onReset: (userId: string) => Promise<string | null>;
+}) {
+  const [isResetting, setIsResetting] = useState(false);
+  const [newPassword, setNewPassword] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const handleReset = async () => {
+    if (!window.confirm(`Are you sure you want to reset the password for ${user.firstName} ${user.lastName}? They will need to use the new temporary password to log in.`)) {
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const tempPwd = await onReset(user.id);
+      if (tempPwd) {
+        setNewPassword(tempPwd);
+        toast.success('Password reset successfully!');
+      }
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const copyCredentials = () => {
+    const details = `Password Reset for ${user.firstName} ${user.lastName}\n` +
+      `Email: ${user.email}\n` +
+      `New Temporary Password: ${newPassword}\n` +
+      `\nPlease change your password after logging in.`;
+    navigator.clipboard.writeText(details).then(() => {
+      setCopied(true);
+      toast.success('Credentials copied to clipboard');
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      toast.error('Failed to copy');
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 100 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 100 }}
+        className="bg-white w-full sm:max-w-md sm:rounded-xl rounded-t-2xl"
+      >
+        <div className="border-b px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="w-5 h-5 text-amber-600" />
+            <h3 className="text-lg font-semibold">Reset Password</h3>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* User identity */}
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-semibold text-sm">
+                {(user.firstName || '?')[0]}{(user.lastName || '?')[0]}
+              </span>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900">{user.firstName} {user.lastName}</p>
+              <p className="text-sm text-gray-500">{user.email}</p>
+            </div>
+          </div>
+
+          {!newPassword ? (
+            <>
+              {/* Pre-reset warning */}
+              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-700">
+                  <p className="font-medium">This will:</p>
+                  <ul className="list-disc ml-4 mt-1 space-y-1">
+                    <li>Generate a new temporary password</li>
+                    <li>Invalidate the user's current password immediately</li>
+                    <li>Require them to change password on next login</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Reset button */}
+              <button
+                onClick={handleReset}
+                disabled={isResetting}
+                className="w-full btn btn-primary flex items-center justify-center gap-2"
+              >
+                {isResetting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Resetting...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Reset Password Now
+                  </>
+                )}
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Success - show new password */}
+              <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-green-700">
+                  Password has been reset. Share the new temporary password with the user securely.
+                </p>
+              </div>
+
+              {/* New password display */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">New Temporary Password</label>
+                <div className="mt-1 flex items-center gap-2">
+                  <div className="flex-1 px-3 py-2.5 bg-gray-50 border-2 border-green-200 rounded-lg font-mono text-base text-gray-900 font-bold">
+                    {showPassword ? newPassword : '••••••••••'}
+                  </div>
+                  <button
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(newPassword!);
+                      toast.success('Password copied');
+                    }}
+                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                    title="Copy password"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Copy all credentials */}
+              <button
+                onClick={copyCredentials}
+                className={`w-full py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors ${
+                  copied
+                    ? 'bg-green-100 text-green-700 border border-green-200'
+                    : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                }`}
+              >
+                {copied ? (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    Copy All Login Details
+                  </>
+                )}
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="border-t p-4">
+          <button onClick={onClose} className="btn btn-secondary w-full">
+            {newPassword ? 'Done' : 'Cancel'}
+          </button>
+        </div>
       </motion.div>
     </div>
   );
