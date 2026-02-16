@@ -25,6 +25,7 @@ import type { AuditLog, User as UserType } from '../../../types';
 const activityConfig: Record<string, { icon: React.ReactNode; color: string; bgColor: string }> = {
   login: { icon: <LogIn size={16} />, color: 'text-green-600', bgColor: 'bg-green-100' },
   logout: { icon: <LogOut size={16} />, color: 'text-gray-600', bgColor: 'bg-gray-100' },
+  register: { icon: <Plus size={16} />, color: 'text-teal-600', bgColor: 'bg-teal-100' },
   create: { icon: <Plus size={16} />, color: 'text-blue-600', bgColor: 'bg-blue-100' },
   update: { icon: <Edit size={16} />, color: 'text-amber-600', bgColor: 'bg-amber-100' },
   delete: { icon: <Trash2 size={16} />, color: 'text-red-600', bgColor: 'bg-red-100' },
@@ -39,18 +40,46 @@ const entityLabels: Record<string, string> = {
   surgeries: 'Surgery',
   prescriptions: 'Prescription',
   encounters: 'Encounter',
+  clinicalEncounters: 'Clinical Encounter',
   admissions: 'Admission',
+  admissionNotes: 'Admission Note',
+  vitalSigns: 'Vital Signs',
   vitals: 'Vital Signs',
   wounds: 'Wound',
   burns: 'Burn Assessment',
+  burnAssessments: 'Burn Assessment',
   labRequests: 'Lab Request',
+  investigations: 'Investigation',
   invoices: 'Invoice',
   users: 'User',
   hospitals: 'Hospital',
   wardRounds: 'Ward Round',
   appointments: 'Appointment',
   medications: 'Medication',
+  medicationCharts: 'Medication Chart',
   auth: 'Authentication',
+  postOperativeNotes: 'Post-Op Note',
+  preoperativeAssessments: 'Preoperative Assessment',
+  mdtMeetings: 'MDT Meeting',
+  bloodTransfusions: 'Blood Transfusion',
+  dischargeSummaries: 'Discharge Summary',
+  treatmentPlans: 'Treatment Plan',
+  treatmentProgress: 'Treatment Progress',
+  nutritionAssessments: 'Nutrition Assessment',
+  nutritionPlans: 'Nutrition Plan',
+  npwtSessions: 'NPWT Session',
+  limbSalvageAssessments: 'Limb Salvage Assessment',
+  clinicSessions: 'Clinic Session',
+  stiAssessments: 'STI Assessment',
+  substanceUseAssessments: 'Substance Use Assessment',
+  keloidCarePlans: 'Keloid Care Plan',
+  histopathologyRequests: 'Histopathology',
+  referrals: 'Referral',
+  externalReviews: 'External Review',
+  consumableBOMs: 'Consumable BOM',
+  activityBillingRecords: 'Billing Record',
+  clinicalComments: 'Clinical Comment',
+  bedAssignments: 'Bed Assignment',
 };
 
 export default function UserActivityAnalyticsPage() {
@@ -220,6 +249,8 @@ export default function UserActivityAnalyticsPage() {
         return `${userDisplay} logged in`;
       case 'logout':
         return `${userDisplay} logged out`;
+      case 'register':
+        return `${userDisplay} registered a new account`;
       case 'create':
         return `${userDisplay} created a new ${entity}`;
       case 'update':

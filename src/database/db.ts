@@ -1,4 +1,5 @@
 import Dexie, { Table } from 'dexie';
+import { v4 as uuidv4 } from 'uuid';
 import type {
   User,
   Hospital,
@@ -284,17 +285,17 @@ export class AstroHEALTHDatabase extends Dexie {
 export const db = new AstroHEALTHDatabase();
 
 // ============================================================
-// AUTOMATIC AUDIT LOGGING VIA DEXIE HOOKS
-// Intercepts all create/update/delete operations and logs them
-// to the auditLogs table for activity analytics tracking.
+// AUTOMATIC AUDIT LOGGING
+// Patches core Dexie Table methods (add, put, update, delete)
+// to log all write operations to the auditLogs table.
 // ============================================================
 
-// Tables to skip auditing (to avoid infinite loops and noise)
+// Tables to skip auditing (avoid infinite loops and noise)
 const AUDIT_SKIP_TABLES = new Set([
   'auditLogs',
-  'syncStatus', 
-  'chatMessages',      // too noisy
-  'webrtcSignaling',   // technical signaling
+  'syncStatus',
+  'chatMessages',
+  'webrtcSignaling',
 ]);
 
 // Flag to suppress audit during bulk sync operations
@@ -307,99 +308,139 @@ export function suppressAudit() { _auditSuppressed = true; }
 export function resumeAudit() { _auditSuppressed = false; }
 
 /**
- * Install Dexie hooks on all tables to automatically log
- * create, update, and delete operations.
+ * Write an audit log entry. Fire-and-forget — never throws.
  */
-function installAuditHooks() {
-  const tableNames = db.tables.map(t => t.name);
-  
-  for (const tableName of tableNames) {
-    if (AUDIT_SKIP_TABLES.has(tableName)) continue;
-    
-    const table = db.table(tableName);
+function writeAuditLog(
+  action: 'create' | 'update' | 'delete',
+  entityType: string,
+  entityId: string,
+  details?: { oldValue?: Record<string, unknown>; newValue?: Record<string, unknown> }
+): void {
+  if (_auditSuppressed) return;
+  if (AUDIT_SKIP_TABLES.has(entityType)) return;
 
-    // Hook: creating (fires on add/put for new records)
-    table.hook('creating', function (_primKey, obj) {
-      if (_auditSuppressed) return;
-      // Fire-and-forget audit log
-      setTimeout(() => {
-        try {
-          const userId = localStorage.getItem('AstroHEALTH_user_id') || 'system';
-          const entityId = obj?.id || _primKey || 'unknown';
-          db.auditLogs.add({
-            id: crypto.randomUUID(),
-            userId,
-            action: 'create',
-            entityType: tableName,
-            entityId: String(entityId),
-            newValue: summarizeRecord(obj),
-            timestamp: new Date(),
-          }).catch(() => {}); // never break main flow
-        } catch { /* ignore */ }
-      }, 0);
-    });
+  try {
+    const userId = localStorage.getItem('AstroHEALTH_user_id') || 'system';
+    const entry = {
+      id: uuidv4(),
+      userId,
+      action,
+      entityType,
+      entityId: String(entityId || 'unknown'),
+      oldValue: details?.oldValue ? summarizeRecord(details.oldValue) : undefined,
+      newValue: details?.newValue ? summarizeRecord(details.newValue) : undefined,
+      timestamp: new Date(),
+    };
 
-    // Hook: updating (fires on put/update for existing records)
-    table.hook('updating', function (modifications, _primKey, obj) {
-      if (_auditSuppressed) return;
-      setTimeout(() => {
-        try {
-          const userId = localStorage.getItem('AstroHEALTH_user_id') || 'system';
-          const entityId = obj?.id || _primKey || 'unknown';
-          db.auditLogs.add({
-            id: crypto.randomUUID(),
-            userId,
-            action: 'update',
-            entityType: tableName,
-            entityId: String(entityId),
-            oldValue: summarizeRecord(obj),
-            newValue: summarizeRecord(modifications),
-            timestamp: new Date(),
-          }).catch(() => {});
-        } catch { /* ignore */ }
-      }, 0);
+    // Use a fresh transaction outside any current one
+    db.transaction('rw!', db.auditLogs, async () => {
+      await db.auditLogs.add(entry);
+    }).catch((err) => {
+      console.warn('[Audit] Failed to write log:', err?.message || err);
     });
-
-    // Hook: deleting (fires on delete operations)
-    table.hook('deleting', function (_primKey, obj) {
-      if (_auditSuppressed) return;
-      setTimeout(() => {
-        try {
-          const userId = localStorage.getItem('AstroHEALTH_user_id') || 'system';
-          const entityId = obj?.id || _primKey || 'unknown';
-          db.auditLogs.add({
-            id: crypto.randomUUID(),
-            userId,
-            action: 'delete',
-            entityType: tableName,
-            entityId: String(entityId),
-            oldValue: summarizeRecord(obj),
-            timestamp: new Date(),
-          }).catch(() => {});
-        } catch { /* ignore */ }
-      }, 0);
-    });
+  } catch (err) {
+    console.warn('[Audit] Error preparing log:', err);
   }
-  
-  console.log('[Audit] Hooks installed on', tableNames.length - AUDIT_SKIP_TABLES.size, 'tables');
+}
+
+/**
+ * Patch all Dexie Table methods to automatically log write operations.
+ */
+function patchTablesForAudit() {
+  let patchedCount = 0;
+
+  for (const table of db.tables) {
+    const tableName = table.name;
+    if (AUDIT_SKIP_TABLES.has(tableName)) continue;
+
+    // Save original methods
+    const originalAdd = table.add.bind(table);
+    const originalPut = table.put.bind(table);
+    const originalUpdate = table.update.bind(table);
+    const originalDelete = table.delete.bind(table);
+    const originalBulkAdd = table.bulkAdd.bind(table);
+    const originalBulkPut = table.bulkPut.bind(table);
+    const originalBulkDelete = table.bulkDelete.bind(table);
+
+    // Patch add()
+    (table as any).add = async function (obj: any, key?: any) {
+      const result = await originalAdd(obj, key);
+      writeAuditLog('create', tableName, obj?.id || result, { newValue: obj });
+      return result;
+    };
+
+    // Patch put()
+    (table as any).put = async function (obj: any, key?: any) {
+      const result = await originalPut(obj, key);
+      writeAuditLog('update', tableName, obj?.id || key || result, { newValue: obj });
+      return result;
+    };
+
+    // Patch update()
+    (table as any).update = async function (key: any, changes: any) {
+      const result = await originalUpdate(key, changes);
+      if (result > 0) {
+        writeAuditLog('update', tableName, key, { newValue: changes });
+      }
+      return result;
+    };
+
+    // Patch delete()
+    (table as any).delete = async function (key: any) {
+      const result = await originalDelete(key);
+      writeAuditLog('delete', tableName, key);
+      return result;
+    };
+
+    // Patch bulkAdd()
+    (table as any).bulkAdd = async function (objects: any[], keys?: any, options?: any) {
+      const result = await originalBulkAdd(objects, keys, options);
+      for (const obj of objects) {
+        writeAuditLog('create', tableName, obj?.id || 'bulk', { newValue: obj });
+      }
+      return result;
+    };
+
+    // Patch bulkPut()
+    (table as any).bulkPut = async function (objects: any[], keys?: any, options?: any) {
+      const result = await originalBulkPut(objects, keys, options);
+      // Only log first 5 items of bulk ops to avoid flooding
+      const logItems = objects.slice(0, 5);
+      for (const obj of logItems) {
+        writeAuditLog('update', tableName, obj?.id || 'bulk', { newValue: obj });
+      }
+      return result;
+    };
+
+    // Patch bulkDelete()
+    (table as any).bulkDelete = async function (keys: any[]) {
+      const result = await originalBulkDelete(keys);
+      for (const key of keys.slice(0, 5)) {
+        writeAuditLog('delete', tableName, key);
+      }
+      return result;
+    };
+
+    patchedCount++;
+  }
+
+  console.log('[Audit] Patched', patchedCount, 'tables for automatic activity logging');
 }
 
 /**
  * Create a concise summary of a record for audit logging.
- * Avoids storing huge blobs and keeps logs manageable.
  */
 function summarizeRecord(obj: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
   if (!obj) return undefined;
   const summary: Record<string, unknown> = {};
   const MAX_FIELDS = 15;
   let count = 0;
-  
+
   for (const [key, value] of Object.entries(obj)) {
     if (count >= MAX_FIELDS) {
       summary._truncated = true;
       break;
     }
-    // Skip large binary/blob fields
     if (value instanceof ArrayBuffer || value instanceof Blob || value instanceof Uint8Array) {
       summary[key] = '[binary data]';
     } else if (typeof value === 'string' && value.length > 200) {
@@ -414,8 +455,8 @@ function summarizeRecord(obj: Record<string, unknown> | undefined): Record<strin
   return summary;
 }
 
-// Install hooks immediately
-installAuditHooks();
+// Patch tables immediately
+patchTablesForAudit();
 
 // Database utility functions
 export async function clearAllData(): Promise<void> {
