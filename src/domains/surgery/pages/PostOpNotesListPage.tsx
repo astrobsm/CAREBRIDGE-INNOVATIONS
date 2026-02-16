@@ -306,7 +306,7 @@ export default function PostOpNotesListPage() {
                     {getStatusBadge(surgery)}
                     
                     {/* Action Buttons */}
-                    {!surgery.postOpNote && user?.role === 'surgeon' && (
+                    {!surgery.postOpNote && (user?.role === 'surgeon' || user?.role === 'super_admin' || user?.role === 'hospital_admin' || user?.role === 'consultant' || user?.role === 'plastic_surgeon') && (
                       <button
                         onClick={() => navigate(`/surgery/post-op-note/create/${surgery.id}`)}
                         className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
@@ -321,7 +321,7 @@ export default function PostOpNotesListPage() {
                         onClick={() => navigate(`/surgery/post-op-note/${surgery.id}`)}
                         className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                       >
-                        {user?.role === 'surgeon' ? (
+                        {(user?.role === 'surgeon' || user?.role === 'super_admin' || user?.role === 'hospital_admin' || user?.role === 'consultant' || user?.role === 'plastic_surgeon') ? (
                           <>
                             <Edit size={14} />
                             Edit Note

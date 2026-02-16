@@ -41,8 +41,9 @@ export default function PostOperativeNotePage() {
   const [activeTab, setActiveTab] = useState<'summary' | 'education' | 'specimens'>('summary');
   
   // Check user role for access control
-  const canEdit = user?.role === 'surgeon';
-  const canView = user?.role === 'surgeon' || user?.role === 'nurse';
+  const isSuperRole = user?.role === 'super_admin' || user?.role === 'hospital_admin';
+  const canEdit = user?.role === 'surgeon' || user?.role === 'plastic_surgeon' || user?.role === 'consultant' || isSuperRole;
+  const canView = canEdit || user?.role === 'nurse' || user?.role === 'doctor' || user?.role === 'anaesthetist';
 
   // Fetch surgery
   const surgery = useLiveQuery(async () => {
@@ -164,7 +165,7 @@ export default function PostOperativeNotePage() {
               <h3 className="font-medium text-blue-900">View-Only Access</h3>
               <p className="text-sm text-blue-700 mt-1">
                 You are viewing this post-operative note in read-only mode. 
-                Only surgeons can create or edit post-operative notes.
+                Only surgeons and admins can create or edit post-operative notes.
               </p>
             </div>
           </div>

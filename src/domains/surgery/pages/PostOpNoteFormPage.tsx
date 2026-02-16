@@ -89,10 +89,10 @@ export default function PostOpNoteFormPage() {
   const [warningSignInput, setWarningSignInput] = useState('');
   const [seekHelpInput, setSeekHelpInput] = useState('');
 
-  // Check if user is a surgeon
+  // Check if user is a surgeon or super_admin
   useEffect(() => {
-    if (user && user.role !== 'surgeon') {
-      toast.error('Only surgeons can create post-operative notes');
+    if (user && user.role !== 'surgeon' && user.role !== 'super_admin' && user.role !== 'hospital_admin' && user.role !== 'consultant' && user.role !== 'plastic_surgeon') {
+      toast.error('Only surgeons and admins can create post-operative notes');
       navigate(-1);
     }
   }, [user, navigate]);

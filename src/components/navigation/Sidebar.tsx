@@ -305,6 +305,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   };
 
   const filteredNavigation = navigation.filter(item => {
+    // Super admins have access to everything
+    if (user?.role === 'super_admin') return true;
     // Check role-based access first
     if (item.roles && item.roles.length > 0) {
       if (!user?.role || !item.roles.includes(user.role)) {

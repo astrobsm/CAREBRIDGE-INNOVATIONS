@@ -356,6 +356,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasRole = useCallback((roles: UserRole | UserRole[]): boolean => {
     if (!user) return false;
     
+    // Super admin has all roles
+    if (user.role === 'super_admin') return true;
+    
     const roleArray = Array.isArray(roles) ? roles : [roles];
     return roleArray.includes(user.role);
   }, [user]);

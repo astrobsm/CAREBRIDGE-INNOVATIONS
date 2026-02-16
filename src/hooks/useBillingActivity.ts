@@ -77,13 +77,13 @@ export function useBillingActivity() {
     let activityCode = 'CONSULT_001'; // Standard follow-up
     
     if (params.isInitial) {
-      if (user?.role === 'surgeon' || user?.role === 'plastic_surgeon') {
+      if (user?.role === 'surgeon' || user?.role === 'plastic_surgeon' || user?.role === 'super_admin') {
         activityCode = 'SURG_001'; // Initial surgeon review
       } else {
         activityCode = 'CONSULT_001'; // Doctor initial consultation
       }
     } else {
-      if (user?.role === 'surgeon' || user?.role === 'plastic_surgeon') {
+      if (user?.role === 'surgeon' || user?.role === 'plastic_surgeon' || user?.role === 'super_admin') {
         activityCode = 'SURG_002'; // Follow-up surgeon review
       } else {
         activityCode = 'CONSULT_002'; // Doctor follow-up
