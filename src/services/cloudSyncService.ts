@@ -221,8 +221,17 @@ async function sanitizeExistingData(): Promise<void> {
   localStorage.setItem(SANITIZE_MIGRATION_KEY, new Date().toISOString());
 }
 
+// Guard to prevent multiple initializations
+let isCloudSyncInitialized = false;
+
 // Initialize cloud sync with real-time subscriptions
 export function initCloudSync() {
+  if (isCloudSyncInitialized) {
+    console.log('[CloudSync] Already initialized, skipping');
+    return;
+  }
+  isCloudSyncInitialized = true;
+  
   console.log('[CloudSync] Initializing cloud sync...');
   console.log('[CloudSync] Supabase configured:', isSupabaseConfigured());
   console.log('[CloudSync] Online:', navigator.onLine);
@@ -1040,9 +1049,98 @@ async function syncCriticalClinicalData() {
   }
 }
 
+// Guard to prevent re-entrant calls to setupRealtimeSubscriptions
+let isSettingUpSubscriptions = false;
+
+// Subscribe a single table to realtime changes, with per-table retry logic
+function subscribeToTable(sb: NonNullable<typeof supabase>, cloud: string, local: string): void {
+  const channel = sb
+    .channel(`${cloud}-changes`, {
+      config: {
+        broadcast: { self: false },
+        presence: { key: '' }
+      }
+    })
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: cloud },
+      async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const incomingId = (payload.new as any)?.id;
+          
+          // Skip echo-back: if we just pushed this record, don't re-apply it
+          if (incomingId && isRecentlySynced(incomingId)) {
+            return;
+          }
+          
+          const record = convertFromSupabase(payload.new as Record<string, unknown>);
+          try {
+            suppressAudit(); // Don't audit incoming sync writes
+            await (db as any)[local].put(record);
+            resumeAudit();
+          } catch (err) {
+            resumeAudit();
+            console.warn(`[CloudSync] Failed to apply change to ${local}:`, err);
+          }
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          try {
+            suppressAudit();
+            await (db as any)[local].delete((payload.old as any).id);
+            resumeAudit();
+          } catch (err) {
+            resumeAudit();
+            console.warn(`[CloudSync] Failed to delete from ${local}:`, err);
+          }
+        }
+      }
+    )
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log(`[CloudSync] ✓ Subscribed to ${cloud}`);
+        subscriptionRetryCount.delete(cloud);
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.warn(`[CloudSync] ✗ Subscription ${status} for ${cloud}`);
+        
+        // Retry ONLY this individual table — never re-setup all subscriptions
+        const retries = subscriptionRetryCount.get(cloud) || 0;
+        if (retries < MAX_RETRY_COUNT) {
+          subscriptionRetryCount.set(cloud, retries + 1);
+          const delay = Math.min(BASE_RETRY_DELAY_MS * Math.pow(2, retries), 30000);
+          console.log(`[CloudSync] Retrying ${cloud} in ${delay}ms (attempt ${retries + 1}/${MAX_RETRY_COUNT})`);
+          
+          setTimeout(() => {
+            try {
+              sb.removeChannel(channel);
+              const idx = realtimeChannels.indexOf(channel);
+              if (idx !== -1) realtimeChannels.splice(idx, 1);
+            } catch (_e) { /* ignore cleanup errors */ }
+            // Retry only this single table
+            subscribeToTable(sb, cloud, local);
+          }, delay);
+        } else {
+          console.warn(`[CloudSync] Max retries reached for ${cloud}, relying on polling`);
+          try {
+            sb.removeChannel(channel);
+            const idx = realtimeChannels.indexOf(channel);
+            if (idx !== -1) realtimeChannels.splice(idx, 1);
+          } catch (_e) { /* ignore */ }
+        }
+      }
+    });
+
+  realtimeChannels.push(channel);
+}
+
 // Set up real-time subscriptions for live updates
 function setupRealtimeSubscriptions() {
   if (!supabase) return;
+  
+  // Prevent re-entrant/concurrent calls
+  if (isSettingUpSubscriptions) {
+    console.log('[CloudSync] Subscription setup already in progress, skipping');
+    return;
+  }
+  isSettingUpSubscriptions = true;
   
   // Store reference to avoid null checks in callbacks
   const sb = supabase;
@@ -1051,22 +1149,20 @@ function setupRealtimeSubscriptions() {
   
   // Clean up existing channels
   realtimeChannels.forEach(channel => {
-    sb.removeChannel(channel);
+    try { sb.removeChannel(channel); } catch (_e) { /* ignore */ }
   });
   realtimeChannels = [];
+  subscriptionRetryCount.clear();
 
-  // OPTIMIZED: Subscribe to ESSENTIAL tables only
-  // Supabase free tier limits: max 2 connections per client
-  // Strategy: Group multiple tables per channel using broadcast
+  // Subscribe to essential tables only
+  // Reduced to most critical tables to stay within Supabase connection limits
   const essentialTables = [
-    // Critical real-time updates only
     { cloud: TABLES.patients, local: 'patients' },
     { cloud: TABLES.admissions, local: 'admissions' },
     { cloud: TABLES.prescriptions, local: 'prescriptions' },
     { cloud: TABLES.appointments, local: 'appointments' },
     { cloud: TABLES.chatMessages, local: 'chatMessages' },
     { cloud: TABLES.medicationCharts, local: 'medicationCharts' },
-    // Critical clinical data for cross-device sync
     { cloud: TABLES.vitalSigns, local: 'vitalSigns' },
     { cloud: TABLES.clinicalEncounters, local: 'clinicalEncounters' },
     { cloud: TABLES.wardRounds, local: 'wardRounds' },
@@ -1078,7 +1174,6 @@ function setupRealtimeSubscriptions() {
     { cloud: TABLES.treatmentPlans, local: 'treatmentPlans' },
     { cloud: TABLES.treatmentProgress, local: 'treatmentProgress' },
     { cloud: TABLES.dischargeSummaries, local: 'dischargeSummaries' },
-    // Additional clinical tables for cross-device sync
     { cloud: TABLES.bloodTransfusions, local: 'bloodTransfusions' },
     { cloud: TABLES.postOperativeNotes, local: 'postOperativeNotes' },
     { cloud: TABLES.preoperativeAssessments, local: 'preoperativeAssessments' },
@@ -1096,94 +1191,20 @@ function setupRealtimeSubscriptions() {
     { cloud: TABLES.mdtMeetings, local: 'mdtMeetings' },
   ];
 
-  // Batch subscribe to avoid overwhelming Supabase connection limits
-  let subscriptionDelay = 0;
-  essentialTables.forEach(({ cloud, local }) => {
-    // Stagger subscriptions with 200ms delay to prevent connection flooding
+  // Stagger subscriptions with 500ms delay to prevent connection flooding
+  essentialTables.forEach(({ cloud, local }, index) => {
     setTimeout(() => {
-      const channel = sb
-        .channel(`${cloud}-changes`, {
-          config: {
-            broadcast: { self: false },
-            presence: { key: '' }
-          }
-        })
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: cloud },
-          async (payload) => {
-            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const incomingId = (payload.new as any)?.id;
-              
-              // Skip echo-back: if we just pushed this record, don't re-apply it
-              if (incomingId && isRecentlySynced(incomingId)) {
-                console.log(`[CloudSync] Skipping echo-back for ${cloud}:`, incomingId);
-                return;
-              }
-              
-              console.log(`[CloudSync] Real-time ${payload.eventType} on ${cloud}:`, incomingId);
-              const record = convertFromSupabase(payload.new as Record<string, unknown>);
-              try {
-                suppressAudit(); // Don't audit incoming sync writes
-                await (db as any)[local].put(record);
-                resumeAudit();
-                console.log(`[CloudSync] Applied ${payload.eventType} to local ${local}`);
-              } catch (err) {
-                resumeAudit();
-                console.warn(`[CloudSync] Failed to apply change to ${local}:`, err);
-              }
-            } else if (payload.eventType === 'DELETE' && payload.old) {
-              console.log(`[CloudSync] Real-time DELETE on ${cloud}:`, (payload.old as any).id);
-              try {
-                suppressAudit();
-                await (db as any)[local].delete((payload.old as any).id);
-                resumeAudit();
-                console.log(`[CloudSync] Applied DELETE to local ${local}`);
-              } catch (err) {
-                resumeAudit();
-                console.warn(`[CloudSync] Failed to delete from ${local}:`, err);
-              }
-            }
-          }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            console.log(`[CloudSync] ✓ Subscribed to ${cloud}`);
-            // Reset retry count on successful subscription
-            subscriptionRetryCount.delete(cloud);
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn(`[CloudSync] ✗ Subscription ${status} for ${cloud}`);
-            
-            // Retry with exponential backoff
-            const retries = subscriptionRetryCount.get(cloud) || 0;
-            if (retries < MAX_RETRY_COUNT) {
-              subscriptionRetryCount.set(cloud, retries + 1);
-              const delay = Math.min(BASE_RETRY_DELAY_MS * Math.pow(2, retries), 30000);
-              console.log(`[CloudSync] Retrying ${cloud} subscription in ${delay}ms (attempt ${retries + 1}/${MAX_RETRY_COUNT})`);
-              
-              setTimeout(() => {
-                try {
-                  sb.removeChannel(channel);
-                  // Remove from tracked channels
-                  const idx = realtimeChannels.indexOf(channel);
-                  if (idx !== -1) realtimeChannels.splice(idx, 1);
-                } catch (_e) { /* ignore cleanup errors */ }
-                // Re-setup all subscriptions (simpler than re-subscribing individual)
-                setupRealtimeSubscriptions();
-              }, delay);
-            } else {
-              console.error(`[CloudSync] Max retries reached for ${cloud}, relying on polling`);
-            }
-          }
-        });
-
-      realtimeChannels.push(channel);
-    }, subscriptionDelay);
-    
-    subscriptionDelay += 200; // 200ms between each subscription
+      subscribeToTable(sb, cloud, local);
+    }, index * 500);
   });
   
-  console.log(`[CloudSync] Subscribing to ${essentialTables.length} essential tables...`);
+  // Release the guard after all staggered subscriptions have been queued
+  const totalSetupTime = essentialTables.length * 500 + 2000;
+  setTimeout(() => {
+    isSettingUpSubscriptions = false;
+  }, totalSetupTime);
+  
+  console.log(`[CloudSync] Subscribing to ${essentialTables.length} essential tables (staggered over ${Math.round(totalSetupTime / 1000)}s)...`);
 }
 
 // Sync a single record immediately (call this when creating/updating data)
@@ -1484,10 +1505,14 @@ export function cleanupCloudSync() {
   
   if (supabase) {
     realtimeChannels.forEach(channel => {
-      supabase?.removeChannel(channel);
+      try { supabase?.removeChannel(channel); } catch (_e) { /* ignore */ }
     });
     realtimeChannels = [];
   }
+  
+  // Reset guards so sync can be re-initialized if needed
+  isCloudSyncInitialized = false;
+  isSettingUpSubscriptions = false;
 }
 
 // =====================================
