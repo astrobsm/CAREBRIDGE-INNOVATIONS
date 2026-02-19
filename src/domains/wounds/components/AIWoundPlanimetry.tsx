@@ -122,10 +122,12 @@ export default function AIWoundPlanimetry({
 
   // Capture from camera
   const captureFromCamera = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current) return;
     
-    const canvas = canvasRef.current;
     const video = videoRef.current;
+    // Use canvasRef if available, otherwise create an offscreen canvas
+    // (canvas element may not be in the DOM during the 'capture' step)
+    const canvas = canvasRef.current || document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     

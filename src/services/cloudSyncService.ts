@@ -59,6 +59,50 @@ const subscriptionRetryCount = new Map<string, number>();
 const MAX_RETRY_COUNT = 5;
 const BASE_RETRY_DELAY_MS = 2000;
 
+// Track columns that Supabase doesn't recognize per table (PGRST204 errors)
+// This prevents repeated 400 errors for missing columns until the migration is applied
+const excludedColumnsPerTable = new Map<string, Set<string>>();
+
+/**
+ * Strip columns that have been flagged as missing from Supabase schema.
+ * Returns a cleaned record and the list of stripped columns (if any).
+ */
+function stripExcludedColumns(cloudTableName: string, record: Record<string, unknown>): Record<string, unknown> {
+  const excluded = excludedColumnsPerTable.get(cloudTableName);
+  if (!excluded || excluded.size === 0) return record;
+  const cleaned: Record<string, unknown> = {};
+  for (const key in record) {
+    if (!excluded.has(key)) {
+      cleaned[key] = record[key];
+    }
+  }
+  return cleaned;
+}
+
+/**
+ * Parse PGRST204 error messages to extract the offending column name.
+ * Example message: "Could not find the 'implementation_logs' column of 'treatment_plans' in the schema cache"
+ */
+function extractMissingColumn(errorMessage: string): string | null {
+  const match = errorMessage.match(/Could not find the '([^']+)' column/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Record a column as excluded for a given table, so future upserts skip it.
+ */
+function markColumnExcluded(cloudTableName: string, column: string): void {
+  let excluded = excludedColumnsPerTable.get(cloudTableName);
+  if (!excluded) {
+    excluded = new Set();
+    excludedColumnsPerTable.set(cloudTableName, excluded);
+  }
+  if (!excluded.has(column)) {
+    excluded.add(column);
+    console.warn(`[CloudSync] Column "${column}" excluded from "${cloudTableName}" syncs (not in Supabase schema). Run the latest SQL migration to add it.`);
+  }
+}
+
 // Subscribe to sync state changes
 export function subscribeSyncState(callback: (state: CloudSyncState) => void): () => void {
   syncListeners.add(callback);
@@ -947,8 +991,10 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
       console.log(`[CloudSync] Pushing ${localRecords.length} users to cloud:`, localRecords.map((u: any) => u.username || u.email || u.id));
     }
 
-    // Convert to Supabase format
-    const preparedRecords = localRecords.map((record: Record<string, unknown>) => convertToSupabase(record));
+    // Convert to Supabase format and strip any previously-excluded columns
+    const preparedRecords = localRecords.map((record: Record<string, unknown>) =>
+      stripExcludedColumns(cloudTableName, convertToSupabase(record))
+    );
     
     // Debug log for users
     if (localTableName === 'users') {
@@ -961,7 +1007,7 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
     let errorCount = 0;
     
     for (let i = 0; i < preparedRecords.length; i += batchSize) {
-      const batch = preparedRecords.slice(i, i + batchSize);
+      let batch = preparedRecords.slice(i, i + batchSize);
       
       const { error } = await supabase
         .from(cloudTableName)
@@ -971,6 +1017,25 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
         });
 
       if (error) {
+        // Auto-learn missing columns from PGRST204 errors and retry the batch
+        if (error.code === 'PGRST204') {
+          const missingCol = extractMissingColumn(error.message);
+          if (missingCol) {
+            markColumnExcluded(cloudTableName, missingCol);
+            // Retry the batch with the column stripped
+            batch = batch.map(r => stripExcludedColumns(cloudTableName, r));
+            const { error: retryError } = await supabase
+              .from(cloudTableName)
+              .upsert(batch, { onConflict: 'id', ignoreDuplicates: false });
+            
+            if (!retryError) {
+              successCount += batch.length;
+              continue; // batch succeeded on retry
+            }
+            // If still failing, there may be more missing columns - fall through to per-record retry
+          }
+        }
+        
         console.error(`[CloudSync] Error pushing to ${cloudTableName}:`, error.message, error.code, error.details, error.hint);
         
         // Specific diagnostic for users table
@@ -993,9 +1058,24 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
         if (batch.length > 1) {
           for (const record of batch) {
             try {
-              const { error: singleError } = await supabase
+              let cleanedRecord = stripExcludedColumns(cloudTableName, record);
+              let { error: singleError } = await supabase
                 .from(cloudTableName)
-                .upsert(record, { onConflict: 'id' });
+                .upsert(cleanedRecord, { onConflict: 'id' });
+              
+              // Auto-learn from per-record PGRST204 errors (up to 3 retries per record)
+              let retries = 0;
+              while (singleError && singleError.code === 'PGRST204' && retries < 3) {
+                const col = extractMissingColumn(singleError.message);
+                if (!col) break;
+                markColumnExcluded(cloudTableName, col);
+                cleanedRecord = stripExcludedColumns(cloudTableName, cleanedRecord);
+                const retryResult = await supabase
+                  .from(cloudTableName)
+                  .upsert(cleanedRecord, { onConflict: 'id' });
+                singleError = retryResult.error;
+                retries++;
+              }
               
               if (singleError) {
                 console.error(`[CloudSync] Failed record in ${cloudTableName}:`, (record as any).id, singleError.message, singleError.code);
@@ -1218,7 +1298,7 @@ export async function syncRecord(localTableName: string, record: Record<string, 
   if (!cloudTableName) return;
 
   try {
-    const preparedRecord = convertToSupabase(record);
+    let preparedRecord = stripExcludedColumns(cloudTableName, convertToSupabase(record));
     
     const recordId = (record as any).id as string;
     console.log(`[CloudSync] Syncing record to ${cloudTableName}:`, recordId);
@@ -1228,12 +1308,26 @@ export async function syncRecord(localTableName: string, record: Record<string, 
       markRecentlySynced(recordId);
     }
     
-    const { error } = await supabase
+    let { error } = await supabase
       .from(cloudTableName)
       .upsert(preparedRecord, {
         onConflict: 'id',
         ignoreDuplicates: false,
       });
+
+    // Auto-learn missing columns from PGRST204 and retry (up to 3 times)
+    let retries = 0;
+    while (error && error.code === 'PGRST204' && retries < 3) {
+      const col = extractMissingColumn(error.message);
+      if (!col) break;
+      markColumnExcluded(cloudTableName, col);
+      preparedRecord = stripExcludedColumns(cloudTableName, preparedRecord);
+      const retryResult = await supabase
+        .from(cloudTableName)
+        .upsert(preparedRecord, { onConflict: 'id', ignoreDuplicates: false });
+      error = retryResult.error;
+      retries++;
+    }
 
     if (error) {
       console.error(`[CloudSync] Error syncing record to ${cloudTableName}:`, error.message, error.details, error.hint);
