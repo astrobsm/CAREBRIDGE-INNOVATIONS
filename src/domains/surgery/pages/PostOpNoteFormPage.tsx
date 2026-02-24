@@ -28,6 +28,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { createPostOperativeNote } from '../../../services/postOperativeNoteService';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation } from '../../../components/common';
+import MedicationTypeahead from '../../../components/pharmacy/MedicationTypeahead';
+import type { BNFMedication } from '../../../data/bnfMedicationDatabase';
 import type { PostoperativeMedication } from '../../../types';
 
 // Form schema
@@ -88,6 +90,8 @@ export default function PostOpNoteFormPage() {
   const [monitoringInput, setMonitoringInput] = useState('');
   const [warningSignInput, setWarningSignInput] = useState('');
   const [seekHelpInput, setSeekHelpInput] = useState('');
+  // Per-row BNF medication data for typeahead-driven dose/route/frequency
+  const [bnfMedData, setBnfMedData] = useState<Record<number, BNFMedication | null>>({});
 
   // Check if user is a surgeon or super_admin
   useEffect(() => {
@@ -737,50 +741,180 @@ export default function PostOpNoteFormPage() {
               Add Medication
             </button>
           </div>
-          {medicationFields.map((field, index) => (
-            <div key={field.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mb-3">
-              <div>
-                <label className="label">Medication Name</label>
-                <input {...register(`medications.${index}.name`)} className="input" />
+          {medicationFields.map((field, index) => {
+            const selectedBnf = bnfMedData[index] || null;
+            const bnfDoses = selectedBnf?.doses || [];
+            const bnfRoutes = selectedBnf?.routes || [];
+            const bnfFreqs = selectedBnf?.frequency || [];
+
+            return (
+              <div key={field.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mb-3">
+                {/* Medication Name — Searchable typeahead from BNF database */}
+                <div className="md:col-span-3">
+                  <label className="label">Medication Name</label>
+                  <MedicationTypeahead
+                    value={watch(`medications.${index}.name`) || ''}
+                    onChange={(med, customName) => {
+                      if (med) {
+                        setValue(`medications.${index}.name`, med.name);
+                        setBnfMedData(prev => ({ ...prev, [index]: med }));
+                        // Auto-fill first available dose/route/frequency
+                        if (med.doses.length > 0) setValue(`medications.${index}.dose`, med.doses[0]);
+                        if (med.routes.length > 0) {
+                          const routeMap: Record<string, string> = {
+                            oral: 'oral', intravenous: 'iv', intramuscular: 'im',
+                            subcutaneous: 'sc', topical: 'topical', rectal: 'rectal',
+                            inhalation: 'inhalation', sublingual: 'sublingual',
+                          };
+                          setValue(`medications.${index}.route`, routeMap[med.routes[0]] || med.routes[0]);
+                        }
+                        if (med.frequency.length > 0) setValue(`medications.${index}.frequency`, med.frequency[0]);
+                      } else if (customName) {
+                        setValue(`medications.${index}.name`, customName);
+                        setBnfMedData(prev => ({ ...prev, [index]: null }));
+                      } else {
+                        setValue(`medications.${index}.name`, '');
+                        setBnfMedData(prev => ({ ...prev, [index]: null }));
+                      }
+                    }}
+                    placeholder="Type to search medications (e.g., Ceftriaxone, Paracetamol)..."
+                    showCategoryFilter={false}
+                  />
+                </div>
+
+                {/* Dose — dropdown when BNF doses available, free-text fallback */}
+                <div>
+                  <label className="label">Dose</label>
+                  {bnfDoses.length > 0 ? (
+                    <div className="flex gap-1">
+                      <select
+                        value={watch(`medications.${index}.dose`) || ''}
+                        onChange={(e) => setValue(`medications.${index}.dose`, e.target.value)}
+                        className="input flex-1"
+                      >
+                        <option value="">Select dose</option>
+                        {bnfDoses.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                      <input
+                        {...register(`medications.${index}.dose`)}
+                        className="input w-24"
+                        placeholder="Custom"
+                        title="Type a custom dose"
+                      />
+                    </div>
+                  ) : (
+                    <input {...register(`medications.${index}.dose`)} className="input" placeholder="e.g., 500mg" />
+                  )}
+                </div>
+
+                {/* Route — dropdown with BNF routes when available */}
+                <div>
+                  <label className="label">Route</label>
+                  {bnfRoutes.length > 0 ? (
+                    <select
+                      value={watch(`medications.${index}.route`) || ''}
+                      onChange={(e) => setValue(`medications.${index}.route`, e.target.value)}
+                      className="input"
+                    >
+                      <option value="">Select route</option>
+                      {bnfRoutes.map(r => {
+                        const routeLabels: Record<string, string> = {
+                          oral: 'Oral', intravenous: 'IV', intramuscular: 'IM',
+                          subcutaneous: 'SC', topical: 'Topical', rectal: 'Rectal',
+                          inhalation: 'Inhalation', sublingual: 'Sublingual',
+                          ophthalmic: 'Ophthalmic', otic: 'Otic', nasal: 'Nasal',
+                          transdermal: 'Transdermal', epidural: 'Epidural',
+                        };
+                        return <option key={r} value={r}>{routeLabels[r] || r}</option>;
+                      })}
+                    </select>
+                  ) : (
+                    <select {...register(`medications.${index}.route`)} className="input">
+                      <option value="oral">Oral</option>
+                      <option value="iv">IV</option>
+                      <option value="im">IM</option>
+                      <option value="sc">SC</option>
+                      <option value="topical">Topical</option>
+                    </select>
+                  )}
+                </div>
+
+                {/* Frequency — dropdown with BNF frequencies when available */}
+                <div>
+                  <label className="label">Frequency</label>
+                  {bnfFreqs.length > 0 ? (
+                    <div className="flex gap-1">
+                      <select
+                        value={watch(`medications.${index}.frequency`) || ''}
+                        onChange={(e) => setValue(`medications.${index}.frequency`, e.target.value)}
+                        className="input flex-1"
+                      >
+                        <option value="">Select frequency</option>
+                        {bnfFreqs.map(f => <option key={f} value={f}>{f}</option>)}
+                      </select>
+                      <input
+                        {...register(`medications.${index}.frequency`)}
+                        className="input w-24"
+                        placeholder="Custom"
+                        title="Type a custom frequency"
+                      />
+                    </div>
+                  ) : (
+                    <input {...register(`medications.${index}.frequency`)} className="input" placeholder="e.g., TDS" />
+                  )}
+                </div>
+
+                {/* Duration */}
+                <div>
+                  <label className="label">Duration</label>
+                  <input {...register(`medications.${index}.duration`)} className="input" placeholder="e.g., 7 days" />
+                </div>
+
+                {/* Indication */}
+                <div>
+                  <label className="label">Indication</label>
+                  <input {...register(`medications.${index}.indication`)} className="input" placeholder="e.g., Pain relief" />
+                </div>
+
+                {/* BNF info banner */}
+                {selectedBnf && (
+                  <div className="md:col-span-3 text-xs text-violet-700 bg-violet-50 rounded-md p-2 flex items-center gap-2">
+                    <Pill size={14} className="text-violet-500 flex-shrink-0" />
+                    <span>
+                      <strong>{selectedBnf.name}</strong> ({selectedBnf.genericName})
+                      {selectedBnf.maxDaily && <> &bull; Max daily: {selectedBnf.maxDaily}</>}
+                      {selectedBnf.renalAdjust && <> &bull; <span className="text-amber-600 font-medium">Renal adjustment required</span></>}
+                      {selectedBnf.controlledDrug && <> &bull; <span className="text-red-600 font-medium">Controlled Drug</span></>}
+                      {selectedBnf.specialInstructions && <> &bull; {selectedBnf.specialInstructions}</>}
+                    </span>
+                  </div>
+                )}
+
+                <div className="md:col-span-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      removeMedication(index);
+                      // Clean up BNF data for removed index and re-index
+                      setBnfMedData(prev => {
+                        const updated: Record<number, BNFMedication | null> = {};
+                        for (const [k, v] of Object.entries(prev)) {
+                          const ki = Number(k);
+                          if (ki < index) updated[ki] = v;
+                          else if (ki > index) updated[ki - 1] = v;
+                        }
+                        return updated;
+                      });
+                    }}
+                    className="text-red-600 hover:text-red-700"
+                    title="Remove medication"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="label">Dose</label>
-                <input {...register(`medications.${index}.dose`)} className="input" placeholder="e.g., 500mg" />
-              </div>
-              <div>
-                <label className="label">Route</label>
-                <select {...register(`medications.${index}.route`)} className="input">
-                  <option value="oral">Oral</option>
-                  <option value="iv">IV</option>
-                  <option value="im">IM</option>
-                  <option value="sc">SC</option>
-                  <option value="topical">Topical</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Frequency</label>
-                <input {...register(`medications.${index}.frequency`)} className="input" placeholder="e.g., TDS" />
-              </div>
-              <div>
-                <label className="label">Duration</label>
-                <input {...register(`medications.${index}.duration`)} className="input" placeholder="e.g., 7 days" />
-              </div>
-              <div>
-                <label className="label">Indication</label>
-                <input {...register(`medications.${index}.indication`)} className="input" placeholder="e.g., Pain relief" />
-              </div>
-              <div className="md:col-span-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => removeMedication(index)}
-                  className="text-red-600 hover:text-red-700"
-                  title="Remove medication"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Recovery Plan */}

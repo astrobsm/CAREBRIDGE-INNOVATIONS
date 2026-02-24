@@ -53,6 +53,7 @@ import { OCRScanner, ExportOptionsModal } from '../../../components/common';
 import { PatientSelector } from '../../../components/patient';
 import { createSimpleThermalPDF, THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT, THERMAL_MARGIN } from '../../../utils/thermalPdfGenerator';
 import ClinicalCommentsSection from '../../../components/clinical/ClinicalCommentsSection';
+import PatientOrdersReview from '../../../components/clinical/PatientOrdersReview';
 import { InvestigationApprovalPanel } from '../../../components/investigations';
 import type { Investigation, InvestigationResult } from '../../../types';
 
@@ -1236,6 +1237,28 @@ export default function InvestigationsPage() {
                     error={requestForm.formState.errors.patientId?.message}
                   />
                 </div>
+
+                {/* Patient Orders History - shows prior investigations/prescriptions before creating new request */}
+                {requestForm.watch('patientId') && (
+                  <PatientOrdersReview
+                    patientId={requestForm.watch('patientId')}
+                    patientName={patients?.find(p => p.id === requestForm.watch('patientId'))
+                      ? `${patients!.find(p => p.id === requestForm.watch('patientId'))!.firstName} ${patients!.find(p => p.id === requestForm.watch('patientId'))!.lastName}`
+                      : undefined}
+                    hospitalNumber={patients?.find(p => p.id === requestForm.watch('patientId'))?.hospitalNumber}
+                    hospitalId={user?.hospitalId}
+                    hospitalName={hospitals?.find(h => h.id === requestForm.watch('hospitalId'))?.name}
+                    orderTypes={['investigation', 'lab_request', 'prescription', 'treatment_plan']}
+                    focusType="investigation"
+                    onContinueOrder={(order) => {
+                      if (order.orderType === 'investigation') {
+                        toast.success('Investigation details loaded — review before proceeding');
+                      }
+                    }}
+                    defaultCollapsed
+                    maxHeight="300px"
+                  />
+                )}
 
                 <div>
                   <label className="label">Hospital</label>

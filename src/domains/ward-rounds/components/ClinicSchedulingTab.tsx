@@ -2,6 +2,7 @@
 // Manages clinic sessions with doctor and nurse assignments across hospitals
 
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,9 +25,15 @@ import {
   Trash2,
   Bell,
   UserCheck,
+  UserPlus,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  ClipboardList,
+  Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { format, isToday, isTomorrow, isPast, addDays } from 'date-fns';
+import { format, isToday, isTomorrow, isPast, addDays, isSameDay } from 'date-fns';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -73,15 +80,42 @@ interface ClinicSchedulingTabProps {
 
 export default function ClinicSchedulingTab({ searchQuery, selectedHospital }: ClinicSchedulingTabProps) {
   useAuth(); // For authentication check
+  const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [editingSession, setEditingSession] = useState<ClinicSession | null>(null);
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'all'>('week');
   const [isSendingNotifications, setIsSendingNotifications] = useState(false);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
 
   // Fetch data - include records where isActive is true or undefined (backward compatibility)
   const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive !== false).toArray(), []);
   const users = useLiveQuery(() => db.users.filter(u => u.isActive !== false).toArray(), []);
   const clinicSessions = useLiveQuery(() => db.clinicSessions.orderBy('sessionDate').reverse().toArray(), []);
+  const allPatients = useLiveQuery(() => db.patients.filter(p => p.isActive !== false).toArray(), []);
+  const allEncounters = useLiveQuery(() => db.clinicalEncounters.toArray(), []);
+
+  // Build a map: sessionDate+hospitalId → encounters on that day at that hospital
+  const encountersBySession = useMemo(() => {
+    const map = new Map<string, any[]>();
+    if (!allEncounters || !clinicSessions) return map;
+
+    for (const session of clinicSessions) {
+      const sessionDate = new Date(session.sessionDate);
+      const matching = allEncounters.filter(enc => {
+        const encDate = new Date(enc.createdAt);
+        return enc.hospitalId === session.hospitalId && isSameDay(encDate, sessionDate);
+      });
+      map.set(session.id, matching);
+    }
+    return map;
+  }, [allEncounters, clinicSessions]);
+
+  // Build patient lookup
+  const patientMap = useMemo(() => {
+    const map = new Map<string, any>();
+    allPatients?.forEach(p => map.set(p.id!, p));
+    return map;
+  }, [allPatients]);
 
   // Get doctors for clinicians
   const doctors = useMemo(() => 
@@ -560,6 +594,134 @@ export default function ClinicSchedulingTab({ searchQuery, selectedHospital }: C
                     )}
                   </div>
                 </div>
+
+                {/* Quick Action Buttons — Register Patient & Clinic Encounters */}
+                {(session.status === 'scheduled' || session.status === 'in_progress') && (
+                  <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                    <button
+                      onClick={() => navigate(`/patients/new?clinicSessionId=${session.id}&hospitalId=${session.hospitalId}`)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors"
+                    >
+                      <UserPlus size={15} />
+                      Register New Patient
+                    </button>
+                    <button
+                      onClick={() => setExpandedSessionId(expandedSessionId === session.id ? null : session.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      <ClipboardList size={15} />
+                      Clinic Encounters ({encountersBySession.get(session.id)?.length || 0})
+                      {expandedSessionId === session.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </button>
+                    {session.bookedCount < session.maxPatients && (
+                      <span className="text-xs text-emerald-600 font-medium ml-auto">
+                        {session.maxPatients - session.bookedCount} slot{session.maxPatients - session.bookedCount !== 1 ? 's' : ''} available
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Expanded Encounters Panel */}
+                <AnimatePresence>
+                  {expandedSessionId === session.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <FileText size={14} className="text-sky-500" />
+                          Encounters on {format(new Date(session.sessionDate), 'MMM d, yyyy')}
+                        </h5>
+
+                        {(() => {
+                          const sessionEncounters = encountersBySession.get(session.id) || [];
+
+                          if (sessionEncounters.length === 0) {
+                            return (
+                              <div className="text-center py-6 bg-gray-50 rounded-lg">
+                                <ClipboardList className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                                <p className="text-sm text-gray-500">No encounters yet for this clinic session</p>
+                                <button
+                                  onClick={() => navigate(`/patients/new?clinicSessionId=${session.id}&hospitalId=${session.hospitalId}`)}
+                                  className="mt-2 inline-flex items-center gap-1 text-sm text-sky-600 hover:text-sky-700 font-medium"
+                                >
+                                  <UserPlus size={14} />
+                                  Register a patient to get started
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                              {sessionEncounters.map((enc: any) => {
+                                const pt = patientMap.get(enc.patientId);
+                                const statusStyles: Record<string, string> = {
+                                  'in-progress': 'bg-amber-100 text-amber-700',
+                                  completed: 'bg-green-100 text-green-700',
+                                  cancelled: 'bg-red-100 text-red-700',
+                                };
+
+                                return (
+                                  <div
+                                    key={enc.id}
+                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="p-1.5 bg-sky-100 rounded-full flex-shrink-0">
+                                        <Users size={14} className="text-sky-600" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                          {pt ? `${pt.firstName} ${pt.lastName}` : 'Unknown Patient'}
+                                        </p>
+                                        <p className="text-xs text-gray-500 truncate">
+                                          {pt?.hospitalNumber || 'No ID'} &bull; {enc.chiefComplaint || enc.type || 'Encounter'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusStyles[enc.status] || 'bg-gray-100 text-gray-600'}`}>
+                                        {enc.status === 'in-progress' ? 'In Progress' : enc.status?.charAt(0).toUpperCase() + enc.status?.slice(1)}
+                                      </span>
+                                      <button
+                                        onClick={() => navigate(`/patients/${enc.patientId}/encounter`)}
+                                        className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg"
+                                        title="View / Continue Encounter"
+                                      >
+                                        <Eye size={16} />
+                                      </button>
+                                      <button
+                                        onClick={() => navigate(`/patients/${enc.patientId}`)}
+                                        className="p-1.5 text-gray-600 hover:bg-gray-200 rounded-lg"
+                                        title="View Patient Details"
+                                      >
+                                        <FileText size={16} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+
+                              {/* Add another patient button at bottom of list */}
+                              <button
+                                onClick={() => navigate(`/patients/new?clinicSessionId=${session.id}&hospitalId=${session.hospitalId}`)}
+                                className="w-full flex items-center justify-center gap-2 p-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:text-sky-600 hover:border-sky-300 transition-colors"
+                              >
+                                <UserPlus size={14} />
+                                Register Another Patient
+                              </button>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             );
           })}

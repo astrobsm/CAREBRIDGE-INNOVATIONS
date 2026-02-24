@@ -37,6 +37,7 @@ import { usePatientMap } from '../../../services/patientHooks';
 import { getGFRForPatient, type GFRResult } from '../../../services/gfrCalculationService';
 import { getDrugDosingRecommendation, type RenalDosingResult } from '../../../services/renalDosingService';
 import MedicationTypeahead from '../../../components/pharmacy/MedicationTypeahead';
+import PatientOrdersReview from '../../../components/clinical/PatientOrdersReview';
 import type { BNFMedication } from '../../../data/bnfMedicationDatabase';
 
 // Comprehensive Nigerian medication database (BNF & NAFDAC-adapted)
@@ -1431,6 +1432,31 @@ export default function PharmacyPage() {
                       <input {...register('notes')} className="input" placeholder="Additional instructions..." />
                     </div>
                   </div>
+
+                  {/* Patient Orders History - shows previous prescriptions/investigations before making new one */}
+                  {selectedPatientId && (
+                    <PatientOrdersReview
+                      patientId={selectedPatientId}
+                      patientName={(() => {
+                        const p = patientMap.get(selectedPatientId);
+                        return p ? `${p.firstName} ${p.lastName}` : undefined;
+                      })()}
+                      hospitalNumber={patientMap.get(selectedPatientId)?.hospitalNumber}
+                      hospitalId={user?.hospitalId}
+                      orderTypes={['prescription', 'investigation', 'lab_request', 'treatment_plan']}
+                      focusType="prescription"
+                      onContinueOrder={(order) => {
+                        if (order.orderType === 'prescription' && order.source) {
+                          const src = order.source as Prescription;
+                          if (src.medications?.length > 0) {
+                            toast.success(`Carried forward ${src.medications.length} medication(s) — review and adjust below`);
+                          }
+                        }
+                      }}
+                      defaultCollapsed
+                      maxHeight="350px"
+                    />
+                  )}
 
                   {/* GFR Display - Shows when patient is selected */}
                   {selectedPatientId && patientGFR && (

@@ -26,8 +26,70 @@ let syncState: CloudSyncState = {
 
 const syncListeners: Set<(state: CloudSyncState) => void> = new Set();
 let realtimeChannels: RealtimeChannel[] = [];
-let syncInterval: ReturnType<typeof setInterval> | null = null;
+let syncInterval: ReturnType<typeof setTimeout> | null = null;
 let criticalSyncInterval: ReturnType<typeof setInterval> | null = null;
+
+// ===== Incremental sync tracking =====
+// Only pull/push records changed since the last successful sync
+const PULL_TIMESTAMP_KEY = 'astrohealth_last_pull_at';
+const PUSH_TIMESTAMP_KEY = 'astrohealth_last_push_at';
+let lastSuccessfulPullAt: string | null = null;
+let lastSuccessfulPushAt: string | null = null;
+try {
+  lastSuccessfulPullAt = localStorage.getItem(PULL_TIMESTAMP_KEY);
+  lastSuccessfulPushAt = localStorage.getItem(PUSH_TIMESTAMP_KEY);
+} catch { /* ignore in SSR/no-storage environments */ }
+
+// ===== Exponential backoff for sync failures =====
+// (state managed by consecutiveFailures / nextBackoffInterval / resetBackoff below)
+
+// ===== Network availability guard =====
+function isNetworkAvailable(): boolean {
+  return navigator.onLine && isSupabaseConfigured() && !!supabase;
+}
+
+// ── Unified backoff helpers (use the constants above) ──
+let consecutiveFailures = 0;
+let currentSyncIntervalMs = BASE_SYNC_INTERVAL_MS;
+
+function nextBackoffInterval(): number {
+  consecutiveFailures++;
+  currentSyncIntervalMs = Math.min(
+    BASE_SYNC_INTERVAL_MS * Math.pow(2, consecutiveFailures),
+    MAX_SYNC_INTERVAL_MS,
+  );
+  return currentSyncIntervalMs;
+}
+
+function resetBackoff(): void {
+  consecutiveFailures = 0;
+  currentSyncIntervalMs = BASE_SYNC_INTERVAL_MS;
+}
+
+/** Restart the periodic sync timer with the current (possibly backed-off) interval. */
+function rescheduleSync(): void {
+  if (syncInterval) clearInterval(syncInterval);
+  syncInterval = setInterval(() => {
+    if (navigator.onLine && isSupabaseConfigured()) {
+      fullSync();
+    }
+  }, currentSyncIntervalMs);
+}
+
+// ── Per-table last-pushed timestamp (dirty-record tracking) ──
+const LAST_PUSH_PREFIX = 'astro_last_push_';
+
+function getLastPushTime(tableName: string): string {
+  return localStorage.getItem(`${LAST_PUSH_PREFIX}${tableName}`) || '1970-01-01T00:00:00.000Z';
+}
+
+function setLastPushTime(tableName: string, iso: string): void {
+  localStorage.setItem(`${LAST_PUSH_PREFIX}${tableName}`, iso);
+}
+
+// ── Realtime debounce map (recordId → timer) ──
+const realtimeDebounce = new Map<string, ReturnType<typeof setTimeout>>();
+const REALTIME_DEBOUNCE_MS = 500; // collapse rapid successive changes
 
 // Echo-back prevention: track recently synced record IDs to skip real-time echo
 const recentlySyncedIds = new Map<string, number>(); // id -> timestamp
@@ -296,8 +358,10 @@ export function initCloudSync() {
   window.addEventListener('online', () => {
     console.log('[CloudSync] Device online');
     updateSyncState({ isOnline: true });
+    resetBackoff();
     if (isSupabaseConfigured()) {
       fullSync();
+      rescheduleSync(); // restart timer at base interval
     }
   });
 
@@ -317,12 +381,8 @@ export function initCloudSync() {
       console.error('[CloudSync] Initial sync failed:', err);
     });
     
-    // Set up periodic sync every 5 minutes (300000ms) - real-time handles immediate updates
-    syncInterval = setInterval(() => {
-      if (navigator.onLine && isSupabaseConfigured()) {
-        fullSync();
-      }
-    }, 300000);
+    // Set up periodic sync (starts at 5 min, backs off on failures)
+    rescheduleSync();
 
     // Set up polling for critical clinical data every 2 minutes
     // Real-time subscriptions handle immediate updates; this is a safety net
@@ -581,6 +641,8 @@ export async function fullSync(): Promise<void> {
     // Then push local changes to cloud
     await pushAllToCloud();
 
+    resetBackoff();
+    rescheduleSync();
     updateSyncState({
       isSyncing: false,
       lastSyncAt: new Date(),
@@ -589,6 +651,9 @@ export async function fullSync(): Promise<void> {
     console.log('[CloudSync] Full sync completed successfully');
   } catch (error) {
     console.error('[CloudSync] Full sync failed:', error);
+    const delay = nextBackoffInterval();
+    console.warn(`[CloudSync] Next sync in ${Math.round(delay / 1000)}s (failure #${consecutiveFailures})`);
+    rescheduleSync();
     updateSyncState({
       isSyncing: false,
       error: error instanceof Error ? error.message : 'Sync failed',
@@ -971,24 +1036,40 @@ async function pullTable(cloudTableName: string, localTableName: string, orderCo
   }
 }
 
-// Push a single table to cloud
+// Push a single table to cloud (only dirty / recently-modified records)
 async function pushTable(localTableName: string, cloudTableName: string): Promise<void> {
   if (!supabase) return;
 
   try {
-    const localRecords = await (db as any)[localTableName].toArray();
-    
+    // ── Dirty-record tracking: only push records modified since last successful push ──
+    const lastPush = getLastPushTime(localTableName);
+    let localRecords: any[];
+
+    try {
+      // Attempt indexed query on updatedAt (faster when the index exists)
+      localRecords = await (db as any)[localTableName]
+        .where('updatedAt')
+        .above(lastPush)
+        .toArray();
+    } catch {
+      // Table may lack an updatedAt index — fall back to full scan with filter
+      const all = await (db as any)[localTableName].toArray();
+      localRecords = all.filter((r: any) => {
+        const ts = r.updatedAt || r.createdAt;
+        return !ts || new Date(String(ts)).toISOString() > lastPush;
+      });
+    }
+
     if (localRecords.length === 0) {
-      // Log when no records for users table
       if (localTableName === 'users') {
-        console.log('[CloudSync] No local users to push');
+        console.log('[CloudSync] No dirty users to push');
       }
       return;
     }
 
     // Enhanced logging for users table
     if (localTableName === 'users') {
-      console.log(`[CloudSync] Pushing ${localRecords.length} users to cloud:`, localRecords.map((u: any) => u.username || u.email || u.id));
+      console.log(`[CloudSync] Pushing ${localRecords.length} dirty users to cloud:`, localRecords.map((u: any) => u.username || u.email || u.id));
     }
 
     // Convert to Supabase format and strip any previously-excluded columns
@@ -1098,9 +1179,11 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
     }
     
     if (errorCount > 0) {
-      console.warn(`[CloudSync] Pushed ${successCount}/${localRecords.length} records to ${cloudTableName} (${errorCount} failed)`);
+      console.warn(`[CloudSync] Pushed ${successCount}/${localRecords.length} dirty records to ${cloudTableName} (${errorCount} failed)`);
     } else {
-      console.log(`[CloudSync] Pushed ${localRecords.length} records to ${cloudTableName}`);
+      // All records pushed successfully — update last-push watermark
+      setLastPushTime(localTableName, new Date().toISOString());
+      console.log(`[CloudSync] Pushed ${localRecords.length} dirty records to ${cloudTableName}`);
     }
   } catch (error) {
     console.error(`[CloudSync] Failed to push ${localTableName}:`, error);
@@ -1153,15 +1236,27 @@ function subscribeToTable(sb: NonNullable<typeof supabase>, cloud: string, local
             return;
           }
           
-          const record = convertFromSupabase(payload.new as Record<string, unknown>);
-          try {
-            suppressAudit(); // Don't audit incoming sync writes
-            await (db as any)[local].put(record);
-            resumeAudit();
-          } catch (err) {
-            resumeAudit();
-            console.warn(`[CloudSync] Failed to apply change to ${local}:`, err);
-          }
+          // Debounce: if the same record arrives multiple times in rapid succession,
+          // only apply the latest version after a short delay.
+          const debounceKey = `${local}:${incomingId}`;
+          const existingTimer = realtimeDebounce.get(debounceKey);
+          if (existingTimer) clearTimeout(existingTimer);
+
+          realtimeDebounce.set(
+            debounceKey,
+            setTimeout(async () => {
+              realtimeDebounce.delete(debounceKey);
+              const record = convertFromSupabase(payload.new as Record<string, unknown>);
+              try {
+                suppressAudit();
+                await (db as any)[local].put(record);
+                resumeAudit();
+              } catch (err) {
+                resumeAudit();
+                console.warn(`[CloudSync] Failed to apply change to ${local}:`, err);
+              }
+            }, REALTIME_DEBOUNCE_MS),
+          );
         } else if (payload.eventType === 'DELETE' && payload.old) {
           try {
             suppressAudit();
@@ -1596,6 +1691,13 @@ export function cleanupCloudSync() {
   // Clear echo-back tracking
   recentlySyncedIds.clear();
   subscriptionRetryCount.clear();
+
+  // Clear realtime debounce timers
+  realtimeDebounce.forEach(timer => clearTimeout(timer));
+  realtimeDebounce.clear();
+
+  // Reset backoff state
+  resetBackoff();
   
   if (supabase) {
     realtimeChannels.forEach(channel => {

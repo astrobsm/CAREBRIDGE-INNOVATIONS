@@ -24,11 +24,18 @@ export interface VoiceNotification {
   lastAnnouncedAt?: Date;
 }
 
+// Configuration constants
+const MAX_REPEAT_COUNT = 10; // Stop voice after this many repeats
+const NOTIFICATION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const ANNOUNCEMENT_INTERVAL_MS = 60000; // 60 seconds between announcement cycles
+const DEBOUNCE_MS = 30000; // 30s debounce for visibility changes
+
 // Store for active notifications
 const activeNotifications: Map<string, VoiceNotification> = new Map();
 let announcementInterval: NodeJS.Timeout | null = null;
 let speechSynthesis: SpeechSynthesis | null = null;
 let currentUtterance: SpeechSynthesisUtterance | null = null;
+let lastAnnouncementTime = 0; // Timestamp of last announcement cycle
 
 // IndexedDB store for persistent notifications
 const NOTIFICATION_DB_NAME = 'carebridge-voice-notifications';
@@ -52,11 +59,13 @@ export async function initVoiceNotificationService(): Promise<void> {
   // Start the announcement loop
   startAnnouncementLoop();
 
-  // Listen for visibility changes to resume announcements
+  // Listen for visibility changes to resume announcements (debounced)
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
-      // Resume announcements when app becomes visible
-      announceNextPending();
+      const now = Date.now();
+      if (now - lastAnnouncementTime >= DEBOUNCE_MS) {
+        announceNextPending();
+      }
     }
   });
 
@@ -114,14 +123,26 @@ async function loadPersistedNotifications(): Promise<void> {
     const store = transaction.objectStore(NOTIFICATION_STORE_NAME);
     
     // Note: IndexedDB doesn't support boolean keys well, so we get all and filter
-    const notifications = await new Promise<VoiceNotification[]>((resolve, reject) => {
+    const allNotifications = await new Promise<VoiceNotification[]>((resolve, reject) => {
       const request = store.getAll();
-      request.onsuccess = () => {
-        const all = request.result || [];
-        // Filter for unacknowledged notifications
-        resolve(all.filter((n: VoiceNotification) => n.acknowledged !== true));
-      };
+      request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
+    });
+
+    // Filter: unacknowledged AND not expired
+    const now = Date.now();
+    const notifications = allNotifications.filter((n: VoiceNotification) => {
+      if (n.acknowledged === true) return false;
+      // Expire notifications older than NOTIFICATION_EXPIRY_MS
+      const createdTime = n.createdAt ? new Date(n.createdAt).getTime() : 0;
+      if (now - createdTime > NOTIFICATION_EXPIRY_MS) {
+        // Auto-acknowledge expired notifications
+        n.acknowledged = true;
+        n.acknowledgedAt = new Date();
+        persistNotification(n);
+        return false;
+      }
+      return true;
     });
 
     notifications.forEach(notification => {
@@ -262,10 +283,10 @@ function startAnnouncementLoop(): void {
     clearInterval(announcementInterval);
   }
 
-  // Check for pending announcements every 30 seconds
+  // Check for pending announcements at the configured interval
   announcementInterval = setInterval(() => {
     announceNextPending();
-  }, 30000); // 30 seconds between announcements
+  }, ANNOUNCEMENT_INTERVAL_MS);
 
   console.log('[VoiceNotification] Announcement loop started');
 }
@@ -285,15 +306,23 @@ function announceNextPending(): void {
   const currentUserId = getCurrentUserId();
   if (!currentUserId) return;
 
-  // Find notifications for this user
-  const userNotifications = pending.filter(n => n.userId === currentUserId);
+  // Find notifications for this user that haven't exceeded max repeats
+  const userNotifications = pending.filter(
+    n => n.userId === currentUserId && (n.repeatCount || 0) < MAX_REPEAT_COUNT
+  );
   
   if (userNotifications.length === 0) return;
 
-  // Announce each notification
-  userNotifications.forEach(notification => {
-    announceNotification(notification);
+  // Sort by oldest first (least recently announced)
+  userNotifications.sort((a, b) => {
+    const aTime = a.lastAnnouncedAt ? new Date(a.lastAnnouncedAt).getTime() : 0;
+    const bTime = b.lastAnnouncedAt ? new Date(b.lastAnnouncedAt).getTime() : 0;
+    return aTime - bTime;
   });
+
+  // Announce only ONE notification per cycle to avoid overwhelming the user
+  announceNotification(userNotifications[0]);
+  lastAnnouncementTime = Date.now();
 }
 
 /**
@@ -501,11 +530,17 @@ export async function cleanupOldNotifications(): Promise<void> {
     });
 
     // Delete acknowledged notifications older than 24 hours
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // AND unacknowledged notifications older than 48 hours (stale)
+    const ackCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const staleCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
     
     for (const notification of allNotifications) {
-      if (notification.acknowledged && new Date(notification.acknowledgedAt || 0) < cutoff) {
+      const isAckedAndOld = notification.acknowledged && new Date(notification.acknowledgedAt || 0) < ackCutoff;
+      const isStale = !notification.acknowledged && new Date(notification.createdAt || 0) < staleCutoff;
+      if (isAckedAndOld || isStale) {
         store.delete(notification.id);
+        // Also remove from in-memory map if still there
+        activeNotifications.delete(notification.id);
       }
     }
 

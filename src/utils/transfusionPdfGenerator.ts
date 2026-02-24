@@ -506,17 +506,28 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
   y += 37;
   
   // Monitoring Table - Clean Professional Design
+  // IMPORTANT: To prevent black blocks, we use a helper that explicitly sets fill + draw state
+  // before every rect call. jsPDF can lose fill state after text/font operations.
   const colWidths = [28, 23, 25, 30, 23, 23, 28, 65, 25];
   const headers = ['Time', 'Temp\n(°C)', 'Pulse\n(/min)', 'BP\n(mmHg)', 'RR\n(/min)', 'SpO2\n(%)', 'Vol.\n(mL)', 'Symptoms/Notes', 'Initials'];
   const rowHeight = 13;
   
+  // Helper: draw a filled+bordered cell with explicit state reset each time
+  const drawCell = (cx: number, cy: number, cw: number, ch: number, fillR: number, fillG: number, fillB: number) => {
+    doc.setFillColor(fillR, fillG, fillB);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.rect(cx, cy, cw, ch, 'FD');
+  };
+  
   // Header row with bold border
-  doc.setFillColor(245, 245, 245);
-  doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.5);
   let x = 10;
   headers.forEach((header, i) => {
-    doc.rect(x, y, colWidths[i], rowHeight, 'FD');
+    drawCell(x, y, colWidths[i], rowHeight, 245, 245, 245);
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(0, 0, 0);
+    doc.rect(x, y, colWidths[i], rowHeight, 'S');
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(7);
     doc.setFont(PDF_FONTS.primary, 'bold');
@@ -531,30 +542,30 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
     x += colWidths[i];
   });
   
-  doc.setTextColor(...PDF_COLORS.text);
+  doc.setTextColor(0, 0, 0);
   y += rowHeight;
   
   // Pre-transfusion row - Light highlight
-  doc.setFillColor(255, 255, 230);
-  doc.setLineWidth(0.3);
   x = 10;
   colWidths.forEach((width) => {
-    doc.rect(x, y, width, rowHeight, 'FD');
+    drawCell(x, y, width, rowHeight, 255, 255, 230);
     x += width;
   });
+  doc.setTextColor(0, 0, 0);
   doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(7);
   doc.text('Pre-transfusion', 12, y + 8);
   y += rowHeight;
   
   // 15-minute row - Critical monitoring point
-  doc.setFillColor(255, 250, 240);
   x = 10;
   colWidths.forEach((width) => {
-    doc.rect(x, y, width, rowHeight, 'FD');
+    drawCell(x, y, width, rowHeight, 255, 250, 240);
     x += width;
   });
+  doc.setTextColor(0, 0, 0);
   doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setFontSize(7);
   doc.text('15 min after start', 12, y + 8);
   y += rowHeight;
   
@@ -564,13 +575,15 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
     : data.entries.map(e => e.time);
   
   regularRowTimes.forEach((time, rowIdx) => {
-    doc.setFillColor(rowIdx % 2 === 0 ? 255 : 250, rowIdx % 2 === 0 ? 255 : 250, rowIdx % 2 === 0 ? 255 : 250);
+    const fillVal = rowIdx % 2 === 0 ? 255 : 248;
     x = 10;
     colWidths.forEach((width, colIdx) => {
-      doc.rect(x, y, width, rowHeight, 'FD');
+      // Explicitly set fill color for EVERY cell to prevent black blocks
+      drawCell(x, y, width, rowHeight, fillVal, fillVal, fillVal);
       
       if (!isTemplate && data.entries[rowIdx]) {
         const entry = data.entries[rowIdx];
+        doc.setTextColor(0, 0, 0);
         doc.setFont(PDF_FONTS.primary, 'normal');
         doc.setFontSize(8);
         let value = '';
@@ -585,8 +598,11 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
           case 7: value = entry.symptoms || ''; break;
           case 8: value = entry.nurseInitials || ''; break;
         }
-        doc.text(value, x + width / 2, y + 8, { align: 'center' });
+        if (value) {
+          doc.text(value, x + width / 2, y + 8, { align: 'center' });
+        }
       } else if (isTemplate && colIdx === 0) {
+        doc.setTextColor(0, 0, 0);
         doc.setFont(PDF_FONTS.primary, 'normal');
         doc.setFontSize(8);
         doc.text(time, x + 3, y + 8);
@@ -599,7 +615,7 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
     if (y > pageHeight - 65) {
       doc.addPage('landscape');
       // CRITICAL: Ensure white background on new page
-      doc.setFillColor(...PDF_COLORS.white);
+      doc.setFillColor(255, 255, 255);
       doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F');
       doc.setDrawColor(0, 0, 0);
       doc.setTextColor(0, 0, 0);
@@ -610,12 +626,12 @@ export async function generateMonitoringChartPDF(data: TransfusionMonitoringChar
   y += 3;
   
   // Post-transfusion row - Light green highlight
-  doc.setFillColor(240, 255, 240);
   x = 10;
   colWidths.forEach((width) => {
-    doc.rect(x, y, width, rowHeight, 'FD');
+    drawCell(x, y, width, rowHeight, 240, 255, 240);
     x += width;
   });
+  doc.setTextColor(0, 0, 0);
   doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setFontSize(7);
   doc.text('1 hr post-transfusion', 12, y + 8);

@@ -1,6 +1,7 @@
 /**
  * Start Ward Round Tab
  * Reviews admitted patients with wound care needs, wound assessments, and progress tracking
+ * Includes optional inline wound reassessment during ward rounds
  */
 
 import { useState, useMemo } from 'react';
@@ -25,6 +26,9 @@ import {
   Ruler,
   Clock,
   Stethoscope,
+  Edit3,
+  Save,
+  X,
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { db } from '../../../database';
@@ -32,6 +36,35 @@ import { useAuth } from '../../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { v4 as uuidv4 } from 'uuid';
+import type { TissueType } from '../../../types';
+
+// ── Inline wound reassessment form shape ──
+interface WoundReassessmentForm {
+  length: number;
+  width: number;
+  depth: number | undefined;
+  painLevel: number;
+  tissueTypes: TissueType[];
+  exudateAmount: 'none' | 'light' | 'moderate' | 'heavy';
+  exudateType: string;
+  odor: boolean;
+  healingProgress: 'improving' | 'stable' | 'deteriorating';
+  periWoundCondition: string;
+  dressingType: string;
+  dressingFrequency: string;
+  notes: string;
+}
+
+const TISSUE_OPTIONS: { value: TissueType; label: string; color: string }[] = [
+  { value: 'epithelial', label: 'Epithelial', color: 'bg-pink-100 text-pink-700 border-pink-300' },
+  { value: 'granulation', label: 'Granulation', color: 'bg-red-100 text-red-700 border-red-300' },
+  { value: 'slough', label: 'Slough', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
+  { value: 'necrotic', label: 'Necrotic', color: 'bg-gray-800 text-white border-gray-600' },
+  { value: 'eschar', label: 'Eschar', color: 'bg-stone-700 text-white border-stone-500' },
+];
+
+const EXUDATE_OPTIONS = ['none', 'light', 'moderate', 'heavy'] as const;
+const HEALING_OPTIONS = ['improving', 'stable', 'deteriorating'] as const;
 
 interface StartWardRoundTabProps {
   searchQuery: string;
@@ -43,6 +76,12 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
   const [expandedPatientId, setExpandedPatientId] = useState<string | null>(null);
   const [roundNotes, setRoundNotes] = useState<Record<string, string>>({});
   const [reviewedPatients, setReviewedPatients] = useState<Set<string>>(new Set());
+
+  // ── Wound reassessment state ──
+  // Key = woundId currently being reassessed (only one at a time)
+  const [assessingWoundId, setAssessingWoundId] = useState<string | null>(null);
+  const [woundAssessmentData, setWoundAssessmentData] = useState<Record<string, WoundReassessmentForm>>({});
+  const [isSavingAssessment, setIsSavingAssessment] = useState(false);
 
   // Fetch admitted patients
   const admissions = useLiveQuery(
@@ -126,6 +165,86 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
   const handleMarkReviewed = (patientId: string) => {
     setReviewedPatients(prev => new Set(prev).add(patientId));
     toast.success('Patient marked as reviewed');
+  };
+
+  // ── Wound reassessment helpers ──
+  const openWoundAssessment = (wound: any) => {
+    if (!woundAssessmentData[wound.id]) {
+      // Pre-populate with existing wound data
+      setWoundAssessmentData(prev => ({
+        ...prev,
+        [wound.id]: {
+          length: wound.length || 0,
+          width: wound.width || 0,
+          depth: wound.depth,
+          painLevel: wound.painLevel ?? 5,
+          tissueTypes: wound.tissueType || [],
+          exudateAmount: wound.exudateAmount || 'light',
+          exudateType: wound.exudateType || '',
+          odor: wound.odor || false,
+          healingProgress: wound.healingProgress || 'stable',
+          periWoundCondition: wound.periWoundCondition || '',
+          dressingType: wound.dressingType || '',
+          dressingFrequency: wound.dressingFrequency || '',
+          notes: '',
+        },
+      }));
+    }
+    setAssessingWoundId(wound.id);
+  };
+
+  const updateAssessmentField = (woundId: string, field: keyof WoundReassessmentForm, value: any) => {
+    setWoundAssessmentData(prev => ({
+      ...prev,
+      [woundId]: { ...prev[woundId], [field]: value },
+    }));
+  };
+
+  const toggleAssessmentTissue = (woundId: string, tissue: TissueType) => {
+    setWoundAssessmentData(prev => {
+      const current = prev[woundId]?.tissueTypes || [];
+      const updated = current.includes(tissue)
+        ? current.filter(t => t !== tissue)
+        : [...current, tissue];
+      return { ...prev, [woundId]: { ...prev[woundId], tissueTypes: updated } };
+    });
+  };
+
+  const saveWoundAssessment = async (woundId: string) => {
+    const data = woundAssessmentData[woundId];
+    if (!data) return;
+
+    setIsSavingAssessment(true);
+    try {
+      const area = data.length * data.width;
+      await db.wounds.update(woundId, {
+        length: data.length,
+        width: data.width,
+        depth: data.depth,
+        area,
+        painLevel: data.painLevel,
+        tissueType: data.tissueTypes,
+        exudateAmount: data.exudateAmount,
+        exudateType: data.exudateType || undefined,
+        odor: data.odor,
+        healingProgress: data.healingProgress,
+        periWoundCondition: data.periWoundCondition || undefined,
+        dressingType: data.dressingType || undefined,
+        dressingFrequency: data.dressingFrequency || undefined,
+        updatedAt: new Date(),
+      } as any);
+
+      // Sync updated wound to Supabase
+      syncRecord('wounds', woundId);
+
+      toast.success('Wound reassessment saved');
+      setAssessingWoundId(null);
+    } catch (err) {
+      console.error('Failed to save wound reassessment:', err);
+      toast.error('Failed to save wound reassessment');
+    } finally {
+      setIsSavingAssessment(false);
+    }
   };
 
   const handleStartFullRound = async () => {
@@ -329,14 +448,37 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
                               Active Wounds ({activeWounds.length})
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {activeWounds.map((wound: any) => (
-                                <div key={wound.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                              {activeWounds.map((wound: any) => {
+                                const isAssessing = assessingWoundId === wound.id;
+                                const formData = woundAssessmentData[wound.id];
+
+                                return (
+                                <div key={wound.id} className={`bg-gray-50 rounded-lg p-3 border ${isAssessing ? 'border-sky-400 ring-1 ring-sky-200' : 'border-gray-200'}`}>
                                   <div className="flex items-center justify-between mb-2">
                                     <span className="font-medium text-sm">{wound.location}</span>
-                                    <span className="flex items-center gap-1 text-xs">
-                                      {getProgressIcon(wound.healingProgress)}
-                                      {wound.healingProgress || 'Unknown'}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="flex items-center gap-1 text-xs">
+                                        {getProgressIcon(wound.healingProgress)}
+                                        {wound.healingProgress || 'Unknown'}
+                                      </span>
+                                      {!isAssessing ? (
+                                        <button
+                                          onClick={() => openWoundAssessment(wound)}
+                                          className="p-1 text-sky-600 hover:bg-sky-50 rounded"
+                                          title="Reassess Wound"
+                                        >
+                                          <Edit3 size={14} />
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => setAssessingWoundId(null)}
+                                          className="p-1 text-gray-500 hover:bg-gray-200 rounded"
+                                          title="Cancel"
+                                        >
+                                          <X size={14} />
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="grid grid-cols-3 gap-2 text-xs">
                                     <div className="text-center p-2 bg-white rounded">
@@ -365,8 +507,180 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
                                     Assessed: {format(new Date(wound.createdAt), 'dd MMM yyyy')} 
                                     ({differenceInDays(new Date(), new Date(wound.createdAt))} days ago)
                                   </p>
+
+                                  {/* Inline Reassessment Form */}
+                                  <AnimatePresence>
+                                    {isAssessing && formData && (
+                                      <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="overflow-hidden"
+                                      >
+                                        <div className="mt-3 pt-3 border-t border-sky-200 space-y-3">
+                                          <p className="text-xs font-semibold text-sky-700 flex items-center gap-1">
+                                            <Edit3 size={12} /> Wound Reassessment
+                                          </p>
+
+                                          {/* Dimensions */}
+                                          <div className="grid grid-cols-3 gap-2">
+                                            <div>
+                                              <label className="text-xs text-gray-600">Length (cm)</label>
+                                              <input type="number" step="0.1" min="0"
+                                                value={formData.length}
+                                                onChange={e => updateAssessmentField(wound.id, 'length', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md focus:ring-1 focus:ring-sky-400"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="text-xs text-gray-600">Width (cm)</label>
+                                              <input type="number" step="0.1" min="0"
+                                                value={formData.width}
+                                                onChange={e => updateAssessmentField(wound.id, 'width', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md focus:ring-1 focus:ring-sky-400"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="text-xs text-gray-600">Depth (cm)</label>
+                                              <input type="number" step="0.1" min="0"
+                                                value={formData.depth ?? ''}
+                                                onChange={e => updateAssessmentField(wound.id, 'depth', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md focus:ring-1 focus:ring-sky-400"
+                                              />
+                                            </div>
+                                          </div>
+
+                                          {/* Pain Level */}
+                                          <div>
+                                            <label className="text-xs text-gray-600">Pain Level: <span className="font-bold">{formData.painLevel}/10</span></label>
+                                            <input type="range" min="0" max="10"
+                                              value={formData.painLevel}
+                                              onChange={e => updateAssessmentField(wound.id, 'painLevel', parseInt(e.target.value))}
+                                              className="w-full h-2 accent-sky-500"
+                                            />
+                                          </div>
+
+                                          {/* Tissue Types */}
+                                          <div>
+                                            <label className="text-xs text-gray-600 mb-1 block">Tissue Types</label>
+                                            <div className="flex flex-wrap gap-1">
+                                              {TISSUE_OPTIONS.map(opt => {
+                                                const selected = formData.tissueTypes.includes(opt.value);
+                                                return (
+                                                  <button key={opt.value} type="button"
+                                                    onClick={() => toggleAssessmentTissue(wound.id, opt.value)}
+                                                    className={`text-xs px-2 py-1 rounded-full border transition-colors ${selected ? opt.color + ' font-semibold' : 'bg-white text-gray-500 border-gray-300'}`}
+                                                  >
+                                                    {opt.label}
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+
+                                          {/* Exudate & Odor */}
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                              <label className="text-xs text-gray-600">Exudate Amount</label>
+                                              <select
+                                                value={formData.exudateAmount}
+                                                onChange={e => updateAssessmentField(wound.id, 'exudateAmount', e.target.value)}
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md focus:ring-1 focus:ring-sky-400"
+                                              >
+                                                {EXUDATE_OPTIONS.map(opt => (
+                                                  <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                            <div className="flex items-end gap-2">
+                                              <label className="text-xs text-gray-600 flex items-center gap-1">
+                                                <input type="checkbox" checked={formData.odor}
+                                                  onChange={e => updateAssessmentField(wound.id, 'odor', e.target.checked)}
+                                                  className="rounded text-sky-600"
+                                                />
+                                                Odor Present
+                                              </label>
+                                            </div>
+                                          </div>
+
+                                          {/* Healing Progress */}
+                                          <div>
+                                            <label className="text-xs text-gray-600 mb-1 block">Healing Progress</label>
+                                            <div className="flex gap-2">
+                                              {HEALING_OPTIONS.map(opt => (
+                                                <button key={opt} type="button"
+                                                  onClick={() => updateAssessmentField(wound.id, 'healingProgress', opt)}
+                                                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                                                    formData.healingProgress === opt
+                                                      ? opt === 'improving' ? 'bg-green-100 border-green-400 text-green-700 font-semibold'
+                                                        : opt === 'deteriorating' ? 'bg-red-100 border-red-400 text-red-700 font-semibold'
+                                                        : 'bg-amber-100 border-amber-400 text-amber-700 font-semibold'
+                                                      : 'bg-white border-gray-300 text-gray-500'
+                                                  }`}
+                                                >
+                                                  {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                                                </button>
+                                              ))}
+                                            </div>
+                                          </div>
+
+                                          {/* Dressing */}
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                              <label className="text-xs text-gray-600">Dressing Type</label>
+                                              <input type="text"
+                                                value={formData.dressingType}
+                                                onChange={e => updateAssessmentField(wound.id, 'dressingType', e.target.value)}
+                                                placeholder="e.g. Hydrogel, Alginate"
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md focus:ring-1 focus:ring-sky-400"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="text-xs text-gray-600">Dressing Frequency</label>
+                                              <input type="text"
+                                                value={formData.dressingFrequency}
+                                                onChange={e => updateAssessmentField(wound.id, 'dressingFrequency', e.target.value)}
+                                                placeholder="e.g. Daily, BD"
+                                                className="w-full px-2 py-1.5 text-xs border rounded-md focus:ring-1 focus:ring-sky-400"
+                                              />
+                                            </div>
+                                          </div>
+
+                                          {/* Notes */}
+                                          <div>
+                                            <label className="text-xs text-gray-600">Reassessment Notes</label>
+                                            <textarea rows={2}
+                                              value={formData.notes}
+                                              onChange={e => updateAssessmentField(wound.id, 'notes', e.target.value)}
+                                              placeholder="Clinical observations, plan of care..."
+                                              className="w-full px-2 py-1.5 text-xs border rounded-md focus:ring-1 focus:ring-sky-400"
+                                            />
+                                          </div>
+
+                                          {/* Save / Cancel */}
+                                          <div className="flex justify-end gap-2">
+                                            <button
+                                              onClick={() => setAssessingWoundId(null)}
+                                              className="px-3 py-1.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                            >
+                                              <X size={12} className="inline mr-1" />Cancel
+                                            </button>
+                                            <button
+                                              onClick={() => saveWoundAssessment(wound.id)}
+                                              disabled={isSavingAssessment}
+                                              className="px-3 py-1.5 text-xs text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-50 rounded-lg transition-colors"
+                                            >
+                                              <Save size={12} className="inline mr-1" />{isSavingAssessment ? 'Saving...' : 'Save Reassessment'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         )}

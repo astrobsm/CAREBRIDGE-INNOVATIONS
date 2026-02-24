@@ -49,9 +49,12 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PatientSelector } from '../../../components/patient';
+import jsPDF from 'jspdf';
+import { addBrandedHeader, addPatientInfoBox, PDF_COLORS, addWatermarkToAllPages } from '../../../utils/pdfUtils';
 import {
   substanceUseService,
   SubstanceUseOps,
+  ClinicalSummaryOps,
   substanceDefinitions,
 } from '../../../services/substanceUseService';
 import type {
@@ -318,6 +321,439 @@ export default function SubstanceUseAssessmentPage() {
       formData.relevantComorbidities
     );
   }, [formData.hasPainCondition, formData.painContext, formData.substances, formData.relevantComorbidities]);
+
+  // ==================== PDF GENERATION HANDLERS ====================
+
+  // Build a temporary assessment object from current form state
+  const buildTemporaryAssessment = useCallback((): SubstanceUseAssessment | null => {
+    if (!selectedPatientId || formData.substances.length === 0 || !withdrawalRisk || !careSettingDecision) {
+      return null;
+    }
+    const primarySubstance = formData.substances.find(s => s.isPrimaryConcern) || formData.substances[0];
+    return {
+      id: 'temp-' + Date.now(),
+      patientId: selectedPatientId,
+      hospitalId: user?.hospitalId || '',
+      status: 'in_assessment',
+      assessmentDate: new Date(),
+      assessedBy: user?.id || '',
+      assessedByName: `${user?.firstName} ${user?.lastName}`,
+      demographics: formData.demographics,
+      socialFactors: formData.socialFactors,
+      previousDetoxAttempts: formData.previousDetoxAttempts,
+      previousDetoxDetails: formData.previousDetoxDetails,
+      psychiatricHistory: formData.psychiatricHistory,
+      psychiatricHistoryNotes: formData.psychiatricHistoryNotes,
+      substances: formData.substances as SubstanceIntake[],
+      primarySubstance: primarySubstance.substanceName,
+      polySubstanceUse: formData.substances.length > 1,
+      addictionSeverityScore: addictionScore,
+      withdrawalRiskPrediction: withdrawalRisk,
+      painManagementSupport: painManagementSupport || undefined,
+      relevantComorbidities: formData.relevantComorbidities,
+      comorbidityModifications: substanceUseService.getComorbidityModifications(formData.relevantComorbidities),
+      careSettingDecision: careSettingDecision,
+      exclusionCriteriaFlags: formData.exclusionCriteria,
+      auditLog: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SubstanceUseAssessment;
+  }, [selectedPatientId, formData, addictionScore, withdrawalRisk, careSettingDecision, painManagementSupport, user]);
+
+  const handleGenerateConsent = useCallback(() => {
+    const assessment = buildTemporaryAssessment();
+    if (!assessment) {
+      toast.error('Please complete the assessment before generating documents');
+      return;
+    }
+    const patientName = selectedPatient
+      ? `${selectedPatient.firstName} ${selectedPatient.lastName}`
+      : 'Unknown Patient';
+    try {
+      const consent = substanceUseService.generateConsentDocument(assessment, patientName);
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = addBrandedHeader(doc, {
+        title: 'INFORMED CONSENT FOR DETOXIFICATION',
+        subtitle: 'Substance Use Disorder Treatment',
+        hospitalName: user?.hospitalId || 'Hospital',
+      });
+      y = addPatientInfoBox(doc, y, {
+        name: patientName,
+        hospitalNumber: assessment.patientId,
+        age: assessment.demographics.age,
+        gender: assessment.demographics.sex === 'male' ? 'Male' : 'Female',
+      });
+      y += 5;
+      // Diagnosis Explanation
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Diagnosis Explanation', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      const diagLines = doc.splitTextToSize(consent.diagnosisExplanation, pageWidth - 30);
+      doc.text(diagLines, 15, y);
+      y += diagLines.length * 4 + 4;
+      // Detoxification Risks
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.text('Detoxification Risks', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      consent.detoxificationRisks.forEach(risk => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        const riskLines = doc.splitTextToSize(`\u2022 ${risk}`, pageWidth - 35);
+        doc.text(riskLines, 20, y);
+        y += riskLines.length * 4 + 2;
+      });
+      y += 4;
+      // Possible Withdrawal Effects
+      if (y > 250) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.text('Possible Withdrawal Effects', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      consent.possibleWithdrawalEffects.forEach(effect => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(`\u2022 ${effect}`, 20, y);
+        y += 5;
+      });
+      y += 4;
+      // Pain Management Plan
+      if (y > 250) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.text('Pain Management Plan', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      const painLines = doc.splitTextToSize(consent.painManagementPlan, pageWidth - 30);
+      doc.text(painLines, 15, y);
+      y += painLines.length * 4 + 4;
+      // Monitoring Requirements
+      if (y > 250) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.text('Monitoring Requirements', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      consent.monitoringRequirements.forEach(req => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(`\u2022 ${req}`, 20, y);
+        y += 5;
+      });
+      y += 10;
+      // Signature area
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(15, y, 90, y);
+      doc.line(110, y, 195, y);
+      y += 5;
+      doc.setFontSize(8);
+      doc.text('Patient Signature & Date', 15, y);
+      doc.text('Witness Signature & Date', 110, y);
+      y += 15;
+      doc.line(15, y, 90, y);
+      y += 5;
+      doc.text('Clinician Signature & Date', 15, y);
+      addWatermarkToAllPages(doc);
+      doc.save(`Consent_${patientName.replace(/\s/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      toast.success('Consent document generated');
+    } catch (error) {
+      console.error('Error generating consent:', error);
+      toast.error('Failed to generate consent document');
+    }
+  }, [buildTemporaryAssessment, selectedPatient, user]);
+
+  const handleGenerateLeaflet = useCallback(() => {
+    const assessment = buildTemporaryAssessment();
+    if (!assessment) {
+      toast.error('Please complete the assessment before generating documents');
+      return;
+    }
+    const patientName = selectedPatient
+      ? `${selectedPatient.firstName} ${selectedPatient.lastName}`
+      : 'Unknown Patient';
+    try {
+      const leaflet = substanceUseService.generatePatientInfoLeaflet(assessment, patientName);
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = addBrandedHeader(doc, {
+        title: 'PATIENT INFORMATION LEAFLET',
+        subtitle: 'Your Detoxification Journey',
+        hospitalName: user?.hospitalId || 'Hospital',
+      });
+      y = addPatientInfoBox(doc, y, {
+        name: patientName,
+        hospitalNumber: assessment.patientId,
+        age: assessment.demographics.age,
+        gender: assessment.demographics.sex === 'male' ? 'Male' : 'Female',
+      });
+      y += 5;
+      // Day-by-Day Expectations
+      doc.setFontSize(12);
+      doc.setFont('times', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('What to Expect Day-by-Day', 15, y);
+      y += 7;
+      leaflet.dayByDayExpectations.forEach(day => {
+        if (y > 240) { doc.addPage(); y = 20; }
+        doc.setFontSize(10);
+        doc.setFont('times', 'bold');
+        doc.setTextColor(...PDF_COLORS.primary as [number, number, number]);
+        doc.text(`Day ${day.day}: ${day.description}`, 15, y);
+        y += 5;
+        doc.setFont('times', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0);
+        if (day.symptoms.length > 0) {
+          doc.text('Possible symptoms:', 20, y);
+          y += 4;
+          day.symptoms.forEach(s => {
+            if (y > 270) { doc.addPage(); y = 20; }
+            doc.text(`  - ${s}`, 25, y);
+            y += 4;
+          });
+        }
+        if (day.selfCareAdvice.length > 0) {
+          doc.text('Self-care advice:', 20, y);
+          y += 4;
+          day.selfCareAdvice.forEach(a => {
+            if (y > 270) { doc.addPage(); y = 20; }
+            doc.text(`  \u2713 ${a}`, 25, y);
+            y += 4;
+          });
+        }
+        y += 3;
+      });
+      y += 3;
+      // Warning Symptoms
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.setTextColor(200, 0, 0);
+      doc.text('WARNING: Seek Immediate Help If You Experience', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      leaflet.warningSymptoms.forEach(symptom => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        const lines = doc.splitTextToSize(symptom, pageWidth - 35);
+        doc.text(lines, 20, y);
+        y += lines.length * 4 + 2;
+      });
+      y += 3;
+      // Compliance Expectations
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('What We Need From You', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      leaflet.complianceExpectations.forEach(exp => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(`\u2022 ${exp}`, 20, y);
+        y += 5;
+      });
+      y += 3;
+      // Family Involvement
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.text('For Family Members', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      leaflet.familyInvolvement.forEach(info => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(`\u2022 ${info}`, 20, y);
+        y += 5;
+      });
+      y += 3;
+      // Follow-up Schedule
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.text('Follow-Up Schedule', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      leaflet.followUpSchedule.forEach(f => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(`\u2022 ${format(new Date(f.date), 'dd MMM yyyy')} - ${f.purpose} (${f.location})`, 20, y);
+        y += 5;
+      });
+      y += 3;
+      // Emergency Contacts
+      if (y > 250) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.setTextColor(200, 0, 0);
+      doc.text('Emergency Contacts', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      leaflet.emergencyContacts.forEach(c => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(`${c.role}: ${c.name} - ${c.phone}`, 20, y);
+        y += 5;
+      });
+      addWatermarkToAllPages(doc);
+      doc.save(`Patient_Leaflet_${patientName.replace(/\s/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      toast.success('Patient information leaflet generated');
+    } catch (error) {
+      console.error('Error generating leaflet:', error);
+      toast.error('Failed to generate patient information leaflet');
+    }
+  }, [buildTemporaryAssessment, selectedPatient, user]);
+
+  const handleGenerateSummary = useCallback(async () => {
+    const assessment = buildTemporaryAssessment();
+    if (!assessment) {
+      toast.error('Please complete the assessment before generating documents');
+      return;
+    }
+    const patientName = selectedPatient
+      ? `${selectedPatient.firstName} ${selectedPatient.lastName}`
+      : 'Unknown Patient';
+    try {
+      const hospitalName = user?.hospitalId || 'Hospital';
+      const generatedBy = `${user?.firstName} ${user?.lastName}`;
+      // Build summary data inline (without saving to DB for temp assessments)
+      const summary = {
+        addictionScore: assessment.addictionSeverityScore,
+        riskClassification: assessment.withdrawalRiskPrediction.overallRisk,
+        recommendedPathway: assessment.careSettingDecision.recommendation,
+        keyFindings: [
+          `Primary substance: ${assessment.primarySubstance}`,
+          `Duration of use: ${assessment.substances[0]?.durationOfUseMonths || 'Unknown'} months`,
+          `Poly-substance use: ${assessment.polySubstanceUse ? 'Yes' : 'No'}`,
+          `Social support: ${assessment.socialFactors.familySupportLevel}`,
+          `Previous detox attempts: ${assessment.previousDetoxAttempts}`,
+        ],
+        recommendedInterventions: [
+          ...assessment.withdrawalRiskPrediction.pharmacologicalSupport.slice(0, 5),
+          ...assessment.withdrawalRiskPrediction.monitoringRecommendations.slice(0, 3),
+        ],
+        monitoringChecklist: assessment.withdrawalRiskPrediction.monitoringRecommendations,
+      };
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = addBrandedHeader(doc, {
+        title: 'CLINICAL SUMMARY REPORT',
+        subtitle: 'Substance Use Disorder Assessment',
+        hospitalName,
+      });
+      y = addPatientInfoBox(doc, y, {
+        name: patientName,
+        hospitalNumber: assessment.patientId,
+        age: assessment.demographics.age,
+        gender: assessment.demographics.sex === 'male' ? 'Male' : 'Female',
+      });
+      y += 5;
+      // Addiction Severity Score
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Addiction Severity Assessment', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      const score = summary.addictionScore;
+      doc.text(`Composite Score: ${score.totalCompositeScore}/100 (${score.severityLevel})`, 20, y);
+      y += 5;
+      doc.text(`Physical Dependence: ${score.physicalDependenceScore}/100`, 20, y);
+      y += 5;
+      doc.text(`Psychological Dependence: ${score.psychologicalDependenceScore}/100`, 20, y);
+      y += 5;
+      doc.text(`Behavioral Dysfunction: ${score.behavioralDysfunctionScore}/100`, 20, y);
+      y += 5;
+      doc.text(`Social Impairment: ${score.socialImpairmentScore}/100`, 20, y);
+      y += 5;
+      doc.text(`Medical Complications: ${score.medicalComplicationsScore}/100`, 20, y);
+      y += 8;
+      // Risk Classification
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.text('Risk Classification', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      doc.text(`Overall Risk: ${summary.riskClassification}`, 20, y);
+      y += 5;
+      doc.text(`Recommended Pathway: ${summary.recommendedPathway}`, 20, y);
+      y += 8;
+      // Key Findings
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.text('Key Findings', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      summary.keyFindings.forEach(finding => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(`\u2022 ${finding}`, 20, y);
+        y += 5;
+      });
+      y += 4;
+      // Recommended Interventions
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.text('Recommended Interventions', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      summary.recommendedInterventions.forEach(intervention => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        const lines = doc.splitTextToSize(`\u2022 ${intervention}`, pageWidth - 35);
+        doc.text(lines, 20, y);
+        y += lines.length * 4 + 2;
+      });
+      y += 4;
+      // Monitoring Checklist
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont('times', 'bold');
+      doc.text('Monitoring Checklist', 15, y);
+      y += 6;
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      summary.monitoringChecklist.forEach(item => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(`\u2610 ${item}`, 20, y);
+        y += 5;
+      });
+      y += 8;
+      // Disclaimer
+      if (y > 250) { doc.addPage(); y = 20; }
+      doc.setFontSize(8);
+      doc.setFont('times', 'italic');
+      doc.setTextColor(150, 0, 0);
+      doc.text('DISCLAIMER: This document is for CLINICAL DECISION SUPPORT only.', 15, y);
+      y += 4;
+      doc.text('Final clinical responsibility rests with the treating physician.', 15, y);
+      y += 4;
+      doc.text(`Generated by: ${generatedBy} on ${format(new Date(), 'PPP p')}`, 15, y);
+      addWatermarkToAllPages(doc);
+      doc.save(`Clinical_Summary_${patientName.replace(/\s/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      toast.success('Clinical summary generated');
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      toast.error('Failed to generate clinical summary');
+    }
+  }, [buildTemporaryAssessment, selectedPatient, user]);
 
   // Add substance to list
   const handleAddSubstance = () => {
@@ -2007,7 +2443,10 @@ export default function SubstanceUseAssessmentPage() {
                             <li>• Withdrawal effects</li>
                             <li>• Monitoring requirements</li>
                           </ul>
-                          <button className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 flex items-center justify-center gap-2">
+                          <button
+                            onClick={handleGenerateConsent}
+                            className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 flex items-center justify-center gap-2 transition-colors"
+                          >
                             <Download size={16} />
                             Generate Consent
                           </button>
@@ -2030,7 +2469,10 @@ export default function SubstanceUseAssessmentPage() {
                             <li>• Family involvement</li>
                             <li>• Follow-up schedule</li>
                           </ul>
-                          <button className="w-full px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 flex items-center justify-center gap-2">
+                          <button
+                            onClick={handleGenerateLeaflet}
+                            className="w-full px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 flex items-center justify-center gap-2 transition-colors"
+                          >
                             <Download size={16} />
                             Generate Leaflet
                           </button>
@@ -2053,7 +2495,10 @@ export default function SubstanceUseAssessmentPage() {
                             <li>• Recommended pathway</li>
                             <li>• Monitoring checklist</li>
                           </ul>
-                          <button className="w-full px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 flex items-center justify-center gap-2">
+                          <button
+                            onClick={handleGenerateSummary}
+                            className="w-full px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors"
+                          >
                             <Printer size={16} />
                             Generate Summary
                           </button>

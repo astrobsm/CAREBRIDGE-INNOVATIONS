@@ -716,6 +716,32 @@ export const surgicalProcedures: SurgicalProcedure[] = [
     description: 'Amputation of multiple toes with metatarsals',
     notes: 'Complex diabetic foot reconstruction',
   },
+  {
+    id: 'diabetic-003',
+    name: 'Below Knee Amputation (BKA)',
+    category: 'major',
+    complexity: 'level3',
+    complexityLabel: 'Major',
+    icdCode: '0Y6H0Z1',
+    minFee: 1500000,
+    maxFee: 3000000,
+    defaultFee: 2000000,
+    description: 'Transtibial amputation below the knee joint preserving the knee for prosthetic rehabilitation',
+    notes: 'Peripheral vascular disease, diabetic gangrene, severe trauma, osteomyelitis, malignancy. Requires vascular assessment, DVT prophylaxis, prosthetic referral, and rehabilitation planning.',
+  },
+  {
+    id: 'diabetic-004',
+    name: 'Below Knee Amputation (BKA) – Revision/Re-amputation',
+    category: 'major',
+    complexity: 'level3',
+    complexityLabel: 'Major',
+    icdCode: '0Y6H0ZZ',
+    minFee: 1800000,
+    maxFee: 3500000,
+    defaultFee: 2500000,
+    description: 'Revision of previous below knee amputation stump for wound breakdown, infection, or prosthetic fitting issues',
+    notes: 'Failed primary BKA healing, stump neuroma, bone spur, poorly shaped stump. May require myodesis/myoplasty.',
+  },
 
   // HAND & NERVE SURGERY
   {
