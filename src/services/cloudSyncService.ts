@@ -41,7 +41,8 @@ try {
 } catch { /* ignore in SSR/no-storage environments */ }
 
 // ===== Exponential backoff for sync failures =====
-// (state managed by consecutiveFailures / nextBackoffInterval / resetBackoff below)
+const BASE_SYNC_INTERVAL_MS = 30_000;   // 30 seconds base interval
+const MAX_SYNC_INTERVAL_MS = 300_000;   // 5 minutes max backoff
 
 // ===== Network availability guard =====
 function isNetworkAvailable(): boolean {
