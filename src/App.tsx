@@ -59,6 +59,7 @@ import ShoppingChecklistPage from './domains/shopping-checklist/pages/ShoppingCh
 import SubstanceUseAssessmentPage from './domains/substance-use/pages/SubstanceUseAssessmentPage';
 import KeloidCarePlanningPage from './domains/keloid/pages/KeloidCarePlanningPage';
 import UnifiedSurgicalPrepPage from './domains/surgery/pages/UnifiedSurgicalPrepPage';
+import SurgicalWorkflowPage from './domains/surgery/pages/SurgicalWorkflowPage';
 import STIProtocolPage from './domains/soft-tissue-infection/pages/STIProtocolPage';
 import PreSurgicalConferencePage from './domains/pre-surgical-conference/pages/PreSurgicalConferencePage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -131,6 +132,7 @@ function App() {
           <Route path="post-op-note/create/:surgeryId" element={<PostOpNoteFormPage />} />
           <Route path="post-op-note/:surgeryId" element={<PostOperativeNotePage />} />
           <Route path="surgical-prep/:patientId" element={<UnifiedSurgicalPrepPage />} />
+          <Route path="workflow/:patientId" element={<SurgicalWorkflowPage />} />
         </Route>
 
         {/* Clinical Modules */}
