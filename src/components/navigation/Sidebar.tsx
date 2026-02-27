@@ -89,16 +89,12 @@ const navigation: NavItem[] = [
     icon: <Scissors size={20} />,
     permission: 'manage_surgeries',
     children: [
+      { name: 'Surgical Workflow', href: '/surgery/workflow' },
       { name: 'Surgery List', href: '/surgery' },
       { name: 'Preoperative Review', href: '/surgery/preoperative' },
       { name: 'Post-Op Notes', href: '/surgery/post-op-notes' },
+      { name: 'Pre-Surgical Conference', href: '/pre-surgical-conference' },
     ],
-  },
-  {
-    name: 'Pre-Surgical Conference',
-    href: '/pre-surgical-conference',
-    icon: <Presentation size={20} />,
-    permission: 'manage_surgeries',
   },
   { 
     name: 'Post-Op Care', 

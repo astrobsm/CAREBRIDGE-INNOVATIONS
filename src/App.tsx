@@ -132,6 +132,7 @@ function App() {
           <Route path="post-op-note/create/:surgeryId" element={<PostOpNoteFormPage />} />
           <Route path="post-op-note/:surgeryId" element={<PostOperativeNotePage />} />
           <Route path="surgical-prep/:patientId" element={<UnifiedSurgicalPrepPage />} />
+          <Route path="workflow" element={<SurgicalWorkflowPage />} />
           <Route path="workflow/:patientId" element={<SurgicalWorkflowPage />} />
         </Route>
 

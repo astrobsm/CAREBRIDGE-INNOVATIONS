@@ -875,6 +875,63 @@ export default function SurgicalWorkflowPage() {
   const goPrev = () => { if (currentSectionIndex > 0) setActiveSection(SECTIONS[currentSectionIndex - 1].id); };
 
   // ---- Loading state ----
+  // Patient selector when no patientId in URL
+  const [patientSearch, setPatientSearch] = useState('');
+  const allPatients = useLiveQuery(() => db.patients.toArray(), []);
+  const filteredPatients = allPatients?.filter(p => {
+    if (!patientSearch || patientSearch.length < 2) return false;
+    const q = patientSearch.toLowerCase();
+    return (
+      p.firstName?.toLowerCase().includes(q) ||
+      p.lastName?.toLowerCase().includes(q) ||
+      p.hospitalNumber?.toLowerCase().includes(q)
+    );
+  }) || [];
+
+  if (!patientId) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Surgical Workflow</h1>
+          <p className="text-gray-500 mb-6">Select a patient to begin the surgical workflow</p>
+          <div className="bg-white rounded-xl shadow p-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Search Patient</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={patientSearch}
+                onChange={e => setPatientSearch(e.target.value)}
+                placeholder="Type patient name or hospital number..."
+                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {filteredPatients.length > 0 && (
+              <div className="mt-2 border rounded-lg max-h-80 overflow-y-auto">
+                {filteredPatients.slice(0, 20).map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => navigate(`/surgery/workflow/${p.id}`)}
+                    className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b flex justify-between items-center"
+                  >
+                    <div>
+                      <span className="font-medium">{p.firstName} {p.lastName}</span>
+                      <span className="text-gray-400 ml-2 text-sm">({p.hospitalNumber})</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {patientSearch.length >= 2 && filteredPatients.length === 0 && (
+              <p className="text-gray-400 text-sm mt-3">No patients found matching "{patientSearch}"</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!patient) {
     return (
       <div className="min-h-screen flex items-center justify-center">
