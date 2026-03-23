@@ -62,6 +62,10 @@ import UnifiedSurgicalPrepPage from './domains/surgery/pages/UnifiedSurgicalPrep
 import SurgicalWorkflowPage from './domains/surgery/pages/SurgicalWorkflowPage';
 import STIProtocolPage from './domains/soft-tissue-infection/pages/STIProtocolPage';
 import PreSurgicalConferencePage from './domains/pre-surgical-conference/pages/PreSurgicalConferencePage';
+// Public Clinic Booking (No login required)
+import PublicBookingPage from './domains/appointments/pages/public/PublicBookingPage';
+import BookingSharePage from './domains/appointments/pages/public/BookingSharePage';
+import ClinicBookingsManagementPage from './domains/appointments/pages/ClinicBookingsManagementPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
 import InstallPrompt from './components/pwa/InstallPrompt';
@@ -106,6 +110,9 @@ function App() {
         } 
       />
 
+      {/* Public Clinic Booking - No Login Required */}
+      <Route path="/book-appointment" element={<PublicBookingPage />} />
+
       {/* Protected Routes - with Agreement Guard */}
       <Route element={isAuthenticated ? <AgreementGuard><MainLayout /></AgreementGuard> : <Navigate to="/login" replace />}>
         <Route index element={<DashboardPage />} />
@@ -138,6 +145,8 @@ function App() {
 
         {/* Clinical Modules */}
         <Route path="appointments" element={<AppointmentsPage />} />
+        <Route path="appointments/clinic-bookings" element={<ClinicBookingsManagementPage />} />
+        <Route path="appointments/share-booking" element={<BookingSharePage />} />
         <Route path="adt" element={<ADTPage />} />
         <Route path="admissions" element={<AdmissionsPage />} />
         <Route path="discharge" element={<DischargePage />} />

@@ -46,6 +46,7 @@ ALTER TABLE npwt_sessions ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT false
 -- =============================
 
 -- Core identifiers
+ALTER TABLE limb_salvage_assessments ADD COLUMN IF NOT EXISTS encounter_id TEXT;
 ALTER TABLE limb_salvage_assessments ADD COLUMN IF NOT EXISTS admission_id TEXT;
 ALTER TABLE limb_salvage_assessments ADD COLUMN IF NOT EXISTS hospital_id TEXT;
 

@@ -75,6 +75,8 @@ import type {
   // Soft Tissue Infection
   STIAssessment,
   STIDebridementRecord,
+  // Public Clinic Booking
+  PublicClinicBooking,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -179,11 +181,13 @@ export class AstroHEALTHDatabase extends Dexie {
   // Soft Tissue Infection Assessments
   stiAssessments!: Table<STIAssessment, string>;
   stiDebridementRecords!: Table<STIDebridementRecord, string>;
+  // Public Clinic Booking (No Login Required)
+  publicClinicBookings!: Table<PublicClinicBooking, string>;
 
   constructor() {
     super('AstroHEALTHDB');
 
-    this.version(73).stores({
+    this.version(74).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -278,6 +282,8 @@ export class AstroHEALTHDatabase extends Dexie {
       // Soft Tissue Infection Assessments
       stiAssessments: 'id, patientId, hospitalId, classification, severity, status, assessedBy, createdAt, updatedAt',
       stiDebridementRecords: 'id, assessmentId, patientId, hospitalId, debridementNumber, debridementDate, surgeon, createdAt',
+      // Public Clinic Booking (No Login Required)
+      publicClinicBookings: 'id, bookingNumber, hospitalCode, appointmentDate, timeSlot, status, phoneNumber, [hospitalCode+appointmentDate], [hospitalCode+appointmentDate+timeSlot], createdAt',
     });
   }
 }

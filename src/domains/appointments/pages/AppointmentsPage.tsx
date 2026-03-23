@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { format, startOfWeek, endOfWeek, isToday, isTomorrow, isPast } from 'date-fns';
 import {
   Calendar,
@@ -20,6 +20,8 @@ import {
   MessageCircle,
   ChevronDown,
   UserX,
+  QrCode,
+  ExternalLink,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -282,15 +284,31 @@ export default function AppointmentsPage() {
             Manage appointments across all hospitals
           </p>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setShowBookingForm(true)}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 w-full sm:w-auto"
-        >
-          <Plus className="w-5 h-5" />
-          New Appointment
-        </motion.button>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+          <Link
+            to="/appointments/clinic-bookings"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+          >
+            <ExternalLink className="w-5 h-5" />
+            Clinic Bookings
+          </Link>
+          <Link
+            to="/appointments/share-booking"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+          >
+            <QrCode className="w-5 h-5" />
+            Share QR
+          </Link>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setShowBookingForm(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200"
+          >
+            <Plus className="w-5 h-5" />
+            New Appointment
+          </motion.button>
+        </div>
       </div>
 
       {/* Stats Cards */}

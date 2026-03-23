@@ -5384,3 +5384,93 @@ export interface STIDebridementRecord {
   syncedAt?: Date;
   localId?: string;
 }
+
+// ============================================================
+// PUBLIC CLINIC APPOINTMENT BOOKING (No Login Required)
+// ============================================================
+
+// Clinic Location Configuration
+export interface ClinicLocationConfig {
+  id: string;
+  hospitalName: string;
+  hospitalCode: string;
+  address?: string;
+  dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0 = Sunday, 1 = Monday, etc.
+  dayName: string;
+  startTime: string; // HH:mm format
+  endTime: string;   // HH:mm format
+  slotDuration: number; // minutes (default 20)
+  isActive: boolean;
+}
+
+// Public Clinic Booking - No patient ID required
+export interface PublicClinicBooking {
+  id: string;
+  bookingNumber: string;           // Unique booking reference (e.g., CBK-2026-001234)
+  
+  // Patient Information (no login required)
+  fullName: string;
+  phoneNumber: string;             // WhatsApp-enabled phone number
+  
+  // Appointment Details
+  hospitalCode: string;            // Hospital identifier
+  hospitalName: string;            // Denormalized for display
+  appointmentDate: string;         // YYYY-MM-DD format
+  timeSlot: string;                // HH:mm format
+  slotEndTime: string;             // HH:mm format (calculated)
+  
+  // Terms & Conditions
+  termsAccepted: boolean;
+  termsAcceptedAt: Date;
+  
+  // Status
+  status: 'confirmed' | 'checked_in' | 'completed' | 'no_show' | 'cancelled' | 'rescheduled';
+  
+  // WhatsApp Notifications
+  confirmationSentAt?: Date;
+  reminderSentAt?: Date;
+  
+  // Check-in Details
+  checkedInAt?: Date;
+  seenAt?: Date;
+  completedAt?: Date;
+  
+  // Cancellation/Rescheduling
+  cancelledAt?: Date;
+  cancellationReason?: string;
+  rescheduledTo?: string;         // New booking ID if rescheduled
+  
+  // Sync & Audit
+  createdAt: Date;
+  updatedAt: Date;
+  syncedAt?: Date;
+}
+
+// Time Slot Availability
+export interface ClinicTimeSlot {
+  time: string;                    // HH:mm format
+  endTime: string;                 // HH:mm format
+  isAvailable: boolean;
+  bookingId?: string;              // If booked, reference to booking
+}
+
+// Booking Form Data
+export interface BookingFormData {
+  hospitalCode: string;
+  appointmentDate: string;
+  timeSlot: string;
+  fullName: string;
+  phoneNumber: string;
+  termsAccepted: boolean;
+}
+
+// Clinic Session Summary (for admin)
+export interface ClinicSessionSummary {
+  hospitalCode: string;
+  hospitalName: string;
+  date: string;
+  totalSlots: number;
+  bookedSlots: number;
+  availableSlots: number;
+  bookings: PublicClinicBooking[];
+}
