@@ -17,6 +17,7 @@ export default {
     extend: {
       colors: {
         primary: {
+          DEFAULT: '#5170FF',
           50: '#eef2ff',
           100: '#e0e7ff',
           200: '#c7d2fe',
@@ -30,6 +31,7 @@ export default {
           950: '#0f0a2e',
         },
         secondary: {
+          DEFAULT: '#64748b',
           50: '#f8fafc',
           100: '#f1f5f9',
           200: '#e2e8f0',
@@ -43,6 +45,7 @@ export default {
           950: '#020617',
         },
         success: {
+          DEFAULT: '#22c55e',
           50: '#f0fdf4',
           100: '#dcfce7',
           500: '#22c55e',
@@ -50,6 +53,7 @@ export default {
           700: '#15803d',
         },
         warning: {
+          DEFAULT: '#f59e0b',
           50: '#fffbeb',
           100: '#fef3c7',
           500: '#f59e0b',
@@ -57,6 +61,7 @@ export default {
           700: '#b45309',
         },
         danger: {
+          DEFAULT: '#ef4444',
           50: '#fef2f2',
           100: '#fee2e2',
           500: '#ef4444',
@@ -64,6 +69,7 @@ export default {
           700: '#b91c1c',
         },
         info: {
+          DEFAULT: '#3b82f6',
           50: '#eff6ff',
           100: '#dbeafe',
           500: '#3b82f6',
