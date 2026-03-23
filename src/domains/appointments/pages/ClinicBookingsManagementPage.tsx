@@ -54,7 +54,7 @@ const ClinicBookingsManagementPage: React.FC = () => {
   
   // Filters
   const [selectedHospital, setSelectedHospital] = useState<string>('all');
-  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(true);
@@ -65,28 +65,12 @@ const ClinicBookingsManagementPage: React.FC = () => {
   
   // Get all bookings with filters
   const bookings = useLiveQuery(async () => {
-    let query = db.publicClinicBookings.orderBy('createdAt').reverse();
-    
-    // Get all bookings and filter in memory for complex conditions
-    const allBookings = await query.toArray();
+    const allBookings = await db.publicClinicBookings.toArray();
     
     return allBookings.filter(booking => {
-      // Filter by hospital
-      if (selectedHospital !== 'all' && booking.hospitalCode !== selectedHospital) {
-        return false;
-      }
-      
-      // Filter by date
-      if (selectedDate && booking.appointmentDate !== selectedDate) {
-        return false;
-      }
-      
-      // Filter by status
-      if (selectedStatus !== 'all' && booking.status !== selectedStatus) {
-        return false;
-      }
-      
-      // Search query
+      if (selectedHospital !== 'all' && booking.hospitalCode !== selectedHospital) return false;
+      if (selectedDate && booking.appointmentDate !== selectedDate) return false;
+      if (selectedStatus !== 'all' && booking.status !== selectedStatus) return false;
       if (searchQuery) {
         const search = searchQuery.toLowerCase();
         return (
@@ -95,7 +79,6 @@ const ClinicBookingsManagementPage: React.FC = () => {
           booking.bookingNumber.toLowerCase().includes(search)
         );
       }
-      
       return true;
     });
   }, [selectedHospital, selectedDate, selectedStatus, searchQuery]);
@@ -103,7 +86,6 @@ const ClinicBookingsManagementPage: React.FC = () => {
   // Get statistics
   const stats = useMemo(() => {
     if (!bookings) return null;
-    
     return {
       total: bookings.length,
       confirmed: bookings.filter(b => b.status === 'confirmed').length,
@@ -112,6 +94,41 @@ const ClinicBookingsManagementPage: React.FC = () => {
       noShow: bookings.filter(b => b.status === 'no_show').length,
       cancelled: bookings.filter(b => b.status === 'cancelled').length,
     };
+  }, [bookings]);
+  
+  // Group bookings by date then by hospital
+  const groupedBookings = useMemo(() => {
+    if (!bookings || bookings.length === 0) return [];
+    
+    // Group by date
+    const dateMap = new Map<string, PublicClinicBooking[]>();
+    bookings.forEach(b => {
+      const existing = dateMap.get(b.appointmentDate) || [];
+      existing.push(b);
+      dateMap.set(b.appointmentDate, existing);
+    });
+    
+    // Sort dates (upcoming first, then past)
+    const sortedDates = Array.from(dateMap.keys()).sort((a, b) => a.localeCompare(b));
+    
+    return sortedDates.map(date => {
+      const dateBookings = dateMap.get(date)!;
+      // Group by hospital within each date
+      const hospitalMap = new Map<string, PublicClinicBooking[]>();
+      dateBookings.forEach(b => {
+        const existing = hospitalMap.get(b.hospitalCode) || [];
+        existing.push(b);
+        hospitalMap.set(b.hospitalCode, existing);
+      });
+      
+      const hospitals = Array.from(hospitalMap.entries()).map(([code, hBookings]) => ({
+        hospitalCode: code,
+        hospitalName: hBookings[0].hospitalName,
+        bookings: hBookings.sort((a, b) => a.timeSlot.localeCompare(b.timeSlot)),
+      }));
+      
+      return { date, hospitals };
+    });
   }, [bookings]);
   
   // Update booking status
@@ -278,14 +295,27 @@ const ClinicBookingsManagementPage: React.FC = () => {
               </select>
               
               {/* Date Filter */}
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                title="Filter by date"
-                aria-label="Filter by date"
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  title="Filter by date"
+                  aria-label="Filter by date"
+                  placeholder="All dates"
+                />
+                {selectedDate && (
+                  <button
+                    onClick={() => setSelectedDate('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                    title="Clear date filter"
+                    aria-label="Clear date filter"
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
               
               {/* Status Filter */}
               <select
@@ -306,101 +336,148 @@ const ClinicBookingsManagementPage: React.FC = () => {
           )}
         </div>
         
-        {/* Bookings List */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          {!bookings || bookings.length === 0 ? (
-            <div className="text-center py-12">
-              <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No bookings found for the selected filters</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Booking</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Patient</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Hospital</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Date & Time</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Status</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {bookings.map(booking => (
-                    <tr key={booking.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-sm font-medium text-primary">
-                          {booking.bookingNumber}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div>
-                          <div className="font-medium text-gray-900">{booking.fullName}</div>
-                          <div className="text-sm text-gray-500 flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {booking.phoneNumber}
+        {/* Bookings List - Grouped by Date & Hospital */}
+        {!bookings || bookings.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm text-center py-12">
+            <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No bookings found</p>
+            <p className="text-sm text-gray-400 mt-1">
+              {selectedDate ? 'Try clearing the date filter to see all bookings' : 'Bookings will appear here when patients book appointments'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {groupedBookings.map(({ date, hospitals }) => (
+              <div key={date} className="space-y-4">
+                {/* Date Header */}
+                <div className="flex items-center gap-3">
+                  <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm ${
+                    isToday(new Date(date + 'T00:00:00'))
+                      ? 'bg-primary text-white'
+                      : isTomorrow(new Date(date + 'T00:00:00'))
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    <Calendar className="h-4 w-4" />
+                    {getDateLabel(date)}
+                  </div>
+                  <span className="text-sm text-gray-500">
+                    {format(new Date(date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}
+                  </span>
+                  <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                    {hospitals.reduce((sum, h) => sum + h.bookings.length, 0)} booking{hospitals.reduce((sum, h) => sum + h.bookings.length, 0) !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                
+                {/* Hospitals within this date */}
+                {hospitals.map(({ hospitalCode, hospitalName, bookings: hBookings }) => (
+                  <div key={`${date}-${hospitalCode}`} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                    {/* Hospital Sub-header */}
+                    <div className="bg-gradient-to-r from-primary/5 to-transparent px-4 py-3 border-b flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-primary" />
+                        <span className="font-semibold text-gray-900">{hospitalName}</span>
+                      </div>
+                      <span className="text-xs bg-primary/10 text-primary font-medium px-2 py-0.5 rounded-full">
+                        {hBookings.length} patient{hBookings.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    
+                    {/* Booking Cards */}
+                    <div className="divide-y divide-gray-100">
+                      {hBookings.map((booking, idx) => (
+                        <div key={booking.id} className="p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            {/* Slot Number */}
+                            <div className="flex items-center gap-3 flex-1">
+                              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-600">
+                                {idx + 1}
+                              </div>
+                              
+                              {/* Time */}
+                              <div className="flex-shrink-0 w-28">
+                                <div className="font-semibold text-gray-900">
+                                  {formatTime12Hour(booking.timeSlot)}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  to {formatTime12Hour(booking.slotEndTime)}
+                                </div>
+                              </div>
+                              
+                              {/* Patient Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-gray-900 truncate">{booking.fullName}</div>
+                                <div className="text-sm text-gray-500 flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  {booking.phoneNumber}
+                                </div>
+                              </div>
+                              
+                              {/* Booking Number */}
+                              <div className="flex-shrink-0 hidden md:block">
+                                <span className="font-mono text-xs font-medium text-primary bg-primary/5 px-2 py-1 rounded">
+                                  {booking.bookingNumber}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Status + Actions */}
+                            <div className="flex items-center gap-2 sm:flex-shrink-0">
+                              <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[booking.status]}`}>
+                                {STATUS_LABELS[booking.status]}
+                              </span>
+                              
+                              <div className="flex items-center gap-1 ml-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedBooking(booking);
+                                    setShowDetailsModal(true);
+                                  }}
+                                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg"
+                                  title="View Details"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                
+                                {booking.status === 'confirmed' && (
+                                  <button
+                                    onClick={() => updateBookingStatus(booking, 'checked_in')}
+                                    className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
+                                    title="Check In"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  </button>
+                                )}
+                                
+                                {booking.status === 'checked_in' && (
+                                  <button
+                                    onClick={() => updateBookingStatus(booking, 'completed')}
+                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                                    title="Mark Completed"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  </button>
+                                )}
+                                
+                                <button
+                                  onClick={() => sendWhatsAppReminder(booking)}
+                                  className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
+                                  title="Send WhatsApp Reminder"
+                                >
+                                  <MessageCircle className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm">{booking.hospitalName}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm">
-                          <div className="font-medium">{getDateLabel(booking.appointmentDate)}</div>
-                          <div className="text-gray-500">
-                            {formatTime12Hour(booking.timeSlot)} - {formatTime12Hour(booking.slotEndTime)}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[booking.status]}`}>
-                          {STATUS_LABELS[booking.status]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedBooking(booking);
-                              setShowDetailsModal(true);
-                            }}
-                            className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg"
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          
-                          {booking.status === 'confirmed' && (
-                            <button
-                              onClick={() => updateBookingStatus(booking, 'checked_in')}
-                              className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
-                              title="Check In"
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                            </button>
-                          )}
-                          
-                          <button
-                            onClick={() => sendWhatsAppReminder(booking)}
-                            className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"
-                            title="Send WhatsApp Reminder"
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       
       {/* Details Modal */}
