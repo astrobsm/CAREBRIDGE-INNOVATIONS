@@ -803,6 +803,9 @@ async function pullAllFromCloud(): Promise<void> {
   // Keloid Care Planning
   await pullTable(TABLES.keloidCarePlans, 'keloidCarePlans');
   
+  // Public Clinic Bookings
+  await pullTable(TABLES.publicClinicBookings, 'publicClinicBookings');
+  
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
   
@@ -947,6 +950,9 @@ async function pushAllToCloud(): Promise<void> {
   
   // Keloid Care Planning
   await pushTable('keloidCarePlans', TABLES.keloidCarePlans);
+  
+  // Public Clinic Bookings
+  await pushTable('publicClinicBookings', TABLES.publicClinicBookings);
   
   // Audit Logs (for accountability across devices)
   await pushTable('auditLogs', TABLES.auditLogs);
@@ -1362,6 +1368,7 @@ function setupRealtimeSubscriptions() {
     { cloud: TABLES.clinicalComments, local: 'clinicalComments' },
     { cloud: TABLES.referrals, local: 'referrals' },
     { cloud: TABLES.keloidCarePlans, local: 'keloidCarePlans' },
+    { cloud: TABLES.publicClinicBookings, local: 'publicClinicBookings' },
     { cloud: TABLES.chatRooms, local: 'chatRooms' },
     { cloud: TABLES.doctorAssignments, local: 'doctorAssignments' },
     { cloud: TABLES.mdtMeetings, local: 'mdtMeetings' },

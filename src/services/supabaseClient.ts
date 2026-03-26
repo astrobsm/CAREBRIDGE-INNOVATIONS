@@ -168,6 +168,9 @@ export const TABLES = {
   
   // Keloid Care Planning
   keloidCarePlans: 'keloid_care_plans',
+  
+  // Public Clinic Bookings
+  publicClinicBookings: 'public_clinic_bookings',
 } as const;
 
 // Local to cloud table name mapping
@@ -264,6 +267,9 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   
   // Keloid Care Planning
   keloidCarePlans: 'keloid_care_plans',
+  
+  // Public Clinic Bookings
+  publicClinicBookings: 'public_clinic_bookings',
 };
 
 // Type for sync status
