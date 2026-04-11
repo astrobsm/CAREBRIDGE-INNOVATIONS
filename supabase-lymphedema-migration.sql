@@ -7,11 +7,11 @@
 
 -- 1. Lymphedema Assessments
 CREATE TABLE IF NOT EXISTS public.lymphedema_assessments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
-  hospital_id UUID REFERENCES public.hospitals(id),
-  encounter_id UUID REFERENCES public.clinical_encounters(id),
-  admission_id UUID REFERENCES public.admissions(id),
+  id TEXT PRIMARY KEY,
+  patient_id TEXT NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+  hospital_id TEXT REFERENCES public.hospitals(id),
+  encounter_id TEXT REFERENCES public.clinical_encounters(id),
+  admission_id TEXT REFERENCES public.admissions(id),
 
   -- Limb & Etiology
   affected_limb TEXT NOT NULL,
@@ -74,9 +74,9 @@ CREATE TABLE IF NOT EXISTS public.lymphedema_assessments (
 
 -- 2. Lymphedema Monitoring Records
 CREATE TABLE IF NOT EXISTS public.lymphedema_monitoring_records (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  assessment_id UUID NOT NULL REFERENCES public.lymphedema_assessments(id) ON DELETE CASCADE,
-  patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY,
+  assessment_id TEXT NOT NULL REFERENCES public.lymphedema_assessments(id) ON DELETE CASCADE,
+  patient_id TEXT NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
 
   -- Measurements
   affected_limb_measurements JSONB DEFAULT '[]',
@@ -117,10 +117,10 @@ CREATE TABLE IF NOT EXISTS public.lymphedema_monitoring_records (
 
 -- 3. Post-Operative Lymphedema Monitoring
 CREATE TABLE IF NOT EXISTS public.post_op_lymphedema_monitoring (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  assessment_id UUID NOT NULL REFERENCES public.lymphedema_assessments(id) ON DELETE CASCADE,
-  patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
-  surgery_id UUID REFERENCES public.surgeries(id),
+  id TEXT PRIMARY KEY,
+  assessment_id TEXT NOT NULL REFERENCES public.lymphedema_assessments(id) ON DELETE CASCADE,
+  patient_id TEXT NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+  surgery_id TEXT REFERENCES public.surgeries(id),
 
   -- Post-Op Phase
   phase TEXT NOT NULL, -- 'immediate' | 'early' | 'intermediate' | 'late'

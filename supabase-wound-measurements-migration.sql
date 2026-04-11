@@ -5,11 +5,11 @@
 
 -- Table: wound_measurements
 CREATE TABLE IF NOT EXISTS public.wound_measurements (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  wound_id UUID REFERENCES public.wounds(id) ON DELETE SET NULL,
-  patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
-  hospital_id UUID REFERENCES public.hospitals(id) ON DELETE SET NULL,
-  encounter_id UUID REFERENCES public.clinical_encounters(id) ON DELETE SET NULL,
+  id TEXT PRIMARY KEY,
+  wound_id TEXT REFERENCES public.wounds(id) ON DELETE SET NULL,
+  patient_id TEXT NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+  hospital_id TEXT REFERENCES public.hospitals(id) ON DELETE SET NULL,
+  encounter_id TEXT REFERENCES public.clinical_encounters(id) ON DELETE SET NULL,
 
   -- Calibration
   calibration_method TEXT NOT NULL CHECK (calibration_method IN ('qr_marker','grid_sticker','ruler','coin','credit_card','custom','manual_points')),
