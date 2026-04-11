@@ -1,5 +1,5 @@
-// CareBridge Service Worker v2.3.0 - Enhanced Offline-First PWA with IndexedDB Corruption Recovery
-const CACHE_VERSION = '2.3.0';
+// CareBridge Service Worker v2.4.0 - Enhanced Offline-First PWA with IndexedDB Corruption Recovery
+const CACHE_VERSION = '2.4.0';
 const STATIC_CACHE = `carebridge-static-v${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `carebridge-dynamic-v${CACHE_VERSION}`;
 const API_CACHE = `carebridge-api-v${CACHE_VERSION}`;
@@ -417,45 +417,64 @@ function isAssetRequest(url) {
 
 // Handle navigation requests - Network first, fallback to cached index.html
 async function handleNavigationRequest(request) {
+  // For SPA routes, always try to serve index.html
+  const indexRequest = new Request('/index.html');
+  
   try {
     // Try network first for fresh content
-    const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
-      // Cache the response
+    const networkResponse = await fetch(indexRequest);
+    if (networkResponse && networkResponse.ok) {
+      // Cache the response for future offline use
       const cache = await caches.open(DYNAMIC_CACHE);
-      cache.put(request, networkResponse.clone());
+      cache.put(indexRequest, networkResponse.clone());
       return networkResponse;
     }
-    throw new Error('Network response not ok');
   } catch (error) {
-    console.log('[SW] Navigation failed, serving cached index.html');
-    // Fall back to cached index.html (SPA routing)
-    const cachedResponse = await caches.match('/index.html');
+    console.log('[SW] Network fetch failed for navigation:', error.message);
+  }
+  
+  // Fall back to cached index.html (SPA routing)
+  try {
+    const cachedResponse = await caches.match('/index.html') || await caches.match('/');
     if (cachedResponse) {
+      console.log('[SW] Serving cached index.html for SPA route');
       return cachedResponse;
     }
-    // Last resort: return offline page
-    const offlineResponse = await caches.match('/offline.html');
-    if (offlineResponse) {
-      return offlineResponse;
-    }
-    // Generate a basic offline response
-    return new Response(
-      `<!DOCTYPE html>
-      <html>
-        <head><title>Offline - CareBridge</title></head>
-        <body style="font-family: sans-serif; text-align: center; padding: 50px;">
-          <h1>You're Offline</h1>
-          <p>CareBridge is working in offline mode. Your data is safe and will sync when you're back online.</p>
-          <button onclick="location.reload()">Try Again</button>
-        </body>
-      </html>`,
-      { 
-        status: 200,
-        headers: { 'Content-Type': 'text/html' }
-      }
-    );
+  } catch (e) {
+    console.log('[SW] Cache match failed:', e.message);
   }
+  
+  // Try static cache
+  try {
+    const staticCache = await caches.open(STATIC_CACHE);
+    const staticResponse = await staticCache.match('/index.html');
+    if (staticResponse) {
+      return staticResponse;
+    }
+  } catch (e) {
+    // ignore
+  }
+  
+  // Last resort: return offline page or generate inline response
+  const offlineResponse = await caches.match('/offline.html');
+  if (offlineResponse) {
+    return offlineResponse;
+  }
+  return new Response(
+    `<!DOCTYPE html>
+    <html>
+      <head><title>Offline - AstroHEALTH</title></head>
+      <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+        <h1>You're Offline</h1>
+        <p>AstroHEALTH is working in offline mode. Your data is safe and will sync when you're back online.</p>
+        <button onclick="location.reload()">Try Again</button>
+      </body>
+    </html>`,
+    { 
+      status: 200,
+      headers: { 'Content-Type': 'text/html' }
+    }
+  );
 }
 
 // Handle API requests - Network first with offline queue for mutations
