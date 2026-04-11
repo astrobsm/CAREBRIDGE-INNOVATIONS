@@ -33,6 +33,7 @@ import {
   AlertTriangle,
   Shield,
   Presentation,
+  HeartPulse,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -158,6 +159,12 @@ const navigation: NavItem[] = [
     name: 'Keloid Care', 
     href: '/keloid-care', 
     icon: <Shield size={20} />,
+    permission: 'manage_wounds',
+  },
+  { 
+    name: 'Lymphedema', 
+    href: '/lymphedema', 
+    icon: <HeartPulse size={20} />,
     permission: 'manage_wounds',
   },
   { 
