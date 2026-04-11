@@ -45,6 +45,7 @@ import {
   LOWER_LIMB_MEASUREMENT_POINTS,
 } from '../services/lymphedemaService';
 
+import { PatientSelector } from '../../../components/patient';
 import CDTProtocolDisplay from '../components/CDTProtocolDisplay';
 import SurgicalDebulkingDisplay from '../components/SurgicalDebulkingDisplay';
 import TreatmentTimelineDisplay from '../components/TreatmentTimelineDisplay';
@@ -451,10 +452,15 @@ export default function LymphedemaAssessmentPage() {
                 Patient & Limb Details
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Patient ID</label>
-                  <input {...register('patientId')} className="w-full p-2 border border-gray-300 rounded-lg text-sm" readOnly={!!patientId} />
-                  {errors.patientId && <p className="text-xs text-red-500 mt-1">{errors.patientId.message}</p>}
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <PatientSelector
+                    value={watch('patientId')}
+                    onChange={(id) => setValue('patientId', id || '', { shouldValidate: true })}
+                    label="Select Patient"
+                    required
+                    error={errors.patientId?.message}
+                    showAddNew
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Affected Limb</label>
