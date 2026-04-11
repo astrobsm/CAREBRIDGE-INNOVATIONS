@@ -494,6 +494,51 @@ export interface WoundPhoto {
   aiAnalysis?: string;
 }
 
+// Calibrated Wound Measurements
+export interface WoundMeasurementRecord {
+  id: string;
+  woundId: string;
+  patientId: string;
+  hospitalId?: string;
+  encounterId?: string;
+
+  // Calibration
+  calibrationMethod: 'qr_marker' | 'grid_sticker' | 'ruler' | 'coin' | 'credit_card' | 'custom' | 'manual_points';
+  calibrationPixelsPerCm: number;
+  calibrationConfidence: number;
+
+  // Measurements (cm / cm²)
+  lengthCm: number;
+  widthCm: number;
+  areaCm2: number;
+  perimeterCm: number;
+  depthCm?: number;
+  volumeCm3?: number;
+
+  // Tissue analysis (stored as percentages)
+  granulationPercent: number;
+  sloughPercent: number;
+  necroticPercent: number;
+  epithelialPercent: number;
+  hypergranulationPercent: number;
+
+  // Color / health
+  dominantColor: 'red' | 'yellow' | 'black' | 'pink' | 'mixed';
+  healthIndicator: 'healthy' | 'concerning' | 'critical';
+
+  // Segmentation
+  segmentationMethod: 'ai_auto' | 'ai_assisted' | 'manual_trace';
+  confidence: number;
+  imageDataUrl?: string;
+  annotatedImageDataUrl?: string;
+
+  // Meta
+  measuredBy: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Burns
 export interface BurnAssessment {
   id: string;

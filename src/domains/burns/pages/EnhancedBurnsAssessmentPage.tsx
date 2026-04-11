@@ -33,6 +33,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { format, differenceInDays, differenceInHours } from 'date-fns';
 import type { BurnAssessment, BurnDepth, BurnArea } from '../../../types';
 import { generateBurnsPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
+import ScanToText from '../../../components/common/ScanToText';
 import { PatientSelector } from '../../../components/patient';
 
 // Import new WHO/ISBI components
@@ -974,7 +975,10 @@ export default function EnhancedBurnsAssessmentPage() {
 
                   <div>
                     <label className="label">Mechanism of Injury *</label>
-                    <input {...register('mechanism')} className="input" placeholder="e.g., Hot water scald, open flame" />
+                    <div className="flex items-center gap-1">
+                      <input {...register('mechanism')} className="input flex-1" placeholder="e.g., Hot water scald, open flame" />
+                      <ScanToText onTextRecognized={(t) => setValue('mechanism', t)} iconOnly size="sm" />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -993,12 +997,18 @@ export default function EnhancedBurnsAssessmentPage() {
 
                   <div>
                     <label className="label">Associated Injuries</label>
-                    <textarea {...register('associatedInjuries')} rows={2} className="input" placeholder="Any other injuries..." />
+                    <div className="flex items-start gap-1">
+                      <textarea {...register('associatedInjuries')} rows={2} className="input flex-1" placeholder="Any other injuries..." />
+                      <ScanToText onTextRecognized={(t) => setValue('associatedInjuries', t)} iconOnly size="sm" />
+                    </div>
                   </div>
 
                   <div>
                     <label className="label">Prior Medical History</label>
-                    <textarea {...register('priorMedicalHistory')} rows={2} className="input" placeholder="Relevant medical history..." />
+                    <div className="flex items-start gap-1">
+                      <textarea {...register('priorMedicalHistory')} rows={2} className="input flex-1" placeholder="Relevant medical history..." />
+                      <ScanToText onTextRecognized={(t) => setValue('priorMedicalHistory', t)} iconOnly size="sm" />
+                    </div>
                   </div>
 
                   {tbsaCalculation && tbsaCalculation.totalTBSA > 0 && (

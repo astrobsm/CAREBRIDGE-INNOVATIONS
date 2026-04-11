@@ -30,6 +30,7 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import ScanToText from '../../../components/common/ScanToText';
 import type { Surgery, PreOperativeAssessment, AnaesthesiaType, OutstandingPreparationItem, Investigation } from '../../../types';
 import {
   surgicalProcedures,
@@ -1613,12 +1614,15 @@ export default function SurgeryPlanningPage() {
 
                 <div>
                   <label className="label">Special Instructions</label>
-                  <textarea
-                    {...register('specialInstructions')}
-                    rows={3}
-                    className="input"
-                    placeholder="Any special pre-operative instructions..."
-                  />
+                  <div className="flex items-start gap-1">
+                    <textarea
+                      {...register('specialInstructions')}
+                      rows={3}
+                      className="input flex-1"
+                      placeholder="Any special pre-operative instructions..."
+                    />
+                    <ScanToText onTextRecognized={(t) => setValue('specialInstructions', t)} iconOnly size="sm" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1693,12 +1697,15 @@ export default function SurgeryPlanningPage() {
 
             <div>
               <label className="label">Additional Investigations</label>
-              <textarea
-                {...register('investigations')}
-                rows={2}
-                className="input"
-                placeholder="Any additional investigations completed (comma separated)"
-              />
+              <div className="flex items-start gap-1">
+                <textarea
+                  {...register('investigations')}
+                  rows={2}
+                  className="input flex-1"
+                  placeholder="Any additional investigations completed (comma separated)"
+                />
+                <ScanToText onTextRecognized={(t) => setValue('investigations', t)} iconOnly size="sm" />
+              </div>
             </div>
           </motion.div>
         )}

@@ -54,7 +54,9 @@ import { PatientSelector } from '../../../components/patient';
 import { syncRecord, fullSync, testSupabaseConnection } from '../../../services/cloudSyncService';
 import { usePatientMap } from '../../../services/patientHooks';
 import AIWoundPlanimetry from '../components/AIWoundPlanimetry';
+import CalibratedWoundCapture from '../components/CalibratedWoundCapture';
 import WoundSurfaceAreaChart from '../components/WoundSurfaceAreaChart';
+import ScanToText from '../../../components/common/ScanToText';
 
 const woundSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
@@ -150,6 +152,7 @@ export default function WoundsPage() {
   const [selectedWound, setSelectedWound] = useState<Wound | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showAIPlanimetry, setShowAIPlanimetry] = useState(false);
+  const [showCalibratedCapture, setShowCalibratedCapture] = useState(false);
   const [woundImageData, setWoundImageData] = useState<string | null>(null);
   const [woundPhotos, setWoundPhotos] = useState<WoundPhoto[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -582,7 +585,10 @@ export default function WoundsPage() {
                   <div className="form-grid-2">
                     <div>
                       <label className="label">Location *</label>
-                      <input {...register('location')} className={`input ${errors.location ? 'input-error' : ''}`} placeholder="e.g., Left lower leg" />
+                      <div className="flex items-center gap-1">
+                        <input {...register('location')} className={`input flex-1 ${errors.location ? 'input-error' : ''}`} placeholder="e.g., Left lower leg" />
+                        <ScanToText onTextRecognized={(t) => setValue('location', t)} iconOnly size="sm" />
+                      </div>
                       {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location.message}</p>}
                     </div>
                     <div>
@@ -599,7 +605,10 @@ export default function WoundsPage() {
 
                   <div>
                     <label className="label">Etiology *</label>
-                    <input {...register('etiology')} className={`input ${errors.etiology ? 'input-error' : ''}`} placeholder="Cause of wound" />
+                    <div className="flex items-center gap-1">
+                      <input {...register('etiology')} className={`input flex-1 ${errors.etiology ? 'input-error' : ''}`} placeholder="Cause of wound" />
+                      <ScanToText onTextRecognized={(t) => setValue('etiology', t)} iconOnly size="sm" />
+                    </div>
                     {errors.etiology && <p className="text-sm text-red-500 mt-1">{errors.etiology.message}</p>}
                   </div>
 
@@ -607,14 +616,24 @@ export default function WoundsPage() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="label mb-0">Wound Dimensions</label>
-                      <button
-                        type="button"
-                        onClick={() => setShowAIPlanimetry(true)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm font-medium"
-                      >
-                        <Target size={16} />
-                        AI Measurement
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowCalibratedCapture(true)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
+                        >
+                          <Ruler size={16} />
+                          Calibrated Measure
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowAIPlanimetry(true)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm font-medium"
+                        >
+                          <Target size={16} />
+                          AI Measurement
+                        </button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                       <div>
@@ -777,7 +796,10 @@ export default function WoundsPage() {
 
                   <div>
                     <label className="label">Peri-wound Condition</label>
-                    <textarea {...register('periWoundCondition')} rows={2} className="input" placeholder="Describe surrounding skin condition..." />
+                    <div className="flex items-start gap-1">
+                      <textarea {...register('periWoundCondition')} rows={2} className="input flex-1" placeholder="Describe surrounding skin condition..." />
+                      <ScanToText onTextRecognized={(t) => setValue('periWoundCondition', t)} iconOnly size="sm" />
+                    </div>
                   </div>
                 </div>
 
@@ -1191,6 +1213,42 @@ export default function WoundsPage() {
                   </div>
                 </div>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Calibrated Wound Capture Modal */}
+      <AnimatePresence>
+        {showCalibratedCapture && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowCalibratedCapture(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CalibratedWoundCapture
+                patientId={urlPatientId}
+                onMeasurementComplete={(measurement) => {
+                  setValue('length', measurement.lengthCm);
+                  setValue('width', measurement.widthCm);
+                  if (measurement.depthCm) {
+                    setValue('depth', measurement.depthCm);
+                  }
+                  setWoundImageData(measurement.imageDataUrl);
+                  setShowCalibratedCapture(false);
+                  toast.success(`Calibrated: ${measurement.areaCm2} cm² | ${measurement.calibration.method}`);
+                }}
+                onCancel={() => setShowCalibratedCapture(false)}
+              />
             </motion.div>
           </motion.div>
         )}

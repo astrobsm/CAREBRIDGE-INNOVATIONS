@@ -33,6 +33,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { generateDischargeBillSummary } from '../../../services/staffEarningsService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { VoiceDictation } from '../../../components/common';
+import ScanToText from '../../../components/common/ScanToText';
 import type { Admission, Patient, DischargeSummary, DischargeMedication, FollowUpAppointment } from '../../../types';
 import { generateDischargeSummaryPDF } from '../../../utils/dischargePdfGenerator';
 
@@ -433,11 +434,14 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
                 
                 <div>
                   <label className="label">Admitting Diagnosis *</label>
-                  <input
-                    {...register('admittingDiagnosis')}
-                    className="input w-full"
-                    placeholder="Primary diagnosis at admission"
-                  />
+                  <div className="flex items-center gap-1">
+                    <input
+                      {...register('admittingDiagnosis')}
+                      className="input flex-1"
+                      placeholder="Primary diagnosis at admission"
+                    />
+                    <ScanToText onTextRecognized={(t) => setValue('admittingDiagnosis', t)} iconOnly size="sm" />
+                  </div>
                   {errors.admittingDiagnosis && (
                     <p className="text-red-500 text-sm mt-1">{errors.admittingDiagnosis.message}</p>
                   )}
@@ -445,12 +449,15 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
 
                 <div>
                   <label className="label">Final Diagnosis * (comma-separated for multiple)</label>
-                  <textarea
-                    {...register('finalDiagnosis')}
-                    className="input w-full"
-                    rows={2}
-                    placeholder="Final diagnosis at discharge (separate multiple with commas)"
-                  />
+                  <div className="flex items-start gap-1">
+                    <textarea
+                      {...register('finalDiagnosis')}
+                      className="input flex-1"
+                      rows={2}
+                      placeholder="Final diagnosis at discharge (separate multiple with commas)"
+                    />
+                    <ScanToText onTextRecognized={(t) => setValue('finalDiagnosis', t)} iconOnly size="sm" />
+                  </div>
                   {errors.finalDiagnosis && (
                     <p className="text-red-500 text-sm mt-1">{errors.finalDiagnosis.message}</p>
                   )}
@@ -458,11 +465,14 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
 
                 <div>
                   <label className="label">Comorbidities (comma-separated)</label>
-                  <input
-                    {...register('comorbidities')}
-                    className="input w-full"
-                    placeholder="Hypertension, Diabetes, etc."
-                  />
+                  <div className="flex items-center gap-1">
+                    <input
+                      {...register('comorbidities')}
+                      className="input flex-1"
+                      placeholder="Hypertension, Diabetes, etc."
+                    />
+                    <ScanToText onTextRecognized={(t) => setValue('comorbidities', t)} iconOnly size="sm" />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -525,11 +535,14 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
 
                 <div>
                   <label className="label">Consultations (comma-separated)</label>
-                  <input
-                    {...register('consultations')}
-                    className="input w-full"
-                    placeholder="Cardiology, Infectious Disease, etc."
-                  />
+                  <div className="flex items-center gap-1">
+                    <input
+                      {...register('consultations')}
+                      className="input flex-1"
+                      placeholder="Cardiology, Infectious Disease, etc."
+                    />
+                    <ScanToText onTextRecognized={(t) => setValue('consultations', t)} iconOnly size="sm" />
+                  </div>
                 </div>
               </div>
             )}
@@ -655,11 +668,14 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
 
                 <div>
                   <label className="label">Medications Discontinued (comma-separated)</label>
-                  <input
-                    {...register('medicationsDiscontinued')}
-                    className="input w-full"
-                    placeholder="List medications that were stopped during admission"
-                  />
+                  <div className="flex items-center gap-1">
+                    <input
+                      {...register('medicationsDiscontinued')}
+                      className="input flex-1"
+                      placeholder="List medications that were stopped during admission"
+                    />
+                    <ScanToText onTextRecognized={(t) => setValue('medicationsDiscontinued', t)} iconOnly size="sm" />
+                  </div>
                 </div>
               </div>
             )}
@@ -726,22 +742,28 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="label">Emergency Contact *</label>
-                    <input
-                      {...register('emergencyContact')}
-                      className="input w-full"
-                      placeholder="Emergency phone number"
-                    />
+                    <div className="flex items-center gap-1">
+                      <input
+                        {...register('emergencyContact')}
+                        className="input flex-1"
+                        placeholder="Emergency phone number"
+                      />
+                      <ScanToText onTextRecognized={(t) => setValue('emergencyContact', t)} iconOnly size="sm" medicalContext={false} />
+                    </div>
                     {errors.emergencyContact && (
                       <p className="text-red-500 text-sm mt-1">{errors.emergencyContact.message}</p>
                     )}
                   </div>
                   <div>
                     <label className="label">Clinic Contact *</label>
-                    <input
-                      {...register('clinicContact')}
-                      className="input w-full"
-                      placeholder="Clinic or hospital phone"
-                    />
+                    <div className="flex items-center gap-1">
+                      <input
+                        {...register('clinicContact')}
+                        className="input flex-1"
+                        placeholder="Clinic or hospital phone"
+                      />
+                      <ScanToText onTextRecognized={(t) => setValue('clinicContact', t)} iconOnly size="sm" medicalContext={false} />
+                    </div>
                     {errors.clinicContact && (
                       <p className="text-red-500 text-sm mt-1">{errors.clinicContact.message}</p>
                     )}
@@ -843,20 +865,26 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
 
                 <div>
                   <label className="label">Pending Tests (comma-separated)</label>
-                  <input
-                    {...register('pendingTests')}
-                    className="input w-full"
-                    placeholder="Any tests with pending results"
-                  />
+                  <div className="flex items-center gap-1">
+                    <input
+                      {...register('pendingTests')}
+                      className="input flex-1"
+                      placeholder="Any tests with pending results"
+                    />
+                    <ScanToText onTextRecognized={(t) => setValue('pendingTests', t)} iconOnly size="sm" />
+                  </div>
                 </div>
 
                 <div>
                   <label className="label">Pending Referrals (comma-separated)</label>
-                  <input
-                    {...register('pendingReferrals')}
-                    className="input w-full"
-                    placeholder="Any referrals that need to be followed up"
-                  />
+                  <div className="flex items-center gap-1">
+                    <input
+                      {...register('pendingReferrals')}
+                      className="input flex-1"
+                      placeholder="Any referrals that need to be followed up"
+                    />
+                    <ScanToText onTextRecognized={(t) => setValue('pendingReferrals', t)} iconOnly size="sm" />
+                  </div>
                 </div>
               </div>
             )}

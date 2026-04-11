@@ -14,6 +14,7 @@ import { db } from '../../../database';
 import { HospitalSelector } from '../../../components/hospital';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
+import ScanToText from '../../../components/common/ScanToText';
 import { 
   categorizePatient, 
   categorizePregnancy,
@@ -478,12 +479,18 @@ export default function NewPatientPage() {
           <div className="card-body form-grid-2">
             <div>
               <label className="label">First Name *</label>
-              <input {...register('firstName')} className={`input ${errors.firstName ? 'input-error' : ''}`} />
+              <div className="flex items-center gap-1">
+                <input {...register('firstName')} className={`input flex-1 ${errors.firstName ? 'input-error' : ''}`} />
+                <ScanToText onTextRecognized={(t) => setValue('firstName', t)} iconOnly size="sm" medicalContext={false} />
+              </div>
               {errors.firstName && <p className="text-sm text-red-500 mt-1">{errors.firstName.message}</p>}
             </div>
             <div>
               <label className="label">Last Name *</label>
-              <input {...register('lastName')} className={`input ${errors.lastName ? 'input-error' : ''}`} />
+              <div className="flex items-center gap-1">
+                <input {...register('lastName')} className={`input flex-1 ${errors.lastName ? 'input-error' : ''}`} />
+                <ScanToText onTextRecognized={(t) => setValue('lastName', t)} iconOnly size="sm" medicalContext={false} />
+              </div>
               {errors.lastName && <p className="text-sm text-red-500 mt-1">{errors.lastName.message}</p>}
             </div>
             <div>
@@ -699,7 +706,10 @@ export default function NewPatientPage() {
           <div className="card-body form-grid-2">
             <div className="sm:col-span-2">
               <label className="label">Street Address</label>
-              <input {...register('address')} className="input" />
+              <div className="flex items-center gap-1">
+                <input {...register('address')} className="input flex-1" />
+                <ScanToText onTextRecognized={(t) => setValue('address', t)} iconOnly size="sm" medicalContext={false} />
+              </div>
             </div>
             <div>
               <label className="label">City</label>
@@ -731,12 +741,18 @@ export default function NewPatientPage() {
           <div className="card-body space-y-4">
             <div>
               <label className="label">Known Allergies</label>
-              <input {...register('allergies')} className="input" placeholder="Separate multiple allergies with commas" />
+              <div className="flex items-center gap-1">
+                <input {...register('allergies')} className="input flex-1" placeholder="Separate multiple allergies with commas" />
+                <ScanToText onTextRecognized={(t) => setValue('allergies', t)} iconOnly size="sm" />
+              </div>
               <p className="text-xs text-gray-500 mt-1">e.g., Penicillin, Peanuts, Latex</p>
             </div>
             <div>
               <label className="label">Chronic Conditions</label>
-              <input {...register('chronicConditions')} className="input" placeholder="Separate multiple conditions with commas" />
+              <div className="flex items-center gap-1">
+                <input {...register('chronicConditions')} className="input flex-1" placeholder="Separate multiple conditions with commas" />
+                <ScanToText onTextRecognized={(t) => setValue('chronicConditions', t)} iconOnly size="sm" />
+              </div>
               <p className="text-xs text-gray-500 mt-1">e.g., Diabetes, Hypertension, Asthma</p>
             </div>
           </div>
@@ -1345,11 +1361,17 @@ export default function NewPatientPage() {
           <div className="card-body form-grid-2">
             <div>
               <label className="label">Full Name</label>
-              <input {...register('nextOfKinName')} className="input" />
+              <div className="flex items-center gap-1">
+                <input {...register('nextOfKinName')} className="input flex-1" />
+                <ScanToText onTextRecognized={(t) => setValue('nextOfKinName', t)} iconOnly size="sm" medicalContext={false} />
+              </div>
             </div>
             <div>
               <label className="label">Relationship</label>
-              <input {...register('nextOfKinRelationship')} className="input" placeholder="e.g., Spouse, Parent, Sibling" />
+              <div className="flex items-center gap-1">
+                <input {...register('nextOfKinRelationship')} className="input flex-1" placeholder="e.g., Spouse, Parent, Sibling" />
+                <ScanToText onTextRecognized={(t) => setValue('nextOfKinRelationship', t)} iconOnly size="sm" medicalContext={false} />
+              </div>
             </div>
             <div>
               <label className="label">Phone Number</label>

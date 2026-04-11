@@ -77,9 +77,12 @@ import type {
   STIDebridementRecord,
   // Public Clinic Booking
   PublicClinicBooking,
+  // Calibrated Wound Measurements
+  WoundMeasurementRecord,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
+import type { LymphedemaAssessment, LymphedemaMonitoringRecord, PostOpLymphedemaMonitoring } from '../domains/lymphedema/types';
 
 // Re-export types for convenient access
 export type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -183,11 +186,17 @@ export class AstroHEALTHDatabase extends Dexie {
   stiDebridementRecords!: Table<STIDebridementRecord, string>;
   // Public Clinic Booking (No Login Required)
   publicClinicBookings!: Table<PublicClinicBooking, string>;
+  // Lymphedema Assessment & Management
+  lymphedemaAssessments!: Table<LymphedemaAssessment, string>;
+  lymphedemaMonitoringRecords!: Table<LymphedemaMonitoringRecord, string>;
+  postOpLymphedemaMonitoring!: Table<PostOpLymphedemaMonitoring, string>;
+  // Calibrated Wound Measurements
+  woundMeasurements!: Table<WoundMeasurementRecord, string>;
 
   constructor() {
     super('AstroHEALTHDB');
 
-    this.version(74).stores({
+    this.version(76).stores({
       users: 'id, email, role, hospitalId, isActive, createdAt',
       hospitals: 'id, name, city, state, type, isActive, createdAt',
       patients: 'id, hospitalNumber, firstName, lastName, phone, registeredHospitalId, isActive, createdAt',
@@ -284,6 +293,12 @@ export class AstroHEALTHDatabase extends Dexie {
       stiDebridementRecords: 'id, assessmentId, patientId, hospitalId, debridementNumber, debridementDate, surgeon, createdAt',
       // Public Clinic Booking (No Login Required)
       publicClinicBookings: 'id, bookingNumber, hospitalCode, appointmentDate, timeSlot, status, phoneNumber, [hospitalCode+appointmentDate], [hospitalCode+appointmentDate+timeSlot], createdAt',
+      // Lymphedema Assessment & Management
+      lymphedemaAssessments: 'id, patientId, hospitalId, encounterId, admissionId, status, islStage, assessedBy, assessmentDate, createdAt',
+      lymphedemaMonitoringRecords: 'id, assessmentId, patientId, recordedBy, recordedAt, createdAt',
+      postOpLymphedemaMonitoring: 'id, assessmentId, patientId, surgeryId, phase, recordedBy, recordedAt, createdAt',
+      // Calibrated Wound Measurements
+      woundMeasurements: 'id, woundId, patientId, hospitalId, encounterId, calibrationMethod, segmentationMethod, measuredBy, createdAt',
     });
   }
 }

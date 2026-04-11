@@ -28,6 +28,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { createPostOperativeNote } from '../../../services/postOperativeNoteService';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation } from '../../../components/common';
+import ScanToText from '../../../components/common/ScanToText';
 import MedicationTypeahead from '../../../components/pharmacy/MedicationTypeahead';
 import type { BNFMedication } from '../../../data/bnfMedicationDatabase';
 import type { PostoperativeMedication } from '../../../types';
@@ -396,20 +397,26 @@ export default function PostOpNoteFormPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="label">Pre-Operative Diagnosis *</label>
-              <input
-                {...register('preOperativeDiagnosis')}
-                className={`input ${errors.preOperativeDiagnosis ? 'input-error' : ''}`}
-              />
+              <div className="flex items-center gap-1">
+                <input
+                  {...register('preOperativeDiagnosis')}
+                  className={`input flex-1 ${errors.preOperativeDiagnosis ? 'input-error' : ''}`}
+                />
+                <ScanToText onTextRecognized={(t) => setValue('preOperativeDiagnosis', t)} iconOnly size="sm" />
+              </div>
               {errors.preOperativeDiagnosis && (
                 <p className="text-sm text-red-500 mt-1">{errors.preOperativeDiagnosis.message}</p>
               )}
             </div>
             <div>
               <label className="label">Post-Operative Diagnosis *</label>
-              <input
-                {...register('postOperativeDiagnosis')}
-                className={`input ${errors.postOperativeDiagnosis ? 'input-error' : ''}`}
-              />
+              <div className="flex items-center gap-1">
+                <input
+                  {...register('postOperativeDiagnosis')}
+                  className={`input flex-1 ${errors.postOperativeDiagnosis ? 'input-error' : ''}`}
+                />
+                <ScanToText onTextRecognized={(t) => setValue('postOperativeDiagnosis', t)} iconOnly size="sm" />
+              </div>
               {errors.postOperativeDiagnosis && (
                 <p className="text-sm text-red-500 mt-1">{errors.postOperativeDiagnosis.message}</p>
               )}
@@ -580,11 +587,17 @@ export default function PostOpNoteFormPage() {
               </div>
               <div>
                 <label className="label">Site</label>
-                <input {...register(`specimens.${index}.site`)} className="input" />
+                <div className="flex items-center gap-1">
+                  <input {...register(`specimens.${index}.site`)} className="input flex-1" />
+                  <ScanToText onTextRecognized={(t) => setValue(`specimens.${index}.site`, t)} iconOnly size="sm" />
+                </div>
               </div>
               <div className="md:col-span-2">
                 <label className="label">Description</label>
-                <textarea {...register(`specimens.${index}.description`)} rows={2} className="input" />
+                <div className="flex items-start gap-1">
+                  <textarea {...register(`specimens.${index}.description`)} rows={2} className="input flex-1" />
+                  <ScanToText onTextRecognized={(t) => setValue(`specimens.${index}.description`, t)} iconOnly size="sm" />
+                </div>
               </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2">
@@ -616,19 +629,31 @@ export default function PostOpNoteFormPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="label">Vital Signs Frequency</label>
-              <input {...register('vitalSignsFrequency')} className="input" />
+              <div className="flex items-center gap-1">
+                <input {...register('vitalSignsFrequency')} className="input flex-1" />
+                <ScanToText onTextRecognized={(t) => setValue('vitalSignsFrequency', t)} iconOnly size="sm" />
+              </div>
             </div>
             <div>
               <label className="label">Position</label>
-              <input {...register('position')} className="input" />
+              <div className="flex items-center gap-1">
+                <input {...register('position')} className="input flex-1" />
+                <ScanToText onTextRecognized={(t) => setValue('position', t)} iconOnly size="sm" />
+              </div>
             </div>
             <div className="md:col-span-2">
               <label className="label">Diet Instructions</label>
-              <input {...register('dietInstructions')} className="input" />
+              <div className="flex items-center gap-1">
+                <input {...register('dietInstructions')} className="input flex-1" />
+                <ScanToText onTextRecognized={(t) => setValue('dietInstructions', t)} iconOnly size="sm" />
+              </div>
             </div>
             <div className="md:col-span-2">
               <label className="label">IV Fluids</label>
-              <input {...register('ivFluids')} className="input" placeholder="e.g., Normal Saline 1L over 8 hours" />
+              <div className="flex items-center gap-1">
+                <input {...register('ivFluids')} className="input flex-1" placeholder="e.g., Normal Saline 1L over 8 hours" />
+                <ScanToText onTextRecognized={(t) => setValue('ivFluids', t)} iconOnly size="sm" />
+              </div>
             </div>
             <div className="md:col-span-2">
               <VoiceDictation
@@ -950,27 +975,45 @@ export default function PostOpNoteFormPage() {
             </div>
             <div>
               <label className="label">Day 0 Ambulation</label>
-              <input {...register('day0Ambulation')} className="input" />
+              <div className="flex items-center gap-1">
+                <input {...register('day0Ambulation')} className="input flex-1" />
+                <ScanToText onTextRecognized={(t) => setValue('day0Ambulation', t)} iconOnly size="sm" />
+              </div>
             </div>
             <div>
               <label className="label">Day 1 Ambulation</label>
-              <input {...register('day1Ambulation')} className="input" />
+              <div className="flex items-center gap-1">
+                <input {...register('day1Ambulation')} className="input flex-1" />
+                <ScanToText onTextRecognized={(t) => setValue('day1Ambulation', t)} iconOnly size="sm" />
+              </div>
             </div>
             <div>
               <label className="label">Ongoing Ambulation</label>
-              <input {...register('ongoingAmbulation')} className="input" />
+              <div className="flex items-center gap-1">
+                <input {...register('ongoingAmbulation')} className="input flex-1" />
+                <ScanToText onTextRecognized={(t) => setValue('ongoingAmbulation', t)} iconOnly size="sm" />
+              </div>
             </div>
             <div>
               <label className="label">Oral Intake Timing</label>
-              <input {...register('oralIntakeTiming')} className="input" />
+              <div className="flex items-center gap-1">
+                <input {...register('oralIntakeTiming')} className="input flex-1" />
+                <ScanToText onTextRecognized={(t) => setValue('oralIntakeTiming', t)} iconOnly size="sm" />
+              </div>
             </div>
             <div>
               <label className="label">Oral Intake Type</label>
-              <input {...register('oralIntakeType')} className="input" />
+              <div className="flex items-center gap-1">
+                <input {...register('oralIntakeType')} className="input flex-1" />
+                <ScanToText onTextRecognized={(t) => setValue('oralIntakeType', t)} iconOnly size="sm" />
+              </div>
             </div>
             <div className="md:col-span-2">
               <label className="label">Oral Intake Progression</label>
-              <input {...register('oralIntakeProgression')} className="input" />
+              <div className="flex items-center gap-1">
+                <input {...register('oralIntakeProgression')} className="input flex-1" />
+                <ScanToText onTextRecognized={(t) => setValue('oralIntakeProgression', t)} iconOnly size="sm" />
+              </div>
             </div>
           </div>
 

@@ -31,6 +31,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { format, differenceInDays } from 'date-fns';
 import type { BurnAssessment, BurnDepth, BurnArea } from '../../../types';
 import TreatmentPlanCard from '../../../components/clinical/TreatmentPlanCard';
+import ScanToText from '../../../components/common/ScanToText';
 import { generateBurnsPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
@@ -860,7 +861,10 @@ export default function BurnsAssessmentPage() {
 
                   <div>
                     <label className="label">Mechanism of Injury *</label>
-                    <input {...register('mechanism')} className="input" placeholder="e.g., Hot water scald, open flame" />
+                    <div className="flex items-center gap-1">
+                      <input {...register('mechanism')} className="input flex-1" placeholder="e.g., Hot water scald, open flame" />
+                      <ScanToText onTextRecognized={(t) => setValue('mechanism', t)} iconOnly size="sm" />
+                    </div>
                   </div>
 
                   <div>
@@ -886,7 +890,10 @@ export default function BurnsAssessmentPage() {
 
                   <div>
                     <label className="label">Associated Injuries</label>
-                    <textarea {...register('associatedInjuries')} rows={2} className="input" placeholder="Any other injuries..." />
+                    <div className="flex items-start gap-1">
+                      <textarea {...register('associatedInjuries')} rows={2} className="input flex-1" placeholder="Any other injuries..." />
+                      <ScanToText onTextRecognized={(t) => setValue('associatedInjuries', t)} iconOnly size="sm" />
+                    </div>
                   </div>
 
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">

@@ -61,6 +61,7 @@ import KeloidCarePlanningPage from './domains/keloid/pages/KeloidCarePlanningPag
 import UnifiedSurgicalPrepPage from './domains/surgery/pages/UnifiedSurgicalPrepPage';
 import SurgicalWorkflowPage from './domains/surgery/pages/SurgicalWorkflowPage';
 import STIProtocolPage from './domains/soft-tissue-infection/pages/STIProtocolPage';
+import LymphedemaAssessmentPage from './domains/lymphedema/pages/LymphedemaAssessmentPage';
 import PreSurgicalConferencePage from './domains/pre-surgical-conference/pages/PreSurgicalConferencePage';
 // Public Clinic Booking (No login required)
 import PublicBookingPage from './domains/appointments/pages/public/PublicBookingPage';
@@ -165,6 +166,7 @@ function App() {
         <Route path="npwt" element={<NPWTPage />} />
         <Route path="keloid-care" element={<KeloidCarePlanningPage />} />
         <Route path="sti-protocol" element={<STIProtocolPage />} />
+        <Route path="lymphedema" element={<LymphedemaAssessmentPage />} />
         <Route path="substance-use" element={<SubstanceUseAssessmentPage />} />
         <Route path="medication-chart" element={<MedicationChartPage />} />
         <Route path="patient-education" element={<PatientEducationPage />} />
