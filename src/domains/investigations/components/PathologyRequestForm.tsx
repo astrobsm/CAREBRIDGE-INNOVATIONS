@@ -13,7 +13,6 @@ import {
   Clock,
 } from 'lucide-react';
 import ScanToText from '../../../components/common/ScanToText';
-import ScanToText from '../../../components/common/ScanToText';
 
 export interface PathologyFormData {
   // Clinical Information (WHO Required)
