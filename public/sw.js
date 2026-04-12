@@ -274,7 +274,7 @@ const offlineQueue = new OfflineRequestQueue();
 
 // Install event - cache static assets (app shell)
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Service Worker v2.2.0...');
+  console.log(`[SW] Installing Service Worker v${CACHE_VERSION}...`);
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then(async (cache) => {
@@ -304,7 +304,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches and claim clients
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Service Worker v2.2.0...');
+  console.log(`[SW] Activating Service Worker v${CACHE_VERSION}...`);
   event.waitUntil(
     Promise.all([
       // Clean up old caches
@@ -1645,4 +1645,4 @@ self.addEventListener('online', () => {
   checkAndSendNotifications();
 });
 
-console.log('[SW] Service Worker v2.2.0 loaded - Offline-First PWA with IndexedDB Corruption Recovery ready');
+console.log(`[SW] Service Worker v${CACHE_VERSION} loaded - Offline-First PWA with IndexedDB Corruption Recovery ready`);
