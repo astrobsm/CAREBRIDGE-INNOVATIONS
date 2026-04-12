@@ -64,6 +64,7 @@ import PathologyRequestForm, {
 } from '../components/PathologyRequestForm';
 import { generatePathologyRequestPDF } from '../../../utils/clinicalPdfGenerators';
 import { InvestigationApprovalPanel } from '../../../components/investigations';
+import ScanToText from '../../../components/common/ScanToText';
 // investigationApprovalService import removed (unused - approval handled via InvestigationApprovalPanel)
 import type { Investigation } from '../../../types';
 
@@ -1407,7 +1408,10 @@ function RequestModal({
 
             {/* Clinical Details */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Clinical Details</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">Clinical Details</label>
+                <ScanToText onTextRecognized={(t) => { const prev = form.getValues('clinicalDetails') || ''; form.setValue('clinicalDetails', prev ? prev + '\n' + t : t); }} iconOnly size="sm" />
+              </div>
               <textarea
                 {...form.register('clinicalDetails')}
                 rows={2}
@@ -1758,7 +1762,10 @@ function ResultModal({
 
           {/* Interpretation */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Interpretation</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">Interpretation</label>
+              <ScanToText onTextRecognized={(t) => setInterpretation(prev => prev ? prev + '\n' + t : t)} iconOnly size="sm" />
+            </div>
             <textarea
               value={interpretation}
               onChange={(e) => setInterpretation(e.target.value)}

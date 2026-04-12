@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import ScanToText from '../../../components/common/ScanToText';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { recordMedicationEntryEarning } from '../../../services/staffEarningsService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -688,7 +689,10 @@ export default function MedicationChartPage() {
                 {/* Reason if not given */}
                 {adminStatus !== 'given' && (
                   <div>
-                    <label className="label">Reason *</label>
+                    <div className="flex items-center justify-between">
+                      <label className="label">Reason *</label>
+                      <ScanToText onTextRecognized={(t) => setReasonNotGiven(prev => prev ? prev + '\n' + t : t)} iconOnly size="sm" />
+                    </div>
                     <textarea
                       value={reasonNotGiven}
                       onChange={(e) => setReasonNotGiven(e.target.value)}
@@ -701,7 +705,10 @@ export default function MedicationChartPage() {
 
                 {/* Notes */}
                 <div>
-                  <label className="label">Notes (Optional)</label>
+                  <div className="flex items-center justify-between">
+                    <label className="label">Notes (Optional)</label>
+                    <ScanToText onTextRecognized={(t) => setAdminNotes(prev => prev ? prev + '\n' + t : t)} iconOnly size="sm" />
+                  </div>
                   <textarea
                     value={adminNotes}
                     onChange={(e) => setAdminNotes(e.target.value)}

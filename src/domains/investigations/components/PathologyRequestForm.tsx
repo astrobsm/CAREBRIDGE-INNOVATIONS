@@ -12,6 +12,8 @@ import {
   Scissors,
   Clock,
 } from 'lucide-react';
+import ScanToText from '../../../components/common/ScanToText';
+import ScanToText from '../../../components/common/ScanToText';
 
 export interface PathologyFormData {
   // Clinical Information (WHO Required)
@@ -197,9 +199,12 @@ export default function PathologyRequestForm({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Clinical History <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Clinical History <span className="text-red-500">*</span>
+              </label>
+              <ScanToText onTextRecognized={(t) => onChange({ clinicalHistory: formData.clinicalHistory ? formData.clinicalHistory + '\n' + t : t })} iconOnly size="sm" />
+            </div>
             <textarea
               value={formData.clinicalHistory}
               onChange={(e) => onChange({ clinicalHistory: e.target.value })}
@@ -211,9 +216,12 @@ export default function PathologyRequestForm({
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Clinical/Provisional Diagnosis <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Clinical/Provisional Diagnosis <span className="text-red-500">*</span>
+              </label>
+              <ScanToText onTextRecognized={(t) => onChange({ clinicalDiagnosis: formData.clinicalDiagnosis ? formData.clinicalDiagnosis + '\n' + t : t })} iconOnly size="sm" />
+            </div>
             <textarea
               value={formData.clinicalDiagnosis}
               onChange={(e) => onChange({ clinicalDiagnosis: e.target.value })}
@@ -225,9 +233,12 @@ export default function PathologyRequestForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Relevant Investigations
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Relevant Investigations
+              </label>
+              <ScanToText onTextRecognized={(t) => onChange({ relevantInvestigations: formData.relevantInvestigations ? formData.relevantInvestigations + '\n' + t : t })} iconOnly size="sm" />
+            </div>
             <textarea
               value={formData.relevantInvestigations}
               onChange={(e) => onChange({ relevantInvestigations: e.target.value })}
@@ -238,9 +249,12 @@ export default function PathologyRequestForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Previous Biopsies/Pathology
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Previous Biopsies/Pathology
+              </label>
+              <ScanToText onTextRecognized={(t) => onChange({ previousBiopsies: formData.previousBiopsies ? formData.previousBiopsies + '\n' + t : t })} iconOnly size="sm" />
+            </div>
             <textarea
               value={formData.previousBiopsies}
               onChange={(e) => onChange({ previousBiopsies: e.target.value })}
@@ -513,9 +527,12 @@ export default function PathologyRequestForm({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Intraoperative Findings
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Intraoperative Findings
+                </label>
+                <ScanToText onTextRecognized={(t) => onChange({ operativeFindings: formData.operativeFindings ? formData.operativeFindings + '\n' + t : t })} iconOnly size="sm" />
+              </div>
               <textarea
                 value={formData.operativeFindings}
                 onChange={(e) => onChange({ operativeFindings: e.target.value })}
@@ -652,9 +669,12 @@ export default function PathologyRequestForm({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Previous Treatment
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Previous Treatment
+              </label>
+              <ScanToText onTextRecognized={(t) => onChange({ treatmentHistory: formData.treatmentHistory ? formData.treatmentHistory + '\n' + t : t })} iconOnly size="sm" />
+            </div>
             <textarea
               value={formData.treatmentHistory}
               onChange={(e) => onChange({ treatmentHistory: e.target.value })}

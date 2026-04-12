@@ -29,6 +29,7 @@ import {
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../database';
+import ScanToText from '../../../components/common/ScanToText';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PatientSelector } from '../../../components/patient';
 import { HospitalSelector } from '../../../components/hospital';
@@ -517,10 +518,13 @@ export default function AppointmentBookingForm({
 
                   {/* Reason for Visit */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      <FileText className="w-4 h-4 inline mr-2" />
-                      Reason for Visit *
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-semibold text-gray-700">
+                        <FileText className="w-4 h-4 inline mr-2" />
+                        Reason for Visit *
+                      </label>
+                      <ScanToText onTextRecognized={(t) => setValue('reasonForVisit', t)} iconOnly size="sm" />
+                    </div>
                     <textarea
                       {...register('reasonForVisit')}
                       rows={3}
@@ -736,9 +740,12 @@ export default function AppointmentBookingForm({
                         Home Visit Details
                       </h4>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Home Address *
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Home Address *
+                          </label>
+                          <ScanToText onTextRecognized={(t) => setValue('homeAddress', t)} iconOnly size="sm" />
+                        </div>
                         <textarea
                           {...register('homeAddress')}
                           rows={2}
@@ -765,9 +772,12 @@ export default function AppointmentBookingForm({
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Landmarks/Directions
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Landmarks/Directions
+                          </label>
+                          <ScanToText onTextRecognized={(t) => setValue('homeLandmarks', t)} iconOnly size="sm" />
+                        </div>
                         <input
                           type="text"
                           {...register('homeLandmarks')}

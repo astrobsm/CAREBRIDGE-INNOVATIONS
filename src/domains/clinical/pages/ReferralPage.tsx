@@ -17,6 +17,7 @@ import {
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { db } from '../../../database';
+import ScanToText from '../../../components/common/ScanToText';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PatientSelector } from '../../../components/patient';
 import { downloadReferralPDF } from '../../../utils/referralPdfGenerator';
@@ -339,7 +340,10 @@ export default function ReferralPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="label">Presenting Complaint *</label>
+              <div className="flex items-center justify-between">
+                <label className="label">Presenting Complaint *</label>
+                <ScanToText onTextRecognized={(t) => setValue('presentingComplaint', t)} iconOnly size="sm" />
+              </div>
               <textarea
                 {...register('presentingComplaint')}
                 className="input min-h-[80px]"
@@ -349,7 +353,10 @@ export default function ReferralPage() {
             </div>
 
             <div>
-              <label className="label">History of Presenting Complaint *</label>
+              <div className="flex items-center justify-between">
+                <label className="label">History of Presenting Complaint *</label>
+                <ScanToText onTextRecognized={(t) => setValue('historyOfPresentingComplaint', t)} iconOnly size="sm" />
+              </div>
               <textarea
                 {...register('historyOfPresentingComplaint')}
                 className="input min-h-[120px]"
@@ -461,7 +468,10 @@ export default function ReferralPage() {
             {/* Examination Findings */}
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="label">General Examination</label>
+                <div className="flex items-center justify-between">
+                  <label className="label">General Examination</label>
+                  <ScanToText onTextRecognized={(t) => setValue('generalExamination', t)} iconOnly size="sm" />
+                </div>
                 <textarea
                   {...register('generalExamination')}
                   className="input min-h-[100px]"
@@ -470,7 +480,10 @@ export default function ReferralPage() {
               </div>
 
               <div>
-                <label className="label">Systemic Examination</label>
+                <div className="flex items-center justify-between">
+                  <label className="label">Systemic Examination</label>
+                  <ScanToText onTextRecognized={(t) => setValue('systemicExamination', t)} iconOnly size="sm" />
+                </div>
                 <textarea
                   {...register('systemicExamination')}
                   className="input min-h-[100px]"
@@ -581,7 +594,10 @@ export default function ReferralPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="label">Reason for Referral *</label>
+              <div className="flex items-center justify-between">
+                <label className="label">Reason for Referral *</label>
+                <ScanToText onTextRecognized={(t) => setValue('reasonForReferral', t)} iconOnly size="sm" />
+              </div>
               <textarea
                 {...register('reasonForReferral')}
                 className="input min-h-[120px]"
@@ -616,7 +632,10 @@ export default function ReferralPage() {
             </div>
 
             <div>
-              <label className="label">Additional Notes</label>
+              <div className="flex items-center justify-between">
+                <label className="label">Additional Notes</label>
+                <ScanToText onTextRecognized={(t) => setValue('additionalNotes', t)} iconOnly size="sm" />
+              </div>
               <textarea
                 {...register('additionalNotes')}
                 className="input min-h-[80px]"

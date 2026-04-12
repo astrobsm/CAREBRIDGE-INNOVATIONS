@@ -31,6 +31,7 @@ import {
   Printer,
   Info,
 } from 'lucide-react';
+import ScanToText from '../../../components/common/ScanToText';
 import { db } from '../../../database';
 import { surgicalProcedures, complexityLevels } from '../../../data/surgicalFees';
 import { surgicalConsumables } from '../../../data/surgicalConsumables';
@@ -1202,7 +1203,10 @@ export default function SurgicalEstimatePage() {
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">Additional Notes</label>
+                <ScanToText onTextRecognized={(t) => setEstimateNotes(prev => prev ? prev + '\n' + t : t)} iconOnly size="sm" />
+              </div>
               <textarea
                 value={estimateNotes}
                 onChange={(e) => setEstimateNotes(e.target.value)}
