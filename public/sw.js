@@ -1,33 +1,137 @@
-// CareBridge Service Worker v2.4.0 - Enhanced Offline-First PWA with IndexedDB Corruption Recovery
-const CACHE_VERSION = '2.4.0';
-const STATIC_CACHE = `carebridge-static-v${CACHE_VERSION}`;
-const DYNAMIC_CACHE = `carebridge-dynamic-v${CACHE_VERSION}`;
-const API_CACHE = `carebridge-api-v${CACHE_VERSION}`;
+// CareBridge Service Worker v3.0.0 - Workbox-Powered Offline-First PWA
+// Designed for reliable operation in poor internet areas
+import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
+import { registerRoute, NavigationRoute } from 'workbox-routing';
+import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
+import { CacheableResponsePlugin } from 'workbox-cacheable-response';
+import { ExpirationPlugin } from 'workbox-expiration';
+
+const CACHE_VERSION = '3.0.0';
 const OFFLINE_QUEUE_DB = 'carebridge-offline-queue';
 const OFFLINE_QUEUE_STORE = 'pending-requests';
 
-// Workbox manifest injection point
-const manifest = self.__WB_MANIFEST || [];
+// ============================================================
+// WORKBOX PRECACHING — Cache all build assets on install
+// This is the core of offline-first: the entire app shell is
+// cached during SW install and served cache-first, so the app
+// loads instantly even with zero network connectivity.
+// ============================================================
+cleanupOutdatedCaches();
+precacheAndRoute(self.__WB_MANIFEST);
 
-// Core assets to cache immediately on install (app shell)
-// Remove duplicates by combining manifest URLs with static assets using Set
-const STATIC_ASSETS = Array.from(new Set([
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/icons/logo.png',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-  '/favicon.png',
-  '/offline.html',
-  ...manifest.map(entry => entry.url)
-]));
+// ============================================================
+// WORKBOX ROUTING — Caching strategies for runtime requests
+// ============================================================
 
-// Additional assets to cache after install (lazy cache)
-const LAZY_CACHE_ASSETS = [
-  '/assets/fonts/',
-  '/assets/images/'
-];
+// SPA Navigation: Always serve cached /index.html for all routes
+// This enables offline navigation to any route (e.g. /adt, /lymphedema)
+const navigationHandler = createHandlerBoundToURL('/index.html');
+registerRoute(new NavigationRoute(navigationHandler, {
+  denylist: [/^\/api\//, /\/supabase/]
+}));
+
+// Static assets (JS, CSS, workers): CacheFirst — instant load from cache
+registerRoute(
+  ({ request }) =>
+    request.destination === 'style' ||
+    request.destination === 'script' ||
+    request.destination === 'worker',
+  new CacheFirst({
+    cacheName: `carebridge-static-v${CACHE_VERSION}`,
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxEntries: 150, maxAgeSeconds: 30 * 24 * 60 * 60 })
+    ]
+  })
+);
+
+// Images: CacheFirst — download once, serve from cache forever
+registerRoute(
+  ({ request }) => request.destination === 'image',
+  new CacheFirst({
+    cacheName: `carebridge-images-v${CACHE_VERSION}`,
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxEntries: 80, maxAgeSeconds: 30 * 24 * 60 * 60 })
+    ]
+  })
+);
+
+// Fonts: CacheFirst — long-lived, rarely changes
+registerRoute(
+  ({ request }) => request.destination === 'font',
+  new CacheFirst({
+    cacheName: `carebridge-fonts-v${CACHE_VERSION}`,
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 365 * 24 * 60 * 60 })
+    ]
+  })
+);
+
+// Google Fonts: CacheFirst
+registerRoute(
+  ({ url }) =>
+    url.origin === 'https://fonts.googleapis.com' ||
+    url.origin === 'https://fonts.gstatic.com',
+  new CacheFirst({
+    cacheName: 'google-fonts',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 365 * 24 * 60 * 60 })
+    ]
+  })
+);
+
+// CDN assets: StaleWhileRevalidate — serve from cache, update in background
+registerRoute(
+  ({ url }) =>
+    url.origin.includes('cdn.jsdelivr.net') ||
+    url.origin.includes('unpkg.com'),
+  new StaleWhileRevalidate({
+    cacheName: 'cdn-assets',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 30 * 24 * 60 * 60 })
+    ]
+  })
+);
+
+// API GET requests: NetworkFirst with fast timeout for poor connectivity
+registerRoute(
+  ({ url, request }) =>
+    url.pathname.startsWith('/api/') && request.method === 'GET',
+  new NetworkFirst({
+    cacheName: `carebridge-api-v${CACHE_VERSION}`,
+    networkTimeoutSeconds: 3,
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 7 * 24 * 60 * 60 })
+    ]
+  })
+);
+
+// API mutations (POST/PUT/DELETE): Try network, queue offline
+registerRoute(
+  ({ url, request }) =>
+    url.pathname.startsWith('/api/') && request.method !== 'GET',
+  async ({ request }) => {
+    let bodyText = '';
+    try { bodyText = await request.clone().text(); } catch (e) { /* empty body */ }
+    try {
+      return await fetch(request);
+    } catch (error) {
+      console.log('[SW] API mutation failed, queuing for later');
+      await offlineQueue.add(request, bodyText);
+      const count = await offlineQueue.count();
+      notifyClients({ type: 'OFFLINE_QUEUE_UPDATED', pendingCount: count, action: 'queued' });
+      return new Response(
+        JSON.stringify({ offline: true, queued: true, message: 'Request queued for sync when online.' }),
+        { status: 202, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+);
 
 // API endpoints patterns for offline handling
 const OFFLINE_API_PATTERNS = [
@@ -272,341 +376,34 @@ class OfflineRequestQueue {
 
 const offlineQueue = new OfflineRequestQueue();
 
-// Install event - cache static assets (app shell)
-self.addEventListener('install', (event) => {
-  console.log(`[SW] Installing Service Worker v${CACHE_VERSION}...`);
-  event.waitUntil(
-    caches.open(STATIC_CACHE)
-      .then(async (cache) => {
-        console.log('[SW] Caching static assets');
-        // Cache files individually to avoid failures from missing files
-        const cachePromises = STATIC_ASSETS.map(async (url) => {
-          try {
-            await cache.add(url);
-          } catch (error) {
-            console.warn('[SW] Failed to cache:', url, error.message);
-            // Continue caching other assets even if one fails
-          }
-        });
-        await Promise.allSettled(cachePromises);
-        console.log('[SW] Static assets cached successfully');
-      })
-      .then(() => {
-        console.log('[SW] Skipping waiting');
-        return self.skipWaiting();
-      })
-      .catch((error) => {
-        console.error('[SW] Cache initialization error:', error);
-        return self.skipWaiting();
-      })
-  );
+// ============================================================
+// SW LIFECYCLE — Immediate activation for instant updates
+// ============================================================
+self.addEventListener('install', () => {
+  console.log(`[SW] Installing Service Worker v${CACHE_VERSION} (Workbox offline-first)...`);
+  self.skipWaiting();
 });
 
-// Activate event - clean up old caches and claim clients
 self.addEventListener('activate', (event) => {
   console.log(`[SW] Activating Service Worker v${CACHE_VERSION}...`);
   event.waitUntil(
     Promise.all([
-      // Clean up old caches
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames
-            .filter((name) => {
-              // Delete caches that don't match current version
-              return name.startsWith('carebridge-') && 
-                     !name.includes(CACHE_VERSION);
-            })
-            .map((name) => {
-              console.log('[SW] Deleting old cache:', name);
-              return caches.delete(name);
-            })
-        );
-      }),
-      // Take control of all clients immediately
+      // Clean any legacy non-Workbox caches from older versions
+      caches.keys().then((names) =>
+        Promise.all(
+          names
+            .filter((n) => n.startsWith('carebridge-') && !n.includes(CACHE_VERSION))
+            .map((n) => { console.log('[SW] Deleting old cache:', n); return caches.delete(n); })
+        )
+      ),
       self.clients.claim()
-    ]).then(() => {
-      // Notify all clients that SW is ready
-      return self.clients.matchAll().then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({ type: 'SW_ACTIVATED', version: CACHE_VERSION });
-        });
-      });
-    })
+    ]).then(() =>
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((c) => c.postMessage({ type: 'SW_ACTIVATED', version: CACHE_VERSION }));
+      })
+    )
   );
 });
-
-// Fetch event - intelligent caching strategies
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  // Skip non-http(s) requests
-  if (!url.protocol.startsWith('http')) {
-    return;
-  }
-
-  // Skip WebSocket requests (for Vite HMR in development)
-  if (url.protocol === 'ws:' || url.protocol === 'wss:') {
-    return;
-  }
-
-  // Skip Vite HMR and development requests
-  if (url.pathname.includes('/@vite') || 
-      url.pathname.includes('/@fs') || 
-      url.pathname.includes('/@id') ||
-      url.pathname.includes('/__vite') ||
-      url.searchParams.has('t') || // Vite timestamp
-      url.searchParams.has('import')) {
-    return;
-  }
-
-  // Skip cross-origin requests (except CDN assets)
-  if (url.origin !== location.origin && !isTrustedCDN(url)) {
-    return;
-  }
-
-  // Skip Supabase auth and realtime requests (handle them normally)
-  if (url.pathname.includes('/auth/') || 
-      url.pathname.includes('/realtime/') ||
-      url.hostname.includes('supabase')) {
-    return;
-  }
-
-  // Handle different request types with appropriate strategies
-  if (isAPIRequest(url)) {
-    event.respondWith(handleAPIRequest(request));
-  } else if (isNavigationRequest(request)) {
-    event.respondWith(handleNavigationRequest(request));
-  } else if (isAssetRequest(url)) {
-    event.respondWith(handleAssetRequest(request));
-  } else {
-    event.respondWith(handleGenericRequest(request));
-  }
-});
-
-// Check if URL is from a trusted CDN
-function isTrustedCDN(url) {
-  const trustedCDNs = [
-    'fonts.googleapis.com',
-    'fonts.gstatic.com',
-    'cdn.jsdelivr.net',
-    'unpkg.com'
-  ];
-  return trustedCDNs.some(cdn => url.hostname.includes(cdn));
-}
-
-// Check if request is an API request
-function isAPIRequest(url) {
-  return url.pathname.startsWith('/api/') ||
-         OFFLINE_API_PATTERNS.some(pattern => pattern.test(url.pathname));
-}
-
-// Check if request is a navigation request
-function isNavigationRequest(request) {
-  return request.mode === 'navigate' ||
-         (request.method === 'GET' && 
-          request.headers.get('accept')?.includes('text/html'));
-}
-
-// Check if request is for static assets
-function isAssetRequest(url) {
-  const assetExtensions = ['.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.woff', '.woff2', '.ttf', '.ico', '.webp'];
-  return assetExtensions.some(ext => url.pathname.endsWith(ext)) ||
-         url.pathname.includes('/assets/');
-}
-
-// Handle navigation requests - Network first, fallback to cached index.html
-async function handleNavigationRequest(request) {
-  // For SPA routes, always try to serve index.html
-  const indexRequest = new Request('/index.html');
-  
-  try {
-    // Try network first for fresh content
-    const networkResponse = await fetch(indexRequest);
-    if (networkResponse && networkResponse.ok) {
-      // Cache the response for future offline use
-      const cache = await caches.open(DYNAMIC_CACHE);
-      cache.put(indexRequest, networkResponse.clone());
-      return networkResponse;
-    }
-  } catch (error) {
-    console.log('[SW] Network fetch failed for navigation:', error.message);
-  }
-  
-  // Fall back to cached index.html (SPA routing)
-  try {
-    const cachedResponse = await caches.match('/index.html') || await caches.match('/');
-    if (cachedResponse) {
-      console.log('[SW] Serving cached index.html for SPA route');
-      return cachedResponse;
-    }
-  } catch (e) {
-    console.log('[SW] Cache match failed:', e.message);
-  }
-  
-  // Try static cache
-  try {
-    const staticCache = await caches.open(STATIC_CACHE);
-    const staticResponse = await staticCache.match('/index.html');
-    if (staticResponse) {
-      return staticResponse;
-    }
-  } catch (e) {
-    // ignore
-  }
-  
-  // Last resort: return offline page or generate inline response
-  const offlineResponse = await caches.match('/offline.html');
-  if (offlineResponse) {
-    return offlineResponse;
-  }
-  return new Response(
-    `<!DOCTYPE html>
-    <html>
-      <head><title>Offline - AstroHEALTH</title></head>
-      <body style="font-family: sans-serif; text-align: center; padding: 50px;">
-        <h1>You're Offline</h1>
-        <p>AstroHEALTH is working in offline mode. Your data is safe and will sync when you're back online.</p>
-        <button onclick="location.reload()">Try Again</button>
-      </body>
-    </html>`,
-    { 
-      status: 200,
-      headers: { 'Content-Type': 'text/html' }
-    }
-  );
-}
-
-// Handle API requests - Network first with offline queue for mutations
-async function handleAPIRequest(request) {
-  const isReadRequest = request.method === 'GET';
-  
-  if (isReadRequest) {
-    // GET requests: Network first, cache fallback
-    try {
-      const networkResponse = await fetch(request);
-      if (networkResponse.ok) {
-        const cache = await caches.open(API_CACHE);
-        cache.put(request, networkResponse.clone());
-        return networkResponse;
-      }
-      throw new Error('Network response not ok');
-    } catch (error) {
-      console.log('[SW] API GET failed, trying cache');
-      const cachedResponse = await caches.match(request);
-      if (cachedResponse) {
-        // Add header to indicate this is cached data
-        const headers = new Headers(cachedResponse.headers);
-        headers.set('X-From-Cache', 'true');
-        return new Response(cachedResponse.body, {
-          status: cachedResponse.status,
-          statusText: cachedResponse.statusText,
-          headers
-        });
-      }
-      // Return offline indicator for API
-      return new Response(
-        JSON.stringify({ 
-          offline: true, 
-          cached: false,
-          message: 'You are offline and no cached data is available.' 
-        }),
-        { 
-          status: 503,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-  } else {
-    // POST/PUT/DELETE requests: Try network, queue if offline
-    // Clone request body BEFORE fetch (body can only be read once)
-    let bodyText = null;
-    try {
-      bodyText = await request.clone().text();
-    } catch (e) {
-      // Body might be empty or already consumed
-      bodyText = '';
-    }
-    
-    try {
-      const networkResponse = await fetch(request);
-      return networkResponse;
-    } catch (error) {
-      console.log('[SW] API mutation failed, queuing for later');
-      
-      // Use the pre-cloned body
-      await offlineQueue.add(request, bodyText);
-      
-      // Notify clients about pending sync
-      const count = await offlineQueue.count();
-      notifyClients({ 
-        type: 'OFFLINE_QUEUE_UPDATED', 
-        pendingCount: count,
-        action: 'queued'
-      });
-      
-      // Return a success response indicating data is queued
-      return new Response(
-        JSON.stringify({ 
-          offline: true, 
-          queued: true,
-          message: 'Request queued for sync when online.' 
-        }),
-        { 
-          status: 202, // Accepted
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-  }
-}
-
-// Handle asset requests - Cache first with network fallback
-async function handleAssetRequest(request) {
-  const cachedResponse = await caches.match(request);
-  if (cachedResponse) {
-    // Refresh cache in background
-    fetch(request).then((response) => {
-      if (response.ok) {
-        caches.open(DYNAMIC_CACHE).then((cache) => {
-          cache.put(request, response);
-        });
-      }
-    }).catch(() => {});
-    return cachedResponse;
-  }
-
-  try {
-    const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
-      const cache = await caches.open(DYNAMIC_CACHE);
-      cache.put(request, networkResponse.clone());
-    }
-    return networkResponse;
-  } catch (error) {
-    console.log('[SW] Asset fetch failed:', request.url);
-    // Return empty response for non-critical assets
-    return new Response('', { status: 404 });
-  }
-}
-
-// Handle generic requests
-async function handleGenericRequest(request) {
-  try {
-    const networkResponse = await fetch(request);
-    if (networkResponse.ok && request.method === 'GET') {
-      const cache = await caches.open(DYNAMIC_CACHE);
-      cache.put(request, networkResponse.clone());
-    }
-    return networkResponse;
-  } catch (error) {
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-    throw error;
-  }
-}
 
 // Notify all clients
 async function notifyClients(message) {
@@ -1645,4 +1442,4 @@ self.addEventListener('online', () => {
   checkAndSendNotifications();
 });
 
-console.log(`[SW] Service Worker v${CACHE_VERSION} loaded - Offline-First PWA with IndexedDB Corruption Recovery ready`);
+console.log(`[SW] Service Worker v${CACHE_VERSION} loaded - Workbox Offline-First PWA ready`);
