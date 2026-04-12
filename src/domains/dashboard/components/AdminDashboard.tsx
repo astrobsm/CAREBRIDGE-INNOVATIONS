@@ -22,6 +22,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { formatCurrency } from '../../../services/activityBillingService';
+import { useSyncState, triggerSync } from '../../../services/cloudSyncService';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -128,17 +129,14 @@ export default function AdminDashboard() {
     };
   }, [selectedPeriod]);
 
-  // Sync status
-  const syncStatus = useLiveQuery(async () => {
-    const pendingSync = await db.activityBillingRecords
-      .filter(r => r.paymentStatus === 'pending')
-      .count();
-    
-    return {
-      pendingSync,
-      lastSync: localStorage.getItem('lastSyncTime'),
-    };
-  }, []);
+  // Cloud sync status (real sync state from cloudSyncService)
+  const cloudSync = useSyncState();
+  const syncStatus = {
+    pendingSync: cloudSync.pendingChanges,
+    lastSync: cloudSync.lastSyncAt ? cloudSync.lastSyncAt.toISOString() : null,
+    isSyncing: cloudSync.status === 'syncing',
+    isOnline: cloudSync.isOnline,
+  };
 
   const dashboardStats = [
     {
@@ -432,10 +430,11 @@ export default function AdminDashboard() {
               </p>
             </div>
             <button
-              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium"
-              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50"
+              onClick={() => triggerSync()}
+              disabled={syncStatus.isSyncing || !syncStatus.isOnline}
             >
-              Sync Now
+              {syncStatus.isSyncing ? 'Syncing...' : 'Sync Now'}
             </button>
           </div>
         </motion.div>

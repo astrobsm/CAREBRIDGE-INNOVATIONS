@@ -13,6 +13,7 @@ import {
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
+import { useSyncState } from '../../../services/cloudSyncService';
 
 // Role-specific dashboards
 import DoctorDashboard from '../components/DoctorDashboard';
@@ -24,6 +25,7 @@ import AdminDashboard from '../components/AdminDashboard';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const cloudSync = useSyncState();
 
   // Route to role-specific dashboard
   const getRoleDashboard = () => {
@@ -312,18 +314,24 @@ export default function DashboardPage() {
         >
           <h2 className="font-semibold text-gray-900 mb-4">System Alerts</h2>
           <div className="space-y-3">
-            <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-amber-800">Sync Pending</p>
-                <p className="text-xs text-amber-600">3 records awaiting sync</p>
+            {cloudSync.pendingChanges > 0 ? (
+              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Sync Pending</p>
+                  <p className="text-xs text-amber-600">{cloudSync.pendingChanges} records awaiting sync</p>
+                </div>
               </div>
-            </div>
+            ) : null}
             <div className="flex items-start gap-3 p-3 bg-sky-50 rounded-lg">
               <Activity className="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-sky-800">System Online</p>
-                <p className="text-xs text-sky-600">All services running</p>
+                <p className="text-sm font-medium text-sky-800">
+                  {cloudSync.isOnline ? 'System Online' : 'System Offline'}
+                </p>
+                <p className="text-xs text-sky-600">
+                  {cloudSync.status === 'syncing' ? 'Syncing...' : cloudSync.isOnline ? 'All services running' : 'Working offline'}
+                </p>
               </div>
             </div>
           </div>
