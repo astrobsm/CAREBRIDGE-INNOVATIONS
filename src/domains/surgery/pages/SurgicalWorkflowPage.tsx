@@ -18,7 +18,7 @@
  * All documents downloadable as A4 / Font 12 / Georgia / No special chars / No color headers
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { v4 as uuidv4 } from 'uuid';
@@ -35,8 +35,9 @@ import {
   Upload, Camera, DollarSign, ClipboardCheck, Stethoscope, Play,
   Activity, Pill, Save, Download, Trash2, Plus, X, Search,
   CheckCircle, Circle, Shield,
-  Users, Syringe
+  Users, Syringe, ScanLine, FlaskConical, Eye, AlertTriangle, TrendingUp
 } from 'lucide-react';
+import { performOCR } from '../../../services/ocrService';
 
 import type {
   Patient, Surgery, Investigation, ConsumableBOM,
@@ -248,6 +249,211 @@ function generateWorkflowPDF(
 }
 
 // ========================================
+// INVESTIGATION RESULTS STATE SHAPE
+// ========================================
+interface InvResultsState {
+  // Serology
+  hiv: string; hivDate: string;
+  hepatitisB: string; hepatitisBDate: string;
+  hepatitisC: string; hepatitisCDate: string;
+  // FBC
+  haemoglobin: string; platelets: string; wbc: string; pcv: string; fbcDate: string;
+  // Blood Glucose
+  fastingGlucose: string; randomGlucose: string; glucoseDate: string;
+  // Urinalysis
+  urineProtein: string; urineGlucose: string; urineKetones: string;
+  urineBlood: string; urineLeukocytes: string; urineNitrites: string; urinalysisDate: string;
+  // Blood Group
+  bloodGroup: string; bloodGroupDate: string;
+  // ECG
+  ecg: string; ecgDate: string;
+  // Coagulation
+  pt: string; inr: string; aptt: string; coagDate: string;
+  // Electrolytes
+  sodium: string; potassium: string; chloride: string; bicarbonate: string; electrolytesDate: string;
+  // Renal Function
+  creatinine: string; urea: string; egfr: string; renalDate: string;
+  // Liver Function
+  alt: string; ast: string; alp: string; albumin: string; tbili: string; lftsDate: string;
+  // HbA1c
+  hba1c: string; hba1cDate: string;
+}
+
+const EMPTY_INV_RESULTS: InvResultsState = {
+  hiv: '', hivDate: '', hepatitisB: '', hepatitisBDate: '', hepatitisC: '', hepatitisCDate: '',
+  haemoglobin: '', platelets: '', wbc: '', pcv: '', fbcDate: '',
+  fastingGlucose: '', randomGlucose: '', glucoseDate: '',
+  urineProtein: '', urineGlucose: '', urineKetones: '', urineBlood: '', urineLeukocytes: '', urineNitrites: '', urinalysisDate: '',
+  bloodGroup: '', bloodGroupDate: '', ecg: '', ecgDate: '',
+  pt: '', inr: '', aptt: '', coagDate: '',
+  sodium: '', potassium: '', chloride: '', bicarbonate: '', electrolytesDate: '',
+  creatinine: '', urea: '', egfr: '', renalDate: '',
+  alt: '', ast: '', alp: '', albumin: '', tbili: '', lftsDate: '',
+  hba1c: '', hba1cDate: '',
+};
+
+// CKD-EPI 2021 (race-free) eGFR calculation
+function calculateEGFR(creatinineMgDl: number, ageYears: number, isFemale: boolean): number {
+  if (!creatinineMgDl || !ageYears) return 0;
+  const kappa = isFemale ? 0.7 : 0.9;
+  const alpha = isFemale ? -0.241 : -0.302;
+  const scrK = creatinineMgDl / kappa;
+  const base = 142 * Math.pow(Math.min(scrK, 1), alpha) * Math.pow(Math.max(scrK, 1), -1.200) * Math.pow(0.9938, ageYears);
+  return Math.round(isFemale ? base * 1.012 : base);
+}
+
+// Flag abnormal values for surgical clearance
+function getResultFlag(type: string, value: string): 'normal' | 'warning' | 'critical' | null {
+  const n = parseFloat(value);
+  if (isNaN(n) || !value) return null;
+  switch (type) {
+    case 'haemoglobin': return n < 7 ? 'critical' : n < 10 ? 'warning' : 'normal';
+    case 'platelets': return n < 50 ? 'critical' : n < 150 ? 'warning' : n > 450 ? 'warning' : 'normal';
+    case 'wbc': return n < 2 ? 'critical' : n < 4 ? 'warning' : n > 11 ? 'warning' : 'normal';
+    case 'pcv': return n < 21 ? 'critical' : n < 36 ? 'warning' : 'normal';
+    case 'fastingGlucose': return n > 14 ? 'critical' : n > 7 || n < 3.5 ? 'warning' : 'normal';
+    case 'randomGlucose': return n > 20 ? 'critical' : n > 11.1 ? 'warning' : 'normal';
+    case 'pt': return n > 18 ? 'critical' : n > 13.5 ? 'warning' : 'normal';
+    case 'inr': return n > 2.5 ? 'critical' : n > 1.5 ? 'warning' : 'normal';
+    case 'aptt': return n > 50 ? 'critical' : n > 35 ? 'warning' : 'normal';
+    case 'sodium': return n < 125 || n > 155 ? 'critical' : n < 135 || n > 145 ? 'warning' : 'normal';
+    case 'potassium': return n < 2.5 || n > 6.0 ? 'critical' : n < 3.5 || n > 5.0 ? 'warning' : 'normal';
+    case 'creatinine': return n > 3.0 ? 'critical' : n > 1.5 ? 'warning' : 'normal';
+    case 'urea': return n > 40 ? 'critical' : n > 20 ? 'warning' : 'normal';
+    case 'egfr': return n < 30 ? 'critical' : n < 60 ? 'warning' : 'normal';
+    case 'hba1c': return n > 9 ? 'critical' : n > 7 ? 'warning' : 'normal';
+    case 'alt': case 'ast': return n > 200 ? 'critical' : n > 60 ? 'warning' : 'normal';
+    default: return null;
+  }
+}
+
+// OCR Lab Result Text Parser
+function parseLabResultOCR(text: string): Partial<InvResultsState> {
+  const r: Partial<InvResultsState> = {};
+  const clean = (s: string) => s.replace(/[,\s]+$/, '').trim();
+
+  const num = (pattern: RegExp) => { const m = text.match(pattern); return m ? clean(m[1]) : ''; };
+  const reactive = (pattern: RegExp) => {
+    const section = text.match(new RegExp(`${pattern.source}[\\s\\S]{0,80}`, 'i'));
+    if (!section) return '';
+    const s = section[0];
+    if (/non[\s-]?reactive|negative|not detected|nr\b/i.test(s)) return 'Non-Reactive';
+    if (/reactive|positive|detected\b/i.test(s)) return 'Reactive';
+    return '';
+  };
+
+  // Serology
+  r.hiv = reactive(/hiv|human immunodeficiency|retrovirus/i) || num(/hiv\s*[1&2]*\s*[:\-=]?\s*([a-zA-Z\s-]+)/i);
+  r.hepatitisB = reactive(/hbsag|hepatitis\s*b|hep\s*b/i);
+  r.hepatitisC = reactive(/anti[\s-]?hcv|hepatitis\s*c|hep\s*c/i);
+
+  // FBC
+  r.haemoglobin = num(/h[ae]moglobin|hgb?|hb\s*[:\-=]\s*([\d.]+)/i) || num(/\bhb\s*[:\-=]?\s*([\d.]+)/i);
+  r.platelets = num(/plat(?:elets?)?\s*[:\-=]\s*([\d.]+)/i) || num(/plt\s*[:\-=]\s*([\d.]+)/i);
+  r.wbc = num(/w\.?b\.?c\.?\s*[:\-=]\s*([\d.]+)/i) || num(/white\s+blood\s+cells?\s*[:\-=]\s*([\d.]+)/i) || num(/total\s+wbc\s*[:\-=]\s*([\d.]+)/i);
+  r.pcv = num(/p\.?c\.?v\.?\s*[:\-=]\s*([\d.]+)/i) || num(/h[ae]matocrit\s*[:\-=]\s*([\d.]+)/i);
+
+  // Blood Glucose
+  r.fastingGlucose = num(/fasting\s+(?:blood\s+)?glucose\s*[:\-=]\s*([\d.]+)/i) || num(/fbg\s*[:\-=]\s*([\d.]+)/i);
+  r.randomGlucose = num(/random\s+(?:blood\s+)?glucose\s*[:\-=]\s*([\d.]+)/i) || num(/rbg\s*[:\-=]\s*([\d.]+)/i) || num(/rbs\s*[:\-=]\s*([\d.]+)/i);
+
+  // Urinalysis
+  r.urineProtein = num(/(?:urine\s+)?protein\s*[:\-=]\s*([+\-\d.a-zA-Z]+)/i);
+  r.urineGlucose = num(/(?:urine\s+)?(?:glucose|sugar)\s*[:\-=]\s*([+\-\d.a-zA-Z]+)/i);
+  r.urineKetones = num(/ketones?\s*[:\-=]\s*([+\-\d.a-zA-Z]+)/i);
+  r.urineBlood = num(/(?:urine\s+)?blood\s*[:\-=]\s*([+\-\d.a-zA-Z]+)/i);
+  r.urineLeukocytes = num(/leukocytes?\s*[:\-=]\s*([+\-\d.a-zA-Z]+)/i) || num(/wbc\s+urine\s*[:\-=]\s*([\d.]+)/i);
+  r.urineNitrites = num(/nitrites?\s*[:\-=]\s*([+\-\d.a-zA-Z]+)/i);
+
+  // Blood Group
+  const bg = text.match(/blood\s+(?:group|type)\s*[:\-=]?\s*([ABO]{1,2}[\s\+\-]*(?:positive|negative|pos|neg)?)/i);
+  if (bg) r.bloodGroup = bg[1].trim();
+
+  // ECG
+  const ecgMatch = text.match(/(?:ecg|ekg|electrocardiog(?:ram)?)[:\s-]*([^\n.]+)/i);
+  if (ecgMatch) r.ecg = ecgMatch[1].slice(0, 60).trim();
+
+  // Coagulation
+  r.pt = num(/p\.?t\.?\s*[:\-=]\s*([\d.]+)/i) || num(/prothrombin\s+time\s*[:\-=]\s*([\d.]+)/i);
+  r.inr = num(/\binr\b\s*[:\-=]\s*([\d.]+)/i);
+  r.aptt = num(/a\.?p\.?t\.?t\.?\s*[:\-=]\s*([\d.]+)/i) || num(/activated\s+partial\s+thromboplastin\s*[:\-=]\s*([\d.]+)/i);
+
+  // Electrolytes
+  r.sodium = num(/sodium\s*[:\-=]\s*([\d.]+)/i) || num(/\bna\+?\s*[:\-=]\s*([\d.]+)/i);
+  r.potassium = num(/potassium\s*[:\-=]\s*([\d.]+)/i) || num(/\bk\+?\s*[:\-=]\s*([\d.]+)/i);
+  r.chloride = num(/chloride\s*[:\-=]\s*([\d.]+)/i) || num(/\bcl[-]?\s*[:\-=]\s*([\d.]+)/i);
+  r.bicarbonate = num(/bicarbonate\s*[:\-=]\s*([\d.]+)/i) || num(/hco3?\s*[:\-=]\s*([\d.]+)/i) || num(/bicarb\s*[:\-=]\s*([\d.]+)/i);
+
+  // Renal
+  r.creatinine = num(/creatinine\s*[:\-=]\s*([\d.]+)/i) || num(/\bscr\b\s*[:\-=]\s*([\d.]+)/i);
+  r.urea = num(/\burea\b\s*[:\-=]\s*([\d.]+)/i) || num(/\bbun\b\s*[:\-=]\s*([\d.]+)/i);
+  r.egfr = num(/\begfr\b\s*[:\-=]\s*([\d.]+)/i) || num(/estimated\s+gfr\s*[:\-=]\s*([\d.]+)/i);
+
+  // LFTs
+  r.alt = num(/\balt\b\s*[:\-=]\s*([\d.]+)/i) || num(/alanine\s+(?:amino)?transferase\s*[:\-=]\s*([\d.]+)/i);
+  r.ast = num(/\bast\b\s*[:\-=]\s*([\d.]+)/i) || num(/aspartate\s+(?:amino)?transferase\s*[:\-=]\s*([\d.]+)/i);
+  r.alp = num(/\balp\b\s*[:\-=]\s*([\d.]+)/i) || num(/alkaline\s+phosphatase\s*[:\-=]\s*([\d.]+)/i);
+  r.albumin = num(/albumin\s*[:\-=]\s*([\d.]+)/i);
+  r.tbili = num(/total\s+bilirubin\s*[:\-=]\s*([\d.]+)/i) || num(/\bt\.?\s*bili(?:rubin)?\s*[:\-=]\s*([\d.]+)/i);
+
+  // HbA1c
+  r.hba1c = num(/hba1c?\s*[:\-=]\s*([\d.]+)/i) || num(/glycat(?:ed|ing)\s+h[ae]moglobin\s*[:\-=]\s*([\d.]+)/i);
+
+  return r;
+}
+
+// Generate surgical clearance recommendation
+function generateClearanceReport(results: InvResultsState): { issues: string[]; recommendation: string; asa: string } {
+  const issues: string[] = [];
+  const hb = parseFloat(results.haemoglobin);
+  const inr = parseFloat(results.inr);
+  const k = parseFloat(results.potassium);
+  const na = parseFloat(results.sodium);
+  const cr = parseFloat(results.creatinine);
+  const egfr = parseFloat(results.egfr);
+  const rg = parseFloat(results.randomGlucose);
+  const hba1c = parseFloat(results.hba1c);
+
+  if (!isNaN(hb) && hb < 8) issues.push(`⚠ Haemoglobin critically low (${hb} g/dL) — transfuse before surgery`);
+  else if (!isNaN(hb) && hb < 10) issues.push(`⚡ Anaemia present (Hb ${hb} g/dL) — optimise before elective surgery`);
+
+  if (!isNaN(inr) && inr > 2.5) issues.push(`⚠ Significant coagulopathy (INR ${inr}) — correct before surgery`);
+  else if (!isNaN(inr) && inr > 1.5) issues.push(`⚡ Mild coagulopathy (INR ${inr}) — consider FFP/Vit K`);
+
+  if (!isNaN(k) && (k < 2.5 || k > 6.0)) issues.push(`⚠ Critical potassium (K⁺ ${k} mmol/L) — correct before anaesthesia`);
+  else if (!isNaN(k) && (k < 3.5 || k > 5.0)) issues.push(`⚡ Potassium abnormal (K⁺ ${k} mmol/L)`);
+
+  if (!isNaN(na) && (na < 125 || na > 155)) issues.push(`⚠ Critical sodium (Na⁺ ${na} mmol/L) — correct before surgery`);
+
+  if (!isNaN(cr) && cr > 3.0) issues.push(`⚠ Severe renal impairment (Creatinine ${cr} mg/dL) — renal consult required`);
+  else if (!isNaN(cr) && cr > 1.5) issues.push(`⚡ Renal impairment (Creatinine ${cr} mg/dL) — increased anaesthetic risk`);
+
+  if (!isNaN(egfr) && egfr < 30) issues.push(`⚠ Severe CKD (eGFR ${egfr}) — renal consult, dose-adjust medications`);
+
+  if (!isNaN(rg) && rg > 20) issues.push(`⚠ Severe hyperglycaemia (RBG ${rg} mmol/L) — control before surgery`);
+  else if (!isNaN(rg) && rg > 11.1) issues.push(`⚡ Hyperglycaemia (RBG ${rg} mmol/L) — optimise glycaemic control`);
+
+  if (!isNaN(hba1c) && hba1c > 9) issues.push(`⚠ Poorly controlled diabetes (HbA1c ${hba1c}%) — delay elective surgery if possible`);
+
+  if (results.hiv === 'Reactive') issues.push(`ℹ HIV Reactive — universal precautions, inform anaesthetic team`);
+  if (results.hepatitisB === 'Reactive') issues.push(`ℹ HBsAg Reactive — infection control precautions, sharps care`);
+  if (results.hepatitisC === 'Reactive') issues.push(`ℹ Anti-HCV Reactive — infection control precautions`);
+
+  const hasCritical = issues.some(i => i.startsWith('⚠'));
+  const hasWarning = issues.some(i => i.startsWith('⚡'));
+  const recommendation = hasCritical
+    ? 'DEFER/OPTIMISE: Critical abnormalities identified — correct before proceeding with surgery'
+    : hasWarning
+    ? 'PROCEED WITH CAUTION: Suboptimal results noted — plan to optimise'
+    : issues.length === 0
+    ? 'CLEARED FOR SURGERY: All results within acceptable ranges'
+    : 'PROCEED WITH AWARENESS: Informational findings — surgical team notified';
+
+  const asa = hasCritical ? 'ASA III-IV' : hasWarning ? 'ASA II-III' : 'ASA I-II';
+  return { issues, recommendation, asa };
+}
+
+// ========================================
 // MAIN COMPONENT
 // ========================================
 export default function SurgicalWorkflowPage() {
@@ -294,6 +500,12 @@ export default function SurgicalWorkflowPage() {
   const [selectedInvestigations, setSelectedInvestigations] = useState<string[]>([]);
   const [investigationPriority, setInvestigationPriority] = useState<'routine' | 'urgent' | 'stat'>('routine');
   const [clinicalDetails, setClinicalDetails] = useState('');
+  // Investigation Results (Analysis panel)
+  const [invResults, setInvResults] = useState<InvResultsState>({ ...EMPTY_INV_RESULTS });
+  const [isOCRScanning, setIsOCRScanning] = useState(false);
+  const [showResultsPanel, setShowResultsPanel] = useState(false);
+  const [clearanceReport, setClearanceReport] = useState<ReturnType<typeof generateClearanceReport> | null>(null);
+  const ocrFileRef = useRef<HTMLInputElement>(null);
 
   // SECTION 3: CONSUMABLES & BOM
   const [consumableSearch, setConsumableSearch] = useState('');
@@ -377,6 +589,122 @@ export default function SurgicalWorkflowPage() {
       }
     }
   }, [currentSurgery]);
+
+  // ---- localStorage: persist workflow draft ----
+  const STORAGE_KEY = `astro_workflow_${patientId}`;
+
+  // Load draft on mount
+  useEffect(() => {
+    if (!patientId) return;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const d = JSON.parse(saved);
+      if (d.invResults) setInvResults(d.invResults);
+      if (d.clinicalDetails) setClinicalDetails(d.clinicalDetails);
+      if (d.selectedInvestigations) setSelectedInvestigations(d.selectedInvestigations);
+      if (d.riskNotes) setRiskNotes(d.riskNotes);
+      if (d.preopInfoNotes) setPreopInfoNotes(d.preopInfoNotes);
+      if (d.postopInstructions) setPostopInstructions(d.postopInstructions);
+      if (d.consentDetails) setConsentDetails(d.consentDetails);
+      if (d.preAnaestheticNotes) setPreAnaestheticNotes(d.preAnaestheticNotes);
+      if (d.airwayAssessment) setAirwayAssessment(d.airwayAssessment);
+      if (d.conferenceNotes) setConferenceNotes(d.conferenceNotes);
+      if (d.preOpDiagnosis) setPreOpDiagnosis(d.preOpDiagnosis);
+      if (d.postOpDiagnosis) setPostOpDiagnosis(d.postOpDiagnosis);
+      if (d.operativeFindings) setOperativeFindings(d.operativeFindings);
+      if (d.procedurePerformed) setProcedurePerformed(d.procedurePerformed);
+      if (d.complications) setComplications(d.complications);
+      if (d.postOpMeds) setPostOpMeds(d.postOpMeds);
+      if (d.anaesthesiaLog) setAnaesthesiaLog(d.anaesthesiaLog);
+      if (d.vitalSignsLog) setVitalSignsLog(d.vitalSignsLog);
+      if (d.specimens) setSpecimens(d.specimens);
+      if (d.bloodLoss) setBloodLoss(d.bloodLoss);
+      if (d.fluidInput) setFluidInput(d.fluidInput);
+      if (d.sectionCompletion) setSectionCompletion(d.sectionCompletion);
+    } catch { /* ignore parse errors */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientId]);
+
+  const saveWorkflowDraft = useCallback(() => {
+    if (!patientId) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        invResults, clinicalDetails, selectedInvestigations, riskNotes,
+        preopInfoNotes, postopInstructions, consentDetails,
+        preAnaestheticNotes, airwayAssessment, conferenceNotes,
+        preOpDiagnosis, postOpDiagnosis, operativeFindings,
+        procedurePerformed, complications, postOpMeds,
+        anaesthesiaLog, vitalSignsLog, specimens, bloodLoss, fluidInput,
+        sectionCompletion,
+      }));
+    } catch { /* quota errors */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientId, invResults, clinicalDetails, selectedInvestigations, riskNotes,
+    preopInfoNotes, postopInstructions, consentDetails,
+    preAnaestheticNotes, airwayAssessment, conferenceNotes,
+    preOpDiagnosis, postOpDiagnosis, operativeFindings,
+    procedurePerformed, complications, postOpMeds,
+    anaesthesiaLog, vitalSignsLog, specimens, bloodLoss, fluidInput, sectionCompletion]);
+
+  // Auto-save draft on state changes
+  useEffect(() => { saveWorkflowDraft(); }, [saveWorkflowDraft]);
+
+  // ---- OCR scan handler for lab results ----
+  const handleOCRScan = useCallback(async (file: File) => {
+    setIsOCRScanning(true);
+    toast.loading('Scanning lab result... this may take 15-30 seconds', { id: 'ocr-scan' });
+    try {
+      const result = await performOCR(file, {
+        enhanceHandwriting: true,
+        multiPassOCR: true,
+        aggressiveHandwritingMode: true,
+        useCloudOCR: true,
+        language: 'eng',
+      });
+      toast.dismiss('ocr-scan');
+      if (result.text) {
+        const parsed = parseLabResultOCR(result.text);
+        setInvResults(prev => {
+          const merged = { ...prev };
+          (Object.keys(parsed) as (keyof InvResultsState)[]).forEach(k => {
+            if (parsed[k] && !merged[k]) merged[k] = parsed[k] as string;
+          });
+          return merged;
+        });
+        const fieldsFilled = Object.values(parsed).filter(v => v).length;
+        toast.success(`OCR complete (${Math.round(result.confidence)}% confidence) — ${fieldsFilled} field(s) auto-filled`);
+        setShowResultsPanel(true);
+      } else {
+        toast.error('OCR could not extract text — try a clearer image');
+      }
+    } catch (err) {
+      toast.dismiss('ocr-scan');
+      toast.error('OCR scan failed — enter results manually');
+      console.error(err);
+    } finally {
+      setIsOCRScanning(false);
+    }
+  }, []);
+
+  // ---- Auto-calculate eGFR when creatinine changes ----
+  useEffect(() => {
+    if (!invResults.creatinine || !patient) return;
+    const cr = parseFloat(invResults.creatinine);
+    if (isNaN(cr) || cr <= 0) return;
+    const age = patient.dateOfBirth ? differenceInYears(new Date(), new Date(patient.dateOfBirth)) : 0;
+    if (!age) return;
+    const isFemale = patient.gender === 'female';
+    const computed = calculateEGFR(cr, age, isFemale);
+    if (computed > 0) setInvResults(prev => ({ ...prev, egfr: String(computed) }));
+  }, [invResults.creatinine, patient]);
+
+  // ---- Auto-generate clearance report when results change ----
+  useEffect(() => {
+    const hasAny = Object.values(invResults).some(v => v !== '');
+    if (hasAny) setClearanceReport(generateClearanceReport(invResults));
+    else setClearanceReport(null);
+  }, [invResults]);
 
   // ---- Computed values ----
   const capriniScore = capriniFactors.reduce((sum, checked, i) => checked ? sum + CAPRINI_FACTORS[i].score : sum, 0);
@@ -957,8 +1285,8 @@ export default function SurgicalWorkflowPage() {
               {patient.firstName} {patient.lastName} - {patient.hospitalNumber}
             </p>
           </div>
-          <div className="text-right text-sm text-gray-500">
-            {selectedProcedure || 'No procedure selected'}
+          <div className="text-right text-sm text-gray-500 max-w-[120px] sm:max-w-xs truncate">
+            {selectedProcedure || 'No procedure'}
           </div>
         </div>
       </div>
@@ -991,7 +1319,7 @@ export default function SurgicalWorkflowPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-5xl mx-auto p-4">
+      <div className="max-w-5xl mx-auto p-3 sm:p-4">
         {/* ==================== SECTION 1: PLANNING ==================== */}
         {activeSection === 'planning' && (
           <div className="space-y-6">
@@ -1117,7 +1445,7 @@ export default function SurgicalWorkflowPage() {
                   className="w-full border rounded-lg px-3 py-2" placeholder="Any additional risk notes..." />
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-2">
                 <button onClick={savePlanningSection} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2">
                   <Save className="w-4 h-4" /> Save Planning
                 </button>
@@ -1131,11 +1459,11 @@ export default function SurgicalWorkflowPage() {
 
         {/* ==================== SECTION 2: INVESTIGATIONS ==================== */}
         {activeSection === 'investigations' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
+          <div className="space-y-4">
+            {/* Investigation Request Card */}
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Investigation Requests</h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
                   <select value={investigationPriority} onChange={e => setInvestigationPriority(e.target.value as any)}
@@ -1151,10 +1479,9 @@ export default function SurgicalWorkflowPage() {
                     placeholder="Clinical indication..." className="w-full border rounded-lg px-3 py-2" />
                 </div>
               </div>
-
               <div className="mb-4">
                 <h3 className="text-sm font-bold text-gray-800 mb-2">Select Investigations</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                   {PREOP_INVESTIGATIONS.map(inv => {
                     const alreadyRequested = investigations?.some(i => i.type === inv.type && i.status !== 'cancelled');
                     return (
@@ -1168,21 +1495,19 @@ export default function SurgicalWorkflowPage() {
                           }}
                           className="rounded border-gray-300" />
                         {inv.name}
-                        {alreadyRequested && <span className="text-xs text-green-600 ml-1">(already requested)</span>}
+                        {alreadyRequested && <span className="text-xs text-green-600 ml-1">(requested)</span>}
                       </label>
                     );
                   })}
                 </div>
               </div>
-
-              {/* Already-requested investigations status */}
               {investigations && investigations.length > 0 && (
                 <div className="mb-4 border rounded-lg p-3 bg-gray-50">
                   <h3 className="text-sm font-bold text-gray-800 mb-2">Investigation Status</h3>
-                  <div className="space-y-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                     {investigations.map(inv => (
-                      <div key={inv.id} className="flex items-center justify-between text-sm">
-                        <span>{inv.type}</span>
+                      <div key={inv.id} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
+                        <span className="text-gray-700 capitalize">{inv.type.replace(/_/g,' ')}</span>
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                           inv.status === 'completed' ? 'bg-green-100 text-green-800' :
                           inv.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
@@ -1193,21 +1518,413 @@ export default function SurgicalWorkflowPage() {
                   </div>
                 </div>
               )}
-
-              <div className="flex justify-between">
-                <div className="flex gap-2">
-                  <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
+              <div className="flex flex-wrap gap-2 justify-between">
+                <div className="flex gap-2 flex-wrap">
+                  <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1 text-sm">
                     <ChevronLeft className="w-4 h-4" /> Previous
                   </button>
-                  <button onClick={saveInvestigationsSection} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                  <button onClick={saveInvestigationsSection} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm">
                     <Save className="w-4 h-4" /> Request Investigations
                   </button>
                 </div>
-                <button onClick={goNext} className="text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                  Next: Consumables <ChevronRight className="w-4 h-4" />
+                <button onClick={() => setShowResultsPanel(v => !v)}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2 text-sm">
+                  <FlaskConical className="w-4 h-4" />
+                  {showResultsPanel ? 'Hide' : 'Enter / View'} Results
+                  {sectionCompletion.investigations && <CheckCircle className="w-3 h-3 text-green-300" />}
                 </button>
               </div>
             </div>
+
+            {/* ===== INVESTIGATION ANALYSIS & RESULTS PANEL ===== */}
+            {showResultsPanel && (
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                {/* Panel Header with OCR */}
+                <div className="bg-gradient-to-r from-purple-700 to-indigo-700 px-4 sm:px-6 py-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                        <FlaskConical className="w-5 h-5" /> Investigation Analysis &amp; Results
+                      </h2>
+                      <p className="text-purple-200 text-sm mt-0.5">Enter manually or scan lab result image with AI OCR</p>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <input ref={ocrFileRef} type="file" accept="image/*,.pdf" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) { handleOCRScan(f); e.target.value = ''; } }} />
+                      <button
+                        onClick={() => ocrFileRef.current?.click()}
+                        disabled={isOCRScanning}
+                        className="bg-white text-purple-700 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-purple-50 flex items-center gap-2 disabled:opacity-60 shadow">
+                        {isOCRScanning ? (
+                          <><div className="w-4 h-4 border-2 border-purple-700 border-t-transparent rounded-full animate-spin" /> Scanning...</>
+                        ) : (
+                          <><ScanLine className="w-4 h-4" /> Scan Lab Result</>
+                        )}
+                      </button>
+                      <button onClick={() => setInvResults({ ...EMPTY_INV_RESULTS })}
+                        className="bg-purple-800 text-white px-3 py-2 rounded-lg text-sm hover:bg-purple-900 flex items-center gap-1">
+                        <X className="w-3 h-3" /> Clear
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-purple-200 text-xs mt-2 flex items-center gap-1">
+                    <ScanLine className="w-3 h-3" />
+                    Supports handwritten &amp; typed Nigerian lab reports • Multi-engine AI OCR • Auto eGFR calculation
+                  </p>
+                </div>
+
+                <div className="p-4 sm:p-6 space-y-6">
+                  {/* ── Inline helper to render a result field ── */}
+                  {(() => {
+                    const ir = (field: keyof InvResultsState, label: string, unit: string, placeholder: string, normalRange?: string) => {
+                      const flag = getResultFlag(field, invResults[field]);
+                      return (
+                        <div key={field} className="space-y-1">
+                          <div className="flex items-center justify-between flex-wrap gap-x-2">
+                            <label className="text-xs font-medium text-gray-600">{label}</label>
+                            {normalRange && <span className="text-xs text-gray-400">Ref: {normalRange}</span>}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <input
+                              value={invResults[field]}
+                              onChange={e => setInvResults(prev => ({ ...prev, [field]: e.target.value }))}
+                              placeholder={placeholder}
+                              className={`flex-1 min-w-0 border rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-purple-400 ${
+                                flag === 'critical' ? 'border-red-400 bg-red-50' :
+                                flag === 'warning' ? 'border-yellow-400 bg-yellow-50' :
+                                flag === 'normal' ? 'border-green-400 bg-green-50' : 'border-gray-300'
+                              }`}
+                            />
+                            {unit && <span className="text-xs text-gray-400 whitespace-nowrap shrink-0 hidden xs:block">{unit}</span>}
+                            {flag === 'critical' && <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" title="Critical value" />}
+                            {flag === 'warning' && <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" title="Abnormal" />}
+                            {flag === 'normal' && <CheckCircle className="w-4 h-4 text-green-500 shrink-0" title="Normal" />}
+                          </div>
+                          {unit && <span className="text-xs text-gray-400 block xs:hidden">{unit}</span>}
+                        </div>
+                      );
+                    };
+
+                    return (
+                      <>
+                        {/* ── Serology ── */}
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2 pb-1 border-b">
+                            <Eye className="w-4 h-4 text-purple-600" /> Serology &amp; Infectious Disease
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {(['hiv','hepatitisB','hepatitisC'] as const).map((field) => {
+                              const labels: Record<string,string> = { hiv:'HIV 1&2 Screening', hepatitisB:'Hepatitis B (HBsAg)', hepatitisC:'Hepatitis C (Anti-HCV)' };
+                              const dateFields: Record<string, keyof InvResultsState> = { hiv:'hivDate', hepatitisB:'hepatitisBDate', hepatitisC:'hepatitisCDate' };
+                              return (
+                                <div key={field} className="space-y-1">
+                                  <label className="text-xs font-medium text-gray-600">{labels[field]}</label>
+                                  <span className="text-xs text-gray-400 block">Normal: Non-Reactive</span>
+                                  <select value={invResults[field]} onChange={e => setInvResults(p => ({...p, [field]: e.target.value}))}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm ${invResults[field] === 'Reactive' ? 'border-yellow-400 bg-yellow-50' : invResults[field] === 'Non-Reactive' ? 'border-green-400 bg-green-50' : 'border-gray-300'}`}>
+                                    <option value="">Select result...</option>
+                                    <option value="Non-Reactive">Non-Reactive</option>
+                                    <option value="Reactive">Reactive ⚠</option>
+                                    <option value="Indeterminate">Indeterminate</option>
+                                  </select>
+                                  <input type="date" value={invResults[dateFields[field]]} onChange={e => setInvResults(p => ({...p, [dateFields[field]]: e.target.value}))}
+                                    className="w-full border border-gray-200 rounded px-2 py-1 text-xs" />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* ── FBC ── */}
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2 pb-1 border-b">
+                            <Activity className="w-4 h-4 text-red-500" /> Full Blood Count (FBC)
+                            <span className="text-red-500 text-xs font-normal">mandatory</span>
+                          </h3>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {ir('haemoglobin', 'Haemoglobin (Hb)', 'g/dL', 'e.g. 12.5', '12–17 g/dL')}
+                            {ir('platelets', 'Platelets', '×10⁹/L', 'e.g. 200', '150–450')}
+                            {ir('wbc', 'WBC', '×10⁹/L', 'e.g. 7.5', '4–11')}
+                            {ir('pcv', 'PCV/Haematocrit', '%', 'e.g. 38', '36–50')}
+                          </div>
+                          <div className="flex justify-end mt-2">
+                            <input type="date" value={invResults.fbcDate} onChange={e => setInvResults(p => ({...p, fbcDate: e.target.value}))}
+                              className="border border-gray-200 rounded px-2 py-1 text-xs" />
+                          </div>
+                        </div>
+
+                        {/* ── Blood Glucose ── */}
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2 pb-1 border-b">
+                            <TrendingUp className="w-4 h-4 text-orange-500" /> Blood Glucose
+                            <span className="text-red-500 text-xs font-normal">mandatory</span>
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {ir('fastingGlucose', 'Fasting Blood Glucose', 'mmol/L', 'e.g. 5.5', '4.0–7.0')}
+                            {ir('randomGlucose', 'Random Blood Glucose', 'mmol/L', 'e.g. 7.0', '4.0–7.8')}
+                          </div>
+                          <div className="flex justify-end mt-2">
+                            <input type="date" value={invResults.glucoseDate} onChange={e => setInvResults(p => ({...p, glucoseDate: e.target.value}))}
+                              className="border border-gray-200 rounded px-2 py-1 text-xs" />
+                          </div>
+                        </div>
+
+                        {/* ── Urinalysis ── */}
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2 pb-1 border-b">
+                            <FlaskConical className="w-4 h-4 text-yellow-500" /> Urinalysis (Dipstick)
+                            <span className="text-red-500 text-xs font-normal">mandatory</span>
+                          </h3>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {(['urineProtein','urineGlucose','urineKetones','urineBlood','urineLeukocytes','urineNitrites'] as const).map(field => {
+                              const labels: Record<string,string> = {
+                                urineProtein:'Protein', urineGlucose:'Glucose', urineKetones:'Ketones',
+                                urineBlood:'Blood/RBC', urineLeukocytes:'Leukocytes', urineNitrites:'Nitrites'
+                              };
+                              const opts = ['Negative','Trace','+','++','+++','++++','Positive'];
+                              return (
+                                <div key={field} className="space-y-1">
+                                  <label className="text-xs font-medium text-gray-600">{labels[field]}</label>
+                                  <span className="text-xs text-gray-400 block">Normal: Negative</span>
+                                  <select value={invResults[field]} onChange={e => setInvResults(p => ({...p, [field]: e.target.value}))}
+                                    className={`w-full border rounded-lg px-2 py-2 text-sm ${invResults[field] && invResults[field] !== 'Negative' ? 'border-yellow-400 bg-yellow-50' : invResults[field] === 'Negative' ? 'border-green-400 bg-green-50' : 'border-gray-300'}`}>
+                                    <option value="">Select...</option>
+                                    {opts.map(v => <option key={v} value={v}>{v}</option>)}
+                                  </select>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="flex justify-end mt-2">
+                            <input type="date" value={invResults.urinalysisDate} onChange={e => setInvResults(p => ({...p, urinalysisDate: e.target.value}))}
+                              className="border border-gray-200 rounded px-2 py-1 text-xs" />
+                          </div>
+                        </div>
+
+                        {/* ── Blood Group & ECG ── */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-800 mb-2 pb-1 border-b">Blood Group &amp; Save
+                              <span className="text-blue-500 text-xs font-normal ml-1">recommended</span>
+                            </h3>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-xs text-gray-600">ABO + Rh Group</label>
+                                <select value={invResults.bloodGroup} onChange={e => setInvResults(p => ({...p, bloodGroup: e.target.value}))}
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1">
+                                  <option value="">Select...</option>
+                                  {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-xs text-gray-600">Date</label>
+                                <input type="date" value={invResults.bloodGroupDate} onChange={e => setInvResults(p => ({...p, bloodGroupDate: e.target.value}))}
+                                  className="w-full border border-gray-200 rounded px-2 py-2 text-sm mt-1" />
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-800 mb-2 pb-1 border-b">12-Lead ECG
+                              <span className="text-gray-400 text-xs font-normal ml-1">if indicated</span>
+                            </h3>
+                            <textarea value={invResults.ecg} onChange={e => setInvResults(p => ({...p, ecg: e.target.value}))}
+                              placeholder="e.g. Normal sinus rhythm, rate 72 bpm, no ST changes"
+                              rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                            <input type="date" value={invResults.ecgDate} onChange={e => setInvResults(p => ({...p, ecgDate: e.target.value}))}
+                              className="w-full border border-gray-200 rounded px-2 py-1 text-xs mt-1" />
+                          </div>
+                        </div>
+
+                        {/* ── Coagulation ── */}
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">Coagulation Profile
+                            <span className="text-gray-400 text-xs font-normal ml-1">if indicated</span>
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {ir('pt', 'Prothrombin Time (PT)', 'seconds', 'e.g. 12.5', '11–13.5 s')}
+                            {ir('inr', 'INR', '', 'e.g. 1.1', '0.9–1.2')}
+                            {ir('aptt', 'aPTT', 'seconds', 'e.g. 30', '25–35 s')}
+                          </div>
+                          <div className="flex justify-end mt-2">
+                            <input type="date" value={invResults.coagDate} onChange={e => setInvResults(p => ({...p, coagDate: e.target.value}))}
+                              className="border border-gray-200 rounded px-2 py-1 text-xs" />
+                          </div>
+                        </div>
+
+                        {/* ── Electrolytes ── */}
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">Serum Electrolytes
+                            <span className="text-blue-500 text-xs font-normal ml-1">recommended</span>
+                          </h3>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {ir('sodium', 'Sodium (Na⁺)', 'mmol/L', '140', '135–145')}
+                            {ir('potassium', 'Potassium (K⁺)', 'mmol/L', '4.0', '3.5–5.0')}
+                            {ir('chloride', 'Chloride (Cl⁻)', 'mmol/L', '102', '98–106')}
+                            {ir('bicarbonate', 'Bicarbonate (HCO₃⁻)', 'mmol/L', '24', '22–28')}
+                          </div>
+                          <div className="flex justify-end mt-2">
+                            <input type="date" value={invResults.electrolytesDate} onChange={e => setInvResults(p => ({...p, electrolytesDate: e.target.value}))}
+                              className="border border-gray-200 rounded px-2 py-1 text-xs" />
+                          </div>
+                        </div>
+
+                        {/* ── Renal Function ── */}
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">Renal Function Tests
+                            <span className="text-blue-500 text-xs font-normal ml-1">recommended</span>
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {ir('creatinine', 'Creatinine', 'mg/dL', 'e.g. 0.9', '0.6–1.2')}
+                            {ir('urea', 'Urea/BUN', 'mg/dL', 'e.g. 15', '7–20')}
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <label className="text-xs font-medium text-gray-600">eGFR <span className="text-blue-500">(CKD-EPI auto)</span></label>
+                                <span className="text-xs text-gray-400">≥90 normal</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <input value={invResults.egfr} readOnly
+                                  className={`flex-1 min-w-0 border rounded-lg px-2 py-2 text-sm bg-gray-50 font-semibold ${
+                                    getResultFlag('egfr', invResults.egfr) === 'critical' ? 'border-red-400 bg-red-50 text-red-700' :
+                                    getResultFlag('egfr', invResults.egfr) === 'warning' ? 'border-yellow-400 bg-yellow-50 text-yellow-700' :
+                                    getResultFlag('egfr', invResults.egfr) === 'normal' ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-200'
+                                  }`}
+                                  placeholder="Enter creatinine above..." />
+                                <span className="text-xs text-gray-400 shrink-0 hidden xs:block">mL/min</span>
+                              </div>
+                              {invResults.egfr && (
+                                <p className="text-xs text-gray-500">
+                                  {Number(invResults.egfr) >= 90 ? '✓ Normal kidney function' :
+                                   Number(invResults.egfr) >= 60 ? '⚠ G2: Mildly decreased' :
+                                   Number(invResults.egfr) >= 45 ? '⚠ G3a: Mild–moderately decreased' :
+                                   Number(invResults.egfr) >= 30 ? '⚠ G3b: Moderately–severely decreased' :
+                                   Number(invResults.egfr) >= 15 ? '🔴 G4: Severely decreased' : '🔴 G5: Kidney failure'}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex justify-end mt-2">
+                            <input type="date" value={invResults.renalDate} onChange={e => setInvResults(p => ({...p, renalDate: e.target.value}))}
+                              className="border border-gray-200 rounded px-2 py-1 text-xs" />
+                          </div>
+                        </div>
+
+                        {/* ── LFTs ── */}
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">Liver Function Tests
+                            <span className="text-gray-400 text-xs font-normal ml-1">if indicated</span>
+                          </h3>
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            {ir('alt', 'ALT', 'U/L', 'e.g. 35', '<45')}
+                            {ir('ast', 'AST', 'U/L', 'e.g. 30', '<40')}
+                            {ir('alp', 'ALP', 'U/L', 'e.g. 90', '44–147')}
+                            {ir('albumin', 'Albumin', 'g/dL', 'e.g. 4.0', '3.5–5.0')}
+                            {ir('tbili', 'Total Bilirubin', 'mg/dL', 'e.g. 0.8', '0.3–1.2')}
+                          </div>
+                          <div className="flex justify-end mt-2">
+                            <input type="date" value={invResults.lftsDate} onChange={e => setInvResults(p => ({...p, lftsDate: e.target.value}))}
+                              className="border border-gray-200 rounded px-2 py-1 text-xs" />
+                          </div>
+                        </div>
+
+                        {/* ── HbA1c ── */}
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">HbA1c
+                            <span className="text-gray-400 text-xs font-normal ml-1">if diabetic / high glucose</span>
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {ir('hba1c', 'HbA1c', '%', 'e.g. 6.5', '<7.0%')}
+                            <div>
+                              <label className="text-xs font-medium text-gray-600">Date</label>
+                              <input type="date" value={invResults.hba1cDate} onChange={e => setInvResults(p => ({...p, hba1cDate: e.target.value}))}
+                                className="w-full border border-gray-200 rounded px-2 py-2 text-sm mt-1" />
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+
+                  {/* ── Clearance Report ── */}
+                  {clearanceReport && (
+                    <div className={`rounded-lg p-4 border-2 ${
+                      clearanceReport.recommendation.startsWith('DEFER') ? 'border-red-400 bg-red-50' :
+                      clearanceReport.recommendation.startsWith('PROCEED WITH CAUTION') ? 'border-yellow-400 bg-yellow-50' :
+                      'border-green-400 bg-green-50'
+                    }`}>
+                      <h3 className="font-bold text-base mb-2 flex items-center gap-2">
+                        {clearanceReport.recommendation.startsWith('DEFER') ? <AlertTriangle className="w-5 h-5 text-red-600" /> :
+                         clearanceReport.recommendation.startsWith('CLEARED') ? <CheckCircle className="w-5 h-5 text-green-600" /> :
+                         <AlertTriangle className="w-5 h-5 text-yellow-600" />}
+                        Surgical Clearance Assessment
+                        {clearanceReport.asa && <span className="text-sm font-normal text-gray-500 ml-2">{clearanceReport.asa}</span>}
+                      </h3>
+                      <p className={`font-semibold text-sm mb-3 ${
+                        clearanceReport.recommendation.startsWith('DEFER') ? 'text-red-800' :
+                        clearanceReport.recommendation.startsWith('PROCEED WITH CAUTION') ? 'text-yellow-800' : 'text-green-800'
+                      }`}>{clearanceReport.recommendation}</p>
+                      {clearanceReport.issues.length > 0 ? (
+                        <ul className="space-y-1 text-sm">
+                          {clearanceReport.issues.map((issue, i) => <li key={i}>{issue}</li>)}
+                        </ul>
+                      ) : (
+                        <p className="text-green-700 text-sm">All results within acceptable ranges for surgical intervention.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── Save Button ── */}
+                  <div className="flex flex-wrap gap-3 justify-between pt-2 border-t">
+                    <button
+                      onClick={async () => {
+                        let saved = 0;
+                        const resultMap: Record<string, string> = {
+                          full_blood_count: `Hb:${invResults.haemoglobin} Plt:${invResults.platelets} WBC:${invResults.wbc} PCV:${invResults.pcv}`.replace(/\s+/g,' '),
+                          blood_glucose: `FBG:${invResults.fastingGlucose} RBG:${invResults.randomGlucose}`,
+                          urinalysis: `Protein:${invResults.urineProtein} Glucose:${invResults.urineGlucose} Ketones:${invResults.urineKetones} Blood:${invResults.urineBlood}`,
+                          electrolytes_urea_creatinine: `Na:${invResults.sodium} K:${invResults.potassium} Cl:${invResults.chloride} HCO3:${invResults.bicarbonate}`,
+                          renal_function: `Cr:${invResults.creatinine} Urea:${invResults.urea} eGFR:${invResults.egfr}`,
+                          coagulation: `PT:${invResults.pt} INR:${invResults.inr} aPTT:${invResults.aptt}`,
+                          liver_function: `ALT:${invResults.alt} AST:${invResults.ast} ALP:${invResults.alp} Albumin:${invResults.albumin}`,
+                          hiv_screening: invResults.hiv,
+                          hepatitis_b: invResults.hepatitisB,
+                          hepatitis_c: invResults.hepatitisC,
+                          blood_group: invResults.bloodGroup,
+                          ecg: invResults.ecg,
+                        };
+                        for (const inv of (investigations || [])) {
+                          const resText = resultMap[inv.type];
+                          if (resText && resText.replace(/[^0-9A-Za-z]/g,'').length > 0) {
+                            try {
+                              await db.investigations.update(inv.id, {
+                                status: 'completed', result: resText,
+                                resultDate: new Date(), updatedAt: new Date(),
+                              } as any);
+                              saved++;
+                            } catch {}
+                          }
+                        }
+                        saveWorkflowDraft();
+                        setSectionCompletion(prev => ({ ...prev, investigations: true }));
+                        toast.success(`Results saved${saved > 0 ? ` — ${saved} investigation(s) updated` : ''}`);
+                      }}
+                      className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2 font-semibold text-sm shadow">
+                      <Save className="w-4 h-4" /> Save All Results
+                    </button>
+                    <button onClick={goNext} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm">
+                      Next: Consumables <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!showResultsPanel && (
+              <div className="flex justify-end">
+                <button onClick={goNext} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm">
+                  Next: Consumables <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1296,7 +2013,7 @@ export default function SurgicalWorkflowPage() {
                 </div>
               )}
 
-              <div className="flex justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-2">
                 <div className="flex gap-2">
                   <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
                     <ChevronLeft className="w-4 h-4" /> Previous
@@ -1407,7 +2124,7 @@ export default function SurgicalWorkflowPage() {
                 </div>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-2">
                 <div className="flex gap-2">
                   <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
                     <ChevronLeft className="w-4 h-4" /> Previous
@@ -1466,7 +2183,7 @@ export default function SurgicalWorkflowPage() {
                 </button>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-2">
                 <div className="flex gap-2">
                   <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
                     <ChevronLeft className="w-4 h-4" /> Previous
@@ -1574,7 +2291,7 @@ export default function SurgicalWorkflowPage() {
                 )}
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-2">
                 <div className="flex gap-2">
                   <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
                     <ChevronLeft className="w-4 h-4" /> Previous
@@ -1629,7 +2346,7 @@ export default function SurgicalWorkflowPage() {
                 </button>
               )}
 
-              <div className="flex justify-between mt-4">
+              <div className="flex flex-wrap items-center justify-between gap-y-2 mt-4">
                 <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
                   <ChevronLeft className="w-4 h-4" /> Previous
                 </button>
@@ -1682,7 +2399,7 @@ export default function SurgicalWorkflowPage() {
                 </select>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-2">
                 <div className="flex gap-2">
                   <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
                     <ChevronLeft className="w-4 h-4" /> Previous
@@ -1800,7 +2517,7 @@ export default function SurgicalWorkflowPage() {
                   placeholder="Discussion notes, team input, special considerations, plan modifications..." />
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-2">
                 <div className="flex gap-2">
                   <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
                     <ChevronLeft className="w-4 h-4" /> Previous
@@ -1824,7 +2541,7 @@ export default function SurgicalWorkflowPage() {
               <h2 className="text-lg font-bold text-gray-900 mb-4">Surgery & Anaesthesia Monitoring</h2>
 
               {/* Surgery Controls */}
-              <div className="flex gap-3 mb-6">
+              <div className="flex flex-wrap gap-3 mb-6">
                 {!surgeryStartTime ? (
                   <button onClick={startSurgery} className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 flex items-center gap-2">
                     <Play className="w-5 h-5" /> Start Surgery
@@ -1851,7 +2568,7 @@ export default function SurgicalWorkflowPage() {
                 <h3 className="text-sm font-bold text-gray-800 mb-2">Anaesthesia Drug Administration Log</h3>
                 <div className="space-y-2">
                   {anaesthesiaLog.map((entry, i) => (
-                    <div key={i} className="grid grid-cols-5 gap-2 text-sm">
+                    <div key={i} className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
                       <input value={entry.time} onChange={e => { const u = [...anaesthesiaLog]; u[i].time = e.target.value; setAnaesthesiaLog(u); }}
                         type="time" className="border rounded px-2 py-1" />
                       <input value={entry.drug} onChange={e => { const u = [...anaesthesiaLog]; u[i].drug = e.target.value; setAnaesthesiaLog(u); }}
@@ -1923,7 +2640,7 @@ export default function SurgicalWorkflowPage() {
                 </div>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-2">
                 <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
                   <ChevronLeft className="w-4 h-4" /> Previous
                 </button>
@@ -1977,7 +2694,7 @@ export default function SurgicalWorkflowPage() {
               <div className="mb-4">
                 <h3 className="text-sm font-bold text-gray-800 mb-2">Specimens Collected</h3>
                 {specimens.map((s, i) => (
-                  <div key={i} className="grid grid-cols-4 gap-2 mb-2 text-sm">
+                  <div key={i} className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2 text-sm">
                     <input value={s.type} onChange={e => { const u = [...specimens]; u[i].type = e.target.value; setSpecimens(u); }}
                       placeholder="Type" className="border rounded px-2 py-1" />
                     <input value={s.site} onChange={e => { const u = [...specimens]; u[i].site = e.target.value; setSpecimens(u); }}
@@ -2014,7 +2731,7 @@ export default function SurgicalWorkflowPage() {
                 </div>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-2">
                 <div className="flex gap-2">
                   <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
                     <ChevronLeft className="w-4 h-4" /> Previous
@@ -2059,7 +2776,7 @@ export default function SurgicalWorkflowPage() {
               <div className="mb-4">
                 <h3 className="text-sm font-bold text-gray-800 mb-2">Add Post-Operative Medications</h3>
                 {postOpMeds.map((med, i) => (
-                  <div key={i} className="grid grid-cols-6 gap-2 mb-2 text-sm">
+                  <div key={i} className="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-2 text-sm">
                     <input value={med.drug} onChange={e => { const u = [...postOpMeds]; u[i].drug = e.target.value; setPostOpMeds(u); }}
                       placeholder="Drug name" className="border rounded px-2 py-1 col-span-2" />
                     <input value={med.dose} onChange={e => { const u = [...postOpMeds]; u[i].dose = e.target.value; setPostOpMeds(u); }}
@@ -2127,7 +2844,7 @@ export default function SurgicalWorkflowPage() {
                 </div>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-2">
                 <div className="flex gap-2">
                   <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
                     <ChevronLeft className="w-4 h-4" /> Previous

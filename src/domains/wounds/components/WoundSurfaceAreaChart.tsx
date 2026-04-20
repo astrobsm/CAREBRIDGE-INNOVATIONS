@@ -68,6 +68,22 @@ export default function WoundSurfaceAreaChart({ patientId, woundLocation, curren
     return ((last - first) / first) * 100;
   }, [chartData]);
 
+  const healingRate = useMemo(() => {
+    if (chartData.length < 2) return null;
+    const first = chartData[0];
+    const last = chartData[chartData.length - 1];
+    const daysDiff = Math.max(1, (last.date - first.date) / (1000 * 60 * 60 * 24));
+    const weeklyRate = ((last.area - first.area) / daysDiff) * 7;
+    return weeklyRate;
+  }, [chartData]);
+
+  const projectedHealingDays = useMemo(() => {
+    if (!healingRate || healingRate >= 0 || chartData.length < 2) return null;
+    const currentArea = chartData[chartData.length - 1].area;
+    const daysToHeal = Math.ceil(currentArea / Math.abs(healingRate / 7));
+    return daysToHeal;
+  }, [healingRate, chartData]);
+
   if (!wounds || chartData.length === 0) {
     return (
       <div className="bg-gray-50 rounded-lg p-4">
@@ -188,12 +204,29 @@ export default function WoundSurfaceAreaChart({ patientId, woundLocation, curren
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-y-1 text-xs text-gray-500">
         <span>{chartData.length} assessments recorded</span>
         <span>
           {chartData[0].area.toFixed(1)} cm² → {chartData[chartData.length - 1].area.toFixed(1)} cm²
         </span>
       </div>
+
+      {/* Healing rate and projection */}
+      {healingRate !== null && (
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <span className={`px-2 py-1 rounded-full font-medium ${
+            healingRate < -0.5 ? 'bg-emerald-100 text-emerald-800' :
+            healingRate > 0.5 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+          }`}>
+            {healingRate < 0 ? '↓' : '↑'} {Math.abs(healingRate).toFixed(1)} cm²/week
+          </span>
+          {projectedHealingDays !== null && projectedHealingDays > 0 && projectedHealingDays < 365 && (
+            <span className="px-2 py-1 rounded-full bg-sky-100 text-sky-800 font-medium">
+              ~{projectedHealingDays}d to healing (est.)
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

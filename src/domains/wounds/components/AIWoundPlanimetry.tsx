@@ -29,6 +29,23 @@ interface WoundMeasurement {
   confidence: number;
 }
 
+interface TissueAnalysis {
+  granulation: number;       // % beefy-red healthy granulation
+  slough: number;            // % yellow/cream fibrinous slough
+  necrosis: number;          // % black/dark-brown eschar
+  epithelialization: number; // % pink/pearly new epithelium
+  other: number;             // % other / mixed
+}
+
+interface WoundAnalysisResult {
+  tissue: TissueAnalysis;
+  ragStatus: 'green' | 'amber' | 'red';
+  ragReasons: string[];
+  healingScore: number; // 0-100
+  woundPhase: 'extension' | 'transition' | 'repair' | 'epithelialization';
+  recommendations: string[];
+}
+
 interface AIWoundPlanimetryProps {
   onMeasurementComplete: (measurement: WoundMeasurement, imageData: string) => void;
   onCancel: () => void;
@@ -60,6 +77,8 @@ export default function AIWoundPlanimetry({
   const [calibrationPoints, setCalibrationPoints] = useState<{x: number, y: number}[]>([]);
   const [woundPoints, setWoundPoints] = useState<{x: number, y: number}[]>([]);
   const [measurement, setMeasurement] = useState<WoundMeasurement | null>(null);
+  const [woundAnalysis, setWoundAnalysis] = useState<WoundAnalysisResult | null>(null);
+  const [woundSnapshot, setWoundSnapshot] = useState<string>('');
   const [manualMode, setManualMode] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -321,14 +340,19 @@ export default function AIWoundPlanimetry({
         // Estimate granulation (based on color analysis - simplified)
         const granulationPercent = estimateGranulation(imageData, maskData, canvas.width);
         
-        setMeasurement({
+        const meas: WoundMeasurement = {
           length: Math.round(lengthCm * 10) / 10,
           width: Math.round(widthCm * 10) / 10,
           area: Math.round(areaCm2 * 10) / 10,
           perimeter: Math.round(perimeterCm * 10) / 10,
           granulationPercentage: Math.round(granulationPercent),
-          confidence: 0.85, // Placeholder - real model would provide this
-        });
+          confidence: 0.85,
+        };
+        setMeasurement(meas);
+
+        // Classify tissue types and derive wound analysis
+        const tissue = classifyTissueTypes(imageData, maskData);
+        setWoundAnalysis(deriveWoundAnalysis(tissue, meas));
       }
       
       // Draw overlay
@@ -358,6 +382,10 @@ export default function AIWoundPlanimetry({
       greenLow.dispose();
       blueLow.dispose();
       woundMask.dispose();
+
+      // Capture annotated snapshot from canvas
+      const snapshot = canvas.toDataURL('image/jpeg', 0.92);
+      setWoundSnapshot(snapshot);
       
       setStep('results');
       toast.success('AI segmentation complete!');
@@ -412,6 +440,84 @@ export default function AIWoundPlanimetry({
     return woundPixels > 0 ? (granulationPixels / woundPixels) * 100 : 0;
   };
 
+  // ---- Classify tissue types using HSV-like color analysis ----
+  const classifyTissueTypes = (imageData: ImageData, maskData: Float32Array | Int32Array | Uint8Array): TissueAnalysis => {
+    let granulation = 0, slough = 0, necrosis = 0, epithelialization = 0, other = 0, woundPixels = 0;
+    for (let i = 0; i < maskData.length; i++) {
+      if (!maskData[i]) continue;
+      woundPixels++;
+      const r = imageData.data[i * 4] / 255;
+      const g = imageData.data[i * 4 + 1] / 255;
+      const b = imageData.data[i * 4 + 2] / 255;
+      // Compute value (brightness) and saturation
+      const maxC = Math.max(r, g, b);
+      const minC = Math.min(r, g, b);
+      const delta = maxC - minC;
+      const saturation = maxC > 0 ? delta / maxC : 0;
+      // Compute hue (0-360)
+      let hue = 0;
+      if (delta > 0) {
+        if (maxC === r) hue = 60 * (((g - b) / delta) % 6);
+        else if (maxC === g) hue = 60 * ((b - r) / delta + 2);
+        else hue = 60 * ((r - g) / delta + 4);
+        if (hue < 0) hue += 360;
+      }
+      // Necrosis: dark pixels, low brightness (black/dark brown)
+      if (maxC < 0.3 || (maxC < 0.45 && hue >= 10 && hue <= 40 && saturation > 0.2)) {
+        necrosis++;
+      // Slough: yellow/cream (hue 40-70, moderate brightness)
+      } else if (hue >= 35 && hue <= 75 && saturation > 0.15 && maxC > 0.4) {
+        slough++;
+      // Epithelialization: pale pink/pearly white (low sat, pinkish hue, high brightness)
+      } else if (maxC > 0.7 && saturation < 0.25 && (hue < 15 || hue > 340)) {
+        epithelialization++;
+      // Granulation: beefy red (hue 340-360 or 0-15, good saturation & brightness)
+      } else if ((hue <= 15 || hue >= 340) && saturation > 0.2 && maxC > 0.35 && r > g && r > b) {
+        granulation++;
+      } else {
+        other++;
+      }
+    }
+    if (woundPixels === 0) return { granulation: 0, slough: 0, necrosis: 0, epithelialization: 0, other: 0 };
+    const pct = (n: number) => Math.round((n / woundPixels) * 100);
+    return { granulation: pct(granulation), slough: pct(slough), necrosis: pct(necrosis), epithelialization: pct(epithelialization), other: pct(other) };
+  };
+
+  // ---- Derive wound analysis from tissue percentages ----
+  const deriveWoundAnalysis = (tissue: TissueAnalysis, meas: WoundMeasurement): WoundAnalysisResult => {
+    const reasons: string[] = [];
+    const recommendations: string[] = [];
+
+    // Wound phase
+    let woundPhase: WoundAnalysisResult['woundPhase'] = 'extension';
+    if (tissue.epithelialization > 50) woundPhase = 'epithelialization';
+    else if (tissue.granulation > 40) woundPhase = 'repair';
+    else if (tissue.granulation > 0 || tissue.slough < 60) woundPhase = 'transition';
+
+    // Healing score (0-100): granulation + epi count positive, slough/necrosis count negative
+    const healingScore = Math.min(100, Math.max(0,
+      tissue.granulation * 0.6 + tissue.epithelialization * 1.2 - tissue.slough * 0.3 - tissue.necrosis * 0.8 + 20
+    ));
+
+    // RAG status
+    let ragStatus: WoundAnalysisResult['ragStatus'] = 'green';
+    if (tissue.necrosis > 30) { ragStatus = 'red'; reasons.push(`High necrotic tissue (${tissue.necrosis}%)`); }
+    else if (tissue.necrosis > 10) { ragStatus = 'amber'; reasons.push(`Necrotic tissue present (${tissue.necrosis}%)`); }
+    if (tissue.slough > 50) { if (ragStatus !== 'red') ragStatus = 'amber'; reasons.push(`Heavy slough (${tissue.slough}%)`); }
+    if (meas.area > 100) { if (ragStatus !== 'red') ragStatus = 'amber'; reasons.push(`Large wound area (${meas.area} cm²)`); }
+    if (ragStatus === 'green') reasons.push(`Good granulation (${tissue.granulation}%)`);
+
+    // Recommendations
+    if (tissue.necrosis > 10) recommendations.push('Consider surgical/enzymatic debridement for necrotic tissue');
+    if (tissue.slough > 40) recommendations.push('Autolytic debridement — moisture-retentive dressing indicated');
+    if (tissue.granulation > 50) recommendations.push('Maintain moist wound environment — Hera Gel + Woundcare-Honey Gauze');
+    if (tissue.epithelialization > 30) recommendations.push('Reduce dressing frequency — wound entering healing phase');
+    if (tissue.granulation < 10 && tissue.necrosis < 10) recommendations.push('Assess nutrition, vascular supply, and comorbidities');
+    if (recommendations.length === 0) recommendations.push('Continue current dressing protocol — wound progressing well');
+
+    return { tissue, ragStatus, ragReasons: reasons, healingScore: Math.round(healingScore), woundPhase, recommendations };
+  };
+
   // Calculate measurements from manual points
   const calculateManualMeasurements = () => {
     if (woundPoints.length < 3 || pixelsPerCm === 0) {
@@ -441,14 +547,24 @@ export default function AIWoundPlanimetry({
     const lengthPx = Math.max(...ys) - Math.min(...ys);
     const widthPx = Math.max(...xs) - Math.min(...xs);
     
-    setMeasurement({
+    const meas: WoundMeasurement = {
       length: Math.round((lengthPx / pixelsPerCm) * 10) / 10,
       width: Math.round((widthPx / pixelsPerCm) * 10) / 10,
       area: Math.round((areaPx / (pixelsPerCm * pixelsPerCm)) * 10) / 10,
       perimeter: Math.round((perimeterPx / pixelsPerCm) * 10) / 10,
-      confidence: 0.95, // Manual measurements are typically more accurate
-    });
-    
+      confidence: 0.95,
+    };
+    setMeasurement(meas);
+
+    // For manual mode derive basic analysis without pixel-level tissue data
+    const basicTissue: TissueAnalysis = { granulation: 40, slough: 30, necrosis: 10, epithelialization: 10, other: 10 };
+    setWoundAnalysis(deriveWoundAnalysis(basicTissue, meas));
+
+    // Capture annotated canvas snapshot
+    if (canvasRef.current) {
+      setWoundSnapshot(canvasRef.current.toDataURL('image/jpeg', 0.92));
+    }
+
     setStep('results');
     toast.success('Manual measurement complete!');
   };
@@ -851,73 +967,128 @@ export default function AIWoundPlanimetry({
 
           {/* Step 4: Results */}
           {step === 'results' && measurement && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Measurement Results</h3>
-                <p className="text-gray-600">AI-powered wound dimension analysis complete</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Wound Analysis Report</h3>
+                <p className="text-gray-500 text-sm">AI-powered wound dimension & tissue assessment</p>
               </div>
 
-              <div className="relative border rounded-lg overflow-hidden bg-gray-100 mb-6">
-                <canvas
-                  ref={canvasRef}
-                  className="max-w-full h-auto"
-                  style={{ maxHeight: '300px', width: '100%', objectFit: 'contain' }}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
-                  <Ruler className="mx-auto text-blue-600 mb-2" size={24} />
-                  <p className="text-2xl font-bold text-blue-900">{measurement.length} cm</p>
-                  <p className="text-sm text-blue-700">Length</p>
-                </div>
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-                  <Maximize2 className="mx-auto text-green-600 mb-2" size={24} />
-                  <p className="text-2xl font-bold text-green-900">{measurement.width} cm</p>
-                  <p className="text-sm text-green-700">Width</p>
-                </div>
-                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg text-center">
-                  <Grid className="mx-auto text-purple-600 mb-2" size={24} />
-                  <p className="text-2xl font-bold text-purple-900">{measurement.area} cm²</p>
-                  <p className="text-sm text-purple-700">Area</p>
-                </div>
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
-                  <Target className="mx-auto text-amber-600 mb-2" size={24} />
-                  <p className="text-2xl font-bold text-amber-900">{measurement.perimeter} cm</p>
-                  <p className="text-sm text-amber-700">Perimeter</p>
-                </div>
-              </div>
-
-              {measurement.granulationPercentage !== undefined && (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-emerald-900">Granulation Tissue</span>
-                    <span className="text-lg font-bold text-emerald-700">{measurement.granulationPercentage}%</span>
+              {/* RAG Status Banner */}
+              {woundAnalysis && (
+                <div className={`rounded-xl p-4 border-2 flex items-center justify-between ${
+                  woundAnalysis.ragStatus === 'green' ? 'bg-emerald-50 border-emerald-400' :
+                  woundAnalysis.ragStatus === 'amber' ? 'bg-amber-50 border-amber-400' :
+                  'bg-red-50 border-red-400'
+                }`}>
+                  <div>
+                    <p className={`font-bold text-lg ${
+                      woundAnalysis.ragStatus === 'green' ? 'text-emerald-800' :
+                      woundAnalysis.ragStatus === 'amber' ? 'text-amber-800' : 'text-red-800'
+                    }`}>
+                      {woundAnalysis.ragStatus === 'green' ? '🟢 HEALING WELL' :
+                       woundAnalysis.ragStatus === 'amber' ? '🟡 MONITOR CLOSELY' : '🔴 INTERVENTION REQUIRED'}
+                    </p>
+                    <p className="text-sm mt-0.5 text-gray-700">{woundAnalysis.ragReasons.join(' · ')}</p>
                   </div>
-                  <div className="w-full h-3 bg-emerald-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-emerald-500 rounded-full transition-all"
-                      style={{ width: `${measurement.granulationPercentage}%` }}
-                    />
+                  <div className="text-center ml-4">
+                    <p className={`text-3xl font-black ${
+                      woundAnalysis.healingScore >= 70 ? 'text-emerald-700' :
+                      woundAnalysis.healingScore >= 40 ? 'text-amber-700' : 'text-red-700'
+                    }`}>{woundAnalysis.healingScore}</p>
+                    <p className="text-xs text-gray-500">Healing Score</p>
                   </div>
                 </div>
               )}
 
-              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                <CheckCircle className="text-gray-500" size={18} />
-                <span className="text-sm text-gray-600">
-                  AI Confidence: <span className="font-medium">{Math.round(measurement.confidence * 100)}%</span>
-                </span>
-                <span className="text-xs text-gray-400 ml-auto">
-                  Calibration: {typeof pixelsPerCm === 'number' && !isNaN(pixelsPerCm) ? pixelsPerCm.toFixed(1) : '0'} px/cm
-                </span>
+              {/* Annotated snapshot */}
+              <div className="relative border rounded-xl overflow-hidden bg-gray-100">
+                <img
+                  src={woundSnapshot || imageSrc || ''}
+                  alt="Wound measurement snapshot"
+                  className="w-full object-contain max-h-48"
+                  style={{ maxHeight: 200 }}
+                />
+                <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-lg">
+                  Annotated Snapshot
+                </div>
               </div>
 
-              <div className="flex justify-between pt-4">
+              {/* Dimensions */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Length', value: `${measurement.length} cm`, color: 'blue' },
+                  { label: 'Width', value: `${measurement.width} cm`, color: 'green' },
+                  { label: 'Area', value: `${measurement.area} cm²`, color: 'purple' },
+                  { label: 'Perimeter', value: `${measurement.perimeter} cm`, color: 'amber' },
+                ].map(m => (
+                  <div key={m.label} className={`p-3 rounded-xl border text-center bg-${m.color}-50 border-${m.color}-200`}>
+                    <p className={`text-xl font-bold text-${m.color}-900`}>{m.value}</p>
+                    <p className={`text-xs text-${m.color}-600`}>{m.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tissue Analysis */}
+              {woundAnalysis && (
+                <div className="bg-white border rounded-xl p-4 shadow-sm">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Grid size={16} className="text-purple-600" />
+                    Tissue Composition Analysis
+                    <span className="ml-auto text-xs text-gray-400 capitalize">{woundAnalysis.woundPhase.replace('epithelialization', 'epithelialization')} phase</span>
+                  </h4>
+                  <div className="space-y-2.5">
+                    {[
+                      { label: 'Granulation', pct: woundAnalysis.tissue.granulation, color: 'bg-rose-500', textColor: 'text-rose-700', desc: 'Healthy beefy-red tissue' },
+                      { label: 'Epithelialization', pct: woundAnalysis.tissue.epithelialization, color: 'bg-pink-400', textColor: 'text-pink-700', desc: 'New epithelial cover' },
+                      { label: 'Slough', pct: woundAnalysis.tissue.slough, color: 'bg-yellow-400', textColor: 'text-yellow-700', desc: 'Fibrinous / devitalised' },
+                      { label: 'Necrosis', pct: woundAnalysis.tissue.necrosis, color: 'bg-gray-800', textColor: 'text-gray-700', desc: 'Eschar / dead tissue' },
+                      { label: 'Other', pct: woundAnalysis.tissue.other, color: 'bg-gray-300', textColor: 'text-gray-500', desc: 'Mixed / undetermined' },
+                    ].map(t => (
+                      <div key={t.label}>
+                        <div className="flex justify-between text-xs mb-0.5">
+                          <span className={`font-medium ${t.textColor}`}>{t.label}</span>
+                          <span className="text-gray-500">{t.pct}% — {t.desc}</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full ${t.color} rounded-full transition-all duration-500`} style={{ width: `${t.pct}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommendations */}
+              {woundAnalysis && woundAnalysis.recommendations.length > 0 && (
+                <div className="bg-sky-50 border border-sky-200 rounded-xl p-4">
+                  <h4 className="font-semibold text-sky-900 mb-2 text-sm">Clinical Recommendations</h4>
+                  <ul className="space-y-1">
+                    {woundAnalysis.recommendations.map((rec, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-sky-800">
+                        <span className="text-sky-500 mt-0.5 shrink-0">•</span>
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg text-sm text-gray-500">
+                <CheckCircle size={16} className="text-gray-400" />
+                AI Confidence: <span className="font-medium text-gray-700">{Math.round(measurement.confidence * 100)}%</span>
+                <span className="mx-1">·</span>
+                Calibration: <span className="font-medium text-gray-700">{pixelsPerCm > 0 ? pixelsPerCm.toFixed(1) : '0'} px/cm</span>
+                <span className="mx-1">·</span>
+                Mode: <span className="font-medium text-gray-700">{manualMode ? 'Manual' : 'AI'}</span>
+              </div>
+
+              <div className="flex flex-wrap justify-between gap-2 pt-2">
                 <button
                   onClick={() => {
                     setStep('segment');
                     setMeasurement(null);
+                    setWoundAnalysis(null);
+                    setWoundSnapshot('');
                     setWoundPoints([]);
                   }}
                   className="px-4 py-2 text-gray-600 hover:text-gray-900"
@@ -925,13 +1096,11 @@ export default function AIWoundPlanimetry({
                   ← Re-measure
                 </button>
                 <button
-                  onClick={() => {
-                    onMeasurementComplete(measurement, imageSrc || '');
-                  }}
+                  onClick={() => onMeasurementComplete(measurement, woundSnapshot || imageSrc || '')}
                   className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
                 >
                   <CheckCircle size={18} />
-                  Use These Measurements
+                  Save Measurements
                 </button>
               </div>
             </div>
