@@ -21,6 +21,9 @@ import type {
   AdmissionNote,
   TreatmentPlan,
   TreatmentProgress,
+  TreatmentSession,
+  TreatmentReminder,
+  TreatmentVoiceNote,
   ChatRoom,
   ChatMessage,
   VideoConference,
@@ -568,6 +571,173 @@ export const TreatmentPlanOps = {
     return db.treatmentProgress.add(progress);
   },
 };
+
+// ============================================================
+// TREATMENT SESSION OPERATIONS (timeline of scheduled instances)
+// ============================================================
+
+export const TreatmentSessionOps = {
+  async getAll(): Promise<TreatmentSession[]> {
+    return db.treatmentSessions.orderBy('scheduledAt').toArray();
+  },
+
+  async getById(id: string): Promise<TreatmentSession | undefined> {
+    return db.treatmentSessions.get(id);
+  },
+
+  async getByPlan(planId: string): Promise<TreatmentSession[]> {
+    return db.treatmentSessions.where('treatmentPlanId').equals(planId).sortBy('scheduledAt');
+  },
+
+  async getByPatient(patientId: string): Promise<TreatmentSession[]> {
+    return db.treatmentSessions.where('patientId').equals(patientId).sortBy('scheduledAt');
+  },
+
+  async getUpcoming(withinHours = 48): Promise<TreatmentSession[]> {
+    const now = new Date();
+    const horizon = new Date(now.getTime() + withinHours * 3600 * 1000);
+    const all = await db.treatmentSessions.where('status').anyOf(['scheduled', 'in_progress']).toArray();
+    return all
+      .filter(s => {
+        const t = new Date(s.scheduledAt);
+        return t >= now && t <= horizon;
+      })
+      .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+  },
+
+  async getOverdue(): Promise<TreatmentSession[]> {
+    const now = new Date();
+    const all = await db.treatmentSessions.where('status').equals('scheduled').toArray();
+    return all
+      .filter(s => new Date(s.scheduledAt) < now)
+      .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+  },
+
+  async create(session: TreatmentSession): Promise<string> {
+    return db.treatmentSessions.add(session);
+  },
+
+  async bulkCreate(sessions: TreatmentSession[]): Promise<string> {
+    return db.treatmentSessions.bulkAdd(sessions, { allKeys: false }) as unknown as string;
+  },
+
+  async update(id: string, updates: Partial<TreatmentSession>): Promise<number> {
+    return db.treatmentSessions.update(id, { ...updates, updatedAt: new Date() });
+  },
+
+  async markAttended(id: string, userId: string, notes?: string): Promise<number> {
+    return db.treatmentSessions.update(id, {
+      status: 'completed',
+      attendedAt: new Date(),
+      attendedBy: userId,
+      notes,
+      updatedAt: new Date(),
+    });
+  },
+
+  async markMissed(id: string): Promise<number> {
+    return db.treatmentSessions.update(id, {
+      status: 'missed',
+      missedNotificationSentAt: new Date(),
+      updatedAt: new Date(),
+    });
+  },
+
+  async reschedule(id: string, newDate: Date): Promise<number> {
+    return db.treatmentSessions.update(id, {
+      status: 'rescheduled',
+      scheduledAt: newDate,
+      remindersScheduled: false,
+      updatedAt: new Date(),
+    });
+  },
+
+  async delete(id: string): Promise<void> {
+    await db.treatmentSessions.delete(id);
+  },
+};
+
+// ============================================================
+// TREATMENT REMINDER OPERATIONS
+// ============================================================
+
+export const TreatmentReminderOps = {
+  async getAll(): Promise<TreatmentReminder[]> {
+    return db.treatmentReminders.orderBy('scheduledFor').toArray();
+  },
+
+  async getBySession(sessionId: string): Promise<TreatmentReminder[]> {
+    return db.treatmentReminders.where('treatmentSessionId').equals(sessionId).toArray();
+  },
+
+  async getPending(): Promise<TreatmentReminder[]> {
+    const now = new Date();
+    const all = await db.treatmentReminders.where('status').equals('pending').toArray();
+    return all.filter(r => new Date(r.scheduledFor) <= now);
+  },
+
+  async create(reminder: TreatmentReminder): Promise<string> {
+    return db.treatmentReminders.add(reminder);
+  },
+
+  async bulkCreate(reminders: TreatmentReminder[]): Promise<unknown> {
+    return db.treatmentReminders.bulkAdd(reminders);
+  },
+
+  async markSent(id: string): Promise<number> {
+    return db.treatmentReminders.update(id, {
+      status: 'sent',
+      sentAt: new Date(),
+      updatedAt: new Date(),
+    });
+  },
+
+  async acknowledge(id: string, userId: string): Promise<number> {
+    return db.treatmentReminders.update(id, {
+      status: 'acknowledged',
+      acknowledgedAt: new Date(),
+      acknowledgedBy: userId,
+      updatedAt: new Date(),
+    });
+  },
+
+  async cancelForSession(sessionId: string): Promise<number> {
+    return db.treatmentReminders
+      .where('treatmentSessionId').equals(sessionId)
+      .modify({ status: 'cancelled', updatedAt: new Date() });
+  },
+};
+
+// ============================================================
+// TREATMENT VOICE NOTE OPERATIONS
+// ============================================================
+
+export const TreatmentVoiceNoteOps = {
+  async getById(id: string): Promise<TreatmentVoiceNote | undefined> {
+    return db.treatmentVoiceNotes.get(id);
+  },
+
+  async getByPlan(planId: string): Promise<TreatmentVoiceNote[]> {
+    return db.treatmentVoiceNotes.where('treatmentPlanId').equals(planId).reverse().sortBy('recordedAt');
+  },
+
+  async getBySession(sessionId: string): Promise<TreatmentVoiceNote[]> {
+    return db.treatmentVoiceNotes.where('treatmentSessionId').equals(sessionId).reverse().sortBy('recordedAt');
+  },
+
+  async create(note: TreatmentVoiceNote): Promise<string> {
+    return db.treatmentVoiceNotes.add(note);
+  },
+
+  async update(id: string, updates: Partial<TreatmentVoiceNote>): Promise<number> {
+    return db.treatmentVoiceNotes.update(id, { ...updates, updatedAt: new Date() });
+  },
+
+  async delete(id: string): Promise<void> {
+    await db.treatmentVoiceNotes.delete(id);
+  },
+};
+
 
 // ============================================================
 // INVOICE OPERATIONS
@@ -1542,6 +1712,9 @@ export const dbOps = {
   prescriptions: PrescriptionOps,
   nutrition: NutritionOps,
   treatmentPlans: TreatmentPlanOps,
+  treatmentSessions: TreatmentSessionOps,
+  treatmentReminders: TreatmentReminderOps,
+  treatmentVoiceNotes: TreatmentVoiceNoteOps,
   invoices: InvoiceOps,
   wardRounds: WardRoundOps,
   dischargeSummaries: DischargeSummaryOps,

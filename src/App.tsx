@@ -18,6 +18,9 @@ import MDTPage from './domains/clinical/pages/MDTPage';
 import BloodTransfusionPage from './domains/clinical/pages/BloodTransfusionPage';
 import ReferralPage from './domains/clinical/pages/ReferralPage';
 import TreatmentPlanPage from './domains/clinical/pages/TreatmentPlanPage';
+import TreatmentPlanningDashboardPage from './domains/treatment-planning/pages/TreatmentPlanningDashboardPage';
+import NewTreatmentPlanPage from './domains/treatment-planning/pages/NewTreatmentPlanPage';
+import TreatmentPlanDetailPage from './domains/treatment-planning/pages/TreatmentPlanDetailPage';
 import SurgeryListPage from './domains/surgery/pages/SurgeryListPage';
 import SurgeryPlanningPage from './domains/surgery/pages/SurgeryPlanningPage';
 import PreoperativeAssessmentPage from './domains/surgery/pages/PreoperativeAssessmentPage';
@@ -157,6 +160,9 @@ function App() {
         <Route path="post-op-care/charts/:patientId/:surgeryId" element={<PostOpMonitoringChartsPage />} />
         <Route path="preoperative-planning" element={<PreoperativePlanningPage />} />
         <Route path="treatment-plans/new" element={<TreatmentPlanPage />} />
+        <Route path="treatment-planning" element={<TreatmentPlanningDashboardPage />} />
+        <Route path="treatment-planning/new" element={<NewTreatmentPlanPage />} />
+        <Route path="treatment-planning/:planId" element={<TreatmentPlanDetailPage />} />
         <Route path="mdt" element={<MDTPage />} />
         <Route path="blood-transfusion" element={<BloodTransfusionPage />} />
         <Route path="referrals" element={<ReferralPage />} />

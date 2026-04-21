@@ -11,7 +11,7 @@
 import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../database';
-import type { Prescription, Investigation, LabRequest } from '../types';
+import type { Prescription, Investigation, LabRequest, TreatmentPlan } from '../types';
 
 // Types of clinical orders we track
 export type OrderType = 'prescription' | 'investigation' | 'lab_request' | 'treatment_plan';
@@ -172,7 +172,7 @@ export function usePatientOrdersHistory(
   const rawPrescriptions = useLiveQuery(
     () => patientId && orderTypes.includes('prescription')
       ? db.prescriptions.where('patientId').equals(patientId).toArray()
-      : Promise.resolve([]),
+      : Promise.resolve([] as Prescription[]),
     [patientId, orderTypes]
   );
 
@@ -180,7 +180,7 @@ export function usePatientOrdersHistory(
   const rawInvestigations = useLiveQuery(
     () => patientId && orderTypes.includes('investigation')
       ? db.investigations.where('patientId').equals(patientId).toArray()
-      : Promise.resolve([]),
+      : Promise.resolve([] as Investigation[]),
     [patientId, orderTypes]
   );
 
@@ -188,7 +188,7 @@ export function usePatientOrdersHistory(
   const rawLabRequests = useLiveQuery(
     () => patientId && orderTypes.includes('lab_request')
       ? db.labRequests.where('patientId').equals(patientId).toArray()
-      : Promise.resolve([]),
+      : Promise.resolve([] as LabRequest[]),
     [patientId, orderTypes]
   );
 
@@ -196,7 +196,7 @@ export function usePatientOrdersHistory(
   const rawTreatmentPlans = useLiveQuery(
     () => patientId && orderTypes.includes('treatment_plan')
       ? db.treatmentPlans.where('patientId').equals(patientId).toArray()
-      : Promise.resolve([]),
+      : Promise.resolve([] as TreatmentPlan[]),
     [patientId, orderTypes]
   );
 
@@ -219,7 +219,7 @@ export function usePatientOrdersHistory(
   );
 
   const treatmentPlans = useMemo(
-    () => (rawTreatmentPlans || []).map(treatmentPlanToUnified),
+    () => (rawTreatmentPlans || []).map(tp => treatmentPlanToUnified(tp as any)),
     [rawTreatmentPlans]
   );
 

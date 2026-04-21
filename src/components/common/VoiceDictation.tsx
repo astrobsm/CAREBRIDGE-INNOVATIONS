@@ -33,9 +33,13 @@ import ScanToText from './ScanToText';
 
 interface VoiceDictationProps {
   /** Current value of the text field */
-  value: string;
+  value?: string;
   /** Callback when text changes */
-  onChange: (text: string) => void;
+  onChange?: (text: string) => void;
+  /** Alternate callback: receives finalized dictated text only (for ad-hoc forms) */
+  onTextReceived?: (text: string) => void;
+  /** Visual size variant */
+  size?: 'sm' | 'md' | 'lg';
   /** Placeholder text */
   placeholder?: string;
   /** Number of rows for textarea */
@@ -63,8 +67,10 @@ interface VoiceDictationProps {
 }
 
 export function VoiceDictation({
-  value,
+  value = '',
   onChange,
+  onTextReceived,
+  size: _size,
   placeholder = 'Start speaking or type here...',
   rows = 4,
   className = '',
@@ -78,6 +84,11 @@ export function VoiceDictation({
   required = false,
   name,
 }: VoiceDictationProps) {
+  // Unified change emitter — supports either onChange(fullText) or onTextReceived(text)
+  const emit = (text: string) => {
+    if (onChange) onChange(text);
+    if (onTextReceived) onTextReceived(text);
+  };
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -89,7 +100,7 @@ export function VoiceDictation({
   // Use refs to track current values for use in event handlers
   // This prevents stale closures in the speech recognition callbacks
   const valueRef = useRef(value);
-  const onChangeRef = useRef(onChange);
+  const onChangeRef = useRef(emit);
   const interimTranscriptRef = useRef(interimTranscript);
   
   // Track processed results to prevent duplication (especially on Android)
@@ -108,8 +119,8 @@ export function VoiceDictation({
   }, [value]);
   
   useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
+    onChangeRef.current = emit;
+  }, [onChange, onTextReceived]);
   
   useEffect(() => {
     interimTranscriptRef.current = interimTranscript;
@@ -375,9 +386,9 @@ export function VoiceDictation({
 
   // Clear text
   const clearText = useCallback(() => {
-    onChange('');
+    emit('');
     setInterimTranscript('');
-  }, [onChange]);
+  }, []);
 
   // Copy text
   const copyText = useCallback(async () => {
@@ -401,7 +412,7 @@ export function VoiceDictation({
     setIsEnhancing(true);
     try {
       const enhanced = await enhanceMedicalText(value, medicalContext);
-      onChange(enhanced);
+      emit(enhanced);
       toast.success('Text enhanced with medical formatting');
     } catch (err) {
       console.error('Enhancement failed:', err);
@@ -446,7 +457,7 @@ export function VoiceDictation({
           name={name}
           value={displayText}
           onChange={(e) => {
-            onChange(e.target.value);
+            emit(e.target.value);
             setInterimTranscript('');
           }}
           placeholder={placeholder}
@@ -536,7 +547,7 @@ export function VoiceDictation({
               onTextRecognized={(text) => {
                 // Append scanned text to existing value
                 const newValue = value ? `${value}\n${text}` : text;
-                onChange(newValue);
+                emit(newValue);
               }}
               buttonLabel="Scan"
               size="sm"

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
@@ -37,6 +37,9 @@ import {
   UserPlus,
   RefreshCw,
   AlertCircle,
+  Sparkles,
+  Loader2,
+  Upload,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -47,6 +50,7 @@ import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
 import AISummaryButton from '../components/AISummaryButton';
 import TrackedInvestigations from '../components/TrackedInvestigations';
 import ClinicalCommentsSection from '../../../components/clinical/ClinicalCommentsSection';
+import { performOCR } from '../../../services/ocrService';
 import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination, Investigation, Prescription, ClinicalPhoto } from '../../../types';
 
 const encounterSchema = z.object({
@@ -75,10 +79,16 @@ const encounterTypes: { value: EncounterType; label: string }[] = [
 
 export default function ClinicalEncounterPage() {
   const { patientId } = useParams<{ patientId: string }>();
+
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'history' | 'examination' | 'diagnosis'>('history');
+
+  // Medical Scribe OCR State
+  const [isScribing, setIsScribing] = useState(false);
+  const [scribeEngine, setScribeEngine] = useState('');
+  const scribeFileRef = useRef<HTMLInputElement>(null);
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [newDiagnosis, setNewDiagnosis] = useState<{ description: string; type: 'primary' | 'secondary' | 'differential' }>({ description: '', type: 'primary' });
   const [physicalExam, setPhysicalExam] = useState<PhysicalExamination>({});
@@ -268,7 +278,93 @@ export default function ClinicalEncounterPage() {
     }
   }, [previousEncounters, setValue]);
 
-  // Watch form values for VoiceDictation
+  // ── Medical Scribe OCR Handler ────────────────────────────────
+  const parseEncounterWithGPT = useCallback(async (ocrText: string): Promise<Record<string, string>> => {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    if (!apiKey) return {};
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a clinical document parser. Extract structured clinical encounter data from OCR text. ' +
+                'Return a JSON object with ONLY these keys (use empty string if not found): ' +
+                'chiefComplaint, historyOfPresentIllness, pastMedicalHistory, pastSurgicalHistory, ' +
+                'familyHistory, socialHistory, treatmentPlan, notes. ' +
+                'Do not add any other keys. Values should be clean prose, no markdown.',
+            },
+            { role: 'user', content: `OCR TEXT:\n${ocrText}` },
+          ],
+          max_tokens: 1500,
+          temperature: 0.1,
+        }),
+      });
+      if (!res.ok) return {};
+      const data = await res.json();
+      return JSON.parse(data.choices?.[0]?.message?.content || '{}');
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const handleMedicalScribe = useCallback(async (file: File) => {
+    setIsScribing(true);
+    try {
+      toast.loading('Scanning document...', { id: 'scribe-scan' });
+      const result = await performOCR(file, {
+        enhanceHandwriting: true,
+        aggressiveHandwritingMode: true,
+        useCloudOCR: true,
+        multiPassOCR: true,
+      });
+      if (!result.text?.trim()) {
+        toast.error('No text detected in document', { id: 'scribe-scan' });
+        return;
+      }
+      const parsed = await parseEncounterWithGPT(result.text);
+      const fieldMap: Record<string, string> = {
+        chiefComplaint: 'chiefComplaint',
+        historyOfPresentIllness: 'historyOfPresentIllness',
+        pastMedicalHistory: 'pastMedicalHistory',
+        pastSurgicalHistory: 'pastSurgicalHistory',
+        familyHistory: 'familyHistory',
+        socialHistory: 'socialHistory',
+        treatmentPlan: 'treatmentPlan',
+        notes: 'notes',
+      };
+      let filled = 0;
+      for (const [gptKey, formKey] of Object.entries(fieldMap)) {
+        if (parsed[gptKey]) {
+          setValue(formKey as any, parsed[gptKey]);
+          filled++;
+        }
+      }
+      setScribeEngine(result.engine || 'OCR');
+      toast.success(
+        `Scribe complete — ${filled} field${filled !== 1 ? 's' : ''} filled (${result.engine || 'OCR'}, ${Math.round((result.confidence || 0) * 100)}% confidence)`,
+        { id: 'scribe-scan', duration: 5000 }
+      );
+      setActiveTab('history');
+    } catch (err) {
+      console.error('[MedicalScribe]', err);
+      toast.error('Failed to scan document', { id: 'scribe-scan' });
+    } finally {
+      setIsScribing(false);
+    }
+  }, [parseEncounterWithGPT, setValue]);
+
+  const handleScribeFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleMedicalScribe(file);
+    e.target.value = '';
+  }, [handleMedicalScribe]);
+
   const chiefComplaint = watch('chiefComplaint') || '';
   const historyOfPresentIllness = watch('historyOfPresentIllness') || '';
   const pastMedicalHistory = watch('pastMedicalHistory') || '';
@@ -873,6 +969,49 @@ export default function ClinicalEncounterPage() {
           </div>
         </motion.div>
       )}
+
+      {/* Medical Scribe OCR Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 p-4 shadow-lg"
+      >
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-2 flex-1">
+            <Sparkles className="w-5 h-5 text-white flex-shrink-0" />
+            <div>
+              <p className="text-white font-semibold text-sm">AI Medical Scribe</p>
+              <p className="text-indigo-200 text-xs">Scan a handwritten or printed clinical document to auto-fill all encounter fields</p>
+            </div>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              type="button"
+              disabled={isScribing}
+              onClick={() => scribeFileRef.current?.click()}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-colors disabled:opacity-60"
+            >
+              {isScribing ? (
+                <><Loader2 size={15} className="animate-spin" /> Scanning...</>
+              ) : (
+                <><Upload size={15} /> Upload Document</>
+              )}
+            </button>
+          </div>
+          {scribeEngine && (
+            <span className="text-indigo-200 text-xs flex-shrink-0">Last scan: {scribeEngine}</span>
+          )}
+        </div>
+        <input
+          ref={scribeFileRef}
+          type="file"
+          accept="image/*,application/pdf"
+          className="hidden"
+          title="Upload clinical document for OCR"
+          aria-label="Upload clinical document for OCR"
+          onChange={handleScribeFileChange}
+        />
+      </motion.div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
         {/* Encounter Type */}

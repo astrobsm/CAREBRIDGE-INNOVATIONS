@@ -37,14 +37,12 @@ import { EntryTrackingBadge } from '../../../components/common';
 import type { EntryTrackingInfo } from '../../../components/common';
 
 // Status and color mappings for future use
-// @ts-expect-error Reserved for future status display feature
 const _statusColors = {
   draft: 'bg-yellow-100 text-yellow-700',
   completed: 'bg-green-100 text-green-700',
   exported: 'bg-blue-100 text-blue-700',
 };
 
-// @ts-expect-error Reserved for future condition display feature
 const _conditionColors = {
   improved: 'bg-green-100 text-green-700',
   stable: 'bg-blue-100 text-blue-700',
@@ -52,7 +50,6 @@ const _conditionColors = {
   deteriorated: 'bg-red-100 text-red-700',
 };
 
-// @ts-expect-error Reserved for future disposition labels feature
 const _dispositionLabels = {
   home: 'Discharged Home',
   facility: 'To Facility',

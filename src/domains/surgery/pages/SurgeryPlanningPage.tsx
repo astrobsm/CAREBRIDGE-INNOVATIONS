@@ -311,6 +311,7 @@ export default function SurgeryPlanningPage() {
           const status = result.status === 'normal' ? 'normal' : 
                         result.status === 'low' || result.status === 'high' || result.status === 'critical' || result.status === 'abnormal' ? 'abnormal' : 
                         'pending';
+          if (!result.parameter) return;
           newResults[result.parameter] = {
             value: String(result.value),
             status

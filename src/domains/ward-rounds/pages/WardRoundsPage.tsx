@@ -80,6 +80,14 @@ export default function WardRoundsPage() {
   const users = useLiveQuery(() => db.users.filter(u => u.isActive !== false).toArray(), []);
   const wardRounds = useLiveQuery(() => db.wardRounds.orderBy('roundDate').reverse().toArray(), []);
 
+  // Patients currently admitted (joined with admission)
+  const admittedPatients = useMemo(() => {
+    if (!patients || !admissions) return [] as any[];
+    return patients
+      .map(p => ({ ...p, admission: admissions.find(a => a.patientId === p.id) }))
+      .filter(p => p.admission);
+  }, [patients, admissions]);
+
   // Get all doctors (surgeons, doctors, plastic surgeons, anaesthetists) for ward rounds
   const doctors = useMemo(() => 
     users?.filter(u => ['surgeon', 'doctor', 'plastic_surgeon', 'anaesthetist'].includes(u.role)) || [],

@@ -354,7 +354,7 @@ const referenceRanges: Record<string, { min: number; max: number; unit: string }
 const investigationSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
   hospitalId: z.string().min(1, 'Hospital is required'),
-  category: z.enum(['hematology', 'biochemistry', 'microbiology', 'imaging', 'histopathology', 'laboratory', 'radiology', 'pathology', 'cardiology', 'other']),
+  category: z.enum(['haematology', 'hematology', 'biochemistry', 'microbiology', 'imaging', 'histopathology', 'laboratory', 'radiology', 'pathology', 'cardiology', 'other']),
   type: z.string().min(1, 'Investigation type is required'),
   priority: z.enum(['routine', 'urgent', 'stat']),
   clinicalDetails: z.string().optional(),
@@ -543,7 +543,7 @@ export default function InvestigationsPage() {
       const mergedResults = [...existingResults];
       for (const newResult of results) {
         const existingIdx = mergedResults.findIndex(
-          r => r.parameter.toLowerCase() === newResult.parameter.toLowerCase()
+          r => (r.parameter ?? '').toLowerCase() === (newResult.parameter ?? '').toLowerCase()
         );
         if (existingIdx >= 0) {
           mergedResults[existingIdx] = newResult;
@@ -561,7 +561,7 @@ export default function InvestigationsPage() {
         if (test) expectedParams.push(test.name);
       });
       const allResultsFilled = expectedParams.length === 0 ||
-        expectedParams.every(p => mergedResults.some(r => r.parameter.toLowerCase() === p.toLowerCase()));
+        expectedParams.every(p => mergedResults.some(r => (r.parameter ?? '').toLowerCase() === p.toLowerCase()));
 
       await db.investigations.update(selectedInvestigation.id, {
         status: allResultsFilled ? 'completed' : 'processing',
@@ -1131,7 +1131,7 @@ export default function InvestigationsPage() {
                             // Pre-populate existing results
                             if (investigation.results?.length) {
                               const existing: Record<string, string> = {};
-                              investigation.results.forEach(r => { existing[r.parameter] = String(r.value || ''); });
+                              investigation.results.forEach(r => { if (r.parameter) existing[r.parameter] = String(r.value || ''); });
                               setResultValues(existing);
                             }
                             setShowResultModal(true);
@@ -1165,7 +1165,7 @@ export default function InvestigationsPage() {
                                   setSelectedInvestigation(investigation);
                                   // Pre-populate existing results
                                   const existing: Record<string, string> = {};
-                                  investigation.results?.forEach(r => { existing[r.parameter] = String(r.value || ''); });
+                                  investigation.results?.forEach(r => { if (r.parameter) existing[r.parameter] = String(r.value || ''); });
                                   setResultValues(existing);
                                   setShowResultModal(true);
                                 }}

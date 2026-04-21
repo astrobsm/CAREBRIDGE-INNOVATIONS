@@ -10,28 +10,22 @@
 
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { format, parseISO, subMonths } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FlaskConical,
-  TrendingUp,
-  TrendingDown,
-  Minus,
   AlertTriangle,
   CheckCircle,
   Clock,
   ChevronDown,
-  ChevronUp,
   Activity,
   FileText,
   Calendar,
-  AlertCircle,
   Info,
   Lightbulb,
   Filter,
 } from 'lucide-react';
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -39,12 +33,10 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  Legend,
   Area,
   AreaChart,
 } from 'recharts';
 import { db } from '../../../database';
-import type { Investigation } from '../../../types';
 
 interface TrackedInvestigationsProps {
   patientId: string;
@@ -167,10 +159,30 @@ function getRecommendation(investigationType: string, value: number, range: Norm
     : `Value below reference range (${range.min} ${range.unit}). Clinical correlation and follow-up testing recommended.`;
 }
 
-// Parse numeric value from result string
-function parseNumericResult(result: string | undefined): number | null {
+// Convert InvestigationResult[] to a readable string
+function resultsToString(results: any): string | undefined {
+  if (!results) return undefined;
+  if (typeof results === 'string') return results;
+  if (Array.isArray(results)) {
+    return results
+      .map((r: any) => `${r.parameterName || r.parameter || ''}: ${r.value}${r.unit ? ' ' + r.unit : ''}`)
+      .join('\n');
+  }
+  return String(results);
+}
+
+// Parse numeric value from result (string or InvestigationResult[])
+function parseNumericResult(result: any): number | null {
   if (!result) return null;
-  const match = result.match(/[\d.]+/);
+  if (Array.isArray(result)) {
+    for (const r of result) {
+      const v = typeof r.value === 'number' ? r.value : parseFloat(String(r.value));
+      if (!isNaN(v)) return v;
+    }
+    return null;
+  }
+  const str = typeof result === 'string' ? result : String(result);
+  const match = str.match(/[\d.]+/);
   return match ? parseFloat(match[0]) : null;
 }
 
@@ -434,7 +446,7 @@ export default function TrackedInvestigations({ patientId, onClose }: TrackedInv
                       <span className={`px-2 py-0.5 rounded-full text-xs ${
                         inv.status === 'completed' 
                           ? 'bg-green-100 text-green-700'
-                          : inv.status === 'pending'
+                          : inv.status === 'requested' || inv.status === 'sample_collected' || inv.status === 'processing'
                             ? 'bg-amber-100 text-amber-700'
                             : 'bg-gray-100 text-gray-700'
                       }`}>
@@ -497,7 +509,7 @@ export default function TrackedInvestigations({ patientId, onClose }: TrackedInv
                             <FileText size={14} />
                             Results
                           </h4>
-                          <p className="text-gray-900 whitespace-pre-wrap">{inv.results}</p>
+                          <p className="text-gray-900 whitespace-pre-wrap">{resultsToString(inv.results)}</p>
                         </div>
                       )}
 

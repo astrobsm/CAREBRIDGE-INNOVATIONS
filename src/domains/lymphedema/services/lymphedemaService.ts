@@ -460,7 +460,7 @@ export function generateCDTIntensivePlan(
   const skinCare = {
     cleansingProtocol: 'Wash with pH-balanced soap substitute (e.g., aqueous cream). Pat dry gently, especially between digits. Inspect all skin folds.',
     moisturizer: 'Apply low-pH emollient (aqueous cream or emollient with urea 10%) to entire limb after bathing, avoiding interdigital spaces.',
-    antifungalProphylaxis: assessment.skinConditions.includes('fungal_infection') || assessment.islStage >= 2,
+    antifungalProphylaxis: assessment.skinConditions.includes('fungal_infection') || (typeof assessment.islStage === 'number' && assessment.islStage >= 2) || assessment.islStage === '2_late',
     woundCareIfNeeded: assessment.skinConditions.includes('ulceration')
       ? 'Clean with saline, apply appropriate wound dressing (non-adherent), re-assess at each session'
       : undefined,

@@ -186,7 +186,7 @@ export default function NewAssessmentTab() {
         status: 'active',
         additionalNotes: additionalNotes || undefined,
         assessedBy: user?.id || '',
-        assessedByName: user?.name || '',
+        assessedByName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '',
         createdAt: now,
         updatedAt: now,
       };

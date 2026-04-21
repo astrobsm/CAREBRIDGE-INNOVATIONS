@@ -20,6 +20,9 @@ import type {
   BedAssignment,
   TreatmentPlan,
   TreatmentProgress,
+  TreatmentSession,
+  TreatmentReminder,
+  TreatmentVoiceNote,
   ChatRoom,
   ChatMessage,
   VideoConference,
@@ -107,6 +110,9 @@ export class AstroHEALTHDatabase extends Dexie {
   bedAssignments!: Table<BedAssignment, string>;
   treatmentPlans!: Table<TreatmentPlan, string>;
   treatmentProgress!: Table<TreatmentProgress, string>;
+  treatmentSessions!: Table<TreatmentSession, string>;
+  treatmentReminders!: Table<TreatmentReminder, string>;
+  treatmentVoiceNotes!: Table<TreatmentVoiceNote, string>;
   chatRooms!: Table<ChatRoom, string>;
   chatMessages!: Table<ChatMessage, string>;
   videoConferences!: Table<VideoConference, string>;
@@ -299,6 +305,13 @@ export class AstroHEALTHDatabase extends Dexie {
       postOpLymphedemaMonitoring: 'id, assessmentId, patientId, surgeryId, phase, recordedBy, recordedAt, createdAt',
       // Calibrated Wound Measurements
       woundMeasurements: 'id, woundId, patientId, hospitalId, encounterId, calibrationMethod, segmentationMethod, measuredBy, createdAt',
+    });
+
+    // v77 – Treatment Planning timeline & reminders
+    this.version(77).stores({
+      treatmentSessions: 'id, treatmentPlanId, patientId, hospitalId, status, scheduledAt, attendedAt, createdAt',
+      treatmentReminders: 'id, treatmentSessionId, treatmentPlanId, patientId, scheduledFor, status, kind, channel, createdAt',
+      treatmentVoiceNotes: 'id, treatmentPlanId, treatmentSessionId, patientId, recordedBy, recordedAt, createdAt',
     });
   }
 }

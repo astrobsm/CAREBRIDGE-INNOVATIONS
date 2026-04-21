@@ -691,6 +691,20 @@ self.addEventListener('notificationclick', (event) => {
 
   // Handle patient assignment acknowledgment
   if (event.action === 'acknowledge') {
+    if (notificationType === 'treatment' || notificationType === 'treatment_upcoming' || notificationType === 'treatment_overdue') {
+      event.waitUntil(
+        Promise.all([
+          sendMessageToClients({
+            type: 'TREATMENT_ACKNOWLEDGED',
+            sessionId: notificationData.sessionId,
+            planId: notificationData.planId,
+            reminderId: notificationData.reminderId,
+            overdue: notificationType === 'treatment_overdue',
+          }),
+        ])
+      );
+      return;
+    }
     if (notificationData.type === 'patient_assignment' && notificationData.notificationId) {
       event.waitUntil(handleAssignmentAcknowledge(notificationData.notificationId));
     } else if (notificationData.type === 'vital_alert') {
@@ -1223,25 +1237,54 @@ async function checkNotificationsFromSW() {
     for (const schedule of pending) {
       // Show a generic notification since we can't access Dexie from SW
       const eventType = schedule.eventType || 'event';
-      const emoji = eventType === 'surgery' ? '🏥' : eventType === 'appointment' ? '📅' : '💊';
-      const label = eventType === 'surgery' ? 'Surgery' : eventType === 'appointment' ? 'Appointment' : 'Treatment';
-      
-      await self.registration.showNotification(`${emoji} ${label} Reminder`, {
-        body: `You have a scheduled ${label.toLowerCase()} coming up soon. Open AstroHEALTH for details.`,
+      const payload = schedule.payload || {};
+      const isOverdue = eventType === 'treatment_overdue';
+      const isUpcoming = eventType === 'treatment' || eventType === 'treatment_upcoming';
+      let emoji = '💊';
+      let label = 'Treatment';
+      let title;
+      let body;
+      let requireInteraction = schedule.minutesBefore <= 15;
+
+      if (eventType === 'surgery') { emoji = '🏥'; label = 'Surgery'; }
+      else if (eventType === 'appointment') { emoji = '📅'; label = 'Appointment'; }
+      else if (isOverdue) { emoji = '⚠️'; label = 'Overdue treatment'; requireInteraction = true; }
+      else if (isUpcoming) { emoji = '🕒'; label = 'Treatment'; }
+
+      if (payload.title) {
+        title = `${emoji} ${isOverdue ? 'OVERDUE: ' : ''}${payload.title}`;
+        body = payload.body || `Scheduled at ${payload.scheduledAt ? new Date(payload.scheduledAt).toLocaleString() : 'soon'}.`;
+      } else {
+        title = `${emoji} ${label} Reminder`;
+        body = `You have a scheduled ${label.toLowerCase()} coming up soon. Open AstroHEALTH for details.`;
+      }
+
+      const url = payload.url || (payload.planId ? `/treatment-planning/${payload.planId}${payload.sessionId ? `?session=${payload.sessionId}${payload.voiceNoteId ? `&voiceNote=${payload.voiceNoteId}` : ''}` : ''}` : '/');
+
+      await self.registration.showNotification(title, {
+        body,
         icon: '/icons/icon-192x192.png',
         badge: '/icons/icon-72x72.png',
-        vibrate: [200, 100, 200],
+        vibrate: isOverdue ? [400, 100, 400, 100, 400] : [200, 100, 200],
         tag: `carebridge-${eventType}-${schedule.eventId}`,
-        requireInteraction: schedule.minutesBefore <= 15,
+        requireInteraction,
+        renotify: true,
         data: {
           type: eventType,
           eventId: schedule.eventId,
-          url: '/',
+          sessionId: payload.sessionId,
+          planId: payload.planId,
+          voiceNoteId: payload.voiceNoteId,
+          reminderId: payload.reminderId,
+          url,
         },
-        actions: [
+        actions: (isUpcoming || isOverdue) ? [
+          { action: 'acknowledge', title: '✓ Acknowledge' },
+          { action: 'open', title: 'Open' },
+        ] : [
           { action: 'open', title: 'Open App' },
-          { action: 'dismiss', title: 'Dismiss' }
-        ]
+          { action: 'dismiss', title: 'Dismiss' },
+        ],
       });
       
       // Mark as notified

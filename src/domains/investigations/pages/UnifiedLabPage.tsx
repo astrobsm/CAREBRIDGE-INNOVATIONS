@@ -5,7 +5,7 @@
  * Combines laboratory requests and investigations into a single professional workflow
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,6 +36,10 @@ import {
   ClipboardCheck,
   History,
   Send,
+  Sparkles,
+  Loader2,
+  Camera,
+  BarChart2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -65,6 +69,9 @@ import PathologyRequestForm, {
 import { generatePathologyRequestPDF } from '../../../utils/clinicalPdfGenerators';
 import { InvestigationApprovalPanel } from '../../../components/investigations';
 import ScanToText from '../../../components/common/ScanToText';
+import ECGReader from '../components/ECGReader';
+import RadiologyReader from '../components/RadiologyReader';
+import { performOCR } from '../../../services/ocrService';
 // investigationApprovalService import removed (unused - approval handled via InvestigationApprovalPanel)
 import type { Investigation } from '../../../types';
 
@@ -80,7 +87,7 @@ const requestSchema = z.object({
 type RequestFormData = z.infer<typeof requestSchema>;
 
 // Tab types
-type TabType = 'pending' | 'processing' | 'completed' | 'approvals' | 'trends';
+type TabType = 'pending' | 'processing' | 'completed' | 'approvals' | 'trends' | 'ecg' | 'radiology';
 
 export default function UnifiedLabPage() {
   const { user } = useAuth();
@@ -436,6 +443,8 @@ export default function UnifiedLabPage() {
               { id: 'completed', label: 'Completed', icon: CheckCircle2 },
               { id: 'approvals', label: 'Approvals', icon: ShieldCheck, count: stats.pendingApproval },
               { id: 'trends', label: 'Trends', icon: TrendingUp },
+              { id: 'ecg', label: 'ECG Reader', icon: Activity },
+              { id: 'radiology', label: 'Radiology', icon: FileImage },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -459,7 +468,7 @@ export default function UnifiedLabPage() {
         </div>
 
         {/* Filters */}
-        {activeTab !== 'trends' && (
+        {activeTab !== 'trends' && activeTab !== 'ecg' && activeTab !== 'radiology' && (
           <div className="p-3 sm:p-4 border-b border-gray-100 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
             {/* Search */}
             <div className="relative flex-1 min-w-[200px]">
@@ -546,6 +555,14 @@ export default function UnifiedLabPage() {
 
               {/* Approved & Auto-Requested Tracking */}
               <ApprovalTrackingSection investigations={investigations || []} />
+            </div>
+          ) : activeTab === 'ecg' ? (
+            <div className="p-2">
+              <ECGReader />
+            </div>
+          ) : activeTab === 'radiology' ? (
+            <div className="p-2">
+              <RadiologyReader />
             </div>
           ) : activeTab === 'trends' ? (
             <TrendAnalysisView
@@ -953,7 +970,7 @@ function InvestigationsList({
                   else if (test) expectedParams.push(test.name);
                 });
                 const uniqueExpected = [...new Set(expectedParams)];
-                const completedParams = inv.results?.map(r => r.parameter.toLowerCase()) || [];
+                const completedParams = inv.results?.map(r => (r.parameter ?? '').toLowerCase()) || [];
                 const hasIncomplete = uniqueExpected.length > 0 && uniqueExpected.some(p => !completedParams.includes(p.toLowerCase()));
                 
                 return (
@@ -1670,11 +1687,22 @@ function ResultModal({
   setUploadedFiles: React.Dispatch<React.SetStateAction<File[]>>;
   onSubmit: () => void;
 }) {
+  // OCR state
+  const [isOCRScanning, setIsOCRScanning] = useState(false);
+  const [ocrEngine, setOcrEngine] = useState<string>('');
+  const [ocrConfidence, setOcrConfidence] = useState<number>(0);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const ocrFileRef = useRef<HTMLInputElement>(null);
+
+  // Trend state
+  const [showTrend, setShowTrend] = useState(false);
+  const [selectedTrendParam, setSelectedTrendParam] = useState('');
+
   // Get parameters for the tests
   const testTypes = investigation.type?.split(',') || [];
   const allTests = Object.values(testDefinitions).flat();
   const parameters: string[] = [];
-  
+
   testTypes.forEach(type => {
     const test = allTests.find((t: any) => t.id === type || t.name === type);
     if (test?.parameters) {
@@ -1686,12 +1714,11 @@ function ResultModal({
 
   const uniqueParams = [...new Set(parameters)];
 
-  // Pre-populate with existing results
+  // Pre-populate with existing results on mount
   const existingResultMap: Record<string, string> = {};
   investigation.results?.forEach(r => {
-    existingResultMap[r.parameter] = String(r.value || '');
+    if (r.parameter) existingResultMap[r.parameter] = String(r.value || '');
   });
-  // On mount, set existing values into resultValues if not already set
   React.useEffect(() => {
     if (Object.keys(existingResultMap).length > 0) {
       setResultValues(prev => {
@@ -1702,6 +1729,7 @@ function ResultModal({
         return updated;
       });
     }
+    if (uniqueParams.length > 0) setSelectedTrendParam(uniqueParams[0]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [investigation.id]);
 
@@ -1709,6 +1737,152 @@ function ResultModal({
     const val = resultValues[p] || existingResultMap[p];
     return val && val.trim() !== '';
   }).length;
+
+  // Historical results for trend chart
+  const historicalInvestigations = useLiveQuery(
+    async (): Promise<Investigation[]> => {
+      if (!investigation.patientId) return [];
+      return db.investigations
+        .where('patientId').equals(investigation.patientId)
+        .filter(inv => inv.status === 'completed' && !!inv.results?.length)
+        .toArray();
+    },
+    [investigation.patientId]
+  );
+
+  const trendData = useMemo(() => {
+    if (!selectedTrendParam || !historicalInvestigations?.length) return [];
+    const data: { date: string; value: number; fullDate: Date }[] = [];
+    historicalInvestigations.forEach(inv => {
+      inv.results?.forEach(r => {
+        if (r.parameter === selectedTrendParam && r.value !== undefined) {
+          const n = typeof r.value === 'string' ? parseFloat(r.value) : r.value;
+          if (!isNaN(n)) {
+            data.push({
+              date: format(new Date(r.resultDate || inv.completedAt || inv.createdAt), 'dd/MM'),
+              value: n,
+              fullDate: new Date(r.resultDate || inv.completedAt || inv.createdAt),
+            });
+          }
+        }
+      });
+    });
+    return data.sort((a, b) => a.fullDate.getTime() - b.fullDate.getTime());
+  }, [historicalInvestigations, selectedTrendParam]);
+
+  const numericParams = uniqueParams.filter(p => {
+    const val = resultValues[p] || existingResultMap[p];
+    return val && !isNaN(parseFloat(val));
+  });
+
+  // GPT-powered field parser from OCR text
+  const parseOCRWithGPT = useCallback(async (ocrText: string): Promise<Record<string, string>> => {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    if (!apiKey || !ocrText.trim()) return {};
+
+    const prompt = `You are a medical lab result parser. Extract values for each parameter from the following OCR text from a medical report/lab result sheet.
+
+Parameters to extract: ${uniqueParams.join(', ')}
+
+OCR Text:
+${ocrText}
+
+Return a JSON object where keys are EXACT parameter names from the list above and values are the extracted values as strings.
+Also include an "Interpretation" key if there is any clinical interpretation, impression, or conclusion text.
+For ECG parameters: Rate (bpm number), Rhythm (text), Axis (degrees or text), PR Interval (ms), QRS Duration (ms), QTc (ms), ST Changes (text), Findings (text).
+For chest X-ray: Heart Size, Lung Fields, Mediastinum, Costophrenic Angles, Findings.
+Return ONLY valid JSON, no commentary, no markdown.`;
+
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+          max_tokens: 1024,
+          temperature: 0.1,
+        }),
+      });
+      if (!res.ok) return {};
+      const data = await res.json();
+      return JSON.parse(data.choices?.[0]?.message?.content || '{}');
+    } catch {
+      return {};
+    }
+  }, [uniqueParams]);
+
+  // OCR scan handler
+  const handleOCRScan = useCallback(async (imageFile: File | string) => {
+    setIsOCRScanning(true);
+    setOcrEngine('');
+    setOcrConfidence(0);
+    toast.loading('🔍 Scanning document with AI engines...', { id: 'ocr-result' });
+    try {
+      // Step 1: OCR (Google Vision → GPT-4 Vision → Tesseract cascade)
+      const ocrResult = await performOCR(imageFile, {
+        enhanceHandwriting: true,
+        aggressiveHandwritingMode: true,
+        useCloudOCR: true,
+        multiPassOCR: true,
+      });
+
+      setOcrEngine(ocrResult.engine);
+      setOcrConfidence(ocrResult.confidence);
+
+      if (!ocrResult.text.trim()) {
+        toast.error('Could not extract text — try a clearer image', { id: 'ocr-result' });
+        return;
+      }
+
+      // Step 2: GPT parse OCR text → parameter fields
+      toast.loading('🧠 Parsing fields with GPT...', { id: 'ocr-result' });
+      const parsed = await parseOCRWithGPT(ocrResult.text);
+
+      let filled = 0;
+      setResultValues(prev => {
+        const updated = { ...prev };
+        for (const [key, value] of Object.entries(parsed)) {
+          if (key === 'Interpretation') continue;
+          if (uniqueParams.includes(key) && String(value).trim()) {
+            updated[key] = String(value).trim();
+            filled++;
+          }
+        }
+        return updated;
+      });
+
+      if (parsed['Interpretation']) {
+        setInterpretation(String(parsed['Interpretation']));
+        filled++;
+      }
+
+      toast.success(
+        `✅ Scanned via ${ocrResult.engine} (${Math.round(ocrResult.confidence)}% confidence) — ${filled} field(s) filled`,
+        { id: 'ocr-result', duration: 4000 }
+      );
+    } catch (err) {
+      console.error('[ResultModal OCR]', err);
+      toast.error('OCR scan failed — enter values manually', { id: 'ocr-result' });
+    } finally {
+      setIsOCRScanning(false);
+    }
+  }, [parseOCRWithGPT, setResultValues, setInterpretation, uniqueParams]);
+
+  const handleFileOCR = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const src = ev.target?.result as string;
+      setCapturedImage(src);
+      handleOCRScan(file);
+    };
+    reader.readAsDataURL(file);
+  }, [handleOCRScan]);
+
+  const refRange = referenceRanges[selectedTrendParam];
 
   return (
     <motion.div
@@ -1724,6 +1898,7 @@ function ResultModal({
         exit={{ scale: 0.95, opacity: 0 }}
         className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[95vh] flex flex-col"
       >
+        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
           <div>
             <h2 className="text-xl font-semibold">{investigation.results?.length ? 'Update Results' : 'Enter Results'}</h2>
@@ -1740,31 +1915,195 @@ function ResultModal({
         </div>
 
         <div className="p-4 overflow-y-auto flex-1 space-y-4">
-          {/* Parameter inputs */}
+
+          {/* ── OCR Scan & Auto-Fill Banner ── */}
+          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p className="text-sm font-semibold text-indigo-800 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  AI Medical Scribe — Scan & Auto-Fill All Fields
+                </p>
+                <p className="text-xs text-indigo-600 mt-0.5">
+                  Google Vision → GPT-4o Vision cascade — reads handwritten &amp; typed lab reports
+                </p>
+                {ocrEngine && !isOCRScanning && (
+                  <p className="text-xs text-green-700 mt-1 font-medium">
+                    ✓ Last scan: {ocrEngine} • {ocrConfidence}% confidence
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {/* File/camera upload */}
+                <input
+                  ref={ocrFileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  title="Capture or select an image for OCR scanning"
+                  aria-label="Capture document for OCR"
+                  onChange={handleFileOCR}
+                />
+                <button
+                  type="button"
+                  disabled={isOCRScanning}
+                  onClick={() => ocrFileRef.current?.click()}
+                  className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-colors font-medium"
+                >
+                  {isOCRScanning ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Scanning...</>
+                  ) : (
+                    <><Camera className="w-4 h-4" /> Scan Document</>
+                  )}
+                </button>
+                <label className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-300 text-indigo-700 text-sm rounded-lg hover:bg-indigo-50 cursor-pointer transition-colors font-medium">
+                  <Upload className="w-4 h-4" />
+                  Upload Image
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={handleFileOCR}
+                  />
+                </label>
+              </div>
+            </div>
+            {/* Preview of scanned image */}
+            {capturedImage && !isOCRScanning && (
+              <div className="mt-3 flex items-center gap-3">
+                <img src={capturedImage} alt="Scanned document" className="h-16 w-20 object-cover rounded border border-indigo-200" />
+                <div>
+                  <p className="text-xs text-indigo-700 font-medium">Document scanned</p>
+                  <button
+                    type="button"
+                    onClick={() => handleOCRScan(capturedImage)}
+                    className="mt-1 text-xs text-indigo-600 underline hover:no-underline"
+                  >
+                    Re-scan this image
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Parameter inputs ── */}
           <div className="space-y-3">
             {uniqueParams.map(param => {
               const ref = referenceRanges[param];
               return (
-                <div key={param} className="flex items-center gap-4">
-                  <label className="w-40 text-sm font-medium text-gray-700">{param}</label>
+                <div key={param} className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                  <label className="w-full sm:w-40 text-sm font-medium text-gray-700 shrink-0">{param}</label>
                   <input
                     type="text"
                     value={resultValues[param] || ''}
                     onChange={(e) => setResultValues(prev => ({ ...prev, [param]: e.target.value }))}
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    placeholder={ref ? `Ref: ${ref.min} - ${ref.max} ${ref.unit}` : 'Enter value'}
+                    className={`flex-1 min-w-0 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 transition-colors text-sm ${
+                      resultValues[param] ? 'border-green-300 bg-green-50' : 'border-gray-200'
+                    }`}
+                    placeholder={ref ? `Ref: ${ref.min}–${ref.max} ${ref.unit}` : 'Enter value'}
                   />
-                  {ref && <span className="text-xs text-gray-500 w-24">{ref.unit}</span>}
+                  {ref && <span className="text-xs text-gray-400 w-16 shrink-0">{ref.unit}</span>}
                 </div>
               );
             })}
           </div>
 
-          {/* Interpretation */}
+          {/* ── Trend Charts ── */}
+          {uniqueParams.length > 0 && (
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowTrend(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-sm font-semibold text-gray-700"
+              >
+                <span className="flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-indigo-500" />
+                  Parameter Trend Analysis
+                  {numericParams.length > 0 && (
+                    <span className="text-xs bg-indigo-100 text-indigo-700 rounded-full px-2">{numericParams.length} numeric</span>
+                  )}
+                </span>
+                {showTrend ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+
+              {showTrend && (
+                <div className="p-4 space-y-4">
+                  {/* Parameter selector */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <label className="text-xs font-medium text-gray-600">Select parameter:</label>
+                    <div className="flex flex-wrap gap-2">
+                      {uniqueParams.map(p => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setSelectedTrendParam(p)}
+                          className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                            selectedTrendParam === p
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Chart */}
+                  {trendData.length > 1 ? (
+                    <div>
+                      <p className="text-sm font-semibold text-gray-700 mb-2">
+                        {selectedTrendParam} — Historical Trend
+                        {refRange && <span className="text-xs text-gray-500 font-normal ml-2">Ref: {refRange.min}–{refRange.max} {refRange.unit}</span>}
+                      </p>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={trendData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+                          <defs>
+                            <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
+                              <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                          <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
+                          <Tooltip
+                            contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                            formatter={(v) => [`${v} ${refRange?.unit || ''}`, selectedTrendParam]}
+                          />
+                          {refRange && (
+                            <>
+                              <ReferenceLine y={refRange.min} stroke="#16a34a" strokeDasharray="4 4" label={{ value: 'Min', fontSize: 10, fill: '#16a34a' }} />
+                              <ReferenceLine y={refRange.max} stroke="#16a34a" strokeDasharray="4 4" label={{ value: 'Max', fontSize: 10, fill: '#16a34a' }} />
+                            </>
+                          )}
+                          <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} fill="url(#trendGrad)" dot={{ r: 4, fill: '#6366f1' }} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : trendData.length === 1 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <TrendingUp className="mx-auto mb-2 text-gray-400" size={32} />
+                      <p className="text-sm">Only one data point — need 2+ results to show trend</p>
+                      <p className="text-xs text-gray-400 mt-1">Current: {trendData[0].value} {refRange?.unit || ''} on {trendData[0].date}</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <TrendingUp className="mx-auto mb-2 text-gray-400" size={32} />
+                      <p className="text-sm">No historical data for {selectedTrendParam}</p>
+                      <p className="text-xs text-gray-400 mt-1">Previous completed results will appear here</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Interpretation ── */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-sm font-medium text-gray-700">Interpretation</label>
-              <ScanToText onTextRecognized={(t) => setInterpretation(prev => prev ? prev + '\n' + t : t)} iconOnly size="sm" />
+              <ScanToText onTextRecognized={(t) => setInterpretation(interpretation ? interpretation + '\n' + t : t)} iconOnly size="sm" />
             </div>
             <textarea
               value={interpretation}
@@ -1775,7 +2114,7 @@ function ResultModal({
             />
           </div>
 
-          {/* File upload */}
+          {/* ── File upload ── */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Attachments</label>
             <input

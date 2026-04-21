@@ -46,6 +46,8 @@ export interface OCROptions {
   aggressiveHandwritingMode?: boolean;
   /** Run multiple OCR passes with different settings */
   multiPassOCR?: boolean;
+  /** Medical context hint to improve recognition of clinical terms */
+  medicalContext?: boolean;
 }
 
 // Preprocessing configuration for different handwriting qualities

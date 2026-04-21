@@ -177,6 +177,7 @@ export interface VitalSigns {
   encounterId?: string;
   temperature: number; // Celsius
   pulse: number; // bpm
+  heartRate?: number; // bpm (alias for pulse)
   respiratoryRate: number; // breaths/min
   bloodPressureSystolic: number;
   bloodPressureDiastolic: number;
@@ -333,14 +334,25 @@ export type EncounterCategory = 'initial' | 'follow_up';
 
 // Investigation Result with tracking for flagging
 export interface InvestigationResult {
-  parameterId: string;
-  parameterName: string;
+  id?: string;
+  investigationId?: string;
+  parameterId?: string;
+  parameterName?: string;
+  parameter?: string;
   value: number | string;
   unit?: string;
   referenceRange?: string;
-  isAbnormal: boolean;
+  isAbnormal?: boolean;
   abnormalityType?: 'high' | 'low' | 'critical_high' | 'critical_low';
   recommendation?: string;
+  status?: 'normal' | 'low' | 'high' | 'critical' | 'abnormal';
+  flag?: 'L' | 'H' | 'LL' | 'HH' | 'A' | 'normal' | 'low' | 'high' | 'critical';
+  interpretation?: string;
+  previousValue?: string | number;
+  previousDate?: Date;
+  trend?: 'increasing' | 'decreasing' | 'stable' | 'fluctuating';
+  resultDate?: Date;
+  recordedAt?: Date;
 }
 
 export interface PhysicalExamination {
@@ -364,6 +376,7 @@ export interface PhysicalExamination {
 export interface Diagnosis {
   id: string;
   code?: string; // ICD-10 code
+  icdCode?: string; // legacy alias
   description: string;
   type: 'primary' | 'secondary' | 'differential';
   status: 'suspected' | 'confirmed' | 'ruled_out';
@@ -484,7 +497,9 @@ export type TissueType =
 
 export interface WoundPhoto {
   id: string;
-  url: string;
+  url?: string;
+  imageData?: string;
+  description?: string;
   measurements?: {
     length: number;
     width: number;
@@ -597,8 +612,26 @@ export interface TreatmentPlan {
   startDate: Date;
   expectedEndDate?: Date;
   actualEndDate?: Date;
-  status: 'active' | 'completed' | 'on_hold' | 'discontinued';
+  status: 'active' | 'completed' | 'on_hold' | 'discontinued' | 'scheduled';
   phase?: string; // 'initial', 'week_1', 'week_2', 'week_3', 'week_4', 'monthly_follow_up'
+  // Scheduling pattern for auto-generating TreatmentSession rows
+  scheduleRule?: {
+    intervalDays?: number; // every N days (1, 2, 7, etc.)
+    timesPerDay?: number; // for medication-style schedules
+    daysOfWeek?: number[]; // 0-6
+    timeOfDay?: string; // 'HH:mm' default
+    occurrences?: number; // total sessions to generate
+  };
+  reminderMinutesBefore?: number[]; // default [1440, 60, 15]
+  // Optional voice greeting that plays when reminder is tapped
+  defaultVoiceNoteId?: string;
+  notificationPreferences?: {
+    pushEnabled?: boolean;
+    voiceEnabled?: boolean;
+    notifyAssignedNurse?: boolean;
+    notifyPrimaryDoctor?: boolean;
+    notifyPatient?: boolean;
+  };
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -641,7 +674,93 @@ export interface TreatmentProgress {
   recordedAt: Date;
 }
 
-// Laboratory
+// ============================================================
+// TREATMENT SCHEDULING & TIMELINE
+// Individual scheduled instances generated from a TreatmentPlan.
+// Each session can be tracked, attended, missed, with voice notes
+// and push reminders that fire even when the app is closed.
+// ============================================================
+export type TreatmentSessionStatus =
+  | 'scheduled'
+  | 'in_progress'
+  | 'completed'
+  | 'missed'
+  | 'rescheduled'
+  | 'cancelled';
+
+export interface TreatmentSession {
+  id: string;
+  treatmentPlanId: string;
+  patientId: string;
+  hospitalId?: string;
+  // Scheduling
+  scheduledAt: Date;
+  durationMinutes?: number;
+  sequenceNumber?: number; // 1st, 2nd, 3rd session of plan
+  // What is being done at this session
+  title: string;
+  description?: string;
+  category?: 'medication' | 'dressing' | 'procedure' | 'nutrition' | 'activity' | 'monitoring' | 'review' | 'other';
+  orderIds?: string[]; // links to TreatmentOrder.id
+  // Tracking
+  status: TreatmentSessionStatus;
+  attendedAt?: Date;
+  attendedBy?: string;
+  outcome?: 'improved' | 'stable' | 'deteriorated' | 'no_change';
+  notes?: string;
+  photos?: string[];
+  voiceNoteIds?: string[];
+  // Notification metadata
+  remindersScheduled?: boolean;
+  reminderMinutesBefore?: number[]; // e.g. [1440, 60, 15]
+  lastReminderAt?: Date;
+  missedNotificationSentAt?: Date;
+  // Audit
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TreatmentReminder {
+  id: string;
+  treatmentSessionId: string;
+  treatmentPlanId: string;
+  patientId: string;
+  scheduledFor: Date; // when to fire
+  minutesBefore: number; // 1440, 60, 15, 0 (overdue)
+  kind: 'upcoming' | 'overdue' | 'missed';
+  channel: 'push' | 'voice' | 'in_app';
+  status: 'pending' | 'sent' | 'acknowledged' | 'failed' | 'cancelled';
+  sentAt?: Date;
+  acknowledgedAt?: Date;
+  acknowledgedBy?: string;
+  voiceNoteId?: string; // optional pre-recorded voice clip to play on tap
+  payload?: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TreatmentVoiceNote {
+  id: string;
+  treatmentPlanId?: string;
+  treatmentSessionId?: string;
+  patientId: string;
+  // Audio data — stored as Blob in IndexedDB; data URL fallback for sync
+  audioBlob?: Blob;
+  audioDataUrl?: string;
+  mimeType: string; // 'audio/webm', 'audio/mp4', etc.
+  durationSeconds: number;
+  // Optional transcript for accessibility & search
+  transcript?: string;
+  // Purpose
+  purpose: 'reminder' | 'instruction' | 'progress_note' | 'handover';
+  recordedBy: string;
+  recordedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+
 export interface LabRequest {
   id: string;
   patientId: string;
@@ -672,14 +791,20 @@ export interface LabTest {
   notes?: string;
 }
 
-export type LabCategory = 
+export type LabCategory =
   | 'haematology'
+  | 'hematology'
   | 'biochemistry'
   | 'microbiology'
   | 'serology'
   | 'urinalysis'
   | 'histopathology'
-  | 'imaging';
+  | 'pathology'
+  | 'imaging'
+  | 'radiology'
+  | 'cardiology'
+  | 'laboratory'
+  | 'other';
 
 // Pharmacy
 export interface Prescription {
@@ -709,18 +834,22 @@ export interface Medication {
   isDispensed: boolean;
 }
 
-export type MedicationRoute = 
+export type MedicationRoute =
   | 'oral'
   | 'intravenous'
+  | 'central intravenous'
   | 'intramuscular'
   | 'subcutaneous'
   | 'topical'
+  | 'topical nasal'
   | 'rectal'
   | 'inhalation'
+  | 'nebulization'
   | 'sublingual'
   | 'ophthalmic'
   | 'otic'
   | 'nasal'
+  | 'nasogastric'
   | 'transdermal'
   | 'epidural'
   | 'spinal'
@@ -731,7 +860,23 @@ export type MedicationRoute =
   | 'intradermal'
   | 'intranasal'
   | 'intravesical'
-  | 'intraarticular';
+  | 'intraarticular'
+  | 'intra-articular'
+  | 'intracavernosal'
+  | 'intracervical'
+  | 'intramyometrial'
+  | 'intrauterine'
+  | 'intraurethral'
+  | 'intrapleural'
+  | 'intravitreal'
+  | 'subdermal'
+  | 'implant'
+  | 'enteral'
+  | 'oral gel'
+  | 'soft tissue'
+  | 'infiltration'
+  | 'nerve block'
+  | 'dental infiltration';
 
 // Nutrition
 export interface NutritionAssessment {
@@ -1909,7 +2054,7 @@ export interface Investigation {
   admissionId?: string;
   type: InvestigationType | string;
   typeName?: string;
-  category: 'laboratory' | 'radiology' | 'pathology' | 'cardiology' | 'other' | 'hematology' | 'biochemistry' | 'microbiology' | 'imaging' | 'histopathology';
+  category: 'laboratory' | 'radiology' | 'pathology' | 'cardiology' | 'other' | 'hematology' | 'haematology' | 'biochemistry' | 'microbiology' | 'imaging' | 'histopathology';
   name?: string;
   description?: string;
   priority: 'routine' | 'urgent' | 'stat';
@@ -1975,23 +2120,6 @@ export type InvestigationType =
   | 'biopsy'
   | 'cytology'
   | 'other';
-
-export interface InvestigationResult {
-  id: string;
-  investigationId?: string;
-  parameter: string;
-  value: string | number;
-  unit?: string;
-  referenceRange?: string;
-  status?: 'normal' | 'low' | 'high' | 'critical' | 'abnormal';
-  flag?: 'L' | 'H' | 'LL' | 'HH' | 'A' | 'normal' | 'low' | 'high' | 'critical';
-  interpretation?: string;
-  previousValue?: string | number;
-  previousDate?: Date;
-  trend?: 'increasing' | 'decreasing' | 'stable' | 'fluctuating';
-  resultDate?: Date;
-  recordedAt?: Date;
-}
 
 export interface InvestigationAttachment {
   id: string;

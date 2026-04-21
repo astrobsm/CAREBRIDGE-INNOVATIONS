@@ -11,7 +11,7 @@ import type {
   ClinicalEncounter, 
   Investigation, 
   Prescription, 
-  VitalSign,
+  VitalSigns,
   Surgery,
   Admission,
   WardRound,
@@ -23,7 +23,7 @@ interface PatientClinicalData {
   encounters: ClinicalEncounter[];
   investigations: Investigation[];
   prescriptions: Prescription[];
-  vitals: VitalSign[];
+  vitals: VitalSigns[];
   surgeries: Surgery[];
   admissions: Admission[];
   wardRounds: WardRound[];
@@ -61,11 +61,11 @@ async function fetchPatientClinicalData(patientId: string): Promise<PatientClini
   // Sort all by date
   encounters.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   investigations.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  prescriptions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  prescriptions.sort((a, b) => new Date(b.prescribedAt).getTime() - new Date(a.prescribedAt).getTime());
   vitals.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
   surgeries.sort((a, b) => new Date(b.scheduledDate || b.createdAt).getTime() - new Date(a.scheduledDate || a.createdAt).getTime());
   admissions.sort((a, b) => new Date(b.admissionDate).getTime() - new Date(a.admissionDate).getTime());
-  wardRounds.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  wardRounds.sort((a, b) => new Date(b.roundDate).getTime() - new Date(a.roundDate).getTime());
 
   return {
     patient,
@@ -96,11 +96,11 @@ function generateLocalSummary(data: PatientClinicalData): EncounterSummaryResult
   const activeDiagnoses: string[] = [];
   encounters.forEach(enc => {
     enc.diagnosis?.forEach(d => {
-      const diagName = d.name || d.description || '';
+      const diagName = d.description || (d as any).name || '';
       if (diagName && !allDiagnoses.includes(diagName)) {
         allDiagnoses.push(diagName);
       }
-      if ((d.status === 'confirmed' || d.status === 'working') && !activeDiagnoses.includes(diagName)) {
+      if (d.status === 'confirmed' && !activeDiagnoses.includes(diagName)) {
         activeDiagnoses.push(diagName);
       }
     });
@@ -109,10 +109,10 @@ function generateLocalSummary(data: PatientClinicalData): EncounterSummaryResult
   // Current medications from active prescriptions
   const currentMedications: string[] = [];
   prescriptions
-    .filter(rx => rx.status === 'active')
+    .filter(rx => rx.status !== 'cancelled')
     .forEach(rx => {
       rx.medications?.forEach(med => {
-        const medStr = `${med.name} ${med.dose}${med.unit} ${med.frequency}`;
+        const medStr = `${med.name} ${med.dosage} ${med.frequency}`;
         if (!currentMedications.includes(medStr)) {
           currentMedications.push(medStr);
         }
@@ -127,18 +127,21 @@ function generateLocalSummary(data: PatientClinicalData): EncounterSummaryResult
   // Abnormal results (simplified detection)
   const abnormalResults: string[] = [];
   investigations
-    .filter(inv => inv.status === 'completed' && inv.results)
+    .filter(inv => inv.status === 'completed' && inv.results && inv.results.length > 0)
     .forEach(inv => {
-      const results = inv.results?.toLowerCase() || '';
+      const resultsText = (inv.results || []).map(r => `${r.parameterName || r.parameter}: ${r.value}${r.unit ? ' ' + r.unit : ''}`).join('; ');
+      const lower = resultsText.toLowerCase();
+      const anyAbnormal = (inv.results || []).some(r => r.isAbnormal || r.flag === 'A' || r.status === 'abnormal' || r.status === 'critical');
       if (
-        results.includes('abnormal') ||
-        results.includes('high') ||
-        results.includes('low') ||
-        results.includes('positive') ||
-        results.includes('elevated') ||
-        results.includes('decreased')
+        anyAbnormal ||
+        lower.includes('abnormal') ||
+        lower.includes('high') ||
+        lower.includes('low') ||
+        lower.includes('positive') ||
+        lower.includes('elevated') ||
+        lower.includes('decreased')
       ) {
-        abnormalResults.push(`${inv.typeName || inv.type}: ${inv.results?.substring(0, 100)}`);
+        abnormalResults.push(`${inv.typeName || inv.type}: ${resultsText.substring(0, 100)}`);
       }
     });
 
@@ -164,7 +167,7 @@ function generateLocalSummary(data: PatientClinicalData): EncounterSummaryResult
 
   // Admissions
   if (admissions.length > 0) {
-    const currentAdmission = admissions.find(a => a.status === 'admitted');
+    const currentAdmission = admissions.find(a => a.status === 'active');
     if (currentAdmission) {
       keyFindings.push(`Currently admitted since ${format(new Date(currentAdmission.admissionDate), 'PP')}`);
     }
@@ -177,7 +180,7 @@ function generateLocalSummary(data: PatientClinicalData): EncounterSummaryResult
       latest.bloodPressureSystolic && latest.bloodPressureDiastolic 
         ? `BP ${latest.bloodPressureSystolic}/${latest.bloodPressureDiastolic}mmHg`
         : null,
-      latest.heartRate ? `HR ${latest.heartRate}bpm` : null,
+      (latest.heartRate ?? latest.pulse) ? `HR ${latest.heartRate ?? latest.pulse}bpm` : null,
       latest.temperature ? `Temp ${latest.temperature}°C` : null,
       latest.oxygenSaturation ? `SpO2 ${latest.oxygenSaturation}%` : null,
     ].filter(Boolean).join(', ');
@@ -201,8 +204,8 @@ function generateLocalSummary(data: PatientClinicalData): EncounterSummaryResult
   // Ward round notes
   if (wardRounds.length > 0) {
     const latestRound = wardRounds[0];
-    if (latestRound.notes || latestRound.plan) {
-      keyFindings.push(`Latest ward round (${format(new Date(latestRound.date), 'PP')}): ${latestRound.notes || latestRound.plan || ''}`);
+    if (latestRound.notes) {
+      keyFindings.push(`Latest ward round (${format(new Date(latestRound.roundDate), 'PP')}): ${latestRound.notes}`);
     }
   }
 
@@ -328,7 +331,8 @@ export async function generateEncounterSummary(patientId: string): Promise<Encou
  * Builds the prompt for AI summarization
  */
 function buildAIPrompt(data: PatientClinicalData): string {
-  const { patient, encounters, investigations, prescriptions, vitals, surgeries, admissions, wardRounds } = data;
+  const { patient, encounters, investigations, prescriptions, vitals, surgeries } = data;
+  void data.admissions; void data.wardRounds;
 
   const age = patient.dateOfBirth 
     ? differenceInYears(new Date(), new Date(patient.dateOfBirth))
@@ -349,7 +353,7 @@ PATIENT INFORMATION:
     encounters.slice(0, 5).forEach((enc, i) => {
       prompt += `${i + 1}. ${format(new Date(enc.createdAt), 'PP')} - Type: ${enc.type}
    Chief Complaint: ${enc.chiefComplaint || 'Not documented'}
-   Diagnoses: ${enc.diagnosis?.map(d => d.name || d.description).join(', ') || 'None'}
+   Diagnoses: ${enc.diagnosis?.map(d => d.description || (d as any).name).join(', ') || 'None'}
    Treatment Plan: ${enc.treatmentPlan?.substring(0, 200) || 'Not documented'}
 `;
     });
@@ -368,18 +372,19 @@ PATIENT INFORMATION:
     if (completed.length > 0) {
       prompt += `Recent Results:\n`;
       completed.forEach(inv => {
-        prompt += `- ${inv.typeName || inv.type}: ${inv.results || 'No results'}\n`;
+        const resultsText = (inv.results || []).map(r => `${r.parameterName || r.parameter}: ${r.value}${r.unit ? ' ' + r.unit : ''}`).join('; ') || 'No results';
+        prompt += `- ${inv.typeName || inv.type}: ${resultsText}\n`;
       });
     }
   }
 
   // Add current medications
-  const activePrescriptions = prescriptions.filter(rx => rx.status === 'active');
+  const activePrescriptions = prescriptions.filter(rx => rx.status !== 'cancelled');
   if (activePrescriptions.length > 0) {
     prompt += `\nCURRENT MEDICATIONS:\n`;
     activePrescriptions.forEach(rx => {
       rx.medications?.forEach(med => {
-        prompt += `- ${med.name} ${med.dose}${med.unit} ${med.frequency} for ${med.duration}\n`;
+        prompt += `- ${med.name} ${med.dosage} ${med.frequency} for ${med.duration}\n`;
       });
     });
   }
@@ -391,7 +396,7 @@ PATIENT INFORMATION:
     if (latest.bloodPressureSystolic && latest.bloodPressureDiastolic) {
       prompt += `- BP: ${latest.bloodPressureSystolic}/${latest.bloodPressureDiastolic} mmHg\n`;
     }
-    if (latest.heartRate) prompt += `- HR: ${latest.heartRate} bpm\n`;
+    if (latest.heartRate ?? latest.pulse) prompt += `- HR: ${latest.heartRate ?? latest.pulse} bpm\n`;
     if (latest.temperature) prompt += `- Temp: ${latest.temperature}°C\n`;
     if (latest.oxygenSaturation) prompt += `- SpO2: ${latest.oxygenSaturation}%\n`;
     if (latest.respiratoryRate) prompt += `- RR: ${latest.respiratoryRate}/min\n`;

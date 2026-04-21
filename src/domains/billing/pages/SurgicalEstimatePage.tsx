@@ -50,7 +50,6 @@ interface EstimateLineItem {
 }
 
 // Surgical Estimate Interface (for future save functionality)
-// @ts-expect-error Reserved for future database persistence feature
 interface _SurgicalEstimate {
   id: string;
   estimateNumber: string;

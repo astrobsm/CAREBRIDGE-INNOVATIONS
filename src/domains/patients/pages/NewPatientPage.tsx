@@ -199,6 +199,7 @@ export default function NewPatientPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     control,
     formState: { errors },
   } = useForm<PatientFormData>({

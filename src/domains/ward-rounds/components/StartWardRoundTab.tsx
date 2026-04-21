@@ -121,7 +121,7 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
 
         // Get patient's wounds
         const patientWounds = wounds?.filter(w => w.patientId === patient.id) || [];
-        const activeWounds = patientWounds.filter(w => w.healingProgress !== 'healed');
+        const activeWounds = patientWounds.filter(w => (w.healingProgress as string) !== 'healed');
 
         // Get latest vitals
         const patientVitals = vitals
@@ -235,7 +235,7 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
       } as any);
 
       // Sync updated wound to Supabase
-      syncRecord('wounds', woundId);
+      syncRecord('wounds', { id: woundId } as any);
 
       toast.success('Wound reassessment saved');
       setAssessingWoundId(null);
@@ -281,7 +281,7 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
       };
 
       await db.wardRounds.put(roundData as any);
-      await syncRecord('wardRounds', roundId);
+      await syncRecord('wardRounds', roundData as any);
 
       toast.success(`Ward round completed: ${reviewedPatients.size} patients reviewed`);
       setReviewedPatients(new Set());

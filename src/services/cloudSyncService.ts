@@ -1424,7 +1424,7 @@ function setupRealtimeSubscriptions() {
 }
 
 // Sync a single record immediately (call this when creating/updating data)
-export async function syncRecord(localTableName: string, record: Record<string, unknown>): Promise<void> {
+export async function syncRecord(localTableName: string, record: Record<string, any>): Promise<void> {
   if (!isSupabaseConfigured() || !supabase || !navigator.onLine) {
     console.log('[CloudSync] Offline or not configured, record will sync later');
     return;

@@ -1047,7 +1047,7 @@ class InvestigationLabService {
     
     for (const newResult of processedResults) {
       const existingIndex = mergedResults.findIndex(
-        r => r.parameter.toLowerCase() === newResult.parameter.toLowerCase()
+        r => (r.parameter ?? '').toLowerCase() === (newResult.parameter ?? '').toLowerCase()
       );
       if (existingIndex >= 0) {
         // Update existing result with new value
@@ -1075,7 +1075,7 @@ class InvestigationLabService {
     // Only mark completed if all expected parameters have results (or no expected params defined)
     const allResultsFilled = uniqueExpectedParams.length === 0 ||
       uniqueExpectedParams.every(param =>
-        mergedResults.some(r => r.parameter.toLowerCase() === param.toLowerCase() && r.value !== '' && r.value !== undefined)
+        mergedResults.some(r => (r.parameter ?? '').toLowerCase() === param.toLowerCase() && r.value !== '' && r.value !== undefined)
       );
 
     await db.investigations.update(investigationId, {

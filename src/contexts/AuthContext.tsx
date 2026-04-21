@@ -110,6 +110,37 @@ const rolePermissions: Record<UserRole, string[]> = {
     'view_patients', 'create_encounters', 'view_labs', 'request_labs',
     'view_vitals', 'create_notes'
   ],
+  endocrinologist: [
+    'view_patients', 'manage_patients', 'create_encounters',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals'
+  ],
+  cardiologist: [
+    'view_patients', 'manage_patients', 'create_encounters',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals'
+  ],
+  nephrologist: [
+    'view_patients', 'manage_patients', 'create_encounters',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals'
+  ],
+  neurologist: [
+    'view_patients', 'manage_patients', 'create_encounters',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals'
+  ],
+  gastroenterologist: [
+    'view_patients', 'manage_patients', 'create_encounters',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals'
+  ],
+  obstetrician: [
+    'view_patients', 'manage_patients', 'create_encounters', 'manage_surgeries',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals'
+  ],
+  radio_oncologist: [
+    'view_patients', 'manage_patients', 'create_encounters',
+    'view_labs', 'request_labs', 'prescribe', 'view_vitals'
+  ],
+  pathologist: [
+    'view_patients', 'view_lab_requests', 'process_labs', 'enter_results'
+  ],
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

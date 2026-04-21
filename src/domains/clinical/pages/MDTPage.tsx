@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import ScanToText from '../../../components/common/ScanToText';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -123,7 +124,7 @@ export default function MDTPage() {
 
   // Load meetings from database (persisted)
   const dbMeetings = useLiveQuery(() => db.mdtMeetings.orderBy('createdAt').reverse().toArray(), []);
-  const meetings: MDTMeeting[] = (dbMeetings || []) as MDTMeeting[];
+  const meetings: MDTMeeting[] = (dbMeetings || []) as unknown as MDTMeeting[];
   const [specialtyPlans, setSpecialtyPlans] = useState<SpecialtyTreatmentPlan[]>([]);
   const [harmonizedPlans, setHarmonizedPlans] = useState<HarmonizedCarePlan[]>([]);
 
@@ -742,7 +743,7 @@ export default function MDTPage() {
         meetingType: 'mdt',
         updatedAt: new Date(),
       } as any);
-      await syncRecord('mdtMeetings', newMeeting.id);
+      await syncRecord('mdtMeetings', newMeeting as any);
     } catch (err) {
       console.error('Failed to persist MDT meeting:', err);
     }
@@ -2444,7 +2445,18 @@ export default function MDTPage() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-gray-700">Clinical Findings</label>
-                    {renderSpeechButton('clinicalFindings')}
+                    <div className="flex items-center gap-2">
+                      {renderSpeechButton('clinicalFindings')}
+                    </div>
+                  </div>
+                  <div className="mb-2">
+                    <ScanToText
+                      onTextRecognized={(text) => setClinicalFindings(prev => prev ? prev + '\n' + text : text)}
+                      medicalContext={true}
+                      buttonLabel="Scan Handwritten Plan"
+                      size="sm"
+                      showConfidence={true}
+                    />
                   </div>
                   <div className="relative">
                     <textarea

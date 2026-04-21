@@ -33,6 +33,7 @@ import {
   FileText,
   TrendingUp,
   Package,
+  BookOpen,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -40,6 +41,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PatientSelector } from '../../../components/patient';
 import type { Patient } from '../../../types';
+import NPWTPatientEducation from '../components/NPWTPatientEducation';
 import type { 
   NPWTSession, 
   WoundType, 
@@ -92,6 +94,7 @@ type NPWTFormData = z.infer<typeof npwtFormSchema>;
 export default function NPWTPage() {
   const { user } = useAuth();
   const [showNewSession, setShowNewSession] = useState(false);
+  const [showEducation, setShowEducation] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCycle, setFilterCycle] = useState<'all' | '4_day' | '7_day'>('all');
@@ -346,13 +349,22 @@ export default function NPWTPage() {
           </h1>
           <p className="page-subtitle">Negative Pressure Wound Therapy tracking and monitoring</p>
         </div>
-        <button
-          onClick={() => setShowNewSession(true)}
-          className="btn btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
-        >
-          <Plus size={18} />
-          New NPWT Session
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setShowEducation(true)}
+            className="btn btn-secondary flex items-center gap-2 flex-1 sm:flex-none justify-center"
+          >
+            <BookOpen size={18} />
+            Education & Consent
+          </button>
+          <button
+            onClick={() => setShowNewSession(true)}
+            className="btn btn-primary flex items-center gap-2 flex-1 sm:flex-none justify-center"
+          >
+            <Plus size={18} />
+            New NPWT Session
+          </button>
+        </div>
       </div>
 
       {/* Alert Cards */}
@@ -1155,6 +1167,34 @@ export default function NPWTPage() {
           </div>
         </div>
       )}
+
+      {/* Patient Education & Consent Modal */}
+      <AnimatePresence>
+        {showEducation && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center overflow-y-auto py-4"
+            onClick={() => setShowEducation(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white rounded-xl w-full max-w-4xl mx-4 shadow-2xl my-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <NPWTPatientEducation
+                patient={selectedPatient}
+                sessionDate={new Date()}
+                performedBy={user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : undefined}
+                onClose={() => setShowEducation(false)}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

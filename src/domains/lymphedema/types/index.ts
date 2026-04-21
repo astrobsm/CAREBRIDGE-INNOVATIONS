@@ -45,11 +45,13 @@ export type PittingGrade = 0 | 1 | 2 | 3 | 4;
 export type SkinCondition =
   | 'normal'
   | 'dry_hyperkeratotic'
+  | 'hyperkeratotic'
   | 'papillomatosis'
   | 'lymphorrhea'
   | 'fungal_infection'
   | 'cellulitis_active'
   | 'cellulitis_recurrent'
+  | 'cellulitis_history'
   | 'ulceration'
   | 'elephantiasis_verrucosa'
   | 'lymphangiosarcoma_suspected';
@@ -286,6 +288,30 @@ export interface LymphedemaTreatmentPlan {
   
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Post-operative rehabilitation plan after surgical intervention */
+export interface PostOperativeRehabPlan {
+  postOpDay: number;
+  earlyMobilization: string;
+  compressionProtocol: string;
+  woundCare?: string;
+  rehabExercises: string[];
+  followUpSchedule: string;
+  expectedRecoveryWeeks: number;
+  notes?: string;
+}
+
+/** Long-term maintenance plan (life-long) */
+export interface LongTermMaintenancePlan {
+  compressionGarmentClass: CompressionClass;
+  garmentReplacementMonths: number;
+  exerciseRoutine: string;
+  skinCareRoutine: string;
+  selfMldFrequencyPerWeek: number;
+  followUpFrequencyMonths: number;
+  warningSignsEducation: string[];
+  emergencyContactProtocol: string;
 }
 
 export interface InfectionControlPlan {
@@ -590,6 +616,8 @@ export interface LymphedemaMonitoringRecord {
   hospitalId: string;
   
   recordedAt: Date;
+  /** @deprecated Use recordedAt */
+  recordDate?: Date;
   recordedBy: string;
   recordedByName: string;
   
@@ -599,6 +627,8 @@ export interface LymphedemaMonitoringRecord {
   // Measurements
   limbMeasurements: LimbMeasurement[];
   volumeCalculation?: LimbVolumeCalculation;
+  /** Convenience: shortcut to volumeCalculation.affectedLimbVolumeMl */
+  calculatedVolumeMl?: number;
   volumeChangeFromBaseline?: number;    // % change
   volumeChangeFromLast?: number;        // % change from last record
   

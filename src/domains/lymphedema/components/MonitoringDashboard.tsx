@@ -35,12 +35,17 @@ export default function MonitoringDashboard({ records, alerts, baselineVolumeMl 
   const latestRecord = records[0];
   const previousRecord = records[1];
 
-  const volumeChange = latestRecord && previousRecord
-    ? ((latestRecord.calculatedVolumeMl - previousRecord.calculatedVolumeMl) / previousRecord.calculatedVolumeMl * 100)
+  const volOf = (r?: LymphedemaMonitoringRecord): number =>
+    (r?.calculatedVolumeMl ?? r?.volumeCalculation?.affectedLimbVolumeMl ?? 0);
+  const latestVol = volOf(latestRecord);
+  const prevVolHeader = volOf(previousRecord);
+
+  const volumeChange = latestRecord && previousRecord && prevVolHeader
+    ? ((latestVol - prevVolHeader) / prevVolHeader * 100)
     : 0;
 
   const totalChange = latestRecord && baselineVolumeMl
-    ? ((latestRecord.calculatedVolumeMl - baselineVolumeMl) / baselineVolumeMl * 100)
+    ? ((latestVol - baselineVolumeMl) / baselineVolumeMl * 100)
     : 0;
 
   const visibleAlerts = showAllAlerts ? alerts : alerts.slice(0, 3);
@@ -69,7 +74,7 @@ export default function MonitoringDashboard({ records, alerts, baselineVolumeMl 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-4 bg-white rounded-lg border border-gray-200">
             <span className="text-xs font-semibold text-gray-500">Current Volume</span>
-            <p className="text-2xl font-bold text-gray-800">{latestRecord.calculatedVolumeMl.toLocaleString()} mL</p>
+            <p className="text-2xl font-bold text-gray-800">{latestVol.toLocaleString()} mL</p>
           </div>
           <div className={`p-4 rounded-lg border ${volumeChange < 0 ? 'bg-green-50 border-green-200' : volumeChange > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
             <span className="text-xs font-semibold text-gray-500">Since Last Visit</span>
@@ -162,12 +167,13 @@ export default function MonitoringDashboard({ records, alerts, baselineVolumeMl 
               </thead>
               <tbody>
                 {records.slice(0, 10).map((record, i) => {
-                  const prevVol = records[i + 1]?.calculatedVolumeMl;
-                  const change = prevVol ? ((record.calculatedVolumeMl - prevVol) / prevVol * 100) : 0;
+                  const recVol = volOf(record);
+                  const prevVol = volOf(records[i + 1]);
+                  const change = prevVol ? ((recVol - prevVol) / prevVol * 100) : 0;
                   return (
                     <tr key={record.id} className="border-b border-gray-100">
-                      <td className="p-2 text-gray-700">{new Date(record.recordDate).toLocaleDateString()}</td>
-                      <td className="p-2 text-right text-gray-800 font-medium">{record.calculatedVolumeMl.toLocaleString()}</td>
+                      <td className="p-2 text-gray-700">{new Date(record.recordedAt ?? record.recordDate ?? Date.now()).toLocaleDateString()}</td>
+                      <td className="p-2 text-right text-gray-800 font-medium">{recVol.toLocaleString()}</td>
                       <td className={`p-2 text-right font-medium ${change < 0 ? 'text-green-600' : change > 0 ? 'text-red-600' : 'text-gray-400'}`}>
                         {prevVol ? `${change > 0 ? '+' : ''}${change.toFixed(1)}%` : '—'}
                       </td>

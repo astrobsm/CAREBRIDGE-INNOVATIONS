@@ -64,6 +64,9 @@ export const TABLES = {
   // Treatment
   treatmentPlans: 'treatment_plans',
   treatmentProgress: 'treatment_progress',
+  treatmentSessions: 'treatment_sessions',
+  treatmentReminders: 'treatment_reminders',
+  treatmentVoiceNotes: 'treatment_voice_notes',
   
   // Ward Rounds & Assignments
   wardRounds: 'ward_rounds',

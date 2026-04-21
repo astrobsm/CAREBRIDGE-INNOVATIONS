@@ -1542,15 +1542,17 @@ export default function EnhancedTreatmentPlanCard({
     linkedInvs.forEach(inv => {
       if (inv.results && inv.results.length > 0) {
         inv.results.forEach(result => {
+          const param = result.parameter;
+          if (!param) return;
           const dateStr = format(new Date(inv.completedAt || inv.requestedAt), 'MMM d');
           const existing = dataPoints.find(dp => dp.date === dateStr);
-          const numValue = typeof result.value === 'number' ? result.value : parseFloat(result.value);
+          const numValue = typeof result.value === 'number' ? result.value : parseFloat(result.value as any);
           
           if (!isNaN(numValue)) {
             if (existing) {
-              existing[result.parameter] = numValue;
+              existing[param] = numValue;
             } else {
-              dataPoints.push({ date: dateStr, [result.parameter]: numValue });
+              dataPoints.push({ date: dateStr, [param]: numValue });
             }
           }
         });

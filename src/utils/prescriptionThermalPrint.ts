@@ -41,7 +41,7 @@ export interface PrescriptionThermalData {
 // ROUTE FORMATTING
 // ============================================================
 
-const routeAbbreviations: Record<MedicationRoute, string> = {
+const routeAbbreviations: Partial<Record<MedicationRoute, string>> = {
   oral: 'PO',
   intravenous: 'IV',
   intramuscular: 'IM',

@@ -455,13 +455,13 @@ const PatientEducationPage: React.FC = () => {
                         >
                           <h4 className="font-medium text-gray-900 mb-2">Required Consultations:</h4>
                           <ul className="list-disc list-inside space-y-1 text-gray-600 mb-3">
-                            {preop.consultations.map((c, idx) => (
+                            {(preop.consultations ?? []).map((c: string, idx: number) => (
                               <li key={idx}>{c}</li>
                             ))}
                           </ul>
                           <h4 className="font-medium text-gray-900 mb-2">Day Before Surgery:</h4>
                           <ul className="list-disc list-inside space-y-1 text-gray-600">
-                            {preop.dayBeforeSurgery.map((i, idx) => (
+                            {((preop.dayBeforeSurgery ?? preop.dayBeforeInstructions) ?? []).map((i: string, idx: number) => (
                               <li key={idx}>{i}</li>
                             ))}
                           </ul>
@@ -489,7 +489,7 @@ const PatientEducationPage: React.FC = () => {
                           </p>
                           <h4 className="font-medium text-gray-900 mb-2">Dietary Guidelines:</h4>
                           <ul className="list-disc list-inside space-y-1 text-gray-600">
-                            {postop.dietaryGuidelines.slice(0, 4).map((g, idx) => (
+                            {(postop.dietaryGuidelines ?? []).slice(0, 4).map((g: string, idx: number) => (
                               <li key={idx}>{g}</li>
                             ))}
                           </ul>
@@ -535,7 +535,7 @@ const PatientEducationPage: React.FC = () => {
                           exit={{ height: 0, opacity: 0 }}
                           className="bg-gray-50 rounded-lg p-4 text-sm space-y-2"
                         >
-                          {selectedCondition.followUpCare.schedule.slice(0, 4).map((apt, idx) => (
+                          {(selectedCondition.followUpCare.schedule ?? []).slice(0, 4).map((apt: any, idx: number) => (
                             <div key={idx} className="flex items-start gap-2">
                               <div className="w-20 font-medium text-blue-600">{apt.timing}</div>
                               <div className="text-gray-600">{apt.purpose}</div>

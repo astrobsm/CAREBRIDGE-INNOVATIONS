@@ -260,6 +260,7 @@ interface InvResultsState {
   haemoglobin: string; platelets: string; wbc: string; pcv: string; fbcDate: string;
   // Blood Glucose
   fastingGlucose: string; randomGlucose: string; glucoseDate: string;
+  glucoseUnit: 'mmol/L' | 'mg/dL';
   // Urinalysis
   urineProtein: string; urineGlucose: string; urineKetones: string;
   urineBlood: string; urineLeukocytes: string; urineNitrites: string; urinalysisDate: string;
@@ -273,6 +274,7 @@ interface InvResultsState {
   sodium: string; potassium: string; chloride: string; bicarbonate: string; electrolytesDate: string;
   // Renal Function
   creatinine: string; urea: string; egfr: string; renalDate: string;
+  creatinineUnit: 'mg/dL' | 'µmol/L';
   // Liver Function
   alt: string; ast: string; alp: string; albumin: string; tbili: string; lftsDate: string;
   // HbA1c
@@ -282,12 +284,12 @@ interface InvResultsState {
 const EMPTY_INV_RESULTS: InvResultsState = {
   hiv: '', hivDate: '', hepatitisB: '', hepatitisBDate: '', hepatitisC: '', hepatitisCDate: '',
   haemoglobin: '', platelets: '', wbc: '', pcv: '', fbcDate: '',
-  fastingGlucose: '', randomGlucose: '', glucoseDate: '',
+  fastingGlucose: '', randomGlucose: '', glucoseDate: '', glucoseUnit: 'mmol/L',
   urineProtein: '', urineGlucose: '', urineKetones: '', urineBlood: '', urineLeukocytes: '', urineNitrites: '', urinalysisDate: '',
   bloodGroup: '', bloodGroupDate: '', ecg: '', ecgDate: '',
   pt: '', inr: '', aptt: '', coagDate: '',
   sodium: '', potassium: '', chloride: '', bicarbonate: '', electrolytesDate: '',
-  creatinine: '', urea: '', egfr: '', renalDate: '',
+  creatinine: '', urea: '', egfr: '', renalDate: '', creatinineUnit: 'mg/dL',
   alt: '', ast: '', alp: '', albumin: '', tbili: '', lftsDate: '',
   hba1c: '', hba1cDate: '',
 };
@@ -303,7 +305,7 @@ function calculateEGFR(creatinineMgDl: number, ageYears: number, isFemale: boole
 }
 
 // Flag abnormal values for surgical clearance
-function getResultFlag(type: string, value: string): 'normal' | 'warning' | 'critical' | null {
+function getResultFlag(type: string, value: string, unit?: string): 'normal' | 'warning' | 'critical' | null {
   const n = parseFloat(value);
   if (isNaN(n) || !value) return null;
   switch (type) {
@@ -311,14 +313,29 @@ function getResultFlag(type: string, value: string): 'normal' | 'warning' | 'cri
     case 'platelets': return n < 50 ? 'critical' : n < 150 ? 'warning' : n > 450 ? 'warning' : 'normal';
     case 'wbc': return n < 2 ? 'critical' : n < 4 ? 'warning' : n > 11 ? 'warning' : 'normal';
     case 'pcv': return n < 21 ? 'critical' : n < 36 ? 'warning' : 'normal';
-    case 'fastingGlucose': return n > 14 ? 'critical' : n > 7 || n < 3.5 ? 'warning' : 'normal';
-    case 'randomGlucose': return n > 20 ? 'critical' : n > 11.1 ? 'warning' : 'normal';
+    case 'fastingGlucose': {
+      const isMgDl = unit === 'mg/dL';
+      return isMgDl
+        ? (n > 252 ? 'critical' : (n > 126 || n < 63) ? 'warning' : 'normal')
+        : (n > 14 ? 'critical' : (n > 7 || n < 3.5) ? 'warning' : 'normal');
+    }
+    case 'randomGlucose': {
+      const isMgDl = unit === 'mg/dL';
+      return isMgDl
+        ? (n > 360 ? 'critical' : n > 200 ? 'warning' : 'normal')
+        : (n > 20 ? 'critical' : n > 11.1 ? 'warning' : 'normal');
+    }
     case 'pt': return n > 18 ? 'critical' : n > 13.5 ? 'warning' : 'normal';
     case 'inr': return n > 2.5 ? 'critical' : n > 1.5 ? 'warning' : 'normal';
     case 'aptt': return n > 50 ? 'critical' : n > 35 ? 'warning' : 'normal';
     case 'sodium': return n < 125 || n > 155 ? 'critical' : n < 135 || n > 145 ? 'warning' : 'normal';
     case 'potassium': return n < 2.5 || n > 6.0 ? 'critical' : n < 3.5 || n > 5.0 ? 'warning' : 'normal';
-    case 'creatinine': return n > 3.0 ? 'critical' : n > 1.5 ? 'warning' : 'normal';
+    case 'creatinine': {
+      const isMicro = unit === 'µmol/L';
+      return isMicro
+        ? (n > 265 ? 'critical' : n > 133 ? 'warning' : 'normal')
+        : (n > 3.0 ? 'critical' : n > 1.5 ? 'warning' : 'normal');
+    }
     case 'urea': return n > 40 ? 'critical' : n > 20 ? 'warning' : 'normal';
     case 'egfr': return n < 30 ? 'critical' : n < 60 ? 'warning' : 'normal';
     case 'hba1c': return n > 9 ? 'critical' : n > 7 ? 'warning' : 'normal';
@@ -409,10 +426,18 @@ function generateClearanceReport(results: InvResultsState): { issues: string[]; 
   const inr = parseFloat(results.inr);
   const k = parseFloat(results.potassium);
   const na = parseFloat(results.sodium);
-  const cr = parseFloat(results.creatinine);
   const egfr = parseFloat(results.egfr);
-  const rg = parseFloat(results.randomGlucose);
   const hba1c = parseFloat(results.hba1c);
+
+  // Unit-aware creatinine
+  const crRaw = parseFloat(results.creatinine);
+  const crMgDl = isNaN(crRaw) ? NaN : (results.creatinineUnit === 'µmol/L' ? crRaw / 88.42 : crRaw);
+  const crLabel = isNaN(crRaw) ? '' : `${crRaw} ${results.creatinineUnit}`;
+
+  // Unit-aware glucose
+  const rgRaw = parseFloat(results.randomGlucose);
+  const rgMmol = isNaN(rgRaw) ? NaN : (results.glucoseUnit === 'mg/dL' ? rgRaw / 18.0182 : rgRaw);
+  const rgLabel = isNaN(rgRaw) ? '' : `${rgRaw} ${results.glucoseUnit}`;
 
   if (!isNaN(hb) && hb < 8) issues.push(`⚠ Haemoglobin critically low (${hb} g/dL) — transfuse before surgery`);
   else if (!isNaN(hb) && hb < 10) issues.push(`⚡ Anaemia present (Hb ${hb} g/dL) — optimise before elective surgery`);
@@ -425,13 +450,13 @@ function generateClearanceReport(results: InvResultsState): { issues: string[]; 
 
   if (!isNaN(na) && (na < 125 || na > 155)) issues.push(`⚠ Critical sodium (Na⁺ ${na} mmol/L) — correct before surgery`);
 
-  if (!isNaN(cr) && cr > 3.0) issues.push(`⚠ Severe renal impairment (Creatinine ${cr} mg/dL) — renal consult required`);
-  else if (!isNaN(cr) && cr > 1.5) issues.push(`⚡ Renal impairment (Creatinine ${cr} mg/dL) — increased anaesthetic risk`);
+  if (!isNaN(crMgDl) && crMgDl > 3.0) issues.push(`⚠ Severe renal impairment (Creatinine ${crLabel}) — renal consult required`);
+  else if (!isNaN(crMgDl) && crMgDl > 1.5) issues.push(`⚡ Renal impairment (Creatinine ${crLabel}) — increased anaesthetic risk`);
 
   if (!isNaN(egfr) && egfr < 30) issues.push(`⚠ Severe CKD (eGFR ${egfr}) — renal consult, dose-adjust medications`);
 
-  if (!isNaN(rg) && rg > 20) issues.push(`⚠ Severe hyperglycaemia (RBG ${rg} mmol/L) — control before surgery`);
-  else if (!isNaN(rg) && rg > 11.1) issues.push(`⚡ Hyperglycaemia (RBG ${rg} mmol/L) — optimise glycaemic control`);
+  if (!isNaN(rgMmol) && rgMmol > 20) issues.push(`⚠ Severe hyperglycaemia (RBG ${rgLabel}) — control before surgery`);
+  else if (!isNaN(rgMmol) && rgMmol > 11.1) issues.push(`⚡ Hyperglycaemia (RBG ${rgLabel}) — optimise glycaemic control`);
 
   if (!isNaN(hba1c) && hba1c > 9) issues.push(`⚠ Poorly controlled diabetes (HbA1c ${hba1c}%) — delay elective surgery if possible`);
 
@@ -668,7 +693,7 @@ export default function SurgicalWorkflowPage() {
         setInvResults(prev => {
           const merged = { ...prev };
           (Object.keys(parsed) as (keyof InvResultsState)[]).forEach(k => {
-            if (parsed[k] && !merged[k]) merged[k] = parsed[k] as string;
+            if (parsed[k] && !merged[k]) merged[k] = parsed[k] as any;
           });
           return merged;
         });
@@ -692,12 +717,14 @@ export default function SurgicalWorkflowPage() {
     if (!invResults.creatinine || !patient) return;
     const cr = parseFloat(invResults.creatinine);
     if (isNaN(cr) || cr <= 0) return;
+    // Convert µmol/L → mg/dL before CKD-EPI calculation
+    const crMgDl = invResults.creatinineUnit === 'µmol/L' ? cr / 88.42 : cr;
     const age = patient.dateOfBirth ? differenceInYears(new Date(), new Date(patient.dateOfBirth)) : 0;
     if (!age) return;
     const isFemale = patient.gender === 'female';
-    const computed = calculateEGFR(cr, age, isFemale);
+    const computed = calculateEGFR(crMgDl, age, isFemale);
     if (computed > 0) setInvResults(prev => ({ ...prev, egfr: String(computed) }));
-  }, [invResults.creatinine, patient]);
+  }, [invResults.creatinine, invResults.creatinineUnit, patient]);
 
   // ---- Auto-generate clearance report when results change ----
   useEffect(() => {
@@ -1577,7 +1604,10 @@ export default function SurgicalWorkflowPage() {
                   {/* ── Inline helper to render a result field ── */}
                   {(() => {
                     const ir = (field: keyof InvResultsState, label: string, unit: string, placeholder: string, normalRange?: string) => {
-                      const flag = getResultFlag(field, invResults[field]);
+                      const unitCtx = field === 'creatinine' ? invResults.creatinineUnit
+                        : (field === 'fastingGlucose' || field === 'randomGlucose') ? invResults.glucoseUnit
+                        : undefined;
+                      const flag = getResultFlag(field, invResults[field], unitCtx);
                       return (
                         <div key={field} className="space-y-1">
                           <div className="flex items-center justify-between flex-wrap gap-x-2">
@@ -1596,9 +1626,9 @@ export default function SurgicalWorkflowPage() {
                               }`}
                             />
                             {unit && <span className="text-xs text-gray-400 whitespace-nowrap shrink-0 hidden xs:block">{unit}</span>}
-                            {flag === 'critical' && <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" title="Critical value" />}
-                            {flag === 'warning' && <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" title="Abnormal" />}
-                            {flag === 'normal' && <CheckCircle className="w-4 h-4 text-green-500 shrink-0" title="Normal" />}
+                            {flag === 'critical' && <span title="Critical value"><AlertTriangle className="w-4 h-4 text-red-500 shrink-0" /></span>}
+                            {flag === 'warning' && <span title="Abnormal"><AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" /></span>}
+                            {flag === 'normal' && <span title="Normal"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" /></span>}
                           </div>
                           {unit && <span className="text-xs text-gray-400 block xs:hidden">{unit}</span>}
                         </div>
@@ -1658,10 +1688,32 @@ export default function SurgicalWorkflowPage() {
                           <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2 pb-1 border-b">
                             <TrendingUp className="w-4 h-4 text-orange-500" /> Blood Glucose
                             <span className="text-red-500 text-xs font-normal">mandatory</span>
+                            {/* Unit toggle */}
+                            <div className="ml-auto flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                              {(['mmol/L', 'mg/dL'] as const).map(u => (
+                                <button key={u} type="button"
+                                  onClick={() => {
+                                    if (u === invResults.glucoseUnit) return;
+                                    const factor = u === 'mg/dL' ? 18.0182 : 1 / 18.0182;
+                                    setInvResults(prev => ({
+                                      ...prev,
+                                      glucoseUnit: u,
+                                      fastingGlucose: prev.fastingGlucose ? (parseFloat(prev.fastingGlucose) * factor).toFixed(1) : '',
+                                      randomGlucose: prev.randomGlucose ? (parseFloat(prev.randomGlucose) * factor).toFixed(1) : '',
+                                    }));
+                                  }}
+                                  className={`px-2 py-0.5 text-xs rounded-md font-medium transition-colors ${invResults.glucoseUnit === u ? 'bg-white shadow text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
+                                >{u}</button>
+                              ))}
+                            </div>
                           </h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {ir('fastingGlucose', 'Fasting Blood Glucose', 'mmol/L', 'e.g. 5.5', '4.0–7.0')}
-                            {ir('randomGlucose', 'Random Blood Glucose', 'mmol/L', 'e.g. 7.0', '4.0–7.8')}
+                            {invResults.glucoseUnit === 'mmol/L'
+                              ? ir('fastingGlucose', 'Fasting Blood Glucose', 'mmol/L', 'e.g. 5.5', '4.0–7.0')
+                              : ir('fastingGlucose', 'Fasting Blood Glucose', 'mg/dL', 'e.g. 99', '72–126')}
+                            {invResults.glucoseUnit === 'mmol/L'
+                              ? ir('randomGlucose', 'Random Blood Glucose', 'mmol/L', 'e.g. 7.0', '4.0–7.8')
+                              : ir('randomGlucose', 'Random Blood Glucose', 'mg/dL', 'e.g. 126', '72–140')}
                           </div>
                           <div className="flex justify-end mt-2">
                             <input type="date" value={invResults.glucoseDate} onChange={e => setInvResults(p => ({...p, glucoseDate: e.target.value}))}
@@ -1770,11 +1822,30 @@ export default function SurgicalWorkflowPage() {
 
                         {/* ── Renal Function ── */}
                         <div>
-                          <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b">Renal Function Tests
-                            <span className="text-blue-500 text-xs font-normal ml-1">recommended</span>
+                          <h3 className="text-sm font-bold text-gray-800 mb-3 pb-1 border-b flex items-center gap-2">Renal Function Tests
+                            <span className="text-blue-500 text-xs font-normal">recommended</span>
+                            {/* Creatinine unit toggle */}
+                            <div className="ml-auto flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                              {(['mg/dL', 'µmol/L'] as const).map(u => (
+                                <button key={u} type="button"
+                                  onClick={() => {
+                                    if (u === invResults.creatinineUnit) return;
+                                    const factor = u === 'µmol/L' ? 88.42 : 1 / 88.42;
+                                    setInvResults(prev => ({
+                                      ...prev,
+                                      creatinineUnit: u,
+                                      creatinine: prev.creatinine ? (parseFloat(prev.creatinine) * factor).toFixed(u === 'µmol/L' ? 0 : 2) : '',
+                                    }));
+                                  }}
+                                  className={`px-2 py-0.5 text-xs rounded-md font-medium transition-colors ${invResults.creatinineUnit === u ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                                >{u}</button>
+                              ))}
+                            </div>
                           </h3>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {ir('creatinine', 'Creatinine', 'mg/dL', 'e.g. 0.9', '0.6–1.2')}
+                            {invResults.creatinineUnit === 'mg/dL'
+                              ? ir('creatinine', 'Creatinine', 'mg/dL', 'e.g. 0.9', '0.6–1.2')
+                              : ir('creatinine', 'Creatinine', 'µmol/L', 'e.g. 80', '53–106')}
                             {ir('urea', 'Urea/BUN', 'mg/dL', 'e.g. 15', '7–20')}
                             <div className="space-y-1">
                               <div className="flex items-center justify-between">

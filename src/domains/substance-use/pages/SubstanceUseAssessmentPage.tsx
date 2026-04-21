@@ -673,15 +673,15 @@ export default function SubstanceUseAssessmentPage() {
       const score = summary.addictionScore;
       doc.text(`Composite Score: ${score.totalCompositeScore}/100 (${score.severityLevel})`, 20, y);
       y += 5;
-      doc.text(`Physical Dependence: ${score.physicalDependenceScore}/100`, 20, y);
+      doc.text(`Physical Dependence: ${score.physicalDependence}/100`, 20, y);
       y += 5;
-      doc.text(`Psychological Dependence: ${score.psychologicalDependenceScore}/100`, 20, y);
+      doc.text(`Psychological Dependence: ${score.psychologicalDependence}/100`, 20, y);
       y += 5;
-      doc.text(`Behavioral Dysfunction: ${score.behavioralDysfunctionScore}/100`, 20, y);
+      doc.text(`Behavioral Dysfunction: ${score.behavioralDysfunction}/100`, 20, y);
       y += 5;
-      doc.text(`Social Impairment: ${score.socialImpairmentScore}/100`, 20, y);
+      doc.text(`Social Impairment: ${score.socialImpairment}/100`, 20, y);
       y += 5;
-      doc.text(`Medical Complications: ${score.medicalComplicationsScore}/100`, 20, y);
+      doc.text(`Medical Complications: ${score.medicalComplications}/100`, 20, y);
       y += 8;
       // Risk Classification
       doc.setFontSize(11);

@@ -148,7 +148,7 @@ export async function subscribeToPush(
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as unknown as BufferSource,
       });
     }
 
@@ -508,15 +508,15 @@ async function showLocalPushNotification(
       body: payload.body,
       icon: payload.icon || '/icons/icon-192x192.png',
       badge: payload.badge || '/icons/icon-72x72.png',
-      image: payload.image,
       tag: payload.tag,
       data: payload.data,
+      ...(payload.image ? ({ image: payload.image } as any) : {}),
       actions: payload.actions,
       requireInteraction: payload.requireInteraction,
       silent: payload.silent,
       timestamp: payload.timestamp,
       renotify: payload.renotify,
-    });
+    } as NotificationOptions);
     return true;
   } catch (error) {
     console.error('[WebPush] Error showing local notification:', error);

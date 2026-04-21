@@ -177,6 +177,9 @@ export interface PDFPatientInfo {
   phone?: string;
   address?: string;
   diagnosis?: string;
+  wardBed?: string;
+  ward?: string;
+  bedNumber?: string;
 }
 
 // Add branded header with logo to any PDF document

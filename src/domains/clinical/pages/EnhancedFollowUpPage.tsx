@@ -181,6 +181,7 @@ interface WoundEntry {
   tissueType: string;
   exudateAmount: string;
   painLevel: string;
+  painScore?: string;
   healingProgress: string;
   dressingType: string;
   notes: string;
@@ -434,7 +435,7 @@ export default function EnhancedFollowUpPage() {
           description: cleaned,
           type: i === 0 ? 'primary' : 'secondary',
           icdCode: '',
-          status: 'active',
+          status: 'suspected',
         });
       }
     });
@@ -928,7 +929,7 @@ export default function EnhancedFollowUpPage() {
                         type="button"
                         onClick={() => {
                           if (newDiagText.trim()) {
-                            setDiagnoses(prev => [...prev, { id: uuidv4(), description: newDiagText, type: newDiagType, icdCode: '', status: 'active' }]);
+                            setDiagnoses(prev => [...prev, { id: uuidv4(), description: newDiagText, type: newDiagType, icdCode: '', status: 'suspected' }]);
                             setNewDiagText('');
                           }
                         }}

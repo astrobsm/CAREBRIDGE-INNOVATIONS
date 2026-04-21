@@ -104,17 +104,20 @@ export interface PhasesMedication {
 }
 
 export interface PreoperativeInstructions {
-  consultations: string[];
-  investigations: string[];
-  medications: MedicationInstruction[];
+  consultations?: string[];
+  investigations?: string[];
+  medications?: MedicationInstruction[] | any[];
   dietaryRestrictions?: string[];
   physicalPreparation?: string[];
   psychologicalPreparation?: string[];
   consentRequirements?: string[];
-  dayBeforeSurgery: string[];
-  dayOfSurgery: string[];
+  dayBeforeSurgery?: string[];
+  dayBeforeInstructions?: string[];
+  dayOfSurgery?: string[];
+  dayOfSurgeryInstructions?: string[];
   whatToBring?: string[];
   fastingInstructions?: string;
+  [key: string]: any;
 }
 
 export interface MedicationInstruction {
@@ -125,26 +128,32 @@ export interface MedicationInstruction {
 }
 
 export interface IntraoperativeInfo {
-  anesthesiaType: string | string[];
+  anesthesiaType?: string | string[];
   procedureDescription?: string;
   procedureSteps?: string[];
-  duration: string;
+  duration?: string;
   techniques?: string[];
   expectedBloodLoss?: string;
   possibleComplications?: string[];
   whatToExpect?: string;
+  teamInvolved?: string[];
+  [key: string]: any;
 }
 
 export interface PostoperativeInstructions {
-  immediatePostop: ImmediatePostop;
-  woundCare: WoundCareInstruction[];
-  painManagement: PainManagement;
-  activityRestrictions: ActivityRestriction[];
-  dietaryGuidelines: string[];
+  immediatePostop?: ImmediatePostop | string[] | any;
+  immediatePostOp?: ImmediatePostop | string[] | any;
+  woundCare?: WoundCareInstruction[] | { frequency?: string; method?: string; products?: string[]; precautions?: string[] } | any;
+  painManagement?: PainManagement | string | string[] | any;
+  activityRestrictions?: ActivityRestriction[] | { duration?: string; restrictions?: string[] } | any;
+  dietaryGuidelines?: string[];
   medicationRegimen?: PostopMedication[];
+  medications?: Array<Record<string, any>>;
   physicalTherapy?: PhysicalTherapyPlan;
   returnToWork?: string;
   returnToNormalActivities?: string;
+  followUpSchedule?: FollowUpSchedule[] | Array<Record<string, any>> | string[];
+  [key: string]: any;
 }
 
 export interface ImmediatePostop {
@@ -205,13 +214,17 @@ export interface ExerciseInstruction {
 }
 
 export interface ExpectedOutcomes {
-  shortTerm: OutcomeExpectation[];
-  longTerm: OutcomeExpectation[];
-  functionalRecovery: string;
+  shortTerm?: OutcomeExpectation[] | any[];
+  longTerm?: OutcomeExpectation[] | any[];
+  functionalRecovery?: string;
   cosmeticOutcome?: string;
   qualityOfLife?: string;
   possibleComplications?: (ComplicationRisk | string)[];
   successRate?: string;
+  immediateOutcomes?: OutcomeExpectation[] | string[];
+  shortTermOutcomes?: OutcomeExpectation[] | string[];
+  longTermOutcomes?: OutcomeExpectation[] | string[];
+  [key: string]: any;
 }
 
 export interface OutcomeExpectation {
@@ -228,12 +241,15 @@ export interface ComplicationRisk {
 }
 
 export interface FollowUpCare {
-  schedule: FollowUpSchedule[];
+  schedule?: FollowUpSchedule[] | any[];
   ongoingMonitoring?: string[];
   rehabilitationNeeds?: string[];
   supportServices?: string[];
   longTermConsiderations?: string[];
   lifestyleModifications?: string[];
+  appointments?: FollowUpSchedule[];
+  selfMonitoring?: string[];
+  [key: string]: any;
 }
 
 export interface FollowUpSchedule {
@@ -245,9 +261,12 @@ export interface FollowUpSchedule {
 
 export interface ComplianceRequirement {
   requirement: string;
-  importance: 'critical' | 'important' | 'recommended';
-  consequence: string;
+  importance?: 'critical' | 'important' | 'recommended' | string;
+  consequence?: string;
+  consequences?: string;
   tips?: string[];
+  frequency?: string;
+  [key: string]: any;
 }
 
 export interface WHOGuideline {

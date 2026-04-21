@@ -45,7 +45,7 @@ export default function ClinicalPhotographsSlide({ encounters, wounds, patientNa
       wound.photos.forEach(photo => {
         allPhotos.push({
           id: photo.id,
-          imageData: photo.url,
+          imageData: photo.url ?? photo.imageData ?? '',
           description: wound.etiology || `${wound.type} wound`,
           bodyLocation: wound.location,
           capturedAt: new Date(photo.capturedAt),

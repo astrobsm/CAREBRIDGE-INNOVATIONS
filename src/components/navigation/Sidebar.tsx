@@ -79,6 +79,12 @@ const navigation: NavItem[] = [
     permission: 'create_encounters',
   },
   { 
+    name: 'Treatment Planning', 
+    href: '/treatment-planning', 
+    icon: <CalendarDays size={20} />,
+    permission: 'create_encounters',
+  },
+  { 
     name: 'Preoperative Planning', 
     href: '/preoperative-planning', 
     icon: <ClipboardList size={20} />,

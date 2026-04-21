@@ -1,0 +1,128 @@
+﻿src/domains/clinical/components/TrackedInvestigations.tsx(234,48): error TS2345: Argument of type 'InvestigationResult[] | undefined' is not assignable to parameter of type 'string | undefined'.
+  Type 'InvestigationResult[]' is not assignable to type 'string'.
+src/domains/clinical/components/TrackedInvestigations.tsx(265,48): error TS2345: Argument of type 'InvestigationResult[] | undefined' is not assignable to parameter of type 'string | undefined'.
+  Type 'InvestigationResult[]' is not assignable to type 'string'.
+src/domains/clinical/components/TrackedInvestigations.tsx(437,29): error TS2367: This comparison appears to be unintentional because the types '"cancelled" | "processing" | "requested" | "sample_collected"' and '"pending"' have no overlap.
+src/domains/clinical/components/TrackedInvestigations.tsx(500,76): error TS2322: Type 'InvestigationResult[]' is not assignable to type 'ReactNode'.
+  Type 'InvestigationResult[]' is not assignable to type 'Iterable<ReactNode>'.
+    The types returned by '[Symbol.iterator]().next(...)' are incompatible between these types.
+      Type 'IteratorResult<InvestigationResult, undefined>' is not assignable to type 'IteratorResult<ReactNode, any>'.
+        Type 'IteratorYieldResult<InvestigationResult>' is not assignable to type 'IteratorResult<ReactNode, any>'.
+          Type 'IteratorYieldResult<InvestigationResult>' is not assignable to type 'IteratorYieldResult<ReactNode>'.
+            Type 'InvestigationResult' is not assignable to type 'ReactNode'.
+src/domains/clinical/pages/ClinicalEncounterPage.tsx(344,20): error TS2345: Argument of type 'string' is not assignable to parameter of type '"notes" | "type" | "chiefComplaint" | "historyOfPresentIllness" | "treatmentPlan" | "pastMedicalHistory" | "pastSurgicalHistory" | "familyHistory" | "socialHistory"'.
+src/domains/clinical/pages/EnhancedFollowUpPage.tsx(305,9): error TS2353: Object literal may only specify known properties, and 'medicalContext' does not exist in type 'OCROptions'.
+src/domains/clinical/pages/EnhancedFollowUpPage.tsx(437,11): error TS2322: Type '"active"' is not assignable to type '"suspected" | "confirmed" | "ruled_out"'.
+src/domains/clinical/pages/EnhancedFollowUpPage.tsx(616,41): error TS2345: Argument of type 'ClinicalEncounter' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'ClinicalEncounter'.
+src/domains/clinical/pages/EnhancedFollowUpPage.tsx(639,35): error TS2345: Argument of type 'VitalSigns' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'VitalSigns'.
+src/domains/clinical/pages/EnhancedFollowUpPage.tsx(659,38): error TS2345: Argument of type 'Investigation' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'Investigation'.
+src/domains/clinical/pages/EnhancedFollowUpPage.tsx(685,37): error TS2345: Argument of type 'Prescription' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'Prescription'.
+src/domains/clinical/pages/EnhancedFollowUpPage.tsx(705,33): error TS2339: Property 'painScore' does not exist on type 'WoundEntry'.
+src/domains/clinical/pages/EnhancedFollowUpPage.tsx(706,46): error TS2322: Type '{ id: string; imageData: string; capturedAt: Date; description: string; }[]' is not assignable to type 'WoundPhoto[]'.
+  Object literal may only specify known properties, and 'imageData' does not exist in type 'WoundPhoto'.
+src/domains/clinical/pages/EnhancedFollowUpPage.tsx(713,30): error TS2345: Argument of type 'Wound' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'Wound'.
+src/domains/clinical/pages/EnhancedFollowUpPage.tsx(931,42): error TS2345: Argument of type '(prev: Diagnosis[]) => (Diagnosis | { id: string; description: string; type: "primary" | "secondary" | "differential"; icdCode: string; status: "active"; })[]' is not assignable to parameter of type 'SetStateAction<Diagnosis[]>'.
+  Type '(prev: Diagnosis[]) => (Diagnosis | { id: string; description: string; type: "primary" | "secondary" | "differential"; icdCode: string; status: "active"; })[]' is not assignable to type '(prevState: Diagnosis[]) => Diagnosis[]'.
+    Type '(Diagnosis | { id: string; description: string; type: "primary" | "secondary" | "differential"; icdCode: string; status: "active"; })[]' is not assignable to type 'Diagnosis[]'.
+      Type 'Diagnosis | { id: string; description: string; type: "primary" | "secondary" | "differential"; icdCode: string; status: "active"; }' is not assignable to type 'Diagnosis'.
+        Type '{ id: string; description: string; type: "primary" | "secondary" | "differential"; icdCode: string; status: "active"; }' is not assignable to type 'Diagnosis'.
+          Types of property 'status' are incompatible.
+            Type '"active"' is not assignable to type '"suspected" | "confirmed" | "ruled_out"'.
+src/domains/clinical/pages/MDTPage.tsx(127,34): error TS2352: Conversion of type 'import("C:/Users/user/Documents/carebridge innovations/src/types/index").MDTMeeting[]' to type 'import("C:/Users/user/Documents/carebridge innovations/src/services/mdtService").MDTMeeting[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'MDTMeeting' is missing the following properties from type 'MDTMeeting': title, scheduledDate, duration, agenda, and 2 more.
+src/domains/clinical/pages/MDTPage.tsx(746,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Record<string, unknown>'.
+src/domains/clinical/services/encounterSummaryService.ts(14,3): error TS2724: '"../../../types"' has no exported member named 'VitalSign'. Did you mean 'VitalSigns'?
+src/domains/clinical/services/encounterSummaryService.ts(64,43): error TS2339: Property 'createdAt' does not exist on type 'Prescription'.
+src/domains/clinical/services/encounterSummaryService.ts(64,77): error TS2339: Property 'createdAt' does not exist on type 'Prescription'.
+src/domains/clinical/services/encounterSummaryService.ts(68,40): error TS2339: Property 'date' does not exist on type 'WardRound'.
+src/domains/clinical/services/encounterSummaryService.ts(68,69): error TS2339: Property 'date' does not exist on type 'WardRound'.
+src/domains/clinical/services/encounterSummaryService.ts(99,26): error TS2339: Property 'name' does not exist on type 'Diagnosis'.
+src/domains/clinical/services/encounterSummaryService.ts(103,40): error TS2367: This comparison appears to be unintentional because the types '"suspected" | "ruled_out"' and '"working"' have no overlap.
+src/domains/clinical/services/encounterSummaryService.ts(112,19): error TS2367: This comparison appears to be unintentional because the types '"cancelled" | "pending" | "dispensed" | "partially_dispensed"' and '"active"' have no overlap.
+src/domains/clinical/services/encounterSummaryService.ts(115,43): error TS2339: Property 'dose' does not exist on type 'Medication'.
+src/domains/clinical/services/encounterSummaryService.ts(115,54): error TS2339: Property 'unit' does not exist on type 'Medication'.
+src/domains/clinical/services/encounterSummaryService.ts(132,36): error TS2339: Property 'toLowerCase' does not exist on type 'InvestigationResult[]'.
+src/domains/clinical/services/encounterSummaryService.ts(141,75): error TS2339: Property 'substring' does not exist on type 'InvestigationResult[]'.
+src/domains/clinical/services/encounterSummaryService.ts(167,51): error TS2367: This comparison appears to be unintentional because the types 'AdmissionStatus' and '"admitted"' have no overlap.
+src/domains/clinical/services/encounterSummaryService.ts(204,42): error TS2339: Property 'plan' does not exist on type 'WardRound'.
+src/domains/clinical/services/encounterSummaryService.ts(205,74): error TS2339: Property 'date' does not exist on type 'WardRound'.
+src/domains/clinical/services/encounterSummaryService.ts(205,125): error TS2339: Property 'plan' does not exist on type 'WardRound'.
+src/domains/clinical/services/encounterSummaryService.ts(352,43): error TS2339: Property 'name' does not exist on type 'Diagnosis'.
+src/domains/clinical/services/encounterSummaryService.ts(377,58): error TS2367: This comparison appears to be unintentional because the types '"cancelled" | "pending" | "dispensed" | "partially_dispensed"' and '"active"' have no overlap.
+src/domains/clinical/services/encounterSummaryService.ts(382,40): error TS2339: Property 'dose' does not exist on type 'Medication'.
+src/domains/clinical/services/encounterSummaryService.ts(382,51): error TS2339: Property 'unit' does not exist on type 'Medication'.
+src/domains/investigations/pages/InvestigationsPage.tsx(499,13): error TS2322: Type '{ id: string; parameter: string; value: string; unit: string; referenceRange: string | undefined; flag: "low" | "high" | "critical" | "normal" | undefined; resultDate: Date; }[]' is not assignable to type 'InvestigationResult[]'.
+  Type '{ id: string; parameter: string; value: string; unit: string; referenceRange: string | undefined; flag: "low" | "high" | "critical" | "normal" | undefined; resultDate: Date; }' is missing the following properties from type 'InvestigationResult': parameterId, parameterName, isAbnormal
+src/domains/patient-education/data/minorProcedures.ts(234,5): error TS2353: Object literal may only specify known properties, and 'dayBeforeInstructions' does not exist in type 'PreoperativeInstructions'.
+src/domains/patient-education/data/minorProcedures.ts(261,5): error TS2353: Object literal may only specify known properties, and 'teamInvolved' does not exist in type 'IntraoperativeInfo'.
+src/domains/patient-education/data/minorProcedures.ts(277,7): error TS2353: Object literal may only specify known properties, and 'frequency' does not exist in type 'WoundCareInstruction[]'.
+src/domains/patient-education/data/minorProcedures.ts(293,7): error TS2353: Object literal may only specify known properties, and 'duration' does not exist in type 'ActivityRestriction[]'.
+src/domains/patient-education/data/minorProcedures.ts(341,5): error TS2353: Object literal may only specify known properties, and 'immediateOutcomes' does not exist in type 'ExpectedOutcomes'.
+src/domains/patient-education/data/minorProcedures.ts(377,5): error TS2353: Object literal may only specify known properties, and 'appointments' does not exist in type 'FollowUpCare'.
+src/domains/patient-education/data/minorProcedures.ts(412,7): error TS2322: Type '"Critical for preventing recurrence"' is not assignable to type '"critical" | "important" | "recommended"'.
+src/domains/patient-education/data/minorProcedures.ts(418,7): error TS2322: Type '"Important for scar quality"' is not assignable to type '"critical" | "important" | "recommended"'.
+src/domains/patient-education/data/minorProcedures.ts(424,7): error TS2322: Type '"Critical for preventing recurrence"' is not assignable to type '"critical" | "important" | "recommended"'.
+src/domains/patient-education/data/minorProcedures.ts(430,7): error TS2322: Type '"Important for scar appearance"' is not assignable to type '"critical" | "important" | "recommended"'.
+src/domains/patient-education/data/minorProcedures.ts(689,5): error TS2353: Object literal may only specify known properties, and 'dayBeforeInstructions' does not exist in type 'PreoperativeInstructions'.
+src/domains/patient-education/data/minorProcedures.ts(716,5): error TS2353: Object literal may only specify known properties, and 'teamInvolved' does not exist in type 'IntraoperativeInfo'.
+src/domains/patient-education/data/minorProcedures.ts(732,7): error TS2353: Object literal may only specify known properties, and 'frequency' does not exist in type 'WoundCareInstruction[]'.
+src/domains/patient-education/data/minorProcedures.ts(748,7): error TS2353: Object literal may only specify known properties, and 'duration' does not exist in type 'ActivityRestriction[]'.
+src/domains/patient-education/data/minorProcedures.ts(789,5): error TS2353: Object literal may only specify known properties, and 'immediateOutcomes' does not exist in type 'ExpectedOutcomes'.
+src/domains/patient-education/data/minorProcedures.ts(824,5): error TS2353: Object literal may only specify known properties, and 'appointments' does not exist in type 'FollowUpCare'.
+src/domains/patient-education/data/minorProcedures.ts(850,7): error TS2322: Type '"Important for healing"' is not assignable to type '"critical" | "important" | "recommended"'.
+src/domains/patient-education/data/minorProcedures.ts(856,7): error TS2322: Type '"Critical for prevention"' is not assignable to type '"critical" | "important" | "recommended"'.
+src/domains/patient-education/data/minorProcedures.ts(862,7): error TS2322: Type '"Important for prevention"' is not assignable to type '"critical" | "important" | "recommended"'.
+src/domains/patient-education/data/minorProcedures.ts(1108,5): error TS2353: Object literal may only specify known properties, and 'dayBeforeInstructions' does not exist in type 'PreoperativeInstructions'.
+src/domains/patient-education/data/minorProcedures.ts(1136,5): error TS2353: Object literal may only specify known properties, and 'teamInvolved' does not exist in type 'IntraoperativeInfo'.
+src/domains/patient-education/data/minorProcedures.ts(1151,7): error TS2353: Object literal may only specify known properties, and 'frequency' does not exist in type 'WoundCareInstruction[]'.
+src/domains/patient-education/data/minorProcedures.ts(1166,7): error TS2353: Object literal may only specify known properties, and 'duration' does not exist in type 'ActivityRestriction[]'.
+src/domains/patient-education/data/minorProcedures.ts(1206,5): error TS2353: Object literal may only specify known properties, and 'immediateOutcomes' does not exist in type 'ExpectedOutcomes'.
+src/domains/patient-education/data/minorProcedures.ts(1241,5): error TS2353: Object literal may only specify known properties, and 'appointments' does not exist in type 'FollowUpCare'.
+src/domains/patient-education/data/minorProcedures.ts(1267,7): error TS2322: Type '"Critical for healing"' is not assignable to type '"critical" | "important" | "recommended"'.
+src/domains/patient-education/data/minorProcedures.ts(1273,7): error TS2322: Type '"Important for healing"' is not assignable to type '"critical" | "important" | "recommended"'.
+src/domains/patient-education/data/minorProcedures.ts(1279,7): error TS2322: Type '"Critical for confirming diagnosis"' is not assignable to type '"critical" | "important" | "recommended"'.
+src/domains/soft-tissue-infection/components/NewAssessmentTab.tsx(189,31): error TS2339: Property 'name' does not exist on type 'User'.
+src/domains/substance-use/pages/SubstanceUseAssessmentPage.tsx(676,46): error TS2551: Property 'physicalDependenceScore' does not exist on type 'AddictionSeverityScore'. Did you mean 'physicalDependence'?
+src/domains/substance-use/pages/SubstanceUseAssessmentPage.tsx(678,51): error TS2551: Property 'psychologicalDependenceScore' does not exist on type 'AddictionSeverityScore'. Did you mean 'psychologicalDependence'?
+src/domains/substance-use/pages/SubstanceUseAssessmentPage.tsx(680,49): error TS2551: Property 'behavioralDysfunctionScore' does not exist on type 'AddictionSeverityScore'. Did you mean 'behavioralDysfunction'?
+src/domains/substance-use/pages/SubstanceUseAssessmentPage.tsx(682,44): error TS2551: Property 'socialImpairmentScore' does not exist on type 'AddictionSeverityScore'. Did you mean 'socialImpairment'?
+src/domains/substance-use/pages/SubstanceUseAssessmentPage.tsx(684,48): error TS2551: Property 'medicalComplicationsScore' does not exist on type 'AddictionSeverityScore'. Did you mean 'medicalComplications'?
+src/domains/surgery/pages/PreoperativeAssessmentPage.tsx(444,9): error TS2820: Type '"haematology"' is not assignable to type '"other" | "hematology" | "biochemistry" | "microbiology" | "histopathology" | "pathology" | "imaging" | "radiology" | "cardiology" | "laboratory"'. Did you mean '"hematology"'?
+src/domains/surgery/pages/PreoperativeAssessmentPage.tsx(445,9): error TS2820: Type '"haematology"' is not assignable to type '"other" | "hematology" | "biochemistry" | "microbiology" | "histopathology" | "pathology" | "imaging" | "radiology" | "cardiology" | "laboratory"'. Did you mean '"hematology"'?
+src/domains/surgery/pages/PreoperativeAssessmentPage.tsx(448,9): error TS2820: Type '"haematology"' is not assignable to type '"other" | "hematology" | "biochemistry" | "microbiology" | "histopathology" | "pathology" | "imaging" | "radiology" | "cardiology" | "laboratory"'. Did you mean '"hematology"'?
+src/domains/surgery/pages/PreoperativeAssessmentPage.tsx(455,9): error TS2820: Type '"haematology"' is not assignable to type '"other" | "hematology" | "biochemistry" | "microbiology" | "histopathology" | "pathology" | "imaging" | "radiology" | "cardiology" | "laboratory"'. Did you mean '"hematology"'?
+src/domains/surgery/pages/PreoperativeAssessmentPage.tsx(456,9): error TS2820: Type '"haematology"' is not assignable to type '"other" | "hematology" | "biochemistry" | "microbiology" | "histopathology" | "pathology" | "imaging" | "radiology" | "cardiology" | "laboratory"'. Did you mean '"hematology"'?
+src/domains/surgery/pages/SurgicalWorkflowPage.tsx(696,42): error TS2322: Type 'string' is not assignable to type '"mg/dL"'.
+src/domains/surgery/pages/SurgicalWorkflowPage.tsx(1629,110): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & LucideProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & LucideProps'.
+src/domains/surgery/pages/SurgicalWorkflowPage.tsx(1630,112): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & LucideProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & LucideProps'.
+src/domains/surgery/pages/SurgicalWorkflowPage.tsx(1631,108): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & LucideProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & LucideProps'.
+src/domains/ward-rounds/components/StartWardRoundTab.tsx(124,56): error TS2367: This comparison appears to be unintentional because the types '"improving" | "stable" | "deteriorating"' and '"healed"' have no overlap.
+src/domains/ward-rounds/components/StartWardRoundTab.tsx(238,28): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Record<string, unknown>'.
+src/domains/ward-rounds/components/StartWardRoundTab.tsx(284,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Record<string, unknown>'.
+src/domains/ward-rounds/pages/WardRoundsPage.tsx(85,70): error TS2537: Type 'Patient[] | undefined' has no matching index signature for type 'number'.
+src/domains/ward-rounds/pages/WardRoundsPage.tsx(85,112): error TS2537: Type 'Admission[] | undefined' has no matching index signature for type 'number'.
+src/hooks/usePatientOrdersHistory.ts(222,41): error TS2345: Argument of type '(tp: Record<string, unknown>) => UnifiedOrderItem' is not assignable to parameter of type '(value: TreatmentPlan, index: number, array: TreatmentPlan[]) => UnifiedOrderItem'.
+  Types of parameters 'tp' and 'value' are incompatible.
+    Type 'TreatmentPlan' is not assignable to type 'Record<string, unknown>'.
+      Index signature for type 'string' is missing in type 'TreatmentPlan'.
+src/services/investigationApprovalService.ts(280,11): error TS2322: Type 'string' is not assignable to type 'LabCategory'.
+src/services/investigationLabService.ts(994,11): error TS2322: Type '{ id: string; investigationId: string; parameter: string; value: string | number; unit: string; referenceRange: string | undefined; flag: "low" | "high" | "critical" | "A" | "normal" | ... 4 more ... | undefined; interpretation: string | undefined; resultDate: Date; }[]' is not assignable to type 'InvestigationResult[]'.
+  Type '{ id: string; investigationId: string; parameter: string; value: string | number; unit: string; referenceRange: string | undefined; flag: "low" | "high" | "critical" | "A" | "normal" | ... 4 more ... | undefined; interpretation: string | undefined; resultDate: Date; }' is missing the following properties from type 'InvestigationResult': parameterId, parameterName, isAbnormal
+src/services/investigationLabService.ts(1410,7): error TS2322: Type '{ id: string; parameter: string; value: string; unit: string | undefined; referenceRange: string | undefined; flag: "A" | "normal"; }[]' is not assignable to type 'InvestigationResult[]'.
+  Type '{ id: string; parameter: string; value: string; unit: string | undefined; referenceRange: string | undefined; flag: "A" | "normal"; }' is missing the following properties from type 'InvestigationResult': parameterId, parameterName, isAbnormal
+src/utils/labRequestThermalPdf.ts(105,20): error TS2339: Property 'wardBed' does not exist on type 'PDFPatientInfo'.
+src/utils/labRequestThermalPdf.ts(106,40): error TS2339: Property 'wardBed' does not exist on type 'PDFPatientInfo'.
+src/utils/ordersSummaryPdfGenerator.ts(98,30): error TS2345: Argument of type 'PDFPatientInfo' is not assignable to parameter of type 'number'.
+src/utils/ordersSummaryPdfGenerator.ts(122,30): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+src/utils/ordersSummaryPdfGenerator.ts(217,30): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+src/utils/ordersSummaryPdfGenerator.ts(244,30): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+src/utils/ordersSummaryPdfGenerator.ts(257,3): error TS2554: Expected 2-4 arguments, but got 1.
+src/utils/prescriptionThermalPrint.ts(44,7): error TS2740: Type '{ oral: string; intravenous: string; intramuscular: string; subcutaneous: string; topical: string; rectal: string; inhalation: string; sublingual: string; ophthalmic: string; otic: string; nasal: string; ... 10 more ...; intravesical: string; }' is missing the following properties from type 'Record<MedicationRoute, string>': "central intravenous", "topical nasal", nebulization, nasogastric, and 16 more.

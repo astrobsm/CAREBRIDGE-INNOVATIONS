@@ -10,6 +10,7 @@ import initPWA from './services/pwaService';
 import { initCloudSync, fullSync } from './services/cloudSyncService';
 import { initializeDemoData } from './database';
 import { startNotificationScheduler, initVoiceAlarm } from './services/scheduledNotificationService';
+import { startReminderProcessor } from './services/treatmentSchedulerService';
 import { requestNotificationPermission, startReminderScheduler, setupNotificationClickHandler } from './services/appointmentNotificationService';
 import './index.css';
 
@@ -100,6 +101,17 @@ function setupNetworkHandlers() {
         case 'OFFLINE_QUEUE_UPDATED':
           console.log('[App] Offline queue updated:', event.data.pendingCount);
           break;
+        case 'TREATMENT_ACKNOWLEDGED': {
+          const { sessionId, reminderId } = event.data || {};
+          import('./services/treatmentSchedulerService').then(async (mod) => {
+            try {
+              if (sessionId) await mod.acknowledgeSessionFromNotification(sessionId, reminderId);
+            } catch (err) {
+              console.warn('[App] Failed to acknowledge treatment:', err);
+            }
+          });
+          break;
+        }
       }
     });
   }
@@ -155,6 +167,8 @@ setTimeout(() => {
       console.log('[App] Notification permission granted');
       // Start the scheduled notification service (surgeries, appointments, treatment plans)
       startNotificationScheduler();
+      // Start the treatment-planning reminder processor (fires push reminders for sessions)
+      startReminderProcessor(30);
       // Start appointment reminder scheduler
       startReminderScheduler();
       // Setup notification click handlers

@@ -223,9 +223,9 @@ export const downloadPatientEducationPDF = (
     y = addSectionHeader(doc, 'Before Your Surgery/Procedure', y);
 
     // Consultations
-    if (preop.consultations.length > 0) {
+    if ((preop.consultations?.length ?? 0) > 0) {
       y = addSubsectionHeader(doc, 'Required Consultations', y);
-      preop.consultations.forEach(consult => {
+      (preop.consultations ?? []).forEach((consult: string) => {
         y = checkPageBreak(doc, y, 6);
         y = addBulletPoint(doc, consult, margin, y, contentWidth);
       });
@@ -233,10 +233,10 @@ export const downloadPatientEducationPDF = (
     }
 
   // Investigations
-  if (preop.investigations.length > 0) {
+  if ((preop.investigations?.length ?? 0) > 0) {
     y = checkPageBreak(doc, y, 30);
     y = addSubsectionHeader(doc, 'Tests and Investigations', y);
-    preop.investigations.forEach(invest => {
+    (preop.investigations ?? []).forEach((invest: string) => {
       y = checkPageBreak(doc, y, 6);
       y = addBulletPoint(doc, invest, margin, y, contentWidth);
     });
@@ -244,10 +244,10 @@ export const downloadPatientEducationPDF = (
   }
 
   // Medication instructions
-  if (preop.medications.length > 0) {
+  if ((preop.medications?.length ?? 0) > 0) {
     y = checkPageBreak(doc, y, 40);
     y = addSubsectionHeader(doc, 'Medication Instructions', y);
-    preop.medications.forEach(med => {
+    (preop.medications ?? []).forEach((med: any) => {
       y = checkPageBreak(doc, y, 8);
       // Format instruction clearly with proper action verb
       let action = '';
@@ -267,7 +267,7 @@ export const downloadPatientEducationPDF = (
   // Day before surgery
   y = checkPageBreak(doc, y, 30);
   y = addSubsectionHeader(doc, 'The Day Before Surgery', y);
-  preop.dayBeforeSurgery.forEach(instruction => {
+  (preop.dayBeforeSurgery ?? preop.dayBeforeInstructions ?? []).forEach((instruction: string) => {
     y = checkPageBreak(doc, y, 6);
     y = addBulletPoint(doc, instruction, margin, y, contentWidth);
   });
@@ -276,7 +276,7 @@ export const downloadPatientEducationPDF = (
   // Day of surgery
   y = checkPageBreak(doc, y, 30);
   y = addSubsectionHeader(doc, 'Day of Surgery', y);
-  preop.dayOfSurgery.forEach(instruction => {
+  (preop.dayOfSurgery ?? preop.dayOfSurgeryInstructions ?? []).forEach((instruction: string) => {
     y = checkPageBreak(doc, y, 6);
     y = addBulletPoint(doc, instruction, margin, y, contentWidth);
   });
@@ -301,7 +301,7 @@ export const downloadPatientEducationPDF = (
       y = checkPageBreak(doc, y, 20);
       doc.text('What to expect:', margin, y);
       y += 4;
-      postop.immediatePostop.expectedSymptoms.slice(0, 4).forEach(symptom => {
+      postop.immediatePostop.expectedSymptoms.slice(0, 4).forEach((symptom: string) => {
         y = checkPageBreak(doc, y, 6);
         y = addBulletPoint(doc, symptom, margin + 3, y, contentWidth - 3);
       });
@@ -311,7 +311,7 @@ export const downloadPatientEducationPDF = (
     // Wound care
     y = checkPageBreak(doc, y, 40);
     y = addSubsectionHeader(doc, 'Wound Care Instructions', y);
-    postop.woundCare.forEach(care => {
+    (Array.isArray(postop.woundCare) ? postop.woundCare : []).forEach((care: any) => {
       y = checkPageBreak(doc, y, 8);
       doc.setFont(PDF_FONTS.primary, 'bold');
       doc.setFontSize(8);
@@ -331,7 +331,7 @@ export const downloadPatientEducationPDF = (
     y += 6;
     doc.text('Medications that may be prescribed:', margin, y);
     y += 4;
-    postop.painManagement.medications.forEach(med => {
+    (postop.painManagement?.medications ?? []).forEach((med: string) => {
       y = checkPageBreak(doc, y, 6);
       y = addBulletPoint(doc, med, margin + 3, y, contentWidth - 3);
     });
@@ -340,7 +340,7 @@ export const downloadPatientEducationPDF = (
     // Activity restrictions
     y = checkPageBreak(doc, y, 40);
     y = addSubsectionHeader(doc, 'Activity Restrictions', y);
-    postop.activityRestrictions.forEach(restriction => {
+    (Array.isArray(postop.activityRestrictions) ? postop.activityRestrictions : []).forEach((restriction: any) => {
       y = checkPageBreak(doc, y, 8);
       const text = `${restriction.activity}: ${restriction.restriction} for ${restriction.duration} - ${restriction.reason}`;
       y = addBulletPoint(doc, text, margin, y, contentWidth);
@@ -350,7 +350,7 @@ export const downloadPatientEducationPDF = (
     // Diet
     y = checkPageBreak(doc, y, 30);
     y = addSubsectionHeader(doc, 'Diet and Nutrition', y);
-    postop.dietaryGuidelines.slice(0, 5).forEach(guideline => {
+    (postop.dietaryGuidelines ?? []).slice(0, 5).forEach((guideline: string) => {
       y = checkPageBreak(doc, y, 6);
       y = addBulletPoint(doc, guideline, margin, y, contentWidth);
     });
@@ -364,7 +364,7 @@ export const downloadPatientEducationPDF = (
 
   // Short term outcomes
   y = addSubsectionHeader(doc, 'Short-Term Outcomes', y);
-  condition.expectedOutcomes.shortTerm.forEach(outcome => {
+  (condition.expectedOutcomes.shortTerm ?? []).forEach((outcome: any) => {
     y = checkPageBreak(doc, y, 12);
     doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(9);
@@ -378,7 +378,7 @@ export const downloadPatientEducationPDF = (
   // Long term outcomes
   y = checkPageBreak(doc, y, 30);
   y = addSubsectionHeader(doc, 'Long-Term Outcomes', y);
-  condition.expectedOutcomes.longTerm.forEach(outcome => {
+  (condition.expectedOutcomes.longTerm ?? []).forEach((outcome: any) => {
     y = checkPageBreak(doc, y, 12);
     doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(9);
@@ -395,7 +395,7 @@ export const downloadPatientEducationPDF = (
   doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   doc.text('Functional Recovery:', margin, y);
-  y = addWrappedText(doc, condition.expectedOutcomes.functionalRecovery, margin + 35, y, contentWidth - 35, 4);
+  y = addWrappedText(doc, condition.expectedOutcomes.functionalRecovery ?? '', margin + 35, y, contentWidth - 35, 4);
   y += 5;
   doc.text('Cosmetic Outcome:', margin, y);
   const cosmeticOutcome = condition.expectedOutcomes.cosmeticOutcome || 'Results vary by individual case';
@@ -420,7 +420,7 @@ export const downloadPatientEducationPDF = (
   y = addSectionHeader(doc, 'Follow-Up Care', y);
 
   y = addSubsectionHeader(doc, 'Appointment Schedule', y);
-  condition.followUpCare.schedule.forEach((appt) => {
+  (condition.followUpCare.schedule ?? []).forEach((appt: any) => {
     y = checkPageBreak(doc, y, 12);
     doc.setFont(PDF_FONTS.primary, 'bold');
     doc.setFontSize(9);

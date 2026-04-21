@@ -277,9 +277,9 @@ class InvestigationApprovalServiceClass {
         tests: [{
           id: uuidv4(),
           name: investigation.typeName || investigation.type as string,
-          category: categoryMap[investigation.category] || 'other',
+          category: (categoryMap[investigation.category] || 'other') as any,
           status: 'pending',
-        }],
+        } as any],
         priority: investigation.priority,
         clinicalInfo: investigation.clinicalDetails || investigation.clinicalInfo || '',
         status: 'pending',
@@ -287,7 +287,7 @@ class InvestigationApprovalServiceClass {
         requestedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as any;
       
       await db.labRequests.add(labRequest);
       syncRecord('labRequests', labRequest as unknown as Record<string, unknown>);

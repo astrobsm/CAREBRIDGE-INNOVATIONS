@@ -95,7 +95,7 @@ export async function generateOrdersSummaryA4PDF(input: OrdersSummaryPDFInput): 
     name: patientName,
     hospitalNumber: hospitalNumber,
   };
-  y = addPatientInfoBox(doc, patientInfo, y);
+  y = addPatientInfoBox(doc, y, patientInfo);
   y += 2;
 
   // ── Report meta line ──
@@ -119,7 +119,7 @@ export async function generateOrdersSummaryA4PDF(input: OrdersSummaryPDFInput): 
 
     // Section heading
     y = checkNewPage(doc, y, 30);
-    y = addSectionTitle(doc, `${orderTypeLabel(type)}s (${group.length})`, y);
+    y = addSectionTitle(doc, y, `${orderTypeLabel(type)}s (${group.length})`);
 
     // Table header
     y = checkNewPage(doc, y, 10);
@@ -214,7 +214,7 @@ export async function generateOrdersSummaryA4PDF(input: OrdersSummaryPDFInput): 
   const activeMeds = orders.filter(o => o.orderType === 'prescription' && (o.status === 'active' || o.status === 'pending'));
   if (activeMeds.length > 0) {
     y = checkNewPage(doc, y, 25);
-    y = addSectionTitle(doc, 'Active Medications Summary', y);
+    y = addSectionTitle(doc, y, 'Active Medications Summary');
     doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(8);
     doc.setTextColor(0, 0, 0);
@@ -241,7 +241,7 @@ export async function generateOrdersSummaryA4PDF(input: OrdersSummaryPDFInput): 
   );
   if (pendingInv.length > 0) {
     y = checkNewPage(doc, y, 25);
-    y = addSectionTitle(doc, 'Pending Investigations Summary', y);
+    y = addSectionTitle(doc, y, 'Pending Investigations Summary');
     doc.setFont(PDF_FONTS.primary, 'normal');
     doc.setFontSize(8);
     doc.setTextColor(0, 0, 0);
@@ -254,7 +254,11 @@ export async function generateOrdersSummaryA4PDF(input: OrdersSummaryPDFInput): 
   }
 
   // ── Footer on all pages ──
-  addBrandedFooter(doc);
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    addBrandedFooter(doc, i, totalPages);
+  }
   addWatermarkToAllPages(doc);
 
   return doc;

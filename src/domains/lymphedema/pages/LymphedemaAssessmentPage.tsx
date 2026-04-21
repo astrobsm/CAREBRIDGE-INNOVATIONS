@@ -245,6 +245,7 @@ export default function LymphedemaAssessmentPage() {
         circumferenceCm: value,
         distanceFromLandmarkCm: point.distanceFromLandmarkCm,
         landmark: point.landmark,
+        measuredAt: new Date(),
       };
       return updated;
     });
