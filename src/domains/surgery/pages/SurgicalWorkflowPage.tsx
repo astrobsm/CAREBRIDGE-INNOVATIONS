@@ -1323,8 +1323,8 @@ export default function SurgicalWorkflowPage() {
         </div>
       </div>
 
-      {/* Section Navigation Tabs - Scrollable */}
-      <div className="bg-white border-b overflow-x-auto">
+      {/* Section Navigation - Horizontal scroll on mobile, hidden on lg (sidebar takes over) */}
+      <div className="bg-white border-b overflow-x-auto lg:hidden">
         <div className="flex min-w-max">
           {SECTIONS.map((section) => {
             const Icon = section.icon;
@@ -1350,8 +1350,49 @@ export default function SurgicalWorkflowPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-5xl mx-auto p-3 sm:p-4">
+      {/* Layout: vertical sidebar (lg+) + content */}
+      <div className="lg:flex lg:items-start lg:gap-4 lg:max-w-7xl lg:mx-auto lg:p-4">
+        {/* Vertical Section Sidebar (lg+) */}
+        <aside className="hidden lg:block lg:w-64 lg:flex-shrink-0 lg:sticky lg:top-4 lg:self-start">
+          <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+            <div className="px-3 py-2 border-b bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-600">
+              Workflow steps
+            </div>
+            <nav className="flex flex-col">
+              {SECTIONS.map((section) => {
+                const Icon = section.icon;
+                const isActive = activeSection === section.id;
+                const isComplete = sectionCompletion[section.id];
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-left border-l-4 transition-colors ${
+                      isActive
+                        ? 'border-blue-600 text-blue-700 bg-blue-50'
+                        : isComplete
+                        ? 'border-green-500 text-green-700 hover:bg-green-50'
+                        : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    {isComplete ? (
+                      <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    ) : (
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                    )}
+                    <span className="truncate">{section.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+            <div className="px-3 py-2 border-t bg-gray-50 text-[11px] text-gray-500">
+              {Object.values(sectionCompletion).filter(Boolean).length} / {SECTIONS.length} completed
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <div className="max-w-5xl mx-auto p-3 sm:p-4 lg:p-0 lg:flex-1 lg:max-w-none lg:min-w-0">
         {/* ==================== SECTION 1: PLANNING ==================== */}
         {activeSection === 'planning' && (
           <div className="space-y-6">
@@ -2962,6 +3003,7 @@ export default function SurgicalWorkflowPage() {
           <span>Section {currentSectionIndex + 1} of {SECTIONS.length}</span>
           <span>{Object.values(sectionCompletion).filter(Boolean).length}/{SECTIONS.length} completed</span>
         </div>
+      </div>
       </div>
     </div>
   );
