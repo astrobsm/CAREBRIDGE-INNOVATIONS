@@ -180,6 +180,46 @@ export const surgicalConsumables: SurgicalConsumable[] = [
     commonUses: ['Burns', 'Skin grafts', 'Donor sites', 'Surgical wounds'],
     notes: 'Non-adherent, various sizes',
   },
+  {
+    id: 'DRESS-011',
+    category: 'dressings',
+    name: 'Hera Wound Gel',
+    unit: 'tube',
+    unitPrice: 3500,
+    description: 'Hydrogel wound dressing for moist wound healing',
+    commonUses: ['Dry wounds', 'Sloughy wounds', 'Minor burns', 'Pressure ulcers'],
+    notes: 'Locally available; promotes autolytic debridement',
+  },
+  {
+    id: 'DRESS-012',
+    category: 'dressings',
+    name: 'Wound Care Honey Gauze',
+    unit: 'piece',
+    unitPrice: 6500,
+    description: 'Medical-grade honey-impregnated gauze dressing',
+    commonUses: ['Infected wounds', 'Chronic ulcers', 'Burns', 'Diabetic foot ulcers'],
+    notes: 'Antimicrobial; supports moist wound healing',
+  },
+  {
+    id: 'DRESS-013',
+    category: 'dressings',
+    name: 'Coban Self-Adherent Bandage 6 inches',
+    unit: 'roll',
+    unitPrice: 7000,
+    description: 'Cohesive self-adherent compression bandage (6")',
+    commonUses: ['Compression therapy', 'Securing dressings', 'Lymphedema', 'Sprains'],
+    notes: 'Sticks to itself, not to skin or hair',
+  },
+  {
+    id: 'DRESS-014',
+    category: 'dressings',
+    name: 'Coban Self-Adherent Bandage 4 inches',
+    unit: 'roll',
+    unitPrice: 4500,
+    description: 'Cohesive self-adherent compression bandage (4")',
+    commonUses: ['Compression therapy', 'Securing dressings', 'Limb support'],
+    notes: 'Sticks to itself, not to skin or hair',
+  },
 
   // NPWT SUPPLIES
   {
@@ -283,6 +323,16 @@ export const surgicalConsumables: SurgicalConsumable[] = [
     description: 'Specialized pack for wound debridement',
     commonUses: ['Surgical debridement', 'Necrotic tissue removal'],
     notes: 'Scalpels, curettes, forceps, scissors',
+  },
+  {
+    id: 'PACK-006',
+    category: 'packs',
+    name: 'Surgical Drapes',
+    unit: 'piece',
+    unitPrice: 5000,
+    description: 'Sterile surgical drape for creating sterile field',
+    commonUses: ['Operative field draping', 'Minor procedures', 'Dressing changes'],
+    notes: 'Disposable; fenestrated and plain variants available',
   },
 
   // SUTURES & NEEDLES
@@ -593,6 +643,16 @@ export const surgicalConsumables: SurgicalConsumable[] = [
     description: 'Sterile water for wound irrigation',
     commonUses: ['Wound cleaning', 'Instrument rinsing'],
     notes: 'Single-use, discard after opening',
+  },
+  {
+    id: 'ANTI-007',
+    category: 'antiseptics',
+    name: 'Wound Clex Solution',
+    unit: 'bottle',
+    unitPrice: 2500,
+    description: 'Antiseptic wound cleansing solution',
+    commonUses: ['Wound irrigation', 'Cleansing chronic wounds', 'Pre-dressing prep'],
+    notes: 'Locally available antiseptic cleanser',
   },
 
   // GENERAL CONSUMABLES

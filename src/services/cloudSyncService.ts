@@ -702,6 +702,9 @@ async function pullAllFromCloud(): Promise<void> {
   // Treatment
   await pullTable(TABLES.treatmentPlans, 'treatmentPlans');
   await pullTable(TABLES.treatmentProgress, 'treatmentProgress');
+  await pullTable(TABLES.treatmentSessions, 'treatmentSessions');
+  await pullTable(TABLES.treatmentReminders, 'treatmentReminders');
+  await pullTable(TABLES.treatmentVoiceNotes, 'treatmentVoiceNotes');
   
   // Ward Rounds & Assignments
   await pullTable(TABLES.wardRounds, 'wardRounds');
@@ -850,6 +853,9 @@ async function pushAllToCloud(): Promise<void> {
   // Treatment
   await pushTable('treatmentPlans', TABLES.treatmentPlans);
   await pushTable('treatmentProgress', TABLES.treatmentProgress);
+  await pushTable('treatmentSessions', TABLES.treatmentSessions);
+  await pushTable('treatmentReminders', TABLES.treatmentReminders);
+  await pushTable('treatmentVoiceNotes', TABLES.treatmentVoiceNotes);
   
   // Ward Rounds & Assignments
   await pushTable('wardRounds', TABLES.wardRounds);
@@ -1378,6 +1384,9 @@ function setupRealtimeSubscriptions() {
     { cloud: TABLES.investigations, local: 'investigations' },
     { cloud: TABLES.treatmentPlans, local: 'treatmentPlans' },
     { cloud: TABLES.treatmentProgress, local: 'treatmentProgress' },
+    { cloud: TABLES.treatmentSessions, local: 'treatmentSessions' },
+    { cloud: TABLES.treatmentReminders, local: 'treatmentReminders' },
+    { cloud: TABLES.treatmentVoiceNotes, local: 'treatmentVoiceNotes' },
     { cloud: TABLES.dischargeSummaries, local: 'dischargeSummaries' },
     { cloud: TABLES.bloodTransfusions, local: 'bloodTransfusions' },
     { cloud: TABLES.postOperativeNotes, local: 'postOperativeNotes' },
@@ -1521,6 +1530,9 @@ function getCloudTableName(localTableName: string): string | null {
     bedAssignments: TABLES.bedAssignments,
     treatmentPlans: TABLES.treatmentPlans,
     treatmentProgress: TABLES.treatmentProgress,
+    treatmentSessions: TABLES.treatmentSessions,
+    treatmentReminders: TABLES.treatmentReminders,
+    treatmentVoiceNotes: TABLES.treatmentVoiceNotes,
     wardRounds: TABLES.wardRounds,
     doctorAssignments: TABLES.doctorAssignments,
     nurseAssignments: TABLES.nurseAssignments,

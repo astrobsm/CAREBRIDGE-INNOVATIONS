@@ -101,10 +101,22 @@ DROP POLICY IF EXISTS "auth_all_treatment_voice_notes" ON public.treatment_voice
 CREATE POLICY "auth_all_treatment_voice_notes" ON public.treatment_voice_notes
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
--- ---------- Realtime ----------
-ALTER PUBLICATION supabase_realtime ADD TABLE public.treatment_sessions;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.treatment_reminders;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.treatment_voice_notes;
+-- ---------- Realtime (idempotent) ----------
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'treatment_sessions') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.treatment_sessions;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'treatment_reminders') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.treatment_reminders;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'treatment_voice_notes') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.treatment_voice_notes;
+  END IF;
+END $$;
 
 -- ---------- updated_at trigger ----------
 CREATE OR REPLACE FUNCTION public.set_updated_at()
@@ -129,3 +141,80 @@ DROP TRIGGER IF EXISTS trg_treatment_voice_notes_updated ON public.treatment_voi
 CREATE TRIGGER trg_treatment_voice_notes_updated
   BEFORE UPDATE ON public.treatment_voice_notes
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- =====================================================
+-- Safety: ensure parent treatment_plans table exists
+-- (created by supabase-schema.sql; this is a no-op if so)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public.treatment_plans (
+  id uuid PRIMARY KEY,
+  patient_id uuid NOT NULL,
+  related_entity_id uuid,
+  related_entity_type text,
+  title text NOT NULL,
+  description text,
+  clinical_goals jsonb DEFAULT '[]',
+  orders jsonb DEFAULT '[]',
+  frequency text,
+  start_date timestamptz,
+  expected_end_date timestamptz,
+  actual_end_date timestamptz,
+  status text DEFAULT 'active',
+  phase text,
+  created_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- ---------- treatment_plans: new columns for scheduling/notifications ----------
+ALTER TABLE public.treatment_plans
+  ADD COLUMN IF NOT EXISTS schedule_rule jsonb,
+  ADD COLUMN IF NOT EXISTS reminder_minutes_before jsonb,
+  ADD COLUMN IF NOT EXISTS default_voice_note_id uuid,
+  ADD COLUMN IF NOT EXISTS notification_preferences jsonb;
+
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_patient ON public.treatment_plans(patient_id);
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_status ON public.treatment_plans(status);
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_related ON public.treatment_plans(related_entity_id, related_entity_type);
+
+-- updated_at trigger for treatment_plans (idempotent)
+DROP TRIGGER IF EXISTS trg_treatment_plans_updated ON public.treatment_plans;
+CREATE TRIGGER trg_treatment_plans_updated
+  BEFORE UPDATE ON public.treatment_plans
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- =====================================================
+-- Foreign keys (added after all tables exist; idempotent)
+-- =====================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_sessions_plan') THEN
+    ALTER TABLE public.treatment_sessions
+      ADD CONSTRAINT fk_treatment_sessions_plan
+      FOREIGN KEY (treatment_plan_id) REFERENCES public.treatment_plans(id) ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_reminders_session') THEN
+    ALTER TABLE public.treatment_reminders
+      ADD CONSTRAINT fk_treatment_reminders_session
+      FOREIGN KEY (treatment_session_id) REFERENCES public.treatment_sessions(id) ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_reminders_plan') THEN
+    ALTER TABLE public.treatment_reminders
+      ADD CONSTRAINT fk_treatment_reminders_plan
+      FOREIGN KEY (treatment_plan_id) REFERENCES public.treatment_plans(id) ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_voice_notes_session') THEN
+    ALTER TABLE public.treatment_voice_notes
+      ADD CONSTRAINT fk_treatment_voice_notes_session
+      FOREIGN KEY (treatment_session_id) REFERENCES public.treatment_sessions(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_voice_notes_plan') THEN
+    ALTER TABLE public.treatment_voice_notes
+      ADD CONSTRAINT fk_treatment_voice_notes_plan
+      FOREIGN KEY (treatment_plan_id) REFERENCES public.treatment_plans(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+-- =====================================================
+-- Done. Re-runnable: all statements are idempotent.
+-- =====================================================
