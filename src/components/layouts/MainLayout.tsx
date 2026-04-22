@@ -111,14 +111,14 @@ export default function MainLayout() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-gray-50 flex flex-col">
       {/* Assignment Notification Banner - for voice notifications */}
       <AssignmentNotificationBanner />
       
       {/* Offline/Sync Status Banner */}
       <OfflineBanner />
       
-      <div className="flex-1 flex">
+      <div className="flex-1 flex min-h-0">
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div
@@ -131,11 +131,11 @@ export default function MainLayout() {
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         {/* Main content area */}
-        <div className="flex-1 lg:pl-72 flex flex-col">
+        <div className="flex-1 lg:pl-72 flex flex-col min-h-0 min-w-0">
           <Header onMenuClick={() => setSidebarOpen(true)} />
-          
-          <main className="flex-1 py-6">
-            <div className="px-4 sm:px-6 lg:px-8">
+
+          <main className="flex-1 overflow-y-auto py-6">
+            <div className="px-4 sm:px-6 lg:px-8 flex flex-col gap-4 w-full max-w-full">
               <Outlet />
             </div>
           </main>

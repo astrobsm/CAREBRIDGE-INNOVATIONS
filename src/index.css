@@ -537,3 +537,129 @@
 .animate-urgent-flash {
   animation: urgent-flash 1s ease-in-out infinite;
 }
+
+/* ==========================================
+   GLOBAL VERTICAL / SCROLLABLE FORM & PAGE LAYOUT
+   Make every page and form vertically aligned,
+   dynamic, scrollable, and accessible without
+   touching individual page components.
+   ========================================== */
+
+html {
+  /* Anchored fields (clicked tabs, validation errors) land below sticky headers */
+  scroll-padding-top: 96px;
+  scroll-padding-bottom: 96px;
+}
+
+body {
+  /* Smooth global scrolling */
+  scroll-behavior: smooth;
+}
+
+/* Ensure the main routed content area can scroll the full viewport */
+main {
+  /* Reserve room for soft keyboard / mobile bottom nav */
+  padding-bottom: calc(6rem + var(--spacing-safe-bottom));
+}
+
+/* Form fields, labels, headings get scroll margin so they aren't hidden
+   under sticky toolbars when the user navigates / focuses them. */
+input, select, textarea, label,
+[role="tabpanel"] > h1,
+[role="tabpanel"] > h2,
+[role="tabpanel"] > h3,
+section > h1,
+section > h2,
+section > h3 {
+  scroll-margin-top: 96px;
+}
+
+/* Native form elements: enforce comfortable height + full width on mobile
+   without overriding existing Tailwind classes (keeps existing styling). */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    min-height: 44px;
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+}
+
+/* Vertical-stack helper — opt-in via `.form-vertical` on a <form> or wrapper.
+   Forces all immediate grids inside to single column with consistent gap. */
+.form-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+.form-vertical .grid {
+  grid-template-columns: 1fr !important;
+}
+
+/* Dynamic page wrapper — opt-in via `.page-stack` for new pages. */
+.page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 100%;
+  width: 100%;
+}
+
+/* Style scrollbars so long forms feel responsive */
+@media (min-width: 1024px) {
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(99, 102, 241, 0.35);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(79, 70, 229, 0.6);
+    background-clip: padding-box;
+  }
+}
+
+/* Visible focus ring for accessibility on every interactive element */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 2px solid rgb(var(--color-primary));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* On small screens, force any 2/3/4-column form grid INSIDE a <form> to stack
+   vertically so every field is visible and easy to tap. Existing
+   responsive `md:grid-cols-*` layouts on lg screens are preserved. */
+@media (max-width: 767px) {
+  form .grid.grid-cols-2,
+  form .grid.grid-cols-3,
+  form .grid.grid-cols-4,
+  form .md\:grid-cols-2,
+  form .md\:grid-cols-3,
+  form .md\:grid-cols-4 {
+    grid-template-columns: 1fr !important;
+  }
+  form fieldset {
+    width: 100%;
+  }
+}
+
+/* Ensure modals/dialogs always scroll their body content when content overflows */
+[role="dialog"] {
+  max-height: 100vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
