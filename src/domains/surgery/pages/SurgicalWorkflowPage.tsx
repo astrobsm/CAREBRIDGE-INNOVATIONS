@@ -28,7 +28,7 @@ import { db } from '../../../database/db';
 import { SurgeryOps, InvestigationOps, ConsumableBOMOps, PrescriptionOps } from '../../../database/operations';
 import { useAuth } from '../../../contexts/AuthContext';
 import { searchProcedures, formatNaira } from '../../../data/surgicalFees';
-import { searchConsumables, consumableCategories } from '../../../data/surgicalConsumables';
+import { searchConsumables, consumableCategories, getConsumablesByCategory, getConsumableById } from '../../../data/surgicalConsumables';
 import jsPDF from 'jspdf';
 import {
   ChevronLeft, ChevronRight, Check, Clock, FileText,
@@ -745,6 +745,8 @@ export default function SurgicalWorkflowPage() {
 
   const filteredProcedures = procedureSearch.length > 1 ? searchProcedures(procedureSearch) : [];
   const filteredConsumables = consumableSearch.length > 1 ? searchConsumables(consumableSearch) : [];
+  const [activeConsumableCategory, setActiveConsumableCategory] = useState<string | null>(null);
+  const categoryConsumables = activeConsumableCategory ? getConsumablesByCategory(activeConsumableCategory) : [];
 
   const surgeons = allUsers?.filter(u => ['surgeon', 'plastic_surgeon', 'doctor', 'consultant'].includes(u.role)) || [];
   const anaesthetists = allUsers?.filter(u => u.role === 'anaesthetist') || [];
@@ -866,16 +868,19 @@ export default function SurgicalWorkflowPage() {
         patientId,
         serviceType: 'other',
         serviceName: selectedProcedure || 'Surgical Procedure',
-        consumables: selectedConsumables.map(c => ({
-          id: c.id,
-          name: c.name,
-          category: 'other' as any,
-          quantity: c.quantity,
-          unit: 'piece',
-          unitPrice: c.unitPrice,
-          totalPrice: c.quantity * c.unitPrice,
-          isReusable: false,
-        })),
+        consumables: selectedConsumables.map(c => {
+          const meta = getConsumableById(c.id);
+          return {
+            id: c.id,
+            name: c.name,
+            category: (meta?.category || 'other') as any,
+            quantity: c.quantity,
+            unit: meta?.unit || 'piece',
+            unitPrice: c.unitPrice,
+            totalPrice: c.quantity * c.unitPrice,
+            isReusable: false,
+          };
+        }),
         professionalFees: [],
         consumablesTotal,
         professionalFeesTotal: 0,
@@ -2030,12 +2035,32 @@ export default function SurgicalWorkflowPage() {
                 <h3 className="text-sm font-bold text-gray-800 mb-2">Quick Add by Category</h3>
                 <div className="flex flex-wrap gap-2">
                   {consumableCategories.map(cat => (
-                    <button key={cat.id} onClick={() => setConsumableSearch(cat.name)}
-                      className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-full">
+                    <button key={cat.id} onClick={() => {
+                      setActiveConsumableCategory(prev => prev === cat.id ? null : cat.id);
+                      setConsumableSearch('');
+                    }}
+                      className={`text-xs px-3 py-1.5 rounded-full border ${activeConsumableCategory === cat.id ? 'bg-blue-600 text-white border-blue-700' : 'bg-gray-100 hover:bg-gray-200 border-gray-200'}`}>
                       {cat.name}
                     </button>
                   ))}
                 </div>
+                {activeConsumableCategory && categoryConsumables.length > 0 && (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-72 overflow-y-auto">
+                    {categoryConsumables.map(c => {
+                      const already = !!selectedConsumables.find(sc => sc.id === c.id);
+                      return (
+                        <button key={c.id} onClick={() => {
+                          if (!already) setSelectedConsumables(prev => [...prev, { id: c.id, name: c.name, quantity: 1, unitPrice: c.unitPrice }]);
+                        }} disabled={already}
+                          className={`text-left text-xs border rounded-lg px-3 py-2 ${already ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'hover:bg-blue-50 border-gray-200'}`}>
+                          <div className="font-medium text-gray-900">{c.name}</div>
+                          <div className="text-gray-600">{formatNaira(c.unitPrice)} / {c.unit}</div>
+                          {already && <div className="text-[10px] text-emerald-700 mt-0.5">Added</div>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Selected consumables table */}
