@@ -185,33 +185,82 @@ CREATE TRIGGER trg_treatment_plans_updated
 
 -- =====================================================
 -- Foreign keys (added after all tables exist; idempotent)
+-- Skipped automatically if parent/child column types differ
+-- (e.g. legacy treatment_plans.id stored as text).
 -- =====================================================
 DO $$
+DECLARE
+  plans_id_type text;
+  sessions_plan_type text;
+  reminders_session_type text;
+  reminders_plan_type text;
+  vn_session_type text;
+  vn_plan_type text;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_sessions_plan') THEN
+  SELECT data_type INTO plans_id_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'treatment_plans' AND column_name = 'id';
+  SELECT data_type INTO sessions_plan_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'treatment_sessions' AND column_name = 'treatment_plan_id';
+  SELECT data_type INTO reminders_session_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'treatment_reminders' AND column_name = 'treatment_session_id';
+  SELECT data_type INTO reminders_plan_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'treatment_reminders' AND column_name = 'treatment_plan_id';
+  SELECT data_type INTO vn_session_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'treatment_voice_notes' AND column_name = 'treatment_session_id';
+  SELECT data_type INTO vn_plan_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'treatment_voice_notes' AND column_name = 'treatment_plan_id';
+
+  -- sessions -> plans
+  IF plans_id_type = sessions_plan_type
+     AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_sessions_plan') THEN
     ALTER TABLE public.treatment_sessions
       ADD CONSTRAINT fk_treatment_sessions_plan
       FOREIGN KEY (treatment_plan_id) REFERENCES public.treatment_plans(id) ON DELETE CASCADE;
+  ELSIF plans_id_type <> sessions_plan_type THEN
+    RAISE NOTICE 'Skipping fk_treatment_sessions_plan: type mismatch (plans.id=%, sessions.treatment_plan_id=%)',
+      plans_id_type, sessions_plan_type;
   END IF;
+
+  -- reminders -> sessions  (both created here as uuid; safe)
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_reminders_session') THEN
     ALTER TABLE public.treatment_reminders
       ADD CONSTRAINT fk_treatment_reminders_session
       FOREIGN KEY (treatment_session_id) REFERENCES public.treatment_sessions(id) ON DELETE CASCADE;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_reminders_plan') THEN
+
+  -- reminders -> plans
+  IF plans_id_type = reminders_plan_type
+     AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_reminders_plan') THEN
     ALTER TABLE public.treatment_reminders
       ADD CONSTRAINT fk_treatment_reminders_plan
       FOREIGN KEY (treatment_plan_id) REFERENCES public.treatment_plans(id) ON DELETE CASCADE;
+  ELSIF plans_id_type <> reminders_plan_type THEN
+    RAISE NOTICE 'Skipping fk_treatment_reminders_plan: type mismatch (plans.id=%, reminders.treatment_plan_id=%)',
+      plans_id_type, reminders_plan_type;
   END IF;
+
+  -- voice_notes -> sessions
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_voice_notes_session') THEN
     ALTER TABLE public.treatment_voice_notes
       ADD CONSTRAINT fk_treatment_voice_notes_session
       FOREIGN KEY (treatment_session_id) REFERENCES public.treatment_sessions(id) ON DELETE SET NULL;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_voice_notes_plan') THEN
+
+  -- voice_notes -> plans
+  IF plans_id_type = vn_plan_type
+     AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_treatment_voice_notes_plan') THEN
     ALTER TABLE public.treatment_voice_notes
       ADD CONSTRAINT fk_treatment_voice_notes_plan
       FOREIGN KEY (treatment_plan_id) REFERENCES public.treatment_plans(id) ON DELETE SET NULL;
+  ELSIF plans_id_type <> vn_plan_type THEN
+    RAISE NOTICE 'Skipping fk_treatment_voice_notes_plan: type mismatch (plans.id=%, voice_notes.treatment_plan_id=%)',
+      plans_id_type, vn_plan_type;
   END IF;
 END $$;
 
