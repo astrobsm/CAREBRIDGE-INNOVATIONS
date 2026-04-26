@@ -12,6 +12,7 @@ interface Props {
 export default function AcidBaseCalculator({ patientInfo: _patientInfo }: Props) {
   const [ph, setPh] = useState('');
   const [pco2, setPco2] = useState('');
+  const [pco2Unit, setPco2Unit] = useState<'mmHg' | 'kPa'>('mmHg');
   const [hco3, setHco3] = useState('');
   const [sodium, setSodium] = useState('140');
   const [chloride, setChloride] = useState('100');
@@ -20,7 +21,9 @@ export default function AcidBaseCalculator({ patientInfo: _patientInfo }: Props)
 
   const calculateAcidBase = () => {
     const phValue = parseFloat(ph);
-    const pco2Value = parseFloat(pco2);
+    const pco2Raw = parseFloat(pco2);
+    // Compensation formulas (Winter’s, Schwartz) require mmHg. Convert kPa → mmHg (× 7.50062)
+    const pco2Value = pco2Unit === 'kPa' ? pco2Raw * 7.50062 : pco2Raw;
     const hco3Value = parseFloat(hco3);
     const naValue = parseFloat(sodium);
     const clValue = parseFloat(chloride);
@@ -309,21 +312,34 @@ export default function AcidBaseCalculator({ patientInfo: _patientInfo }: Props)
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
-            PCO2 (mmHg) *
+            PCO<sub>2</sub> *
           </label>
-          <input
-            type="number"
-            value={pco2}
-            onChange={(e) => setPco2(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
-            placeholder="e.g., 55"
-            step="1"
-          />
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={pco2}
+              onChange={(e) => setPco2(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
+              placeholder={pco2Unit === 'mmHg' ? 'e.g., 55' : 'e.g., 7.3'}
+              step={pco2Unit === 'mmHg' ? '1' : '0.1'}
+            />
+            <select
+              title="PCO2 unit"
+              aria-label="PCO2 unit"
+              value={pco2Unit}
+              onChange={(e) => setPco2Unit(e.target.value as 'mmHg' | 'kPa')}
+              className="px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900 text-sm"
+            >
+              <option value="mmHg">mmHg</option>
+              <option value="kPa">kPa</option>
+            </select>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">1 kPa = 7.50 mmHg (SI)</p>
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
-            HCO3 (mEq/L) *
+            HCO<sub>3</sub><sup>−</sup> (mmol/L) *
           </label>
           <input
             type="number"

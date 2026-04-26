@@ -30,7 +30,7 @@ export default function SodiumCalculator({ patientInfo }: Props) {
       return;
     }
 
-    // Calculate TBW based on gender/age
+    // TBW factors per Watson/Hume + Verbalis 2013 (Eur J Endo): adult M 0.60, adult F 0.50, elderly M 0.50, elderly F 0.45
     let tbwFactor = 0.6;
     if (gender === 'female') tbwFactor = 0.5;
     if (gender === 'elderly-male') tbwFactor = 0.5;
@@ -92,9 +92,9 @@ export default function SodiumCalculator({ patientInfo }: Props) {
         fluidStrategy = 'SIADH/volume overload protocol. Treat underlying cause. Consider loop diuretic if hypervolemic.';
       }
 
-      if (current < 120 && hasSymptoms) {
-        fluidType = '3% Hypertonic Saline (or 0.9% NS if unavailable) + Urgent specialist review';
-        fluidStrategy = 'EMERGENCY: Severe symptomatic hyponatremia. Target 1-2 mEq/L increase in first hour, then slow correction. ICU admission required.';
+      if (current < 125 && hasSymptoms) {
+        fluidType = '3% NaCl 150 mL IV bolus over 10 min (repeat ×2 if needed) — ICU/HDU admission';
+        fluidStrategy = 'EUROPEAN/US 2014 CONSENSUS (Spasovski G et al, Eur J Endocrinol 2014; Verbalis 2013): For severe symptomatic hyponatraemia (seizure, coma, GCS<8) give 3% NaCl 150 mL (or 2 mL/kg if <50 kg) IV over 10 min. Re-check Na+ after 20 min and repeat bolus up to 2 more times until symptoms resolve OR Na+ rises by 5 mmol/L. Then STOP active correction. If 3% NaCl unavailable: refer urgently — 0.9% NS may worsen euvolaemic/SIADH hyponatraemia. Target total rise ≤8-10 mmol/L in first 24 h. Insert urinary catheter; if urine output >100 mL/hr (autocorrection risk) consider DDAVP 2 mcg IV + 5% dextrose 6 mL/kg over 1-2 h to relower.'
       }
     } else if (current > 145) {
       // Hypernatremia
@@ -113,8 +113,8 @@ export default function SodiumCalculator({ patientInfo }: Props) {
       waterDeficit = tbw * ((current / 140) - 1);
     }
 
-    // Calculate predicted Na+ change per liter of 0.9% NS (Adie-Conan Formula)
-    const infusateNa = 154; // 0.9% Normal Saline
+    // Adrogué–Madias formula (NEJM 2000;342:1581): Δ[Na+] per L infused = (infusate Na − serum Na) / (TBW + 1)
+    const infusateNa = 154; // 0.9% NaCl
     const changePerLiterNS = (infusateNa - current) / (tbw + 1);
 
     // Calculate volume of 0.9% NS needed
@@ -173,11 +173,13 @@ export default function SodiumCalculator({ patientInfo }: Props) {
           <div className="text-xs sm:text-sm text-gray-700">
             <p className="font-semibold mb-1">WHO Safety Guidelines for Sodium Correction</p>
             <ul className="list-disc ml-4 space-y-0.5 sm:space-y-1">
-              <li>Max correction: 6-8 mEq/L per 24 hours (NEVER exceed 10-12 mEq/L)</li>
-              <li>High-risk patients (chronic, alcoholism, malnourished): ≤6 mEq/L per 24h</li>
-              <li>Monitor serum sodium every 2-4 hours during active correction</li>
-              <li>Hypernatremia: Correct at ≤0.5 mEq/L/hr to prevent cerebral edema</li>
-              <li>Use 0.9% NS when hypertonic saline unavailable (WHO resource-adapted protocol)</li>
+              <li><strong>Hyponatraemia ceiling:</strong> ≤10 mmol/L in any 24 h, ≤18 mmol/L in any 48 h (Spasovski 2014, Verbalis 2013)</li>
+              <li><strong>High ODS risk</strong> (chronic Na+ &lt;105, alcoholism, malnutrition, hypoK, liver disease): target ≤8 mmol/L/24h</li>
+              <li><strong>Severe symptoms</strong> (seizure/coma): 3% NaCl 150 mL bolus ×10 min, repeat ×2 PRN. Stop after 5 mmol/L rise OR symptom resolution</li>
+              <li>Monitor Na+ at 1, 6, 12 h then 4-hourly during active correction</li>
+              <li><strong>Over-correction rescue:</strong> if Na+ rises &gt;10 mmol/L/24h → stop hypertonic, give 5% dextrose 6 mL/kg over 1-2 h ± DDAVP 2-4 mcg IV q6-8h</li>
+              <li><strong>Hypernatraemia:</strong> Correct at ≤0.5 mmol/L/hr (≤10 mmol/L/24h) to prevent cerebral oedema</li>
+              <li>0.9% NS is NOT a substitute for 3% NaCl in symptomatic hyponatraemia — refer urgently if hypertonic saline unavailable</li>
             </ul>
           </div>
         </div>
@@ -350,7 +352,7 @@ export default function SodiumCalculator({ patientInfo }: Props) {
               <div className="bg-purple-50 rounded-lg p-4">
                 <p className="text-sm text-gray-600 mb-1">Na+ Change per L (0.9% NS)</p>
                 <p className="text-xl font-bold text-purple-600">{result.changePerLiterNS} mEq/L</p>
-                <p className="text-xs text-gray-500 mt-1">Adie-Conan Formula</p>
+                <p className="text-xs text-gray-500 mt-1">Adrogué–Madias formula</p>
               </div>
 
               <div className="bg-blue-50 rounded-lg p-4">

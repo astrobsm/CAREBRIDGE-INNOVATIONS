@@ -12,6 +12,7 @@ interface Props {
 
 export default function GFRCalculator({ patientInfo }: Props) {
   const [creatinine, setCreatinine] = useState('');
+  const [creatinineUnit, setCreatinineUnit] = useState<'mg/dL' | 'umol/L'>('mg/dL');
   const [age, setAge] = useState(patientInfo.age || '');
   const [gender, setGender] = useState<'male' | 'female'>(
     patientInfo.gender === 'female' || patientInfo.gender === 'elderly-female' ? 'female' : 'male'
@@ -21,7 +22,10 @@ export default function GFRCalculator({ patientInfo }: Props) {
   const [result, setResult] = useState<GFRResult | null>(null);
 
   const calculateGFR = () => {
-    const cr = parseFloat(creatinine);
+    const creatinineRaw = parseFloat(creatinine);
+    // Convert to mg/dL for the formulas (CKD-EPI 2021 & Cockcroft-Gault expect mg/dL)
+    // Conversion factor: 1 mg/dL = 88.4 µmol/L (IFCC). Reverse: µmol/L ÷ 88.4 = mg/dL
+    const cr = creatinineUnit === 'umol/L' ? creatinineRaw / 88.4 : creatinineRaw;
     const ageValue = parseFloat(age);
     const wt = parseFloat(weight);
 
@@ -221,17 +225,29 @@ export default function GFRCalculator({ patientInfo }: Props) {
       <div className="grid grid-cols-2 gap-3 sm:gap-6 mb-4 sm:mb-6">
         <div>
           <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
-            Creatinine (mg/dL) *
+            Creatinine *
           </label>
-          <input
-            type="number"
-            value={creatinine}
-            onChange={(e) => setCreatinine(e.target.value)}
-            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900 text-sm"
-            placeholder="e.g., 1.2"
-            step="0.01"
-          />
-          <p className="text-xs text-gray-500 mt-1 hidden sm:block">μmol/L × 0.0113 = mg/dL</p>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={creatinine}
+              onChange={(e) => setCreatinine(e.target.value)}
+              className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900 text-sm"
+              placeholder={creatinineUnit === 'mg/dL' ? 'e.g., 1.2' : 'e.g., 106'}
+              step="0.01"
+            />
+            <select
+              title="Creatinine unit"
+              aria-label="Creatinine unit"
+              value={creatinineUnit}
+              onChange={(e) => setCreatinineUnit(e.target.value as 'mg/dL' | 'umol/L')}
+              className="px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900 text-sm"
+            >
+              <option value="mg/dL">mg/dL</option>
+              <option value="umol/L">µmol/L</option>
+            </select>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Conversion: 1 mg/dL = 88.4 µmol/L (IFCC SI)</p>
         </div>
 
         <div>

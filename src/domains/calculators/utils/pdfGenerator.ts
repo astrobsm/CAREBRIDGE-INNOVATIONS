@@ -167,10 +167,12 @@ export function generateSodiumPDF(result: SodiumResult, patientInfo: PatientCalc
   doc.setFont(PDF_FONTS.primary, 'normal');
   doc.setFontSize(9);
   const guidelines = [
-    '• Max correction: 6-8 mEq/L per 24 hours (NEVER exceed 10-12 mEq/L)',
-    '• High-risk patients: ≤6 mEq/L per 24h',
-    '• Monitor serum sodium every 2-4 hours during active correction',
-    '• Hypernatremia: Correct at ≤0.5 mEq/L/hr',
+    '• Hyponatraemia: max 10 mmol/L in 24 h, 18 mmol/L in 48 h (Spasovski 2014)',
+    '• High ODS risk (chronic, alcoholism, malnutrition, low K+): ≤8 mmol/L/24h',
+    '• Severe symptoms: 3% NaCl 150 mL bolus over 10 min x up to 3',
+    '• Monitor Na+ at 1, 6, 12 h then 4-hourly',
+    '• Over-correction rescue: 5% dextrose 6 mL/kg +/- DDAVP 2-4 mcg',
+    '• Hypernatraemia: correct at <=0.5 mmol/L/hr (<=10 mmol/L/24h)',
   ];
   guidelines.forEach((g, i) => {
     doc.text(g, 20, yPos + 16 + (i * 5));

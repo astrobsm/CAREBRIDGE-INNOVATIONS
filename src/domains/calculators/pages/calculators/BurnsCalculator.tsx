@@ -74,8 +74,12 @@ export default function BurnsCalculator({ patientInfo }: Props) {
   };
 
   const calculateParkland = (tbsa: number, weightKg: number) => {
-    // Parkland Formula: 4mL × weight (kg) × %TBSA
-    const totalFluid = 4 * weightKg * tbsa;
+    // ISBI/ABA 2016 starting dose: 2 mL/kg/%TBSA (Modified Brooke / ABA range) for adults & children >=14 yrs
+    // Parkland upper bound (4 mL/kg/%TBSA) shown as range to allow titration. Titrate to UO 0.5 mL/kg/h (adults), 1 mL/kg/h (peds <30 kg).
+    const startingTotal = 2 * weightKg * tbsa; // ABA starting dose
+    const parklandTotal = 4 * weightKg * tbsa; // Upper bound (classic Parkland)
+    // Use starting (lower bound) for hourly rate calculation; clinician titrates upward as needed
+    const totalFluid = startingTotal;
     const first8Hours = totalFluid / 2;
     const next16Hours = totalFluid / 2;
     const hourlyFirst8 = first8Hours / 8;
@@ -83,6 +87,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
     
     return {
       totalFluid24h: Math.round(totalFluid),
+      parklandUpperBound24h: Math.round(parklandTotal),
       first8Hours: Math.round(first8Hours),
       next16Hours: Math.round(next16Hours),
       hourlyFirst8: Math.round(hourlyFirst8),
@@ -211,13 +216,19 @@ export default function BurnsCalculator({ patientInfo }: Props) {
         : ['Early surgical referral required', 'Escharotomy if circumferential', 'Tangential excision and grafting needed', 'Temporary coverage with biological dressings'];
     
     // Monitoring parameters
+    // Paediatric maintenance: 4-2-1 rule (4 mL/kg/h first 10 kg, 2 mL/kg/h next 10 kg, 1 mL/kg/h thereafter) ADDED to resuscitation fluid for children <30 kg
+    // Electrical injury / rhabdomyolysis: target UO 1-1.5 mL/kg/h until myoglobinuria clears
+    const isPaediatric = isChild || ageValue < 14;
     const monitoring = [
-      'Urine output: Target 0.5-1mL/kg/h (adults), 1-2mL/kg/h (children)',
-      'Vital signs: HR, BP, RR, SpO2, Temperature q1h initially',
-      'Daily weights and fluid balance',
-      'Hb, WBC, electrolytes, creatinine every 12-24h',
-      'Blood glucose monitoring in major burns',
-      `Target urine output: ${Math.round(0.5 * weightKg)}-${Math.round(weightKg)}mL/h`,
+      `Urine output target: ${isPaediatric ? '1-2 mL/kg/h (paediatric)' : '0.5-1 mL/kg/h (adult)'} — titrate fluids to this endpoint`,
+      'For HIGH-VOLTAGE ELECTRICAL injury or rhabdomyolysis (CK >5000): target UO 1-1.5 mL/kg/h; consider sodium bicarbonate to alkalinise urine pH >6.5',
+      isPaediatric ? `Paediatric maintenance fluid (4-2-1 rule) IN ADDITION to resuscitation: ~${(weightKg <= 10 ? 4 * weightKg : weightKg <= 20 ? 40 + 2 * (weightKg - 10) : 60 + (weightKg - 20)).toFixed(0)} mL/h` : 'No additional maintenance for adults during first 24 h',
+      'Vital signs (HR, BP, RR, SpO2, temp) every 1 h; arterial line if TBSA >20%',
+      'Daily weights and strict fluid balance; monitor lactate q4h — falling lactate indicates adequate resuscitation',
+      'FBC, U&E, creatinine, CK (if electrical), ABG, lactate every 6-12 h initially',
+      'Capillary glucose 4-hourly in burns >20% TBSA (insulin resistance & hypermetabolic state)',
+      `Calculated UO target range: ${Math.round((isPaediatric ? 1 : 0.5) * weightKg)}-${Math.round((isPaediatric ? 2 : 1) * weightKg)} mL/h`,
+      'AVOID over-resuscitation (“fluid creep”): reduce hourly rate by 25% if UO consistently >1.5 mL/kg/h (adult) or >2 mL/kg/h (paeds)',
     ];
     
     // Tetanus
@@ -505,9 +516,11 @@ export default function BurnsCalculator({ patientInfo }: Props) {
               {/* Fluid Requirement */}
               <div className="bg-blue-100 rounded-lg p-4 text-center">
                 <Droplets className="w-6 h-6 mx-auto text-blue-600 mb-1" />
-                <p className="text-2xl font-bold">{result.parklandFluid?.totalFluid24h?.toLocaleString() || 0} mL</p>
-                <p className="font-semibold text-sm">24-hour Fluid (Parkland)</p>
-                <p className="text-xs text-gray-600">Ringer's Lactate</p>
+                <p className="text-2xl font-bold">
+                  {result.parklandFluid?.totalFluid24h?.toLocaleString() || 0}–{result.parklandFluid?.parklandUpperBound24h?.toLocaleString() || 0} mL
+                </p>
+                <p className="font-semibold text-sm">24-h Fluid Range (ABA → Parkland)</p>
+                <p className="text-xs text-gray-600">Lactated Ringer’s — titrate to UO</p>
               </div>
             </div>
 
@@ -538,8 +551,8 @@ export default function BurnsCalculator({ patientInfo }: Props) {
                   TIME ADJUSTMENT: {result.fluidAdjustment}
                 </p>
               )}
-              <p className="mt-2 text-xs text-gray-600">
-                Note: Fluid should be titrated to maintain urine output 0.5-1 mL/kg/h (adults) or 1-2 mL/kg/h (children)
+              <p className="mt-2 text-xs text-gray-700">
+                <strong>Starting dose shown is ABA-recommended 2 mL/kg/%TBSA</strong> (ISBI 2016, ABA 2016) to mitigate “fluid creep”. Classic Parkland upper bound is {result.parklandFluid?.parklandUpperBound24h?.toLocaleString() || 0} mL/24 h. Titrate hourly rate to maintain urine output 0.5–1 mL/kg/h (adults) or 1–2 mL/kg/h (children &lt;30 kg). For high-voltage electrical injury or rhabdomyolysis: target UO 1–1.5 mL/kg/h.
               </p>
             </div>
 

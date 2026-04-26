@@ -51,17 +51,17 @@ export default function PotassiumCalculator({ patientInfo }: Props) {
         if (oralIntakeOk) {
           replacementPlan = [
             'Oral potassium supplementation preferred',
-            'KCl 20-40 mEq (1.5-3g) PO 2-4 times daily with food',
-            'Potassium-rich foods: bananas, oranges, potatoes, spinach',
+            'KCl 20-40 mmol (1.5-3 g) PO 2-4 times daily with food',
+            'Potassium-rich foods: bananas, oranges, plantain, spinach, beans',
             'Re-check K+ in 24-48 hours',
           ];
         } else {
           replacementPlan = [
-            'IV KCl 10-20 mEq/hour (max 40 mEq/L in peripheral line)',
-            'Total daily dose: 40-80 mEq IV over 4-8 hours',
-            'Monitor cardiac rhythm',
+            'IV KCl 10 mmol/h via peripheral line (max conc 40 mmol/L — phlebitis above this)',
+            'Total daily dose: 40-80 mmol IV over 4-8 hours',
+            'Continuous cardiac monitoring not mandatory at ≤10 mmol/h',
           ];
-          infusionRate = '10-20 mEq/hour via peripheral line';
+          infusionRate = '10 mmol/h peripheral (max conc 40 mmol/L)';
         }
       } else if (current >= 2.5) {
         severity = 'Moderate Hypokalemia';
@@ -70,13 +70,14 @@ export default function PotassiumCalculator({ patientInfo }: Props) {
         
         replacementPlan = [
           'IV potassium replacement required',
-          'KCl 20-40 mEq/hour via central line (preferred)',
-          'OR KCl 10 mEq/hour via peripheral line (max concentration 40 mEq/L)',
-          'Total replacement: 100-200 mEq over 24 hours',
-          'Continuous cardiac monitoring required',
-          'Re-check K+ every 2-4 hours during replacement',
+          'KCl 20 mmol/h via central line in monitored area. Up to 40 mmol/h ONLY in HDU/ICU with continuous ECG',
+          'OR KCl 10 mmol/h via peripheral line (max conc 40 mmol/L)',
+          'Total replacement: 100-200 mmol over 24 h',
+          'Continuous cardiac monitoring at any rate ≥20 mmol/h',
+          'ALWAYS check & replace magnesium (MgSO4 2 g IV over 20 min) — hypoMg causes refractory hypoK',
+          'Re-check K+ every 2-4 h during replacement',
         ];
-        infusionRate = '20-40 mEq/hour via central line';
+        infusionRate = '20 mmol/h central line (40 mmol/h ICU only)';
         
         ecgFindings = [
           'Flattened T waves',
@@ -90,15 +91,15 @@ export default function PotassiumCalculator({ patientInfo }: Props) {
         deficit = '400-800';
         
         replacementPlan = [
-          '⚠️ EMERGENCY: ICU admission required',
-          'IV KCl 40 mEq/hour via central line (cardiac monitoring mandatory)',
-          'Max rate: 40 mEq/hour (can go higher in life-threatening arrhythmias with ICU monitoring)',
-          'Prepare calcium gluconate for cardioprotection if arrhythmias present',
-          'Check magnesium - hypomagnesemia impairs K+ correction',
-          'Replace magnesium if low (MgSO4 2g IV over 20 mins)',
-          'Hourly K+ monitoring until >3.0 mEq/L',
+          '⚠️ EMERGENCY: ICU/HDU admission with continuous ECG',
+          'IV KCl 20-40 mmol/h via central line — NEVER exceed 40 mmol/h except in cardiac arrest',
+          'ALWAYS replace magnesium concurrently: MgSO4 2 g IV over 20 min (4 g if K+ <2.0)',
+          'AVOID dextrose-containing diluents (↑ endogenous insulin worsens hypoK)',
+          'Treat arrhythmias as per ALS algorithm; calcium gluconate is NOT cardioprotective in hypoK',
+          'Hourly K+ until >3.0 mmol/L, then 2-4 hourly',
+          'In Torsades: MgSO4 2 g IV bolus, defibrillate if pulseless',
         ];
-        infusionRate = '40 mEq/hour via central line (max)';
+        infusionRate = '20-40 mmol/h central line (ICU only)';
         
         ecgFindings = [
           'Severe T wave flattening/inversion',
@@ -125,9 +126,11 @@ export default function PotassiumCalculator({ patientInfo }: Props) {
       ];
       
       contraindications = [
-        'Avoid rapid IV bolus (risk of cardiac arrest)',
-        'Max peripheral IV concentration: 40 mEq/L',
-        'Do not give IV potassium if anuric without dialysis backup',
+        'NEVER give IV K+ as bolus or push — risk of fatal cardiac arrest',
+        'Max peripheral concentration: 40 mmol/L (higher → phlebitis & pain)',
+        'Max peripheral rate: 10 mmol/h; max central rate: 40 mmol/h (ICU only)',
+        'Do NOT give IV K+ if anuric without dialysis back-up',
+        'Avoid dextrose-containing diluents (worsens hypokalaemia)',
       ];
       
     } else if (current > 5.0) {
@@ -148,13 +151,14 @@ export default function PotassiumCalculator({ patientInfo }: Props) {
         severityClass = 'text-orange-600';
         
         replacementPlan = [
-          'Stop all potassium and review contributing medications',
-          'Calcium gluconate 10% 10-20 mL IV over 2-3 mins (cardioprotection)',
-          'Regular insulin 10 units + 25g dextrose (D50W 50mL) IV',
-          'Sodium bicarbonate 50-100 mEq IV if acidotic',
-          'Salbutamol 10-20 mg nebulized (drives K+ intracellularly)',
-          'Consider Kayexalate 15-30g PO or PR for ongoing excretion',
-          'Loop diuretic (Furosemide 40-80mg IV) if euvolemic',
+          'Stop K+ supplements & offending drugs (ACE-I/ARB, spironolactone, K-sparing diuretics, NSAIDs, trimethoprim)',
+          'Cardioprotection (only if ECG changes): Calcium gluconate 10% 10 mL (1 g) IV over 2-5 min; REPEAT q5min until ECG normalises (max 30 mL). On digoxin: dilute in 100 mL D5W over 20-30 min',
+          'Shift K+ intracellularly: Soluble (regular) insulin 10 units IV + 50 mL of 50% dextrose IV over 5-15 min. If glucose >13.9 mmol/L (>250 mg/dL) give insulin alone',
+          'Salbutamol 10-20 mg nebulised over 15 min (synergistic with insulin; avoid as monotherapy in IHD)',
+          'Sodium bicarbonate 50-100 mmol IV ONLY if pH <7.2 or HCO3 <15 — not routine',
+          'Sub-acute excretion: Patiromer 8.4 g PO daily OR sodium zirconium cyclosilicate 10 g PO TDS × 48 h (preferred). If unavailable, SPS/Kayexalate 15 g PO with caution — risk of bowel necrosis especially with sorbitol',
+          'Furosemide 40-80 mg IV if euvolaemic with adequate renal function',
+          'Recheck K+ at 1 h and 4 h; redose calcium if ECG changes recur',
         ];
         
         ecgFindings = [
@@ -175,14 +179,15 @@ export default function PotassiumCalculator({ patientInfo }: Props) {
         severityClass = 'text-red-600';
         
         replacementPlan = [
-          '⚠️ EMERGENCY: Immediate treatment required',
-          '1. Calcium gluconate 10% 30 mL IV over 5 mins (immediate cardioprotection)',
-          '2. Regular insulin 10 units + D50W 50 mL IV push',
-          '3. Sodium bicarbonate 100 mEq IV (especially if acidotic)',
-          '4. Salbutamol 20 mg nebulized',
-          '5. Emergency dialysis consultation',
-          'Kayexalate contraindicated in emergency (too slow)',
-          'Prepare for dialysis if no response to medical therapy',
+          '⚠️ EMERGENCY — treat NOW; do not wait for repeat lab',
+          '1. Calcium gluconate 10% 10 mL (1 g) IV over 2-5 min via large vein — REPEAT q5min until ECG normalises (typical total 20-30 mL). On digoxin: 1 g in 100 mL D5W over 20-30 min',
+          '2. Soluble insulin 10 units IV + 50 mL of 50% dextrose IV over 5-15 min (omit dextrose if glucose >13.9 mmol/L). FOLLOW with 10% dextrose infusion 50-75 mL/h × 5-6 h to prevent rebound hypoglycaemia',
+          '3. Salbutamol 10-20 mg nebulised over 15 min',
+          '4. Sodium bicarbonate 50-100 mmol IV ONLY if pH <7.2 or HCO3 <15 — not first-line',
+          '5. Activate emergency haemodialysis (definitive therapy) — nephrology NOW',
+          '6. Continuous ECG monitoring; sine-wave/wide-QRS arrest: high-quality CPR + repeated calcium IV',
+          'SPS/Kayexalate, Patiromer, SZC are too slow for emergency — reserve for sub-acute control',
+          'AVOID lactated Ringer’s solution (contains K+ 4 mmol/L)',
         ];
         
         ecgFindings = [
@@ -248,13 +253,14 @@ export default function PotassiumCalculator({ patientInfo }: Props) {
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-sky-600 mt-0.5 flex-shrink-0" />
           <div className="text-sm text-gray-700">
-            <p className="font-semibold mb-1">WHO Potassium Management Guidelines</p>
+            <p className="font-semibold mb-1">Potassium Management (UK Renal Assoc 2023 / KDIGO 2024)</p>
             <ul className="list-disc ml-4 space-y-1">
-              <li>Normal K+: 3.5-5.0 mEq/L</li>
-              <li>Hypokalemia: Life-threatening arrhythmias if K+ &lt;2.5 mEq/L</li>
-              <li>Hyperkalemia: Cardiac arrest risk if K+ &gt;6.5 mEq/L</li>
-              <li>Always obtain ECG for K+ &lt;3.0 or &gt;5.5 mEq/L</li>
-              <li>Check magnesium with hypokalemia (often coexistent)</li>
+              <li>Normal K+: 3.5-5.0 mmol/L (SI). 1 mEq/L = 1 mmol/L</li>
+              <li>Hypokalaemia: Torsades risk if K+ &lt;2.5 mmol/L (worse with QT prolongation)</li>
+              <li>Hyperkalaemia: ECG changes typically &gt;6.5 mmol/L; cardiac arrest risk &gt;7.0 mmol/L</li>
+              <li>Always obtain ECG for K+ &lt;3.0 or &gt;5.5 mmol/L (or any symptoms)</li>
+              <li>Always check Mg<sup>2+</sup> with hypoK — hypomagnesaemia causes refractory hypokalaemia</li>
+              <li>Exclude pseudohyperkalaemia (haemolysed/old sample, leucocytosis &gt;100, thrombocytosis &gt;1000) before treating</li>
             </ul>
           </div>
         </div>
@@ -264,7 +270,7 @@ export default function PotassiumCalculator({ patientInfo }: Props) {
       <div className="grid md:grid-cols-2 gap-6 mb-6">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Current Potassium (mEq/L) *
+            Current Potassium (mmol/L) *
           </label>
           <input
             type="number"

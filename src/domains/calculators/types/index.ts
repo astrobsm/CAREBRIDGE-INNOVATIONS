@@ -114,7 +114,8 @@ export interface DVTRiskResult {
 
 // Burns Calculator Types
 export interface ParklandFluid {
-  totalFluid24h: number;
+  totalFluid24h: number; // ABA starting dose 2 mL/kg/%TBSA (lower bound)
+  parklandUpperBound24h?: number; // Classic Parkland 4 mL/kg/%TBSA (titration upper bound)
   first8Hours: number;
   next16Hours: number;
   hourlyFirst8: number;
