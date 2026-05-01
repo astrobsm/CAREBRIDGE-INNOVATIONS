@@ -5,15 +5,15 @@
 -- to super_admin / hospital_admin via RLS.
 -- ============================================================
 
--- Helper: assumes a public.users table with (id uuid PK, role text, hospital_id uuid)
--- mapped to auth.uid(). Adjust the helper functions below if your
--- auth-to-user mapping differs.
+-- Helper: assumes a public.users table with (id text PK, role text, hospital_id text)
+-- mapped to auth.uid()::text. CareBridge stores string IDs so we cast accordingly.
+-- Adjust the helper functions below if your auth-to-user mapping differs.
 
 -- ---------- Tables ----------
 
 CREATE TABLE IF NOT EXISTS public.finance_buckets (
-  id              UUID PRIMARY KEY,
-  hospital_id     UUID NOT NULL,
+  id              TEXT PRIMARY KEY,
+  hospital_id     TEXT NOT NULL,
   name            TEXT NOT NULL,
   percentage      NUMERIC(6,2) NOT NULL DEFAULT 0,
   balance         NUMERIC(14,2) NOT NULL DEFAULT 0,
@@ -31,72 +31,72 @@ CREATE TABLE IF NOT EXISTS public.finance_buckets (
 );
 
 CREATE TABLE IF NOT EXISTS public.finance_income (
-  id           UUID PRIMARY KEY,
-  hospital_id  UUID NOT NULL,
+  id           TEXT PRIMARY KEY,
+  hospital_id  TEXT NOT NULL,
   source       TEXT NOT NULL,
   amount       NUMERIC(14,2) NOT NULL,
   note         TEXT,
   date         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  created_by   UUID NOT NULL,
+  created_by   TEXT NOT NULL,
   distributed  BOOLEAN NOT NULL DEFAULT FALSE,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS public.finance_transactions (
-  id                 UUID PRIMARY KEY,
-  hospital_id        UUID NOT NULL,
-  bucket_id          UUID NOT NULL REFERENCES public.finance_buckets(id) ON DELETE CASCADE,
+  id                 TEXT PRIMARY KEY,
+  hospital_id        TEXT NOT NULL,
+  bucket_id          TEXT NOT NULL REFERENCES public.finance_buckets(id) ON DELETE CASCADE,
   type               TEXT NOT NULL CHECK (type IN ('credit','debit')),
   amount             NUMERIC(14,2) NOT NULL,
   description        TEXT,
   date               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  linked_income_id   UUID,
-  linked_expense_id  UUID,
-  linked_project_id  UUID,
+  linked_income_id   TEXT,
+  linked_expense_id  TEXT,
+  linked_project_id  TEXT,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS public.finance_expenses (
-  id           UUID PRIMARY KEY,
-  hospital_id  UUID NOT NULL,
+  id           TEXT PRIMARY KEY,
+  hospital_id  TEXT NOT NULL,
   category     TEXT NOT NULL,
-  bucket_id    UUID NOT NULL REFERENCES public.finance_buckets(id) ON DELETE RESTRICT,
+  bucket_id    TEXT NOT NULL REFERENCES public.finance_buckets(id) ON DELETE RESTRICT,
   amount       NUMERIC(14,2) NOT NULL,
   description  TEXT,
   date         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  created_by   UUID NOT NULL,
+  created_by   TEXT NOT NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS public.finance_projects (
-  id            UUID PRIMARY KEY,
-  hospital_id   UUID NOT NULL,
+  id            TEXT PRIMARY KEY,
+  hospital_id   TEXT NOT NULL,
   name          TEXT NOT NULL,
   total_budget  NUMERIC(14,2) NOT NULL,
   funded_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
   status        TEXT NOT NULL DEFAULT 'planned'
                 CHECK (status IN ('planned','active','completed','on_hold')),
   milestones    TEXT,
-  created_by    UUID NOT NULL,
+  created_by    TEXT NOT NULL,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS public.finance_investments (
-  id           UUID PRIMARY KEY,
-  hospital_id  UUID NOT NULL,
+  id           TEXT PRIMARY KEY,
+  hospital_id  TEXT NOT NULL,
   type         TEXT NOT NULL,
   amount       NUMERIC(14,2) NOT NULL,
   roi          NUMERIC(6,2) NOT NULL DEFAULT 0,
   note         TEXT,
   date         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  created_by   UUID NOT NULL,
+  created_by   TEXT NOT NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS public.finance_audit_logs (
-  id           UUID PRIMARY KEY,
-  hospital_id  UUID NOT NULL,
+  id           TEXT PRIMARY KEY,
+  hospital_id  TEXT NOT NULL,
   actor        TEXT NOT NULL,
   action       TEXT NOT NULL,
   detail       TEXT,
@@ -125,26 +125,28 @@ ALTER TABLE public.finance_projects      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.finance_investments   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.finance_audit_logs    ENABLE ROW LEVEL SECURITY;
 
--- Helper: caller's role / hospital from public.users
+-- Helper: caller's role / hospital from public.users.
+-- We cast both sides to text so the migration works whether public.users.id
+-- is text (CareBridge default) or uuid.
 CREATE OR REPLACE FUNCTION public._finance_is_admin() RETURNS BOOLEAN
 LANGUAGE SQL STABLE AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.users u
-    WHERE u.id = auth.uid()
+    WHERE u.id::text = auth.uid()::text
       AND u.role IN ('super_admin','hospital_admin')
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public._finance_caller_hospital() RETURNS UUID
+CREATE OR REPLACE FUNCTION public._finance_caller_hospital() RETURNS TEXT
 LANGUAGE SQL STABLE AS $$
-  SELECT u.hospital_id FROM public.users u WHERE u.id = auth.uid();
+  SELECT u.hospital_id::text FROM public.users u WHERE u.id::text = auth.uid()::text;
 $$;
 
 CREATE OR REPLACE FUNCTION public._finance_is_super_admin() RETURNS BOOLEAN
 LANGUAGE SQL STABLE AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.users u
-    WHERE u.id = auth.uid() AND u.role = 'super_admin'
+    WHERE u.id::text = auth.uid()::text AND u.role = 'super_admin'
   );
 $$;
 
@@ -168,7 +170,7 @@ BEGIN
         FOR SELECT TO authenticated
         USING (
           public._finance_is_super_admin()
-          OR (public._finance_is_admin() AND hospital_id = public._finance_caller_hospital())
+          OR (public._finance_is_admin() AND hospital_id::text = public._finance_caller_hospital())
         );
     $f$, tbl, tbl, tbl, tbl);
 
@@ -178,11 +180,11 @@ BEGIN
         FOR ALL TO authenticated
         USING (
           public._finance_is_super_admin()
-          OR (public._finance_is_admin() AND hospital_id = public._finance_caller_hospital())
+          OR (public._finance_is_admin() AND hospital_id::text = public._finance_caller_hospital())
         )
         WITH CHECK (
           public._finance_is_super_admin()
-          OR (public._finance_is_admin() AND hospital_id = public._finance_caller_hospital())
+          OR (public._finance_is_admin() AND hospital_id::text = public._finance_caller_hospital())
         );
     $f$, tbl, tbl, tbl, tbl);
   END LOOP;
