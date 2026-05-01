@@ -67,6 +67,15 @@ import SurgicalWorkflowPage from './domains/surgery/pages/SurgicalWorkflowPage';
 import STIProtocolPage from './domains/soft-tissue-infection/pages/STIProtocolPage';
 import LymphedemaAssessmentPage from './domains/lymphedema/pages/LymphedemaAssessmentPage';
 import PreSurgicalConferencePage from './domains/pre-surgical-conference/pages/PreSurgicalConferencePage';
+// Finance (Part B – ZIGMA BOND)
+import FinanceLayout from './domains/finance/components/FinanceLayout';
+import FinanceDashboard from './domains/finance/pages/FinanceDashboard';
+import FinanceIncome from './domains/finance/pages/FinanceIncome';
+import FinanceBuckets from './domains/finance/pages/FinanceBuckets';
+import FinanceExpenses from './domains/finance/pages/FinanceExpenses';
+import FinanceProjects from './domains/finance/pages/FinanceProjects';
+import FinanceInvestments from './domains/finance/pages/FinanceInvestments';
+import FinanceSettings from './domains/finance/pages/FinanceSettings';
 // Public Clinic Booking (No login required)
 import PublicBookingPage from './domains/appointments/pages/public/PublicBookingPage';
 import BookingSharePage from './domains/appointments/pages/public/BookingSharePage';
@@ -201,6 +210,18 @@ function App() {
             : <Navigate to="/" replace />
         } />
         <Route path="settings" element={<SettingsPage />} />
+
+        {/* Finance (Part B – ZIGMA BOND): super_admin & hospital_admin only.
+            Layout enforces the role guard. */}
+        <Route path="finance" element={<FinanceLayout />}>
+          <Route index element={<FinanceDashboard />} />
+          <Route path="income" element={<FinanceIncome />} />
+          <Route path="buckets" element={<FinanceBuckets />} />
+          <Route path="expenses" element={<FinanceExpenses />} />
+          <Route path="projects" element={<FinanceProjects />} />
+          <Route path="investments" element={<FinanceInvestments />} />
+          <Route path="settings" element={<FinanceSettings />} />
+        </Route>
 
         {/* Communication Routes */}
         <Route path="communication">

@@ -86,6 +86,15 @@ import type {
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
 import type { LymphedemaAssessment, LymphedemaMonitoringRecord, PostOpLymphedemaMonitoring } from '../domains/lymphedema/types';
+import type {
+  FinanceBucket,
+  FinanceIncome,
+  FinanceTransaction,
+  FinanceExpense,
+  FinanceProject,
+  FinanceInvestment,
+  FinanceAuditLog,
+} from '../domains/finance/types';
 
 // Re-export types for convenient access
 export type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -198,6 +207,14 @@ export class AstroHEALTHDatabase extends Dexie {
   postOpLymphedemaMonitoring!: Table<PostOpLymphedemaMonitoring, string>;
   // Calibrated Wound Measurements
   woundMeasurements!: Table<WoundMeasurementRecord, string>;
+  // Finance (Part B – ZIGMA BOND)
+  financeBuckets!: Table<FinanceBucket, string>;
+  financeIncome!: Table<FinanceIncome, string>;
+  financeTransactions!: Table<FinanceTransaction, string>;
+  financeExpenses!: Table<FinanceExpense, string>;
+  financeProjects!: Table<FinanceProject, string>;
+  financeInvestments!: Table<FinanceInvestment, string>;
+  financeAuditLogs!: Table<FinanceAuditLog, string>;
 
   constructor() {
     super('AstroHEALTHDB');
@@ -312,6 +329,17 @@ export class AstroHEALTHDatabase extends Dexie {
       treatmentSessions: 'id, treatmentPlanId, patientId, hospitalId, status, scheduledAt, attendedAt, createdAt',
       treatmentReminders: 'id, treatmentSessionId, treatmentPlanId, patientId, scheduledFor, status, kind, channel, createdAt',
       treatmentVoiceNotes: 'id, treatmentPlanId, treatmentSessionId, patientId, recordedBy, recordedAt, createdAt',
+    });
+
+    // v78 – Finance Domain (Part B: ZIGMA BOND port)
+    this.version(78).stores({
+      financeBuckets: 'id, hospitalId, name, [hospitalId+name], createdAt',
+      financeIncome: 'id, hospitalId, source, date, createdBy, distributed, createdAt',
+      financeTransactions: 'id, hospitalId, bucketId, type, date, linkedIncomeId, linkedExpenseId, linkedProjectId, createdAt',
+      financeExpenses: 'id, hospitalId, bucketId, category, date, createdBy, createdAt',
+      financeProjects: 'id, hospitalId, name, status, createdBy, createdAt',
+      financeInvestments: 'id, hospitalId, type, date, createdBy, createdAt',
+      financeAuditLogs: 'id, hospitalId, actor, action, timestamp',
     });
   }
 }

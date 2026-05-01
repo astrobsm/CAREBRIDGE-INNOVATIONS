@@ -298,6 +298,22 @@ const navigation: NavItem[] = [
     href: '/settings', 
     icon: <Settings size={20} />,
   },
+  // Part B – ZIGMA BOND finance / treasury (admins only)
+  {
+    name: 'Finance (Part B)',
+    href: '/finance',
+    icon: <Wallet size={20} />,
+    roles: ['super_admin', 'hospital_admin'],
+    children: [
+      { name: 'Dashboard', href: '/finance' },
+      { name: 'Income', href: '/finance/income' },
+      { name: 'Buckets', href: '/finance/buckets' },
+      { name: 'Expenses', href: '/finance/expenses' },
+      { name: 'Projects', href: '/finance/projects' },
+      { name: 'Investments', href: '/finance/investments' },
+      { name: 'Settings', href: '/finance/settings' },
+    ],
+  },
 ];
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
