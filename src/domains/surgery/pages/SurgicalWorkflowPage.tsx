@@ -545,6 +545,7 @@ export default function SurgicalWorkflowPage() {
   const [surgeonFee, setSurgeonFee] = useState(0);
   const [anaesthesiaFee, setAnaesthesiaFee] = useState(0);
   const [anaesthesiaType, setAnaesthesiaType] = useState<AnaesthesiaType>('general');
+  const [assistantFeeIncluded, setAssistantFeeIncluded] = useState<boolean>(true);
 
   // SECTION 5: DOCUMENTS
   const [preopInfoNotes, setPreopInfoNotes] = useState('');
@@ -603,6 +604,7 @@ export default function SurgicalWorkflowPage() {
       setSurgeonFee(currentSurgery.surgeonFee || 0);
       setAnaesthesiaFee(currentSurgery.anaesthesiaFee || 0);
       setAnaesthesiaType(currentSurgery.anaesthesiaType || 'general');
+      setAssistantFeeIncluded((currentSurgery.assistantFeePercentage ?? 20) !== 0);
       setSurgeonId(currentSurgery.surgeonId || '');
       setAssistantId(currentSurgery.assistantId || '');
       setAnaesthetistId(currentSurgery.anaesthetistId || '');
@@ -740,7 +742,7 @@ export default function SurgicalWorkflowPage() {
   const rcriRisk = rcriScore === 0 ? '3.9%' : rcriScore === 1 ? '6.0%' : rcriScore === 2 ? '10.1%' : '15%+';
 
   const consumablesTotal = selectedConsumables.reduce((sum, c) => sum + c.quantity * c.unitPrice, 0);
-  const assistantFee = surgeonFee * 0.2;
+  const assistantFee = assistantFeeIncluded ? surgeonFee * 0.2 : 0;
   const totalEstimate = surgeonFee + assistantFee + anaesthesiaFee + consumablesTotal;
 
   const filteredProcedures = procedureSearch.length > 1 ? searchProcedures(procedureSearch) : [];
@@ -910,7 +912,7 @@ export default function SurgicalWorkflowPage() {
         surgeonId,
         surgeonFee,
         assistantId,
-        assistantFeePercentage: 20,
+        assistantFeePercentage: assistantFeeIncluded ? 20 : 0,
         assistantFee,
         anaesthetistId,
         anaesthesiaType,
@@ -1180,7 +1182,7 @@ export default function SurgicalWorkflowPage() {
         heading: 'Fee Breakdown',
         rows: [
           ['Surgeon Fee', formatNaira(surgeonFee)],
-          ['Assistant Fee (20%)', formatNaira(assistantFee)],
+          ...(assistantFeeIncluded ? [['Assistant Fee (20%)', formatNaira(assistantFee)] as [string, string]] : []),
           ['Anaesthesia Fee', formatNaira(anaesthesiaFee)],
           ['Consumables', formatNaira(consumablesTotal)],
           ['Total Estimate', formatNaira(totalEstimate)],
@@ -2232,16 +2234,27 @@ export default function SurgicalWorkflowPage() {
 
               {/* Fees */}
               <h3 className="text-sm font-bold text-gray-800 mb-2">Fee Breakdown</h3>
+              <label className="flex items-center gap-2 mb-3 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={assistantFeeIncluded}
+                  onChange={e => setAssistantFeeIncluded(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <span>Include Assistant Fee (20% of surgeon fee)</span>
+              </label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Surgeon Fee (Naira)</label>
                   <input type="number" value={surgeonFee} onChange={e => setSurgeonFee(Number(e.target.value))}
                     className="w-full border rounded-lg px-3 py-2" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Assistant Fee (20%)</label>
-                  <input type="number" value={assistantFee} disabled className="w-full border rounded-lg px-3 py-2 bg-gray-100" />
-                </div>
+                {assistantFeeIncluded && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assistant Fee (20%)</label>
+                    <input type="number" value={assistantFee} disabled className="w-full border rounded-lg px-3 py-2 bg-gray-100" aria-label="Assistant fee" />
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Anaesthesia Fee (Naira)</label>
                   <input type="number" value={anaesthesiaFee} onChange={e => setAnaesthesiaFee(Number(e.target.value))}
@@ -2253,7 +2266,9 @@ export default function SurgicalWorkflowPage() {
               <div className="bg-gray-50 rounded-lg p-4 mb-4">
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span>Surgeon Fee:</span><span className="text-right font-medium">{formatNaira(surgeonFee)}</span>
-                  <span>Assistant Fee (20%):</span><span className="text-right font-medium">{formatNaira(assistantFee)}</span>
+                  {assistantFeeIncluded && (<>
+                    <span>Assistant Fee (20%):</span><span className="text-right font-medium">{formatNaira(assistantFee)}</span>
+                  </>)}
                   <span>Anaesthesia Fee:</span><span className="text-right font-medium">{formatNaira(anaesthesiaFee)}</span>
                   <span>Consumables Total:</span><span className="text-right font-medium">{formatNaira(consumablesTotal)}</span>
                   <span className="font-bold text-base pt-2 border-t">TOTAL ESTIMATE:</span>
