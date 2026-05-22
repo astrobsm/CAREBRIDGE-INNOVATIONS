@@ -22,7 +22,11 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 import type { LimbSalvageAssessment } from '../../../types';
 import LimbSalvageForm from '../components/LimbSalvageForm';
-import { generateLimbSalvageInvestigationPDF, generateLimbSalvageMinimumInvestigationPDF } from '../../../utils/clinicalPdfGenerators';
+import {
+  generateLimbSalvageInvestigationPDF,
+  generateLimbSalvageMinimumInvestigationPDF,
+  generateLimbSalvageSummaryPDF,
+} from '../../../utils/clinicalPdfGenerators';
 
 export default function LimbSalvagePage() {
   const [showForm, setShowForm] = useState(false);
@@ -147,6 +151,31 @@ export default function LimbSalvagePage() {
     } catch (error) {
       console.error('PDF generation error:', error);
       toast.error('Failed to generate PDF');
+    }
+  };
+
+  // Handle download comprehensive summary + counselling PDF
+  const handleDownloadSummaryPDF = async (assessment: LimbSalvageAssessment) => {
+    try {
+      const patient = patients?.find(p => p.id === assessment.patientId);
+      if (!patient) {
+        toast.error('Patient not found');
+        return;
+      }
+      generateLimbSalvageSummaryPDF({
+        assessment,
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        hospitalNumber: patient.hospitalId || patient.id.slice(0, 8).toUpperCase(),
+        patientPhone: patient.phone,
+        hospitalName: hospital?.name || 'AstroHEALTH Facility',
+        hospitalPhone: hospital?.phone,
+        hospitalEmail: hospital?.email,
+        preparedBy: user ? `${user.firstName} ${user.lastName}` : assessment.assessedByName,
+      });
+      toast.success('Comprehensive summary PDF downloaded');
+    } catch (error) {
+      console.error('Summary PDF error:', error);
+      toast.error('Failed to generate summary PDF');
     }
   };
 
@@ -307,6 +336,13 @@ export default function LimbSalvagePage() {
                         <FileText className="h-5 w-5" />
                       </button>
                       <button
+                        onClick={() => handleDownloadSummaryPDF(assessment)}
+                        className="p-2 text-purple-600 hover:bg-purple-50 rounded"
+                        title="Download Comprehensive Summary & Patient Counselling"
+                      >
+                        <Download className="h-5 w-5" />
+                      </button>
+                      <button
                         onClick={() => handleEdit(assessment)}
                         className="p-2 text-gray-600 hover:bg-gray-100 rounded"
                         title="Edit"
@@ -367,6 +403,14 @@ export default function LimbSalvagePage() {
                 >
                   <Download className="h-4 w-4" />
                   Investigation Request
+                </button>
+                <button
+                  onClick={() => handleDownloadSummaryPDF(viewAssessment)}
+                  className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                  title="Download comprehensive assessment summary and patient counselling"
+                >
+                  <Download className="h-4 w-4" />
+                  Comprehensive Summary
                 </button>
                 <button
                   onClick={() => setViewAssessment(null)}

@@ -4170,3 +4170,539 @@ export function getLabRequestFormPDFDoc(options: LabRequestFormPDFOptions): jsPD
 
   return doc;
 }
+
+// ==================== LIMB SALVAGE COMPREHENSIVE SUMMARY + COUNSELLING PDF ====================
+
+import type { LimbSalvageAssessment } from '../types';
+
+export interface LimbSalvageSummaryOptions {
+  assessment: LimbSalvageAssessment;
+  patientName: string;
+  hospitalNumber: string;
+  patientPhone?: string;
+  hospitalName: string;
+  hospitalPhone?: string;
+  hospitalEmail?: string;
+  preparedBy?: string;
+}
+
+/**
+ * Generate a comprehensive Limb Salvage Assessment summary PDF covering ALL
+ * sections of the assessment plus a detailed counselling block tailored to
+ * the recommended management pathway (conservative, revascularization,
+ * minor amputation, major amputation). Includes expected outcomes, risks,
+ * lifestyle guidance and follow-up plan.
+ */
+export function generateLimbSalvageSummaryPDF(options: LimbSalvageSummaryOptions): void {
+  const {
+    assessment,
+    patientName,
+    hospitalNumber,
+    patientPhone,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+    preparedBy,
+  } = options;
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const leftX = 20;
+  const rightX = pageWidth - 20;
+  const contentWidth = rightX - leftX;
+
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  addLogoWatermark(doc, 0.05);
+
+  const info: PDFDocumentInfo = {
+    title: 'DIABETIC FOOT / LIMB SALVAGE ASSESSMENT — COMPREHENSIVE SUMMARY',
+    subtitle: `Assessment Date: ${format(new Date(assessment.assessmentDate), 'dd MMM yyyy HH:mm')}`,
+    hospitalName,
+    hospitalPhone,
+    hospitalEmail,
+  };
+
+  let yPos = addBrandedHeader(doc, info);
+
+  // Patient block
+  yPos = addPatientInfoBox(doc, yPos, {
+    name: patientName,
+    hospitalNumber,
+    age: assessment.patientAge,
+    gender: assessment.patientGender,
+    phone: patientPhone,
+  });
+  yPos += 2;
+
+  // Helpers ---------------------------------------------------------------
+  const drawKV = (key: string, value: string | number | undefined, x: number, y: number, keyWidth = 45): void => {
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text(key, x, y);
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    const v = value === undefined || value === null || value === '' ? '—' : String(value);
+    doc.text(v, x + keyWidth, y);
+  };
+
+  const writeParagraph = (text: string, indent = 0): void => {
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    const lines = doc.splitTextToSize(text, contentWidth - indent);
+    for (const line of lines) {
+      yPos = checkNewPage(doc, yPos, 8);
+      doc.text(line, leftX + indent, yPos);
+      yPos += 4.5;
+    }
+  };
+
+  const writeBullets = (items: string[], indent = 4): void => {
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    for (const item of items) {
+      const lines = doc.splitTextToSize(item, contentWidth - indent - 4);
+      yPos = checkNewPage(doc, yPos, 8);
+      doc.text('•', leftX + indent, yPos);
+      lines.forEach((line: string, i: number) => {
+        if (i > 0) yPos = checkNewPage(doc, yPos, 6);
+        doc.text(line, leftX + indent + 4, yPos);
+        if (i < lines.length - 1) yPos += 4.5;
+      });
+      yPos += 5;
+    }
+  };
+
+  const sectionBreak = (title: string): void => {
+    yPos = checkNewPage(doc, yPos, 20);
+    yPos += 2;
+    yPos = addSectionTitle(doc, yPos, title);
+  };
+
+  // ====================================================================
+  // 1. ASSESSMENT OVERVIEW
+  // ====================================================================
+  sectionBreak('1. Assessment Overview');
+  drawKV('Assessed By:', assessment.assessedByName || assessment.assessedBy || '—', leftX, yPos);
+  drawKV('Status:', (assessment.status || 'completed').toUpperCase(), leftX + 95, yPos);
+  yPos += 6;
+  drawKV('Affected Side:', assessment.affectedSide?.toUpperCase() || '—', leftX, yPos);
+  drawKV('Wound Location:', assessment.woundLocation || '—', leftX + 95, yPos);
+  yPos += 6;
+  drawKV('Wound Duration:', `${assessment.woundDuration || 0} days`, leftX, yPos);
+  drawKV('Previous Debridement:', assessment.previousDebridement ? `Yes (${assessment.debridementCount || 1})` : 'No', leftX + 95, yPos);
+  yPos += 8;
+
+  // ====================================================================
+  // 2. WOUND CLASSIFICATION
+  // ====================================================================
+  sectionBreak('2. Wound Classification & Scoring');
+  drawKV('Wagner Grade:', `Grade ${assessment.wagnerGrade}`, leftX, yPos);
+  drawKV(
+    'Texas Classification:',
+    `${assessment.texasClassification?.grade}${assessment.texasClassification?.stage}`,
+    leftX + 95,
+    yPos,
+  );
+  yPos += 6;
+  drawKV(
+    'WIfI:',
+    `W${assessment.wifiClassification?.wound} I${assessment.wifiClassification?.ischemia} fI${assessment.wifiClassification?.footInfection}`,
+    leftX,
+    yPos,
+  );
+  drawKV('SINBAD Score:', `${assessment.sinbadScore?.total ?? 0} / 6`, leftX + 95, yPos);
+  yPos += 6;
+  const ws = assessment.woundSize;
+  drawKV(
+    'Wound Size:',
+    ws ? `${ws.length} × ${ws.width} × ${ws.depth} cm (area ${ws.area} cm²)` : '—',
+    leftX,
+    yPos,
+    30,
+  );
+  yPos += 8;
+
+  // ====================================================================
+  // 3. VASCULAR ASSESSMENT
+  // ====================================================================
+  sectionBreak('3. Vascular Assessment');
+  const art = assessment.dopplerFindings?.arterial;
+  if (art) {
+    drawKV('ABI:', art.abi?.toString() ?? '—', leftX, yPos);
+    drawKV('TBI:', art.tbi?.toString() ?? '—', leftX + 60, yPos);
+    drawKV('Waveform:', art.waveform || '—', leftX + 120, yPos);
+    yPos += 6;
+    drawKV('Calcification:', art.calcification ? 'Present' : 'Absent', leftX, yPos);
+    yPos += 6;
+    const arteries = [
+      ['Femoral', art.femoralArtery],
+      ['Popliteal', art.poplitealArtery],
+      ['Ant. Tibial', art.anteriorTibialArtery],
+      ['Post. Tibial', art.posteriorTibialArtery],
+      ['Dorsalis Pedis', art.dorsalisPedisArtery],
+      ['Peroneal', art.peronealArtery],
+    ];
+    writeBullets(arteries.map(([n, v]) => `${n}: ${v ?? 'not assessed'}`));
+  }
+  drawKV('Angiogram:', assessment.angiogramPerformed ? 'Performed' : 'Not performed', leftX, yPos);
+  yPos += 6;
+  if (assessment.angiogramFindings) {
+    writeParagraph(`Angiogram findings: ${assessment.angiogramFindings}`);
+  }
+  drawKV('Previous Revascularization:', assessment.previousRevascularization ? 'Yes' : 'No', leftX, yPos, 65);
+  yPos += 6;
+  if (assessment.revascularizationDetails) {
+    writeParagraph(`Details: ${assessment.revascularizationDetails}`);
+  }
+  yPos += 2;
+
+  // ====================================================================
+  // 4. NEUROPATHY
+  // ====================================================================
+  sectionBreak('4. Neuropathy Assessment');
+  drawKV('Protective sensation:', assessment.monofilamentTest ? 'ABSENT' : 'Intact', leftX, yPos, 55);
+  drawKV('Vibration sense:', assessment.vibrationSense ? 'ABSENT' : 'Intact', leftX + 95, yPos, 40);
+  yPos += 6;
+  drawKV('Ankle reflexes:', assessment.ankleReflexes || '—', leftX, yPos);
+  yPos += 6;
+  if (assessment.neuropathySymptoms?.length) {
+    writeParagraph(`Symptoms: ${assessment.neuropathySymptoms.join(', ')}`);
+  }
+
+  // ====================================================================
+  // 5. OSTEOMYELITIS
+  // ====================================================================
+  sectionBreak('5. Osteomyelitis');
+  const om = assessment.osteomyelitis;
+  if (om) {
+    drawKV('Suspected:', om.suspected ? 'YES' : 'No', leftX, yPos);
+    drawKV('Probe-to-bone:', om.probeToBone ? 'Positive' : 'Negative', leftX + 95, yPos);
+    yPos += 6;
+    drawKV('Radiograph changes:', om.radiographicChanges ? 'Yes' : 'No', leftX, yPos, 50);
+    drawKV('MRI:', om.mriFindings || 'not done', leftX + 95, yPos);
+    yPos += 6;
+    drawKV('Bone biopsy:', om.boneBiopsy || 'not done', leftX, yPos);
+    drawKV('Chronicity:', om.chronicity || '—', leftX + 95, yPos);
+    yPos += 6;
+    if (om.affectedBones?.length) {
+      writeParagraph(`Affected bones: ${om.affectedBones.join(', ')}`);
+    }
+  }
+
+  // ====================================================================
+  // 6. SEPSIS
+  // ====================================================================
+  sectionBreak('6. Sepsis Assessment');
+  const sep = assessment.sepsis;
+  if (sep) {
+    drawKV('Severity:', (sep.sepsisSeverity || 'none').toUpperCase(), leftX, yPos);
+    drawKV('qSOFA:', String(sep.clinicalFeatures?.qsofaScore ?? 0), leftX + 95, yPos, 20);
+    drawKV('SIRS:', String(sep.sirsScore ?? 0), leftX + 140, yPos, 15);
+    yPos += 6;
+    const cf = sep.clinicalFeatures;
+    if (cf) {
+      writeParagraph(
+        `Vitals: Temp ${cf.temperature ?? '—'}°C, HR ${cf.heartRate ?? '—'}, RR ${cf.respiratoryRate ?? '—'}, ` +
+          `SBP ${cf.systolicBP ?? '—'} mmHg, AMS: ${cf.alteredMentalStatus ? 'Yes' : 'No'}.`,
+      );
+    }
+    const lf = sep.laboratoryFeatures;
+    if (lf) {
+      writeParagraph(
+        `Labs: WBC ${lf.wbc ?? '—'}, Lactate ${lf.lactate ?? '—'}, CRP ${lf.crp ?? '—'}, ` +
+          `Procalcitonin ${lf.procalcitonin ?? '—'}, Platelets ${lf.plateletCount ?? '—'}.`,
+      );
+    }
+  }
+
+  // ====================================================================
+  // 7. RENAL
+  // ====================================================================
+  sectionBreak('7. Renal Status');
+  const rn = assessment.renalStatus;
+  if (rn) {
+    drawKV('Creatinine:', `${rn.creatinine ?? '—'} mg/dL`, leftX, yPos);
+    drawKV('eGFR:', `${rn.egfr ?? '—'}`, leftX + 95, yPos, 18);
+    drawKV('CKD:', `Stage ${rn.ckdStage}`, leftX + 140, yPos, 15);
+    yPos += 6;
+    drawKV('On dialysis:', rn.onDialysis ? `${rn.dialysisType || 'yes'} (${rn.dialysisFrequency || '—'})` : 'No', leftX, yPos, 30);
+    yPos += 8;
+  }
+
+  // ====================================================================
+  // 8. COMORBIDITIES & NUTRITION
+  // ====================================================================
+  sectionBreak('8. Comorbidities & Nutrition');
+  const co = assessment.comorbidities;
+  if (co) {
+    drawKV('Diabetes:', `${co.diabetesType} · ${co.diabetesDuration}y · HbA1c ${co.hba1c ?? '—'}%`, leftX, yPos, 25);
+    yPos += 6;
+    drawKV('On insulin:', co.onInsulin ? 'Yes' : 'No', leftX, yPos);
+    drawKV('Oral hypoglycemics:', co.oralHypoglycemics?.join(', ') || '—', leftX + 95, yPos, 50);
+    yPos += 6;
+    const cv: string[] = [];
+    if (co.hypertension) cv.push('HTN');
+    if (co.coronaryArteryDisease) cv.push('CAD');
+    if (co.heartFailure) cv.push('CHF');
+    if (co.previousMI) cv.push('prior MI');
+    if (co.previousStroke) cv.push('prior CVA');
+    if (co.peripheralVascularDisease) cv.push('PVD');
+    drawKV('Cardiovascular:', cv.join(', ') || 'None', leftX, yPos, 35);
+    yPos += 6;
+    const other: string[] = [];
+    if (co.chronicKidneyDisease) other.push('CKD');
+    if (co.retinopathy) other.push('Retinopathy');
+    if (co.neuropathy) other.push('Neuropathy');
+    if (co.previousAmputation) other.push(`Previous amputation (${co.previousAmputationLevel || '—'})`);
+    if (co.smoking) other.push(`Smoking (${co.smokingPackYears ?? '?'} pack-yrs)`);
+    drawKV('Other:', other.join(', ') || 'None', leftX, yPos);
+    yPos += 6;
+    if (co.charlsonIndex !== undefined) {
+      drawKV('Charlson index:', String(co.charlsonIndex), leftX, yPos);
+      yPos += 6;
+    }
+  }
+  drawKV('Albumin:', `${assessment.albumin ?? '—'} g/dL`, leftX, yPos);
+  drawKV('BMI:', `${assessment.bmi ?? '—'}`, leftX + 95, yPos, 15);
+  drawKV('MUST:', `${assessment.mustScore ?? '—'}`, leftX + 140, yPos, 15);
+  yPos += 8;
+
+  // ====================================================================
+  // 9. LIMB SALVAGE SCORE & DECISION
+  // ====================================================================
+  sectionBreak('9. Limb Salvage Score & Clinical Decision');
+  const sc = assessment.limbSalvageScore;
+  if (sc) {
+    doc.setFillColor(245, 245, 245);
+    yPos = checkNewPage(doc, yPos, 30);
+    doc.rect(leftX, yPos, contentWidth, 22, 'F');
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Total Score: ${sc.totalScore} / ${sc.maxScore}  (${sc.percentage}%)`, leftX + 4, yPos + 7);
+    doc.text(`Risk: ${sc.riskCategory?.replace('_', ' ').toUpperCase()}`, leftX + 4, yPos + 14);
+    doc.text(`Salvage probability: ${sc.salvageProbability?.toUpperCase()}`, leftX + 90, yPos + 14);
+    yPos += 26;
+    doc.setFontSize(9);
+    writeBullets([
+      `Wound: ${sc.woundScore}`,
+      `Ischemia: ${sc.ischemiaScore}`,
+      `Infection: ${sc.infectionScore}`,
+      `Renal: ${sc.renalScore}`,
+      `Comorbidities: ${sc.comorbidityScore}`,
+      `Age: ${sc.ageScore}`,
+      `Nutrition: ${sc.nutritionalScore}`,
+    ]);
+  }
+  drawKV(
+    'Recommended Management:',
+    assessment.recommendedManagement?.replace(/_/g, ' ').toUpperCase() || '—',
+    leftX,
+    yPos,
+    70,
+  );
+  yPos += 6;
+  if (assessment.recommendedAmputationLevel && assessment.recommendedAmputationLevel !== 'none') {
+    drawKV(
+      'Potential Amputation Level:',
+      assessment.recommendedAmputationLevel.replace(/_/g, ' ').toUpperCase(),
+      leftX,
+      yPos,
+      70,
+    );
+    yPos += 6;
+  }
+
+  // ====================================================================
+  // 10. CLINICAL RECOMMENDATIONS
+  // ====================================================================
+  if (assessment.recommendations?.length) {
+    sectionBreak('10. Clinical Recommendations');
+    for (const r of assessment.recommendations) {
+      yPos = checkNewPage(doc, yPos, 14);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`[${r.priority?.toUpperCase()}] ${r.category?.replace('_', ' ')}:`, leftX, yPos);
+      yPos += 5;
+      writeParagraph(r.recommendation, 4);
+      if (r.rationale) writeParagraph(`Rationale: ${r.rationale}`, 4);
+      if (r.timeframe) writeParagraph(`Timeframe: ${r.timeframe}`, 4);
+      yPos += 1;
+    }
+  }
+  if (assessment.treatmentPlan) {
+    sectionBreak('Treatment Plan');
+    writeParagraph(assessment.treatmentPlan);
+  }
+
+  // ====================================================================
+  // 11. PATIENT COUNSELLING
+  // ====================================================================
+  sectionBreak('11. Patient & Family Counselling');
+
+  writeParagraph(
+    'The following information has been discussed with the patient and family in a language they understand. ' +
+      'Verbal consent for the recommended plan has been obtained and a written information leaflet provided.',
+  );
+  yPos += 1;
+
+  // Diagnosis explanation in lay language
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  doc.setFontSize(9.5);
+  yPos = checkNewPage(doc, yPos, 8);
+  doc.text('What we found:', leftX, yPos);
+  yPos += 5;
+  writeParagraph(
+    `You have a diabetic foot ulcer classified as Wagner Grade ${assessment.wagnerGrade}. ` +
+      `Our assessment of the wound, the blood flow to your leg, infection in the foot, your kidney function, your blood sugar control ` +
+      `and your overall health gives a limb-salvage risk of ${sc?.riskCategory?.replace('_', ' ').toUpperCase() || '—'}, ` +
+      `with a ${sc?.salvageProbability?.toUpperCase() || '—'} probability of saving the limb if the recommended plan is followed.`,
+  );
+
+  // Management-specific counselling
+  const mgmt = assessment.recommendedManagement;
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  yPos = checkNewPage(doc, yPos, 8);
+  doc.text('What we recommend and why:', leftX, yPos);
+  yPos += 5;
+
+  if (mgmt === 'conservative') {
+    writeParagraph(
+      'Conservative (limb-preserving) management is appropriate because the blood supply to your foot is adequate, infection is controlled, ' +
+        'and the wound has a reasonable chance of healing with optimal wound care, antibiotics where indicated, off-loading (taking pressure off the foot), ' +
+        'and tight control of your blood sugar.',
+    );
+    writeBullets([
+      'Expected outcome: healing of the ulcer over weeks to several months, with about 60–80% of similar wounds healing without surgery when the plan is followed.',
+      'Risks if the plan is not followed: the wound may get larger, become deeply infected, reach the bone, or spread infection into the bloodstream. This can convert a savable foot into one that needs amputation.',
+      'Healing is slow. Patience and strict adherence to off-loading and dressings are essential.',
+    ]);
+  } else if (mgmt === 'revascularization') {
+    writeParagraph(
+      'Revascularization is recommended because the blood flow to your leg is reduced and the wound cannot heal without restoring circulation. ' +
+        'This may be done by an endovascular procedure (balloon/stent through the artery) or by surgical bypass, depending on the vascular team’s assessment of the angiogram.',
+    );
+    writeBullets([
+      'Expected benefit: improved blood supply allows oxygen, antibiotics and nutrients to reach the wound, dramatically increasing the chance of healing and avoiding amputation.',
+      'Procedure risks: bleeding, contrast-related kidney injury, vessel injury, repeat blockage of the treated vessel, infection at the puncture or wound site, and rarely heart attack, stroke or death.',
+      'Even after a successful procedure, the ulcer still needs weeks of wound care, antibiotics, off-loading and good diabetes control to fully heal.',
+      'If revascularization is not possible or fails, an amputation may eventually be required to control pain and infection.',
+    ]);
+  } else if (mgmt === 'minor_amputation') {
+    writeParagraph(
+      `A minor (foot-level) amputation${
+        assessment.recommendedAmputationLevel && assessment.recommendedAmputationLevel !== 'none'
+          ? ` at the ${assessment.recommendedAmputationLevel.replace(/_/g, ' ').toUpperCase()} level`
+          : ''
+      } is recommended to remove dead, infected or unsalvageable tissue while preserving as much weight-bearing foot as possible. ` +
+        'This is performed to stop the spread of infection and to give the remaining foot the best chance to heal.',
+    );
+    writeBullets([
+      'Expected outcome: with adequate blood flow and infection control, the wound usually heals over 4–8 weeks. Most patients walk again, often with a custom shoe or insole.',
+      'Surgical risks: bleeding, wound infection, delayed healing, breakdown of the stump, the need for a higher amputation (about 10–25% of cases), and general anaesthesia risks.',
+      'Long-term risk: people who have had one diabetic foot amputation have a much higher chance (up to 50% within 5 years) of developing a new ulcer or losing tissue on the same or other foot — lifelong foot care and follow-up are essential.',
+    ]);
+  } else if (mgmt === 'major_amputation') {
+    writeParagraph(
+      `A major (above-foot) amputation${
+        assessment.recommendedAmputationLevel && assessment.recommendedAmputationLevel !== 'none'
+          ? ` at the ${assessment.recommendedAmputationLevel.replace(/_/g, ' ').toUpperCase()} level`
+          : ''
+      } is recommended because the limb cannot be saved: blood supply is poor and cannot be restored, infection is uncontrolled, the foot is non-functional, ` +
+        'and continuing to attempt salvage carries unacceptable risk to your life. Amputation is a life-saving operation that removes the source of infection and severe pain and allows rehabilitation.',
+    );
+    writeBullets([
+      'Expected outcome: source of infection removed, pain relieved, and a defined stump that — after healing (usually 6–12 weeks) — can be fitted with a prosthesis. Many patients regain independent walking with a prosthesis, especially after below-knee amputation.',
+      'Surgical risks: bleeding, infection of the stump, delayed wound healing, blood clots (DVT/PE), heart attack, stroke, and a peri-operative mortality of roughly 5–15% in high-risk diabetic patients.',
+      'After surgery you will need physiotherapy, stump care, prosthetic assessment, ongoing diabetes management, and emotional/psychological support.',
+      'The opposite leg is at high risk of similar problems and must be protected aggressively for the rest of your life.',
+    ]);
+  } else {
+    writeParagraph(
+      'A management decision is pending review by the multidisciplinary team. You will be informed of the recommended plan and its risks and benefits before any procedure is performed.',
+    );
+  }
+
+  // Universal counselling
+  yPos += 1;
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  yPos = checkNewPage(doc, yPos, 8);
+  doc.text('What you must do — for any plan:', leftX, yPos);
+  yPos += 5;
+  writeBullets([
+    `Control your diabetes: target HbA1c < 7% where safe. Take medications/insulin exactly as prescribed and monitor sugars regularly.`,
+    'Stop smoking completely — smoking constricts blood vessels and is the strongest modifiable cause of amputation.',
+    'Off-load the foot: use the prescribed total-contact cast, walker boot or special shoe at all times when standing or walking. Never walk barefoot.',
+    'Inspect both feet daily (use a mirror if needed). Report any new wound, blister, redness, swelling, smell or warmth to the clinic immediately.',
+    'Keep dressings clean and dry, and attend every scheduled dressing change.',
+    'Eat a protein-rich, balanced diet; correct anaemia and low albumin as advised; take prescribed vitamin/mineral supplements.',
+    'Control blood pressure, cholesterol and weight; take aspirin and a statin if prescribed.',
+    'Attend every follow-up appointment — missed reviews are a leading cause of preventable amputation.',
+  ]);
+
+  // Warning signs
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  yPos = checkNewPage(doc, yPos, 8);
+  doc.text('Warning signs — return to hospital immediately if you notice:', leftX, yPos);
+  yPos += 5;
+  writeBullets([
+    'Fever, chills, rigors, or feeling generally very unwell.',
+    'Spreading redness, swelling, foul smell, or pus from the wound.',
+    'Sudden increase in pain, or a new cold, pale, or blue area of the foot or stump.',
+    'Bleeding that does not stop with pressure.',
+    'Confusion, drowsiness, or very high or very low blood sugar.',
+  ]);
+
+  // Follow-up
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  yPos = checkNewPage(doc, yPos, 8);
+  doc.text('Follow-up:', leftX, yPos);
+  yPos += 5;
+  writeParagraph(
+    assessment.followUpDate
+      ? `Your next review is scheduled for ${format(new Date(assessment.followUpDate), 'EEEE, dd MMM yyyy')}. ` +
+          'Bring all your medications and your blood sugar diary. The wound team and, where relevant, the vascular and orthopaedic teams will reassess your progress and adjust the plan.'
+      : 'A follow-up review will be arranged. Bring all your medications and your blood sugar diary to every visit. The wound team and, where relevant, the vascular and orthopaedic teams will reassess your progress and adjust the plan.',
+  );
+
+  if (assessment.progressNotes) {
+    sectionBreak('Progress Notes');
+    writeParagraph(assessment.progressNotes);
+  }
+  if (assessment.notes) {
+    sectionBreak('Additional Notes');
+    writeParagraph(assessment.notes);
+  }
+
+  // Sign-off
+  yPos = checkNewPage(doc, yPos, 30);
+  yPos += 6;
+  doc.setDrawColor(0, 0, 0);
+  doc.line(leftX, yPos, leftX + 70, yPos);
+  doc.line(leftX + 100, yPos, leftX + 170, yPos);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  doc.setFontSize(8);
+  doc.text(`Clinician: ${preparedBy || assessment.assessedByName || '—'}`, leftX, yPos + 4);
+  doc.text('Patient / Next-of-Kin (signature & date)', leftX + 100, yPos + 4);
+
+  // Watermark + footers
+  addWatermarkToAllPages(doc, 0.05);
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    addBrandedFooter(
+      doc,
+      p,
+      totalPages,
+      'Comprehensive Limb Salvage Assessment Summary — for clinical use and patient counselling.',
+    );
+  }
+
+  const safeName = patientName.replace(/\s+/g, '_');
+  doc.save(`LimbSalvage_Summary_${safeName}_${format(new Date(assessment.assessmentDate), 'yyyyMMdd')}.pdf`);
+}
