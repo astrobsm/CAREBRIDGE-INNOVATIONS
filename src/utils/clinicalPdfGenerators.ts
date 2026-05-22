@@ -2967,11 +2967,11 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
 
     let yPos = 32;
 
-    // Patient Information Box
+    // Patient Information Box (taller to accommodate proper spacing between fields)
     doc.setFillColor(250, 250, 250);
     doc.setDrawColor(100, 100, 100);
     doc.setLineWidth(0.3);
-    doc.roundedRect(margin, yPos, contentWidth, 45, 2, 2, 'FD');
+    doc.roundedRect(margin, yPos, contentWidth, 52, 2, 2, 'FD');
     
     doc.setFontSize(10);
     doc.setFont('times', 'bold');
@@ -2981,43 +2981,42 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(9);
     doc.setFont('times', 'normal');
-    
-    // Row 1
-    doc.text('Patient Name:', margin + 4, yPos + 15);
     doc.setDrawColor(150, 150, 150);
-    doc.line(margin + 35, yPos + 15, margin + 100, yPos + 15);
-    
-    doc.text('Hospital No:', margin + 105, yPos + 15);
-    doc.line(margin + 130, yPos + 15, margin + contentWidth - 4, yPos + 15);
-    
-    // Row 2
-    doc.text('Age:', margin + 4, yPos + 23);
-    doc.line(margin + 15, yPos + 23, margin + 35, yPos + 23);
-    
-    doc.text('Sex:', margin + 40, yPos + 23);
-    doc.text('M / F', margin + 50, yPos + 23);
-    
-    doc.text('Date of Birth:', margin + 70, yPos + 23);
-    doc.line(margin + 95, yPos + 23, margin + 130, yPos + 23);
-    
-    doc.text('Phone:', margin + 135, yPos + 23);
-    doc.line(margin + 150, yPos + 23, margin + contentWidth - 4, yPos + 23);
-    
-    // Row 3
-    doc.text('Ward/Clinic:', margin + 4, yPos + 31);
-    doc.line(margin + 30, yPos + 31, margin + 70, yPos + 31);
-    
-    doc.text('Consultant:', margin + 75, yPos + 31);
-    doc.line(margin + 100, yPos + 31, margin + contentWidth - 4, yPos + 31);
-    
-    // Row 4 - Clinical Information
-    doc.text('Diagnosis:', margin + 4, yPos + 39);
-    doc.line(margin + 25, yPos + 39, margin + 100, yPos + 39);
-    
-    doc.text('Affected Side:', margin + 105, yPos + 39);
-    doc.text('L / R / Bilateral', margin + 135, yPos + 39);
 
-    return yPos + 52;
+    // Two-column safe layout: left column 19→100, right column 110→191
+    const colLeftX = margin + 4;       // 19
+    const colLeftEnd = margin + 90;    // 105
+    const colRightX = margin + 95;     // 110
+    const colRightEnd = margin + contentWidth - 4; // 191
+
+    // Helper: render label at x,y then draw line from end-of-label to lineEndX
+    const labelLine = (label: string, x: number, y: number, lineEndX: number): void => {
+      doc.text(label, x, y);
+      const lw = doc.getTextWidth(label) + 2;
+      doc.line(x + lw, y, lineEndX, y);
+    };
+
+    // Row 1: Patient Name | Hospital No
+    labelLine('Patient Name:', colLeftX, yPos + 16, colLeftEnd);
+    labelLine('Hospital No:', colRightX, yPos + 16, colRightEnd);
+
+    // Row 2: Age | Sex M/F | DOB | Phone — split across full width with explicit gaps
+    labelLine('Age:', colLeftX, yPos + 25, margin + 35);
+    doc.text('Sex:', margin + 42, yPos + 25);
+    doc.text('M / F', margin + 54, yPos + 25);
+    labelLine('Date of Birth:', margin + 75, yPos + 25, margin + 125);
+    labelLine('Phone:', margin + 132, yPos + 25, colRightEnd);
+
+    // Row 3: Ward/Clinic | Consultant
+    labelLine('Ward/Clinic:', colLeftX, yPos + 34, colLeftEnd);
+    labelLine('Consultant:', colRightX, yPos + 34, colRightEnd);
+
+    // Row 4: Diagnosis (wide left) | Affected Side checkboxes (right)
+    labelLine('Diagnosis:', colLeftX, yPos + 43, colLeftEnd);
+    doc.text('Affected Side:', colRightX, yPos + 43);
+    doc.text('L  /  R  /  Bilateral', colRightX + 30, yPos + 43);
+
+    return yPos + 60;
   };
 
   // Helper function for checkbox item with proper text rendering
@@ -3069,11 +3068,11 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
     return y + 10;
   };
 
-  // Helper for signature section
+  // Helper for signature section — 3 well-spaced rows to avoid label/line overlap
   const addSignatureSection = (y: number): void => {
     doc.setDrawColor(100, 100, 100);
     doc.setLineWidth(0.3);
-    doc.roundedRect(margin, y, contentWidth, 35, 2, 2, 'S');
+    doc.roundedRect(margin, y, contentWidth, 42, 2, 2, 'S');
     
     doc.setFontSize(9);
     doc.setFont('times', 'bold');
@@ -3081,21 +3080,23 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
     doc.text('REQUESTING CLINICIAN', margin + 4, y + 7);
     
     doc.setFont('times', 'normal');
-    addInputField('Name:', margin + 4, y + 15, 50);
-    addInputField('Designation:', margin + 70, y + 15, 45);
-    addInputField('Bleep/Ext:', margin + 130, y + 15, 30);
+    // Row 1: Name (left, wide) | Designation (right, wide) — 2 columns, no overlap
+    addInputField('Name:', margin + 4, y + 16, 70);
+    addInputField('Designation:', margin + 95, y + 16, 65);
     
-    addInputField('Signature:', margin + 4, y + 25, 40);
-    addInputField('Date:', margin + 60, y + 25, 25);
-    addInputField('Time:', margin + 100, y + 25, 20);
+    // Row 2: Bleep/Ext | Signature | Date | Time — fits across the page with safe gaps
+    addInputField('Bleep/Ext:', margin + 4, y + 25, 25);
+    addInputField('Signature:', margin + 60, y + 25, 45);
+    addInputField('Date:', margin + 130, y + 25, 22);
+    addInputField('Time:', margin + 160, y + 25, 20);
     
-    // Urgency checkboxes
+    // Row 3: Priority checkboxes — extra horizontal spacing
     doc.setFont('times', 'bold');
-    doc.text('Priority:', margin + 4, y + 33);
+    doc.text('Priority:', margin + 4, y + 36);
     doc.setFont('times', 'normal');
-    addCheckboxItem('STAT', margin + 25, y + 33);
-    addCheckboxItem('Urgent (<24hrs)', margin + 50, y + 33);
-    addCheckboxItem('Routine', margin + 95, y + 33);
+    addCheckboxItem('STAT', margin + 28, y + 36);
+    addCheckboxItem('Urgent (<24hrs)', margin + 60, y + 36);
+    addCheckboxItem('Routine', margin + 115, y + 36);
   };
 
   // ==================== PAGE 1: LABORATORY REQUEST - HEMATOLOGY ====================
@@ -3283,19 +3284,19 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
   
   yPos = addSectionTitle('PLAIN X-RAY INVESTIGATIONS', yPos);
   
-  // Lower Limb X-rays
+  // Lower Limb X-rays — switched to safe 2-column layout to avoid right-edge overflow
   yPos = addSubsectionHeader('Lower Limb Radiographs', yPos, [254, 249, 195]);
   addCheckboxItem('X-ray Foot - AP View', margin + 4, yPos + 5);
-  addCheckboxItem('X-ray Foot - Lateral View', margin + 70, yPos + 5);
-  addCheckboxItem('X-ray Foot - Oblique View', margin + 140, yPos + 5);
-  addCheckboxItem('X-ray Ankle - AP View', margin + 4, yPos + 13);
-  addCheckboxItem('X-ray Ankle - Lateral View', margin + 70, yPos + 13);
-  addCheckboxItem('X-ray Ankle - Mortise View', margin + 140, yPos + 13);
-  addCheckboxItem('X-ray Tibia/Fibula - AP & Lateral', margin + 4, yPos + 21);
-  addCheckboxItem('X-ray Knee - AP & Lateral', margin + 90, yPos + 21);
-  addCheckboxItem('X-ray Femur', margin + 4, yPos + 29);
-  addCheckboxItem('X-ray Pelvis/Hip', margin + 70, yPos + 29);
-  yPos += 40;
+  addCheckboxItem('X-ray Foot - Lateral View', margin + 95, yPos + 5);
+  addCheckboxItem('X-ray Foot - Oblique View', margin + 4, yPos + 13);
+  addCheckboxItem('X-ray Ankle - AP View', margin + 95, yPos + 13);
+  addCheckboxItem('X-ray Ankle - Lateral View', margin + 4, yPos + 21);
+  addCheckboxItem('X-ray Ankle - Mortise View', margin + 95, yPos + 21);
+  addCheckboxItem('X-ray Tibia/Fibula - AP & Lateral', margin + 4, yPos + 29);
+  addCheckboxItem('X-ray Knee - AP & Lateral', margin + 95, yPos + 29);
+  addCheckboxItem('X-ray Femur', margin + 4, yPos + 37);
+  addCheckboxItem('X-ray Pelvis/Hip', margin + 95, yPos + 37);
+  yPos += 46;
 
   // Side Selection
   doc.setFillColor(248, 250, 252);
@@ -3308,14 +3309,14 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
   addCheckboxItem('Bilateral', margin + 90, yPos + 8);
   yPos += 18;
 
-  // Chest/Other X-rays
+  // Chest/Other X-rays — 2 columns to keep last item inside page width
   yPos = addSubsectionHeader('Chest & Other Radiographs', yPos, [239, 246, 255]);
   addCheckboxItem('Chest X-ray - PA View', margin + 4, yPos + 5);
-  addCheckboxItem('Chest X-ray - Lateral View', margin + 70, yPos + 5);
-  addCheckboxItem('Chest X-ray - AP (Portable)', margin + 140, yPos + 5);
-  addCheckboxItem('Abdominal X-ray', margin + 4, yPos + 13);
-  addCheckboxItem('Spine X-ray', margin + 70, yPos + 13);
-  yPos += 22;
+  addCheckboxItem('Chest X-ray - Lateral View', margin + 95, yPos + 5);
+  addCheckboxItem('Chest X-ray - AP (Portable)', margin + 4, yPos + 13);
+  addCheckboxItem('Abdominal X-ray', margin + 95, yPos + 13);
+  addCheckboxItem('Spine X-ray', margin + 4, yPos + 21);
+  yPos += 30;
 
   // Clinical Information
   doc.setFillColor(255, 255, 240);
@@ -3332,9 +3333,9 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
   doc.line(margin + 50, yPos + 30, margin + contentWidth - 4, yPos + 30);
   
   addCheckboxItem('? Osteomyelitis', margin + 4, yPos + 40);
-  addCheckboxItem('? Fracture', margin + 55, yPos + 40);
-  addCheckboxItem('? Gas in Tissues', margin + 100, yPos + 40);
-  addCheckboxItem('? Foreign Body', margin + 150, yPos + 40);
+  addCheckboxItem('? Fracture', margin + 50, yPos + 40);
+  addCheckboxItem('? Gas in Tissues', margin + 90, yPos + 40);
+  addCheckboxItem('? Foreign Body', margin + 135, yPos + 40);
   yPos += 50;
 
   addSignatureSection(yPos);
@@ -3388,11 +3389,11 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
   doc.text('Contraindications / Safety Checklist:', margin + 4, yPos + 7);
   doc.setFont('times', 'normal');
   addCheckboxItem('Pacemaker/ICD', margin + 4, yPos + 15);
-  addCheckboxItem('Metal Implants', margin + 60, yPos + 15);
-  addCheckboxItem('Cochlear Implant', margin + 120, yPos + 15);
+  addCheckboxItem('Metal Implants', margin + 65, yPos + 15);
+  addCheckboxItem('Cochlear Implant', margin + 125, yPos + 15);
   addCheckboxItem('Contrast Allergy', margin + 4, yPos + 23);
-  addCheckboxItem('Renal Impairment (eGFR <30)', margin + 60, yPos + 23);
-  addCheckboxItem('Claustrophobia', margin + 140, yPos + 23);
+  addCheckboxItem('Renal Impairment (eGFR <30)', margin + 65, yPos + 23);
+  addCheckboxItem('Claustrophobia', margin + 130, yPos + 23);
   yPos += 35;
 
   addSignatureSection(yPos);
@@ -3442,12 +3443,12 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
   doc.text('Clinical Information:', margin + 4, yPos + 7);
   doc.setFont('times', 'normal');
   addCheckboxItem('Claudication', margin + 4, yPos + 15);
-  addCheckboxItem('Rest Pain', margin + 55, yPos + 15);
-  addCheckboxItem('Non-healing Ulcer', margin + 100, yPos + 15);
-  addCheckboxItem('Gangrene', margin + 150, yPos + 15);
+  addCheckboxItem('Rest Pain', margin + 50, yPos + 15);
+  addCheckboxItem('Non-healing Ulcer', margin + 90, yPos + 15);
+  addCheckboxItem('Gangrene', margin + 145, yPos + 15);
   addCheckboxItem('Absent Pulses', margin + 4, yPos + 23);
-  addCheckboxItem('Prior Revascularization', margin + 60, yPos + 23);
-  addCheckboxItem('Diabetes', margin + 130, yPos + 23);
+  addCheckboxItem('Prior Revascularization', margin + 55, yPos + 23);
+  addCheckboxItem('Diabetes', margin + 125, yPos + 23);
   addInputField('Claudication Distance:', margin + 4, yPos + 33, 30);
   addInputField('Duration of Symptoms:', margin + 70, yPos + 33, 30);
   yPos += 45;
@@ -3488,15 +3489,15 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
   
   yPos = addSubsectionHeader('Pre-Operative Tests', yPos, [240, 253, 244]);
   addCheckboxItem('Chest X-ray (PA)', margin + 4, yPos + 5);
-  addCheckboxItem('ECG (12-Lead)', margin + 60, yPos + 5);
-  addCheckboxItem('FBC', margin + 110, yPos + 5);
-  addCheckboxItem('E/U/Cr', margin + 140, yPos + 5);
+  addCheckboxItem('ECG (12-Lead)', margin + 65, yPos + 5);
+  addCheckboxItem('FBC', margin + 120, yPos + 5);
+  addCheckboxItem('E/U/Cr', margin + 150, yPos + 5);
   addCheckboxItem('LFT', margin + 4, yPos + 13);
   addCheckboxItem('Blood Glucose', margin + 40, yPos + 13);
   addCheckboxItem('Coagulation Profile', margin + 100, yPos + 13);
   addCheckboxItem('Group & Save', margin + 4, yPos + 21);
-  addCheckboxItem('Cross-Match (_____ units)', margin + 60, yPos + 21);
-  addCheckboxItem('Urinalysis', margin + 130, yPos + 21);
+  addCheckboxItem('Cross-Match (_____ units)', margin + 55, yPos + 21);
+  addCheckboxItem('Urinalysis', margin + 135, yPos + 21);
   yPos += 30;
 
   // Consultations Requested
