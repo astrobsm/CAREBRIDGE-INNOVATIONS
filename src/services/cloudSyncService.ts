@@ -1260,14 +1260,17 @@ function handleRealtimePayload(local: string, payload: any): void {
       }, REALTIME_DEBOUNCE_MS),
     );
   } else if (payload.eventType === 'DELETE' && payload.old) {
-    try {
-      suppressAudit();
-      (db as any)[local].delete((payload.old as any).id);
-      resumeAudit();
-    } catch (err) {
-      resumeAudit();
-      console.warn(`[CloudSync] Failed to delete from ${local}:`, err);
-    }
+    // SAFETY: Do NOT mirror remote DELETE events into local IndexedDB.
+    // Clinical data must only be removed via an explicit user action in the
+    // app (which calls deleteRecordFromCloud locally). Mirroring remote
+    // deletes caused records to silently disappear when rows were removed
+    // server-side by migrations, RLS changes, or other clients.
+    // We log the event for audit/diagnostics and leave the local copy intact.
+    const deletedId = (payload.old as { id?: string }).id;
+    console.warn(
+      `[CloudSync] Ignoring remote DELETE for ${local} id=${deletedId}. ` +
+      `Local copy preserved. Use in-app delete to remove clinical records.`,
+    );
   }
 }
 
