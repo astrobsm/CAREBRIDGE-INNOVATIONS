@@ -983,7 +983,17 @@ async function pullTable(cloudTableName: string, localTableName: string, orderCo
           console.error('[CloudSync] The "users" table does not exist in Supabase! Run supabase-users-sync-fix.sql');
         }
       }
+      // Surface missing-table / RLS errors loudly for clinical tables so silent data-loss can't recur
+      if (error.code === '42P01') {
+        console.error(`[CloudSync] ❌ Cloud table "${cloudTableName}" DOES NOT EXIST in Supabase. Local-only writes for "${localTableName}" will NOT be backed up. Run the corresponding supabase-*-migration.sql.`);
+      } else if (error.code === '42501' || error.message?.toLowerCase().includes('rls') || error.message?.toLowerCase().includes('policy')) {
+        console.error(`[CloudSync] ❌ RLS blocked pull on "${cloudTableName}". Local-only writes for "${localTableName}" cannot be verified against cloud. Check Supabase RLS policies.`);
+      }
       return;
+    }
+    // Always log the pull result for visibility (so missing tables are obvious in production logs)
+    if (typeof data !== 'undefined') {
+      console.log(`[CloudSync] pull ${cloudTableName} -> ${data?.length || 0} rows`);
     }
 
     // Log even when no data for users table
