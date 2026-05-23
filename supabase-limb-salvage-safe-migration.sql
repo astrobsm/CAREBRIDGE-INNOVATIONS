@@ -103,3 +103,7 @@ CREATE POLICY "public_access" ON limb_salvage_assessments
 -- 6. Verify
 SELECT 'limb_salvage_assessments OK — rows: ' || COUNT(*)::text AS result
 FROM limb_salvage_assessments;
+
+-- Ankle joint integrity + treatment consent (added with ankle-joint scoring feature)
+ALTER TABLE limb_salvage_assessments ADD COLUMN IF NOT EXISTS ankle_joint_integrity JSONB;
+ALTER TABLE limb_salvage_assessments ADD COLUMN IF NOT EXISTS treatment_consent JSONB;

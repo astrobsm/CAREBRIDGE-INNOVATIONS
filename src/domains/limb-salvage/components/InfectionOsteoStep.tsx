@@ -1,6 +1,6 @@
 // Step 4: Infection & Osteomyelitis Assessment
-import { Bug, Bone, AlertTriangle } from 'lucide-react';
-import type { OsteomyelitisAssessment, SepsisAssessment } from '../../../types';
+import { Bug, Bone, AlertTriangle, Activity } from 'lucide-react';
+import type { OsteomyelitisAssessment, SepsisAssessment, AnkleJointIntegrity } from '../../../types';
 
 interface InfectionOsteoStepProps {
   osteomyelitis: OsteomyelitisAssessment;
@@ -9,6 +9,7 @@ interface InfectionOsteoStepProps {
   vibrationSense: boolean;
   ankleReflexes: 'present' | 'diminished' | 'absent';
   neuropathySymptoms: string[];
+  ankleJointIntegrity: AnkleJointIntegrity;
   onUpdate: (data: Partial<{
     osteomyelitis: OsteomyelitisAssessment;
     sepsis: SepsisAssessment;
@@ -16,6 +17,7 @@ interface InfectionOsteoStepProps {
     vibrationSense: boolean;
     ankleReflexes: 'present' | 'diminished' | 'absent';
     neuropathySymptoms: string[];
+    ankleJointIntegrity: AnkleJointIntegrity;
   }>) => void;
 }
 
@@ -54,8 +56,13 @@ export default function InfectionOsteoStep({
   vibrationSense,
   ankleReflexes,
   neuropathySymptoms,
+  ankleJointIntegrity,
   onUpdate,
 }: InfectionOsteoStepProps) {
+
+  const updateAnkle = (field: keyof AnkleJointIntegrity, value: any) => {
+    onUpdate({ ankleJointIntegrity: { ...ankleJointIntegrity, [field]: value } });
+  };
 
   const updateOsteo = (field: string, value: any) => {
     onUpdate({
@@ -657,6 +664,194 @@ export default function InfectionOsteoStep({
           </div>
         </div>
       )}
+
+      {/* ============================================================
+          ANKLE JOINT INTEGRITY ASSESSMENT
+          ============================================================ */}
+      <div className="bg-white border-2 border-purple-200 rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
+            <Activity className="h-5 w-5 text-purple-600" />
+            Ankle Joint Integrity
+          </h3>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={ankleJointIntegrity.assessed}
+              onChange={(e) => updateAnkle('assessed', e.target.checked)}
+              className="w-4 h-4 text-purple-600 rounded"
+            />
+            <span className="font-medium">Ankle assessed</span>
+          </label>
+        </div>
+        <p className="text-xs text-gray-600 mb-4">
+          The integrity of the tibio-talar joint is critical for limb-salvage decisions. A destroyed,
+          septic or unstable ankle dramatically reduces the chance that a foot-preserving operation will
+          produce a weight-bearing limb and may push the decision toward below-knee amputation.
+        </p>
+
+        {ankleJointIntegrity.assessed && (
+          <div className="space-y-4">
+            {/* Stability / ROM / Deformity / Weight bearing */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={ankleJointIntegrity.stable}
+                  onChange={(e) => updateAnkle('stable', e.target.checked)}
+                  className="w-5 h-5 text-purple-600 rounded"
+                />
+                <div>
+                  <span className="font-medium text-sm">Joint stable on stress testing</span>
+                  <p className="text-xs text-gray-500">Uncheck if unstable / ligamentous laxity</p>
+                </div>
+              </label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Range of motion</label>
+                <select
+                  value={ankleJointIntegrity.rangeOfMotion}
+                  onChange={(e) => updateAnkle('rangeOfMotion', e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="full">Full</option>
+                  <option value="reduced">Reduced</option>
+                  <option value="fixed">Fixed (ankylosis / fused)</option>
+                  <option value="flail">Flail (no useful motion)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Deformity</label>
+                <select
+                  value={ankleJointIntegrity.deformity}
+                  onChange={(e) => updateAnkle('deformity', e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="none">None</option>
+                  <option value="varus">Varus</option>
+                  <option value="valgus">Valgus</option>
+                  <option value="equinus">Equinus</option>
+                  <option value="calcaneus">Calcaneus</option>
+                  <option value="rocker_bottom">Rocker-bottom</option>
+                  <option value="charcot">Charcot collapse</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Weight bearing</label>
+                <select
+                  value={ankleJointIntegrity.weightBearing}
+                  onChange={(e) => updateAnkle('weightBearing', e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="full">Full</option>
+                  <option value="partial">Partial</option>
+                  <option value="non_weight_bearing">Non-weight bearing</option>
+                  <option value="unable">Unable</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Inflammatory / pathology checkboxes */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Clinical findings (tick all that apply)</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {[
+                  { key: 'swelling', label: 'Swelling' },
+                  { key: 'effusion', label: 'Effusion' },
+                  { key: 'warmth', label: 'Warmth' },
+                  { key: 'tenderness', label: 'Tenderness' },
+                  { key: 'crepitus', label: 'Crepitus' },
+                  { key: 'ligamentInjury', label: 'Ligament injury' },
+                  { key: 'malleolarFracture', label: 'Malleolar #' },
+                  { key: 'ulcerOverJoint', label: 'Ulcer over joint' },
+                  { key: 'charcotNeuroarthropathy', label: 'Charcot neuro-arthropathy' },
+                ].map((f) => (
+                  <label key={f.key} className="flex items-center gap-2 text-sm p-2 border rounded hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={!!(ankleJointIntegrity as any)[f.key]}
+                      onChange={(e) => updateAnkle(f.key as keyof AnkleJointIntegrity, e.target.checked)}
+                      className="w-4 h-4 text-purple-600 rounded"
+                    />
+                    {f.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Critical red-flag checkboxes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="flex items-center gap-2 p-3 border-2 border-red-200 bg-red-50 rounded-lg cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ankleJointIntegrity.septicArthritis}
+                  onChange={(e) => updateAnkle('septicArthritis', e.target.checked)}
+                  className="w-5 h-5 text-red-600 rounded"
+                />
+                <div>
+                  <span className="font-medium text-sm text-red-900">Septic arthritis of ankle</span>
+                  <p className="text-xs text-red-700">Surgical emergency — urgent ortho referral</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-2 p-3 border-2 border-red-200 bg-red-50 rounded-lg cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ankleJointIntegrity.jointInvolvedInOsteomyelitis}
+                  onChange={(e) => updateAnkle('jointInvolvedInOsteomyelitis', e.target.checked)}
+                  className="w-5 h-5 text-red-600 rounded"
+                />
+                <div>
+                  <span className="font-medium text-sm text-red-900">OM extending into joint</span>
+                  <p className="text-xs text-red-700">Foot-preserving surgery rarely succeeds</p>
+                </div>
+              </label>
+            </div>
+
+            {/* Imaging + notes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">X-ray findings</label>
+                <input
+                  type="text"
+                  value={ankleJointIntegrity.xrayFindings || ''}
+                  onChange={(e) => updateAnkle('xrayFindings', e.target.value)}
+                  placeholder="e.g. talar collapse, joint space loss"
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">MRI findings</label>
+                <input
+                  type="text"
+                  value={ankleJointIntegrity.mriFindings || ''}
+                  onChange={(e) => updateAnkle('mriFindings', e.target.value)}
+                  placeholder="e.g. effusion, bone oedema"
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <textarea
+                value={ankleJointIntegrity.notes || ''}
+                onChange={(e) => updateAnkle('notes', e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+              />
+            </div>
+
+            {/* Red-flag banner */}
+            {(ankleJointIntegrity.septicArthritis || ankleJointIntegrity.jointInvolvedInOsteomyelitis) && (
+              <div className="bg-red-50 border border-red-300 rounded-lg p-3 flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+                <div className="text-sm text-red-800">
+                  <p className="font-semibold">Ankle joint red flag</p>
+                  <p>This finding may override the otherwise-recommended management and push the decision toward below-knee amputation. Confirm with imaging and urgent orthopaedic / vascular review.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

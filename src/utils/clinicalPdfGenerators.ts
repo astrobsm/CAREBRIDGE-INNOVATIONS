@@ -4374,6 +4374,45 @@ export function generateLimbSalvageSummaryPDF(options: LimbSalvageSummaryOptions
     writeParagraph(`Symptoms: ${assessment.neuropathySymptoms.join(', ')}`);
   }
 
+  // Ankle joint integrity
+  const aj = assessment.ankleJointIntegrity;
+  if (aj && aj.assessed) {
+    yPos += 1;
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setFontSize(9.5);
+    yPos = checkNewPage(doc, yPos, 8);
+    doc.text('Ankle joint integrity:', leftX, yPos);
+    yPos += 5;
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    drawKV('Stability:', aj.stable ? 'Stable' : 'UNSTABLE', leftX, yPos, 30);
+    drawKV('ROM:', aj.rangeOfMotion || '—', leftX + 70, yPos, 18);
+    drawKV('Weight-bearing:', aj.weightBearing?.replace(/_/g, ' ') || '—', leftX + 120, yPos, 35);
+    yPos += 6;
+    drawKV('Deformity:', aj.deformity || 'none', leftX, yPos, 30);
+    drawKV('Charcot:', aj.charcotNeuroarthropathy ? 'YES' : 'No', leftX + 70, yPos, 22);
+    drawKV('Ulcer over joint:', aj.ulcerOverJoint ? 'YES' : 'No', leftX + 120, yPos, 35);
+    yPos += 6;
+    if (aj.septicArthritis) {
+      doc.setTextColor(180, 30, 30);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('RED FLAG: Septic arthritis of the ankle joint suspected/confirmed.', leftX, yPos);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      yPos += 5;
+    }
+    if (aj.jointInvolvedInOsteomyelitis) {
+      doc.setTextColor(180, 30, 30);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text('RED FLAG: Osteomyelitis extends into the ankle joint.', leftX, yPos);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      yPos += 5;
+    }
+    if (aj.xrayFindings) writeParagraph(`X-ray: ${aj.xrayFindings}`);
+    if (aj.mriFindings) writeParagraph(`MRI: ${aj.mriFindings}`);
+    if (aj.notes) writeParagraph(`Notes: ${aj.notes}`);
+  }
+
   // ====================================================================
   // 5. OSTEOMYELITIS
   // ====================================================================
@@ -4497,6 +4536,7 @@ export function generateLimbSalvageSummaryPDF(options: LimbSalvageSummaryOptions
       `Comorbidities: ${sc.comorbidityScore}`,
       `Age: ${sc.ageScore}`,
       `Nutrition: ${sc.nutritionalScore}`,
+      `Ankle joint: ${sc.ankleJointScore ?? 0}/10`,
     ]);
   }
   drawKV(
@@ -4679,6 +4719,130 @@ export function generateLimbSalvageSummaryPDF(options: LimbSalvageSummaryOptions
     sectionBreak('Additional Notes');
     writeParagraph(assessment.notes);
   }
+
+  // ====================================================================
+  // 12. STATEMENT OF CONSENT — CARE OPTIONS & PATIENT DECISION
+  // ====================================================================
+  const consent = assessment.treatmentConsent;
+  sectionBreak('12. Statement of Consent \u2014 Care Options & Patient Decision');
+  writeParagraph(
+    'Based on the assessment above, the available options of care have been explained to the patient and their next-of-kin in a language they understand. ' +
+      'The patient has been given the opportunity to ask questions, to discuss alternatives, and to choose a preferred option of care. ' +
+      'Treatment will not be commenced until the patient (or legally authorised representative) has signed below in the presence of an independent witness.',
+  );
+  yPos += 1;
+
+  if (consent?.optionsPresented?.length) {
+    doc.setFont(PDF_FONTS.primary, 'bold');
+    doc.setFontSize(9.5);
+    yPos = checkNewPage(doc, yPos, 8);
+    doc.text('Options presented to the patient:', leftX, yPos);
+    yPos += 5;
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    doc.setFontSize(9);
+    consent.optionsPresented.forEach((opt, idx) => {
+      const chosen = consent.selectedOption === opt.id;
+      const glyph = chosen ? '[X]' : '[ ]';
+      yPos = checkNewPage(doc, yPos, 22);
+      doc.setFont(PDF_FONTS.primary, 'bold');
+      doc.text(`${glyph} Option ${idx + 1}: ${opt.label}${opt.recommended ? '  (clinically recommended)' : ''}`, leftX, yPos);
+      yPos += 5;
+      doc.setFont(PDF_FONTS.primary, 'normal');
+      writeParagraph(`Description: ${opt.description}`);
+      writeParagraph(`Expected outcome: ${opt.expectedOutcome}`);
+      writeParagraph(`Main risks: ${opt.risks}`);
+      yPos += 1;
+    });
+  } else {
+    writeParagraph('Options of care will be documented at the time of consent.');
+  }
+
+  yPos += 1;
+  doc.setFont(PDF_FONTS.primary, 'bold');
+  yPos = checkNewPage(doc, yPos, 8);
+  if (consent?.refusedTreatment) {
+    doc.setTextColor(180, 30, 30);
+    doc.text('Patient has DECLINED the recommended treatment.', leftX, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 5;
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    if (consent.refusalReason) writeParagraph(`Reason: ${consent.refusalReason}`);
+    writeParagraph(
+      'The risks of refusing treatment \u2014 including progression of infection, limb loss and death \u2014 have been explained and understood.',
+    );
+  } else {
+    doc.text(
+      `Patient's selected option: ${consent?.selectedOptionLabel || '\u2014 (to be selected and signed below)'}`,
+      leftX,
+      yPos,
+    );
+    yPos += 6;
+    doc.setFont(PDF_FONTS.primary, 'normal');
+    writeParagraph(
+      'I confirm that the diagnosis, the recommended plan, the alternative options, the expected benefits, the risks of treatment and the risks of refusing treatment have all been explained to me. ' +
+        'I have had the opportunity to ask questions and my questions have been answered to my satisfaction. I freely choose the option marked above and consent to its commencement.',
+    );
+  }
+
+  // Signature block — patient, witness, clinician
+  yPos += 4;
+  yPos = checkNewPage(doc, yPos, 50);
+  doc.setDrawColor(0, 0, 0);
+
+  // Patient signature line
+  doc.line(leftX, yPos, leftX + 80, yPos);
+  doc.line(leftX + 95, yPos, leftX + 145, yPos);
+  doc.line(leftX + 155, yPos, leftX + 190, yPos);
+  doc.setFontSize(8);
+  doc.text(`Patient / NOK: ${consent?.patientSignatureName || ''}`, leftX, yPos + 4);
+  doc.text(`Relationship: ${consent?.patientRelationship || ''}`, leftX + 95, yPos + 4);
+  doc.text(
+    `Date: ${consent?.patientSignedAt ? format(new Date(consent.patientSignedAt), 'dd MMM yyyy') : ''}`,
+    leftX + 155,
+    yPos + 4,
+  );
+  yPos += 14;
+
+  // Witness signature line
+  yPos = checkNewPage(doc, yPos, 20);
+  doc.line(leftX, yPos, leftX + 80, yPos);
+  doc.line(leftX + 95, yPos, leftX + 145, yPos);
+  doc.line(leftX + 155, yPos, leftX + 190, yPos);
+  doc.text(`Witness: ${consent?.witnessName || ''}`, leftX, yPos + 4);
+  doc.text(`Designation: ${consent?.witnessDesignation || ''}`, leftX + 95, yPos + 4);
+  doc.text(
+    `Date: ${consent?.witnessSignedAt ? format(new Date(consent.witnessSignedAt), 'dd MMM yyyy') : ''}`,
+    leftX + 155,
+    yPos + 4,
+  );
+  yPos += 14;
+
+  // Clinician signature line
+  yPos = checkNewPage(doc, yPos, 20);
+  doc.line(leftX, yPos, leftX + 80, yPos);
+  doc.line(leftX + 95, yPos, leftX + 145, yPos);
+  doc.line(leftX + 155, yPos, leftX + 190, yPos);
+  doc.text(
+    `Clinician: ${consent?.clinicianName || preparedBy || assessment.assessedByName || ''}`,
+    leftX,
+    yPos + 4,
+  );
+  doc.text(`Designation: ${consent?.clinicianDesignation || ''}`, leftX + 95, yPos + 4);
+  doc.text(
+    `Date: ${consent?.clinicianSignedAt ? format(new Date(consent.clinicianSignedAt), 'dd MMM yyyy') : ''}`,
+    leftX + 155,
+    yPos + 4,
+  );
+  yPos += 10;
+
+  if (consent?.interpreterUsed) {
+    writeParagraph(
+      `An interpreter was used during this consent discussion${
+        consent.interpreterName ? ` (${consent.interpreterName})` : ''
+      }.`,
+    );
+  }
+  if (consent?.notes) writeParagraph(`Consent notes: ${consent.notes}`);
 
   // Sign-off
   yPos = checkNewPage(doc, yPos, 30);

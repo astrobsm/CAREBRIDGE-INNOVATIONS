@@ -10,6 +10,8 @@ import type {
   RenalStatus,
   DiabeticFootComorbidities,
   AmputationLevel,
+  AnkleJointIntegrity,
+  LimbSalvageCarePlanOption,
 } from '../types';
 
 // ============================================================
@@ -28,10 +30,11 @@ export function calculateLimbSalvageScore(assessment: Partial<LimbSalvageAssessm
   const comorbidityScore = calculateComorbidityScore(assessment.comorbidities);
   const ageScore = calculateAgeScore(assessment.patientAge || 0);
   const nutritionalScore = calculateNutritionalScore(assessment);
+  const ankleJointScore = calculateAnkleJointScore(assessment.ankleJointIntegrity);
 
-  const totalScore = woundScore + ischemiaScore + infectionScore + renalScore + comorbidityScore + ageScore + nutritionalScore;
-  const maxScore = 100; // Maximum possible score
-  const percentage = (totalScore / maxScore) * 100;
+  const totalScore = woundScore + ischemiaScore + infectionScore + renalScore + comorbidityScore + ageScore + nutritionalScore + ankleJointScore;
+  const maxScore = 110; // Maximum possible score (added 10 for ankle joint integrity)
+  const percentage = Math.round((totalScore / maxScore) * 100 * 10) / 10;
 
   return {
     woundScore,
@@ -41,12 +44,53 @@ export function calculateLimbSalvageScore(assessment: Partial<LimbSalvageAssessm
     comorbidityScore,
     ageScore,
     nutritionalScore,
+    ankleJointScore,
     totalScore,
     maxScore,
     percentage,
     riskCategory: getRiskCategory(percentage),
     salvageProbability: getSalvageProbability(percentage),
   };
+}
+
+/**
+ * Calculate Ankle Joint Integrity Score (0-10 points)
+ *
+ * A destroyed or septic ankle joint is a strong predictor of failure of
+ * foot-preserving surgery. Even when the foot wound is small, an unstable
+ * or infected ankle often forces a below-knee amputation because the
+ * residual foot cannot bear weight or harbours ongoing infection.
+ */
+export function calculateAnkleJointScore(ankle?: AnkleJointIntegrity): number {
+  if (!ankle || !ankle.assessed) return 0;
+  let score = 0;
+
+  // Active joint sepsis is catastrophic (0-3)
+  if (ankle.septicArthritis) score += 3;
+
+  // Osteomyelitis crossing into the joint (0-2)
+  if (ankle.jointInvolvedInOsteomyelitis) score += 2;
+
+  // Instability / loss of structural integrity (0-2)
+  if (!ankle.stable) score += 2;
+  if (ankle.rangeOfMotion === 'flail') score += 2;
+  else if (ankle.rangeOfMotion === 'fixed') score += 1;
+
+  // Deformity (0-1)
+  if (ankle.deformity && ankle.deformity !== 'none') {
+    score += ankle.deformity === 'charcot' || ankle.deformity === 'rocker_bottom' ? 1 : 1;
+  }
+
+  // Charcot neuro-arthropathy (0-1) — heals poorly, prone to collapse
+  if (ankle.charcotNeuroarthropathy) score += 1;
+
+  // Ulcer directly over the joint or malleolar # (0-1)
+  if (ankle.ulcerOverJoint || ankle.malleolarFracture) score += 1;
+
+  // Functional loss — unable to bear weight (0-1)
+  if (ankle.weightBearing === 'unable' || ankle.weightBearing === 'non_weight_bearing') score += 1;
+
+  return Math.min(score, 10);
 }
 
 /**
@@ -355,6 +399,40 @@ export function generateRecommendations(assessment: Partial<LimbSalvageAssessmen
 function generateImmediateRecommendations(assessment: Partial<LimbSalvageAssessment>): LimbSalvageRecommendation[] {
   const recommendations: LimbSalvageRecommendation[] = [];
   const sepsis = assessment.sepsis;
+  const ankle = assessment.ankleJointIntegrity;
+
+  // ============================================================
+  // ANKLE JOINT INTEGRITY — EMERGENCIES
+  // ============================================================
+  if (ankle?.assessed) {
+    if (ankle.septicArthritis) {
+      recommendations.push({
+        category: 'immediate',
+        priority: 'critical',
+        recommendation: 'Septic arthritis of ankle: emergency orthopaedic consultation ± joint washout',
+        rationale: 'Pyogenic ankle arthritis destroys cartilage within days, seeds the bloodstream, and is a strong indicator for BKA when associated with poor distal perfusion or chronic OM.',
+        timeframe: 'Within 6 hours',
+      });
+    }
+    if (ankle.jointInvolvedInOsteomyelitis) {
+      recommendations.push({
+        category: 'immediate',
+        priority: 'critical',
+        recommendation: 'Osteomyelitis extending into ankle joint: consider primary BKA',
+        rationale: 'Once OM crosses the joint, foot-preserving surgery rarely produces a durable, functional limb. Definitive amputation usually offers better quality of life.',
+        timeframe: 'Urgent MDT decision',
+      });
+    }
+    if (!ankle.stable || ankle.rangeOfMotion === 'flail') {
+      recommendations.push({
+        category: 'immediate',
+        priority: 'high',
+        recommendation: 'Unstable / flail ankle: immobilise and protect from further injury',
+        rationale: 'An unstable ankle cannot bear weight even if the foot is preserved — splinting prevents further joint and soft-tissue damage pending definitive plan.',
+        timeframe: 'Immediate',
+      });
+    }
+  }
 
   // Sepsis management
   if (sepsis?.sepsisSeverity === 'septic_shock') {
@@ -617,7 +695,20 @@ export function recommendAmputationLevel(assessment: Partial<LimbSalvageAssessme
   const score = assessment.limbSalvageScore;
   const doppler = assessment.dopplerFindings;
   const osteo = assessment.osteomyelitis;
-  
+  const ankle = assessment.ankleJointIntegrity;
+
+  // ============================================================
+  // ANKLE JOINT NON-SALVAGEABLE — OVERRIDES OTHER FACTORS
+  // ============================================================
+  // If the tibio-talar joint is destroyed, septic or has OM extension,
+  // a more distal amputation will not produce a functional limb.
+  if (ankle?.assessed) {
+    const abi0 = doppler?.arterial?.abi || 1;
+    if (ankle.jointInvolvedInOsteomyelitis) return abi0 < 0.5 ? 'aka' : 'bka';
+    if (ankle.septicArthritis && abi0 < 0.5) return 'bka';
+    if ((!ankle.stable || ankle.rangeOfMotion === 'flail') && ankle.weightBearing === 'unable') return 'bka';
+  }
+
   // ============================================================
   // CHRONIC OSTEOMYELITIS - May override other considerations
   // ============================================================
@@ -839,4 +930,136 @@ export function formatScoreDisplay(score: LimbSalvageScore): {
     color: colors[score.riskCategory],
     recommendation: recommendations[score.salvageProbability],
   };
+}
+
+
+// ============================================================
+// PATIENT CONSENT -- CARE PLAN OPTIONS
+// ============================================================
+/**
+ * Build the menu of care-plan options that should be presented
+ * to the patient at counselling, based on the limb-salvage scoring
+ * and the recommended primary management pathway. The patient must
+ * be offered ALL reasonable alternatives (including refusal) so
+ * that informed consent can be documented before treatment starts.
+ */
+export function generateConsentOptions(assessment: Partial<LimbSalvageAssessment>): LimbSalvageCarePlanOption[] {
+  const score = assessment.limbSalvageScore;
+  const ampLevel = assessment.recommendedAmputationLevel || recommendAmputationLevel(assessment);
+  const primary = assessment.recommendedManagement || determineManagement(assessment);
+  const prob = score?.salvageProbability || 'fair';
+
+  const options: LimbSalvageCarePlanOption[] = [];
+
+  // 1) Conservative limb salvage -- always offered when probability is not very poor
+  if (prob !== 'very_poor') {
+    options.push({
+      id: 'conservative',
+      label: 'Conservative limb salvage (wound care + medical optimisation)',
+      description: 'Aggressive wound care, infection control, glycaemic and nutritional optimisation, off-loading and regular review. No surgery to remove the limb.',
+      expectedOutcome: prob === 'excellent' || prob === 'good'
+        ? 'Good chance of wound healing and preservation of the foot.'
+        : 'Healing is possible but slower; requires close follow-up. There is a risk that the wound progresses and amputation becomes necessary later.',
+      risks: 'Treatment failure, progression of infection or gangrene, prolonged hospital stay, recurrent admissions, eventual amputation if not improving.',
+      recommended: primary === 'conservative',
+    });
+  }
+
+  // 2) Revascularisation
+  options.push({
+    id: 'revascularization',
+    label: 'Revascularisation (angioplasty or bypass) + wound care',
+    description: 'Restore blood supply to the foot via endovascular or surgical bypass, followed by debridement and wound care.',
+    expectedOutcome: 'Improves chances of wound healing and limb preservation when poor blood supply is a major problem.',
+    risks: 'Procedural risks (bleeding, contrast nephropathy, graft failure), need for repeat procedures, possibility that revascularisation fails and amputation is still required.',
+    recommended: primary === 'revascularization',
+  });
+
+  // 3) Minor (foot-preserving) amputation
+  if (['toe_disarticulation', 'ray_amputation', 'transmetatarsal'].includes(ampLevel) || primary === 'minor_amputation') {
+    options.push({
+      id: 'minor_amputation',
+      label: 'Minor amputation (toe / ray / transmetatarsal) preserving the rest of the foot',
+      description: 'Surgical removal of the diseased part of the foot only, preserving as much weight-bearing surface as possible.',
+      expectedOutcome: 'Source control of infection, faster healing, and continued use of the foot with appropriate footwear.',
+      risks: 'Wound dehiscence, infection at the stump, need for revision to a more proximal level if healing fails, altered gait.',
+      recommended: primary === 'minor_amputation',
+    });
+  }
+
+  // 4) Major amputation (BKA / AKA)
+  if (['bka', 'aka', 'syme', 'chopart', 'lisfranc'].includes(ampLevel) || primary === 'major_amputation') {
+    const isAKA = ampLevel === 'aka';
+    options.push({
+      id: 'major_amputation',
+      label: isAKA ? 'Above-knee amputation (AKA)' : 'Below-knee amputation (BKA) or equivalent major amputation',
+      description: 'Removal of the limb at a level that gives the best chance of primary healing and a functional residual limb suitable for prosthetic rehabilitation.',
+      expectedOutcome: 'Definitive cure of the diseased limb, control of life-threatening infection, and opportunity for prosthetic rehabilitation.',
+      risks: 'Anaesthetic and surgical risk, phantom limb pain, prolonged rehabilitation, dependency on prosthesis, psychological adjustment.',
+      recommended: primary === 'major_amputation',
+    });
+  }
+
+  // 5) Palliative / comfort care -- when very high risk and patient unfit for surgery
+  if (score?.riskCategory === 'very_high' || prob === 'very_poor') {
+    options.push({
+      id: 'palliative',
+      label: 'Palliative / comfort-focused care',
+      description: 'Symptom control (pain, odour, exudate), dressings, antibiotics for episodes of infection, no major surgery. Focus on quality of life.',
+      expectedOutcome: 'Comfort and dignity. The limb is not expected to heal and the patient is not subjected to major surgery.',
+      risks: 'Progression of disease, ongoing infection, eventually life-limiting if patient is septic.',
+      recommended: false,
+    });
+  }
+
+  // 6) Always-offered alternatives
+  options.push({
+    id: 'mdt_review',
+    label: 'Multi-disciplinary team (MDT) review before decision',
+    description: 'Defer definitive decision pending review by vascular, orthopaedic, diabetes, anaesthetic and rehabilitation teams.',
+    expectedOutcome: 'A consensus plan based on input from all relevant specialties.',
+    risks: 'Delay in treatment may allow disease to progress.',
+    recommended: false,
+  });
+
+  options.push({
+    id: 'second_opinion',
+    label: 'Seek a second opinion at another centre',
+    description: 'Transfer or referral for an independent specialist opinion before consenting to surgery.',
+    expectedOutcome: 'Independent confirmation of, or alternative to, the recommended plan.',
+    risks: 'Delay in treatment may allow disease to progress.',
+    recommended: false,
+  });
+
+  options.push({
+    id: 'decline_all',
+    label: 'Decline all recommended treatment',
+    description: 'The patient understands the recommended management but chooses not to proceed with any of the above options at this time.',
+    expectedOutcome: 'No active intervention. The patient understands the limb (and potentially life) may be lost.',
+    risks: 'Progression of infection, sepsis, loss of the limb, and risk to life.',
+    recommended: false,
+  });
+
+  return options;
+}
+
+/**
+ * Check whether a treatment-consent record is complete enough
+ * for treatment to be commenced. Either a selected option with
+ * full patient + witness signatures, OR an explicit, signed refusal.
+ */
+export function isConsentComplete(consent?: LimbSalvageAssessment['treatmentConsent']): boolean {
+  if (!consent) return false;
+  const baseSigned = !!consent.patientSignatureName && !!consent.witnessName && !!consent.witnessDesignation;
+  if (consent.refusedTreatment) {
+    return baseSigned && !!consent.refusalReason && consent.patientUnderstands;
+  }
+  return (
+    baseSigned &&
+    !!consent.selectedOption &&
+    consent.patientUnderstands &&
+    consent.questionsAnswered &&
+    consent.alternativesDiscussed &&
+    consent.risksExplained
+  );
 }

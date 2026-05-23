@@ -8,14 +8,20 @@ import {
   Clock,
   FileText,
   Scissors,
-  Bone
+  Bone,
+  ClipboardCheck,
+  UserCheck,
+  PenSquare
 } from 'lucide-react';
 import type { 
   LimbSalvageScore, 
   LimbSalvageRecommendation,
   AmputationLevel,
-  OsteomyelitisAssessment
+  OsteomyelitisAssessment,
+  LimbSalvageConsent,
+  LimbSalvageConsentOption
 } from '../../../types';
+import { isConsentComplete } from '../../../services/limbSalvageService';
 
 interface ScoreSummaryStepProps {
   limbSalvageScore: LimbSalvageScore;
@@ -25,9 +31,11 @@ interface ScoreSummaryStepProps {
   treatmentPlan: string;
   followUpDate: Date | null;
   osteomyelitis?: OsteomyelitisAssessment;
+  treatmentConsent?: LimbSalvageConsent;
   onUpdate: (data: Partial<{
     treatmentPlan: string;
     followUpDate: Date;
+    treatmentConsent: LimbSalvageConsent;
   }>) => void;
 }
 
@@ -53,8 +61,16 @@ export default function ScoreSummaryStep({
   treatmentPlan,
   followUpDate,
   osteomyelitis,
+  treatmentConsent,
   onUpdate,
 }: ScoreSummaryStepProps) {
+
+  const updateConsent = (patch: Partial<LimbSalvageConsent>) => {
+    if (!treatmentConsent) return;
+    onUpdate({ treatmentConsent: { ...treatmentConsent, ...patch } });
+  };
+
+  const consentReady = isConsentComplete(treatmentConsent);
 
   // Chronic osteomyelitis assessment
   const isChronicOM = osteomyelitis?.suspected && (
@@ -278,6 +294,228 @@ export default function ScoreSummaryStep({
           </p>
         )}
       </div>
+
+      {/* ============================================================
+          PATIENT CONSENT — STATEMENT OF CARE OPTIONS
+          The patient must be presented with all reasonable options,
+          select a preferred option, and sign together with a witness
+          before treatment can be commenced.
+          ============================================================ */}
+      {treatmentConsent && (
+        <div className="bg-white border-2 border-indigo-300 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-indigo-900 flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-indigo-600" />
+              Patient Consent & Statement of Care Options
+            </h3>
+            {consentReady ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
+                <CheckCircle className="h-4 w-4" /> Consent complete
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded">
+                <AlertTriangle className="h-4 w-4" /> Consent incomplete
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-gray-700 mb-4">
+            The following management options were generated from the scoring above. The patient must be
+            offered all reasonable alternatives, given an opportunity to ask questions, and select a
+            preferred option. The selected option, the patient signature and a witness signature must all
+            be recorded before treatment is commenced.
+          </p>
+
+          {/* Refusal toggle */}
+          <label className="flex items-center gap-2 mb-4 p-3 border-2 border-red-200 bg-red-50 rounded">
+            <input
+              type="checkbox"
+              checked={treatmentConsent.refusedTreatment}
+              onChange={(e) => updateConsent({ refusedTreatment: e.target.checked, selectedOption: e.target.checked ? undefined : treatmentConsent.selectedOption })}
+              className="w-4 h-4 text-red-600 rounded"
+            />
+            <span className="text-sm font-medium text-red-900">Patient declines all recommended treatment options</span>
+          </label>
+
+          {treatmentConsent.refusedTreatment ? (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Reason for refusal</label>
+              <textarea
+                value={treatmentConsent.refusalReason || ''}
+                onChange={(e) => updateConsent({ refusalReason: e.target.value })}
+                rows={3}
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+                placeholder="Document the patient's reason for declining and confirmation that the consequences (including limb and life-threatening risks) were explained."
+              />
+            </div>
+          ) : (
+            <div className="space-y-2 mb-4">
+              <p className="text-sm font-medium text-gray-800">Available care options (select one):</p>
+              {treatmentConsent.optionsPresented.map((opt) => {
+                const checked = treatmentConsent.selectedOption === opt.id;
+                return (
+                  <label
+                    key={opt.id}
+                    className={`block p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                      checked ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="radio"
+                        name="consent-option"
+                        checked={checked}
+                        onChange={() => updateConsent({ selectedOption: opt.id as LimbSalvageConsentOption, selectedOptionLabel: opt.label })}
+                        className="mt-1 w-4 h-4 text-indigo-600"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {opt.label}
+                          {opt.recommended && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded">Recommended</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-700 mt-1">{opt.description}</p>
+                        <p className="text-xs text-gray-700 mt-1"><span className="font-semibold">Expected outcome:</span> {opt.expectedOutcome}</p>
+                        <p className="text-xs text-red-700 mt-1"><span className="font-semibold">Risks:</span> {opt.risks}</p>
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Counselling confirmations */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+            {[
+              { key: 'patientUnderstands', label: 'Patient understands the explanation' },
+              { key: 'questionsAnswered', label: 'Patient questions answered' },
+              { key: 'alternativesDiscussed', label: 'Alternatives discussed' },
+              { key: 'risksExplained', label: 'Risks explained' },
+              { key: 'interpreterUsed', label: 'Interpreter used' },
+            ].map((c) => (
+              <label key={c.key} className="flex items-center gap-2 text-sm p-2 border rounded hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={!!(treatmentConsent as any)[c.key]}
+                  onChange={(e) => updateConsent({ [c.key]: e.target.checked } as Partial<LimbSalvageConsent>)}
+                  className="w-4 h-4 text-indigo-600 rounded"
+                />
+                {c.label}
+              </label>
+            ))}
+          </div>
+
+          {treatmentConsent.interpreterUsed && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Interpreter name</label>
+              <input
+                type="text"
+                value={treatmentConsent.interpreterName || ''}
+                onChange={(e) => updateConsent({ interpreterName: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+              />
+            </div>
+          )}
+
+          {/* Signatures */}
+          <div className="border-t pt-4 mt-4">
+            <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+              <PenSquare className="h-4 w-4 text-indigo-600" /> Signatures
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Patient */}
+              <div className="p-3 border rounded">
+                <p className="text-xs font-medium text-gray-700 mb-1">Patient (or representative)</p>
+                <input
+                  type="text"
+                  placeholder="Full name"
+                  value={treatmentConsent.patientSignatureName || ''}
+                  onChange={(e) => updateConsent({ patientSignatureName: e.target.value, patientSignedAt: e.target.value ? new Date() : undefined })}
+                  className="w-full px-2 py-1 border rounded text-sm mb-2"
+                />
+                <select
+                  value={treatmentConsent.patientRelationship || 'self'}
+                  onChange={(e) => updateConsent({ patientRelationship: e.target.value as LimbSalvageConsent['patientRelationship'] })}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                >
+                  <option value="self">Self</option>
+                  <option value="next_of_kin">Next of kin</option>
+                  <option value="guardian">Legal guardian</option>
+                  <option value="spouse">Spouse</option>
+                  <option value="parent">Parent</option>
+                </select>
+                {treatmentConsent.patientSignedAt && (
+                  <p className="text-xs text-gray-500 mt-1">Signed: {new Date(treatmentConsent.patientSignedAt).toLocaleString()}</p>
+                )}
+              </div>
+              {/* Witness */}
+              <div className="p-3 border rounded">
+                <p className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-1"><UserCheck className="h-3 w-3" /> Witness</p>
+                <input
+                  type="text"
+                  placeholder="Witness full name"
+                  value={treatmentConsent.witnessName || ''}
+                  onChange={(e) => updateConsent({ witnessName: e.target.value, witnessSignedAt: e.target.value ? new Date() : undefined })}
+                  className="w-full px-2 py-1 border rounded text-sm mb-2"
+                />
+                <input
+                  type="text"
+                  placeholder="Role / designation"
+                  value={treatmentConsent.witnessDesignation || ''}
+                  onChange={(e) => updateConsent({ witnessDesignation: e.target.value })}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+                {treatmentConsent.witnessSignedAt && (
+                  <p className="text-xs text-gray-500 mt-1">Signed: {new Date(treatmentConsent.witnessSignedAt).toLocaleString()}</p>
+                )}
+              </div>
+              {/* Clinician */}
+              <div className="p-3 border rounded">
+                <p className="text-xs font-medium text-gray-700 mb-1">Counselling clinician</p>
+                <input
+                  type="text"
+                  placeholder="Clinician full name"
+                  value={treatmentConsent.clinicianName || ''}
+                  onChange={(e) => updateConsent({ clinicianName: e.target.value, clinicianSignedAt: e.target.value ? new Date() : undefined })}
+                  className="w-full px-2 py-1 border rounded text-sm mb-2"
+                />
+                <input
+                  type="text"
+                  placeholder="Designation"
+                  value={treatmentConsent.clinicianDesignation || ''}
+                  onChange={(e) => updateConsent({ clinicianDesignation: e.target.value })}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+                {treatmentConsent.clinicianSignedAt && (
+                  <p className="text-xs text-gray-500 mt-1">Signed: {new Date(treatmentConsent.clinicianSignedAt).toLocaleString()}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Consent notes (optional)</label>
+            <textarea
+              value={treatmentConsent.notes || ''}
+              onChange={(e) => updateConsent({ notes: e.target.value })}
+              rows={2}
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+            />
+          </div>
+
+          {!consentReady && (
+            <div className="mt-4 bg-amber-50 border border-amber-300 rounded p-3 flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+              <p className="text-sm text-amber-800">
+                <strong>Consent incomplete.</strong> Treatment may not be commenced until the patient has
+                selected an option (or signed a refusal), and the patient and witness have signed.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Treatment Plan & Follow-up */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

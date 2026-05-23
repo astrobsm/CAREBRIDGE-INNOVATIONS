@@ -25,7 +25,7 @@ import ScoreSummaryStep from './ScoreSummaryStep';
 
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
-import { calculateLimbSalvageScore, generateRecommendations, recommendAmputationLevel, determineManagement } from '../../../services/limbSalvageService';
+import { calculateLimbSalvageScore, generateRecommendations, recommendAmputationLevel, determineManagement, generateConsentOptions } from '../../../services/limbSalvageService';
 import { syncRecord } from '../../../services/cloudSyncService';
 
 import type { 
@@ -96,6 +96,24 @@ const getInitialFormData = (): Partial<LimbSalvageAssessment> => ({
   vibrationSense: false,
   ankleReflexes: 'present',
   neuropathySymptoms: [],
+  ankleJointIntegrity: {
+    assessed: false,
+    stable: true,
+    rangeOfMotion: 'full',
+    deformity: 'none',
+    swelling: false,
+    effusion: false,
+    warmth: false,
+    tenderness: false,
+    crepitus: false,
+    septicArthritis: false,
+    jointInvolvedInOsteomyelitis: false,
+    charcotNeuroarthropathy: false,
+    ligamentInjury: false,
+    malleolarFracture: false,
+    ulcerOverJoint: false,
+    weightBearing: 'full',
+  },
   osteomyelitis: {
     suspected: false,
     probeToBone: false,
@@ -152,8 +170,9 @@ const getInitialFormData = (): Partial<LimbSalvageAssessment> => ({
     comorbidityScore: 0,
     ageScore: 0,
     nutritionalScore: 0,
+    ankleJointScore: 0,
     totalScore: 0,
-    maxScore: 100,
+    maxScore: 110,
     percentage: 0,
     riskCategory: 'low',
     salvageProbability: 'excellent',
@@ -162,6 +181,7 @@ const getInitialFormData = (): Partial<LimbSalvageAssessment> => ({
   recommendedAmputationLevel: 'none' as AmputationLevel,
   recommendations: [] as LimbSalvageRecommendation[],
   treatmentPlan: '',
+  treatmentConsent: undefined,
   status: 'draft',
 });
 
@@ -196,11 +216,34 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
       const amputationLevel = recommendAmputationLevel(formData);
       const recommendations = generateRecommendations(formData);
 
+      // Seed treatment consent with auto-generated care plan options
+      // (clinician can re-generate after editing the plan)
+      let treatmentConsent = formData.treatmentConsent;
+      if (!treatmentConsent || !treatmentConsent.optionsPresented || treatmentConsent.optionsPresented.length === 0) {
+        const options = generateConsentOptions({
+          ...formData,
+          limbSalvageScore: score,
+          recommendedManagement: management,
+          recommendedAmputationLevel: amputationLevel,
+        });
+        treatmentConsent = {
+          optionsPresented: options,
+          patientUnderstands: false,
+          questionsAnswered: false,
+          alternativesDiscussed: false,
+          risksExplained: false,
+          interpreterUsed: false,
+          refusedTreatment: false,
+          consentObtained: false,
+        };
+      }
+
       updateFormData({
         limbSalvageScore: score,
         recommendedManagement: management,
         recommendedAmputationLevel: amputationLevel,
         recommendations,
+        treatmentConsent,
       });
     }
   }, [currentStep]);
@@ -276,6 +319,7 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
         vibrationSense: formData.vibrationSense!,
         ankleReflexes: formData.ankleReflexes!,
         neuropathySymptoms: formData.neuropathySymptoms!,
+        ankleJointIntegrity: formData.ankleJointIntegrity,
         osteomyelitis: formData.osteomyelitis!,
         sepsis: formData.sepsis!,
         renalStatus: formData.renalStatus!,
@@ -289,6 +333,7 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
         recommendedAmputationLevel: formData.recommendedAmputationLevel,
         recommendations: formData.recommendations!,
         treatmentPlan: formData.treatmentPlan,
+        treatmentConsent: formData.treatmentConsent,
         followUpDate: formData.followUpDate,
         status,
         createdAt: existingAssessment?.createdAt || new Date(),
@@ -419,6 +464,7 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
               vibrationSense={formData.vibrationSense || false}
               ankleReflexes={formData.ankleReflexes || 'present'}
               neuropathySymptoms={formData.neuropathySymptoms || []}
+              ankleJointIntegrity={formData.ankleJointIntegrity!}
               onUpdate={updateFormData}
             />
           )}
@@ -442,6 +488,7 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
               treatmentPlan={formData.treatmentPlan || ''}
               followUpDate={formData.followUpDate || null}
               osteomyelitis={formData.osteomyelitis}
+              treatmentConsent={formData.treatmentConsent}
               onUpdate={updateFormData}
             />
           )}

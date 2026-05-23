@@ -3174,6 +3174,7 @@ export interface LimbSalvageScore {
   comorbidityScore: number;
   ageScore: number;
   nutritionalScore: number;
+  ankleJointScore: number; // 0-10 — ankle joint integrity contribution
   
   // Total Score
   totalScore: number;
@@ -3194,6 +3195,110 @@ export interface LimbSalvageRecommendation {
   recommendation: string;
   rationale: string;
   timeframe?: string;
+}
+
+// =====================================================
+// ANKLE JOINT INTEGRITY ASSESSMENT
+// Critical for diabetic foot / limb-salvage decisions.
+// A destroyed or septic ankle joint dramatically reduces
+// the likelihood that a foot-preserving amputation will
+// produce a functional, weight-bearing limb and often
+// pushes the decision toward BKA.
+// =====================================================
+export interface AnkleJointIntegrity {
+  assessed: boolean;
+  // Stability / mechanics
+  stable: boolean;                  // stable under stress testing
+  rangeOfMotion: 'full' | 'reduced' | 'fixed' | 'flail';
+  deformity: 'none' | 'varus' | 'valgus' | 'equinus' | 'calcaneus' | 'rocker_bottom' | 'charcot';
+  // Inflammatory / infective signs
+  swelling: boolean;
+  effusion: boolean;
+  warmth: boolean;
+  tenderness: boolean;
+  crepitus: boolean;
+  // Pathology
+  septicArthritis: boolean;                // active joint sepsis
+  jointInvolvedInOsteomyelitis: boolean;   // OM extension into joint
+  charcotNeuroarthropathy: boolean;
+  ligamentInjury: boolean;
+  malleolarFracture: boolean;
+  ulcerOverJoint: boolean;
+  // Function
+  weightBearing: 'full' | 'partial' | 'non_weight_bearing' | 'unable';
+  // Imaging
+  xrayFindings?: string;
+  mriFindings?: string;
+  notes?: string;
+}
+
+// =====================================================
+// LIMB SALVAGE TREATMENT CONSENT
+// Patient is presented with all available care options
+// derived from the scoring outcome, selects a preferred
+// option, and signs together with a witness before
+// treatment is commenced.
+// =====================================================
+export type LimbSalvageConsentOption =
+  | 'conservative'
+  | 'revascularization'
+  | 'minor_amputation'
+  | 'major_amputation'
+  | 'palliative'
+  | 'second_opinion'
+  | 'mdt_review'
+  | 'decline_all';
+
+export interface LimbSalvageCarePlanOption {
+  id: LimbSalvageConsentOption;
+  label: string;
+  description: string;
+  expectedOutcome: string;
+  risks: string;
+  recommended: boolean;
+}
+
+export interface LimbSalvageConsent {
+  // Options offered to the patient (auto-generated from scoring,
+  // editable by clinician before counselling)
+  optionsPresented: LimbSalvageCarePlanOption[];
+  // Patient's selected option
+  selectedOption?: LimbSalvageConsentOption;
+  selectedOptionLabel?: string;
+
+  // Discussion confirmations
+  patientUnderstands: boolean;
+  questionsAnswered: boolean;
+  alternativesDiscussed: boolean;
+  risksExplained: boolean;
+  interpreterUsed: boolean;
+  interpreterName?: string;
+
+  // Refusal of treatment
+  refusedTreatment: boolean;
+  refusalReason?: string;
+
+  // Patient signature (typed name + optional drawn signature)
+  patientSignatureName?: string;
+  patientRelationship?: 'self' | 'next_of_kin' | 'guardian' | 'spouse' | 'parent';
+  patientSignedAt?: Date;
+  patientSignatureDataUrl?: string;
+
+  // Witness signature
+  witnessName?: string;
+  witnessDesignation?: string;
+  witnessSignedAt?: Date;
+  witnessSignatureDataUrl?: string;
+
+  // Clinician counter-sign
+  clinicianName?: string;
+  clinicianDesignation?: string;
+  clinicianSignedAt?: Date;
+
+  // Status
+  consentDate?: Date;
+  consentObtained: boolean;
+  notes?: string;
 }
 
 // ==========================================
@@ -3602,6 +3707,9 @@ export interface LimbSalvageAssessment {
   ankleReflexes: 'present' | 'diminished' | 'absent';
   neuropathySymptoms: string[];
   
+  // Ankle Joint Integrity (musculoskeletal — critical for limb-salvage decisions)
+  ankleJointIntegrity?: AnkleJointIntegrity;
+
   // Osteomyelitis
   osteomyelitis: OsteomyelitisAssessment;
   
@@ -3632,6 +3740,9 @@ export interface LimbSalvageAssessment {
   
   // Treatment Plan
   treatmentPlan?: string;
+
+  // Patient consent for the selected treatment pathway
+  treatmentConsent?: LimbSalvageConsent;
   
   // Progress Monitoring
   followUpDate?: Date;
