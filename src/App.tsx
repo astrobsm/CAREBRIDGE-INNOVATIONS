@@ -9,6 +9,7 @@ import DashboardPage from './domains/dashboard/pages/DashboardPage';
 import PatientsListPage from './domains/patients/pages/PatientsListPage';
 import PatientDetailsPage from './domains/patients/pages/PatientDetailsPage';
 import NewPatientPage from './domains/patients/pages/NewPatientPage';
+import SlimNewPatientPage from './domains/patients/pages/SlimNewPatientPage';
 import ClinicalEncounterPage from './domains/clinical/pages/ClinicalEncounterPage';
 import FollowUpEncounterPage from './domains/clinical/pages/FollowUpEncounterPage';
 import EnhancedFollowUpPage from './domains/clinical/pages/EnhancedFollowUpPage';
@@ -136,7 +137,8 @@ function App() {
         {/* Patient Routes */}
         <Route path="patients">
           <Route index element={<PatientsListPage />} />
-          <Route path="new" element={<NewPatientPage />} />
+          <Route path="new" element={<SlimNewPatientPage />} />
+          <Route path="new-comprehensive" element={<NewPatientPage />} />
           <Route path=":patientId" element={<PatientDetailsPage />} />
           <Route path=":patientId/encounter" element={<ClinicalEncounterPage />} />
           <Route path=":patientId/follow-up" element={<EnhancedFollowUpPage />} />
