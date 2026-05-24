@@ -39,6 +39,7 @@ import type {
 } from '../../types';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import PrescriptionHistoryReviewGuard, { type RxAckSummary } from './PrescriptionHistoryReviewGuard';
 
 interface EnhancedTreatmentPlanCardProps {
   patientId: string;
@@ -1151,6 +1152,8 @@ export default function EnhancedTreatmentPlanCard({
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedMedication, setSelectedMedication] = useState<MedicationInfo | null>(null);
   const [medications, setMedications] = useState<MedicationFormData[]>([]);
+  const [rxHistoryAcked, setRxHistoryAcked] = useState(false);
+  const [rxAckSummary, setRxAckSummary] = useState<RxAckSummary | null>(null);
   
   // Procedure form state
   const [selectedProcedureType, setSelectedProcedureType] = useState<ProcedureType | null>(null);
@@ -1281,8 +1284,15 @@ export default function EnhancedTreatmentPlanCard({
       toast.error('Add at least one medication');
       return;
     }
+    if (!rxHistoryAcked) {
+      toast.error('Please review and acknowledge prescription history first.');
+      return;
+    }
 
     try {
+      const auditNote = rxAckSummary
+        ? `\n[Rx History Reviewed @ ${rxAckSummary.acknowledgedAt.toISOString()}] active=${rxAckSummary.activeCount}, dispensed=${rxAckSummary.dispensedCount}, discontinued=${rxAckSummary.discontinuedCount}; lines acked=${rxAckSummary.ackedLines.length}`
+        : '';
       const prescription: Prescription = {
         id: uuidv4(),
         patientId,
@@ -1302,7 +1312,7 @@ export default function EnhancedTreatmentPlanCard({
         status: 'pending',
         prescribedBy: clinicianId,
         prescribedAt: new Date(),
-        notes: `Linked to Treatment Plan`,
+        notes: `Linked to Treatment Plan${auditNote}`,
       };
 
       await db.prescriptions.add(prescription);
@@ -1319,6 +1329,8 @@ export default function EnhancedTreatmentPlanCard({
       }
 
       setMedications([]);
+      setRxHistoryAcked(false);
+      setRxAckSummary(null);
       setShowMedicationModal(false);
       toast.success('Prescription created successfully!');
     } catch (error) {
@@ -2190,9 +2202,23 @@ export default function EnhancedTreatmentPlanCard({
                         </div>
                       ))}
                     </div>
-                    <button onClick={submitPrescription} className="btn btn-primary w-full mt-4">
+                    <PrescriptionHistoryReviewGuard
+                      patientId={patientId}
+                      onAcknowledgementChange={(acked, summary) => {
+                        setRxHistoryAcked(acked);
+                        setRxAckSummary(summary);
+                      }}
+                      className="mt-4"
+                    />
+                    <button
+                      onClick={submitPrescription}
+                      disabled={!rxHistoryAcked}
+                      className="btn btn-primary w-full mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       <Save size={16} />
-                      Submit Prescription ({medications.length} medication{medications.length > 1 ? 's' : ''})
+                      {rxHistoryAcked
+                        ? `Submit Prescription (${medications.length} medication${medications.length > 1 ? 's' : ''})`
+                        : 'Review Prescription History to Continue'}
                     </button>
                   </div>
                 )}

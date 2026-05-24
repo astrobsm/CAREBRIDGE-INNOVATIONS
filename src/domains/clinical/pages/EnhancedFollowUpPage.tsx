@@ -68,6 +68,7 @@ import { VoiceDictation } from '../../../components/common';
 import ScanToText from '../../../components/common/ScanToText';
 import { performOCR } from '../../../services/ocrService';
 import PreviousPlansReviewGuard, { type AckSummary } from '../../../components/clinical/PreviousPlansReviewGuard';
+import PrescriptionHistoryReviewGuard, { type RxAckSummary } from '../../../components/clinical/PrescriptionHistoryReviewGuard';
 import type {
   ClinicalEncounter,
   Diagnosis,
@@ -217,6 +218,8 @@ export default function EnhancedFollowUpPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [plansAcknowledged, setPlansAcknowledged] = useState(false);
   const [planAckSummary, setPlanAckSummary] = useState<AckSummary | null>(null);
+  const [rxHistoryAcknowledged, setRxHistoryAcknowledged] = useState(false);
+  const [rxAckSummary, setRxAckSummary] = useState<RxAckSummary | null>(null);
   const [isScanningDoc, setIsScanningDoc] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [expandedSections, setExpandedSections] = useState<Set<Section>>(
@@ -588,6 +591,10 @@ export default function EnhancedFollowUpPage() {
       toast.error('Please review and acknowledge all previous plan items before saving.');
       return;
     }
+    if (medications.length > 0 && !rxHistoryAcknowledged) {
+      toast.error('Please review and acknowledge the prescription history before issuing a new prescription.');
+      return;
+    }
     setIsSubmitting(true);
 
     try {
@@ -624,6 +631,10 @@ export default function EnhancedFollowUpPage() {
       if (planAckSummary && (planAckSummary.executedCount + planAckSummary.missedCount + planAckSummary.outstandingCount) > 0) {
         const ackLine = `\n\n[Prior Plan Review acknowledged by ${user.name || user.id} at ${planAckSummary.acknowledgedAt.toISOString()} \u2014 ${planAckSummary.executedCount} executed, ${planAckSummary.missedCount} missed, ${planAckSummary.outstandingCount} outstanding]`;
         encounter.notes = (encounter.notes || '') + ackLine;
+      }
+      if (rxAckSummary && medications.length > 0 && (rxAckSummary.activeCount + rxAckSummary.dispensedCount + rxAckSummary.discontinuedCount) > 0) {
+        const rxLine = `\n[Prescription History reviewed by ${user.name || user.id} at ${rxAckSummary.acknowledgedAt.toISOString()} \u2014 ${rxAckSummary.activeCount} active, ${rxAckSummary.dispensedCount} dispensed, ${rxAckSummary.discontinuedCount} discontinued lines acknowledged]`;
+        encounter.notes = (encounter.notes || '') + rxLine;
       }
       await db.clinicalEncounters.put(encounter);
       syncRecord('clinical_encounters', encounter).catch(console.error);
@@ -1547,6 +1558,18 @@ export default function EnhancedFollowUpPage() {
                   >
                     <Plus size={16} /> Add Medication
                   </button>
+
+                  {medications.length > 0 && patientId && (
+                    <div className="mt-3">
+                      <PrescriptionHistoryReviewGuard
+                        patientId={patientId}
+                        onAcknowledgementChange={(allAcked, summary) => {
+                          setRxHistoryAcknowledged(allAcked);
+                          setRxAckSummary(summary);
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -1647,12 +1670,12 @@ export default function EnhancedFollowUpPage() {
               </span>
               <button
                 type="submit"
-                disabled={isSubmitting || !plansAcknowledged}
-                title={!plansAcknowledged ? 'Acknowledge all prior plan items first' : ''}
+                disabled={isSubmitting || !plansAcknowledged || (medications.length > 0 && !rxHistoryAcknowledged)}
+                title={!plansAcknowledged ? 'Acknowledge all prior plan items first' : (medications.length > 0 && !rxHistoryAcknowledged ? 'Acknowledge prescription history first' : '')}
                 className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl font-medium hover:from-primary-700 hover:to-primary-800 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                {plansAcknowledged ? 'Save Encounter' : 'Review Prior Plans'}
+                {!plansAcknowledged ? 'Review Prior Plans' : (medications.length > 0 && !rxHistoryAcknowledged ? 'Review Prescription History' : 'Save Encounter')}
               </button>
             </div>
           </div>
