@@ -12,7 +12,12 @@ import { initializeDemoData } from './database';
 import { startNotificationScheduler, initVoiceAlarm } from './services/scheduledNotificationService';
 import { startReminderProcessor } from './services/treatmentSchedulerService';
 import { requestNotificationPermission, startReminderScheduler, setupNotificationClickHandler } from './services/appointmentNotificationService';
+import { installJsPdfTextSanitizer } from './utils/pdfTextSafe';
 import './index.css';
+
+// Install jsPDF text sanitizer EARLY so every generator emits clean cp1252 text
+// (fixes "& þ W a r n i n g  S i g n s" garbled emoji/Unicode output).
+installJsPdfTextSanitizer();
 
 // Global error handler for React #310 debugging
 // This catches errors that might escape React's error boundary
