@@ -67,6 +67,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation } from '../../../components/common';
 import ScanToText from '../../../components/common/ScanToText';
 import { performOCR } from '../../../services/ocrService';
+import PreviousPlansReviewGuard, { type AckSummary } from '../../../components/clinical/PreviousPlansReviewGuard';
 import type {
   ClinicalEncounter,
   Diagnosis,
@@ -214,6 +215,8 @@ export default function EnhancedFollowUpPage() {
   // ── UI State ──────────────────────────────────────────────────────
   const [activeSection, setActiveSection] = useState<Section>('encounter');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [plansAcknowledged, setPlansAcknowledged] = useState(false);
+  const [planAckSummary, setPlanAckSummary] = useState<AckSummary | null>(null);
   const [isScanningDoc, setIsScanningDoc] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [expandedSections, setExpandedSections] = useState<Set<Section>>(
@@ -581,6 +584,10 @@ export default function EnhancedFollowUpPage() {
   // ═══════════════════════════════════════════════════════════════════
   const onSubmit = async (data: EncounterFormData) => {
     if (!patient || !user) return;
+    if (!plansAcknowledged) {
+      toast.error('Please review and acknowledge all previous plan items before saving.');
+      return;
+    }
     setIsSubmitting(true);
 
     try {
@@ -613,6 +620,11 @@ export default function EnhancedFollowUpPage() {
         createdAt: now,
         updatedAt: now,
       };
+      // Append prior-plan review acknowledgement to notes for medico-legal audit trail
+      if (planAckSummary && (planAckSummary.executedCount + planAckSummary.missedCount + planAckSummary.outstandingCount) > 0) {
+        const ackLine = `\n\n[Prior Plan Review acknowledged by ${user.name || user.id} at ${planAckSummary.acknowledgedAt.toISOString()} \u2014 ${planAckSummary.executedCount} executed, ${planAckSummary.missedCount} missed, ${planAckSummary.outstandingCount} outstanding]`;
+        encounter.notes = (encounter.notes || '') + ackLine;
+      }
       await db.clinicalEncounters.put(encounter);
       syncRecord('clinical_encounters', encounter).catch(console.error);
 
@@ -1605,6 +1617,18 @@ export default function EnhancedFollowUpPage() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* ═══ PRIOR PLAN REVIEW GUARD ═══ */}
+          {patientId && (
+            <PreviousPlansReviewGuard
+              patientId={patientId}
+              onAcknowledgementChange={(allAcked, summary) => {
+                setPlansAcknowledged(allAcked);
+                setPlanAckSummary(summary);
+              }}
+              className="mt-4"
+            />
+          )}
         </div>
 
         {/* ═══ SUBMIT ═══ */}
@@ -1623,11 +1647,12 @@ export default function EnhancedFollowUpPage() {
               </span>
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl font-medium hover:from-primary-700 hover:to-primary-800 transition-all shadow-lg disabled:opacity-50"
+                disabled={isSubmitting || !plansAcknowledged}
+                title={!plansAcknowledged ? 'Acknowledge all prior plan items first' : ''}
+                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl font-medium hover:from-primary-700 hover:to-primary-800 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                Save Encounter
+                {plansAcknowledged ? 'Save Encounter' : 'Review Prior Plans'}
               </button>
             </div>
           </div>

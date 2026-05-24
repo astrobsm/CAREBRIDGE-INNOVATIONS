@@ -45,6 +45,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
+import PreviousPlansReviewGuard, { type AckSummary } from '../../../components/clinical/PreviousPlansReviewGuard';
 import { VoiceDictation, ExportOptionsModal } from '../../../components/common';
 import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
 import AISummaryButton from '../components/AISummaryButton';
@@ -118,6 +119,8 @@ export default function ClinicalEncounterPage() {
   const [selectedEncounterForView, setSelectedEncounterForView] = useState<string | null>(null);
   const [encounterFilterClinicianId, setEncounterFilterClinicianId] = useState<string>('');
   const [encounterFilterDateFrom, setEncounterFilterDateFrom] = useState<string>('');
+  const [plansAcknowledged, setPlansAcknowledged] = useState(false);
+  const [planAckSummary, setPlanAckSummary] = useState<AckSummary | null>(null);
   const [encounterFilterDateTo, setEncounterFilterDateTo] = useState<string>('');
   const [encounterFilterType, setEncounterFilterType] = useState<string>('');
   
@@ -441,6 +444,10 @@ export default function ClinicalEncounterPage() {
 
   const onSubmit = async (data: EncounterFormData) => {
     if (!patientId || !user) return;
+    if (!plansAcknowledged) {
+      toast.error('Please review and acknowledge all previous plan items before saving.');
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -479,6 +486,12 @@ export default function ClinicalEncounterPage() {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
+
+      // Append prior-plan review acknowledgement to notes for medico-legal audit trail
+      if (planAckSummary && (planAckSummary.executedCount + planAckSummary.missedCount + planAckSummary.outstandingCount) > 0) {
+        const ackLine = `\n\n[Prior Plan Review acknowledged by ${user.name || user.id} at ${planAckSummary.acknowledgedAt.toISOString()} \u2014 ${planAckSummary.executedCount} executed, ${planAckSummary.missedCount} missed, ${planAckSummary.outstandingCount} outstanding]`;
+        encounter.notes = (encounter.notes || '') + ackLine;
+      }
 
       await db.clinicalEncounters.add(encounter);
       await syncRecord('clinicalEncounters', encounter as unknown as Record<string, unknown>);
@@ -1517,6 +1530,17 @@ export default function ClinicalEncounterPage() {
           </motion.div>
         )}
 
+        {/* Prior Plan Review Guard */}
+        {patientId && (
+          <PreviousPlansReviewGuard
+            patientId={patientId}
+            onAcknowledgementChange={(allAcked, summary) => {
+              setPlansAcknowledged(allAcked);
+              setPlanAckSummary(summary);
+            }}
+          />
+        )}
+
         {/* Submit Button */}
         <div className="flex justify-end gap-4">
           <button
@@ -1528,8 +1552,9 @@ export default function ClinicalEncounterPage() {
           </button>
           <button
             type="submit"
-            disabled={isLoading}
-            className="btn btn-primary"
+            disabled={isLoading || !plansAcknowledged}
+            title={!plansAcknowledged ? 'Acknowledge all prior plan items first' : ''}
+            className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
@@ -1539,7 +1564,7 @@ export default function ClinicalEncounterPage() {
             ) : (
               <>
                 <Save size={18} />
-                Save Encounter
+                {plansAcknowledged ? 'Save Encounter' : 'Review Prior Plans'}
               </>
             )}
           </button>
