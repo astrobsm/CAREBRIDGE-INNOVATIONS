@@ -11,6 +11,7 @@ import { initCloudSync, fullSync } from './services/cloudSyncService';
 import { initializeDemoData } from './database';
 import { startNotificationScheduler, initVoiceAlarm } from './services/scheduledNotificationService';
 import { startReminderProcessor } from './services/treatmentSchedulerService';
+import { startTreatmentReminderService } from './services/treatmentReminderService';
 import { requestNotificationPermission, startReminderScheduler, setupNotificationClickHandler } from './services/appointmentNotificationService';
 import { installJsPdfTextSanitizer } from './utils/pdfTextSafe';
 import './index.css';
@@ -165,7 +166,11 @@ setTimeout(() => {
   
   // Initialize notification system
   initVoiceAlarm();
-  
+
+  // Start the Patient-Flow radio-announcement service (in-app toast + chime
+  // for upcoming/due/overdue treatment sessions). Works without push permission.
+  startTreatmentReminderService();
+
   // Request notification permission and start schedulers
   requestNotificationPermission().then((permission) => {
     if (permission === 'granted') {

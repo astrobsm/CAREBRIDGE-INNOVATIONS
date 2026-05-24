@@ -49,6 +49,7 @@ import InvestigationRequestsPage from './domains/investigations/pages/Investigat
 import InvestigationRequestForm from './domains/investigations/components/InvestigationRequestForm';
 import DischargePage from './domains/discharge/pages/DischargePage';
 import ADTPage from './domains/adt/pages/ADTPage';
+import PatientFlowPage from './domains/patient-flow/pages/PatientFlowPage';
 import LimbSalvagePage from './domains/limb-salvage/pages/LimbSalvagePage';
 import NPWTPage from './domains/npwt/pages/NPWTPage';
 import MedicationChartPage from './domains/medication-chart/pages/MedicationChartPage';
@@ -165,7 +166,8 @@ function App() {
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="appointments/clinic-bookings" element={<ClinicBookingsManagementPage />} />
         <Route path="appointments/share-booking" element={<BookingSharePage />} />
-        <Route path="adt" element={<ADTPage />} />
+        <Route path="adt" element={<PatientFlowPage />} />
+        <Route path="adt-legacy" element={<ADTPage />} />
         <Route path="admissions" element={<AdmissionsPage />} />
         <Route path="discharge" element={<DischargePage />} />
         <Route path="ward-rounds" element={<WardRoundsPage />} />
