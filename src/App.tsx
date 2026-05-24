@@ -44,6 +44,8 @@ import ClinicalCalculatorsPage from './domains/calculators/pages/ClinicalCalcula
 import AdmissionsPage from './domains/admissions/pages/AdmissionsPage';
 import WardRoundsPage from './domains/ward-rounds/pages/WardRoundsPage';
 import UnifiedLabPage from './domains/investigations/pages/UnifiedLabPage';
+import InvestigationRequestsPage from './domains/investigations/pages/InvestigationRequestsPage';
+import InvestigationRequestForm from './domains/investigations/components/InvestigationRequestForm';
 import DischargePage from './domains/discharge/pages/DischargePage';
 import ADTPage from './domains/adt/pages/ADTPage';
 import LimbSalvagePage from './domains/limb-salvage/pages/LimbSalvagePage';
@@ -176,6 +178,9 @@ function App() {
         <Route path="blood-transfusion" element={<BloodTransfusionPage />} />
         <Route path="referrals" element={<ReferralPage />} />
         <Route path="investigations" element={<UnifiedLabPage />} />
+        <Route path="patients/:patientId/investigations/request" element={<InvestigationRequestsPage />} />
+        <Route path="patients/:patientId/investigations/request/new" element={<InvestigationRequestForm />} />
+        <Route path="investigation-requests/:bundleId" element={<InvestigationRequestForm />} />
         <Route path="wounds" element={<WoundsPage />} />
         <Route path="burns" element={<BurnsAssessmentPage />} />
         <Route path="limb-salvage" element={<LimbSalvagePage />} />

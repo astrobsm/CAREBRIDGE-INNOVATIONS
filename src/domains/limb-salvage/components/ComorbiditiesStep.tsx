@@ -1,6 +1,7 @@
 // Step 5: Comorbidities Assessment (Renal, Diabetes, Cardiovascular)
-import { Heart, Pill, AlertCircle } from 'lucide-react';
+import { Heart, Pill, AlertCircle, Calculator } from 'lucide-react';
 import type { RenalStatus, DiabeticFootComorbidities } from '../../../types';
+import { calculateEGFR } from '../../../services/investigationRequestService';
 
 interface ComorbiditiesStepProps {
   renalStatus: RenalStatus;
@@ -9,6 +10,8 @@ interface ComorbiditiesStepProps {
   prealbumin: number;
   bmi: number;
   mustScore: number;
+  patientAge?: number;
+  patientGender?: 'male' | 'female';
   onUpdate: (data: Partial<{
     renalStatus: RenalStatus;
     comorbidities: DiabeticFootComorbidities;
@@ -26,10 +29,28 @@ export default function ComorbiditiesStep({
   prealbumin,
   bmi,
   mustScore,
+  patientAge,
+  patientGender,
   onUpdate,
 }: ComorbiditiesStepProps) {
 
   const updateRenal = (field: string, value: any) => {
+    // Special handling: when creatinine changes and age+gender known, autocalc eGFR
+    if (field === 'creatinine' && patientAge && patientGender && value > 0) {
+      const egfr = calculateEGFR(value, patientAge, patientGender);
+      if (egfr !== null) {
+        const stage = getCKDStage(egfr);
+        onUpdate({
+          renalStatus: {
+            ...renalStatus,
+            creatinine: value,
+            egfr,
+            ckdStage: stage,
+          },
+        });
+        return;
+      }
+    }
     onUpdate({
       renalStatus: {
         ...renalStatus,
@@ -130,13 +151,23 @@ export default function ComorbiditiesStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">eGFR (mL/min/1.73m²)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              eGFR (mL/min/1.73m²)
+              {patientAge && patientGender && (
+                <span title="Auto-calculated via CKD-EPI 2021 when creatinine entered">
+                  <Calculator className="w-3 h-3 text-blue-500" />
+                </span>
+              )}
+            </label>
             <input
               type="number"
               value={renalStatus.egfr}
               onChange={(e) => handleEGFRChange(parseInt(e.target.value) || 0)}
               className="w-full px-3 py-2 border rounded-lg"
             />
+            {patientAge && patientGender && (
+              <p className="text-xs text-blue-600 mt-0.5">Auto-calc: CKD-EPI 2021</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">CKD Stage</label>

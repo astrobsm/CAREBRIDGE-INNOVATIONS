@@ -3743,6 +3743,9 @@ export interface LimbSalvageAssessment {
 
   // Patient consent for the selected treatment pathway
   treatmentConsent?: LimbSalvageConsent;
+
+  // Override reason when scoring was completed without all requested investigations
+  gateOverrideReason?: string;
   
   // Progress Monitoring
   followUpDate?: Date;
@@ -5757,4 +5760,71 @@ export interface ClinicSessionSummary {
   bookedSlots: number;
   availableSlots: number;
   bookings: PublicClinicBooking[];
+}
+// ============================================================
+// INVESTIGATION REQUEST BUNDLES (Dynamic Checkbox Request Form)
+// Parent record holding ticked items from the catalog.
+// On save, one Investigation row is created per ticked item.
+// Drives the soft-warning gate on scoring modules.
+// ============================================================
+
+export type InvestigationCategory =
+  | 'hematology'
+  | 'biochemistry'
+  | 'microbiology'
+  | 'plain_xray'
+  | 'advanced_imaging'
+  | 'vascular'
+  | 'cardiac_preop'
+  | 'consultation'
+  | 'wound_classification';
+
+export interface InvestigationRequestItem {
+  /** Unique item id within the bundle */
+  id: string;
+  /** Catalog category */
+  category: InvestigationCategory;
+  /** Sub-group within category (e.g. 'Coagulation Studies', 'Lipid Profile') */
+  group: string;
+  /** Short catalog code, e.g. 'fbc', 'ct_angiogram' */
+  code: string;
+  /** Human-readable label, e.g. 'Full Blood Count (FBC)' */
+  name: string;
+  /** True if ticked by clinician */
+  ticked: boolean;
+  /** Free-form modifiers, e.g. { units: 2 } for crossmatch, { side: 'left' } */
+  modifiers?: Record<string, any>;
+  /** FK to Investigation row spawned on save (one-to-one) */
+  investigationId?: string;
+  /** Cached result status to drive the gate */
+  resultStatus?: 'pending' | 'sample_collected' | 'processing' | 'completed' | 'cancelled';
+  completedAt?: Date;
+}
+
+export interface InvestigationRequestBundle {
+  id: string;
+  patientId: string;
+  hospitalId: string;
+  encounterId?: string;
+  admissionId?: string;
+  /** Optional link back to a scoring/assessment that triggered the request */
+  sourceModule?: 'limb_salvage' | 'wound' | 'burn' | 'preoperative' | 'general';
+  sourceAssessmentId?: string;
+
+  requestDate: Date;
+  requestedBy: string;
+  requestedByName?: string;
+  clinicianDesignation?: string;
+  clinicianBleep?: string;
+
+  diagnosis?: string;
+  affectedSide?: 'left' | 'right' | 'bilateral' | 'na';
+  priority: 'routine' | 'urgent' | 'stat';
+  clinicalNotes?: string;
+
+  items: InvestigationRequestItem[];
+
+  status: 'draft' | 'requested' | 'partially_completed' | 'completed' | 'cancelled';
+  createdAt: Date;
+  updatedAt: Date;
 }

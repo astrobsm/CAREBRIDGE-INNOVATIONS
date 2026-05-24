@@ -476,6 +476,8 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
               prealbumin={formData.prealbumin || 20}
               bmi={formData.bmi || 25}
               mustScore={formData.mustScore || 0}
+              patientAge={formData.patientAge || 0}
+              patientGender={(formData.patientGender as 'male' | 'female') || 'male'}
               onUpdate={updateFormData}
             />
           )}
@@ -489,6 +491,8 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
               followUpDate={formData.followUpDate || null}
               osteomyelitis={formData.osteomyelitis}
               treatmentConsent={formData.treatmentConsent}
+              patientId={formData.patientId || ''}
+              gateOverrideReason={formData.gateOverrideReason}
               onUpdate={updateFormData}
             />
           )}

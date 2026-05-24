@@ -1,4 +1,6 @@
 // Step 6: Score Summary & Recommendations
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   TrendingUp, 
   AlertTriangle, 
@@ -11,7 +13,8 @@ import {
   Bone,
   ClipboardCheck,
   UserCheck,
-  PenSquare
+  PenSquare,
+  FlaskConical
 } from 'lucide-react';
 import type { 
   LimbSalvageScore, 
@@ -22,6 +25,7 @@ import type {
   LimbSalvageConsentOption
 } from '../../../types';
 import { isConsentComplete } from '../../../services/limbSalvageService';
+import { checkInvestigationGate, type InvestigationGateResult } from '../../../services/investigationRequestService';
 
 interface ScoreSummaryStepProps {
   limbSalvageScore: LimbSalvageScore;
@@ -32,10 +36,13 @@ interface ScoreSummaryStepProps {
   followUpDate: Date | null;
   osteomyelitis?: OsteomyelitisAssessment;
   treatmentConsent?: LimbSalvageConsent;
+  patientId?: string;
+  gateOverrideReason?: string;
   onUpdate: (data: Partial<{
     treatmentPlan: string;
     followUpDate: Date;
     treatmentConsent: LimbSalvageConsent;
+    gateOverrideReason: string;
   }>) => void;
 }
 
@@ -62,8 +69,17 @@ export default function ScoreSummaryStep({
   followUpDate,
   osteomyelitis,
   treatmentConsent,
+  patientId,
+  gateOverrideReason,
   onUpdate,
 }: ScoreSummaryStepProps) {
+
+  // ---- Investigation gate (soft warning) ----
+  const [gate, setGate] = useState<InvestigationGateResult | null>(null);
+  useEffect(() => {
+    if (!patientId) return;
+    checkInvestigationGate(patientId).then(setGate).catch(() => setGate(null));
+  }, [patientId]);
 
   const updateConsent = (patch: Partial<LimbSalvageConsent>) => {
     if (!treatmentConsent) return;
@@ -145,6 +161,63 @@ export default function ScoreSummaryStep({
         <h3 className="text-lg font-semibold text-gray-900">Step 6: Score & Recommendations</h3>
         <p className="text-sm text-gray-600">Review calculated scores and treatment recommendations</p>
       </div>
+
+      {/* Investigation Gate (soft warning) */}
+      {gate && !gate.clear && (
+        <div className="border-2 border-yellow-400 bg-yellow-50 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <FlaskConical className="w-6 h-6 text-yellow-600 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-yellow-900">
+                {gate.outstanding.length} requested investigation{gate.outstanding.length === 1 ? '' : 's'} not yet completed
+              </h4>
+              <p className="text-sm text-yellow-800 mt-1">
+                Scoring is most accurate after all requested investigations are completed. You may proceed, but please document your reason below.
+              </p>
+              <ul className="text-xs text-yellow-800 list-disc pl-5 mt-2 max-h-32 overflow-y-auto">
+                {gate.outstanding.slice(0, 10).map((o) => (
+                  <li key={o.itemId}>
+                    {o.name} <span className="text-yellow-600">({o.category} · {o.status})</span>
+                  </li>
+                ))}
+                {gate.outstanding.length > 10 && (
+                  <li className="italic">+ {gate.outstanding.length - 10} more…</li>
+                )}
+              </ul>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {patientId && (
+                  <Link
+                    to={`/patients/${patientId}/investigations/request/new?source=limb_salvage`}
+                    className="text-xs px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded"
+                  >
+                    Request More Investigations
+                  </Link>
+                )}
+                {patientId && (
+                  <Link
+                    to={`/patients/${patientId}/investigations/request`}
+                    className="text-xs px-2 py-1 bg-white border border-yellow-600 text-yellow-700 rounded"
+                  >
+                    View Pending
+                  </Link>
+                )}
+              </div>
+              <label className="block mt-3">
+                <span className="text-xs font-semibold text-yellow-900">
+                  Reason for proceeding without completing investigations <span className="text-red-600">*</span>
+                </span>
+                <textarea
+                  className="mt-1 w-full text-sm border border-yellow-400 rounded px-2 py-1"
+                  rows={2}
+                  value={gateOverrideReason || ''}
+                  onChange={(e) => onUpdate({ gateOverrideReason: e.target.value })}
+                  placeholder="e.g. clinical urgency, patient unable to wait, results clinically inferable…"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Score Card */}
       <div className={`border-2 rounded-xl p-6 ${getRiskBgColor(limbSalvageScore.riskCategory)}`}>

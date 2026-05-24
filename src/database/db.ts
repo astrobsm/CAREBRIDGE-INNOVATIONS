@@ -82,6 +82,8 @@ import type {
   PublicClinicBooking,
   // Calibrated Wound Measurements
   WoundMeasurementRecord,
+  // Investigation Request Bundles
+  InvestigationRequestBundle,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -207,6 +209,8 @@ export class AstroHEALTHDatabase extends Dexie {
   postOpLymphedemaMonitoring!: Table<PostOpLymphedemaMonitoring, string>;
   // Calibrated Wound Measurements
   woundMeasurements!: Table<WoundMeasurementRecord, string>;
+  // Investigation Request Bundles (dynamic checkbox form)
+  investigationRequestBundles!: Table<InvestigationRequestBundle, string>;
   // Finance (Part B – ZIGMA BOND)
   financeBuckets!: Table<FinanceBucket, string>;
   financeIncome!: Table<FinanceIncome, string>;
@@ -340,6 +344,12 @@ export class AstroHEALTHDatabase extends Dexie {
       financeProjects: 'id, hospitalId, name, status, createdBy, createdAt',
       financeInvestments: 'id, hospitalId, type, date, createdBy, createdAt',
       financeAuditLogs: 'id, hospitalId, actor, action, timestamp',
+    });
+
+    // v79 – Investigation Request Bundles (dynamic checkbox request form)
+    this.version(79).stores({
+      investigationRequestBundles:
+        'id, patientId, hospitalId, encounterId, admissionId, sourceModule, sourceAssessmentId, requestedBy, requestDate, status, createdAt',
     });
   }
 }
