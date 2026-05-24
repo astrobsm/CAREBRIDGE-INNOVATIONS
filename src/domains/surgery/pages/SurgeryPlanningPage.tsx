@@ -48,7 +48,12 @@ import {
   generateConsentFormPDF,
 } from '../utils/surgeryPdfGenerator';
 import { generatePatientCounselingPDF } from '../../../utils/counselingPdfGenerator';
-import { getProcedureEducation } from '../../../data/patientEducation';
+import { getProcedureEducation, type ProcedureEducation } from '../../../data/patientEducation';
+import {
+  enrichWithWHOGuidelines,
+  getWHOBundleForCategory,
+  type WHOBundle,
+} from '../../../services/whoSurgicalGuidelinesService';
 
 const surgerySchema = z.object({
   procedureName: z.string().min(3, 'Procedure name is required'),
@@ -226,6 +231,11 @@ export default function SurgeryPlanningPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedProcedure, setSelectedProcedure] = useState<SurgicalProcedure | null>(null);
   const [showProcedureDropdown, setShowProcedureDropdown] = useState(false);
+
+  // WHO-adapted surgical guidelines — auto-loaded on procedure selection
+  const [whoEducation, setWhoEducation] = useState<ProcedureEducation | null>(null);
+  const [whoBundle, setWhoBundle] = useState<WHOBundle | null>(null);
+  const [bundleDownloading, setBundleDownloading] = useState(false);
   
   // Caprini VTE state
   const [selectedCapriniFactors, setSelectedCapriniFactors] = useState<string[]>([]);
@@ -529,6 +539,25 @@ export default function SurgeryPlanningPage() {
       });
     }
   }, [selectedProcedure, customSurgeonFee, customAnaesthesiaFee, customTheatreConsumables, customPostOpMedications, includeHistology, anaesthesiaType]);
+
+  // Auto-fetch & WHO-enrich procedure education whenever a procedure is selected
+  useEffect(() => {
+    if (!selectedProcedure) {
+      setWhoEducation(null);
+      setWhoBundle(null);
+      return;
+    }
+    const base = getProcedureEducation(selectedProcedure.name);
+    if (!base) {
+      setWhoEducation(null);
+      setWhoBundle(null);
+      return;
+    }
+    const enriched = enrichWithWHOGuidelines(base);
+    const bundle = getWHOBundleForCategory(enriched.category, enriched.procedureName);
+    setWhoEducation(enriched);
+    setWhoBundle(bundle);
+  }, [selectedProcedure]);
 
   // Handle procedure selection
   const handleProcedureSelect = (procedure: SurgicalProcedure) => {
@@ -1979,9 +2008,41 @@ export default function SurgeryPlanningPage() {
                 <h2 className="font-semibold text-gray-900">Surgical Documents</h2>
               </div>
               <div className="card-body">
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 mb-4">
                   Download pre-operative instructions, consent forms, and other important documents for this surgery.
                 </p>
+
+                {/* WHO-Adapted Guidelines Banner — auto-loaded when a procedure is selected */}
+                {whoBundle && whoEducation && (
+                  <div className="mb-6 p-4 rounded-lg border-2 border-green-300 bg-gradient-to-r from-green-50 to-emerald-50">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <ClipboardCheck className="w-5 h-5 text-green-700" />
+                          <span className="text-green-800 font-semibold text-sm">
+                            WHO-Adapted Guidelines Auto-Loaded
+                          </span>
+                        </div>
+                        <p className="text-xs text-green-700 mt-1">
+                          All documents below are pre-enriched with WHO guidance for <strong>{whoBundle.procedureName}</strong> ({whoBundle.category}).
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-2 mb-2">
+                      {whoBundle.categoryEmphasis.map((emphasis, i) => (
+                        <span
+                          key={i}
+                          className="text-xs px-2 py-0.5 bg-white border border-green-300 text-green-800 rounded-full"
+                        >
+                          {emphasis}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-green-700 italic mt-2">
+                      Sources: {whoBundle.citations.join(' · ')}
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {/* Pre-Op Instructions */}
@@ -2144,7 +2205,7 @@ export default function SurgeryPlanningPage() {
                       disabled={!selectedProcedure}
                       onClick={() => {
                         if (patient && selectedProcedure) {
-                          const education = getProcedureEducation(selectedProcedure.name);
+                          const education = whoEducation ?? getProcedureEducation(selectedProcedure.name);
                           if (education) {
                             generatePatientCounselingPDF({
                               patient: patient,
@@ -2220,6 +2281,88 @@ export default function SurgeryPlanningPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Download Complete Bundle — sequentially generates all 5 documents (WHO-enriched) */}
+                {selectedProcedure && patient && (
+                  <button
+                    type="button"
+                    disabled={bundleDownloading}
+                    onClick={async () => {
+                      if (!patient || !selectedProcedure) return;
+                      setBundleDownloading(true);
+                      try {
+                        const ageYears = patient.dateOfBirth
+                          ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+                          : undefined;
+                        const patientInfo = {
+                          name: `${patient.firstName} ${patient.lastName}`,
+                          hospitalNumber: patient.hospitalNumber,
+                          age: ageYears,
+                          gender: patient.gender,
+                          address: patient.address,
+                        };
+                        const surgeryInfo = {
+                          procedureName: selectedProcedure.name,
+                          procedureCode: selectedProcedure.icdCode || watch('procedureCode'),
+                          scheduledDate: watch('scheduledDate') || new Date().toISOString(),
+                          surgeon: `${user?.firstName} ${user?.lastName}` || 'Attending Surgeon',
+                          anaesthetist: watch('anaesthetist'),
+                          anaesthesiaType: watch('anaesthesiaType'),
+                          asaScore: watch('asaScore') || 1,
+                          capriniScore: calculatedCapriniScore,
+                          hospitalName: 'AstroHEALTH Innovations in Healthcare',
+                        };
+                        // 1. Pre-op
+                        generatePreOpInstructionsPDF(patientInfo, surgeryInfo);
+                        await new Promise(r => setTimeout(r, 300));
+                        // 2. Post-op
+                        generatePostOpInstructionsPDF(patientInfo, surgeryInfo);
+                        await new Promise(r => setTimeout(r, 300));
+                        // 3. Consent
+                        generateConsentFormPDF(patientInfo, surgeryInfo);
+                        await new Promise(r => setTimeout(r, 300));
+                        // 4. Counseling (WHO-enriched)
+                        const education = whoEducation ?? getProcedureEducation(selectedProcedure.name);
+                        if (education) {
+                          generatePatientCounselingPDF({
+                            patient,
+                            procedure: education,
+                            surgeonName: `${user?.firstName} ${user?.lastName}` || 'Attending Surgeon',
+                            surgeonLicense: user?.licenseNumber,
+                            hospitalName: 'AstroHEALTH Innovations in Healthcare',
+                            scheduledDate: watch('scheduledDate') ? new Date(watch('scheduledDate')) : undefined,
+                            includeConsentSection: true,
+                          });
+                          await new Promise(r => setTimeout(r, 300));
+                        }
+                        // 5. Fee estimate (if available)
+                        if (feeEstimate) {
+                          generateFeeEstimatePDF(patientInfo, surgeryInfo, selectedProcedure, feeEstimate);
+                        }
+                        toast.success(
+                          feeEstimate
+                            ? 'All 5 WHO-enriched documents downloaded!'
+                            : '4 WHO-enriched documents downloaded (fee estimate not available)'
+                        );
+                      } catch (err) {
+                        console.error('Bundle download failed:', err);
+                        toast.error('Failed to download document bundle');
+                      } finally {
+                        setBundleDownloading(false);
+                      }
+                    }}
+                    className={`mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold transition-colors ${
+                      bundleDownloading
+                        ? 'bg-gray-300 text-gray-500 cursor-wait'
+                        : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-md'
+                    }`}
+                  >
+                    <Download size={18} />
+                    {bundleDownloading
+                      ? 'Generating Documents…'
+                      : 'Download Complete Documents Bundle (WHO-Enriched)'}
+                  </button>
+                )}
 
                 {/* Info Note */}
                 <div className="mt-6 p-4 bg-sky-50 border border-sky-200 rounded-lg">
