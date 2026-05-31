@@ -34,6 +34,7 @@ import {
   Shield,
   Presentation,
   HeartPulse,
+  Heart,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -313,6 +314,12 @@ const navigation: NavItem[] = [
       { name: 'Investments', href: '/finance/investments' },
       { name: 'Settings', href: '/finance/settings' },
     ],
+  },
+  // Part C – Family App (parent / children / chores / payroll / boarding)
+  {
+    name: 'Family (Part C)',
+    href: '/family',
+    icon: <Heart size={20} />,
   },
 ];
 

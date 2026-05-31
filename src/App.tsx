@@ -80,6 +80,8 @@ import FinanceExpenses from './domains/finance/pages/FinanceExpenses';
 import FinanceProjects from './domains/finance/pages/FinanceProjects';
 import FinanceInvestments from './domains/finance/pages/FinanceInvestments';
 import FinanceSettings from './domains/finance/pages/FinanceSettings';
+// Family (Part C – embedded Family App via iframe)
+import FamilyAppPage from './domains/family/pages/FamilyAppPage';
 // Public Clinic Booking (No login required)
 import PublicBookingPage from './domains/appointments/pages/public/PublicBookingPage';
 import BookingSharePage from './domains/appointments/pages/public/BookingSharePage';
@@ -231,6 +233,11 @@ function App() {
           <Route path="investments" element={<FinanceInvestments />} />
           <Route path="settings" element={<FinanceSettings />} />
         </Route>
+
+        {/* Family (Part C) — standalone Family App embedded via iframe.
+            Backend (Express + Postgres/Supabase family.* schema) must be
+            running. See supabase-family-app-migration.sql. */}
+        <Route path="family" element={<FamilyAppPage />} />
 
         {/* Communication Routes */}
         <Route path="communication">
