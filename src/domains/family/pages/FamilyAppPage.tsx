@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { ExternalLink, RefreshCw, AlertCircle, Home as HomeIcon } from 'lucide-react';
+import { ExternalLink, RefreshCw, AlertCircle, Home as HomeIcon, Radio } from 'lucide-react';
 
 /**
  * Family App (Part C) — AstroHEALTH integration host.
@@ -23,6 +23,7 @@ export default function FamilyAppPage() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
+  const [lastRealtime, setLastRealtime] = useState<{ table: string; event: string; at: number } | null>(null);
 
   const familyUrl = (import.meta.env.VITE_FAMILY_APP_URL as string | undefined) || 'http://localhost:3001';
   const apiUrl = (import.meta.env.VITE_FAMILY_API_URL as string | undefined) || 'http://localhost:5000';
@@ -39,6 +40,34 @@ export default function FamilyAppPage() {
     setErrored(false);
   }, [src]);
 
+  // Listen for realtime events the embedded Family App posts up from
+  // services/realtimeSync.js so we can show a live indicator.
+  useEffect(() => {
+    const onMsg = (evt: MessageEvent) => {
+      const data = evt.data as { type?: string; table?: string; event?: string } | null;
+      if (!data || data.type !== 'family-realtime') return;
+      try {
+        const origin = new URL(familyUrl).origin;
+        if (evt.origin && origin && evt.origin !== origin) return;
+      } catch {/* allow */}
+      setLastRealtime({ table: data.table || 'unknown', event: data.event || 'change', at: Date.now() });
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [familyUrl]);
+
+  // When this device goes online, tell the iframe to drain its sync queue.
+  useEffect(() => {
+    const onOnline = () => {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: 'astrohealth-trigger-family-sync' },
+        '*'
+      );
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, []);
+
   const reload = () => {
     if (iframeRef.current) {
       iframeRef.current.src = src + (src.includes('?') ? '&' : '?') + '_=' + Date.now();
@@ -54,6 +83,11 @@ export default function FamilyAppPage() {
           <HomeIcon size={18} className="text-pink-600" />
           <h1 className="font-semibold text-gray-900 text-sm">Family (Part C)</h1>
           <span className="text-xs text-gray-500 hidden sm:inline">parent / children / chores / payroll / boarding</span>
+          {lastRealtime && Date.now() - lastRealtime.at < 4000 && (
+            <span className="ml-2 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 animate-pulse">
+              <Radio size={10} /> live: {lastRealtime.table}/{lastRealtime.event}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button

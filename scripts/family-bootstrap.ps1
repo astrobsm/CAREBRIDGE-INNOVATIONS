@@ -116,6 +116,40 @@ if (-not (Test-Path $astroEnv)) {
 }
 
 # ---------------------------------------------------------------------------
+# 2b. Family frontend .env — Supabase Realtime keys for cross-device sync
+# ---------------------------------------------------------------------------
+Write-Step "Ensuring Family frontend .env (Supabase Realtime)"
+$feEnv = Join-Path $FamilyRoot 'frontend\.env'
+$feEnvExample = Join-Path $FamilyRoot 'frontend\.env.example'
+if (-not (Test-Path $feEnv)) {
+    if (Test-Path $feEnvExample) { Copy-Item $feEnvExample $feEnv } else { Set-Content $feEnv '' }
+    Write-Ok "Created $feEnv"
+}
+$feContent = Get-Content $feEnv -Raw
+if ($feContent -notmatch 'REACT_APP_SUPABASE_URL=') {
+    Add-Content $feEnv "`nREACT_APP_SUPABASE_URL="
+    $feContent = Get-Content $feEnv -Raw
+}
+if ($feContent -notmatch 'REACT_APP_SUPABASE_ANON_KEY=') {
+    Add-Content $feEnv "`nREACT_APP_SUPABASE_ANON_KEY="
+    $feContent = Get-Content $feEnv -Raw
+}
+if ($feContent -match 'REACT_APP_SUPABASE_URL=\s*\r?\n' -or $feContent -match 'REACT_APP_SUPABASE_URL=\s*$') {
+    $askSb = Read-Host "Enter Supabase project URL for Family realtime (blank to skip)"
+    if ($askSb) {
+        $askKey = Read-Host "Enter Supabase anon key"
+        $feContent = $feContent -replace 'REACT_APP_SUPABASE_URL=.*', "REACT_APP_SUPABASE_URL=$askSb"
+        if ($askKey) { $feContent = $feContent -replace 'REACT_APP_SUPABASE_ANON_KEY=.*', "REACT_APP_SUPABASE_ANON_KEY=$askKey" }
+        Set-Content -Path $feEnv -Value $feContent -NoNewline
+        Write-Ok "Supabase Realtime keys saved to $feEnv"
+    } else {
+        Write-Warn2 "Realtime keys not set — cross-device push disabled until you fill $feEnv"
+    }
+} else {
+    Write-Ok "Frontend Supabase keys already present"
+}
+
+# ---------------------------------------------------------------------------
 # 3. npm install (backend + frontend) if needed
 # ---------------------------------------------------------------------------
 if (-not $SkipInstall) {
@@ -127,11 +161,18 @@ if (-not $SkipInstall) {
     } else { Write-Ok "Backend node_modules already present" }
 
     Write-Step "Installing Family frontend dependencies (if needed)"
-    if (-not (Test-Path "$FamilyRoot\frontend\node_modules")) {
-        Push-Location "$FamilyRoot\frontend"
-        try { npm install --no-audit --no-fund } finally { Pop-Location }
-        Write-Ok "Frontend deps installed"
-    } else { Write-Ok "Frontend node_modules already present" }
+    Push-Location "$FamilyRoot\frontend"
+    try {
+        if (-not (Test-Path "node_modules")) {
+            npm install --no-audit --no-fund
+            Write-Ok "Frontend deps installed"
+        } else { Write-Ok "Frontend node_modules already present" }
+        if (-not (Test-Path "node_modules\@supabase\supabase-js")) {
+            Write-Step "Adding @supabase/supabase-js for realtime cross-device sync"
+            npm install --no-audit --no-fund @supabase/supabase-js@^2.45.4
+            Write-Ok "@supabase/supabase-js installed"
+        }
+    } finally { Pop-Location }
 } else {
     Write-Warn2 "Skipping npm install (-SkipInstall)"
 }
@@ -140,13 +181,19 @@ if (-not $SkipInstall) {
 # 4. Optional: run Supabase migration via psql
 # ---------------------------------------------------------------------------
 if ($RunMigration) {
-    Write-Step "Running Supabase migration via psql"
-    $migFile = Join-Path $AstroRoot 'supabase-family-app-migration.sql'
-    if (-not (Test-Path $migFile)) { throw "Migration file missing: $migFile" }
+    Write-Step "Running Supabase migrations via psql"
+    $migFiles = @(
+        (Join-Path $AstroRoot 'supabase-family-app-migration.sql'),
+        (Join-Path $AstroRoot 'supabase-family-realtime.sql')
+    )
+    foreach ($mf in $migFiles) {
+        if (-not (Test-Path $mf)) { Write-Warn2 "Missing $mf"; continue }
+    }
 
     $psql = Get-Command psql -ErrorAction SilentlyContinue
     if (-not $psql) {
-        Write-Warn2 "psql not on PATH — install PostgreSQL client or paste $migFile into the Supabase SQL Editor manually."
+        Write-Warn2 "psql not on PATH — paste each .sql into Supabase SQL Editor manually:"
+        foreach ($mf in $migFiles) { Write-Warn2 "  $mf" }
     } else {
         $dbUrl = $env:SUPABASE_DB_URL
         if (-not $dbUrl) {
@@ -155,15 +202,21 @@ if ($RunMigration) {
             $dbUrl = Read-Host "SUPABASE_DB_URL"
         }
         if ($dbUrl) {
-            & psql $dbUrl -v ON_ERROR_STOP=1 -f $migFile
-            if ($LASTEXITCODE -eq 0) { Write-Ok "Migration applied successfully" }
-            else { Write-Warn2 "psql exited with code $LASTEXITCODE" }
+            foreach ($mf in $migFiles) {
+                if (-not (Test-Path $mf)) { continue }
+                Write-Step "psql -f $(Split-Path -Leaf $mf)"
+                & psql $dbUrl -v ON_ERROR_STOP=1 -f $mf
+                if ($LASTEXITCODE -eq 0) { Write-Ok "Applied $(Split-Path -Leaf $mf)" }
+                else { Write-Warn2 "psql exited with code $LASTEXITCODE for $mf" }
+            }
         } else {
-            Write-Warn2 "No SUPABASE_DB_URL provided — skipping migration."
+            Write-Warn2 "No SUPABASE_DB_URL provided — skipping migrations."
         }
     }
 } else {
-    Write-Warn2 "Skipping migration (-RunMigration not passed). Paste supabase-family-app-migration.sql into Supabase SQL Editor manually."
+    Write-Warn2 "Skipping migrations (-RunMigration not passed). Paste these into Supabase SQL Editor:"
+    Write-Warn2 "  supabase-family-app-migration.sql   (schema)"
+    Write-Warn2 "  supabase-family-realtime.sql        (realtime publication)"
 }
 
 # ---------------------------------------------------------------------------
