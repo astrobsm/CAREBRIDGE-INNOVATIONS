@@ -29,7 +29,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$FamilyRoot = "C:\Users\user\Documents\FAMILY APP2026",
+    [string]$FamilyRoot = "",
     [string]$AstroRoot  = "",
     [switch]$RunMigration,
     [switch]$SkipInstall
@@ -40,6 +40,17 @@ $ErrorActionPreference = 'Stop'
 if (-not $AstroRoot) {
     if ($PSScriptRoot) { $AstroRoot = Split-Path -Parent $PSScriptRoot }
     else { $AstroRoot = (Get-Location).Path }
+}
+
+# Prefer the embedded monorepo copy at <AstroRoot>\family-app, but fall back
+# to the legacy standalone path if the embedded copy is absent.
+if (-not $FamilyRoot) {
+    $embedded = Join-Path $AstroRoot 'family-app'
+    if (Test-Path (Join-Path $embedded 'backend')) {
+        $FamilyRoot = $embedded
+    } else {
+        $FamilyRoot = "C:\Users\user\Documents\FAMILY APP2026"
+    }
 }
 
 function Write-Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
