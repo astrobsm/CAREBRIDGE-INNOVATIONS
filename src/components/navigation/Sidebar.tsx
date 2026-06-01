@@ -315,11 +315,22 @@ const navigation: NavItem[] = [
       { name: 'Settings', href: '/finance/settings' },
     ],
   },
-  // Part C – Family App (parent / children / chores / payroll / boarding)
+  // Part C – Family (native domain on Supabase family.* schema)
   {
     name: 'Family (Part C)',
     href: '/family',
     icon: <Heart size={20} />,
+    children: [
+      { name: 'Dashboard', href: '/family' },
+      { name: 'Children', href: '/family/children' },
+      { name: 'Tasks', href: '/family/tasks' },
+      { name: 'Wallets', href: '/family/wallets' },
+      { name: 'Events', href: '/family/events' },
+      { name: 'Prayer', href: '/family/prayer' },
+      { name: 'Growth', href: '/family/growth' },
+      { name: 'Health', href: '/family/health' },
+      { name: 'Alerts', href: '/family/notifications' },
+    ],
   },
 ];
 

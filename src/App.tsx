@@ -80,8 +80,17 @@ import FinanceExpenses from './domains/finance/pages/FinanceExpenses';
 import FinanceProjects from './domains/finance/pages/FinanceProjects';
 import FinanceInvestments from './domains/finance/pages/FinanceInvestments';
 import FinanceSettings from './domains/finance/pages/FinanceSettings';
-// Family (Part C – embedded Family App via iframe)
-import FamilyAppPage from './domains/family/pages/FamilyAppPage';
+// Family (Part C) — native React + Supabase domain (family.* schema)
+import FamilyShell from './domains/family/pages/FamilyShell';
+import FamilyDashboard from './domains/family/pages/FamilyDashboard';
+import FamilyChildren from './domains/family/pages/FamilyChildren';
+import FamilyTasks from './domains/family/pages/FamilyTasks';
+import FamilyWallets from './domains/family/pages/FamilyWallets';
+import FamilyEvents from './domains/family/pages/FamilyEvents';
+import FamilyPrayer from './domains/family/pages/FamilyPrayer';
+import FamilyGrowth from './domains/family/pages/FamilyGrowth';
+import FamilyHealth from './domains/family/pages/FamilyHealth';
+import FamilyNotifications from './domains/family/pages/FamilyNotifications';
 // Public Clinic Booking (No login required)
 import PublicBookingPage from './domains/appointments/pages/public/PublicBookingPage';
 import BookingSharePage from './domains/appointments/pages/public/BookingSharePage';
@@ -234,10 +243,18 @@ function App() {
           <Route path="settings" element={<FinanceSettings />} />
         </Route>
 
-        {/* Family (Part C) — standalone Family App embedded via iframe.
-            Backend (Express + Postgres/Supabase family.* schema) must be
-            running. See supabase-family-app-migration.sql. */}
-        <Route path="family" element={<FamilyAppPage />} />
+        {/* Family (Part C) — native domain backed by family.* Supabase schema */}
+        <Route path="family" element={<FamilyShell />}>
+          <Route index element={<FamilyDashboard />} />
+          <Route path="children" element={<FamilyChildren />} />
+          <Route path="tasks" element={<FamilyTasks />} />
+          <Route path="wallets" element={<FamilyWallets />} />
+          <Route path="events" element={<FamilyEvents />} />
+          <Route path="prayer" element={<FamilyPrayer />} />
+          <Route path="growth" element={<FamilyGrowth />} />
+          <Route path="health" element={<FamilyHealth />} />
+          <Route path="notifications" element={<FamilyNotifications />} />
+        </Route>
 
         {/* Communication Routes */}
         <Route path="communication">
