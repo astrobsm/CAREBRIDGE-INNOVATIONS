@@ -28,7 +28,7 @@ export default function FamilyTasks() {
     const [kidsRes, asRes] = await Promise.all([
       fam.from('children').select('*').eq('parent_id', parent.id).eq('is_active', true).order('first_name'),
       fam.from('task_assignments')
-        .select('*, task:tasks!inner(*), child:children!inner(*)')
+        .select('*, task:tasks!inner(*), child:children!task_assignments_child_id_fkey(*)')
         .eq('task.parent_id', parent.id)
         .order('due_date', { ascending: true, nullsFirst: false }),
     ]);
