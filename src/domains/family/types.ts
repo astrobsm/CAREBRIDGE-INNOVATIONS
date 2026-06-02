@@ -116,10 +116,11 @@ export interface GrowthRecord {
 
 export interface HealthRecord {
   id: string;
-  child_id: string;
+  child_id?: string | null;
+  subject_parent_id?: string | null;
   recorded_by: string;
   record_date: string;
-  illness: string;
+  illness?: string | null;
   symptoms?: string | null;
   treatment?: string | null;
   doctor_name?: string | null;
@@ -127,6 +128,12 @@ export interface HealthRecord {
   follow_up_date?: string | null;
   is_resolved?: boolean;
   notes?: string | null;
+  // Vitals
+  systolic_bp?: number | null;
+  diastolic_bp?: number | null;
+  heart_rate?: number | null;
+  fasting_blood_sugar?: number | string | null;
+  temperature_c?: number | string | null;
 }
 
 export interface FamilyNotification {
