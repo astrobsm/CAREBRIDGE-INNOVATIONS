@@ -144,3 +144,40 @@ export interface FamilyNotification {
   is_read?: boolean;
   created_at?: string;
 }
+
+export interface SchoolPerformance {
+  id: string;
+  child_id: string;
+  recorded_by: string;
+  school_name?: string | null;
+  class_or_grade?: string | null;
+  term?: string | null;
+  academic_year?: string | null;
+  report_date: string;
+  average_score?: number | string | null;
+  position_in_class?: number | null;
+  class_size?: number | null;
+  attendance_pct?: number | string | null;
+  conduct_grade?: string | null;
+  teacher_remark?: string | null;
+  parent_remark?: string | null;
+  next_term_begins?: string | null;
+  created_at?: string;
+}
+
+export type AwardCategory = 'academic' | 'sports' | 'spiritual' | 'character' | 'leadership' | 'other';
+export type AwardIssuerType = 'school' | 'church' | 'community' | 'competition' | 'other';
+
+export interface Award {
+  id: string;
+  child_id: string;
+  recorded_by: string;
+  title: string;
+  category?: AwardCategory | null;
+  issuer?: string | null;
+  issuer_type?: AwardIssuerType | null;
+  date_awarded: string;
+  description?: string | null;
+  certificate_url?: string | null;
+  created_at?: string;
+}

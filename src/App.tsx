@@ -90,6 +90,7 @@ import FamilyEvents from './domains/family/pages/FamilyEvents';
 import FamilyPrayer from './domains/family/pages/FamilyPrayer';
 import FamilyGrowth from './domains/family/pages/FamilyGrowth';
 import FamilyHealth from './domains/family/pages/FamilyHealth';
+import FamilySchool from './domains/family/pages/FamilySchool';
 import FamilyNotifications from './domains/family/pages/FamilyNotifications';
 // Public Clinic Booking (No login required)
 import PublicBookingPage from './domains/appointments/pages/public/PublicBookingPage';
@@ -253,6 +254,7 @@ function App() {
           <Route path="prayer" element={<FamilyPrayer />} />
           <Route path="growth" element={<FamilyGrowth />} />
           <Route path="health" element={<FamilyHealth />} />
+          <Route path="school" element={<FamilySchool />} />
           <Route path="notifications" element={<FamilyNotifications />} />
         </Route>
 

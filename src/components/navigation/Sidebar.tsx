@@ -329,6 +329,7 @@ const navigation: NavItem[] = [
       { name: 'Prayer', href: '/family/prayer' },
       { name: 'Growth', href: '/family/growth' },
       { name: 'Health', href: '/family/health' },
+      { name: 'School', href: '/family/school' },
       { name: 'Alerts', href: '/family/notifications' },
     ],
   },

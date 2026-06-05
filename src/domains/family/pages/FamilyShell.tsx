@@ -2,7 +2,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
   Home, Users, ListChecks, Wallet, CalendarDays, Heart,
-  TrendingUp, Stethoscope, Bell, Radio, AlertCircle, RefreshCw,
+  TrendingUp, Stethoscope, GraduationCap, Bell, Radio, AlertCircle, RefreshCw,
 } from 'lucide-react';
 import { useFamilyParent } from '../hooks/useFamilyParent';
 import { subscribeFamilyChanges } from '../hooks/useFamilyRealtime';
@@ -16,6 +16,7 @@ const links = [
   { to: '/family/prayer', label: 'Prayer', icon: <Heart size={16} /> },
   { to: '/family/growth', label: 'Growth', icon: <TrendingUp size={16} /> },
   { to: '/family/health', label: 'Health', icon: <Stethoscope size={16} /> },
+  { to: '/family/school', label: 'School', icon: <GraduationCap size={16} /> },
   { to: '/family/notifications', label: 'Alerts', icon: <Bell size={16} /> },
 ];
 
