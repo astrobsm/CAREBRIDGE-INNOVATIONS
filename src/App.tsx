@@ -94,6 +94,12 @@ import FamilySchool from './domains/family/pages/FamilySchool';
 import FamilyNotifications from './domains/family/pages/FamilyNotifications';
 // Public Clinic Booking (No login required)
 import PublicBookingPage from './domains/appointments/pages/public/PublicBookingPage';
+import ChildLoginPage from './domains/family/pages/child/ChildLoginPage';
+import ChildShell from './domains/family/pages/child/ChildShell';
+import ChildHome from './domains/family/pages/child/ChildHome';
+import ChildTasks from './domains/family/pages/child/ChildTasks';
+import ChildWallet from './domains/family/pages/child/ChildWallet';
+import ChildSchool from './domains/family/pages/child/ChildSchool';
 import BookingSharePage from './domains/appointments/pages/public/BookingSharePage';
 import ClinicBookingsManagementPage from './domains/appointments/pages/ClinicBookingsManagementPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -142,6 +148,15 @@ function App() {
 
       {/* Public Clinic Booking - No Login Required */}
       <Route path="/book-appointment" element={<PublicBookingPage />} />
+
+      {/* Family child self-service portal - No AstroHEALTH login required */}
+      <Route path="/family/me/login" element={<ChildLoginPage />} />
+      <Route path="/family/me" element={<ChildShell />}>
+        <Route index element={<ChildHome />} />
+        <Route path="tasks" element={<ChildTasks />} />
+        <Route path="wallet" element={<ChildWallet />} />
+        <Route path="school" element={<ChildSchool />} />
+      </Route>
 
       {/* Protected Routes - with Agreement Guard */}
       <Route element={isAuthenticated ? <AgreementGuard><MainLayout /></AgreementGuard> : <Navigate to="/login" replace />}>

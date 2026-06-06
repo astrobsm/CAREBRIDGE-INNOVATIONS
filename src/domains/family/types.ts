@@ -22,6 +22,11 @@ export interface Child {
   photo_url?: string | null;
   notes?: string | null;
   is_active?: boolean;
+  // Self-service login
+  username?: string | null;
+  pin_hash?: string | null;
+  can_login?: boolean;
+  last_login_at?: string | null;
   created_at?: string;
 }
 
