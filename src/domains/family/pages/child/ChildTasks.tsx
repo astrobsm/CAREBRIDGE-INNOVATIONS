@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getFamilyClient } from '../../../services/familyClient';
+import { getFamilyClient } from '../../../../services/familyClient';
 import { subscribeFamilyChanges } from '../../hooks/useFamilyRealtime';
-import type { Task, TaskAssignment } from '../types';
+import type { Task, TaskAssignment } from '../../types';
 import { useChildCtx } from './childCtx';
 
 interface Row extends TaskAssignment { task?: Task }

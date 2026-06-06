@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Wallet } from 'lucide-react';
-import { getFamilyClient } from '../../../services/familyClient';
+import { getFamilyClient } from '../../../../services/familyClient';
 import { subscribeFamilyChanges } from '../../hooks/useFamilyRealtime';
-import type { Transaction } from '../types';
+import type { Transaction } from '../../types';
 import { useChildCtx } from './childCtx';
 
 export default function ChildWallet() {

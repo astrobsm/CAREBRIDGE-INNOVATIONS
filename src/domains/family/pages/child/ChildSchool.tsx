@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Trophy, GraduationCap } from 'lucide-react';
-import { getFamilyClient } from '../../../services/familyClient';
+import { getFamilyClient } from '../../../../services/familyClient';
 import { subscribeFamilyChanges } from '../../hooks/useFamilyRealtime';
-import type { SchoolPerformance, Award } from '../types';
+import type { SchoolPerformance, Award } from '../../types';
 import { useChildCtx } from './childCtx';
 
 export default function ChildSchool() {

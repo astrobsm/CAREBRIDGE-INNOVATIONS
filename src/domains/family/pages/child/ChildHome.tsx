@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ListChecks, Wallet, Trophy, CheckCircle2 } from 'lucide-react';
-import { getFamilyClient } from '../../../services/familyClient';
+import { getFamilyClient } from '../../../../services/familyClient';
 import { useChildCtx } from './childCtx';
 
 export default function ChildHome() {

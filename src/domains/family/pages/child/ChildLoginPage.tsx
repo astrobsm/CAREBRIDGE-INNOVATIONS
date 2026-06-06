@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, LogIn } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { childLogin, getChildSession } from '../../../services/childAuth';
+import { childLogin, getChildSession } from '../../../../services/childAuth';
 
 export default function ChildLoginPage() {
   const nav = useNavigate();

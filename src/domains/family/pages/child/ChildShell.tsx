@@ -1,8 +1,8 @@
 import { NavLink, Outlet, Navigate, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Home, ListChecks, Wallet, GraduationCap, LogOut, Heart, Radio } from 'lucide-react';
-import { getChildSession, clearChildSession } from '../../../services/childAuth';
-import type { ChildSession } from '../../../services/childAuth';
+import { getChildSession, clearChildSession } from '../../../../services/childAuth';
+import type { ChildSession } from '../../../../services/childAuth';
 import { subscribeFamilyChanges } from '../../hooks/useFamilyRealtime';
 
 export default function ChildShell() {
