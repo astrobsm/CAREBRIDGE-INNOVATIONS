@@ -42,19 +42,32 @@ export function useFamilyParent(): State {
       setError(null);
       try {
         const fam = getFamilyClient();
+        const email = (user.email || '').toLowerCase();
+        if (!email) throw new Error('AstroHEALTH user has no email — cannot link family workspace.');
+
+        // Look up by EMAIL (stable across devices). user.id is local-per-device
+        // because AstroHEALTH stores users in Dexie with a fresh UUID on each
+        // install, so astrohealth_user_id alone would split the family workspace
+        // per device. Email is UNIQUE in family.users.
         const existing = await fam
           .from('users')
           .select('*')
-          .eq('astrohealth_user_id', user.id)
+          .eq('email', email)
           .maybeSingle();
         if (existing.error) throw existing.error;
         if (existing.data) {
+          // Make sure astrohealth_user_id is set (helps debugging/joins later).
+          if (!existing.data.astrohealth_user_id || existing.data.astrohealth_user_id !== user.id) {
+            await fam.from('users')
+              .update({ astrohealth_user_id: user.id })
+              .eq('id', existing.data.id);
+          }
           if (!cancelled) setParent(existing.data as FamilyParent);
         } else {
           const insert = await fam
             .from('users')
             .insert({
-              email: user.email,
+              email,
               password_hash: 'astrohealth_sso',
               first_name: user.firstName || 'User',
               last_name: user.lastName || '',

@@ -9,7 +9,7 @@ export function getFamilyClient() {
       'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'
     );
   }
-  // @ts-expect-error - schema() is supported at runtime; types restrict to declared schemas
+  // @ts-ignore - schema() supports any string at runtime; types restrict to declared schemas
   return supabase.schema('family');
 }
 

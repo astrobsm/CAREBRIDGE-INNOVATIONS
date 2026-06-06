@@ -34,6 +34,7 @@ export interface Wallet {
 
 export type TaskCategory = 'chore'|'responsibility'|'academic'|'spiritual'|'health'|'other';
 export type TaskPriority = 'low'|'medium'|'high'|'critical';
+export type TaskFrequency = 'once'|'daily'|'weekdays'|'weekends'|'weekly'|'monthly'|'custom';
 
 export interface Task {
   id: string;
@@ -46,6 +47,12 @@ export interface Task {
   penalty_amount?: number | string | null;
   is_recurring?: boolean;
   is_active?: boolean;
+  // Library + scheduling
+  is_template?: boolean;
+  scheduled_time?: string | null;       // 'HH:MM' or 'HH:MM:SS'
+  duration_minutes?: number | null;
+  frequency?: TaskFrequency | null;
+  days_of_week?: number[] | null;       // 0=Sun .. 6=Sat
   created_at?: string;
 }
 
