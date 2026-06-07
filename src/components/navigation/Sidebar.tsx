@@ -324,6 +324,8 @@ const navigation: NavItem[] = [
       { name: 'Dashboard', href: '/family' },
       { name: 'Children', href: '/family/children' },
       { name: 'Tasks', href: '/family/tasks' },
+      { name: 'Routines', href: '/family/routines' },
+      { name: 'Readiness', href: '/family/readiness' },
       { name: 'Wallets', href: '/family/wallets' },
       { name: 'Events', href: '/family/events' },
       { name: 'Prayer', href: '/family/prayer' },

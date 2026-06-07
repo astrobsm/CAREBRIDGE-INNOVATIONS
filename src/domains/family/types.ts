@@ -35,6 +35,12 @@ export interface Wallet {
   child_id: string;
   balance: number | string;
   base_stipend: number | string;
+  savings_balance?: number | string;
+  personal_balance?: number | string;
+  charity_balance?: number | string;
+  split_savings_pct?: number;
+  split_personal_pct?: number;
+  split_charity_pct?: number;
 }
 
 export type TaskCategory = 'chore'|'responsibility'|'academic'|'spiritual'|'health'|'other';
@@ -76,10 +82,72 @@ export interface Transaction {
   id: string;
   child_id: string;
   wallet_id: string;
-  type: 'stipend'|'bonus'|'penalty'|'transfer_in'|'transfer_out'|'adjustment';
+  type: 'stipend'|'bonus'|'penalty'|'transfer_in'|'transfer_out'|'adjustment'|'charity_donation'|'savings_withdrawal';
   amount: number | string;
   balance_after: number | string;
+  bucket?: 'savings'|'personal'|'charity'|'total' | null;
   description?: string | null;
+  created_at?: string;
+}
+
+// --- Homework + Readiness compliance ---
+export interface Homework {
+  id: string;
+  child_id: string;
+  recorded_by?: string | null;
+  subject?: string | null;
+  title: string;
+  description?: string | null;
+  due_date?: string | null;
+  status: 'pending'|'in_progress'|'done';
+  completed_at?: string | null;
+  source: 'child'|'parent';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  child_id: string;
+  parent_id: string;
+  label: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ChecklistLog {
+  id: string;
+  child_id: string;
+  item_id: string;
+  log_date: string;     // YYYY-MM-DD
+  checked_at?: string;
+}
+
+export type DayCode = 'sun'|'mon'|'tue'|'wed'|'thu'|'fri'|'sat';
+
+export interface ComplianceConfig {
+  id: string;
+  child_id: string;
+  parent_id: string;
+  deadline_time: string;        // 'HH:MM' or 'HH:MM:SS'
+  reward_amount: number | string;
+  penalty_amount: number | string;
+  active_days: DayCode[];
+  enabled: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ComplianceEvent {
+  id: string;
+  child_id: string;
+  event_date: string;
+  kind: 'day_passed'|'day_failed';
+  amount: number | string;
+  transaction_id?: string | null;
+  note?: string | null;
   created_at?: string;
 }
 
@@ -155,6 +223,75 @@ export interface FamilyNotification {
   body?: string | null;
   is_read?: boolean;
   created_at?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Routines (bedtime / morning / school-readiness / church / weekend chores)
+// ---------------------------------------------------------------------------
+export type RoutineCategory =
+  | 'bedtime'
+  | 'morning'
+  | 'school_readiness'
+  | 'church_readiness'
+  | 'weekend_chores'
+  | 'homework'
+  | 'general';
+
+export type RoutineStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'completed_on_time'
+  | 'completed_late'
+  | 'missed';
+
+export interface Routine {
+  id: string;
+  parent_id: string;
+  child_id?: string | null;          // null = applies to all children
+  name: string;
+  category: RoutineCategory;
+  description?: string | null;
+  days_of_week: number[];            // 0=Sun .. 6=Sat
+  deadline_time?: string | null;     // 'HH:MM' or 'HH:MM:SS'
+  reward_amount?: number | string | null;
+  penalty_amount?: number | string | null;
+  partial_reward_pct?: number;
+  is_active?: boolean;
+  sort_order?: number;
+  created_at?: string;
+}
+
+export interface RoutineItem {
+  id: string;
+  routine_id: string;
+  label: string;
+  sort_order: number;
+  is_required?: boolean;
+  created_at?: string;
+}
+
+export interface RoutineLog {
+  id: string;
+  routine_id: string;
+  child_id: string;
+  log_date: string;                  // YYYY-MM-DD
+  deadline_at?: string | null;       // ISO
+  status: RoutineStatus;
+  started_at?: string | null;
+  completed_at?: string | null;
+  score_pct?: number | null;
+  reward_paid?: number | string | null;
+  penalty_paid?: number | string | null;
+  settled?: boolean;
+  created_at?: string;
+}
+
+export interface RoutineItemLog {
+  id: string;
+  log_id: string;
+  item_id: string;
+  done: boolean;
+  done_at?: string | null;
 }
 
 export interface SchoolPerformance {

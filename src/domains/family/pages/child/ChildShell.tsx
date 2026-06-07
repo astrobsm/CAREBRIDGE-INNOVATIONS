@@ -1,6 +1,6 @@
 import { NavLink, Outlet, Navigate, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Home, ListChecks, Wallet, GraduationCap, LogOut, Heart, Radio } from 'lucide-react';
+import { Home, ListChecks, Wallet, GraduationCap, LogOut, Heart, Radio, BookOpen, Sparkles, ClipboardList } from 'lucide-react';
 import { getChildSession, clearChildSession } from '../../../../services/childAuth';
 import type { ChildSession } from '../../../../services/childAuth';
 import { subscribeFamilyChanges } from '../../hooks/useFamilyRealtime';
@@ -42,7 +42,10 @@ export default function ChildShell() {
       <nav className="bg-white border-b border-gray-200 px-3 py-2 flex gap-1 overflow-x-auto text-xs">
         {[
           { to: '/family/me', label: 'Home', icon: <Home size={14}/>, end: true },
+          { to: '/family/me/routines', label: 'Routines', icon: <ClipboardList size={14}/> },
+          { to: '/family/me/readiness', label: 'Readiness', icon: <Sparkles size={14}/> },
           { to: '/family/me/tasks', label: 'My tasks', icon: <ListChecks size={14}/> },
+          { to: '/family/me/homework', label: 'Homework', icon: <BookOpen size={14}/> },
           { to: '/family/me/wallet', label: 'My wallet', icon: <Wallet size={14}/> },
           { to: '/family/me/school', label: 'School', icon: <GraduationCap size={14}/> },
         ].map(l => (

@@ -100,6 +100,11 @@ import ChildHome from './domains/family/pages/child/ChildHome';
 import ChildTasks from './domains/family/pages/child/ChildTasks';
 import ChildWallet from './domains/family/pages/child/ChildWallet';
 import ChildSchool from './domains/family/pages/child/ChildSchool';
+import ChildHomework from './domains/family/pages/child/ChildHomework';
+import ChildReadiness from './domains/family/pages/child/ChildReadiness';
+import ChildRoutines from './domains/family/pages/child/ChildRoutines';
+import FamilyReadiness from './domains/family/pages/FamilyReadiness';
+import FamilyRoutines from './domains/family/pages/FamilyRoutines';
 import BookingSharePage from './domains/appointments/pages/public/BookingSharePage';
 import ClinicBookingsManagementPage from './domains/appointments/pages/ClinicBookingsManagementPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -153,7 +158,10 @@ function App() {
       <Route path="/family/me/login" element={<ChildLoginPage />} />
       <Route path="/family/me" element={<ChildShell />}>
         <Route index element={<ChildHome />} />
+        <Route path="readiness" element={<ChildReadiness />} />
+        <Route path="routines" element={<ChildRoutines />} />
         <Route path="tasks" element={<ChildTasks />} />
+        <Route path="homework" element={<ChildHomework />} />
         <Route path="wallet" element={<ChildWallet />} />
         <Route path="school" element={<ChildSchool />} />
       </Route>
@@ -264,6 +272,8 @@ function App() {
           <Route index element={<FamilyDashboard />} />
           <Route path="children" element={<FamilyChildren />} />
           <Route path="tasks" element={<FamilyTasks />} />
+          <Route path="routines" element={<FamilyRoutines />} />
+          <Route path="readiness" element={<FamilyReadiness />} />
           <Route path="wallets" element={<FamilyWallets />} />
           <Route path="events" element={<FamilyEvents />} />
           <Route path="prayer" element={<FamilyPrayer />} />
