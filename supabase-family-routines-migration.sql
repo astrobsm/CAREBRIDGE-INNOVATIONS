@@ -12,7 +12,14 @@
 --                        when the child opens their Routines tab. Holds status
 --                        + reward/penalty bookkeeping.
 --   routine_item_logs  : per-item check-off log
---   homework           : kid-entered schoolwork list
+--
+-- NOTE: family.homework lives in supabase-family-readiness-migration.sql.
+
+-- Drop any pre-existing incompatible versions (these tables are new — safe).
+DROP TABLE IF EXISTS family.routine_item_logs CASCADE;
+DROP TABLE IF EXISTS family.routine_logs      CASCADE;
+DROP TABLE IF EXISTS family.routine_items     CASCADE;
+DROP TABLE IF EXISTS family.routines          CASCADE;
 
 CREATE TABLE IF NOT EXISTS family.routines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -79,27 +86,13 @@ CREATE TABLE IF NOT EXISTS family.routine_item_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_fam_routine_item_logs_log ON family.routine_item_logs(log_id);
 
-CREATE TABLE IF NOT EXISTS family.homework (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    child_id UUID NOT NULL REFERENCES family.children(id) ON DELETE CASCADE,
-    subject VARCHAR(80),
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    due_date DATE,
-    status VARCHAR(20) DEFAULT 'pending',     -- pending | in_progress | completed
-    completed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_fam_homework_child ON family.homework(child_id, status);
-
 -- ---------------------------------------------------------------------------
 -- RLS + grants — same permissive pattern as other family.* tables
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['routines','routine_items','routine_logs','routine_item_logs','homework'] LOOP
+  FOREACH t IN ARRAY ARRAY['routines','routine_items','routine_logs','routine_item_logs'] LOOP
     EXECUTE format('ALTER TABLE family.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS "public_access" ON family.%I', t);
     EXECUTE format('CREATE POLICY "public_access" ON family.%I FOR ALL USING (true) WITH CHECK (true)', t);
@@ -113,7 +106,7 @@ END $$;
 DO $$
 DECLARE t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['routines','routine_items','routine_logs','routine_item_logs','homework'] LOOP
+  FOREACH t IN ARRAY ARRAY['routines','routine_items','routine_logs','routine_item_logs'] LOOP
     EXECUTE format('ALTER TABLE family.%I REPLICA IDENTITY FULL', t);
     IF NOT EXISTS (
       SELECT 1 FROM pg_publication_tables
@@ -128,6 +121,6 @@ END $$;
 SELECT table_name, count(*) AS columns
 FROM information_schema.columns
 WHERE table_schema='family'
-  AND table_name IN ('routines','routine_items','routine_logs','routine_item_logs','homework')
+  AND table_name IN ('routines','routine_items','routine_logs','routine_item_logs')
 GROUP BY table_name
 ORDER BY table_name;

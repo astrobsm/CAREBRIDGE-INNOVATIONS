@@ -17,6 +17,14 @@
 -- ---------------------------------------------------------------------------
 -- 1) HOMEWORK
 -- ---------------------------------------------------------------------------
+-- Drop any earlier minimal/partial versions so the schema below always wins.
+-- These tables are new for this feature — no data loss.
+DROP TABLE IF EXISTS family.compliance_events CASCADE;
+DROP TABLE IF EXISTS family.compliance_config CASCADE;
+DROP TABLE IF EXISTS family.checklist_logs    CASCADE;
+DROP TABLE IF EXISTS family.checklist_items   CASCADE;
+DROP TABLE IF EXISTS family.homework          CASCADE;
+
 CREATE TABLE IF NOT EXISTS family.homework (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   child_id UUID NOT NULL REFERENCES family.children(id) ON DELETE CASCADE,
