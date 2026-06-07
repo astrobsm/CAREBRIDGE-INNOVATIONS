@@ -4,11 +4,13 @@ import { Home, ListChecks, Wallet, GraduationCap, LogOut, Heart, Radio, BookOpen
 import { getChildSession, clearChildSession } from '../../../../services/childAuth';
 import type { ChildSession } from '../../../../services/childAuth';
 import { subscribeFamilyChanges } from '../../hooks/useFamilyRealtime';
+import { useFamilyNotifications } from '../../../../services/familyNotifications';
 
 export default function ChildShell() {
   const nav = useNavigate();
   const [session, setSession] = useState<ChildSession | null>(getChildSession());
   const [pulse, setPulse] = useState(0);
+  useFamilyNotifications(session?.parent_id);
 
   useEffect(() => {
     if (!session) return;

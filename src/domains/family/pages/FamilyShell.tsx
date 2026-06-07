@@ -2,16 +2,18 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
   Home, Users, ListChecks, Wallet, CalendarDays, Heart,
-  TrendingUp, Stethoscope, GraduationCap, Bell, Radio, AlertCircle, RefreshCw, Sparkles, ClipboardList,
+  TrendingUp, Stethoscope, GraduationCap, Bell, Radio, AlertCircle, RefreshCw, Sparkles, ClipboardList, BarChart3,
 } from 'lucide-react';
 import { useFamilyParent } from '../hooks/useFamilyParent';
 import { subscribeFamilyChanges } from '../hooks/useFamilyRealtime';
+import { useFamilyNotifications } from '../../../services/familyNotifications';
 
 const links = [
   { to: '/family', label: 'Dashboard', icon: <Home size={16} />, end: true },
   { to: '/family/children', label: 'Children', icon: <Users size={16} /> },
   { to: '/family/tasks', label: 'Tasks', icon: <ListChecks size={16} /> },
   { to: '/family/routines', label: 'Routines', icon: <ClipboardList size={16} /> },
+  { to: '/family/compliance', label: 'Compliance', icon: <BarChart3 size={16} /> },
   { to: '/family/wallets', label: 'Wallets', icon: <Wallet size={16} /> },
   { to: '/family/events', label: 'Events', icon: <CalendarDays size={16} /> },
   { to: '/family/prayer', label: 'Prayer', icon: <Heart size={16} /> },
@@ -26,6 +28,7 @@ export default function FamilyShell() {
   const { parent, loading, error, configured, reload } = useFamilyParent();
   const [lastRT, setLastRT] = useState<{ table: string; event: string; at: number } | null>(null);
   const loc = useLocation();
+  useFamilyNotifications(parent?.id);
 
   useEffect(() => {
     if (!parent?.id) return;

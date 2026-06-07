@@ -239,6 +239,15 @@ async function recomputeAndMaybeSettle(logId: string, childId: string): Promise<
       `${onTime ? 'On-time' : 'Late'} routine: ${log.routine?.name}`,
     );
   }
+  if (log.routine?.parent_id) {
+    await notifyParent(
+      log.routine.parent_id,
+      onTime ? `✅ Routine completed on time` : `⏱️ Routine completed late`,
+      `${log.routine?.name} — ₦${payout.toLocaleString()} ${onTime ? 'rewarded' : '(partial)'}`,
+      'routine_log',
+      log.id,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -279,6 +288,15 @@ export async function settlePastUnsettled(childId: string): Promise<number> {
         `Missed: ${r.routine?.name} (${r.log_date})`,
       );
     }
+    if (r.routine?.parent_id) {
+      await notifyParent(
+        r.routine.parent_id,
+        `⚠️ Routine missed`,
+        `${r.routine?.name} on ${r.log_date} — ₦${penalty.toLocaleString()} penalty`,
+        'routine_log',
+        r.id,
+      );
+    }
     count++;
   }
   return count;
@@ -310,3 +328,25 @@ export const CATEGORY_LABEL: Record<string, string> = {
   homework: 'Homework',
   general: 'General',
 };
+
+// ---------------------------------------------------------------------------
+// Notify parent (writes a row in family.notifications which is realtime).
+// ---------------------------------------------------------------------------
+export async function notifyParent(
+  parentId: string,
+  title: string,
+  body: string,
+  referenceType?: string,
+  referenceId?: string,
+): Promise<void> {
+  if (!parentId) return;
+  const fam = getFamilyClient();
+  await fam.from('notifications').insert({
+    user_id: parentId,
+    title,
+    body,
+    type: 'task',
+    reference_type: referenceType || null,
+    reference_id: referenceId || null,
+  });
+}
