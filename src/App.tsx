@@ -107,6 +107,7 @@ import FamilyReadiness from './domains/family/pages/FamilyReadiness';
 import FamilyRoutines from './domains/family/pages/FamilyRoutines';
 import FamilyComplianceDashboard from './domains/family/pages/FamilyComplianceDashboard';
 import FamilyApprovals from './domains/family/pages/FamilyApprovals';
+import FamilyRadio from './domains/family/pages/FamilyRadio';
 import BookingSharePage from './domains/appointments/pages/public/BookingSharePage';
 import ClinicBookingsManagementPage from './domains/appointments/pages/ClinicBookingsManagementPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -275,6 +276,7 @@ function App() {
           <Route path="children" element={<FamilyChildren />} />
           <Route path="tasks" element={<FamilyTasks />} />
           <Route path="approvals" element={<FamilyApprovals />} />
+          <Route path="radio" element={<FamilyRadio />} />
           <Route path="routines" element={<FamilyRoutines />} />
           <Route path="compliance" element={<FamilyComplianceDashboard />} />
           <Route path="readiness" element={<FamilyReadiness />} />

@@ -13,6 +13,7 @@ const links = [
   { to: '/family/children', label: 'Children', icon: <Users size={16} /> },
   { to: '/family/tasks', label: 'Tasks', icon: <ListChecks size={16} /> },
   { to: '/family/approvals', label: 'Approvals', icon: <ShieldCheck size={16} /> },
+  { to: '/family/radio', label: 'Radio', icon: <Radio size={16} /> },
   { to: '/family/routines', label: 'Routines', icon: <ClipboardList size={16} /> },
   { to: '/family/compliance', label: 'Compliance', icon: <BarChart3 size={16} /> },
   { to: '/family/wallets', label: 'Wallets', icon: <Wallet size={16} /> },
