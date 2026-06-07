@@ -2,7 +2,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
   Home, Users, ListChecks, Wallet, CalendarDays, Heart,
-  TrendingUp, Stethoscope, GraduationCap, Bell, Radio, AlertCircle, RefreshCw, Sparkles, ClipboardList, BarChart3,
+  TrendingUp, Stethoscope, GraduationCap, Bell, Radio, AlertCircle, RefreshCw, Sparkles, ClipboardList, BarChart3, ShieldCheck,
 } from 'lucide-react';
 import { useFamilyParent } from '../hooks/useFamilyParent';
 import { subscribeFamilyChanges } from '../hooks/useFamilyRealtime';
@@ -12,6 +12,7 @@ const links = [
   { to: '/family', label: 'Dashboard', icon: <Home size={16} />, end: true },
   { to: '/family/children', label: 'Children', icon: <Users size={16} /> },
   { to: '/family/tasks', label: 'Tasks', icon: <ListChecks size={16} /> },
+  { to: '/family/approvals', label: 'Approvals', icon: <ShieldCheck size={16} /> },
   { to: '/family/routines', label: 'Routines', icon: <ClipboardList size={16} /> },
   { to: '/family/compliance', label: 'Compliance', icon: <BarChart3 size={16} /> },
   { to: '/family/wallets', label: 'Wallets', icon: <Wallet size={16} /> },

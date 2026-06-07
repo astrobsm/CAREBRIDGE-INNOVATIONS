@@ -76,6 +76,15 @@ export interface TaskAssignment {
   due_date?: string | null;
   completed_at?: string | null;
   parent_notes?: string | null;
+  // Parent approval workflow (rewards/penalties only fire after review)
+  approval_status?: 'not_required'|'pending'|'approved'|'rejected' | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
+  parent_review_notes?: string | null;
+  reward_paid?: boolean;
+  penalty_applied?: boolean;
+  reward_tx_id?: string | null;
+  penalty_tx_id?: string | null;
 }
 
 export interface Transaction {

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, CheckCircle2, Clock, Library, ListChecks, Trash2, Send } from 'lucide-react';
+import { Plus, CheckCircle2, Clock, Library, ListChecks, Trash2, Send, FileDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getFamilyClient } from '../../../services/familyClient';
 import { useFamilyCtx } from '../context';
 import { subscribeFamilyChanges } from '../hooks/useFamilyRealtime';
 import type { Child, Task, TaskAssignment, TaskCategory, TaskPriority, TaskFrequency } from '../types';
+import { generateWeeklySchedulePdf } from '../utils/weeklySchedulePdf';
 
 interface AssignmentRow extends TaskAssignment {
   task?: Task;
@@ -257,6 +258,20 @@ export default function FamilyTasks() {
             <ListChecks size={14}/> Assignments ({rows.length})
           </button>
         </div>
+        <button
+          onClick={() => {
+            if (!children.length) { toast.error('Add a child first'); return; }
+            generateWeeklySchedulePdf({
+              familyName: `Family · ${parent.first_name} ${parent.last_name || ''}`.trim(),
+              children, assignments: rows,
+            });
+            toast.success('Weekly schedule PDF downloaded');
+          }}
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm hover:bg-gray-50"
+          title="Download this week's duty/task schedule as PDF"
+        >
+          <FileDown size={14}/> Weekly PDF
+        </button>
       </div>
 
       {/* LIBRARY TAB */}
