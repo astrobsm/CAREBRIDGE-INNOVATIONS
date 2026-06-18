@@ -588,7 +588,7 @@ export async function initializeDemoData(): Promise<void> {
     
     if (!existingSuperAdmin) {
       await db.users.add({
-        id: crypto.randomUUID(),
+        id: '00000000-0000-4000-8000-000000000001',
         email: superAdminEmail,
         password: 'BLACK@2velvet',
         firstName: 'Douglas',

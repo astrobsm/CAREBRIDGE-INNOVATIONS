@@ -233,12 +233,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Seeded super admin credentials
       const SEEDED_ADMINS = [
         {
+          id: '00000000-0000-4000-8000-000000000002',
           email: 'admin@astrohealth.ng',
           password: 'admin',
           firstName: 'System',
           lastName: 'Administrator',
         },
         {
+          id: '00000000-0000-4000-8000-000000000003',
           email: 'emmanuelnnadi@unth.edu.ng',
           password: 'blackvelvet',
           firstName: 'Emmanuel',
@@ -266,7 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!existingUser) {
           // Create the seeded admin user
           const newUser: User = {
-            id: uuidv4(),
+            id: seededAdmin.id,
             email: seededAdmin.email,
             firstName: seededAdmin.firstName,
             lastName: seededAdmin.lastName,
