@@ -964,6 +964,36 @@ async function pushAllToCloud(): Promise<void> {
   await pushTable('auditLogs', TABLES.auditLogs);
 }
 
+// Fields that legitimately differ on every cloud round-trip and must be ignored
+// when deciding whether a pulled record is a genuine remote change or a mere echo
+// of our own push (the cloud bumps these via triggers/defaults on every upsert).
+const ECHO_IGNORED_FIELDS = new Set([
+  'updatedAt', 'createdAt', 'lastSyncedAt', 'syncedAt', 'lastModified',
+]);
+
+function normalizeForCompare(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'object') {
+    try { return JSON.stringify(value); } catch { return String(value); }
+  }
+  return String(value);
+}
+
+// Returns true when the cloud record differs from the local record only in
+// volatile/timestamp fields — i.e. it is an echo of a record this device
+// previously pushed, not a real remote edit. Only the fields present on the
+// cloud record are compared (columns stripped on push are local-only and ignored).
+function isEchoOnly(local: Record<string, unknown>, cloud: Record<string, unknown>): boolean {
+  for (const key in cloud) {
+    if (ECHO_IGNORED_FIELDS.has(key)) continue;
+    if (normalizeForCompare(cloud[key]) !== normalizeForCompare(local[key])) {
+      return false; // a meaningful field differs -> genuine remote change
+    }
+  }
+  return true; // only timestamp/volatile fields differ -> echo, skip
+}
+
 // Pull a single table from cloud
 async function pullTable(cloudTableName: string, localTableName: string, orderColumn: string = 'updated_at'): Promise<void> {
   if (!supabase) return;
@@ -1022,9 +1052,16 @@ async function pullTable(cloudTableName: string, localTableName: string, orderCo
             const cloudUpdated = new Date(String((record as any).updatedAt || '1970-01-01')).getTime();
             
             if (cloudUpdated > localUpdated) {
-              // Cloud version is newer, update local
-              await (db as any)[localTableName].put(record);
-              updated++;
+              // Cloud reports a newer timestamp — but the cloud bumps updated_at on
+              // every upsert, so this is frequently just an echo of our own push.
+              // Only overwrite local when actual content changed; otherwise the
+              // record would be re-flagged dirty and re-pushed forever (echo loop).
+              if (isEchoOnly(localRecord, record as Record<string, unknown>)) {
+                skipped++;
+              } else {
+                await (db as any)[localTableName].put(record);
+                updated++;
+              }
             } else {
               skipped++;
             }
