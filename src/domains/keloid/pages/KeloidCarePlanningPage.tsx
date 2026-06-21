@@ -133,7 +133,7 @@ export default function KeloidCarePlanningPage() {
 
   // Data queries
   const patients = useLiveQuery(() => db.patients.filter(p => p.isActive === true).toArray(), []);
-  const hospitals = useLiveQuery(() => db.hospitals.where('isActive').equals(1).toArray(), []);
+  const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive === true).toArray(), []);
   const keloidPlans = useLiveQuery(() => db.keloidCarePlans.reverse().sortBy('createdAt'), []);
 
   // Form
@@ -403,7 +403,7 @@ export default function KeloidCarePlanningPage() {
   // Handle PDF export (A4)
   const handleExportPDF = (plan: KeloidCarePlan) => {
     const patient = patients?.find(p => p.id === plan.patientId);
-    const hospital = hospitals?.find(h => h.id === plan.hospitalId);
+    const hospital = hospitals?.find(h => h.id === plan.hospitalId) || hospitals?.[0];
     if (!patient || !hospital) {
       toast.error('Patient or hospital data not found');
       return;
@@ -415,7 +415,7 @@ export default function KeloidCarePlanningPage() {
   // Handle WhatsApp Share
   const handleWhatsAppShare = async (plan: KeloidCarePlan) => {
     const patient = patients?.find(p => p.id === plan.patientId);
-    const hospital = hospitals?.find(h => h.id === plan.hospitalId);
+    const hospital = hospitals?.find(h => h.id === plan.hospitalId) || hospitals?.[0];
     if (!patient || !hospital) {
       toast.error('Patient or hospital data not found');
       return;
@@ -432,7 +432,7 @@ export default function KeloidCarePlanningPage() {
   // Handle Thermal Print (80mm, Font 12, Georgia)
   const handleThermalPrint = (plan: KeloidCarePlan) => {
     const patient = patients?.find(p => p.id === plan.patientId);
-    const hospital = hospitals?.find(h => h.id === plan.hospitalId);
+    const hospital = hospitals?.find(h => h.id === plan.hospitalId) || hospitals?.[0];
     if (!patient || !hospital) {
       toast.error('Patient or hospital data not found');
       return;
