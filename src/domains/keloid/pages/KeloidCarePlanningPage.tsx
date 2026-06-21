@@ -51,6 +51,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { format, addWeeks, differenceInYears } from 'date-fns';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { HospitalSelector } from '../../../components/hospital';
 import { generateKeloidCarePlanPDF, generateKeloidCarePlanPDFBlob, generateKeloidThermalPrintHTML } from '../utils/keloidPdfGenerator';
 import { sharePDFOnWhatsApp } from '../../../utils/whatsappShareUtils';
@@ -351,6 +352,9 @@ export default function KeloidCarePlanningPage() {
       };
 
       await db.keloidCarePlans.add(plan as any);
+      // Immediately back up to the cloud so the plan is never lost if local
+      // storage is cleared before the next periodic sync cycle.
+      void syncRecord('keloidCarePlans', plan as unknown as Record<string, unknown>);
       toast.success('Keloid Care Plan created successfully!');
       resetForm();
       setShowCreateModal(false);

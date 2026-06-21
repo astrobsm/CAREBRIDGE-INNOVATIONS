@@ -1638,6 +1638,8 @@ function getCloudTableName(localTableName: string): string | null {
     hospitalSettings: TABLES.hospitalSettings,
     // Audit Logs
     auditLogs: TABLES.auditLogs,
+    // Keloid Care Plans
+    keloidCarePlans: TABLES.keloidCarePlans,
   };
   return mapping[localTableName] || null;
 }
