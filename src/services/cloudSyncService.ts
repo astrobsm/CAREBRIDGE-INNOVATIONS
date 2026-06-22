@@ -1640,6 +1640,20 @@ function getCloudTableName(localTableName: string): string | null {
     auditLogs: TABLES.auditLogs,
     // Keloid Care Plans
     keloidCarePlans: TABLES.keloidCarePlans,
+    // Meeting Minutes & Transcription
+    meetingMinutes: TABLES.meetingMinutes,
+    // Substance Use Disorder Assessment & Detoxification
+    substanceUseAssessments: TABLES.substanceUseAssessments,
+    detoxMonitoringRecords: TABLES.detoxMonitoringRecords,
+    detoxFollowUps: TABLES.detoxFollowUps,
+    substanceUseConsents: TABLES.substanceUseConsents,
+    substanceUseClinicalSummaries: TABLES.substanceUseClinicalSummaries,
+    // Clinical Comments
+    clinicalComments: TABLES.clinicalComments,
+    // Investigation Approval Logs
+    investigationApprovalLogs: TABLES.investigationApprovalLogs,
+    // Public Clinic Bookings
+    publicClinicBookings: TABLES.publicClinicBookings,
   };
   return mapping[localTableName] || null;
 }
