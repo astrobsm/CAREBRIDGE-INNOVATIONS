@@ -84,6 +84,8 @@ import type {
   WoundMeasurementRecord,
   // Investigation Request Bundles
   InvestigationRequestBundle,
+  // Scanned Documents (OCR)
+  ScannedDocument,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
@@ -219,6 +221,8 @@ export class AstroHEALTHDatabase extends Dexie {
   financeProjects!: Table<FinanceProject, string>;
   financeInvestments!: Table<FinanceInvestment, string>;
   financeAuditLogs!: Table<FinanceAuditLog, string>;
+  // Scanned Documents (OCR Document Scanner)
+  scannedDocuments!: Table<ScannedDocument, string>;
 
   constructor() {
     super('AstroHEALTHDB');
@@ -350,6 +354,12 @@ export class AstroHEALTHDatabase extends Dexie {
     this.version(79).stores({
       investigationRequestBundles:
         'id, patientId, hospitalId, encounterId, admissionId, sourceModule, sourceAssessmentId, requestedBy, requestDate, status, createdAt',
+    });
+
+    // v80 – Scanned Documents (OCR Document Scanner)
+    this.version(80).stores({
+      scannedDocuments:
+        'id, patientId, hospitalId, wardRoundId, encounterId, admissionId, documentType, createdBy, createdAt',
     });
   }
 }

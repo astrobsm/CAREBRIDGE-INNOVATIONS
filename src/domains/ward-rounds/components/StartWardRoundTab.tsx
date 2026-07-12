@@ -13,6 +13,7 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle,
+  ScanLine,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -37,6 +38,7 @@ import toast from 'react-hot-toast';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { v4 as uuidv4 } from 'uuid';
 import type { TissueType } from '../../../types';
+import DocumentScanner from '../../document-scanner/components/DocumentScanner';
 
 // ── Inline wound reassessment form shape ──
 interface WoundReassessmentForm {
@@ -76,6 +78,12 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
   const [expandedPatientId, setExpandedPatientId] = useState<string | null>(null);
   const [roundNotes, setRoundNotes] = useState<Record<string, string>>({});
   const [reviewedPatients, setReviewedPatients] = useState<Set<string>>(new Set());
+  const [scannerTarget, setScannerTarget] = useState<{
+    patientId: string;
+    patientName: string;
+    hospitalId?: string;
+    admissionId?: string;
+  } | null>(null);
 
   // ── Wound reassessment state ──
   // Key = woundId currently being reassessed (only one at a time)
@@ -701,7 +709,7 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex gap-2 mt-3">
+                        <div className="flex flex-wrap gap-2 mt-3">
                           {!isReviewed ? (
                             <button
                               onClick={() => handleMarkReviewed(patient.id)}
@@ -715,6 +723,20 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
                               <CheckCircle size={14} /> Reviewed
                             </span>
                           )}
+                          <button
+                            onClick={() =>
+                              setScannerTarget({
+                                patientId: patient.id,
+                                patientName: `${patient.firstName} ${patient.lastName}`.trim(),
+                                hospitalId: admission?.hospitalId || selectedHospital || undefined,
+                                admissionId: admission?.id,
+                              })
+                            }
+                            className="btn btn-sm btn-secondary"
+                          >
+                            <ScanLine size={14} />
+                            Scan document
+                          </button>
                         </div>
                       </div>
                     </motion.div>
@@ -725,6 +747,16 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
           })
         )}
       </div>
+
+      {scannerTarget && (
+        <DocumentScanner
+          patientId={scannerTarget.patientId}
+          patientName={scannerTarget.patientName}
+          hospitalId={scannerTarget.hospitalId}
+          admissionId={scannerTarget.admissionId}
+          onClose={() => setScannerTarget(null)}
+        />
+      )}
     </div>
   );
 }

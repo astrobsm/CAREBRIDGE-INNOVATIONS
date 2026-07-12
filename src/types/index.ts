@@ -1987,6 +1987,57 @@ export interface WardRoundPatient {
   reviewedBy?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Scanned Documents (OCR Document Scanner)
+// Multi-page capture → OCR → classify → attach to a ward round / encounter.
+// ---------------------------------------------------------------------------
+export type ScannedDocumentType =
+  | 'lab_result'
+  | 'radiology_report'
+  | 'operative_note'
+  | 'nursing_note'
+  | 'consent_form'
+  | 'referral_letter'
+  | 'discharge_summary'
+  | 'ecg'
+  | 'observation_chart'
+  | 'prescription'
+  | 'other';
+
+export interface ScannedDocumentField {
+  key: string;
+  label: string;
+  value: string;
+}
+
+export interface ScannedDocumentPage {
+  id: string;
+  imageDataUrl: string;
+  ocrText: string;
+  confidence: number;
+}
+
+export interface ScannedDocument {
+  id: string;
+  patientId?: string;
+  patientName?: string;
+  hospitalId?: string;
+  wardRoundId?: string;
+  encounterId?: string;
+  admissionId?: string;
+  documentType: ScannedDocumentType;
+  title: string;
+  pages: ScannedDocumentPage[];
+  fullText: string;
+  extractedFields: ScannedDocumentField[];
+  pdfDataUrl?: string;
+  createdBy: string;
+  createdByName?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  syncedAt?: Date;
+}
+
 export interface DoctorPatientAssignment {
   id: string;
   hospitalId: string;
