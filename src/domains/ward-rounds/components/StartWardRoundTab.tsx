@@ -39,6 +39,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { v4 as uuidv4 } from 'uuid';
 import type { TissueType } from '../../../types';
 import DocumentScanner from '../../document-scanner/components/DocumentScanner';
+import ScannedDocumentsPanel from '../../document-scanner/components/ScannedDocumentsPanel';
 
 // ── Inline wound reassessment form shape ──
 interface WoundReassessmentForm {
@@ -738,6 +739,9 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
                             Scan document
                           </button>
                         </div>
+
+                        {/* Attached scanned documents */}
+                        <ScannedDocumentsPanel patientId={patient.id} compact className="mt-3" />
                       </div>
                     </motion.div>
                   )}

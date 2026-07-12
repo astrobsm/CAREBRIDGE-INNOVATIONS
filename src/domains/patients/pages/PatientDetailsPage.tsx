@@ -21,9 +21,11 @@ import {
   X,
   Save,
 } from 'lucide-react';
+import { FileScan } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { format, differenceInYears } from 'date-fns';
+import ScannedDocumentsPanel from '../../document-scanner/components/ScannedDocumentsPanel';
 import AdmissionDurationClock, { AdmissionDurationBadge } from '../../admissions/components/AdmissionDurationClock';
 import { generateEncounterPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { EntryTrackingBadge } from '../../../components/common';
@@ -886,6 +888,22 @@ export default function PatientDetailsPage() {
                   </Link>
                 </div>
               )}
+            </div>
+          </motion.div>
+
+          {/* Scanned Documents */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="card"
+          >
+            <div className="card-header flex items-center gap-3">
+              <FileScan className="w-5 h-5 text-indigo-500" />
+              <h2 className="font-semibold text-gray-900">Scanned Documents</h2>
+            </div>
+            <div className="card-body">
+              <ScannedDocumentsPanel patientId={patientId} />
             </div>
           </motion.div>
         </div>
