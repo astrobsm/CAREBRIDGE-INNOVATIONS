@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { differenceInYears } from 'date-fns';
 import { Calculator, AlertCircle } from 'lucide-react';
+import { db } from '../../../database';
 import type { Patient } from '../../../types';
 import {
   calculateBMI,
@@ -14,19 +16,41 @@ import {
 interface Props {
   patient: Patient | undefined | null;
   className?: string;
+  /** Show energy/protein/fluid targets. Defaults to true. */
+  showNutrition?: boolean;
+  /** Optional explicit weight (kg); falls back to the latest recorded vitals. */
+  weightKg?: number;
+  /** Optional explicit height (cm); falls back to the latest recorded vitals. */
+  heightCm?: number;
 }
 
 /**
  * Read-only clinical calculation summary powered by the shared calculation
- * engine. Auto-populates from the patient's recorded weight, height, age and
- * sex. Used inside Treatment Planning (and reusable elsewhere) so clinicians
- * see energy/protein/fluid targets without leaving the workflow.
+ * engine. Auto-populates from the patient's most recent recorded weight and
+ * height (from vital signs) plus age and sex. Used inside Treatment Planning
+ * and Surgical Planning so clinicians see targets without leaving the workflow.
  */
-export default function ClinicalCalcCard({ patient, className = '' }: Props) {
+export default function ClinicalCalcCard({
+  patient,
+  className = '',
+  showNutrition = true,
+  weightKg: weightOverride,
+  heightCm: heightOverride,
+}: Props) {
+  // Most recent vitals that carry weight/height (weight/height live on VitalSigns).
+  const latestVitals = useLiveQuery(async () => {
+    if (!patient?.id) return undefined;
+    const all = await db.vitalSigns.where('patientId').equals(patient.id).toArray();
+    all.sort(
+      (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+    );
+    return all.find(v => v.weight && v.height) ?? all[0];
+  }, [patient?.id]);
+
   const derived = useMemo(() => {
     if (!patient) return null;
-    const weightKg = patient.weight ?? null;
-    const heightCm = patient.height ?? null;
+    const weightKg = weightOverride ?? latestVitals?.weight ?? null;
+    const heightCm = heightOverride ?? latestVitals?.height ?? null;
     const sex = toSex(patient.gender);
     const ageYears = patient.dateOfBirth
       ? differenceInYears(new Date(), new Date(patient.dateOfBirth))
@@ -43,8 +67,7 @@ export default function ClinicalCalcCard({ patient, className = '' }: Props) {
         : null;
 
     return { weightKg, heightCm, ageYears, sex, bmi, ibw, adjBw, nutrition };
-  }, [patient]);
-
+  }, [patient, latestVitals, weightOverride, heightOverride]);
   if (!patient) return null;
 
   const missing = !derived?.weightKg || !derived?.heightCm;
@@ -85,7 +108,7 @@ export default function ClinicalCalcCard({ patient, className = '' }: Props) {
           {derived?.adjBw != null && (
             <Metric label="Adjusted body wt" value={`${derived.adjBw}`} unit="kg" />
           )}
-          {derived?.nutrition && (
+          {showNutrition && derived?.nutrition && (
             <>
               <Metric
                 label="Energy need"
@@ -111,8 +134,10 @@ export default function ClinicalCalcCard({ patient, className = '' }: Props) {
       )}
 
       <p className="mt-3 text-[10px] leading-tight text-gray-500">
-        Estimates for clinician review. Adjust for stress/activity in the full Calculators
-        module. Nutrition uses standard factors (activity 1.2, protein 1.0 g/kg).
+        Estimates for clinician review.
+        {showNutrition
+          ? ' Adjust for stress/activity in the full Calculators module. Nutrition uses standard factors (activity 1.2, protein 1.0 g/kg).'
+          : ' Ideal/adjusted body weight for drug & anaesthetic dosing.'}
       </p>
     </div>
   );

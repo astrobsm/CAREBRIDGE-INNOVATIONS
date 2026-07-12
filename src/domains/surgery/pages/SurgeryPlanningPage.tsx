@@ -31,6 +31,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import ScanToText from '../../../components/common/ScanToText';
+import ClinicalCalcCard from '../../calculators/components/ClinicalCalcCard';
 import type { Surgery, PreOperativeAssessment, AnaesthesiaType, OutstandingPreparationItem, Investigation } from '../../../types';
 import {
   surgicalProcedures,
@@ -1411,6 +1412,11 @@ export default function SurgeryPlanningPage() {
                 </div>
               </div>
             </div>
+
+            {/* Auto-calculated anthropometry (shared engine) for dosing */}
+            {patient && (
+              <ClinicalCalcCard patient={patient} showNutrition={false} />
+            )}
 
             {/* Caprini VTE Score */}
             <div className="card">
