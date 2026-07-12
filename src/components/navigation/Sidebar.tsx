@@ -340,16 +340,160 @@ const navigation: NavItem[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Clinical module groups (CareBridge architecture). Items are assigned to a
+// group by their href below, so the item definitions above stay untouched.
+// Any item whose href is not mapped falls back to the "More" group, so nothing
+// can ever silently disappear from the menu.
+// ---------------------------------------------------------------------------
+interface NavSection {
+  id: string;
+  label?: string; // undefined = ungrouped (rendered without a header)
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  { id: 'main' },
+  { id: 'outpatient', label: 'Outpatient Care' },
+  { id: 'inpatient', label: 'Inpatient Care' },
+  { id: 'theatre', label: 'Theatre' },
+  { id: 'wound-care', label: 'Wound Care' },
+  { id: 'clinical-tools', label: 'Clinical Tools' },
+  { id: 'reports', label: 'Reports & Research' },
+  { id: 'admin', label: 'Billing & Admin' },
+  { id: 'modules', label: 'Other Modules' },
+  { id: 'more', label: 'More' },
+];
+
+const SECTION_BY_HREF: Record<string, string> = {
+  '/': 'main',
+  '/patients': 'main',
+  // Outpatient Care
+  '/appointments': 'outpatient',
+  '/clinical': 'outpatient',
+  '/substance-use': 'outpatient',
+  '/sti-protocol': 'outpatient',
+  '/patient-education': 'outpatient',
+  // Inpatient Care
+  '/adt': 'inpatient',
+  '/ward-rounds': 'inpatient',
+  '/treatment-planning': 'inpatient',
+  '/medication-chart': 'inpatient',
+  '/investigations': 'inpatient',
+  '/pharmacy': 'inpatient',
+  '/nutrition': 'inpatient',
+  '/mdt': 'inpatient',
+  '/blood-transfusion': 'inpatient',
+  '/referrals': 'inpatient',
+  '/post-op-care': 'inpatient',
+  // Theatre
+  '/preoperative-planning': 'theatre',
+  '/surgery': 'theatre',
+  '/pre-surgical-conference': 'theatre',
+  '/billing/surgical-estimate': 'theatre',
+  // Wound Care
+  '/wounds': 'wound-care',
+  '/burns': 'wound-care',
+  '/limb-salvage': 'wound-care',
+  '/npwt': 'wound-care',
+  '/keloid-care': 'wound-care',
+  '/lymphedema': 'wound-care',
+  // Clinical Tools
+  '/calculators': 'clinical-tools',
+  '/communication/chat': 'clinical-tools',
+  // Reports & Research
+  '/external-review': 'reports',
+  '/user-activity': 'reports',
+  // Billing & Admin
+  '/billing': 'admin',
+  '/billing/payroll': 'admin',
+  '/shopping-checklist': 'admin',
+  '/hospitals': 'admin',
+  '/users': 'admin',
+  '/settings': 'admin',
+  // Other Modules
+  '/finance': 'modules',
+  '/family': 'modules',
+};
+
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, hasPermission } = useAuth();
   const location = useLocation();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [collapsedSections, setCollapsedSections] = useState<string[]>([]);
 
   const toggleExpanded = (name: string) => {
     setExpandedItems(prev =>
       prev.includes(name)
         ? prev.filter(item => item !== name)
         : [...prev, name]
+    );
+  };
+
+  const toggleSection = (id: string) => {
+    setCollapsedSections(prev =>
+      prev.includes(id)
+        ? prev.filter(section => section !== id)
+        : [...prev, id]
+    );
+  };
+
+  const renderNavItem = (item: NavItem) => {
+    const isActive = location.pathname === item.href ||
+      (item.href !== '/' && location.pathname.startsWith(item.href));
+    const isExpanded = expandedItems.includes(item.name);
+
+    if (item.children) {
+      return (
+        <div key={item.name}>
+          <button
+            onClick={() => toggleExpanded(item.name)}
+            className={`w-full sidebar-link ${isActive ? 'sidebar-link-active' : ''}`}
+          >
+            {item.icon}
+            <span className="flex-1 text-left">{item.name}</span>
+            <ChevronDown
+              size={16}
+              className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+          <AnimatePresence>
+            {isExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="ml-9 mt-1 space-y-1">
+                  {item.children.map((child) => (
+                    <NavLink
+                      key={child.name}
+                      to={child.href}
+                      onClick={onClose}
+                      className="block px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-900"
+                    >
+                      {child.name}
+                    </NavLink>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      );
+    }
+
+    return (
+      <NavLink
+        key={item.name}
+        to={item.href}
+        onClick={onClose}
+        className={`sidebar-link ${isActive ? 'sidebar-link-active' : ''}`}
+      >
+        {item.icon}
+        <span>{item.name}</span>
+      </NavLink>
     );
   };
 
@@ -394,63 +538,48 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto scrollbar-thin">
-        {filteredNavigation.map((item) => {
-          const isActive = location.pathname === item.href || 
-            (item.href !== '/' && location.pathname.startsWith(item.href));
-          const isExpanded = expandedItems.includes(item.name);
+        {NAV_SECTIONS.map((section) => {
+          const sectionItems = filteredNavigation.filter(
+            (item) => (SECTION_BY_HREF[item.href] ?? 'more') === section.id
+          );
+          if (sectionItems.length === 0) return null;
 
-          if (item.children) {
+          // Ungrouped (main) section: render items directly, no header.
+          if (!section.label) {
             return (
-              <div key={item.name}>
-                <button
-                  onClick={() => toggleExpanded(item.name)}
-                  className={`w-full sidebar-link ${isActive ? 'sidebar-link-active' : ''}`}
-                >
-                  {item.icon}
-                  <span className="flex-1 text-left">{item.name}</span>
-                  <ChevronDown
-                    size={16}
-                    className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="ml-9 mt-1 space-y-1">
-                        {item.children.map((child) => (
-                          <NavLink
-                            key={child.name}
-                            to={child.href}
-                            onClick={onClose}
-                            className="block px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-900"
-                          >
-                            {child.name}
-                          </NavLink>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+              <div key={section.id} className="space-y-1">
+                {sectionItems.map(renderNavItem)}
               </div>
             );
           }
 
+          const isCollapsed = collapsedSections.includes(section.id);
           return (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              onClick={onClose}
-              className={`sidebar-link ${isActive ? 'sidebar-link-active' : ''}`}
-            >
-              {item.icon}
-              <span>{item.name}</span>
-            </NavLink>
+            <div key={section.id} className="pt-3 first:pt-0">
+              <button
+                onClick={() => toggleSection(section.id)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400 hover:text-gray-600"
+              >
+                <span className="flex-1 text-left">{section.label}</span>
+                <ChevronDown
+                  size={14}
+                  className={`transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                />
+              </button>
+              <AnimatePresence initial={false}>
+                {!isCollapsed && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-1 mt-1">{sectionItems.map(renderNavItem)}</div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           );
         })}
       </nav>
