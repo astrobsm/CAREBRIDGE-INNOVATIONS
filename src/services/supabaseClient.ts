@@ -174,6 +174,9 @@ export const TABLES = {
   
   // Public Clinic Bookings
   publicClinicBookings: 'public_clinic_bookings',
+
+  // Scanned Documents (OCR)
+  scannedDocuments: 'scanned_documents',
 } as const;
 
 // Local to cloud table name mapping
@@ -273,6 +276,8 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   
   // Public Clinic Bookings
   publicClinicBookings: 'public_clinic_bookings',
+  // Scanned Documents (OCR)
+  scannedDocuments: 'scanned_documents',
 };
 
 // Type for sync status

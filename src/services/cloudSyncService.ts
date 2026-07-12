@@ -126,6 +126,11 @@ const BASE_RETRY_DELAY_MS = 2000;
 // This prevents repeated 400 errors for missing columns until the migration is applied
 const excludedColumnsPerTable = new Map<string, Set<string>>();
 
+// Never sync the raw per-page images for scanned documents — they are large and
+// already embedded in the generated PDF. The PDF, OCR text and extracted fields
+// still sync, so the document survives device loss without bloating the payload.
+excludedColumnsPerTable.set('scanned_documents', new Set(['pages']));
+
 /**
  * Strip columns that have been flagged as missing from Supabase schema.
  * Returns a cleaned record and the list of stripped columns (if any).
@@ -809,6 +814,9 @@ async function pullAllFromCloud(): Promise<void> {
   // Public Clinic Bookings
   await pullTable(TABLES.publicClinicBookings, 'publicClinicBookings');
   
+  // Scanned Documents (OCR) - page images kept local; metadata/PDF/text sync
+  await pullTable(TABLES.scannedDocuments, 'scannedDocuments');
+  
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
   
@@ -959,6 +967,9 @@ async function pushAllToCloud(): Promise<void> {
   
   // Public Clinic Bookings
   await pushTable('publicClinicBookings', TABLES.publicClinicBookings);
+  
+  // Scanned Documents (OCR)
+  await pushTable('scannedDocuments', TABLES.scannedDocuments);
   
   // Audit Logs (for accountability across devices)
   await pushTable('auditLogs', TABLES.auditLogs);
@@ -1654,6 +1665,8 @@ function getCloudTableName(localTableName: string): string | null {
     investigationApprovalLogs: TABLES.investigationApprovalLogs,
     // Public Clinic Bookings
     publicClinicBookings: TABLES.publicClinicBookings,
+    // Scanned Documents (OCR)
+    scannedDocuments: TABLES.scannedDocuments,
   };
   return mapping[localTableName] || null;
 }

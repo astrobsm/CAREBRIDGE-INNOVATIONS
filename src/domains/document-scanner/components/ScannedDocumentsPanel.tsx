@@ -117,8 +117,8 @@ export default function ScannedDocumentsPanel({
               <p className="truncate text-sm font-medium text-gray-800">{doc.title}</p>
               <p className="text-[11px] text-gray-500">
                 {DOCUMENT_TYPE_LABELS[doc.documentType]} ·{' '}
-                {format(new Date(doc.createdAt), 'dd MMM yyyy, HH:mm')} · {doc.pages.length} page
-                {doc.pages.length > 1 ? 's' : ''}
+                {format(new Date(doc.createdAt), 'dd MMM yyyy, HH:mm')} · {(doc.pages?.length ?? 0)} page
+                {(doc.pages?.length ?? 0) === 1 ? '' : 's'}
               </p>
             </div>
             <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
@@ -178,16 +178,18 @@ export default function ScannedDocumentsPanel({
 
               <div className="flex-1 overflow-y-auto px-4 py-3">
                 {/* Pages */}
-                <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-                  {preview.pages.map((p, i) => (
-                    <img
-                      key={p.id}
-                      src={p.imageDataUrl}
-                      alt={`Page ${i + 1}`}
-                      className="h-40 rounded-lg border border-gray-200 object-contain"
-                    />
-                  ))}
-                </div>
+                {(preview.pages?.length ?? 0) > 0 && (
+                  <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+                    {preview.pages.map((p, i) => (
+                      <img
+                        key={p.id}
+                        src={p.imageDataUrl}
+                        alt={`Page ${i + 1}`}
+                        className="h-40 rounded-lg border border-gray-200 object-contain"
+                      />
+                    ))}
+                  </div>
+                )}
 
                 {/* Fields */}
                 {preview.extractedFields.length > 0 && (
