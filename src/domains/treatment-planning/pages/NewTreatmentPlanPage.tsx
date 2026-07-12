@@ -12,6 +12,7 @@ import type { Patient, TreatmentPlan } from '../../../types';
 import { useAuth } from '../../../contexts/AuthContext';
 import { createPlanWithSchedule, attachVoiceNote } from '../../../services/treatmentSchedulerService';
 import VoiceRecorder from '../components/VoiceRecorder';
+import ClinicalCalcCard from '../../calculators/components/ClinicalCalcCard';
 
 const schema = z.object({
   patientId: z.string().min(1, 'Select a patient'),
@@ -43,8 +44,7 @@ const NewTreatmentPlanPage: React.FC = () => {
     () => (patients || []).slice().sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)),
     [patients]
   );
-
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
     defaultValues: {
       timeOfDay: '09:00',
@@ -60,6 +60,12 @@ const NewTreatmentPlanPage: React.FC = () => {
       startDate: new Date().toISOString().slice(0, 10),
     },
   });
+
+  const selectedPatientId = watch('patientId');
+  const selectedPatient = useMemo(
+    () => sortedPatients.find(p => p.id === selectedPatientId),
+    [sortedPatients, selectedPatientId]
+  );
 
   const onSubmit = async (data: FormData) => {
     if (!user) {
@@ -185,6 +191,7 @@ const NewTreatmentPlanPage: React.FC = () => {
               />
             </div>
           </div>
+          {selectedPatient && <ClinicalCalcCard patient={selectedPatient} className="mt-4" />}
         </section>
 
         <section className="rounded-xl border border-gray-200 bg-white p-4">

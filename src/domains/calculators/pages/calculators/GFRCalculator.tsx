@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Calculator, Activity, Download } from 'lucide-react';
 import { PatientCalculatorInfo, GFRResult, CKDStage } from '../../types';
 import { generateGFRPDF } from '../../utils/pdfGenerator';
+import { calculateGFR as engineCalculateGFR } from '../../engine/calculationEngine';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -23,49 +24,30 @@ export default function GFRCalculator({ patientInfo }: Props) {
 
   const calculateGFR = () => {
     const creatinineRaw = parseFloat(creatinine);
-    // Convert to mg/dL for the formulas (CKD-EPI 2021 & Cockcroft-Gault expect mg/dL)
-    // Conversion factor: 1 mg/dL = 88.4 µmol/L (IFCC). Reverse: µmol/L ÷ 88.4 = mg/dL
-    const cr = creatinineUnit === 'umol/L' ? creatinineRaw / 88.4 : creatinineRaw;
     const ageValue = parseFloat(age);
     const wt = parseFloat(weight);
 
-    if (isNaN(cr) || isNaN(ageValue)) {
+    if (isNaN(creatinineRaw) || isNaN(ageValue)) {
       alert('Please enter valid creatinine and age values');
       return;
     }
 
-    // CKD-EPI equation (2021 - race-free version)
-    let gfrCKDEPI: number;
-    const kappa = gender === 'female' ? 0.7 : 0.9;
-    const crKappa = cr / kappa;
-    
-    if (gender === 'female') {
-      if (cr <= 0.7) {
-        gfrCKDEPI = 142 * Math.pow(crKappa, -0.241) * Math.pow(0.9938, ageValue);
-      } else {
-        gfrCKDEPI = 142 * Math.pow(crKappa, -1.2) * Math.pow(0.9938, ageValue);
-      }
-    } else {
-      if (cr <= 0.9) {
-        gfrCKDEPI = 142 * Math.pow(crKappa, -0.302) * Math.pow(0.9938, ageValue);
-      } else {
-        gfrCKDEPI = 142 * Math.pow(crKappa, -1.2) * Math.pow(0.9938, ageValue);
-      }
-    }
-    
-    // Apply sex coefficient
-    if (gender === 'female') {
-      gfrCKDEPI *= 1.012;
+    // Formulas come from the shared calculation engine (single source of truth).
+    const engineResult = engineCalculateGFR({
+      creatinine: creatinineRaw,
+      creatinineUnit,
+      ageYears: ageValue,
+      sex: gender,
+      weightKg: isNaN(wt) ? undefined : wt,
+    });
+
+    if (!engineResult) {
+      alert('Please enter valid creatinine and age values');
+      return;
     }
 
-    // Cockcroft-Gault equation (requires weight)
-    let gfrCockcroftGault = 0;
-    if (!isNaN(wt)) {
-      gfrCockcroftGault = ((140 - ageValue) * wt) / (72 * cr);
-      if (gender === 'female') {
-        gfrCockcroftGault *= 0.85;
-      }
-    }
+    const gfrCKDEPI = engineResult.gfrCKDEPI;
+    const gfrCockcroftGault = engineResult.gfrCockcroftGault ?? 0;
 
     // Determine CKD Stage
     let ckdStage: CKDStage;
