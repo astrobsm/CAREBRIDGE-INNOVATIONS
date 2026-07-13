@@ -224,20 +224,37 @@ export interface NutritionResult {
   carbGrams: number;
 }
 
+/** Basal metabolic rate — Harris-Benedict (revised) equation (kcal/day). */
+export function calculateHarrisBenedictBMR(
+  sex: Sex,
+  weightKg: number,
+  heightCm: number,
+  ageYears: number
+): number {
+  return sex === 'male'
+    ? 88.362 + 13.397 * weightKg + 4.799 * heightCm - 5.677 * ageYears
+    : 447.593 + 9.247 * weightKg + 3.098 * heightCm - 4.33 * ageYears;
+}
+
+/** Basal metabolic rate — Mifflin-St Jeor equation (kcal/day). */
+export function calculateMifflinStJeorBMR(
+  sex: Sex,
+  weightKg: number,
+  heightCm: number,
+  ageYears: number
+): number {
+  return sex === 'male'
+    ? 10 * weightKg + 6.25 * heightCm - 5 * ageYears + 5
+    : 10 * weightKg + 6.25 * heightCm - 5 * ageYears - 161;
+}
+
 export function calculateNutrition(input: NutritionInput): NutritionResult {
   const { weightKg, heightCm, ageYears, sex } = input;
   const activityFactor = input.activityFactor ?? 1.2;
   let stressFactor = input.stressFactor ?? 1.0;
 
-  const bmr =
-    sex === 'male'
-      ? 88.362 + 13.397 * weightKg + 4.799 * heightCm - 5.677 * ageYears
-      : 447.593 + 9.247 * weightKg + 3.098 * heightCm - 4.33 * ageYears;
-
-  const mifflinBmr =
-    sex === 'male'
-      ? 10 * weightKg + 6.25 * heightCm - 5 * ageYears + 5
-      : 10 * weightKg + 6.25 * heightCm - 5 * ageYears - 161;
+  const bmr = calculateHarrisBenedictBMR(sex, weightKg, heightCm, ageYears);
+  const mifflinBmr = calculateMifflinStJeorBMR(sex, weightKg, heightCm, ageYears);
 
   if (input.burnsTBSA && input.burnsTBSA > 0) {
     stressFactor = 1 + input.burnsTBSA * 0.02; // +2% per %TBSA

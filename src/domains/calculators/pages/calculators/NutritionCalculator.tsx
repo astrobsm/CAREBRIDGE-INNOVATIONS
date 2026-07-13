@@ -6,6 +6,10 @@ import { UtensilsCrossed, Calculator, AlertCircle, Apple, Flame, Download, Share
 import toast from 'react-hot-toast';
 import { PatientCalculatorInfo, NutritionResult } from '../../types';
 import { downloadMealPlanPDF, shareMealPlanOnWhatsApp, type MealPlanPDFOptions } from '../../../../utils/mealPlanPdfGenerator';
+import {
+  calculateHarrisBenedictBMR,
+  calculateMifflinStJeorBMR,
+} from '../../engine/calculationEngine';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -57,21 +61,11 @@ export default function NutritionCalculator({ patientInfo }: Props) {
     const heightCm = parseFloat(height);
     const ageYears = parseInt(age);
     
-    // Harris-Benedict Equation (Revised)
-    let bmr: number;
-    if (gender === 'male') {
-      bmr = 88.362 + (13.397 * weightKg) + (4.799 * heightCm) - (5.677 * ageYears);
-    } else {
-      bmr = 447.593 + (9.247 * weightKg) + (3.098 * heightCm) - (4.330 * ageYears);
-    }
+    // Harris-Benedict Equation (Revised) — shared calculation engine
+    const bmr = calculateHarrisBenedictBMR(gender, weightKg, heightCm, ageYears);
     
-    // Mifflin-St Jeor Equation (alternative)
-    let mifflinBmr: number;
-    if (gender === 'male') {
-      mifflinBmr = (10 * weightKg) + (6.25 * heightCm) - (5 * ageYears) + 5;
-    } else {
-      mifflinBmr = (10 * weightKg) + (6.25 * heightCm) - (5 * ageYears) - 161;
-    }
+    // Mifflin-St Jeor Equation (alternative) — shared calculation engine
+    const mifflinBmr = calculateMifflinStJeorBMR(gender, weightKg, heightCm, ageYears);
     
     // Get activity and stress factors
     const activityFactor = activityFactors[activityLevel].factor;
