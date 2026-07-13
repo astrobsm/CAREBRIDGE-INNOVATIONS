@@ -6,6 +6,7 @@ import { Calculator, AlertCircle, Heart, Shield } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { PatientCalculatorInfo, DVTRiskResult } from '../../types';
 import { getDVTRiskPDFDoc } from '../../utils/pdfGenerator';
+import { calculateCapriniScore } from '../../engine/calculationEngine';
 import { ExportButtonWithModal } from '../../../../components/common/ExportOptionsModal';
 import { createSimpleThermalPDF } from '../../../../utils/thermalPdfGenerator';
 
@@ -60,7 +61,6 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
   const [result, setResult] = useState<DVTRiskResult | null>(null);
 
   const calculateRisk = () => {
-    let score = 0;
     const scoreBreakdown: DVTRiskResult['scoreBreakdown'] = {
       '5-point': [],
       '3-point': [],
@@ -69,62 +69,89 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
     };
 
     const ageValue = parseInt(age);
-    
-    // Age scoring
-    if (ageValue >= 41 && ageValue <= 60) {
-      score += 1;
-      scoreBreakdown['1-point'].push('Age 41-60 years');
-    } else if (ageValue >= 61 && ageValue <= 74) {
-      score += 2;
-      scoreBreakdown['2-point'].push('Age 61-74 years');
-    } else if (ageValue >= 75) {
-      score += 3;
-      scoreBreakdown['3-point'].push('Age ≥75 years');
-    }
+
+    // Total score comes from the shared calculation engine (single source of truth).
+    const score = calculateCapriniScore({
+      age: isNaN(ageValue) ? 0 : ageValue,
+      minorSurgery,
+      bmiOver30: bmi30Plus,
+      swollenLegs,
+      varicoseVeins,
+      pregnancy,
+      postpartum,
+      ocpOrHrt: ocp,
+      bedRestMedical: bedrest,
+      plasterCast,
+      sepsis,
+      lungDisease,
+      acuteMI: mi,
+      chf,
+      inflammatoryBowelDisease: inflammatory,
+      arthroscopicSurgery: arthroscopic,
+      majorSurgeryOver45min: majorSurgery,
+      laparoscopicOver45min: laparoscopic,
+      centralVenousAccess: centralLine,
+      bedriddenOver72h: bedridden,
+      paralysis,
+      cancer,
+      onChemotherapy: chemotherapy,
+      previousDVTorPE: previousDVT,
+      familyHistoryThrombosis: familyHistory,
+      thrombophilia,
+      elevatedHomocysteine,
+      heparinInducedThrombocytopenia: heparinThrombocytopenia,
+      stroke,
+      electiveArthroplasty: elective,
+      hipPelvisLegFracture: hipPelvisFracture,
+      acuteSpinalCordInjury: acuteSpinal,
+    }).score;
+
+    // Labelled breakdown for display (point value implied by its category).
+    if (ageValue >= 41 && ageValue <= 60) scoreBreakdown['1-point'].push('Age 41-60 years');
+    else if (ageValue >= 61 && ageValue <= 74) scoreBreakdown['2-point'].push('Age 61-74 years');
+    else if (ageValue >= 75) scoreBreakdown['3-point'].push('Age ≥75 years');
 
     // 1 Point factors
-    if (minorSurgery) { score += 1; scoreBreakdown['1-point'].push('Minor surgery planned'); }
-    if (bmi30Plus) { score += 1; scoreBreakdown['1-point'].push('BMI > 30 kg/m²'); }
-    if (swollenLegs) { score += 1; scoreBreakdown['1-point'].push('Swollen legs (current)'); }
-    if (varicoseVeins) { score += 1; scoreBreakdown['1-point'].push('Varicose veins'); }
-    if (pregnancy) { score += 1; scoreBreakdown['1-point'].push('Pregnancy or postpartum'); }
-    if (postpartum) { score += 1; scoreBreakdown['1-point'].push('Postpartum (<1 month)'); }
-    if (ocp) { score += 1; scoreBreakdown['1-point'].push('Oral contraceptives/HRT'); }
-    if (bedrest) { score += 1; scoreBreakdown['1-point'].push('Medical patient on bed rest'); }
-    if (plasterCast) { score += 1; scoreBreakdown['1-point'].push('Plaster cast/brace'); }
-    if (sepsis) { score += 1; scoreBreakdown['1-point'].push('Sepsis (<1 month)'); }
-    if (lungDisease) { score += 1; scoreBreakdown['1-point'].push('Serious lung disease'); }
-    if (mi) { score += 1; scoreBreakdown['1-point'].push('Acute MI'); }
-    if (chf) { score += 1; scoreBreakdown['1-point'].push('CHF (<1 month)'); }
-    if (inflammatory) { score += 1; scoreBreakdown['1-point'].push('Inflammatory bowel disease'); }
-    
+    if (minorSurgery) scoreBreakdown['1-point'].push('Minor surgery planned');
+    if (bmi30Plus) scoreBreakdown['1-point'].push('BMI > 30 kg/m²');
+    if (swollenLegs) scoreBreakdown['1-point'].push('Swollen legs (current)');
+    if (varicoseVeins) scoreBreakdown['1-point'].push('Varicose veins');
+    if (pregnancy) scoreBreakdown['1-point'].push('Pregnancy or postpartum');
+    if (postpartum) scoreBreakdown['1-point'].push('Postpartum (<1 month)');
+    if (ocp) scoreBreakdown['1-point'].push('Oral contraceptives/HRT');
+    if (bedrest) scoreBreakdown['1-point'].push('Medical patient on bed rest');
+    if (plasterCast) scoreBreakdown['1-point'].push('Plaster cast/brace');
+    if (sepsis) scoreBreakdown['1-point'].push('Sepsis (<1 month)');
+    if (lungDisease) scoreBreakdown['1-point'].push('Serious lung disease');
+    if (mi) scoreBreakdown['1-point'].push('Acute MI');
+    if (chf) scoreBreakdown['1-point'].push('CHF (<1 month)');
+    if (inflammatory) scoreBreakdown['1-point'].push('Inflammatory bowel disease');
+
     // 2 Point factors
-    if (arthroscopic) { score += 2; scoreBreakdown['2-point'].push('Arthroscopic surgery'); }
-    if (majorSurgery) { score += 2; scoreBreakdown['2-point'].push('Major surgery >45 min'); }
-    if (laparoscopic) { score += 2; scoreBreakdown['2-point'].push('Laparoscopic surgery >45 min'); }
-    if (centralLine) { score += 2; scoreBreakdown['2-point'].push('Central venous access'); }
-    if (bedridden) { score += 2; scoreBreakdown['2-point'].push('Confined to bed >72 hours'); }
-    if (paralysis) { score += 2; scoreBreakdown['2-point'].push('Paralysis/paresis'); }
-    
+    if (arthroscopic) scoreBreakdown['2-point'].push('Arthroscopic surgery');
+    if (majorSurgery) scoreBreakdown['2-point'].push('Major surgery >45 min');
+    if (laparoscopic) scoreBreakdown['2-point'].push('Laparoscopic surgery >45 min');
+    if (centralLine) scoreBreakdown['2-point'].push('Central venous access');
+    if (bedridden) scoreBreakdown['2-point'].push('Confined to bed >72 hours');
+    if (paralysis) scoreBreakdown['2-point'].push('Paralysis/paresis');
+
     // 3 Point factors
-    if (previousDVT) { score += 3; scoreBreakdown['3-point'].push('History of DVT/PE'); }
-    if (familyHistory) { score += 3; scoreBreakdown['3-point'].push('Family history of thrombosis'); }
-    if (thrombophilia) { score += 3; scoreBreakdown['3-point'].push('Known thrombophilia'); }
-    if (elevatedHomocysteine) { score += 3; scoreBreakdown['3-point'].push('Elevated homocysteine'); }
-    if (heparinThrombocytopenia) { score += 3; scoreBreakdown['3-point'].push('Heparin-induced thrombocytopenia'); }
-    
+    if (previousDVT) scoreBreakdown['3-point'].push('History of DVT/PE');
+    if (familyHistory) scoreBreakdown['3-point'].push('Family history of thrombosis');
+    if (thrombophilia) scoreBreakdown['3-point'].push('Known thrombophilia');
+    if (elevatedHomocysteine) scoreBreakdown['3-point'].push('Elevated homocysteine');
+    if (heparinThrombocytopenia) scoreBreakdown['3-point'].push('Heparin-induced thrombocytopenia');
+
     // 5 Point factors
-    if (stroke) { score += 5; scoreBreakdown['5-point'].push('Stroke (<1 month)'); }
-    if (elective) { score += 5; scoreBreakdown['5-point'].push('Elective lower extremity arthroplasty'); }
-    if (hipPelvisFracture) { score += 5; scoreBreakdown['5-point'].push('Hip/pelvis/leg fracture'); }
-    if (acuteSpinal) { score += 5; scoreBreakdown['5-point'].push('Acute spinal cord injury'); }
-    
+    if (stroke) scoreBreakdown['5-point'].push('Stroke (<1 month)');
+    if (elective) scoreBreakdown['5-point'].push('Elective lower extremity arthroplasty');
+    if (hipPelvisFracture) scoreBreakdown['5-point'].push('Hip/pelvis/leg fracture');
+    if (acuteSpinal) scoreBreakdown['5-point'].push('Acute spinal cord injury');
+
     // Cancer
     if (cancer) {
-      score += 2;
       scoreBreakdown['2-point'].push('Cancer (current or within 6 months)');
       if (chemotherapy) {
-        score += 1;
         scoreBreakdown['1-point'].push('Currently on chemotherapy');
       }
     }
