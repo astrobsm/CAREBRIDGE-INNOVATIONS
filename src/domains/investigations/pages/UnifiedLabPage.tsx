@@ -72,6 +72,7 @@ import ScanToText from '../../../components/common/ScanToText';
 import ECGReader from '../components/ECGReader';
 import RadiologyReader from '../components/RadiologyReader';
 import { performOCR } from '../../../services/ocrService';
+import { proxyChat } from '../../../services/aiProxy';
 // investigationApprovalService import removed (unused - approval handled via InvestigationApprovalPanel)
 import type { Investigation } from '../../../types';
 
@@ -1777,8 +1778,7 @@ function ResultModal({
 
   // GPT-powered field parser from OCR text
   const parseOCRWithGPT = useCallback(async (ocrText: string): Promise<Record<string, string>> => {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey || !ocrText.trim()) return {};
+    if (!ocrText.trim()) return {};
 
     const prompt = `You are a medical lab result parser. Extract values for each parameter from the following OCR text from a medical report/lab result sheet.
 
@@ -1794,20 +1794,14 @@ For chest X-ray: Heart Size, Lung Fields, Mediastinum, Costophrenic Angles, Find
 Return ONLY valid JSON, no commentary, no markdown.`;
 
     try {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' },
-          max_tokens: 1024,
-          temperature: 0.1,
-        }),
+      const content = await proxyChat({
+        prompt,
+        model: 'gpt-4o',
+        responseFormat: { type: 'json_object' },
+        maxTokens: 1024,
+        temperature: 0.1,
       });
-      if (!res.ok) return {};
-      const data = await res.json();
-      return JSON.parse(data.choices?.[0]?.message?.content || '{}');
+      return JSON.parse(content || '{}');
     } catch {
       return {};
     }

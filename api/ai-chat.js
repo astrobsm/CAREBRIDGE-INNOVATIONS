@@ -28,6 +28,7 @@ export default async function handler(req, res) {
       prompt = '',
       temperature = 0.3,
       max_tokens = 1500,
+      response_format,
     } = body;
 
     if (!prompt || typeof prompt !== 'string') {
@@ -78,7 +79,7 @@ export default async function handler(req, res) {
     const r = await fetch(OPENAI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: model || 'gpt-4o', messages, temperature, max_tokens }),
+      body: JSON.stringify({ model: model || 'gpt-4o', messages, temperature, max_tokens, response_format }),
     });
     if (!r.ok) {
       const detail = (await r.text()).slice(0, 300);

@@ -6,6 +6,7 @@
  */
 
 import { db } from '../../../database';
+import { proxyChat } from '../../../services/aiProxy';
 import type { 
   Patient, 
   ClinicalEncounter, 
@@ -292,35 +293,22 @@ export async function generateEncounterSummary(patientId: string): Promise<Encou
     throw new Error('Patient not found');
   }
 
-  // Check if we have OpenAI/Anthropic API key configured
-  const apiKey = localStorage.getItem('aiApiKey') || 
-                 import.meta.env.VITE_OPENAI_API_KEY || 
-                 import.meta.env.VITE_ANTHROPIC_API_KEY;
-
-  if (!apiKey) {
-    // Use local summarization
-    console.log('AI API not configured, using local summarization');
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    console.log('Offline, using local summarization');
     return generateLocalSummary(data);
   }
 
   try {
-    // Build the prompt
     const prompt = buildAIPrompt(data);
-    
-    // Try OpenAI first
-    if (apiKey.startsWith('sk-')) {
-      const response = await callOpenAI(apiKey, prompt);
-      return parseAIResponse(response, data);
-    }
-    
-    // Try Anthropic
-    if (apiKey.startsWith('sk-ant')) {
-      const response = await callAnthropic(apiKey, prompt);
-      return parseAIResponse(response, data);
-    }
-
-    // Fallback to local
-    return generateLocalSummary(data);
+    const response = await proxyChat({
+      prompt,
+      system: 'You are a clinical documentation specialist. Provide accurate, professional medical summaries.',
+      model: 'gpt-4o',
+      temperature: 0.3,
+      maxTokens: 2000,
+      responseFormat: { type: 'json_object' },
+    });
+    return parseAIResponse(response, data);
   } catch (error) {
     console.error('AI summary failed, falling back to local:', error);
     return generateLocalSummary(data);
@@ -421,72 +409,6 @@ Format your response as JSON with these keys: summary, keyFindings (array), acti
 `;
 
   return prompt;
-}
-
-/**
- * Call OpenAI API
- */
-async function callOpenAI(apiKey: string, prompt: string): Promise<string> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a clinical documentation specialist. Provide accurate, professional medical summaries.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 2000,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.choices[0]?.message?.content || '';
-}
-
-/**
- * Call Anthropic API
- */
-async function callAnthropic(apiKey: string, prompt: string): Promise<string> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-3-sonnet-20240229',
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Anthropic API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.content[0]?.text || '';
 }
 
 /**

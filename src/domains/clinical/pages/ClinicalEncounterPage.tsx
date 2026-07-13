@@ -52,6 +52,7 @@ import AISummaryButton from '../components/AISummaryButton';
 import TrackedInvestigations from '../components/TrackedInvestigations';
 import ClinicalCommentsSection from '../../../components/clinical/ClinicalCommentsSection';
 import { performOCR } from '../../../services/ocrService';
+import { proxyChat } from '../../../services/aiProxy';
 import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination, Investigation, Prescription, ClinicalPhoto } from '../../../types';
 
 const encounterSchema = z.object({
@@ -283,34 +284,22 @@ export default function ClinicalEncounterPage() {
 
   // ── Medical Scribe OCR Handler ────────────────────────────────
   const parseEncounterWithGPT = useCallback(async (ocrText: string): Promise<Record<string, string>> => {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) return {};
+    if (!ocrText.trim()) return {};
     try {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          response_format: { type: 'json_object' },
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a clinical document parser. Extract structured clinical encounter data from OCR text. ' +
-                'Return a JSON object with ONLY these keys (use empty string if not found): ' +
-                'chiefComplaint, historyOfPresentIllness, pastMedicalHistory, pastSurgicalHistory, ' +
-                'familyHistory, socialHistory, treatmentPlan, notes. ' +
-                'Do not add any other keys. Values should be clean prose, no markdown.',
-            },
-            { role: 'user', content: `OCR TEXT:\n${ocrText}` },
-          ],
-          max_tokens: 1500,
-          temperature: 0.1,
-        }),
+      const content = await proxyChat({
+        model: 'gpt-4o',
+        responseFormat: { type: 'json_object' },
+        system:
+          'You are a clinical document parser. Extract structured clinical encounter data from OCR text. ' +
+          'Return a JSON object with ONLY these keys (use empty string if not found): ' +
+          'chiefComplaint, historyOfPresentIllness, pastMedicalHistory, pastSurgicalHistory, ' +
+          'familyHistory, socialHistory, treatmentPlan, notes. ' +
+          'Do not add any other keys. Values should be clean prose, no markdown.',
+        prompt: `OCR TEXT:\n${ocrText}`,
+        maxTokens: 1500,
+        temperature: 0.1,
       });
-      if (!res.ok) return {};
-      const data = await res.json();
-      return JSON.parse(data.choices?.[0]?.message?.content || '{}');
+      return JSON.parse(content || '{}');
     } catch {
       return {};
     }
@@ -489,7 +478,8 @@ export default function ClinicalEncounterPage() {
 
       // Append prior-plan review acknowledgement to notes for medico-legal audit trail
       if (planAckSummary && (planAckSummary.executedCount + planAckSummary.missedCount + planAckSummary.outstandingCount) > 0) {
-        const ackLine = `\n\n[Prior Plan Review acknowledged by ${user.name || user.id} at ${planAckSummary.acknowledgedAt.toISOString()} \u2014 ${planAckSummary.executedCount} executed, ${planAckSummary.missedCount} missed, ${planAckSummary.outstandingCount} outstanding]`;
+        const clinicianName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.id;
+        const ackLine = `\n\n[Prior Plan Review acknowledged by ${clinicianName} at ${planAckSummary.acknowledgedAt.toISOString()} \u2014 ${planAckSummary.executedCount} executed, ${planAckSummary.missedCount} missed, ${planAckSummary.outstandingCount} outstanding]`;
         encounter.notes = (encounter.notes || '') + ackLine;
       }
 

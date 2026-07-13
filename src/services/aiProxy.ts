@@ -10,6 +10,7 @@ export interface ProxyChatArgs {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  responseFormat?: { type: 'json_object' };
 }
 
 async function errorMessage(res: Response, fallback: string): Promise<string> {
@@ -34,6 +35,7 @@ export async function proxyChat(args: ProxyChatArgs): Promise<string> {
       prompt: args.prompt,
       temperature: args.temperature ?? 0.3,
       max_tokens: args.maxTokens ?? 1500,
+      response_format: args.responseFormat,
     }),
   });
   if (!res.ok) throw new Error(await errorMessage(res, 'AI request failed'));
