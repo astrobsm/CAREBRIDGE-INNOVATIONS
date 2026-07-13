@@ -21,11 +21,12 @@ import {
   X,
   Save,
 } from 'lucide-react';
-import { FileScan } from 'lucide-react';
+import { FileScan, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { format, differenceInYears } from 'date-fns';
 import ScannedDocumentsPanel from '../../document-scanner/components/ScannedDocumentsPanel';
+import AIClinicalAssistant from '../../ai-assistant/components/AIClinicalAssistant';
 import AdmissionDurationClock, { AdmissionDurationBadge } from '../../admissions/components/AdmissionDurationClock';
 import { generateEncounterPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { EntryTrackingBadge } from '../../../components/common';
@@ -444,6 +445,7 @@ export default function PatientDetailsPage() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
 
   const patient = useLiveQuery(
     () => patientId ? db.patients.get(patientId) : undefined,
@@ -541,6 +543,14 @@ export default function PatientDetailsPage() {
           </button>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAIAssistant(true)}
+            className="btn btn-secondary"
+            title="AI Clinical Assistant (draft support)"
+          >
+            <Sparkles size={18} />
+            AI Assistant
+          </button>
           <Link to={`/patients/${patientId}/vitals`} className="btn btn-secondary">
             <Activity size={18} />
             Record Vitals
@@ -1035,6 +1045,14 @@ export default function PatientDetailsPage() {
           />
         )}
       </AnimatePresence>
+
+      {showAIAssistant && patient && (
+        <AIClinicalAssistant
+          patientId={patient.id}
+          patientName={`${patient.firstName} ${patient.lastName}`.trim()}
+          onClose={() => setShowAIAssistant(false)}
+        />
+      )}
     </div>
   );
 }
