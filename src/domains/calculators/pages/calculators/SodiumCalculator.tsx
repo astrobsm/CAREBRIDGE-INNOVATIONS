@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Calculator, AlertCircle, FileText, CheckCircle, Download } from 'lucide-react';
 import { PatientCalculatorInfo, SodiumResult, VolumeStatus, Gender } from '../../types';
 import { generateSodiumPDF } from '../../utils/pdfGenerator';
+import { calculateSodiumCorrection } from '../../engine/calculationEngine';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -30,14 +31,16 @@ export default function SodiumCalculator({ patientInfo }: Props) {
       return;
     }
 
-    // TBW factors per Watson/Hume + Verbalis 2013 (Eur J Endo): adult M 0.60, adult F 0.50, elderly M 0.50, elderly F 0.45
-    let tbwFactor = 0.6;
-    if (gender === 'female') tbwFactor = 0.5;
-    if (gender === 'elderly-male') tbwFactor = 0.5;
-    if (gender === 'elderly-female') tbwFactor = 0.45;
-    
-    const tbw = tbwFactor * wt;
-    const sodiumDeficit = (target - current) * tbw;
+    // TBW, sodium deficit, Adrogué–Madias ΔNa/L and water deficit all come from
+    // the shared calculation engine (single source of truth).
+    const sodiumCalc = calculateSodiumCorrection({
+      currentNa: current,
+      targetNa: target,
+      weightKg: wt,
+      gender,
+    });
+    const tbw = sodiumCalc?.tbw ?? 0;
+    const sodiumDeficit = sodiumCalc?.sodiumDeficit ?? 0;
 
     // Determine severity
     let severity = 'Normal';
@@ -107,15 +110,10 @@ export default function SodiumCalculator({ patientInfo }: Props) {
       }
     }
 
-    // Calculate water deficit for hypernatremia
-    let waterDeficit = 0;
-    if (current > 145) {
-      waterDeficit = tbw * ((current / 140) - 1);
-    }
-
-    // Adrogué–Madias formula (NEJM 2000;342:1581): Δ[Na+] per L infused = (infusate Na − serum Na) / (TBW + 1)
-    const infusateNa = 154; // 0.9% NaCl
-    const changePerLiterNS = (infusateNa - current) / (tbw + 1);
+    // Water deficit (hypernatraemia) and Adrogué–Madias ΔNa/L from the engine.
+    const waterDeficit = sodiumCalc?.waterDeficit ?? 0;
+    const infusateNa = 154; // 0.9% NaCl (used for volume calc below)
+    const changePerLiterNS = sodiumCalc?.changePerLiterNS ?? 0;
 
     // Calculate volume of 0.9% NS needed
     const volumeNSNeeded = Math.abs(sodiumDeficit) / infusateNa;

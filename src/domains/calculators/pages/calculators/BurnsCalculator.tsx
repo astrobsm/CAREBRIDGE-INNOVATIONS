@@ -4,6 +4,11 @@
 import { useState } from 'react';
 import { Flame, Calculator, AlertTriangle, Droplets, Activity } from 'lucide-react';
 import { PatientCalculatorInfo, BurnsResult } from '../../types';
+import {
+  calculateParkland as engineParkland,
+  calculateABSI as engineABSI,
+  toSex,
+} from '../../engine/calculationEngine';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -74,63 +79,30 @@ export default function BurnsCalculator({ patientInfo }: Props) {
   };
 
   const calculateParkland = (tbsa: number, weightKg: number) => {
-    // ISBI/ABA 2016 starting dose: 2 mL/kg/%TBSA (Modified Brooke / ABA range) for adults & children >=14 yrs
-    // Parkland upper bound (4 mL/kg/%TBSA) shown as range to allow titration. Titrate to UO 0.5 mL/kg/h (adults), 1 mL/kg/h (peds <30 kg).
-    const startingTotal = 2 * weightKg * tbsa; // ABA starting dose
-    const parklandTotal = 4 * weightKg * tbsa; // Upper bound (classic Parkland)
-    // Use starting (lower bound) for hourly rate calculation; clinician titrates upward as needed
-    const totalFluid = startingTotal;
-    const first8Hours = totalFluid / 2;
-    const next16Hours = totalFluid / 2;
-    const hourlyFirst8 = first8Hours / 8;
-    const hourlyNext16 = next16Hours / 16;
-    
-    return {
-      totalFluid24h: Math.round(totalFluid),
-      parklandUpperBound24h: Math.round(parklandTotal),
-      first8Hours: Math.round(first8Hours),
-      next16Hours: Math.round(next16Hours),
-      hourlyFirst8: Math.round(hourlyFirst8),
-      hourlyNext16: Math.round(hourlyNext16),
-    };
+    // Parkland / ABA fluid math comes from the shared calculation engine.
+    const r = engineParkland(weightKg, tbsa);
+    return (
+      r ?? {
+        totalFluid24h: 0,
+        parklandUpperBound24h: 0,
+        first8Hours: 0,
+        next16Hours: 0,
+        hourlyFirst8: 0,
+        hourlyNext16: 0,
+      }
+    );
   };
 
   const calculateABSI = (tbsa: number, ageValue: number) => {
-    let score = 0;
-    
-    // Age points
-    if (ageValue <= 1) score += 1;
-    else if (ageValue <= 4) score += 2;
-    else if (ageValue <= 19) score += 3;
-    else if (ageValue <= 34) score += 4;
-    else if (ageValue <= 49) score += 5;
-    else if (ageValue <= 64) score += 6;
-    else if (ageValue <= 79) score += 7;
-    else score += 8;
-    
-    // Gender
-    if (gender === 'female') score += 0;
-    else score += 1;
-    
-    // TBSA points
-    if (tbsa <= 1) score += 1;
-    else if (tbsa <= 10) score += 2;
-    else if (tbsa <= 20) score += 3;
-    else if (tbsa <= 30) score += 4;
-    else if (tbsa <= 40) score += 5;
-    else if (tbsa <= 50) score += 6;
-    else if (tbsa <= 60) score += 7;
-    else if (tbsa <= 70) score += 8;
-    else if (tbsa <= 80) score += 9;
-    else if (tbsa <= 90) score += 10;
-    else score += 11;
-    
-    // Full thickness burn
-    if (burnDepth === 'full') score += 1;
-    
-    // Inhalation injury
-    if (inhalationInjury) score += 1;
-    
+    // ABSI score comes from the shared engine; survival/prognosis mapping below.
+    const score = engineABSI(
+      tbsa,
+      ageValue,
+      toSex(gender),
+      burnDepth === 'full',
+      inhalationInjury
+    ).score;
+
     // Survival probability
     let survivalProbability: string;
     let prognosis: string;
