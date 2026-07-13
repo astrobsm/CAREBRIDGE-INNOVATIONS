@@ -9,6 +9,7 @@
 
 import { differenceInYears, format } from 'date-fns';
 import { db } from '../../../database';
+import { proxyChat } from '../../../services/aiProxy';
 import type {
   Patient,
   VitalSigns,
@@ -104,25 +105,10 @@ interface PatientContext {
   admissions: Admission[];
 }
 
-function getApiKey(): string | null {
-  return (
-    localStorage.getItem('aiApiKey') ||
-    (import.meta.env.VITE_OPENAI_API_KEY as string | undefined) ||
-    (import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined) ||
-    null
-  );
-}
-
-/** Whether the assistant can run right now (online + API key configured). */
+/** Whether the assistant can run right now (online). Keys live on the server. */
 export function getAIAvailability(): { available: boolean; reason?: string } {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return { available: false, reason: 'You are offline. The AI assistant needs an internet connection.' };
-  }
-  if (!getApiKey()) {
-    return {
-      available: false,
-      reason: 'No AI API key configured. Set VITE_OPENAI_API_KEY (or store one under "aiApiKey").',
-    };
   }
   return { available: true };
 }
@@ -210,45 +196,6 @@ function buildContextText(ctx: PatientContext): string {
   return lines.join('\n');
 }
 
-async function callOpenAI(apiKey: string, system: string, user: string): Promise<string> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      temperature: 0.3,
-      max_tokens: 1500,
-    }),
-  });
-  if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content?.trim() || '';
-}
-
-async function callAnthropic(apiKey: string, system: string, user: string): Promise<string> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1500,
-      system,
-      messages: [{ role: 'user', content: user }],
-    }),
-  });
-  if (!response.ok) throw new Error(`Anthropic API error: ${response.status}`);
-  const data = await response.json();
-  return (data.content?.[0]?.text as string | undefined)?.trim() || '';
-}
-
 const SYSTEM_PROMPT =
   'You are a clinical decision-support assistant for a surgical/reconstructive service in Nigeria. ' +
   'You produce concise, professional DRAFT documentation to support (never replace) clinician judgement. ' +
@@ -264,7 +211,6 @@ export async function generateAIDraft(
   const availability = getAIAvailability();
   if (!availability.available) throw new Error(availability.reason);
 
-  const apiKey = getApiKey()!;
   const ctx = await gatherContext(patientId);
   if (!ctx) throw new Error('Patient not found.');
 
@@ -272,17 +218,9 @@ export async function generateAIDraft(
   const contextText = buildContextText(ctx);
   const userPrompt = `${def.instruction}\n\nUse this patient record:\n\n${contextText}`;
 
-  let content: string;
-  let source: 'openai' | 'anthropic';
-  if (apiKey.startsWith('sk-ant')) {
-    content = await callAnthropic(apiKey, SYSTEM_PROMPT, userPrompt);
-    source = 'anthropic';
-  } else {
-    content = await callOpenAI(apiKey, SYSTEM_PROMPT, userPrompt);
-    source = 'openai';
-  }
+  const content = await proxyChat({ system: SYSTEM_PROMPT, prompt: userPrompt });
 
   if (!content) throw new Error('The AI returned an empty response. Please try again.');
 
-  return { mode, label: def.label, content, generatedAt: new Date(), source };
+  return { mode, label: def.label, content, generatedAt: new Date(), source: 'openai' };
 }

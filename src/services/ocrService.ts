@@ -20,6 +20,7 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - tesseract.js types may not be available
 import Tesseract from 'tesseract.js';
+import { proxyVision } from './aiProxy';
 
 // OCR Result interface
 export interface OCRResult {
@@ -443,22 +444,18 @@ async function performMultiPassOCR(
 
 // Google Cloud Vision OCR (requires API key)
 async function performGoogleVisionOCR(
-  imageSource: string | File | Blob,
-  apiKey: string
+  imageSource: string | File | Blob
 ): Promise<OCRResult> {
   const startTime = Date.now();
 
-  // Convert to base64
-  let base64Image: string;
+  // Convert to a data URL (the proxy extracts the base64 server-side).
+  let dataUrl: string;
   if (typeof imageSource === 'string' && imageSource.startsWith('data:')) {
-    base64Image = imageSource.split(',')[1];
+    dataUrl = imageSource;
   } else if (imageSource instanceof File || imageSource instanceof Blob) {
-    base64Image = await new Promise((resolve, reject) => {
+    dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(',')[1]);
-      };
+      reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(imageSource);
     });
@@ -466,51 +463,15 @@ async function performGoogleVisionOCR(
     throw new Error('Invalid image source');
   }
 
-  const response = await fetch(
-    `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: { content: base64Image },
-            features: [
-              { type: 'DOCUMENT_TEXT_DETECTION', maxResults: 1 },
-              { type: 'TEXT_DETECTION', maxResults: 50 },
-            ],
-            imageContext: {
-              languageHints: ['en'],
-            },
-          },
-        ],
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Google Vision API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const textAnnotations = data.responses[0]?.textAnnotations || [];
-  const fullTextAnnotation = data.responses[0]?.fullTextAnnotation;
-
-  const words = textAnnotations.slice(1).map((annotation: { description: string; boundingPoly?: { vertices: { x: number; y: number }[] } }) => ({
-    text: annotation.description,
-    confidence: 95, // Google doesn't provide per-word confidence
-    bbox: annotation.boundingPoly?.vertices
-      ? {
-          x0: annotation.boundingPoly.vertices[0]?.x || 0,
-          y0: annotation.boundingPoly.vertices[0]?.y || 0,
-          x1: annotation.boundingPoly.vertices[2]?.x || 0,
-          y1: annotation.boundingPoly.vertices[2]?.y || 0,
-        }
-      : undefined,
-  }));
+  // API key is held server-side by the /api/ai-vision proxy.
+  const text = await proxyVision(dataUrl, 'google');
+  const words = text
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w: string) => ({ text: w, confidence: 95 }));
 
   return {
-    text: fullTextAnnotation?.text || textAnnotations[0]?.description || '',
+    text,
     confidence: 95,
     words,
     language: 'en',
@@ -654,10 +615,9 @@ function postProcessMedicalText(text: string): string {
   return processed;
 }
 
-// GPT-4 Vision OCR - Best for handwriting recognition
+// GPT-4 Vision OCR - Best for handwriting recognition (via server proxy)
 async function performGPT4VisionOCR(
   imageSource: string | File | Blob,
-  apiKey: string,
   medicalContext: boolean = true
 ): Promise<OCRResult> {
   const startTime = Date.now();
@@ -677,53 +637,16 @@ async function performGPT4VisionOCR(
     throw new Error('Invalid image source for GPT-4 Vision');
   }
 
-  const systemPrompt = medicalContext
-    ? `You are a medical document OCR specialist. Extract ALL text from this handwritten or printed medical document image. 
-Preserve the exact structure including:
-- Patient names, IDs, dates
-- Medical terminology, drug names, dosages
-- Vital signs, measurements, scores
-- Clinical notes and observations
-Return ONLY the extracted text, preserving line breaks. Do not add commentary.`
-    : `You are an OCR specialist. Extract ALL text from this handwritten or printed image exactly as written. 
-Preserve line breaks and structure. Return ONLY the extracted text, no commentary.`;
+  // API key is held server-side by the /api/ai-vision proxy.
+  const extractedText = await proxyVision(base64DataUrl, 'openai', medicalContext);
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Extract all text from this image. Return only the raw text content.' },
-            { type: 'image_url', image_url: { url: base64DataUrl, detail: 'high' } },
-          ],
-        },
-      ],
-      max_tokens: 4096,
-      temperature: 0.1,
-    }),
-  });
-
-  if (!response.ok) {
-    const errBody = await response.text();
-    throw new Error(`GPT-4 Vision API error: ${response.status} - ${errBody}`);
-  }
-
-  const data = await response.json();
-  const extractedText = data.choices?.[0]?.message?.content?.trim() || '';
-
-  // GPT-4 Vision doesn't provide per-word confidence or bounding boxes
-  const words = extractedText.split(/\s+/).filter(Boolean).map((word: string) => ({
-    text: word,
-    confidence: 97,
-  }));
+  const words = extractedText
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word: string) => ({
+      text: word,
+      confidence: 97,
+    }));
 
   return {
     text: extractedText,
@@ -795,20 +718,19 @@ export async function performOCR(
 
   // Try cloud OCR if enabled and online (cloud services are better at handwriting)
   if (useCloudOCR && navigator.onLine) {
-    const googleApiKey = import.meta.env.VITE_GOOGLE_VISION_API_KEY;
     const azureEndpoint = import.meta.env.VITE_AZURE_CV_ENDPOINT;
     const azureKey = import.meta.env.VITE_AZURE_CV_KEY;
 
-    // Try Google Vision (excellent handwriting recognition)
-    if (googleApiKey) {
-      try {
-        console.log('[OCR] Trying Google Cloud Vision...');
-        const googleResult = await performGoogleVisionOCR(imageSource, googleApiKey);
+    // Try Google Vision via the server proxy (key held server-side)
+    try {
+      console.log('[OCR] Trying Google Cloud Vision (proxied)...');
+      const googleResult = await performGoogleVisionOCR(imageSource);
+      if (googleResult.text) {
         results.push(googleResult);
         console.log(`[OCR] Google Vision - Confidence: ${googleResult.confidence}%`);
-      } catch (e) {
-        console.warn('[OCR] Google Vision OCR failed:', e);
       }
+    } catch (e) {
+      console.warn('[OCR] Google Vision OCR failed/unavailable:', e);
     }
 
     // Try Azure CV (also good at handwriting)
@@ -823,16 +745,17 @@ export async function performOCR(
       }
     }
 
-    // Try GPT-4 Vision (best for handwriting, especially messy medical notes)
-    const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    if (openaiApiKey && enhanceHandwriting) {
+    // Try GPT-4 Vision via the server proxy (best for handwriting)
+    if (enhanceHandwriting) {
       try {
-        console.log('[OCR] Trying GPT-4 Vision (best for handwriting)...');
-        const gptResult = await performGPT4VisionOCR(imageSource, openaiApiKey, true);
-        results.push(gptResult);
-        console.log(`[OCR] GPT-4 Vision - Confidence: ${gptResult.confidence}%`);
+        console.log('[OCR] Trying GPT-4 Vision (proxied)...');
+        const gptResult = await performGPT4VisionOCR(imageSource, true);
+        if (gptResult.text) {
+          results.push(gptResult);
+          console.log(`[OCR] GPT-4 Vision - Confidence: ${gptResult.confidence}%`);
+        }
       } catch (e) {
-        console.warn('[OCR] GPT-4 Vision OCR failed:', e);
+        console.warn('[OCR] GPT-4 Vision OCR failed/unavailable:', e);
       }
     }
   }
