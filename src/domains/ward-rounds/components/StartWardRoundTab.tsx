@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   CheckCircle,
   ScanLine,
+  Sparkles,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -40,6 +41,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { TissueType } from '../../../types';
 import DocumentScanner from '../../document-scanner/components/DocumentScanner';
 import ScannedDocumentsPanel from '../../document-scanner/components/ScannedDocumentsPanel';
+import AIClinicalAssistant from '../../ai-assistant/components/AIClinicalAssistant';
 
 // ── Inline wound reassessment form shape ──
 interface WoundReassessmentForm {
@@ -85,6 +87,7 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
     hospitalId?: string;
     admissionId?: string;
   } | null>(null);
+  const [aiTarget, setAiTarget] = useState<{ patientId: string; patientName: string } | null>(null);
 
   // ── Wound reassessment state ──
   // Key = woundId currently being reassessed (only one at a time)
@@ -738,6 +741,18 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
                             <ScanLine size={14} />
                             Scan document
                           </button>
+                          <button
+                            onClick={() =>
+                              setAiTarget({
+                                patientId: patient.id,
+                                patientName: `${patient.firstName} ${patient.lastName}`.trim(),
+                              })
+                            }
+                            className="btn btn-sm btn-secondary"
+                          >
+                            <Sparkles size={14} />
+                            AI Assistant
+                          </button>
                         </div>
 
                         {/* Attached scanned documents */}
@@ -759,6 +774,14 @@ export default function StartWardRoundTab({ searchQuery, selectedHospital }: Sta
           hospitalId={scannerTarget.hospitalId}
           admissionId={scannerTarget.admissionId}
           onClose={() => setScannerTarget(null)}
+        />
+      )}
+
+      {aiTarget && (
+        <AIClinicalAssistant
+          patientId={aiTarget.patientId}
+          patientName={aiTarget.patientName}
+          onClose={() => setAiTarget(null)}
         />
       )}
     </div>
