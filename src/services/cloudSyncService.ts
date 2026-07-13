@@ -43,10 +43,39 @@ try {
 // ===== Exponential backoff for sync failures =====
 const BASE_SYNC_INTERVAL_MS = 30_000;   // 30 seconds base interval
 const MAX_SYNC_INTERVAL_MS = 300_000;   // 5 minutes max backoff
+const SUPABASE_PAYMENT_PAUSE_MS = 10 * 60 * 1000; // 10 minutes
+let supabasePaymentPausedUntil = 0;
+
+function getSupabasePaymentPauseRemainingMs(): number {
+  return Math.max(0, supabasePaymentPausedUntil - Date.now());
+}
+
+function isSupabasePaymentPaused(): boolean {
+  return getSupabasePaymentPauseRemainingMs() > 0;
+}
+
+function isSupabasePaymentError(error: unknown, status?: number | null): boolean {
+  const err = error as { code?: unknown; message?: unknown; status?: unknown } | null | undefined;
+  return status === 402 ||
+    err?.status === 402 ||
+    err?.code === '402' ||
+    String(err?.message || '').toLowerCase().includes('payment required');
+}
+
+function pauseSupabaseForPayment(error: unknown, tableName?: string): void {
+  supabasePaymentPausedUntil = Date.now() + SUPABASE_PAYMENT_PAUSE_MS;
+  const minutes = Math.ceil(SUPABASE_PAYMENT_PAUSE_MS / 60000);
+  const tableSuffix = tableName ? ` while syncing ${tableName}` : '';
+  const message = `Supabase returned HTTP 402${tableSuffix}. Cloud sync paused for ${minutes} minutes; local offline writes are preserved.`;
+  console.error(`[CloudSync] ${message}`, error);
+  updateSyncState({ isSyncing: false, error: message });
+  currentSyncIntervalMs = Math.max(currentSyncIntervalMs, SUPABASE_PAYMENT_PAUSE_MS);
+  rescheduleSync();
+}
 
 // ===== Network availability guard =====
 function isNetworkAvailable(): boolean {
-  return navigator.onLine && isSupabaseConfigured() && !!supabase;
+  return navigator.onLine && isSupabaseConfigured() && !!supabase && !isSupabasePaymentPaused();
 }
 
 // ── Unified backoff helpers (use the constants above) ──
@@ -71,8 +100,11 @@ function resetBackoff(): void {
 function rescheduleSync(): void {
   if (syncInterval) clearInterval(syncInterval);
   syncInterval = setInterval(() => {
-    if (navigator.onLine && isSupabaseConfigured()) {
+    if (navigator.onLine && isSupabaseConfigured() && !isSupabasePaymentPaused()) {
       fullSync();
+    } else if (isSupabasePaymentPaused()) {
+      const seconds = Math.ceil(getSupabasePaymentPauseRemainingMs() / 1000);
+      console.warn(`[CloudSync] Supabase sync paused after HTTP 402; retry in ~${seconds}s`);
     }
   }, currentSyncIntervalMs);
 }
@@ -393,7 +425,7 @@ export function initCloudSync() {
     // Set up polling for critical clinical data every 2 minutes
     // Real-time subscriptions handle immediate updates; this is a safety net
     criticalSyncInterval = setInterval(() => {
-      if (navigator.onLine && isSupabaseConfigured()) {
+      if (navigator.onLine && isSupabaseConfigured() && !isSupabasePaymentPaused()) {
         syncCriticalClinicalData();
       }
     }, 120000);
@@ -418,6 +450,9 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; mess
       .limit(1);
 
     if (error) {
+      if (isSupabasePaymentError(error, status)) {
+        pauseSupabaseForPayment(error, 'patients');
+      }
       console.error('[CloudSync] Supabase test failed:', error);
       return { 
         success: false, 
@@ -629,6 +664,13 @@ export async function forcePullUsers(): Promise<{ success: boolean; message: str
 export async function fullSync(): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) {
     console.log('[CloudSync] Supabase not configured, skipping sync');
+    return;
+  }
+
+  if (isSupabasePaymentPaused()) {
+    const seconds = Math.ceil(getSupabasePaymentPauseRemainingMs() / 1000);
+    console.warn(`[CloudSync] Supabase sync paused after HTTP 402; retry in ~${seconds}s`);
+    updateSyncState({ isSyncing: false, error: `Supabase returned HTTP 402. Cloud sync paused; retry in ~${seconds}s.` });
     return;
   }
 
@@ -1008,14 +1050,19 @@ function isEchoOnly(local: Record<string, unknown>, cloud: Record<string, unknow
 // Pull a single table from cloud
 async function pullTable(cloudTableName: string, localTableName: string, orderColumn: string = 'updated_at'): Promise<void> {
   if (!supabase) return;
+  if (isSupabasePaymentPaused()) return;
 
   try {
-    const { data, error } = await supabase
+    const { data, error, status } = await supabase
       .from(cloudTableName)
       .select('*')
       .order(orderColumn, { ascending: false });
 
     if (error) {
+      if (isSupabasePaymentError(error, status)) {
+        pauseSupabaseForPayment(error, cloudTableName);
+        return;
+      }
       console.warn(`[CloudSync] Error pulling ${cloudTableName}:`, error.message, error.code, error.details);
       // For users table, provide more detailed diagnostics
       if (cloudTableName === 'users') {
@@ -1110,6 +1157,7 @@ async function pullTable(cloudTableName: string, localTableName: string, orderCo
 // Push a single table to cloud (only dirty / recently-modified records)
 async function pushTable(localTableName: string, cloudTableName: string): Promise<void> {
   if (!supabase) return;
+  if (isSupabasePaymentPaused()) return;
 
   try {
     // ── Dirty-record tracking: only push records modified since last successful push ──
@@ -1161,7 +1209,7 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
     for (let i = 0; i < preparedRecords.length; i += batchSize) {
       let batch = preparedRecords.slice(i, i + batchSize);
       
-      const { error } = await supabase
+      const { error, status } = await supabase
         .from(cloudTableName)
         .upsert(batch, {
           onConflict: 'id',
@@ -1169,6 +1217,10 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
         });
 
       if (error) {
+        if (isSupabasePaymentError(error, status)) {
+          pauseSupabaseForPayment(error, cloudTableName);
+          return;
+        }
         // Auto-learn missing columns from PGRST204 errors and retry the batch
         if (error.code === 'PGRST204') {
           const missingCol = extractMissingColumn(error.message);
@@ -1495,8 +1547,8 @@ function setupRealtimeSubscriptions() {
 
 // Sync a single record immediately (call this when creating/updating data)
 export async function syncRecord(localTableName: string, record: Record<string, any>): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase || !navigator.onLine) {
-    console.log('[CloudSync] Offline or not configured, record will sync later');
+  if (!isSupabaseConfigured() || !supabase || !navigator.onLine || isSupabasePaymentPaused()) {
+    console.log('[CloudSync] Offline, paused, or not configured; record will sync later');
     return;
   }
 
@@ -1514,12 +1566,17 @@ export async function syncRecord(localTableName: string, record: Record<string, 
       markRecentlySynced(recordId);
     }
     
-    let { error } = await supabase
+    let { error, status } = await supabase
       .from(cloudTableName)
       .upsert(preparedRecord, {
         onConflict: 'id',
         ignoreDuplicates: false,
       });
+
+    if (isSupabasePaymentError(error, status)) {
+      pauseSupabaseForPayment(error, cloudTableName);
+      return;
+    }
 
     // Auto-learn missing columns from PGRST204 and retry (up to 3 times)
     let retries = 0;

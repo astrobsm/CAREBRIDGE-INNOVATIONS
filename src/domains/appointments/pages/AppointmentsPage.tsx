@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useLocation, useSearchParams, Link } from 'react-router-dom';
 import { format, startOfWeek, endOfWeek, isToday, isTomorrow, isPast } from 'date-fns';
 import {
   Calendar,
@@ -71,6 +71,7 @@ const typeIcons: Record<AppointmentType, string> = {
 
 export default function AppointmentsPage() {
   const { user } = useAuth();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [showBookingForm, setShowBookingForm] = useState(false);
@@ -81,6 +82,12 @@ export default function AppointmentsPage() {
   const [filterHospital, setFilterHospital] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'all'>('week');
+
+  useEffect(() => {
+    if (location.pathname.endsWith('/new')) {
+      setShowBookingForm(true);
+    }
+  }, [location.pathname]);
 
   // Fetch all hospitals
   const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive === true).toArray(), []);

@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -106,6 +106,7 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
   void _embedded; // Reserved for future embedded mode support
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -127,6 +128,12 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (location.pathname.endsWith('/new')) {
+      setShowModal(true);
+    }
+  }, [location.pathname]);
 
   const admissions = useLiveQuery(
     () => db.admissions.orderBy('admissionDate').reverse().toArray(),

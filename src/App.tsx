@@ -202,11 +202,13 @@ function App() {
 
         {/* Clinical Modules */}
         <Route path="appointments" element={<AppointmentsPage />} />
+        <Route path="appointments/new" element={<AppointmentsPage />} />
         <Route path="appointments/clinic-bookings" element={<ClinicBookingsManagementPage />} />
         <Route path="appointments/share-booking" element={<BookingSharePage />} />
         <Route path="adt" element={<PatientFlowPage />} />
         <Route path="adt-legacy" element={<ADTPage />} />
         <Route path="admissions" element={<AdmissionsPage />} />
+        <Route path="admissions/new" element={<AdmissionsPage />} />
         <Route path="discharge" element={<DischargePage />} />
         <Route path="ward-rounds" element={<WardRoundsPage />} />
         <Route path="post-op-care" element={<PostOpCarePage />} />
