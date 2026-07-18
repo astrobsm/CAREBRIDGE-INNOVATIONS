@@ -1807,6 +1807,22 @@ Return ONLY valid JSON, no commentary, no markdown.`;
     }
   }, [uniqueParams]);
 
+  // Offline/local parser: for each known parameter, find it in the OCR text and
+  // grab the numeric value next to it. Fallback so the scribe still fills fields
+  // when the GPT parser is unavailable (no server API key / offline).
+  const parseOCRHeuristic = useCallback((ocrText: string): Record<string, string> => {
+    if (!ocrText.trim()) return {};
+    const res: Record<string, string> = {};
+    for (const param of uniqueParams) {
+      const esc = param.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // e.g. "Haemoglobin: 12.3", "WBC = 8", "Sodium 140", "Potassium - 4.1"
+      const re = new RegExp(`${esc}\\s*[:=\\-]?\\s*([<>]?\\s*\\d+(?:\\.\\d+)?)`, 'i');
+      const m = re.exec(ocrText);
+      if (m) res[param] = m[1].replace(/\s+/g, '');
+    }
+    return res;
+  }, [uniqueParams]);
+
   // OCR scan handler
   const handleOCRScan = useCallback(async (imageFile: File | string) => {
     setIsOCRScanning(true);
@@ -1830,9 +1846,19 @@ Return ONLY valid JSON, no commentary, no markdown.`;
         return;
       }
 
-      // Step 2: GPT parse OCR text → parameter fields
-      toast.loading('🧠 Parsing fields with GPT...', { id: 'ocr-result' });
-      const parsed = await parseOCRWithGPT(ocrResult.text);
+      // Step 2: parse OCR text → parameter fields. Try GPT, always compute the
+      // local heuristic too, and merge (GPT wins per-field). Keeps the scribe
+      // working when the AI proxy is unavailable (no key / offline).
+      toast.loading('🧠 Parsing fields...', { id: 'ocr-result' });
+      const gptParsed = await parseOCRWithGPT(ocrResult.text);
+      const heuristicParsed = parseOCRHeuristic(ocrResult.text);
+      const parsed: Record<string, string> = { ...heuristicParsed };
+      for (const [k, v] of Object.entries(gptParsed)) {
+        if (v && String(v).trim()) parsed[k] = String(v).trim();
+      }
+      const aiUsed = Object.entries(gptParsed).some(
+        ([k, v]) => k !== 'Interpretation' && v && String(v).trim()
+      );
 
       let filled = 0;
       setResultValues(prev => {
@@ -1850,19 +1876,31 @@ Return ONLY valid JSON, no commentary, no markdown.`;
       if (parsed['Interpretation']) {
         setInterpretation(String(parsed['Interpretation']));
         filled++;
+      } else if (filled === 0) {
+        // Never waste a successful scan: keep the raw extracted text so the user
+        // can copy values in manually.
+        setInterpretation(ocrResult.text.trim());
       }
 
-      toast.success(
-        `✅ Scanned via ${ocrResult.engine} (${Math.round(ocrResult.confidence)}% confidence) — ${filled} field(s) filled`,
-        { id: 'ocr-result', duration: 4000 }
-      );
+      const confidence = Math.round(ocrResult.confidence);
+      if (filled === 0) {
+        toast.success(
+          `Scanned via ${ocrResult.engine} (${confidence}%). No parameters auto-matched — raw text placed in Interpretation.`,
+          { id: 'ocr-result', duration: 6000 }
+        );
+      } else {
+        toast.success(
+          `✅ Scanned via ${ocrResult.engine} (${confidence}%) — ${filled} field(s) filled${aiUsed ? '' : ' · offline parse'}`,
+          { id: 'ocr-result', duration: 4000 }
+        );
+      }
     } catch (err) {
       console.error('[ResultModal OCR]', err);
       toast.error('OCR scan failed — enter values manually', { id: 'ocr-result' });
     } finally {
       setIsOCRScanning(false);
     }
-  }, [parseOCRWithGPT, setResultValues, setInterpretation, uniqueParams]);
+  }, [parseOCRWithGPT, parseOCRHeuristic, setResultValues, setInterpretation, uniqueParams]);
 
   const handleFileOCR = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

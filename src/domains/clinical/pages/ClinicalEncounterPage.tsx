@@ -69,6 +69,46 @@ const encounterSchema = z.object({
 
 type EncounterFormData = z.infer<typeof encounterSchema>;
 
+// Offline/local parser: split OCR text into encounter fields by their section
+// headers (with common aliases/abbreviations). Used as a fallback so the
+// Medical Scribe still auto-fills fields when the GPT parser is unavailable
+// (e.g. no server API key or offline).
+function parseEncounterHeuristic(text: string): Record<string, string> {
+  const sections: { field: string; aliases: string[] }[] = [
+    { field: 'chiefComplaint', aliases: ['chief complaint', 'presenting complaint', 'complaint', 'c/o', 'cc'] },
+    { field: 'historyOfPresentIllness', aliases: ['history of present illness', 'history of presenting complaint', 'present illness', 'hpi', 'hpc'] },
+    { field: 'pastMedicalHistory', aliases: ['past medical history', 'medical history', 'pmh'] },
+    { field: 'pastSurgicalHistory', aliases: ['past surgical history', 'surgical history', 'psh'] },
+    { field: 'familyHistory', aliases: ['family history', 'fh'] },
+    { field: 'socialHistory', aliases: ['social history', 'sh'] },
+    { field: 'treatmentPlan', aliases: ['treatment plan', 'management plan', 'management', 'plan', 'rx'] },
+    { field: 'notes', aliases: ['examination', 'on examination', 'o/e', 'assessment', 'impression', 'additional notes', 'remarks', 'notes'] },
+  ];
+
+  const found: { field: string; start: number; contentStart: number }[] = [];
+  for (const s of sections) {
+    for (const alias of s.aliases) {
+      const esc = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`(^|\\n)[\\t ]*${esc}[\\t ]*[:\\-\\u2013]`, 'i');
+      const m = re.exec(text);
+      if (m && !found.some((f) => f.field === s.field)) {
+        found.push({ field: s.field, start: m.index + m[1].length, contentStart: m.index + m[0].length });
+        break; // first matching alias for this field wins
+      }
+    }
+  }
+  if (found.length === 0) return {};
+
+  found.sort((a, b) => a.start - b.start);
+  const result: Record<string, string> = {};
+  for (let i = 0; i < found.length; i++) {
+    const end = i + 1 < found.length ? found[i + 1].start : text.length;
+    const val = text.slice(found[i].contentStart, end).replace(/[ \t]*\n[ \t]*/g, ' ').trim();
+    if (val) result[found[i].field] = val;
+  }
+  return result;
+}
+
 const encounterTypes: { value: EncounterType; label: string }[] = [
   { value: 'initial', label: 'Initial Encounter (New Patient)' },
   { value: 'follow_up', label: 'Follow-up Visit' },
@@ -319,29 +359,54 @@ export default function ClinicalEncounterPage() {
         toast.error('No text detected in document', { id: 'scribe-scan' });
         return;
       }
-      const parsed = await parseEncounterWithGPT(result.text);
-      const fieldMap: Record<string, string> = {
-        chiefComplaint: 'chiefComplaint',
-        historyOfPresentIllness: 'historyOfPresentIllness',
-        pastMedicalHistory: 'pastMedicalHistory',
-        pastSurgicalHistory: 'pastSurgicalHistory',
-        familyHistory: 'familyHistory',
-        socialHistory: 'socialHistory',
-        treatmentPlan: 'treatmentPlan',
-        notes: 'notes',
-      };
+
+      // Try the AI parser; always compute the local heuristic parse too, and
+      // merge (AI wins per-field). This keeps the scribe working even when the
+      // AI proxy is unavailable (no key / offline).
+      const gptParsed = await parseEncounterWithGPT(result.text);
+      const heuristicParsed = parseEncounterHeuristic(result.text);
+      const fields = [
+        'chiefComplaint',
+        'historyOfPresentIllness',
+        'pastMedicalHistory',
+        'pastSurgicalHistory',
+        'familyHistory',
+        'socialHistory',
+        'treatmentPlan',
+        'notes',
+      ] as const;
+
       let filled = 0;
-      for (const [gptKey, formKey] of Object.entries(fieldMap)) {
-        if (parsed[gptKey]) {
-          setValue(formKey as any, parsed[gptKey]);
+      for (const key of fields) {
+        const value = (gptParsed[key] ?? heuristicParsed[key] ?? '').toString().trim();
+        if (value) {
+          setValue(key as any, value);
           filled++;
         }
       }
+
+      // Never waste a successful scan: if no field could be mapped, drop the
+      // full extracted text into Notes so the user has something to work from.
+      let usedNotesFallback = false;
+      if (filled === 0) {
+        setValue('notes' as any, result.text.trim());
+        usedNotesFallback = true;
+      }
+
       setScribeEngine(result.engine || 'OCR');
-      toast.success(
-        `Scribe complete — ${filled} field${filled !== 1 ? 's' : ''} filled (${result.engine || 'OCR'}, ${Math.round((result.confidence || 0) * 100)}% confidence)`,
-        { id: 'scribe-scan', duration: 5000 }
-      );
+      const confidence = Math.round(result.confidence || 0);
+      if (usedNotesFallback) {
+        toast.success(
+          `Scanned (${result.engine || 'OCR'}, ${confidence}%). No labelled sections found — full text placed in Notes; edit as needed.`,
+          { id: 'scribe-scan', duration: 6000 }
+        );
+      } else {
+        const aiUsed = Object.values(gptParsed).some((v) => v && String(v).trim());
+        toast.success(
+          `Scribe complete — ${filled} field${filled !== 1 ? 's' : ''} filled (${result.engine || 'OCR'}, ${confidence}%${aiUsed ? '' : ' · offline parse'})`,
+          { id: 'scribe-scan', duration: 5000 }
+        );
+      }
       setActiveTab('history');
     } catch (err) {
       console.error('[MedicalScribe]', err);
