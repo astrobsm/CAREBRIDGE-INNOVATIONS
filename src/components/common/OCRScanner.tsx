@@ -197,9 +197,18 @@ const preprocessImage = async (
           return;
         }
 
-        // Scale up for better recognition
-        const scaledWidth = Math.round(img.width * options.scale);
-        const scaledHeight = Math.round(img.height * options.scale);
+        // Normalize the working resolution: upscale small images for legibility,
+        // but cap the longest edge so large phone photos don't blow up the
+        // per-pixel preprocessing/OCR time.
+        const MAX_DIM = 2400;
+        const MIN_TARGET = 1500;
+        const longest = Math.max(img.width, img.height);
+        let targetLongest = longest * options.scale;
+        targetLongest = Math.min(targetLongest, MAX_DIM);
+        targetLongest = Math.max(targetLongest, Math.min(longest, MIN_TARGET));
+        const scaleFactor = targetLongest / longest;
+        const scaledWidth = Math.round(img.width * scaleFactor);
+        const scaledHeight = Math.round(img.height * scaleFactor);
         canvas.width = scaledWidth;
         canvas.height = scaledHeight;
 

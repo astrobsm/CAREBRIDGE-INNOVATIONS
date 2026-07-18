@@ -96,8 +96,17 @@ async function preprocessImage(
           return;
         }
 
-        // Scale up for better recognition (higher scale for poor handwriting)
-        const scale = Math.max(config.scale, 1500 / Math.max(img.width, img.height));
+        // Normalize the working resolution. Small/low-res images are scaled UP
+        // (config.scale) so text is legible; large phone photos are scaled DOWN
+        // to a cap so the per-pixel preprocessing loops don't explode (a 4000px
+        // photo previously became 8000-16000px → tens of seconds per pass).
+        const MAX_DIM = 2400; // longest edge fed to preprocessing/OCR
+        const MIN_TARGET = 1500; // don't shrink already-modest images below this
+        const longest = Math.max(img.width, img.height);
+        let targetLongest = longest * config.scale;
+        targetLongest = Math.min(targetLongest, MAX_DIM);
+        targetLongest = Math.max(targetLongest, Math.min(longest, MIN_TARGET));
+        const scale = targetLongest / longest;
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
 
