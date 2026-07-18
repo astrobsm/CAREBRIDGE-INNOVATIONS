@@ -7,8 +7,8 @@
  * Uses Tesseract.js for client-side OCR processing.
  */
 
-import { useState, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import {
   Upload,
   Camera,
@@ -17,9 +17,6 @@ import {
   Check,
   Copy,
   RefreshCw,
-  ZoomIn,
-  ZoomOut,
-  RotateCw,
   AlertCircle,
   ScanLine,
 } from 'lucide-react';
@@ -85,6 +82,17 @@ interface ProcessingProgress {
   status: 'idle' | 'loading' | 'processing' | 'recognizing' | 'enhancing' | 'complete' | 'error';
   progress: number;
   message: string;
+}
+
+/** A single file staged in the multi-file batch. */
+interface BatchItem {
+  id: string;
+  file: File;
+  preview: string; // data URL
+  status: 'pending' | 'processing' | 'done' | 'error';
+  text: string;
+  confidence: number;
+  message?: string;
 }
 
 // ============================================================
@@ -458,277 +466,282 @@ export function OCRScanner({
   className = '',
   disabled = false,
 }: OCRScannerProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [items, setItems] = useState<BatchItem[]>([]);
   const [extractedText, setExtractedText] = useState<string>('');
   const [processing, setProcessing] = useState<ProcessingProgress>({
     status: 'idle',
     progress: 0,
     message: '',
   });
-  const [rotation, setRotation] = useState(0);
-  const [zoom, setZoom] = useState(1);
-  const [, setShowPreview] = useState(false);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const workerRef = useRef<TesseractWorker | null>(null);
+  const idCounter = useRef(0);
+  // Persistent OCR worker for this scanner instance: created once (pre-warmed
+  // when the scanner opens) and reused across every batch, then terminated on
+  // close. Creating a worker (WASM + language data) is the slow part.
+  const workerRef = useRef<Promise<TesseractWorker> | null>(null);
 
-  // Handle file selection
-  const handleFileSelect = useCallback(async (file: File) => {
-    // Validate file type
+  const getWorker = useCallback((): Promise<TesseractWorker> => {
+    if (!workerRef.current) {
+      const p = (async () => {
+        const Tesseract = await loadTesseract();
+        const worker = await Tesseract.createWorker('eng', 1);
+        await worker.setParameters({
+          tessedit_pageseg_mode: '6',
+          tessedit_char_whitelist: '',
+          preserve_interword_spaces: '1',
+          textord_heavy_nr: '1',
+          textord_min_linesize: '2.5',
+          edges_max_children_per_outline: '40',
+          textord_force_make_prop_words: '1',
+        });
+        return worker;
+      })();
+      // If init fails, clear the ref so the next attempt retries cleanly.
+      p.catch(() => {
+        if (workerRef.current === p) workerRef.current = null;
+      });
+      workerRef.current = p;
+    }
+    return workerRef.current;
+  }, []);
+
+  // Pre-warm the OCR engine as soon as the scanner opens so the first scan is
+  // ready immediately; release it when the scanner closes.
+  useEffect(() => {
+    getWorker().catch(() => {}); // best-effort; real errors surface on scan
+    return () => {
+      const p = workerRef.current;
+      workerRef.current = null;
+      if (p) p.then((w) => w.terminate()).catch(() => {});
+    };
+  }, [getWorker]);
+
+  // Validate then stage one or more files into the batch
+  const addFiles = useCallback(async (files: File[]) => {
     const validTypes = acceptedTypes.split(',');
-    if (!validTypes.some(type => file.type.match(type.replace('*', '.*')))) {
-      toast.error('Invalid file type. Please upload an image or PDF.');
-      return;
+    const staged: BatchItem[] = [];
+
+    for (const file of files) {
+      if (!validTypes.some(type => file.type.match(type.replace('*', '.*')))) {
+        toast.error(`${file.name}: invalid file type.`);
+        continue;
+      }
+      if (file.size > maxFileSizeMB * 1024 * 1024) {
+        toast.error(`${file.name}: too large (max ${maxFileSizeMB}MB).`);
+        continue;
+      }
+      if (!file.type.startsWith('image/')) {
+        // PDF conversion is not supported in the batch flow yet.
+        toast.error(`${file.name}: only image files are supported.`);
+        continue;
+      }
+
+      const preview = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = () => reject(new Error('read failed'));
+        reader.readAsDataURL(file);
+      }).catch(() => '');
+
+      if (!preview) {
+        toast.error(`${file.name}: could not be read.`);
+        continue;
+      }
+
+      idCounter.current += 1;
+      staged.push({
+        id: `ocr-${idCounter.current}`,
+        file,
+        preview,
+        status: 'pending',
+        text: '',
+        confidence: 0,
+      });
     }
 
-    // Validate file size
-    if (file.size > maxFileSizeMB * 1024 * 1024) {
-      toast.error(`File too large. Maximum size is ${maxFileSizeMB}MB.`);
-      return;
-    }
-
-    setSelectedFile(file);
-    setRotation(0);
-    setZoom(1);
-
-    // Create preview
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-        setShowPreview(true);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // For PDFs, we'll need to convert first (placeholder)
-      setImagePreview(null);
-      toast('PDF support requires conversion. Processing...');
-    }
+    if (staged.length) setItems(prev => [...prev, ...staged]);
   }, [acceptedTypes, maxFileSizeMB]);
 
-  // Handle drag and drop
+  const removeItem = useCallback((id: string) => {
+    setItems(prev => prev.filter(it => it.id !== id));
+  }, []);
+
+  // Handle drag and drop (supports multiple files)
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      handleFileSelect(file);
-    }
-  }, [handleFileSelect]);
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length) addFiles(files);
+  }, [addFiles]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
   }, []);
 
-  // Process image with OCR
-  const processImage = useCallback(async () => {
-    if (!selectedFile && !imagePreview) {
-      toast.error('No image selected');
+  // Run the adaptive OCR pipeline on a single image using a SHARED worker.
+  // Starts with the best-guess preprocessing profile and only escalates to
+  // heavier passes if confidence is poor — so clean scans finish in one pass.
+  const runOcr = async (
+    imageDataUrl: string,
+    worker: TesseractWorker,
+    onProgress: (progress: number, message: string) => void
+  ): Promise<{ text: string; confidence: number; raw: RecognizeResult }> => {
+    onProgress(15, 'Detecting optimal settings...');
+    const detectedProfile = await detectOptimalProfile(imageDataUrl);
+
+    // Escalation order: detected profile first, then heavier configs — de-duped.
+    const profileOrder = [detectedProfile, 'handwriting', 'faded_document'].filter(
+      (p, i, a) => a.indexOf(p) === i
+    );
+
+    let bestResult: RecognizeResult | null = null;
+    let bestConfidence = 0;
+
+    for (let i = 0; i < profileOrder.length; i++) {
+      onProgress(25 + i * 20, `Pass ${i + 1}: enhancing & reading…`);
+      try {
+        const profile = PREPROCESSING_PROFILES[profileOrder[i]] || DEFAULT_PREPROCESSING;
+        const preprocessedImage = await preprocessImage(imageDataUrl, profile);
+        const result = await worker.recognize(preprocessedImage);
+        if (result.data.confidence > bestConfidence) {
+          bestConfidence = result.data.confidence;
+          bestResult = result;
+        }
+        if (result.data.confidence >= 80) break; // good enough — stop early
+      } catch (passError) {
+        console.warn(`OCR pass ${i + 1} failed:`, passError);
+      }
+    }
+
+    // Extreme enhancement only when the result is still poor.
+    if (!bestResult || bestConfidence < 45) {
+      onProgress(85, 'Applying extreme enhancement...');
+      try {
+        const extremeProfile: PreprocessingOptions = {
+          contrast: 3.0,
+          brightness: 50,
+          sharpen: true,
+          denoise: true,
+          binarize: true,
+          deskew: true,
+          scale: 4.0,
+          invert: false,
+        };
+        const extremePreprocessed = await preprocessImage(imageDataUrl, extremeProfile);
+        const extremeResult = await worker.recognize(extremePreprocessed);
+        if (extremeResult.data.confidence > bestConfidence) {
+          bestConfidence = extremeResult.data.confidence;
+          bestResult = extremeResult;
+        }
+      } catch (err) {
+        console.warn('Extreme enhancement pass failed:', err);
+      }
+    }
+
+    if (!bestResult) throw new Error('All OCR passes failed');
+
+    onProgress(88, 'Post-processing results...');
+    let text = bestResult.data.text;
+    text = cleanHandwrittenText(text);
+    text = postProcessText(text, documentType);
+    text = applyMedicalSpellCheck(text);
+
+    if (autoEnhance && text.trim()) {
+      onProgress(92, 'AI enhancement...');
+      try {
+        text = await enhanceMedicalText(text, medicalContext);
+      } catch (err) {
+        console.warn('Enhancement failed, using cleaned text:', err);
+      }
+    }
+
+    return { text, confidence: bestConfidence, raw: bestResult };
+  };
+
+  // Process every staged image, one after another, then combine the text.
+  // A SINGLE Tesseract worker is created for the whole batch and reused across
+  // all images/passes — creating a worker (WASM + language data) is the slow
+  // part, so we pay it once instead of per pass.
+  const processAll = async () => {
+    const pending = items.filter((it) => it.status === 'pending' || it.status === 'error');
+    if (pending.length === 0) {
+      toast.error('No images to process.');
       return;
     }
 
+    setProcessing({ status: 'loading', progress: 5, message: 'Loading advanced OCR engine...' });
+
+    // Seed with any already-extracted images so re-processing keeps prior results.
+    const collected: string[] = items
+      .filter((it) => it.status === 'done' && it.text.trim())
+      .map((it) => it.text);
+
+    let ok = 0;
+    let failed = 0;
+
+    // Reuse the worker that was pre-warmed when the scanner opened. If warm-up
+    // is still in flight this just awaits it — it is never re-created per batch,
+    // and it stays alive (terminated on unmount) so later scans are instant too.
+    let worker: TesseractWorker;
     try {
-      setProcessing({ status: 'loading', progress: 5, message: 'Loading advanced OCR engine...' });
-
-      // Load Tesseract
-      const Tesseract = await loadTesseract();
-      
-      setProcessing({ status: 'processing', progress: 10, message: 'Analyzing image quality...' });
-
-      // Get the image source
-      const imageSource = imagePreview || selectedFile;
-      if (!imageSource) throw new Error('No image to process');
-
-      // Convert to data URL if needed
-      let imageDataUrl: string;
-      if (typeof imageSource === 'string') {
-        imageDataUrl = imageSource;
-      } else {
-        imageDataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target?.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(imageSource);
-        });
-      }
-
-      // Detect optimal preprocessing profile
-      setProcessing({ status: 'processing', progress: 15, message: 'Detecting optimal settings...' });
-      const detectedProfile = await detectOptimalProfile(imageDataUrl);
-      console.log('Detected preprocessing profile:', detectedProfile);
-
-      // Multi-pass OCR with different preprocessing configurations
-      const ocrPasses: Array<{ name: string; profile: string; result?: RecognizeResult }> = [
-        { name: 'Handwriting Optimized', profile: 'handwriting' },
-        { name: 'Standard Enhancement', profile: detectedProfile },
-        { name: 'High Contrast', profile: 'faded_document' },
-      ];
-
-      let bestResult: RecognizeResult | null = null;
-      let bestConfidence = 0;
-      let passResults: Array<{ name: string; confidence: number; text: string }> = [];
-
-      for (let passIndex = 0; passIndex < ocrPasses.length; passIndex++) {
-        const pass = ocrPasses[passIndex];
-        
-        setProcessing({ 
-          status: 'processing', 
-          progress: 20 + (passIndex * 25), 
-          message: `Pass ${passIndex + 1}/3: ${pass.name}...` 
-        });
-
-        try {
-          // Preprocess image with current profile
-          const profile = PREPROCESSING_PROFILES[pass.profile] || DEFAULT_PREPROCESSING;
-          const preprocessedImage = await preprocessImage(imageDataUrl, profile);
-
-          // Create worker with optimized settings for handwriting
-          const worker = await Tesseract.createWorker('eng', 1, {
-            logger: (m: { status: string; progress: number }) => {
-              if (m.status === 'recognizing text') {
-                const baseProgress = 20 + (passIndex * 25);
-                const passProgress = m.progress * 20;
-                setProcessing({
-                  status: 'recognizing',
-                  progress: baseProgress + passProgress,
-                  message: `Pass ${passIndex + 1}/3: Recognizing... ${Math.round(m.progress * 100)}%`,
-                });
-              }
-            },
-          });
-
-          // Configure Tesseract for best handwriting recognition
-          await worker.setParameters({
-            tessedit_pageseg_mode: '6',      // Assume uniform block of text
-            tessedit_char_whitelist: '',      // Allow all characters
-            preserve_interword_spaces: '1',   // Keep word spacing
-            textord_heavy_nr: '1',            // Heavy noise removal
-            textord_min_linesize: '2.5',      // Minimum line size
-            edges_max_children_per_outline: '40', // Better edge detection
-            textord_force_make_prop_words: '1',   // Force proportional words
-          });
-
-          const result = await worker.recognize(preprocessedImage);
-          await worker.terminate();
-
-          passResults.push({
-            name: pass.name,
-            confidence: result.data.confidence,
-            text: result.data.text,
-          });
-
-          // Keep best result
-          if (result.data.confidence > bestConfidence) {
-            bestConfidence = result.data.confidence;
-            bestResult = result;
-          }
-
-          // If we get very high confidence, we can stop early
-          if (result.data.confidence >= 95) {
-            console.log(`High confidence (${result.data.confidence}%) achieved on pass ${passIndex + 1}, stopping early`);
-            break;
-          }
-        } catch (passError) {
-          console.warn(`OCR pass ${passIndex + 1} failed:`, passError);
-        }
-      }
-
-      // If all passes failed or very low confidence, try one more time with extreme enhancement
-      if (!bestResult || bestConfidence < 50) {
-        setProcessing({ status: 'processing', progress: 85, message: 'Applying extreme enhancement...' });
-        
-        try {
-          const extremeProfile: PreprocessingOptions = {
-            contrast: 3.0,
-            brightness: 50,
-            sharpen: true,
-            denoise: true,
-            binarize: true,
-            deskew: true,
-            scale: 4.0,  // Maximum upscaling
-            invert: false,
-          };
-          
-          const extremePreprocessed = await preprocessImage(imageDataUrl, extremeProfile);
-          
-          const worker = await Tesseract.createWorker('eng', 1);
-          await worker.setParameters({
-            tessedit_pageseg_mode: '6',
-            preserve_interword_spaces: '1',
-          });
-          
-          const extremeResult = await worker.recognize(extremePreprocessed);
-          await worker.terminate();
-          
-          if (extremeResult.data.confidence > bestConfidence) {
-            bestConfidence = extremeResult.data.confidence;
-            bestResult = extremeResult;
-          }
-        } catch (err) {
-          console.warn('Extreme enhancement pass failed:', err);
-        }
-      }
-
-      if (!bestResult) {
-        throw new Error('All OCR passes failed');
-      }
-
-      // Log all pass results for debugging
-      console.log('OCR Pass Results:', passResults);
-      console.log('Best confidence:', bestConfidence);
-
-      setProcessing({ status: 'processing', progress: 88, message: 'Post-processing results...' });
-
-      let text = bestResult.data.text;
-
-      // Apply advanced text cleaning for handwriting
-      text = cleanHandwrittenText(text);
-
-      // Apply document-specific post-processing
-      text = postProcessText(text, documentType);
-
-      // Apply medical spell checking and correction
-      text = applyMedicalSpellCheck(text);
-
-      // Auto-enhance if enabled
-      if (autoEnhance && text.trim()) {
-        setProcessing({ status: 'enhancing', progress: 92, message: 'AI enhancement...' });
-        try {
-          text = await enhanceMedicalText(text, medicalContext);
-        } catch (err) {
-          console.warn('Enhancement failed, using cleaned text:', err);
-        }
-      }
-
-      setExtractedText(text);
-      onTextExtracted(text);
-      
-      if (onRawResult) {
-        onRawResult(bestResult);
-      }
-
-      setProcessing({ status: 'complete', progress: 100, message: 'Extraction complete!' });
-      
-      // Show confidence-based feedback
-      if (bestConfidence >= 90) {
-        toast.success(`✅ High accuracy extraction! (${Math.round(bestConfidence)}% confidence)`);
-      } else if (bestConfidence >= 70) {
-        toast.success(`Text extracted (${Math.round(bestConfidence)}% confidence). Review recommended.`);
-      } else {
-        toast(`Text extracted with ${Math.round(bestConfidence)}% confidence. Manual review needed.`, { icon: '⚠️' });
-      }
-
-    } catch (error) {
-      console.error('OCR error:', error);
-      setProcessing({ 
-        status: 'error', 
-        progress: 0, 
-        message: error instanceof Error ? error.message : 'OCR failed' 
-      });
-      toast.error('Failed to extract text. Try a clearer image.');
+      worker = await getWorker();
+    } catch (engineError) {
+      console.error('OCR engine failed to start:', engineError);
+      setProcessing({ status: 'error', progress: 0, message: 'OCR engine failed to load.' });
+      toast.error('Could not start the OCR engine.');
+      return;
     }
-  }, [selectedFile, imagePreview, documentType, medicalContext, autoEnhance, onTextExtracted, onRawResult]);
+
+    for (let i = 0; i < pending.length; i++) {
+      const item = pending[i];
+      const label = `Image ${i + 1}/${pending.length}`;
+      setItems((prev) =>
+        prev.map((it) => (it.id === item.id ? { ...it, status: 'processing', message: undefined } : it))
+      );
+
+      try {
+        const { text, confidence, raw } = await runOcr(item.preview, worker, (progress, message) => {
+          setProcessing({ status: 'recognizing', progress, message: `${label}: ${message}` });
+        });
+        setItems((prev) =>
+          prev.map((it) => (it.id === item.id ? { ...it, status: 'done', text, confidence } : it))
+        );
+        if (text.trim()) collected.push(text);
+        if (onRawResult) onRawResult(raw);
+        ok += 1;
+      } catch (error) {
+        console.error('OCR error:', error);
+        failed += 1;
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === item.id
+              ? { ...it, status: 'error', message: error instanceof Error ? error.message : 'OCR failed' }
+              : it
+          )
+        );
+      }
+    }
+
+    // Combine text from every successfully-processed image.
+    const combined =
+      collected.length > 1
+        ? collected.map((t, idx) => `--- Image ${idx + 1} ---\n${t}`).join('\n\n')
+        : collected.join('\n\n');
+
+    setExtractedText(combined);
+    onTextExtracted(combined);
+
+    setProcessing({ status: 'complete', progress: 100, message: 'Extraction complete!' });
+
+    if (failed === 0) {
+      toast.success(`✅ Extracted text from ${ok} image${ok === 1 ? '' : 's'}.`);
+    } else if (ok === 0) {
+      toast.error('Could not extract text from any image. Try clearer photos.');
+    } else {
+      toast(`${ok} extracted, ${failed} failed. Review below.`, { icon: '⚠️' });
+    }
+  };
 
   /**
    * Clean up common handwriting OCR errors
@@ -893,20 +906,6 @@ export function OCRScanner({
     return processed;
   };
 
-  // Rotate image
-  const rotateImage = useCallback(() => {
-    setRotation((prev) => (prev + 90) % 360);
-  }, []);
-
-  // Zoom controls
-  const zoomIn = useCallback(() => {
-    setZoom((prev) => Math.min(prev + 0.25, 3));
-  }, []);
-
-  const zoomOut = useCallback(() => {
-    setZoom((prev) => Math.max(prev - 0.25, 0.5));
-  }, []);
-
   // Copy extracted text
   const copyText = useCallback(async () => {
     try {
@@ -919,17 +918,9 @@ export function OCRScanner({
 
   // Clear everything
   const clearAll = useCallback(() => {
-    setSelectedFile(null);
-    setImagePreview(null);
+    setItems([]);
     setExtractedText('');
     setProcessing({ status: 'idle', progress: 0, message: '' });
-    setRotation(0);
-    setZoom(1);
-    setShowPreview(false);
-    if (workerRef.current) {
-      workerRef.current.terminate();
-      workerRef.current = null;
-    }
   }, []);
 
   // Use extracted text
@@ -939,241 +930,262 @@ export function OCRScanner({
   }, [extractedText, onTextExtracted]);
 
   const isProcessing = ['loading', 'processing', 'recognizing', 'enhancing'].includes(processing.status);
+  const pendingCount = items.filter((it) => it.status === 'pending' || it.status === 'error').length;
+
+  const statusBadge = (item: BatchItem) => {
+    switch (item.status) {
+      case 'processing':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs text-blue-600">
+            <Loader2 size={12} className="animate-spin" /> Reading…
+          </span>
+        );
+      case 'done':
+        return (
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full ${
+              item.confidence >= 80
+                ? 'bg-green-100 text-green-700'
+                : item.confidence >= 50
+                ? 'bg-yellow-100 text-yellow-700'
+                : 'bg-red-100 text-red-700'
+            }`}
+          >
+            {Math.round(item.confidence)}%
+          </span>
+        );
+      case 'error':
+        return <span className="text-xs text-red-600">Failed</span>;
+      default:
+        return <span className="text-xs text-gray-400">Pending</span>;
+    }
+  };
 
   return (
-    <div className={`ocr-scanner ${className}`}>
-      {/* Upload area */}
-      {!imagePreview && (
-        <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            disabled 
-              ? 'border-gray-200 bg-gray-50 cursor-not-allowed' 
-              : 'border-gray-300 hover:border-primary-400 hover:bg-primary-50 cursor-pointer'
-          }`}
-          onDrop={disabled ? undefined : handleDrop}
-          onDragOver={disabled ? undefined : handleDragOver}
-          onClick={() => !disabled && fileInputRef.current?.click()}
-        >
-          <div className="flex flex-col items-center gap-4">
-            <div className="p-4 bg-gray-100 rounded-full">
-              <ScanLine size={32} className="text-gray-500" />
-            </div>
-            <div>
-              <p className="font-medium text-gray-700">Upload Lab/Imaging Report</p>
-              <p className="text-sm text-gray-500 mt-1">
-                Drag & drop or click to select image
-              </p>
-              <p className="text-xs text-gray-400 mt-2">
-                Supports: JPG, PNG, WebP, BMP (Max {maxFileSizeMB}MB)
-              </p>
-            </div>
-
-            <div className="flex gap-3 mt-2">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  fileInputRef.current?.click();
-                }}
-                disabled={disabled}
-                className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-              >
-                <Upload size={18} />
-                Browse Files
-              </button>
-              
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  cameraInputRef.current?.click();
-                }}
-                disabled={disabled}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
-              >
-                <Camera size={18} />
-                Take Photo
-              </button>
-            </div>
+    <div className={`ocr-scanner space-y-4 ${className}`}>
+      {/* Upload / staging area */}
+      <div
+        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+          disabled
+            ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+            : 'border-gray-300 hover:border-primary-400 hover:bg-primary-50 cursor-pointer'
+        }`}
+        onDrop={disabled ? undefined : handleDrop}
+        onDragOver={disabled ? undefined : handleDragOver}
+        onClick={() => !disabled && fileInputRef.current?.click()}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="p-3 bg-gray-100 rounded-full">
+            <ScanLine size={28} className="text-gray-500" />
+          </div>
+          <div>
+            <p className="font-medium text-gray-700">Add one or more report pages</p>
+            <p className="text-sm text-gray-500 mt-1">
+              Drag &amp; drop or select multiple images, then process them all at once
+            </p>
+            <p className="text-xs text-gray-400 mt-2">
+              Supports: JPG, PNG, WebP, BMP (Max {maxFileSizeMB}MB each)
+            </p>
           </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={acceptedTypes}
-            onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-            className="hidden"
-          />
-          
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-            className="hidden"
-          />
-        </div>
-      )}
+          <div className="flex gap-3 mt-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+              disabled={disabled}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            >
+              <Upload size={18} />
+              Browse Files
+            </button>
 
-      {/* Image preview and controls */}
-      <AnimatePresence>
-        {imagePreview && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="space-y-4"
-          >
-            {/* Image viewer */}
-            <div className="relative bg-gray-900 rounded-lg overflow-hidden">
-              <div className="absolute top-2 right-2 z-10 flex gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                cameraInputRef.current?.click();
+              }}
+              disabled={disabled}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
+            >
+              <Camera size={18} />
+              Take Photo
+            </button>
+          </div>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={acceptedTypes}
+          multiple
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length) addFiles(files);
+            e.target.value = '';
+          }}
+          className="hidden"
+        />
+
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length) addFiles(files);
+            e.target.value = '';
+          }}
+          className="hidden"
+        />
+      </div>
+
+      {/* Staged file list */}
+      {items.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-gray-700">
+              {items.length} image{items.length === 1 ? '' : 's'} staged
+            </h4>
+            <button
+              type="button"
+              onClick={clearAll}
+              disabled={isProcessing}
+              className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+            >
+              Clear all
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {items.map((item, i) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-2"
+              >
+                <img
+                  src={item.preview}
+                  alt={`Page ${i + 1}`}
+                  className="h-14 w-12 flex-shrink-0 rounded border border-gray-200 object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-gray-700">{item.file.name}</p>
+                  <div className="mt-1">{statusBadge(item)}</div>
+                </div>
                 <button
                   type="button"
-                  onClick={zoomOut}
-                  className="p-2 bg-black/50 text-white rounded-lg hover:bg-black/70"
-                  title="Zoom out"
-                >
-                  <ZoomOut size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={zoomIn}
-                  className="p-2 bg-black/50 text-white rounded-lg hover:bg-black/70"
-                  title="Zoom in"
-                >
-                  <ZoomIn size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={rotateImage}
-                  className="p-2 bg-black/50 text-white rounded-lg hover:bg-black/70"
-                  title="Rotate"
-                >
-                  <RotateCw size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={clearAll}
-                  className="p-2 bg-red-500/80 text-white rounded-lg hover:bg-red-600"
+                  onClick={() => removeItem(item.id)}
+                  disabled={isProcessing}
+                  className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-500 disabled:opacity-50"
                   title="Remove"
                 >
                   <X size={16} />
                 </button>
               </div>
+            ))}
+          </div>
 
-              <div className="flex items-center justify-center min-h-[200px] max-h-[400px] overflow-auto p-4">
-                <img
-                  src={imagePreview}
-                  alt="Document preview"
-                  className="max-w-full h-auto transition-transform duration-200"
-                  style={{
-                    transform: `rotate(${rotation}deg) scale(${zoom})`,
-                  }}
+          {/* Processing progress */}
+          {isProcessing && (
+            <div className="bg-blue-50 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-2">
+                <Loader2 size={20} className="animate-spin text-blue-600" />
+                <span className="text-sm font-medium text-blue-700">{processing.message}</span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-2">
+                <motion.div
+                  className="bg-blue-600 h-2 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${processing.progress}%` }}
+                  transition={{ duration: 0.3 }}
                 />
               </div>
             </div>
+          )}
 
-            {/* Processing progress */}
-            {isProcessing && (
-              <div className="bg-blue-50 rounded-lg p-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <Loader2 size={20} className="animate-spin text-blue-600" />
-                  <span className="text-sm font-medium text-blue-700">{processing.message}</span>
-                </div>
-                <div className="w-full bg-blue-200 rounded-full h-2">
-                  <motion.div
-                    className="bg-blue-600 h-2 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${processing.progress}%` }}
-                    transition={{ duration: 0.3 }}
-                  />
-                </div>
-              </div>
+          {/* Action button */}
+          <button
+            type="button"
+            onClick={processAll}
+            disabled={isProcessing || disabled || pendingCount === 0}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Processing…
+              </>
+            ) : (
+              <>
+                <ScanLine size={18} />
+                Scan &amp; extract {pendingCount > 0 ? `(${pendingCount})` : 'all'}
+              </>
             )}
+          </button>
+        </div>
+      )}
 
-            {/* Action buttons */}
-            <div className="flex gap-2">
+      {/* Combined extracted text */}
+      {extractedText && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="bg-green-50 border border-green-200 rounded-lg p-4"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Check size={18} className="text-green-600" />
+              <span className="font-medium text-green-700">Extracted text</span>
+            </div>
+            <div className="flex gap-1">
               <button
                 type="button"
-                onClick={processImage}
-                disabled={isProcessing || disabled}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                onClick={copyText}
+                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
+                title="Copy"
               >
-                {isProcessing ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <ScanLine size={18} />
-                    Extract Text
-                  </>
-                )}
+                <Copy size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={useText}
+                className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+              >
+                <Check size={14} />
+                Use Text
               </button>
             </div>
+          </div>
+          <textarea
+            value={extractedText}
+            onChange={(e) => setExtractedText(e.target.value)}
+            className="w-full h-48 bg-white rounded border p-3 text-sm font-mono text-gray-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
+        </motion.div>
+      )}
 
-            {/* Extracted text display */}
-            {extractedText && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="bg-green-50 border border-green-200 rounded-lg p-4"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Check size={18} className="text-green-600" />
-                    <span className="font-medium text-green-700">Text Extracted</span>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={copyText}
-                      className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
-                      title="Copy"
-                    >
-                      <Copy size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={useText}
-                      className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                    >
-                      <Check size={14} />
-                      Use Text
-                    </button>
-                  </div>
-                </div>
-                <div className="bg-white rounded border p-3 max-h-[200px] overflow-y-auto">
-                  <pre className="text-sm whitespace-pre-wrap font-mono text-gray-700">
-                    {extractedText}
-                  </pre>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Error state */}
-            {processing.status === 'error' && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-                <AlertCircle size={20} className="text-red-500" />
-                <div>
-                  <p className="font-medium text-red-700">OCR Failed</p>
-                  <p className="text-sm text-red-600">{processing.message}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={processImage}
-                  className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-                >
-                  <RefreshCw size={14} />
-                  Retry
-                </button>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Error state */}
+      {processing.status === 'error' && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+          <AlertCircle size={20} className="text-red-500" />
+          <div>
+            <p className="font-medium text-red-700">OCR Failed</p>
+            <p className="text-sm text-red-600">{processing.message}</p>
+          </div>
+          <button
+            type="button"
+            onClick={processAll}
+            className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+          >
+            <RefreshCw size={14} />
+            Retry
+          </button>
+        </div>
+      )}
     </div>
   );
 }

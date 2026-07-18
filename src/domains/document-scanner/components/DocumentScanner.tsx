@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { v4 as uuidv4 } from 'uuid';
 import jsPDF from 'jspdf';
@@ -13,6 +13,7 @@ import {
   FileText,
   Save,
   ScanLine,
+  ScanSearch,
 } from 'lucide-react';
 import ocrService from '../../../services/ocrService';
 import { db } from '../../../database';
@@ -39,6 +40,12 @@ interface Props {
   encounterId?: string;
   onClose: () => void;
   onSaved?: (doc: ScannedDocument) => void;
+}
+
+/** An image staged for scanning but not yet processed. */
+interface QueuedImage {
+  id: string;
+  dataUrl: string;
 }
 
 /** Load an image data URL and return its natural dimensions. */
@@ -122,7 +129,10 @@ export default function DocumentScanner({
 }: Props) {
   const { user } = useAuth();
   const [pages, setPages] = useState<ScannedDocumentPage[]>([]);
+  /** Images staged for scanning but not yet processed. */
+  const [queue, setQueue] = useState<QueuedImage[]>([]);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState('');
   const [docType, setDocType] = useState<ScannedDocumentType>('other');
@@ -130,49 +140,24 @@ export default function DocumentScanner({
   const [fields, setFields] = useState<ScannedDocumentField[]>([]);
   const [autoApplied, setAutoApplied] = useState(false);
 
-  const runOcrOnImage = useCallback(
-    async (dataUrl: string) => {
-      setBusy(true);
-      try {
-        const result = await ocrService.performOCR(dataUrl, {
-          language: 'eng',
-          enhanceHandwriting: true,
-          preprocessImage: true,
-          useCloudOCR: false, // offline-first
-          medicalContext: true,
-        });
-        const page: ScannedDocumentPage = {
-          id: uuidv4(),
-          imageDataUrl: dataUrl,
-          ocrText: result.text || '',
-          confidence: Math.round(result.confidence || 0),
-        };
-        setPages((prev) => {
-          const next = [...prev, page];
-          const combined = next.map((p) => p.ocrText).join('\n\n');
-          // Re-run auto classification/extraction until the user edits manually.
-          if (!autoApplied) {
-            setFullText(combined);
-            setDocType(classifyDocument(combined));
-            setFields(extractFields(combined));
-          }
-          return next;
-        });
-        toast.success(`Page ${pages.length + 1} scanned (${page.confidence}% confidence)`);
-      } catch (e) {
-        console.error('[DocumentScanner] OCR failed', e);
-        toast.error('Could not read this page. Try a clearer photo.');
-      } finally {
-        setBusy(false);
-      }
-    },
-    [pages.length, autoApplied]
-  );
+  // Pre-warm the OCR engine as soon as the scanner opens so the first page is
+  // ready to read the moment the user finishes capturing — no cold-start wait.
+  useEffect(() => {
+    void ocrService.warmUpOcr('eng');
+  }, []);
+
+  /** Stage one or more images (data URLs) for later batch scanning. */
+  const enqueue = useCallback((dataUrls: string[]) => {
+    const items = dataUrls
+      .filter(Boolean)
+      .map((dataUrl) => ({ id: uuidv4(), dataUrl }));
+    if (items.length) setQueue((prev) => [...prev, ...items]);
+  }, []);
 
   const handleCamera = async () => {
     try {
       const dataUrl = await ocrService.captureFromCamera();
-      if (dataUrl) await runOcrOnImage(dataUrl);
+      if (dataUrl) enqueue([dataUrl]);
     } catch {
       toast.error('Camera unavailable on this device.');
     }
@@ -180,8 +165,8 @@ export default function DocumentScanner({
 
   const handleGallery = async () => {
     try {
-      const dataUrl = await ocrService.selectFromGallery();
-      if (dataUrl) await runOcrOnImage(dataUrl);
+      const dataUrls = await ocrService.selectFromGalleryMultiple();
+      enqueue(dataUrls);
     } catch {
       /* user cancelled */
     }
@@ -189,16 +174,88 @@ export default function DocumentScanner({
 
   const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    for (const file of files) {
-      const dataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      await runOcrOnImage(dataUrl);
-    }
+    const dataUrls = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          })
+      )
+    );
+    enqueue(dataUrls);
     e.target.value = '';
   };
+
+  const removeQueued = (id: string) => {
+    setQueue((prev) => prev.filter((q) => q.id !== id));
+  };
+
+  /** Run OCR on every staged image, then move them all into pages. */
+  const processQueue = useCallback(async () => {
+    if (queue.length === 0 || busy) return;
+    const items = [...queue];
+    setBusy(true);
+    setProgress({ current: 0, total: items.length });
+
+    const newPages: ScannedDocumentPage[] = [];
+    let failures = 0;
+
+    for (let i = 0; i < items.length; i++) {
+      setProgress({ current: i + 1, total: items.length });
+      try {
+        const result = await ocrService.performOCR(items[i].dataUrl, {
+          language: 'eng',
+          enhanceHandwriting: true,
+          preprocessImage: true,
+          useCloudOCR: true, // offline first, cloud fallback for handwriting when online
+          medicalContext: true,
+        });
+        newPages.push({
+          id: items[i].id,
+          imageDataUrl: items[i].dataUrl,
+          ocrText: result.text || '',
+          confidence: Math.round(result.confidence || 0),
+        });
+      } catch (e) {
+        console.error('[DocumentScanner] OCR failed on page', i + 1, e);
+        failures += 1;
+        // Keep the image so it is not lost — text can be typed in manually.
+        newPages.push({
+          id: items[i].id,
+          imageDataUrl: items[i].dataUrl,
+          ocrText: '',
+          confidence: 0,
+        });
+      }
+    }
+
+    setQueue([]);
+    setPages((prev) => {
+      const next = [...prev, ...newPages];
+      // Re-run auto classification/extraction until the user edits manually.
+      if (!autoApplied) {
+        const combined = next.map((p) => p.ocrText).join('\n\n');
+        setFullText(combined);
+        setDocType(classifyDocument(combined));
+        setFields(extractFields(combined));
+      }
+      return next;
+    });
+
+    setProgress(null);
+    setBusy(false);
+
+    const ok = newPages.length - failures;
+    if (failures === 0) {
+      toast.success(`${ok} page${ok === 1 ? '' : 's'} scanned.`);
+    } else if (ok === 0) {
+      toast.error('Could not read any pages. Try clearer photos.');
+    } else {
+      toast(`${ok} scanned, ${failures} unreadable — add text manually.`, { icon: '⚠️' });
+    }
+  }, [queue, busy, autoApplied]);
 
   const removePage = (id: string) => {
     setPages((prev) => {
@@ -276,7 +333,7 @@ export default function DocumentScanner({
           <div className="flex-1">
             <h2 className="text-sm font-semibold text-gray-900">Scan document</h2>
             <p className="text-xs text-gray-500">
-              {patientName ? `For ${patientName} · ` : ''}Offline OCR — pages auto-classified
+              {patientName ? `For ${patientName} · ` : ''}Add multiple pages, then scan all — auto-classified
             </p>
           </div>
           <button onClick={onClose} className="rounded-lg p-2 hover:bg-gray-100" title="Close">
@@ -311,9 +368,20 @@ export default function DocumentScanner({
               disabled={busy}
             />
           </label>
+          {queue.length > 0 && (
+            <button
+              onClick={processQueue}
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <ScanSearch size={16} />}
+              Scan &amp; process all ({queue.length})
+            </button>
+          )}
           {busy && (
             <span className="inline-flex items-center gap-2 text-sm text-indigo-600">
-              <Loader2 size={16} className="animate-spin" /> Reading…
+              <Loader2 size={16} className="animate-spin" />
+              {progress ? `Reading ${progress.current}/${progress.total}…` : 'Reading…'}
             </span>
           )}
           {pages.length > 0 && !busy && (
@@ -325,16 +393,57 @@ export default function DocumentScanner({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
-          {pages.length === 0 ? (
+          {pages.length === 0 && queue.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center text-gray-400">
               <FileText size={40} />
               <p className="mt-3 max-w-xs text-sm">
-                Add pages from the camera, gallery or files. Each page is read with offline
-                OCR, then classified and its fields detected automatically.
+                Add multiple pages from the camera, gallery or files, then tap
+                <span className="font-medium"> Scan &amp; process all</span>. Each page is read
+                with OCR (offline, with a cloud fallback for handwriting when online), then
+                classified and its fields detected automatically.
               </p>
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Staged (pending) images — not yet scanned */}
+              {queue.length > 0 && (
+                <div className="rounded-lg border border-dashed border-indigo-200 bg-indigo-50/50 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                      Staged for scanning ({queue.length})
+                    </h3>
+                    <button
+                      onClick={() => setQueue([])}
+                      disabled={busy}
+                      className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {queue.map((q, i) => (
+                      <div key={q.id} className="relative flex-shrink-0">
+                        <img
+                          src={q.dataUrl}
+                          alt={`Staged ${i + 1}`}
+                          className="h-24 w-20 rounded-lg border border-indigo-200 object-cover opacity-90"
+                        />
+                        <button
+                          onClick={() => removeQueued(q.id)}
+                          disabled={busy}
+                          className="absolute -right-1 -top-1 rounded-full bg-red-500 p-0.5 text-white disabled:opacity-50"
+                          title="Remove"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {pages.length > 0 && (
+              <>
               {/* Page thumbnails */}
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {pages.map((p, i) => (
@@ -423,6 +532,8 @@ export default function DocumentScanner({
                   className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-xs"
                 />
               </div>
+              </>
+              )}
             </div>
           )}
         </div>

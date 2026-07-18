@@ -352,7 +352,75 @@ function sharpenImage(ctx: CanvasRenderingContext2D, width: number, height: numb
   ctx.putImageData(imageData, 0, 0);
 }
 
-// Tesseract.js OCR with handwriting optimization
+// ---------------------------------------------------------------------------
+// Persistent Tesseract worker.
+//
+// Creating a worker loads the WASM core + language data (~10-15 MB) and is BY
+// FAR the slowest part of OCR. The previous code used Tesseract.recognize()
+// (and one createWorker per pass), which paid that cost on *every* pass of
+// *every* page. We instead keep a single warm worker alive and reuse it across
+// all passes and pages — the first scan warms it up, every scan after is fast.
+// ---------------------------------------------------------------------------
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let tesseractWorkerPromise: Promise<any> | null = null;
+let tesseractWorkerLang = '';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getTesseractWorker(language: string): Promise<any> {
+  if (tesseractWorkerPromise && tesseractWorkerLang === language) {
+    return tesseractWorkerPromise;
+  }
+  // Language changed — retire the previous worker in the background.
+  if (tesseractWorkerPromise) {
+    const stale = tesseractWorkerPromise;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    stale.then((w: any) => w.terminate()).catch(() => {});
+  }
+  tesseractWorkerLang = language;
+  tesseractWorkerPromise = (async () => {
+    const worker = await Tesseract.createWorker(language, 1, {
+      logger: () => {}, // quiet — progress is reported at the page level
+    });
+    await worker.setParameters({
+      tessedit_pageseg_mode: '6' as Tesseract.PSM,
+      tessedit_char_whitelist:
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,;:!?\'"-()[]{}/ \n',
+      textord_heavy_nr: '1',
+      textord_min_linesize: '1.5',
+    });
+    return worker;
+  })();
+  return tesseractWorkerPromise;
+}
+
+/**
+ * Pre-load the OCR engine (WASM core + language data) ahead of time so the
+ * first scan is effectively instant. Call this when the scanner UI opens —
+ * by the time the user has captured a page, the worker is already warm.
+ * Safe to call repeatedly; the worker is created once and reused.
+ */
+export async function warmUpOcr(language = 'eng'): Promise<void> {
+  try {
+    await getTesseractWorker(language);
+  } catch (e) {
+    console.warn('[OCR] Warm-up failed (will retry on first scan):', e);
+  }
+}
+
+/** Release the shared OCR worker and free its memory (~15 MB). Optional. */
+export async function disposeOcrWorker(): Promise<void> {
+  if (!tesseractWorkerPromise) return;
+  const w = tesseractWorkerPromise;
+  tesseractWorkerPromise = null;
+  tesseractWorkerLang = '';
+  try {
+    (await w).terminate();
+  } catch {
+    /* ignore */
+  }
+}
+
+// Tesseract.js OCR with handwriting optimization (reuses the shared worker)
 async function performTesseractOCR(
   imageSource: string | File | Blob,
   language: string = 'eng',
@@ -360,7 +428,7 @@ async function performTesseractOCR(
   config?: PreprocessConfig
 ): Promise<OCRResult> {
   const startTime = Date.now();
-  
+
   let processedImage = imageSource;
   if (!preprocessed) {
     try {
@@ -370,36 +438,14 @@ async function performTesseractOCR(
     }
   }
 
-  // Configure Tesseract for handwriting recognition
-  const tesseractConfig = {
-    // PSM 6 = Assume single uniform block of text
-    // PSM 4 = Assume single column of variable sizes
-    // PSM 11 = Sparse text - find as much text as possible in no particular order
-    // PSM 3 = Fully automatic page segmentation (default)
-    tessedit_pageseg_mode: '6' as Tesseract.PSM,
-    // Character whitelist for medical text
-    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,;:!?\'"-()[]{}/ \n',
-    // Enable word-level recognition
-    textord_heavy_nr: '1',
-    // More aggressive text detection
-    textord_min_linesize: '1.5',
-  };
-
-  const result = await Tesseract.recognize(processedImage, language, {
-    logger: (m: { status: string; progress?: number }) => {
-      if (m.status === 'recognizing text') {
-        // Progress callback
-        console.log(`[OCR] Recognition progress: ${Math.round((m.progress || 0) * 100)}%`);
-      }
-    },
-    ...tesseractConfig,
-  });
+  const worker = await getTesseractWorker(language);
+  const result = await worker.recognize(processedImage);
 
   // Extract words from result
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resultData = result.data as any;
   const wordsArray = resultData.words || [];
-  
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const words = wordsArray.map((word: any) => ({
     text: word.text || '',
@@ -414,149 +460,6 @@ async function performTesseractOCR(
     language,
     processingTime: Date.now() - startTime,
     engine: 'tesseract',
-  };
-}
-
-// Multi-pass OCR for poor handwriting
-async function performMultiPassOCR(
-  imageSource: string | File | Blob,
-  language: string = 'eng'
-): Promise<OCRResult[]> {
-  const results: OCRResult[] = [];
-  
-  // Try each preprocessing configuration
-  for (const config of HANDWRITING_PREPROCESS_CONFIGS) {
-    try {
-      console.log(`[OCR] Trying preprocessing config: ${config.name}`);
-      const result = await performTesseractOCR(imageSource, language, false, config);
-      
-      if (result.text.trim().length > 0) {
-        results.push({ ...result, engine: 'tesseract' });
-        console.log(`[OCR] Config ${config.name} - Confidence: ${result.confidence}%, Text length: ${result.text.length}`);
-      }
-    } catch (e) {
-      console.warn(`[OCR] Config ${config.name} failed:`, e);
-    }
-  }
-  
-  return results;
-}
-
-// Google Cloud Vision OCR (requires API key)
-async function performGoogleVisionOCR(
-  imageSource: string | File | Blob
-): Promise<OCRResult> {
-  const startTime = Date.now();
-
-  // Convert to a data URL (the proxy extracts the base64 server-side).
-  let dataUrl: string;
-  if (typeof imageSource === 'string' && imageSource.startsWith('data:')) {
-    dataUrl = imageSource;
-  } else if (imageSource instanceof File || imageSource instanceof Blob) {
-    dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(imageSource);
-    });
-  } else {
-    throw new Error('Invalid image source');
-  }
-
-  // API key is held server-side by the /api/ai-vision proxy.
-  const text = await proxyVision(dataUrl, 'google');
-  const words = text
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w: string) => ({ text: w, confidence: 95 }));
-
-  return {
-    text,
-    confidence: 95,
-    words,
-    language: 'en',
-    processingTime: Date.now() - startTime,
-    engine: 'google-vision',
-  };
-}
-
-// Azure Computer Vision OCR
-async function performAzureOCR(
-  imageSource: string | File | Blob,
-  endpoint: string,
-  apiKey: string
-): Promise<OCRResult> {
-  const startTime = Date.now();
-
-  let imageData: Blob;
-  if (typeof imageSource === 'string' && imageSource.startsWith('data:')) {
-    const response = await fetch(imageSource);
-    imageData = await response.blob();
-  } else if (imageSource instanceof File || imageSource instanceof Blob) {
-    imageData = imageSource;
-  } else {
-    throw new Error('Invalid image source');
-  }
-
-  // Start the Read operation
-  const analyzeResponse = await fetch(`${endpoint}/vision/v3.2/read/analyze`, {
-    method: 'POST',
-    headers: {
-      'Ocp-Apim-Subscription-Key': apiKey,
-      'Content-Type': 'application/octet-stream',
-    },
-    body: imageData,
-  });
-
-  if (!analyzeResponse.ok) {
-    throw new Error(`Azure Vision API error: ${analyzeResponse.status}`);
-  }
-
-  const operationLocation = analyzeResponse.headers.get('Operation-Location');
-  if (!operationLocation) {
-    throw new Error('No operation location returned');
-  }
-
-  // Poll for results
-  let result;
-  for (let i = 0; i < 30; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    const resultResponse = await fetch(operationLocation, {
-      headers: { 'Ocp-Apim-Subscription-Key': apiKey },
-    });
-    
-    result = await resultResponse.json();
-    
-    if (result.status === 'succeeded') break;
-    if (result.status === 'failed') throw new Error('Azure OCR failed');
-  }
-
-  if (!result || result.status !== 'succeeded') {
-    throw new Error('Azure OCR timeout');
-  }
-
-  const lines = result.analyzeResult?.readResults?.flatMap((page: { lines: { text: string; words: { text: string; confidence: number; boundingBox: number[] }[] }[] }) => page.lines) || [];
-  const words = lines.flatMap((line: { words: { text: string; confidence: number; boundingBox: number[] }[] }) =>
-    line.words.map((word: { text: string; confidence: number; boundingBox: number[] }) => ({
-      text: word.text,
-      confidence: word.confidence * 100,
-      bbox: {
-        x0: word.boundingBox[0],
-        y0: word.boundingBox[1],
-        x1: word.boundingBox[4],
-        y1: word.boundingBox[5],
-      },
-    }))
-  );
-
-  return {
-    text: lines.map((line: { text: string }) => line.text).join('\n'),
-    confidence: words.reduce((sum: number, w: { confidence: number }) => sum + w.confidence, 0) / (words.length || 1),
-    words,
-    language: 'en',
-    processingTime: Date.now() - startTime,
-    engine: 'azure-cv',
   };
 }
 
@@ -670,93 +573,62 @@ export async function performOCR(
     useCloudOCR = true,
     confidence_threshold = 50,
     aggressiveHandwritingMode = false,
-    multiPassOCR = true, // Enable multi-pass by default for better handwriting
   } = options;
 
-  console.log('[OCR] Starting OCR with options:', { 
-    language, 
-    enhanceHandwriting, 
-    multiPassOCR, 
-    aggressiveHandwritingMode 
-  });
-
-  const results: OCRResult[] = [];
   const startTime = Date.now();
+  const results: OCRResult[] = [];
 
-  // Multi-pass OCR for handwriting (tries multiple preprocessing configurations)
-  if (multiPassOCR && enhanceHandwriting) {
-    try {
-      console.log('[OCR] Running multi-pass OCR for handwriting recognition...');
-      const multiPassResults = await performMultiPassOCR(imageSource, language);
-      results.push(...multiPassResults);
-      console.log(`[OCR] Multi-pass OCR completed with ${multiPassResults.length} results`);
-    } catch (e) {
-      console.error('[OCR] Multi-pass OCR failed:', e);
-    }
-  } else {
-    // Single pass with standard preprocessing
-    let processedImage = imageSource;
-    
-    if (shouldPreprocess && enhanceHandwriting) {
-      try {
-        const config = aggressiveHandwritingMode 
-          ? HANDWRITING_PREPROCESS_CONFIGS[4] // aggressive
-          : HANDWRITING_PREPROCESS_CONFIGS[0]; // standard
-        processedImage = await preprocessImage(imageSource, config);
-      } catch (e) {
-        console.warn('[OCR] Preprocessing failed:', e);
-      }
-    }
+  // Accept the local result immediately once we clear this bar — the fast path
+  // for clean scans (no extra passes, no cloud round-trip).
+  const ACCEPT_CONFIDENCE = 78;
+  // Only reach for the cloud when the local result is genuinely weak.
+  const CLOUD_FALLBACK_BELOW = 62;
 
+  // Escalating preprocessing: start with the config that usually wins and only
+  // try a heavier one if the first pass is poor. (Previously ALL five configs
+  // ran on every image, then two cloud calls — the main source of slowness.)
+  const passes: PreprocessConfig[] =
+    shouldPreprocess || enhanceHandwriting
+      ? aggressiveHandwritingMode
+        ? [HANDWRITING_PREPROCESS_CONFIGS[4], HANDWRITING_PREPROCESS_CONFIGS[1]] // aggressive → high-contrast
+        : [HANDWRITING_PREPROCESS_CONFIGS[0], HANDWRITING_PREPROCESS_CONFIGS[4]] // standard → aggressive
+      : [];
+
+  let best: OCRResult | null = null;
+
+  if (passes.length === 0) {
+    // Caller opted out of preprocessing — a single raw pass.
     try {
-      const tesseractResult = await performTesseractOCR(processedImage, language, shouldPreprocess);
-      results.push(tesseractResult);
+      const r = await performTesseractOCR(imageSource, language, true);
+      results.push(r);
+      best = r;
     } catch (e) {
       console.error('[OCR] Tesseract OCR failed:', e);
     }
+  } else {
+    for (const config of passes) {
+      try {
+        const r = await performTesseractOCR(imageSource, language, false, config);
+        results.push(r);
+        if (!best || r.confidence > best.confidence) best = r;
+        if (r.confidence >= ACCEPT_CONFIDENCE) break; // good enough — stop early
+      } catch (e) {
+        console.warn('[OCR] Tesseract pass failed:', e);
+      }
+    }
   }
 
-  // Try cloud OCR if enabled and online (cloud services are better at handwriting)
-  if (useCloudOCR && navigator.onLine) {
-    const azureEndpoint = import.meta.env.VITE_AZURE_CV_ENDPOINT;
-    const azureKey = import.meta.env.VITE_AZURE_CV_KEY;
-
-    // Try Google Vision via the server proxy (key held server-side)
+  // Cloud fallback — ONLY when the local result is weak and we're online.
+  // A single provider (GPT-4 Vision, strongest at handwriting) keeps it fast.
+  const localBest = best?.confidence ?? 0;
+  const online = typeof navigator === 'undefined' ? true : navigator.onLine;
+  if (useCloudOCR && enhanceHandwriting && online && localBest < CLOUD_FALLBACK_BELOW) {
     try {
-      console.log('[OCR] Trying Google Cloud Vision (proxied)...');
-      const googleResult = await performGoogleVisionOCR(imageSource);
-      if (googleResult.text) {
-        results.push(googleResult);
-        console.log(`[OCR] Google Vision - Confidence: ${googleResult.confidence}%`);
-      }
+      console.log('[OCR] Local confidence low — trying GPT-4 Vision fallback...');
+      const gptResult = await performGPT4VisionOCR(imageSource, true);
+      if (gptResult.text) results.push(gptResult);
     } catch (e) {
-      console.warn('[OCR] Google Vision OCR failed/unavailable:', e);
-    }
-
-    // Try Azure CV (also good at handwriting)
-    if (azureEndpoint && azureKey) {
-      try {
-        console.log('[OCR] Trying Azure Computer Vision...');
-        const azureResult = await performAzureOCR(imageSource, azureEndpoint, azureKey);
-        results.push(azureResult);
-        console.log(`[OCR] Azure CV - Confidence: ${azureResult.confidence}%`);
-      } catch (e) {
-        console.warn('[OCR] Azure CV OCR failed:', e);
-      }
-    }
-
-    // Try GPT-4 Vision via the server proxy (best for handwriting)
-    if (enhanceHandwriting) {
-      try {
-        console.log('[OCR] Trying GPT-4 Vision (proxied)...');
-        const gptResult = await performGPT4VisionOCR(imageSource, true);
-        if (gptResult.text) {
-          results.push(gptResult);
-          console.log(`[OCR] GPT-4 Vision - Confidence: ${gptResult.confidence}%`);
-        }
-      } catch (e) {
-        console.warn('[OCR] GPT-4 Vision OCR failed/unavailable:', e);
-      }
+      console.warn('[OCR] GPT-4 Vision fallback failed/unavailable:', e);
     }
   }
 
@@ -764,19 +636,14 @@ export async function performOCR(
     throw new Error('All OCR engines failed. Please try with a clearer image.');
   }
 
-  console.log(`[OCR] Total results collected: ${results.length}`);
-
-  // Smart result selection and combination
   let bestResult = selectBestResult(results, confidence_threshold);
-
-  // Post-process for medical context
   bestResult.text = postProcessMedicalText(bestResult.text);
-  
-  // Apply additional handwriting corrections
   bestResult.text = correctHandwritingErrors(bestResult.text);
 
-  console.log(`[OCR] Final result - Engine: ${bestResult.engine}, Confidence: ${bestResult.confidence}%`);
-  console.log(`[OCR] Total processing time: ${Date.now() - startTime}ms`);
+  console.log(
+    `[OCR] Done in ${Date.now() - startTime}ms · engine ${bestResult.engine} · ` +
+      `${Math.round(bestResult.confidence)}% · ${results.length} pass(es)`
+  );
 
   return bestResult;
 }
@@ -957,10 +824,50 @@ export async function selectFromGallery(): Promise<string> {
   });
 }
 
+// Read a File/Blob as a data URL
+function fileToDataUrl(file: File | Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Select multiple images from the gallery/file picker at once.
+// Returns the selected images as data URLs (empty array if the user cancels).
+export async function selectFromGalleryMultiple(): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+
+    input.onchange = async (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []);
+      if (files.length === 0) {
+        resolve([]);
+        return;
+      }
+      try {
+        const dataUrls = await Promise.all(files.map((f) => fileToDataUrl(f)));
+        resolve(dataUrls);
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error('Failed to read files'));
+      }
+    };
+
+    input.click();
+  });
+}
+
 export default {
   performOCR,
   captureFromCamera,
   selectFromGallery,
+  selectFromGalleryMultiple,
   preprocessImage,
   performGPT4VisionOCR,
+  warmUpOcr,
+  disposeOcrWorker,
 };
