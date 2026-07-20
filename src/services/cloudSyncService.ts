@@ -111,9 +111,20 @@ function rescheduleSync(): void {
 
 // ── Per-table last-pushed timestamp (dirty-record tracking) ──
 const LAST_PUSH_PREFIX = 'astro_last_push_';
+const EPOCH_ISO = '1970-01-01T00:00:00.000Z';
 
 function getLastPushTime(tableName: string): string {
-  return localStorage.getItem(`${LAST_PUSH_PREFIX}${tableName}`) || '1970-01-01T00:00:00.000Z';
+  return localStorage.getItem(`${LAST_PUSH_PREFIX}${tableName}`) || EPOCH_ISO;
+}
+
+// Resolve a record's effective "modified" timestamp. Many tables have no
+// `updatedAt` (e.g. auditLogs→timestamp, vitalSigns→recordedAt,
+// labRequests→requestedAt); fall back through the common alternatives.
+function recordTimestamp(r: any): string | null {
+  const ts = r?.updatedAt || r?.createdAt || r?.timestamp || r?.recordedAt || r?.requestedAt || r?.modifiedAt;
+  if (!ts) return null;
+  const d = new Date(String(ts));
+  return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 function setLastPushTime(tableName: string, iso: string): void {
@@ -1171,11 +1182,17 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
         .above(lastPush)
         .toArray();
     } catch {
-      // Table may lack an updatedAt index — fall back to full scan with filter
+      // Table lacks an updatedAt index — fall back to a full scan, comparing the
+      // record's effective timestamp against the watermark. Records with NO
+      // comparable timestamp are pushed only on the very first sync (epoch
+      // watermark), then treated as synced; otherwise they would be re-pushed on
+      // every cycle forever (this was hammering auditLogs/vitalSigns/labRequests
+      // and burning the Supabase quota).
       const all = await (db as any)[localTableName].toArray();
       localRecords = all.filter((r: any) => {
-        const ts = r.updatedAt || r.createdAt;
-        return !ts || new Date(String(ts)).toISOString() > lastPush;
+        const ts = recordTimestamp(r);
+        if (!ts) return lastPush === EPOCH_ISO;
+        return ts > lastPush;
       });
     }
 
