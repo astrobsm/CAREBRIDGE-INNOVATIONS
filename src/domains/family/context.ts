@@ -1,5 +1,5 @@
 import { useOutletContext } from 'react-router-dom';
-import type { FamilyParent } from '../types';
+import type { FamilyParent } from './types';
 
 export interface FamilyCtx { parent: FamilyParent }
 

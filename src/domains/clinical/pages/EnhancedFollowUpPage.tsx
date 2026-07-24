@@ -629,11 +629,11 @@ export default function EnhancedFollowUpPage() {
       };
       // Append prior-plan review acknowledgement to notes for medico-legal audit trail
       if (planAckSummary && (planAckSummary.executedCount + planAckSummary.missedCount + planAckSummary.outstandingCount) > 0) {
-        const ackLine = `\n\n[Prior Plan Review acknowledged by ${user.name || user.id} at ${planAckSummary.acknowledgedAt.toISOString()} \u2014 ${planAckSummary.executedCount} executed, ${planAckSummary.missedCount} missed, ${planAckSummary.outstandingCount} outstanding]`;
+        const ackLine = `\n\n[Prior Plan Review acknowledged by ${`${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.id} at ${planAckSummary.acknowledgedAt.toISOString()} \u2014 ${planAckSummary.executedCount} executed, ${planAckSummary.missedCount} missed, ${planAckSummary.outstandingCount} outstanding]`;
         encounter.notes = (encounter.notes || '') + ackLine;
       }
       if (rxAckSummary && medications.length > 0 && (rxAckSummary.activeCount + rxAckSummary.dispensedCount + rxAckSummary.discontinuedCount) > 0) {
-        const rxLine = `\n[Prescription History reviewed by ${user.name || user.id} at ${rxAckSummary.acknowledgedAt.toISOString()} \u2014 ${rxAckSummary.activeCount} active, ${rxAckSummary.dispensedCount} dispensed, ${rxAckSummary.discontinuedCount} discontinued lines acknowledged]`;
+        const rxLine = `\n[Prescription History reviewed by ${`${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.id} at ${rxAckSummary.acknowledgedAt.toISOString()} \u2014 ${rxAckSummary.activeCount} active, ${rxAckSummary.dispensedCount} dispensed, ${rxAckSummary.discontinuedCount} discontinued lines acknowledged]`;
         encounter.notes = (encounter.notes || '') + rxLine;
       }
       await db.clinicalEncounters.put(encounter);

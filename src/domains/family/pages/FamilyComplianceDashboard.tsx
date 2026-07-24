@@ -50,7 +50,7 @@ export default function FamilyComplianceDashboard() {
     ]);
     if (cRes.error) toast.error(cRes.error.message);
     if (lRes.error) toast.error(lRes.error.message);
-    const all = (lRes.data as LogRow[]) || [];
+    const all = (lRes.data as unknown as LogRow[]) || [];
     // Filter to this parent's routines (PostgREST returns the embed; we drop rows whose routine.parent_id mismatches)
     const filtered = all.filter(r => {
       // routine embed may be missing for rows after deletion; keep them out

@@ -10,7 +10,6 @@ export function subscribeFamilyChanges(parentId: string, onChange: Handler): () 
   const channel: RealtimeChannel = supabase
     .channel(`family-${parentId}`)
     .on(
-      // @ts-expect-error - postgres_changes event is supported at runtime
       'postgres_changes',
       { event: '*', schema: 'family' },
       (payload: { table?: string; eventType?: string }) => {

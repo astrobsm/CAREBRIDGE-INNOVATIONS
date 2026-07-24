@@ -138,14 +138,20 @@ const navigation: NavItem[] = [
       { name: 'Vital Signs', href: '/patients' },
     ],
   },
-  { 
-    name: 'Wounds', 
-    href: '/wounds', 
+  {
+    name: 'Wounds',
+    href: '/wounds',
     icon: <CircleDot size={20} />,
     permission: 'manage_wounds',
   },
-  { 
-    name: 'Burns', 
+  {
+    name: 'Wound Monitor',
+    href: '/wound-monitor',
+    icon: <Activity size={20} />,
+    permission: 'manage_wounds',
+  },
+  {
+    name: 'Burns',
     href: '/burns', 
     icon: <Flame size={20} />,
     permission: 'manage_wounds',
@@ -392,6 +398,7 @@ const SECTION_BY_HREF: Record<string, string> = {
   '/billing/surgical-estimate': 'theatre',
   // Wound Care
   '/wounds': 'wound-care',
+  '/wound-monitor': 'wound-care',
   '/burns': 'wound-care',
   '/limb-salvage': 'wound-care',
   '/npwt': 'wound-care',

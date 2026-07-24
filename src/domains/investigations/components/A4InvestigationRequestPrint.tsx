@@ -99,7 +99,7 @@ const A4InvestigationRequestPrint = ({ bundle, patient }: Props) => {
 
       {/* Categories */}
       {INVESTIGATION_CATALOG.map((cat) => (
-        <div key={cat.id} style={{ marginBottom: 6, breakInside: 'avoid' }}>
+        <div key={cat.category} style={{ marginBottom: 6, breakInside: 'avoid' }}>
           <div
             style={{
               backgroundColor: '#eee',
@@ -112,8 +112,8 @@ const A4InvestigationRequestPrint = ({ bundle, patient }: Props) => {
             {cat.title}
           </div>
           {cat.groups.map((grp) => (
-            <div key={grp.title} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '2px 6px' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '9pt', marginTop: 2 }}>{grp.title}</div>
+            <div key={grp.group} style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '2px 6px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '9pt', marginTop: 2 }}>{grp.group}</div>
               <div style={{ columns: 2, columnGap: '8mm', fontSize: '9pt' }}>
                 {grp.items.map((it) => {
                   const checked = tickedSet.has(it.code);

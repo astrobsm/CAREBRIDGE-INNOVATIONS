@@ -20,7 +20,7 @@ const ThermalReceipt80mm = ({ bundle, patient }: Props) => {
     (tickedByCat[it.category] = tickedByCat[it.category] || []).push(it);
   });
 
-  const catTitle = (id: string) => INVESTIGATION_CATALOG.find((c) => c.id === id)?.title || id;
+  const catTitle = (id: string) => INVESTIGATION_CATALOG.find((c) => c.category === id)?.title || id;
 
   return (
     <div

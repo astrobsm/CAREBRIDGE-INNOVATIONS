@@ -27,7 +27,6 @@ let syncState: CloudSyncState = {
 const syncListeners: Set<(state: CloudSyncState) => void> = new Set();
 let realtimeChannels: RealtimeChannel[] = [];
 let syncInterval: ReturnType<typeof setTimeout> | null = null;
-let criticalSyncInterval: ReturnType<typeof setInterval> | null = null;
 
 // ===== Incremental sync tracking =====
 // Only pull/push records changed since the last successful sync
@@ -430,16 +429,10 @@ export function initCloudSync() {
       console.error('[CloudSync] Initial sync failed:', err);
     });
     
-    // Set up periodic sync (starts at 5 min, backs off on failures)
+    // Single periodic sync loop (backs off on failures). fullSync already pulls
+    // every table — including the critical clinical ones — so there is no
+    // separate critical-data poller; realtime subscriptions handle immediacy.
     rescheduleSync();
-
-    // Set up polling for critical clinical data every 2 minutes
-    // Real-time subscriptions handle immediate updates; this is a safety net
-    criticalSyncInterval = setInterval(() => {
-      if (navigator.onLine && isSupabaseConfigured() && !isSupabasePaymentPaused()) {
-        syncCriticalClinicalData();
-      }
-    }, 120000);
   } else {
     console.log('[CloudSync] Skipping sync - not online or Supabase not configured');
   }
@@ -869,7 +862,11 @@ async function pullAllFromCloud(): Promise<void> {
   
   // Scanned Documents (OCR) - page images kept local; metadata/PDF/text sync
   await pullTable(TABLES.scannedDocuments, 'scannedDocuments');
-  
+
+  // WoundProgress Monitor (longitudinal wound identity + serial assessments)
+  await pullTable(TABLES.monitoredWounds, 'monitoredWounds');
+  await pullTable(TABLES.woundAssessments, 'woundAssessments');
+
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
   
@@ -1023,7 +1020,11 @@ async function pushAllToCloud(): Promise<void> {
   
   // Scanned Documents (OCR)
   await pushTable('scannedDocuments', TABLES.scannedDocuments);
-  
+
+  // WoundProgress Monitor (longitudinal wound identity + serial assessments)
+  await pushTable('monitoredWounds', TABLES.monitoredWounds);
+  await pushTable('woundAssessments', TABLES.woundAssessments);
+
   // Audit Logs (for accountability across devices)
   await pushTable('auditLogs', TABLES.auditLogs);
 }
@@ -1327,28 +1328,6 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
     }
   } catch (error) {
     console.error(`[CloudSync] Failed to push ${localTableName}:`, error);
-  }
-}
-
-// Sync critical clinical data more frequently for cross-device consistency
-async function syncCriticalClinicalData() {
-  if (!isSupabaseConfigured() || !supabase) return;
-  
-  const criticalTables = [
-    { cloud: TABLES.vitalSigns, local: 'vitalSigns' },
-    { cloud: TABLES.clinicalEncounters, local: 'clinicalEncounters' },
-    { cloud: TABLES.wardRounds, local: 'wardRounds' },
-    { cloud: TABLES.prescriptions, local: 'prescriptions' },
-    { cloud: TABLES.medicationCharts, local: 'medicationCharts' },
-    { cloud: TABLES.labRequests, local: 'labRequests' },
-  ];
-
-  for (const { cloud, local } of criticalTables) {
-    try {
-      await pullTable(cloud, local);
-    } catch (err) {
-      console.warn(`[CloudSync] Failed to sync critical table ${local}:`, err);
-    }
   }
 }
 
@@ -1741,6 +1720,9 @@ function getCloudTableName(localTableName: string): string | null {
     publicClinicBookings: TABLES.publicClinicBookings,
     // Scanned Documents (OCR)
     scannedDocuments: TABLES.scannedDocuments,
+    // WoundProgress Monitor
+    monitoredWounds: TABLES.monitoredWounds,
+    woundAssessments: TABLES.woundAssessments,
   };
   return mapping[localTableName] || null;
 }
@@ -1889,10 +1871,6 @@ export function cleanupCloudSync() {
   if (syncInterval) {
     clearInterval(syncInterval);
     syncInterval = null;
-  }
-  if (criticalSyncInterval) {
-    clearInterval(criticalSyncInterval);
-    criticalSyncInterval = null;
   }
   // Clear echo-back tracking
   recentlySyncedIds.clear();

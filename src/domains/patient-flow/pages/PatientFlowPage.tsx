@@ -537,10 +537,10 @@ function InpatientTab({ admissions, patientMap, search, navigate }: InpatientTab
                     <div className="font-medium text-gray-900">{name}</div>
                     <div className="text-xs text-gray-600">
                       {a.admissionNumber ?? '—'} · {a.wardType ?? 'ward'} · Day {days + 1}
-                      {a.severity && a.severity !== 'stable' && (
+                      {a.severity && a.severity !== 'mild' && (
                         <span className={`ml-2 px-1.5 py-0.5 rounded ${
                           a.severity === 'critical' ? 'bg-red-100 text-red-700' :
-                          a.severity === 'serious' ? 'bg-amber-100 text-amber-700' :
+                          a.severity === 'severe' ? 'bg-amber-100 text-amber-700' :
                           'bg-gray-100 text-gray-700'
                         }`}>{a.severity}</span>
                       )}

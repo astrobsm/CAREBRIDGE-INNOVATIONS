@@ -12,7 +12,7 @@ const TYPES = ['Treasury Bills', 'Real Estate', 'Business', 'Stocks', 'Mutual Fu
 const schema = z.object({
   type: z.string().min(1),
   amount: z.coerce.number().positive(),
-  roi: z.coerce.number().min(0).default(0),
+  roi: z.coerce.number().min(0),
   note: z.string().optional(),
 });
 

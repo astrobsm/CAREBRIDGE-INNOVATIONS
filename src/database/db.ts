@@ -88,6 +88,7 @@ import type {
   ScannedDocument,
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
+import type { MonitoredWound, WoundAssessment } from '../domains/wounds/monitorTypes';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
 import type { LymphedemaAssessment, LymphedemaMonitoringRecord, PostOpLymphedemaMonitoring } from '../domains/lymphedema/types';
 import type {
@@ -223,6 +224,9 @@ export class AstroHEALTHDatabase extends Dexie {
   financeAuditLogs!: Table<FinanceAuditLog, string>;
   // Scanned Documents (OCR Document Scanner)
   scannedDocuments!: Table<ScannedDocument, string>;
+  // WoundProgress Monitor — longitudinal wound identity + serial assessments
+  monitoredWounds!: Table<MonitoredWound, string>;
+  woundAssessments!: Table<WoundAssessment, string>;
 
   constructor() {
     super('AstroHEALTHDB');
@@ -360,6 +364,12 @@ export class AstroHEALTHDatabase extends Dexie {
     this.version(80).stores({
       scannedDocuments:
         'id, patientId, hospitalId, wardRoundId, encounterId, admissionId, documentType, createdBy, createdAt',
+    });
+
+    // v81 – WoundProgress Monitor (longitudinal wound identity + serial assessments)
+    this.version(81).stores({
+      monitoredWounds: 'id, patientId, hospitalId, status, createdBy, createdAt, updatedAt',
+      woundAssessments: 'id, woundId, patientId, assessedBy, assessedAt, createdAt, updatedAt',
     });
   }
 }

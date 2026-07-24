@@ -84,7 +84,7 @@ const InvestigationRequestForm = () => {
     setItems(map);
     setDiagnosis(existingBundle.diagnosis || '');
     setAffectedSide(existingBundle.affectedSide || 'na');
-    setPriority(existingBundle.priority);
+    setPriority(existingBundle.priority === 'stat' ? 'STAT' : existingBundle.priority);
     setClinicalNotes(existingBundle.clinicalNotes || '');
     setClinicianDesignation(existingBundle.clinicianDesignation || '');
     setClinicianBleep(existingBundle.clinicianBleep || '');
@@ -178,7 +178,7 @@ const InvestigationRequestForm = () => {
       clinicianBleep,
       diagnosis,
       affectedSide,
-      priority,
+      priority: priority === 'STAT' ? 'stat' : priority,
       clinicalNotes,
       items: finalItems,
       status,
@@ -379,14 +379,14 @@ const InvestigationRequestForm = () => {
 
         {/* Catalog categories */}
         {INVESTIGATION_CATALOG.map((cat) => (
-          <div key={cat.id} className="bg-white rounded-lg shadow p-4 mb-4">
+          <div key={cat.category} className="bg-white rounded-lg shadow p-4 mb-4">
             <h2 className="text-lg font-bold text-primary-700 flex items-center gap-2 mb-3">
               <Activity className="w-5 h-5" />
               {cat.title}
             </h2>
             {cat.groups.map((grp) => (
-              <div key={grp.title} className="mb-4 last:mb-0">
-                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2">{grp.title}</h3>
+              <div key={grp.group} className="mb-4 last:mb-0">
+                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2">{grp.group}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {grp.items.map((it) => {
                     const sel = items[it.code]?.ticked || false;
@@ -401,7 +401,7 @@ const InvestigationRequestForm = () => {
                           <input
                             type="checkbox"
                             checked={sel}
-                            onChange={() => toggleItem(cat.id as any, grp.title, it.code, it.name)}
+                            onChange={() => toggleItem(cat.category as any, grp.group, it.code, it.name)}
                             disabled={submitted}
                             className="mt-0.5"
                           />

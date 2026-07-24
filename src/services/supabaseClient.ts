@@ -177,6 +177,10 @@ export const TABLES = {
 
   // Scanned Documents (OCR)
   scannedDocuments: 'scanned_documents',
+
+  // WoundProgress Monitor (longitudinal wound identity + serial assessments)
+  monitoredWounds: 'monitored_wounds',
+  woundAssessments: 'wound_assessments',
 } as const;
 
 // Local to cloud table name mapping
@@ -278,6 +282,9 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   publicClinicBookings: 'public_clinic_bookings',
   // Scanned Documents (OCR)
   scannedDocuments: 'scanned_documents',
+  // WoundProgress Monitor
+  monitoredWounds: 'monitored_wounds',
+  woundAssessments: 'wound_assessments',
 };
 
 // Type for sync status

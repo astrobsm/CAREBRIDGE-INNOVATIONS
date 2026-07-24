@@ -30,6 +30,7 @@ import PostOperativeNotePage from './domains/surgery/pages/PostOperativeNotePage
 import PostOpNotesListPage from './domains/surgery/pages/PostOpNotesListPage';
 import PostOpNoteFormPage from './domains/surgery/pages/PostOpNoteFormPage';
 import WoundsPage from './domains/wounds/pages/WoundsPage';
+import WoundProgressMonitorPage from './domains/wounds/pages/WoundProgressMonitorPage';
 import BurnsAssessmentPage from './domains/burns/pages/BurnsAssessmentPage';
 import LaboratoryPage from './domains/laboratory/pages/LaboratoryPage';
 import PharmacyPage from './domains/pharmacy/pages/PharmacyPage';
@@ -226,6 +227,7 @@ function App() {
         <Route path="patients/:patientId/investigations/request/new" element={<InvestigationRequestForm />} />
         <Route path="investigation-requests/:bundleId" element={<InvestigationRequestForm />} />
         <Route path="wounds" element={<WoundsPage />} />
+        <Route path="wound-monitor" element={<WoundProgressMonitorPage />} />
         <Route path="burns" element={<BurnsAssessmentPage />} />
         <Route path="limb-salvage" element={<LimbSalvagePage />} />
         <Route path="npwt" element={<NPWTPage />} />

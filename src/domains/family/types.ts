@@ -1,5 +1,9 @@
 // Family domain types — matches columns in supabase-family-app-migration.sql
 
+// Compliance evaluation result lives with the compliance service; re-exported
+// here so consumers can import it alongside the other family types.
+export type { DayStatus } from './services/compliance';
+
 export interface FamilyParent {
   id: string;
   email: string;

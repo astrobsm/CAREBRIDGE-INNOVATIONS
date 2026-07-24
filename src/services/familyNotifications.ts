@@ -46,7 +46,6 @@ export function useFamilyNotifications(userId: string | null | undefined): void 
     const channel = supabase
       .channel(`family-notif-${userId}`)
       .on(
-        // @ts-expect-error postgres_changes is supported at runtime
         'postgres_changes',
         { event: 'INSERT', schema: 'family', table: 'notifications', filter: `user_id=eq.${userId}` },
         (payload: NotifPayload) => {
