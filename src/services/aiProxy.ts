@@ -58,3 +58,38 @@ export async function proxyVision(
   const data = await res.json();
   return (data.text || '').trim();
 }
+
+/**
+ * Ask a structured question about an image and get parsed JSON back.
+ *
+ * Unlike `proxyVision` (which is OCR — "what text is in this image"), this
+ * sends a caller-supplied system prompt and asks the model for a JSON document.
+ * Used by the WoundProgress Monitor to enrich an on-device measurement with a
+ * qualitative wound-bed assessment.
+ *
+ * Throws on transport/HTTP failure or unparseable output, so callers can decide
+ * whether to degrade — the wound monitor treats any failure as "no enrichment"
+ * and keeps its on-device result.
+ */
+export async function proxyVisionJson<T = unknown>(
+  imageDataUrl: string,
+  system: string,
+  userText?: string,
+  opts: { signal?: AbortSignal } = {}
+): Promise<T> {
+  const res = await fetch('/api/ai-vision', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: 'openai', imageDataUrl, system, userText, jsonMode: true }),
+    signal: opts.signal,
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, 'Vision analysis failed'));
+  const data = await res.json();
+  const raw = (data.text || '').trim();
+  if (!raw) throw new Error('Vision analysis returned an empty response');
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    throw new Error('Vision analysis returned malformed JSON');
+  }
+}

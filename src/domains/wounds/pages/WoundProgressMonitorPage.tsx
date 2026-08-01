@@ -24,7 +24,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Patient } from '../../../types';
-import { aiWoundMeasurement, type WoundProgressEntry } from '../services/aiWoundMeasurement';
+import { aiWoundMeasurement, type WoundProgressEntry, type AiWoundAssessment } from '../services/aiWoundMeasurement';
 import {
   listWounds, getWoundTimeline, getMonitorDashboard, createWound, addAssessment,
   computeHealingAnalytics, healingAlerts, HEALING_STATUS_META,
@@ -665,10 +665,24 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
   const [m, setM] = useState<Partial<WoundAssessment>>({});
   const [scaleReliable, setScaleReliable] = useState(false);
   const [calibType, setCalibType] = useState('reference-card');
+  // Optional Vision enrichment layer — supplements the on-device measurement.
+  const [visionState, setVisionState] = useState<'idle' | 'running' | 'done' | 'unavailable'>('idle');
+  const [vision, setVision] = useState<AiWoundAssessment | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  // Set once the clinician edits a field, so the async enrichment never
+  // overwrites something a human has already typed.
+  const editedRef = useRef(false);
 
   const analyzePhoto = async (file: File) => {
     setAnalyzing(true);
     setError('');
+    setVision(null);
+    setVisionState('idle');
+    setWarnings([]);
+    editedRef.current = false;
+
+    let result: Awaited<ReturnType<typeof aiWoundMeasurement.measureWound>>;
+    let dataUrl = '';
     try {
       const bitmap = await createImageBitmap(file);
       const canvas = document.createElement('canvas');
@@ -676,14 +690,16 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(bitmap, 0, 0);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      dataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
       await aiWoundMeasurement.initialize();
       // measureWound auto-detects the calibration marker internally (green
       // marker → grid → ruler → fallback) and reports scaleReliable, so no
       // manual calibration step is needed here.
-      const result = await aiWoundMeasurement.measureWound(imageData);
+      result = await aiWoundMeasurement.measureWound(imageData);
       setScaleReliable(Boolean(result.scaleReliable));
       setCalibType(result.calibrationMethod || 'reference-card');
+      setWarnings(result.warnings || []);
       setM({
         lengthCm: round(result.length),
         widthCm: round(result.width),
@@ -699,8 +715,38 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
     } catch (e: any) {
       setError(e?.message || 'Could not analyse the image. Try manual entry.');
       setMode('manual');
-    } finally {
       setAnalyzing(false);
+      return;
+    }
+    // The measurement is complete and editable from here — the enrichment pass
+    // below must never block the clinician.
+    setAnalyzing(false);
+
+    setVisionState('running');
+    const ai = await aiWoundMeasurement.analyzeWithAI(dataUrl, wound.patientId, {
+      woundRecordId: wound.id,
+      calibrationType: result.calibrationMethod,
+      calibrationValue: result.scaleReliable ? 'calibrated on-device' : undefined,
+    });
+    if (!ai) { setVisionState('unavailable'); return; }
+
+    // Geometry stays with the calibrated on-device result; mergeAiAssessment
+    // takes only the qualitative read and flags any size disagreement.
+    const merged = aiWoundMeasurement.mergeAiAssessment(result, ai);
+    setVision(ai);
+    setWarnings(merged.warnings || []);
+    setVisionState('done');
+
+    if (!editedRef.current && merged.tissue) {
+      setM(prev => ({
+        ...prev,
+        granulationPct: round(merged.tissue!.granulation),
+        sloughPct: round(merged.tissue!.slough),
+        necroticPct: round(merged.tissue!.necrotic),
+        epithelialPct: round(merged.tissue!.epithelial),
+        healingStage: ai.healing_stage || prev.healingStage,
+        clinicalDescription: prev.clinicalDescription || visionSummary(ai),
+      }));
     }
   };
 
@@ -723,6 +769,7 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
         sloughPct: numOrNull(m.sloughPct),
         necroticPct: numOrNull(m.necroticPct),
         epithelialPct: numOrNull(m.epithelialPct),
+        healingStage: m.healingStage,
         clinicalDescription: m.clinicalDescription,
         aiConfidence: Number(m.aiConfidence) || 0,
         calibrationType: calibType,
@@ -738,7 +785,10 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
     }
   };
 
-  const setField = (k: keyof WoundAssessment, v: string) => setM(prev => ({ ...prev, [k]: v === '' ? undefined : Number(v) }));
+  const setField = (k: keyof WoundAssessment, v: string) => {
+    editedRef.current = true;
+    setM(prev => ({ ...prev, [k]: v === '' ? undefined : Number(v) }));
+  };
 
   return (
     <Modal title="New assessment" onClose={onClose} wide>
@@ -767,6 +817,50 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
               {scaleReliable ? '✓ Calibrated measurement' : '⚠ No reliable calibration marker — size is approximate. Confirm below.'}
             </p>
           )}
+
+          {/* Vision enrichment status. Absence is normal (offline / not
+              configured), so it is stated plainly rather than as an error. */}
+          {visionState === 'running' && (
+            <p className="text-xs mt-1 text-gray-500 flex items-center gap-1.5">
+              <Loader2 className="w-3 h-3 animate-spin" /> Adding clinical assessment…
+            </p>
+          )}
+          {visionState === 'unavailable' && (
+            <p className="text-xs mt-1 text-gray-400">
+              Clinical assessment unavailable offline — on-device measurement only.
+            </p>
+          )}
+
+          {warnings.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {warnings.map((w, i) => (
+                <li key={i} className="text-xs text-amber-700 flex gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />{w}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {vision && (
+            <div className="mt-3 rounded-lg border border-teal-200 bg-teal-50/60 p-3 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-teal-800">Clinical assessment (AI — confirm before saving)</span>
+                {vision.confidence != null && (
+                  <span className="text-xs text-teal-700">{Math.round(Number(vision.confidence) * 100)}% confidence</span>
+                )}
+              </div>
+              {vision.healing_stage && <VisionRow label="Healing stage" value={vision.healing_stage} />}
+              {vision.edges && <VisionRow label="Edges" value={vision.edges} />}
+              {vision.exudate && <VisionRow label="Exudate" value={[vision.exudate, vision.exudate_type].filter(Boolean).join(' · ')} />}
+              {vision.surrounding_skin && <VisionRow label="Periwound skin" value={vision.surrounding_skin} />}
+              {!!vision.signs_of_infection?.length && (
+                <p className="text-xs text-red-700 flex gap-1.5 pt-0.5">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  Possible infection: {vision.signs_of_infection.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -784,7 +878,8 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
 
       <Field label="Clinical description (optional)">
         <textarea
-          value={m.clinicalDescription || ''} onChange={e => setM(prev => ({ ...prev, clinicalDescription: e.target.value }))}
+          value={m.clinicalDescription || ''}
+          onChange={e => { editedRef.current = true; setM(prev => ({ ...prev, clinicalDescription: e.target.value })); }}
           rows={2} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Wound bed, edges, exudate, periwound skin…"
         />
       </Field>
@@ -826,6 +921,27 @@ const Modal: React.FC<{ title: string; onClose: () => void; children: React.Reac
     </div>
   </div>
 );
+
+const VisionRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <p className="text-xs text-gray-700"><span className="text-gray-500">{label}:</span> {value}</p>
+);
+
+/**
+ * Condense the Vision assessment into a clinical description the clinician can
+ * edit. Only the descriptive findings — never the AI's own size estimate, which
+ * is a cross-check and not the recorded measurement.
+ */
+function visionSummary(ai: AiWoundAssessment): string {
+  const parts = [
+    ai.color_assessment ? `Wound bed: ${ai.color_assessment}.` : '',
+    ai.edges ? `Edges: ${ai.edges}.` : '',
+    ai.exudate ? `Exudate: ${[ai.exudate, ai.exudate_type].filter(Boolean).join(', ')}.` : '',
+    ai.surrounding_skin ? `Periwound skin: ${ai.surrounding_skin}.` : '',
+    ai.signs_of_infection?.length ? `Possible infection: ${ai.signs_of_infection.join(', ')}.` : '',
+    ai.observations || '',
+  ].filter(Boolean);
+  return parts.join(' ').trim();
+}
 
 function round(v: number): number { return Math.round(v * 10) / 10; }
 function numOrNull(v: any): number | null { const n = Number(v); return Number.isFinite(n) ? n : null; }
