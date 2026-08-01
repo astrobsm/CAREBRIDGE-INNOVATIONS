@@ -181,6 +181,13 @@ export const TABLES = {
   // WoundProgress Monitor (longitudinal wound identity + serial assessments)
   monitoredWounds: 'monitored_wounds',
   woundAssessments: 'wound_assessments',
+
+  // Tumour Board (multidisciplinary oncology)
+  tumourBoardCases: 'tumour_board_cases',
+  tumourBoardAssessments: 'tumour_board_assessments',
+  tumourBoardPlans: 'tumour_board_plans',
+  tumourBoardReferrals: 'tumour_board_referrals',
+  tumourBoardSurveillance: 'tumour_board_surveillance',
 } as const;
 
 // Local to cloud table name mapping
@@ -285,6 +292,12 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   // WoundProgress Monitor
   monitoredWounds: 'monitored_wounds',
   woundAssessments: 'wound_assessments',
+  // Tumour Board
+  tumourBoardCases: 'tumour_board_cases',
+  tumourBoardAssessments: 'tumour_board_assessments',
+  tumourBoardPlans: 'tumour_board_plans',
+  tumourBoardReferrals: 'tumour_board_referrals',
+  tumourBoardSurveillance: 'tumour_board_surveillance',
 };
 
 // Type for sync status

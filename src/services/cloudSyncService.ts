@@ -867,6 +867,13 @@ async function pullAllFromCloud(): Promise<void> {
   await pullTable(TABLES.monitoredWounds, 'monitoredWounds');
   await pullTable(TABLES.woundAssessments, 'woundAssessments');
 
+  // Tumour Board (oncology cases + append-only staging timeline and artefacts)
+  await pullTable(TABLES.tumourBoardCases, 'tumourBoardCases');
+  await pullTable(TABLES.tumourBoardAssessments, 'tumourBoardAssessments');
+  await pullTable(TABLES.tumourBoardPlans, 'tumourBoardPlans');
+  await pullTable(TABLES.tumourBoardReferrals, 'tumourBoardReferrals');
+  await pullTable(TABLES.tumourBoardSurveillance, 'tumourBoardSurveillance');
+
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
   
@@ -1024,6 +1031,13 @@ async function pushAllToCloud(): Promise<void> {
   // WoundProgress Monitor (longitudinal wound identity + serial assessments)
   await pushTable('monitoredWounds', TABLES.monitoredWounds);
   await pushTable('woundAssessments', TABLES.woundAssessments);
+
+  // Tumour Board (oncology cases + append-only staging timeline and artefacts)
+  await pushTable('tumourBoardCases', TABLES.tumourBoardCases);
+  await pushTable('tumourBoardAssessments', TABLES.tumourBoardAssessments);
+  await pushTable('tumourBoardPlans', TABLES.tumourBoardPlans);
+  await pushTable('tumourBoardReferrals', TABLES.tumourBoardReferrals);
+  await pushTable('tumourBoardSurveillance', TABLES.tumourBoardSurveillance);
 
   // Audit Logs (for accountability across devices)
   await pushTable('auditLogs', TABLES.auditLogs);
@@ -1723,6 +1737,12 @@ function getCloudTableName(localTableName: string): string | null {
     // WoundProgress Monitor
     monitoredWounds: TABLES.monitoredWounds,
     woundAssessments: TABLES.woundAssessments,
+    // Tumour Board
+    tumourBoardCases: TABLES.tumourBoardCases,
+    tumourBoardAssessments: TABLES.tumourBoardAssessments,
+    tumourBoardPlans: TABLES.tumourBoardPlans,
+    tumourBoardReferrals: TABLES.tumourBoardReferrals,
+    tumourBoardSurveillance: TABLES.tumourBoardSurveillance,
   };
   return mapping[localTableName] || null;
 }

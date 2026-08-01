@@ -89,6 +89,13 @@ import type {
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { MonitoredWound, WoundAssessment } from '../domains/wounds/monitorTypes';
+import type {
+  TumourBoardCase,
+  TumourBoardAssessment,
+  TumourBoardPlan,
+  TumourBoardReferral,
+  TumourBoardSurveillanceItem,
+} from '../domains/tumour-board/tumourBoardTypes';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
 import type { LymphedemaAssessment, LymphedemaMonitoringRecord, PostOpLymphedemaMonitoring } from '../domains/lymphedema/types';
 import type {
@@ -227,6 +234,12 @@ export class AstroHEALTHDatabase extends Dexie {
   // WoundProgress Monitor — longitudinal wound identity + serial assessments
   monitoredWounds!: Table<MonitoredWound, string>;
   woundAssessments!: Table<WoundAssessment, string>;
+  // Tumour Board — oncology cases + append-only staging timeline and artefacts
+  tumourBoardCases!: Table<TumourBoardCase, string>;
+  tumourBoardAssessments!: Table<TumourBoardAssessment, string>;
+  tumourBoardPlans!: Table<TumourBoardPlan, string>;
+  tumourBoardReferrals!: Table<TumourBoardReferral, string>;
+  tumourBoardSurveillance!: Table<TumourBoardSurveillanceItem, string>;
 
   constructor() {
     super('AstroHEALTHDB');
@@ -370,6 +383,18 @@ export class AstroHEALTHDatabase extends Dexie {
     this.version(81).stores({
       monitoredWounds: 'id, patientId, hospitalId, status, createdBy, createdAt, updatedAt',
       woundAssessments: 'id, woundId, patientId, assessedBy, assessedAt, createdAt, updatedAt',
+    });
+
+    // v82 – Tumour Board (multidisciplinary oncology: staging, plan, referrals,
+    // surveillance). `tumourBoardAssessments` is append-only — a case is staged
+    // clinically, re-staged on histology, and re-staged post-neoadjuvant, and
+    // every version is kept.
+    this.version(82).stores({
+      tumourBoardCases: 'id, patientId, hospitalId, tumorFamily, status, createdBy, createdAt, updatedAt',
+      tumourBoardAssessments: 'id, caseId, patientId, basis, assessedBy, assessedAt, createdAt, updatedAt',
+      tumourBoardPlans: 'id, caseId, patientId, assessmentId, createdAt, updatedAt',
+      tumourBoardReferrals: 'id, caseId, patientId, planId, specialty, status, createdAt, updatedAt',
+      tumourBoardSurveillance: 'id, caseId, patientId, dueDate, status, createdAt, updatedAt',
     });
   }
 }

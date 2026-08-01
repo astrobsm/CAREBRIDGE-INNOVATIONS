@@ -35,6 +35,7 @@ import {
   Presentation,
   HeartPulse,
   Heart,
+  Microscope,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -110,10 +111,16 @@ const navigation: NavItem[] = [
     icon: <Activity size={20} />,
     permission: 'create_encounters',
   },
-  { 
-    name: 'MDT', 
-    href: '/mdt', 
+  {
+    name: 'MDT',
+    href: '/mdt',
     icon: <Users size={20} />,
+    permission: 'create_encounters',
+  },
+  {
+    name: 'Tumour Board',
+    href: '/tumour-board',
+    icon: <Microscope size={20} />,
     permission: 'create_encounters',
   },
   { 
@@ -388,6 +395,7 @@ const SECTION_BY_HREF: Record<string, string> = {
   '/pharmacy': 'inpatient',
   '/nutrition': 'inpatient',
   '/mdt': 'inpatient',
+  '/tumour-board': 'inpatient',
   '/blood-transfusion': 'inpatient',
   '/referrals': 'inpatient',
   '/post-op-care': 'inpatient',
