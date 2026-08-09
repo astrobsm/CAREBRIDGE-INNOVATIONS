@@ -89,6 +89,7 @@ import type {
 } from '../types';
 import type { DailyMedicationChart } from '../domains/medication-chart/types';
 import type { MonitoredWound, WoundAssessment } from '../domains/wounds/monitorTypes';
+import type { ClinicianAnalysis } from '../domains/clinician-assistant/services/clinicianAssistantService';
 import type {
   TumourBoardCase,
   TumourBoardAssessment,
@@ -240,6 +241,8 @@ export class AstroHEALTHDatabase extends Dexie {
   tumourBoardPlans!: Table<TumourBoardPlan, string>;
   tumourBoardReferrals!: Table<TumourBoardReferral, string>;
   tumourBoardSurveillance!: Table<TumourBoardSurveillanceItem, string>;
+  // Clinician Assistant — saved diagnostic engine analyses
+  clinicianAnalyses!: Table<ClinicianAnalysis, string>;
 
   constructor() {
     super('AstroHEALTHDB');
@@ -395,6 +398,13 @@ export class AstroHEALTHDatabase extends Dexie {
       tumourBoardPlans: 'id, caseId, patientId, assessmentId, createdAt, updatedAt',
       tumourBoardReferrals: 'id, caseId, patientId, planId, specialty, status, createdAt, updatedAt',
       tumourBoardSurveillance: 'id, caseId, patientId, dueDate, status, createdAt, updatedAt',
+    });
+
+    // v83 - Clinician Assistant. Analyses are append-only: an impression is a
+    // record of what was thought at a point in time, so it is never rewritten
+    // (a clinician's disagreement goes in `notes` beside it).
+    this.version(83).stores({
+      clinicianAnalyses: 'id, patientId, hospitalId, source, analysedBy, analysedAt, createdAt, updatedAt',
     });
   }
 }

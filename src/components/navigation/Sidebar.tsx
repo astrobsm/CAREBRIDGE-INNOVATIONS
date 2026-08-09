@@ -36,6 +36,7 @@ import {
   HeartPulse,
   Heart,
   Microscope,
+  Brain,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -152,10 +153,16 @@ const navigation: NavItem[] = [
     permission: 'manage_wounds',
   },
   {
-    name: 'Wound Monitor',
+    name: 'WoundProgress Monitor',
     href: '/wound-monitor',
     icon: <Activity size={20} />,
     permission: 'manage_wounds',
+  },
+  {
+    name: 'Clinician Assistant',
+    href: '/clinician-assistant',
+    icon: <Brain size={20} />,
+    permission: 'create_encounters',
   },
   {
     name: 'Burns',
@@ -380,6 +387,9 @@ const NAV_SECTIONS: NavSection[] = [
 const SECTION_BY_HREF: Record<string, string> = {
   '/': 'main',
   '/patients': 'main',
+  // Surfaced top-level, matching the source application's flat navigation.
+  '/wound-monitor': 'main',
+  '/clinician-assistant': 'main',
   // Outpatient Care
   '/appointments': 'outpatient',
   '/clinical': 'outpatient',
@@ -406,7 +416,6 @@ const SECTION_BY_HREF: Record<string, string> = {
   '/billing/surgical-estimate': 'theatre',
   // Wound Care
   '/wounds': 'wound-care',
-  '/wound-monitor': 'wound-care',
   '/burns': 'wound-care',
   '/limb-salvage': 'wound-care',
   '/npwt': 'wound-care',

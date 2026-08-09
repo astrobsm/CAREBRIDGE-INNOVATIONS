@@ -874,6 +874,9 @@ async function pullAllFromCloud(): Promise<void> {
   await pullTable(TABLES.tumourBoardReferrals, 'tumourBoardReferrals');
   await pullTable(TABLES.tumourBoardSurveillance, 'tumourBoardSurveillance');
 
+  // Clinician Assistant (saved diagnostic engine analyses)
+  await pullTable(TABLES.clinicianAnalyses, 'clinicianAnalyses');
+
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
   
@@ -1038,6 +1041,9 @@ async function pushAllToCloud(): Promise<void> {
   await pushTable('tumourBoardPlans', TABLES.tumourBoardPlans);
   await pushTable('tumourBoardReferrals', TABLES.tumourBoardReferrals);
   await pushTable('tumourBoardSurveillance', TABLES.tumourBoardSurveillance);
+
+  // Clinician Assistant (saved diagnostic engine analyses)
+  await pushTable('clinicianAnalyses', TABLES.clinicianAnalyses);
 
   // Audit Logs (for accountability across devices)
   await pushTable('auditLogs', TABLES.auditLogs);
@@ -1743,6 +1749,8 @@ function getCloudTableName(localTableName: string): string | null {
     tumourBoardPlans: TABLES.tumourBoardPlans,
     tumourBoardReferrals: TABLES.tumourBoardReferrals,
     tumourBoardSurveillance: TABLES.tumourBoardSurveillance,
+    // Clinician Assistant
+    clinicianAnalyses: TABLES.clinicianAnalyses,
   };
   return mapping[localTableName] || null;
 }

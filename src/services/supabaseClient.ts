@@ -188,6 +188,9 @@ export const TABLES = {
   tumourBoardPlans: 'tumour_board_plans',
   tumourBoardReferrals: 'tumour_board_referrals',
   tumourBoardSurveillance: 'tumour_board_surveillance',
+
+  // Clinician Assistant (saved diagnostic engine analyses)
+  clinicianAnalyses: 'clinician_analyses',
 } as const;
 
 // Local to cloud table name mapping
@@ -298,6 +301,8 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   tumourBoardPlans: 'tumour_board_plans',
   tumourBoardReferrals: 'tumour_board_referrals',
   tumourBoardSurveillance: 'tumour_board_surveillance',
+  // Clinician Assistant
+  clinicianAnalyses: 'clinician_analyses',
 };
 
 // Type for sync status

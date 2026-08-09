@@ -32,6 +32,7 @@ import PostOpNoteFormPage from './domains/surgery/pages/PostOpNoteFormPage';
 import WoundsPage from './domains/wounds/pages/WoundsPage';
 import WoundProgressMonitorPage from './domains/wounds/pages/WoundProgressMonitorPage';
 import TumourBoardPage from './domains/tumour-board/pages/TumourBoardPage';
+import ClinicianAssistantPage from './domains/clinician-assistant/pages/ClinicianAssistantPage';
 import BurnsAssessmentPage from './domains/burns/pages/BurnsAssessmentPage';
 import LaboratoryPage from './domains/laboratory/pages/LaboratoryPage';
 import PharmacyPage from './domains/pharmacy/pages/PharmacyPage';
@@ -222,6 +223,7 @@ function App() {
         <Route path="treatment-planning/:planId" element={<TreatmentPlanDetailPage />} />
         <Route path="mdt" element={<MDTPage />} />
         <Route path="tumour-board" element={<TumourBoardPage />} />
+        <Route path="clinician-assistant" element={<ClinicianAssistantPage />} />
         {/* Legacy/US spelling — keep the module reachable from either link. */}
         <Route path="tumor-board" element={<TumourBoardPage />} />
         <Route path="blood-transfusion" element={<BloodTransfusionPage />} />
