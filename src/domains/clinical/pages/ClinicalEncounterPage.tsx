@@ -54,6 +54,7 @@ import ClinicalCommentsSection from '../../../components/clinical/ClinicalCommen
 import { performOCR } from '../../../services/ocrService';
 import { proxyChat } from '../../../services/aiProxy';
 import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination, Investigation, Prescription, ClinicalPhoto } from '../../../types';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 const encounterSchema = z.object({
   type: z.enum(['initial', 'outpatient', 'inpatient', 'emergency', 'surgical', 'follow_up', 'home_visit']),
@@ -580,7 +581,7 @@ export default function ClinicalEncounterPage() {
 
   // Print encounter as A4 PDF - Updated to new standards
   const printEncounterA4 = async (encounter: ClinicalEncounter) => {
-    const doc = new jsPDF('p', 'mm', 'a4');
+    const doc = createSafePDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 12.7; // 0.5 inch margins
@@ -1773,7 +1774,7 @@ export default function ClinicalEncounterPage() {
           onClose={() => setShowInvestigationExport(false)}
           title="Export Investigation Requests"
           generateA4PDF={() => {
-            const doc = new jsPDF('p', 'mm', 'a4');
+            const doc = createSafePDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
             
@@ -1852,7 +1853,7 @@ export default function ClinicalEncounterPage() {
           onClose={() => setShowPrescriptionExport(false)}
           title="Export Prescriptions"
           generateA4PDF={() => {
-            const doc = new jsPDF('p', 'mm', 'a4');
+            const doc = createSafePDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
             

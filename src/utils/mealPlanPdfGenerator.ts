@@ -12,6 +12,7 @@ import {
   PDF_COLORS,
 } from './pdfUtils';
 import { PDF_FONTS } from './pdfConfig';
+import { createSafePDF } from './pdfTextSafe';
 
 // ==================== TYPES ====================
 
@@ -83,7 +84,7 @@ export interface MealPlanPDFOptions {
 // ==================== PDF GENERATOR ====================
 
 export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   

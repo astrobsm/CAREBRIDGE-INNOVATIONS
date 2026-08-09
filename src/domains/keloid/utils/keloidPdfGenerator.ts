@@ -28,6 +28,7 @@ import type {
   TriamcinoloneSchedule,
   PreTriamcinoloneTestStatus,
 } from '../types';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 /**
  * Generate a comprehensive Keloid Care Plan PDF document
@@ -37,7 +38,7 @@ export function generateKeloidCarePlanPDF(
   patient: any,
   hospital: any
 ): void {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -752,7 +753,7 @@ export function generateKeloidCarePlanPDFBlob(
   patient: any,
   hospital: any
 ): { blob: Blob; fileName: string } {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 

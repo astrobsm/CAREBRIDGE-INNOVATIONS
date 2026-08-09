@@ -44,6 +44,7 @@ import type {
   Prescription,
   AnaesthesiaType, InvestigationType
 } from '../../../types';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 // Suppress unused-import warnings for types used as type annotations only
 void (undefined as unknown as ConsumableBOM);
@@ -143,7 +144,7 @@ function generateWorkflowPDF(
   hospital: { name: string; address?: string; phone?: string },
   sections: { heading: string; rows: [string, string][] }[]
 ): void {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageW = doc.internal.pageSize.getWidth();
   const marginL = 20;
   const marginR = 20;

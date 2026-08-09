@@ -29,6 +29,7 @@ import {
   PDF_COLUMN_CONFIG,
   ensureWhiteBackground,
 } from './pdfConfig';
+import { createSafePDF } from './pdfTextSafe';
 
 // Re-export colors for backward compatibility
 // CRITICAL: All colors are RGB format for maximum compatibility
@@ -377,7 +378,7 @@ export function createBrandedPDF(
   patientInfo?: PDFPatientInfo,
   options?: { includeWatermark?: boolean }
 ): { doc: jsPDF; yPos: number } {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const { includeWatermark = false } = options || {}; // Default to no watermark for cleaner documents
   
   // CRITICAL: Ensure white background for the entire page

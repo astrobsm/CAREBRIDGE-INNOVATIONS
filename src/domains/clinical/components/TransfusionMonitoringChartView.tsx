@@ -38,6 +38,7 @@ import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import type { TransfusionMonitoringChart, TransfusionMonitoringEntry } from '../../../types';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 interface TransfusionMonitoringChartViewProps {
   chart: TransfusionMonitoringChart;
@@ -213,7 +214,7 @@ export default function TransfusionMonitoringChartView({
       });
       
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('landscape', 'mm', 'a4');
+      const pdf = createSafePDF('landscape', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       

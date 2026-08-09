@@ -30,6 +30,7 @@ import {
   extractFields,
   DOCUMENT_TYPE_LABELS,
 } from '../utils/documentClassifier';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 interface Props {
   patientId?: string;
@@ -64,7 +65,7 @@ async function buildPdf(
   fields: ScannedDocumentField[],
   fullText: string
 ): Promise<string> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = createSafePDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 10;

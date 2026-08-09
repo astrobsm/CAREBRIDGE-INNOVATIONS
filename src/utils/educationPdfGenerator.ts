@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import type { EducationCondition, EducationCategory } from '../domains/patient-education/types';
 import { PDF_COLORS, addBrandedHeader, PDFDocumentInfo } from './pdfUtils';
 import { PDF_FONTS } from './pdfConfig';
+import { createSafePDF } from './pdfTextSafe';
 
 // Helper function to add wrapped text
 const addWrappedText = (
@@ -74,7 +75,7 @@ export const downloadPatientEducationPDF = (
   patientName?: string,
   hospitalName?: string
 ): void => {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -544,7 +545,7 @@ export const downloadCategorySummaryPDF = (
   category: EducationCategory,
   hospitalName?: string
 ): void => {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -657,7 +658,7 @@ export const downloadProcedureEducationPDF = (
   patientName?: string,
   hospitalName?: string
 ): void => {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -1064,7 +1065,7 @@ export const getPatientEducationPDFDoc = (
   patientName?: string,
   hospitalName?: string
 ): jsPDF => {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -1171,7 +1172,7 @@ export const getCategorySummaryPDFDoc = (
   category: EducationCategory,
   hospitalName?: string
 ): jsPDF => {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -1264,7 +1265,7 @@ export const getProcedureEducationPDFDoc = (
   },
   hospitalName?: string
 ): jsPDF => {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   

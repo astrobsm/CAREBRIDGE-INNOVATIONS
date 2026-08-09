@@ -9,6 +9,7 @@
 import jsPDF from 'jspdf';
 import { PDF_COLORS } from './pdfUtils';
 import { PDF_FONTS } from './pdfConfig';
+import { createSafePDF } from './pdfTextSafe';
 
 // A4 dimensions in mm
 const A4_WIDTH = 210;
@@ -545,7 +546,7 @@ function generateGridReferencePage(doc: jsPDF): void {
 
 // Main export function to generate complete calibration ruler PDF
 export function generateCalibrationRulerPDF(): void {
-  const doc = new jsPDF({
+  const doc = createSafePDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',

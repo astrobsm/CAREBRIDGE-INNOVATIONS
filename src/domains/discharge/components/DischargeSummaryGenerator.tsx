@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import jsPDF from 'jspdf';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 // ============================================
 // TYPES
@@ -208,7 +209,7 @@ export default function DischargeSummaryGenerator({
 
   // Generate Discharge Summary PDF
   const generateDischargeSummaryPDF = () => {
-    const doc = new jsPDF();
+    const doc = createSafePDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPos = 20;
 
@@ -434,7 +435,7 @@ export default function DischargeSummaryGenerator({
 
   // Generate Medical Fitness Report PDF
   const generateMedicalReportPDF = () => {
-    const doc = new jsPDF();
+    const doc = createSafePDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPos = 20;
 
@@ -561,7 +562,7 @@ export default function DischargeSummaryGenerator({
 
   // Generate Medications List PDF
   const generateMedicationsPDF = () => {
-    const doc = new jsPDF();
+    const doc = createSafePDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPos = 20;
 

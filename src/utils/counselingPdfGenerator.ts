@@ -8,6 +8,7 @@ import type { ProcedureEducation, Complication } from '../data/patientEducation'
 import { complicationLikelihood } from '../data/patientEducation';
 import { addBrandedHeader, addBrandedFooter, PDFDocumentInfo, PDF_COLORS } from './pdfUtils';
 import { PDF_FONTS } from './pdfConfig';
+import { createSafePDF } from './pdfTextSafe';
 
 // Re-export types for use by consumers
 export type { ProcedureEducation, Complication };
@@ -39,7 +40,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
     includeConsentSection = true,
   } = options;
 
-  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdf = createSafePDF('p', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   
@@ -486,7 +487,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
 
 // Generate a simplified information sheet
 export function generateProcedureInfoSheet(procedure: ProcedureEducation, hospitalName: string): void {
-  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdf = createSafePDF('p', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   

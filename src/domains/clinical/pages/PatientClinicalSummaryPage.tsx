@@ -27,6 +27,7 @@ import { format, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import { db } from '../../../database';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 interface EncounterExpanded {
   [key: string]: boolean;
@@ -244,7 +245,7 @@ export default function PatientClinicalSummaryPage() {
     }
 
     try {
-      const doc = new jsPDF();
+      const doc = createSafePDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 15;
       let y = 20;

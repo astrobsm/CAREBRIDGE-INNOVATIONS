@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import { PatientCalculatorInfo, SodiumResult, DVTRiskResult, GFRResult } from '../types';
 import { addBrandedHeader, addBrandedFooter, PDF_COLORS, PDFDocumentInfo } from '../../../utils/pdfUtils';
 import { PDF_FONTS } from '../../../utils/pdfConfig';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 const PRIMARY_COLOR: [number, number, number] = PDF_COLORS.primary;
 const DANGER_COLOR: [number, number, number] = [220, 38, 38]; // Red
@@ -68,7 +69,7 @@ function addFooter(doc: jsPDF, pageNumber: number): void {
 
 // Sodium Calculator PDF
 export function generateSodiumPDF(result: SodiumResult, patientInfo: PatientCalculatorInfo): void {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -184,7 +185,7 @@ export function generateSodiumPDF(result: SodiumResult, patientInfo: PatientCalc
 
 // DVT Risk Calculator PDF
 export function generateDVTRiskPDF(result: DVTRiskResult, patientInfo: PatientCalculatorInfo): void {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -276,7 +277,7 @@ export function generateDVTRiskPDF(result: DVTRiskResult, patientInfo: PatientCa
 
 // DVT Risk Calculator PDF - Returns jsPDF doc for flexible export
 export function getDVTRiskPDFDoc(result: DVTRiskResult, patientInfo: PatientCalculatorInfo): jsPDF {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -368,7 +369,7 @@ export function getDVTRiskPDFDoc(result: DVTRiskResult, patientInfo: PatientCalc
 
 // GFR Calculator PDF
 export function generateGFRPDF(result: GFRResult, patientInfo: PatientCalculatorInfo): void {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   

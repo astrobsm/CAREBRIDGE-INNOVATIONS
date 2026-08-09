@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { PDF_COLORS, addBrandedHeader, addBrandedFooter, type PDFDocumentInfo } from './pdfUtils';
 import { PDF_FONTS, PDF_FONT_SIZES } from './pdfConfig';
 import type { Patient } from '../types';
+import { createSafePDF } from './pdfTextSafe';
 
 export interface ReferralData {
   // Referring Information
@@ -87,7 +88,7 @@ export interface ReferralData {
  * Generate Referral PDF
  */
 export async function generateReferralPDF(data: ReferralData): Promise<jsPDF> {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;

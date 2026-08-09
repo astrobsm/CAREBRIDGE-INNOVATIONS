@@ -17,6 +17,7 @@ import {
   PDF_LINE_HEIGHT,
   ensureWhiteBackground 
 } from '../../../utils/pdfConfig';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 interface ExportOptions {
   dateFrom?: string;
@@ -34,7 +35,7 @@ export async function generateExternalReviewPDF(
   reviews: ExternalReview[],
   options: ExportOptions
 ): Promise<Blob> {
-  const doc = new jsPDF({
+  const doc = createSafePDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',

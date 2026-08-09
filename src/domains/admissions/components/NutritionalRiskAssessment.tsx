@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 // MUST Score Categories
 export interface MUSTCategory {
@@ -296,7 +297,7 @@ export default function NutritionalRiskAssessment({
 
   // PDF Generation
   const generatePDF = () => {
-    const doc = new jsPDF();
+    const doc = createSafePDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPos = 20;
 

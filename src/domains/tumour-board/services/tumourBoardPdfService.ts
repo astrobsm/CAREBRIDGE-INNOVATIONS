@@ -27,6 +27,7 @@ import type { ReferralLetter } from './oncology/referralLetters';
 import type { SurveillancePlan } from './oncology/surveillance';
 import type { CounsellingDocument } from './oncology/counselling';
 import type { TumourBoardAssessment, TumourBoardCase } from '../tumourBoardTypes';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 const clean = (t: string | undefined | null): string => sanitizeTextForPDF(t || '');
 
@@ -170,7 +171,7 @@ export function generateBoardSummaryPdf(args: {
   boardDate?: string;
   ratified?: boolean;
 }): void {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   let y = header(doc, {
     title: 'Tumour Board Case Summary',
     patientName: args.patientName,
@@ -248,7 +249,7 @@ function urgencyBanner(doc: jsPDF, letter: ReferralLetter, y: number): number {
 }
 
 export function generateReferralLetterPdf(letter: ReferralLetter, meta: DocHeader): void {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   let y = header(doc, { ...meta, title: `Referral — ${letter.specialtyLabel}` });
   y = urgencyBanner(doc, letter, y);
   y = writeBlock(doc, letter.subject, y, { bold: true });
@@ -261,7 +262,7 @@ export function generateReferralLetterPdf(letter: ReferralLetter, meta: DocHeade
 /** Every letter in one file, each starting on a fresh page for separation. */
 export function generateAllReferralLettersPdf(letters: ReferralLetter[], meta: DocHeader): void {
   if (!letters.length) return;
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   letters.forEach((letter, index) => {
     if (index > 0) doc.addPage();
     let y = header(doc, { ...meta, title: `Referral — ${letter.specialtyLabel}` });
@@ -277,7 +278,7 @@ export function generateAllReferralLettersPdf(letters: ReferralLetter[], meta: D
 // ── 3. Surveillance schedule ─────────────────────────────────────────────
 
 export function generateSurveillancePdf(plan: SurveillancePlan, meta: DocHeader): void {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   let y = header(doc, { ...meta, title: 'Treatment Monitoring & Surveillance Schedule' });
 
   y = writeBlock(doc, plan.narrative, y);
@@ -303,7 +304,7 @@ export function generateSurveillancePdf(plan: SurveillancePlan, meta: DocHeader)
 // ── 4. Patient & family counselling ──────────────────────────────────────
 
 export function generateCounsellingPdf(document_: CounsellingDocument, meta: DocHeader): void {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   // No draft banner on this one: it goes home with a family, and the
   // disclaimer at the foot already says the plan may change.
   let y = header(doc, { ...meta, title: 'Information For You And Your Family', ratified: undefined });

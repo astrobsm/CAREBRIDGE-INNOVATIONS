@@ -19,6 +19,7 @@ import {
   type PDFPatientInfo,
 } from './pdfUtils';
 import { PDF_FONTS } from './pdfConfig';
+import { createSafePDF } from './pdfTextSafe';
 
 export interface InvoiceItemPDF {
   description: string;
@@ -76,7 +77,7 @@ export function generateInvoicePDF(options: InvoicePDFOptions): void {
     bankDetails,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -468,7 +469,7 @@ export function generateFeeEstimatePDF(options: FeeEstimatePDFOptions): void {
     anaesthetist,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -711,7 +712,7 @@ export function generateReceiptPDF(options: ReceiptPDFOptions): void {
     notes,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -824,7 +825,7 @@ export function getInvoicePDFBlob(options: InvoicePDFOptions): Blob {
     bankDetails,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 

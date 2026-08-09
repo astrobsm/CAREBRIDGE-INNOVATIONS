@@ -67,7 +67,7 @@ export function generateLabResultPDF(options: LabResultPDFOptions): void {
   } = options;
   void options.status;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -292,7 +292,7 @@ export function generateLabRequestFormPDF(options: LabRequestFormPDFOptions): vo
     clinicalInfo,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -627,7 +627,7 @@ export function generateClinicalEncounterPDF(options: ClinicalEncounterPDFOption
   void options.socialHistory;
   void options.notes;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -867,7 +867,7 @@ export function generateWoundAssessmentPDF(options: WoundAssessmentPDFOptions): 
   } = options;
   void options.notes;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -1124,7 +1124,7 @@ export function generateBurnsAssessmentPDF(options: BurnsAssessmentPDFOptions): 
   } = options;
   void options.notes;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -1338,7 +1338,7 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
   } = options;
   void options.notes;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -1531,7 +1531,7 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
   void options.admissionId;
   void options.notes;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -1987,7 +1987,7 @@ export function generateLimbSalvageInvestigationPDF(options: LimbSalvageInvestig
     additionalNotes,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -2448,7 +2448,7 @@ export function generatePathologyRequestPDF(options: PathologyRequestPDFOptions)
     chemotherapyHistory,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -2928,7 +2928,7 @@ export function generateLimbSalvageMinimumInvestigationPDF(options?: LimbSalvage
     // hospitalAddress available for future use
   } = options || {};
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
@@ -3694,7 +3694,7 @@ export function getLabResultPDFDoc(options: LabResultPDFOptions): jsPDF {
   } = options;
   void options.status;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -3907,7 +3907,7 @@ export function getLabRequestFormPDFDoc(options: LabRequestFormPDFOptions): jsPD
     clinicalInfo,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -4175,6 +4175,7 @@ export function getLabRequestFormPDFDoc(options: LabRequestFormPDFOptions): jsPD
 // ==================== LIMB SALVAGE COMPREHENSIVE SUMMARY + COUNSELLING PDF ====================
 
 import type { LimbSalvageAssessment } from '../types';
+import { createSafePDF } from './pdfTextSafe';
 
 export interface LimbSalvageSummaryOptions {
   assessment: LimbSalvageAssessment;
@@ -4206,7 +4207,7 @@ export function generateLimbSalvageSummaryPDF(options: LimbSalvageSummaryOptions
     preparedBy,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const leftX = 20;

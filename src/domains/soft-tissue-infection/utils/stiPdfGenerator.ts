@@ -9,6 +9,7 @@ import {
   LAB_PANELS,
   TREATMENT_PROTOCOLS,
 } from '../data/stiProtocolData';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 // ===== HELPERS =====
 function addPageHeader(doc: jsPDF, title: string, subtitle: string) {
@@ -78,7 +79,7 @@ function addTextBlock(doc: jsPDF, text: string, x: number, y: number, maxWidth: 
 
 // ===== PATIENT EDUCATION PDF =====
 export function generatePatientEducationPDF(moduleId?: string): jsPDF {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
   const contentWidth = pageWidth - 2 * margin;
@@ -175,7 +176,7 @@ export function generatePatientEducationPDF(moduleId?: string): jsPDF {
 
 // ===== LAB PANELS PDF =====
 export function generateLabPanelsPDF(panelId?: string): jsPDF {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
   const contentWidth = pageWidth - 2 * margin;
@@ -287,7 +288,7 @@ export function generateLabPanelsPDF(panelId?: string): jsPDF {
 
 // ===== TREATMENT PROTOCOL PDF =====
 export function generateTreatmentProtocolPDF(protocolId?: string): jsPDF {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
   const contentWidth = pageWidth - 2 * margin;

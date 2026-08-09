@@ -6,6 +6,7 @@ import { Calculator, AlertTriangle, Droplets, Activity, Thermometer, FileText, S
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import { PatientCalculatorInfo, SickleCellResult } from '../../types';
+import { createSafePDF } from '../../../../utils/pdfTextSafe';
 
 interface WoundHealingAssessment {
   hasWound: boolean;
@@ -358,7 +359,7 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
 
   // B&W PDF Export: Georgia font, size 12, 0.75 line spacing, bold headers/footers
   const generatePDF = (res: SickleCellResult) => {
-    const doc = new jsPDF('p', 'mm', 'a4');
+    const doc = createSafePDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 20;

@@ -11,6 +11,7 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import type { PDFPatientInfo } from './pdfUtils';
+import { createSafePDF } from './pdfTextSafe';
 
 // 80mm = ~226 points (80mm * 2.83)
 const THERMAL_PAGE_WIDTH = 226;
@@ -33,7 +34,7 @@ export interface LabRequestThermalData {
  * Create thermal PDF for lab request form
  */
 export function createLabRequestThermalPDF(data: LabRequestThermalData): jsPDF {
-  const doc = new jsPDF({
+  const doc = createSafePDF({
     unit: 'pt',
     format: [THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT],
   });

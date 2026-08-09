@@ -26,6 +26,7 @@ import {
 } from './pdfUtils';
 import { PDF_FONTS, PDF_FONT_SIZES } from './pdfConfig';
 import type { PostOperativeNote, Patient, Hospital } from '../types';
+import { createSafePDF } from './pdfTextSafe';
 
 // Format currency in Naira
 function formatNaira(amount: number): string {
@@ -555,7 +556,7 @@ export async function generatePostOpNotePDF(
   await preloadPDFLogo();
   
   // Create PDF document (A4)
-  const doc = new jsPDF({
+  const doc = createSafePDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',

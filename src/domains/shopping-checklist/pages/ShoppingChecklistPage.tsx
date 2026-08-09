@@ -35,6 +35,7 @@ import { Patient } from '../../../types';
 import { consumableItems, getProcedurePresets } from '../data/consumables';
 import { ConsumableItem, ConsumableCategory, SelectedItem, categoryLabels } from '../types';
 import { sharePDFOnWhatsApp } from '../../../utils/whatsappShareUtils';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 type ProcedurePurpose = 'surgery' | 'bedside_debridement' | 'wound_dressing' | 'intralesional_injection' | 'other';
 
@@ -231,7 +232,7 @@ export const ShoppingChecklistPage: React.FC = () => {
 
   // Generate A4 PDF for standard printing/sharing
   const generateA4PDF = (): jsPDF => {
-    const doc = new jsPDF({
+    const doc = createSafePDF({
       unit: 'pt',
       format: 'a4',
     });
@@ -422,7 +423,7 @@ export const ShoppingChecklistPage: React.FC = () => {
   const generateThermalPDF = (): jsPDF => {
     // 80mm thermal printer = ~226 points width (80mm * 2.83)
     const pageWidth = 226;
-    const doc = new jsPDF({
+    const doc = createSafePDF({
       unit: 'pt',
       format: [pageWidth, 800],
     });

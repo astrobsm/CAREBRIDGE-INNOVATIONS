@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeMetrics, computeTotals } from '../services/analytics';
 import type { FinanceMetrics, FinanceTotals } from '../types';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 function fmtMoney(n: number | undefined) {
   if (n == null || isNaN(n)) return '—';
@@ -58,7 +59,7 @@ export default function FinanceSettings() {
       return;
     }
     try {
-      const doc = new jsPDF();
+      const doc = createSafePDF();
       doc.setFontSize(16);
       doc.text('Finance Report — Part B (ZIGMA BOND)', 14, 18);
       doc.setFontSize(10);

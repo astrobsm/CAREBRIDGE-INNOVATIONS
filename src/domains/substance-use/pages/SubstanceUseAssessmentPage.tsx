@@ -67,6 +67,7 @@ import type {
   WithdrawalSeverity,
   Patient,
 } from '../../../types';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 // Tabs for the main page
 type MainTab = 'assessments' | 'new' | 'monitoring' | 'analytics';
@@ -371,7 +372,7 @@ export default function SubstanceUseAssessmentPage() {
       : 'Unknown Patient';
     try {
       const consent = substanceUseService.generateConsentDocument(assessment, patientName);
-      const doc = new jsPDF();
+      const doc = createSafePDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       let y = addBrandedHeader(doc, {
         title: 'INFORMED CONSENT FOR DETOXIFICATION',
@@ -483,7 +484,7 @@ export default function SubstanceUseAssessmentPage() {
       : 'Unknown Patient';
     try {
       const leaflet = substanceUseService.generatePatientInfoLeaflet(assessment, patientName);
-      const doc = new jsPDF();
+      const doc = createSafePDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       let y = addBrandedHeader(doc, {
         title: 'PATIENT INFORMATION LEAFLET',
@@ -648,7 +649,7 @@ export default function SubstanceUseAssessmentPage() {
         ],
         monitoringChecklist: assessment.withdrawalRiskPrediction.monitoringRecommendations,
       };
-      const doc = new jsPDF();
+      const doc = createSafePDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       let y = addBrandedHeader(doc, {
         title: 'CLINICAL SUMMARY REPORT',

@@ -12,6 +12,7 @@
 
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
+import { createSafePDF } from './pdfTextSafe';
 
 // 80mm = ~226 points (80mm * 2.83)
 export const THERMAL_PAGE_WIDTH = 226;
@@ -43,7 +44,7 @@ export interface ThermalDocumentData {
  * Uses Times font as closest match to Georgia in jsPDF
  */
 export function createThermalPDF(data: ThermalDocumentData): jsPDF {
-  const doc = new jsPDF({
+  const doc = createSafePDF({
     unit: 'pt',
     format: [THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT],
   });
@@ -385,7 +386,7 @@ export interface ThermalInvoiceData {
 }
 
 export function createThermalInvoicePDF(data: ThermalInvoiceData): jsPDF {
-  const doc = new jsPDF({
+  const doc = createSafePDF({
     unit: 'pt',
     format: [THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT],
   });

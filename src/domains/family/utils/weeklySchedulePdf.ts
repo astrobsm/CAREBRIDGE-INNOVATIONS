@@ -3,6 +3,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Child, Task, TaskAssignment } from '../types';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 export interface AssignmentRow extends TaskAssignment {
   task?: Task;
@@ -73,7 +74,7 @@ export function generateWeeklySchedulePdf(opts: {
   const childIndex: Record<string, Child> = {};
   for (const c of opts.children) childIndex[c.id] = c;
 
-  const doc = new jsPDF('l', 'mm', 'a4');           // landscape A4: 297×210mm
+  const doc = createSafePDF('l', 'mm', 'a4');           // landscape A4: 297×210mm
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 10;
 

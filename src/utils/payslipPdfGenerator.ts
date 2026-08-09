@@ -23,6 +23,7 @@ import {
 import { PDF_FONTS, PDF_FONT_SIZES } from './pdfConfig';
 import type { Payslip, User, Hospital } from '../types';
 import { categoryLabels } from '../data/billingActivities';
+import { createSafePDF } from './pdfTextSafe';
 
 // Format currency in Naira
 function formatNaira(amount: number): string {
@@ -346,7 +347,7 @@ export async function generatePayslipPDF(
   await preloadPDFLogo();
   
   // Create PDF document (A4)
-  const doc = new jsPDF({
+  const doc = createSafePDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',

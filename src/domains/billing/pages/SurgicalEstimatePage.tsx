@@ -37,6 +37,7 @@ import { surgicalProcedures, complexityLevels } from '../../../data/surgicalFees
 import { surgicalConsumables } from '../../../data/surgicalConsumables';
 import { numberToWords } from '../../../utils/pdfUtils';
 import type { Patient } from '../../../types';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 // Estimate Line Item Interface
 interface EstimateLineItem {
@@ -297,7 +298,7 @@ export default function SurgicalEstimatePage() {
       return;
     }
 
-    const doc = new jsPDF();
+    const doc = createSafePDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -599,7 +600,7 @@ export default function SurgicalEstimatePage() {
     // 80mm thermal paper = ~226 points (1mm ≈ 2.83 points)
     // Using custom paper size: 80mm width, auto-height
     const paperWidth = 80; // mm
-    const doc = new jsPDF({
+    const doc = createSafePDF({
       orientation: 'portrait',
       unit: 'mm',
       format: [paperWidth, 250] // Start with 250mm height, we'll use as much as needed

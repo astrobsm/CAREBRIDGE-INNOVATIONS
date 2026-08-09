@@ -11,6 +11,7 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import type { EducationCondition, EducationCategory } from '../domains/patient-education/types';
+import { createSafePDF } from './pdfTextSafe';
 
 // 80mm = ~226 points (80mm * 2.83)
 const THERMAL_PAGE_WIDTH = 226;
@@ -27,7 +28,7 @@ export function createEducationConditionThermalPDF(
   patientName?: string,
   hospitalName?: string
 ): jsPDF {
-  const doc = new jsPDF({
+  const doc = createSafePDF({
     unit: 'pt',
     format: [THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT],
   });
@@ -204,7 +205,7 @@ export function createCategorySummaryThermalPDF(
   category: EducationCategory,
   hospitalName?: string
 ): jsPDF {
-  const doc = new jsPDF({
+  const doc = createSafePDF({
     unit: 'pt',
     format: [THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT],
   });
@@ -302,7 +303,7 @@ export function createProcedureEducationThermalPDF(
   education: ProcedureEducationData,
   hospitalName?: string
 ): jsPDF {
-  const doc = new jsPDF({
+  const doc = createSafePDF({
     unit: 'pt',
     format: [THERMAL_PAGE_WIDTH, THERMAL_PAGE_HEIGHT],
   });

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 // Braden Scale Categories
 export interface BradenCategory {
@@ -308,7 +309,7 @@ export default function PressureSoreAssessment({
 
   // PDF Generation
   const generatePDF = () => {
-    const doc = new jsPDF();
+    const doc = createSafePDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPos = 20;
 

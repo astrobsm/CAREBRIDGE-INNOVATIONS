@@ -10,6 +10,7 @@ import {
   type PDFDocumentInfo,
 } from '../../../utils/pdfUtils';
 import { PDF_FONTS } from '../../../utils/pdfConfig';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 const DANGER_COLOR: [number, number, number] = PDF_COLORS.danger;
 
@@ -177,7 +178,7 @@ function addSectionTitle(doc: jsPDF, yPos: number, title: string): number {
 
 // PRE-OPERATIVE INSTRUCTIONS PDF
 export function generatePreOpInstructionsPDF(patient: PatientInfo, surgery: SurgeryInfo): void {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -327,7 +328,7 @@ export function generatePostOpInstructionsPDF(
     followUp?: string;
   }
 ): void {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -480,7 +481,7 @@ export function generateFeeEstimatePDF(
   procedure: SurgicalProcedure,
   feeEstimate: SurgicalFeeEstimate
 ): void {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -681,7 +682,7 @@ export function generateFeeEstimatePDF(
 
 // SURGICAL CONSENT FORM PDF
 export function generateConsentFormPDF(patient: PatientInfo, surgery: SurgeryInfo): void {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   

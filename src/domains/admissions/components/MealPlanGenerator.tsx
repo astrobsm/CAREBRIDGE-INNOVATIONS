@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import jsPDF from 'jspdf';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 // ============================================
 // AFRICAN FOOD DATABASE (Subset for meal planning)
@@ -326,7 +327,7 @@ export default function MealPlanGenerator({
   const generatePDF = () => {
     if (!mealPlan) return;
 
-    const doc = new jsPDF();
+    const doc = createSafePDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPos = 20;
 

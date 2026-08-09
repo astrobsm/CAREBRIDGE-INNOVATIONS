@@ -25,6 +25,7 @@ import {
   type ThermalDocumentData,
 } from './thermalPdfGenerator';
 import type { UnifiedOrderItem, OrderType, OrderStatus } from '../hooks/usePatientOrdersHistory';
+import { createSafePDF } from './pdfTextSafe';
 
 // ── Input types ──────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ function groupByType(orders: UnifiedOrderItem[]): Record<OrderType, UnifiedOrder
 export async function generateOrdersSummaryA4PDF(input: OrdersSummaryPDFInput): Promise<jsPDF> {
   const { patientName, hospitalNumber, hospitalName, orders, generatedAt } = input;
 
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const doc = createSafePDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const contentWidth = pageWidth - PDF_MARGINS.left - PDF_MARGINS.right;
 

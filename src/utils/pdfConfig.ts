@@ -16,6 +16,7 @@
  */
 
 import jsPDF from 'jspdf';
+import { createSafePDF } from './pdfTextSafe';
 
 // ============================================================
 // SECTION 1: PAGE CONFIGURATION
@@ -251,7 +252,7 @@ export function createStandardPDF(options?: {
   const orientation = options?.orientation || 'portrait';
   const format = options?.format || 'a4';
   
-  const doc = new jsPDF({
+  const doc = createSafePDF({
     orientation,
     unit: 'mm',
     format,

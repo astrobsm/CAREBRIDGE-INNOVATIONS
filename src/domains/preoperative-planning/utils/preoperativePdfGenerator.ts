@@ -18,6 +18,7 @@ import { PDF_COLORS, addBrandedHeader, PDFDocumentInfo } from '../../../utils/pd
 import { PDF_FONTS, sanitizeTextForPDF } from '../../../utils/pdfConfig';
 import { INVESTIGATION_INFO, getProtocolForComorbidity } from '../data/protocols';
 import type { ProcedureEducation } from '../../../data/patientEducation';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 // Helper function to add wrapped text
 const addWrappedText = (
@@ -134,7 +135,7 @@ export async function generatePreoperativeAssessmentPDF(
     generatedBy 
   } = data;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   

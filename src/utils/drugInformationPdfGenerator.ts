@@ -14,6 +14,7 @@ import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { PDF_COLORS, addBrandedHeader, addBrandedFooter, type PDFDocumentInfo } from './pdfUtils';
 import { PDF_FONTS, PDF_FONT_SIZES } from './pdfConfig';
+import { createSafePDF } from './pdfTextSafe';
 
 export interface DrugInformation {
   genericName: string;
@@ -62,7 +63,7 @@ export interface PatientDrugInfo {
  * Generate Drug Information PDF
  */
 export async function generateDrugInformationPDF(data: PatientDrugInfo): Promise<jsPDF> {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;

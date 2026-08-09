@@ -11,6 +11,7 @@ import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { PDF_COLORS, addBrandedHeader, type PDFDocumentInfo } from './pdfUtils';
 import { PDF_FONTS } from './pdfConfig';
+import { createSafePDF } from './pdfTextSafe';
 
 // Transfusion Order Interface
 export interface TransfusionOrderData {
@@ -136,7 +137,7 @@ export interface TransfusionMonitoringChartData {
  * Generate Transfusion Order PDF
  */
 export async function generateTransfusionOrderPDF(data: TransfusionOrderData): Promise<jsPDF> {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -427,7 +428,7 @@ export async function generateTransfusionOrderPDF(data: TransfusionOrderData): P
  * Generate Transfusion Monitoring Chart Template PDF
  */
 export async function generateMonitoringChartPDF(data: TransfusionMonitoringChartData, isTemplate: boolean = true): Promise<jsPDF> {
-  const doc = new jsPDF('landscape');
+  const doc = createSafePDF('landscape');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   

@@ -15,6 +15,7 @@ import {
   type PDFDocumentInfo,
   type PDFPatientInfo,
 } from './pdfUtils';
+import { createSafePDF } from './pdfTextSafe';
 
 export interface MedicationPDF {
   name: string;
@@ -63,7 +64,7 @@ export function generatePrescriptionPDF(options: PrescriptionPDFOptions): void {
     diagnosis,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -336,7 +337,7 @@ export function generateDispensingSlipPDF(
     dispensedAt,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', [148, 210]); // A5 size for receipts
+  const doc = createSafePDF('p', 'mm', [148, 210]); // A5 size for receipts
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -484,7 +485,7 @@ export function getPrescriptionPDFDoc(options: PrescriptionPDFOptions): jsPDF {
     diagnosis,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = createSafePDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -735,7 +736,7 @@ export function getDispensingSlipPDFDoc(options: DispensingSlipPDFOptions): jsPD
     dispensedAt,
   } = options;
 
-  const doc = new jsPDF('p', 'mm', [148, 210]); // A5 size
+  const doc = createSafePDF('p', 'mm', [148, 210]); // A5 size
   const pageWidth = doc.internal.pageSize.getWidth();
   // pageHeight not needed for this function
 

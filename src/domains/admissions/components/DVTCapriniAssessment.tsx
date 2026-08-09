@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 // Caprini Risk Factors with comprehensive categorization
 export interface CapriniRiskFactor {
@@ -311,7 +312,7 @@ export default function DVTCapriniAssessment({
 
   // PDF Generation
   const generatePDF = () => {
-    const doc = new jsPDF();
+    const doc = createSafePDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPos = 20;
 

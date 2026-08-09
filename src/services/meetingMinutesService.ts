@@ -20,6 +20,7 @@ import type {
   MeetingKeyPoint,
   VideoConference,
 } from '../types';
+import { createSafePDF } from '../utils/pdfTextSafe';
 
 // Type declarations for Web Speech API (not in standard lib)
 interface SpeechRecognitionEvent extends Event {
@@ -520,7 +521,7 @@ export async function addTranscriptToMinutes(
  * Generate PDF of meeting minutes
  */
 export function generateMeetingMinutesPDF(minutes: MeetingMinutes): Blob {
-  const doc = new jsPDF();
+  const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 20;
   const contentWidth = pageWidth - 2 * margin;

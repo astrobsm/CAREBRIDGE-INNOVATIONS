@@ -56,6 +56,7 @@ import ClinicalCommentsSection from '../../../components/clinical/ClinicalCommen
 import PatientOrdersReview from '../../../components/clinical/PatientOrdersReview';
 import { InvestigationApprovalPanel } from '../../../components/investigations';
 import type { Investigation, InvestigationResult } from '../../../types';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 // Investigation category type for type safety
 type InvestigationCategory = Investigation['category'];
@@ -655,7 +656,7 @@ export default function InvestigationsPage() {
 
   // Generate A4 PDF for investigation request
   const generateInvestigationA4PDF = useCallback((investigation: Investigation): jsPDF => {
-    const doc = new jsPDF('p', 'mm', 'a4');
+    const doc = createSafePDF('p', 'mm', 'a4');
     let y = 20;
 
     // Header

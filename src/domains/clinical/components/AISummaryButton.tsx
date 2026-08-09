@@ -26,6 +26,7 @@ import {
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import { generateEncounterSummary, formatSummaryAsText, type EncounterSummaryResult } from '../services/encounterSummaryService';
+import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 interface AISummaryButtonProps {
   patientId: string;
@@ -68,7 +69,7 @@ export function AISummaryButton({ patientId, patientName, className = '' }: AISu
   const handleDownloadPDF = () => {
     if (!summary) return;
 
-    const doc = new jsPDF();
+    const doc = createSafePDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 14; // 0.5 inches ≈ 14 points
     const contentWidth = pageWidth - 2 * margin;
