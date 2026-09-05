@@ -1009,7 +1009,7 @@ export default function PatientDetailsPage() {
             <h2 className="font-semibold text-gray-900 mb-3">Quick Actions</h2>
             <div className="space-y-2">
               <Link
-                to={`/surgery/planning/${patientId}`}
+                to={`/surgery/workflow/${patientId}`}
                 className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
               >
                 <Scissors className="w-5 h-5 text-purple-600" />

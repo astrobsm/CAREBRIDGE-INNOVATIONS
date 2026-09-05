@@ -454,7 +454,7 @@ export default function PreoperativeAssessmentDetailsPage() {
           View Patient Record
         </Link>
         <Link
-          to={`/surgery/preoperative`}
+          to={`/surgery/workflow`}
           className="btn btn-outline flex items-center gap-2"
         >
           <Edit size={16} />

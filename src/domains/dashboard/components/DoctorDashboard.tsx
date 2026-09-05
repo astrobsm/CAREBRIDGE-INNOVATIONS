@@ -255,7 +255,7 @@ export default function DoctorDashboard() {
               mySurgeries.map((surgery) => (
                 <Link
                   key={surgery.id}
-                  to={surgery.patientId ? `/surgery/planning/${surgery.patientId}` : '/surgery'}
+                  to={surgery.patientId ? `/surgery/workflow/${surgery.patientId}` : '/surgery'}
                   className="block px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center justify-between">

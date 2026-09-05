@@ -63,7 +63,7 @@ function SurgeryActionDropdown({
     setIsOpen(false);
     switch (action) {
       case 'preop':
-        navigate('/surgery/preoperative');
+        navigate('/surgery/workflow');
         break;
       case 'postop':
         navigate(`/surgery/post-op-note/create/${surgery.id}`);
@@ -351,7 +351,7 @@ export default function SurgeryListPage() {
       case 'risk_assessment':
       case 'investigations':
         // Navigate back to surgery planning to complete these
-        navigate(`/surgery/planning/${selectedSurgery.patientId}?edit=${selectedSurgery.id}`);
+        navigate(`/surgery/workflow/${selectedSurgery.patientId}?edit=${selectedSurgery.id}`);
         break;
       case 'consent':
         toast('Please complete consent form with patient');
@@ -360,7 +360,7 @@ export default function SurgeryListPage() {
         toast('Request blood typing from laboratory');
         break;
       case 'team_assignment':
-        navigate(`/surgery/planning/${selectedSurgery.patientId}?edit=${selectedSurgery.id}&tab=team`);
+        navigate(`/surgery/workflow/${selectedSurgery.patientId}?edit=${selectedSurgery.id}&tab=team`);
         break;
       case 'npo_status':
         toast('Confirm NPO status with nursing staff');

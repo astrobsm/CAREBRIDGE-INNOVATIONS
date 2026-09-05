@@ -87,21 +87,17 @@ const navigation: NavItem[] = [
     icon: <CalendarDays size={20} />,
     permission: 'create_encounters',
   },
-  { 
-    name: 'Preoperative Planning', 
-    href: '/preoperative-planning', 
-    icon: <ClipboardList size={20} />,
-    permission: 'create_encounters',
-  },
-  { 
-    name: 'Surgery', 
-    href: '/surgery', 
+  {
+    // Preoperative Planning, Preoperative Review and Surgery Planning were
+    // separate entries over overlapping pages. Theatre is one module now: the
+    // Surgical Workflow carries preop planning through to post-op medications.
+    name: 'Surgery',
+    href: '/surgery/workflow',
     icon: <Scissors size={20} />,
     permission: 'manage_surgeries',
     children: [
       { name: 'Surgical Workflow', href: '/surgery/workflow' },
       { name: 'Surgery List', href: '/surgery' },
-      { name: 'Preoperative Review', href: '/surgery/preoperative' },
       { name: 'Post-Op Notes', href: '/surgery/post-op-notes' },
       { name: 'Pre-Surgical Conference', href: '/pre-surgical-conference' },
     ],
@@ -405,8 +401,7 @@ const SECTION_BY_HREF: Record<string, string> = {
   '/referrals': 'inpatient',
   '/post-op-care': 'inpatient',
   // Theatre
-  '/preoperative-planning': 'theatre',
-  '/surgery': 'theatre',
+  '/surgery/workflow': 'theatre',
   '/pre-surgical-conference': 'theatre',
   '/billing/surgical-estimate': 'theatre',
   // Wound Care

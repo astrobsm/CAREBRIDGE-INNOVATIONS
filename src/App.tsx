@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import MainLayout from './components/layouts/MainLayout';
 import AuthLayout from './components/layouts/AuthLayout';
@@ -23,8 +23,6 @@ import TreatmentPlanningDashboardPage from './domains/treatment-planning/pages/T
 import NewTreatmentPlanPage from './domains/treatment-planning/pages/NewTreatmentPlanPage';
 import TreatmentPlanDetailPage from './domains/treatment-planning/pages/TreatmentPlanDetailPage';
 import SurgeryListPage from './domains/surgery/pages/SurgeryListPage';
-import SurgeryPlanningPage from './domains/surgery/pages/SurgeryPlanningPage';
-import PreoperativeAssessmentPage from './domains/surgery/pages/PreoperativeAssessmentPage';
 import PreoperativeAssessmentDetailsPage from './domains/surgery/pages/PreoperativeAssessmentDetailsPage';
 import PostOperativeNotePage from './domains/surgery/pages/PostOperativeNotePage';
 import PostOpNotesListPage from './domains/surgery/pages/PostOpNotesListPage';
@@ -64,11 +62,9 @@ import DrReviewsPage from './domains/dr-reviews/pages/DrReviewsPage';
 import ExternalReviewPage from './domains/external-review/pages/ExternalReviewPage';
 import PostOpCarePage from './domains/post-op-care/pages/PostOpCarePage';
 import PostOpMonitoringChartsPage from './domains/post-op-care/pages/PostOpMonitoringChartsPage';
-import PreoperativePlanningPage from './domains/preoperative-planning/pages/PreoperativePlanningPage';
 import ShoppingChecklistPage from './domains/shopping-checklist/pages/ShoppingChecklistPage';
 import SubstanceUseAssessmentPage from './domains/substance-use/pages/SubstanceUseAssessmentPage';
 import KeloidCarePlanningPage from './domains/keloid/pages/KeloidCarePlanningPage';
-import UnifiedSurgicalPrepPage from './domains/surgery/pages/UnifiedSurgicalPrepPage';
 import SurgicalWorkflowPage from './domains/surgery/pages/SurgicalWorkflowPage';
 import STIProtocolPage from './domains/soft-tissue-infection/pages/STIProtocolPage';
 import LymphedemaAssessmentPage from './domains/lymphedema/pages/LymphedemaAssessmentPage';
@@ -126,6 +122,16 @@ function AgreementGuard({ children }: { children: React.ReactNode }) {
   }
   
   return <>{children}</>;
+}
+
+/**
+ * Redirect a superseded per-patient theatre URL into the Surgical Workflow,
+ * keeping the patient id so the case opens rather than dropping the clinician
+ * on an empty picker.
+ */
+function RedirectToWorkflow() {
+  const { patientId } = useParams();
+  return <Navigate to={patientId ? `/surgery/workflow/${patientId}` : '/surgery/workflow'} replace />;
 }
 
 function App() {
@@ -188,16 +194,21 @@ function App() {
           <Route path=":patientId/wounds" element={<Navigate to="/wound-monitor" replace />} />
         </Route>
 
-        {/* Surgery Routes */}
+        {/* Surgery Routes
+            Preoperative Planning, Preoperative Assessment, Surgery Planning and
+            the abandoned Unified Surgical Prep page all covered overlapping
+            ground. The Surgical Workflow is now the single theatre module, and
+            the old URLs redirect into it rather than dead-ending. */}
         <Route path="surgery">
           <Route index element={<SurgeryListPage />} />
-          <Route path="planning/:patientId" element={<SurgeryPlanningPage />} />
-          <Route path="preoperative" element={<PreoperativeAssessmentPage />} />
+          <Route path="planning/:patientId" element={<RedirectToWorkflow />} />
+          <Route path="surgical-prep/:patientId" element={<RedirectToWorkflow />} />
+          <Route path="preoperative" element={<Navigate to="/surgery/workflow" replace />} />
+          {/* Kept so historical preoperative assessments stay readable. */}
           <Route path="preop/:assessmentId" element={<PreoperativeAssessmentDetailsPage />} />
           <Route path="post-op-notes" element={<PostOpNotesListPage />} />
           <Route path="post-op-note/create/:surgeryId" element={<PostOpNoteFormPage />} />
           <Route path="post-op-note/:surgeryId" element={<PostOperativeNotePage />} />
-          <Route path="surgical-prep/:patientId" element={<UnifiedSurgicalPrepPage />} />
           <Route path="workflow" element={<SurgicalWorkflowPage />} />
           <Route path="workflow/:patientId" element={<SurgicalWorkflowPage />} />
         </Route>
@@ -215,7 +226,9 @@ function App() {
         <Route path="ward-rounds" element={<WardRoundsPage />} />
         <Route path="post-op-care" element={<PostOpCarePage />} />
         <Route path="post-op-care/charts/:patientId/:surgeryId" element={<PostOpMonitoringChartsPage />} />
-        <Route path="preoperative-planning" element={<PreoperativePlanningPage />} />
+        {/* Merged into the Surgical Workflow (section 1: Preop Planning & Risk).
+            Its WHO-aligned protocol library lives on and now drives that section. */}
+        <Route path="preoperative-planning" element={<Navigate to="/surgery/workflow" replace />} />
         <Route path="treatment-plans/new" element={<TreatmentPlanPage />} />
         <Route path="treatment-planning" element={<TreatmentPlanningDashboardPage />} />
         <Route path="treatment-planning/new" element={<NewTreatmentPlanPage />} />

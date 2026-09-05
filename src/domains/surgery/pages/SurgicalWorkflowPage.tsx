@@ -18,7 +18,7 @@
  * All documents downloadable as A4 / Font 12 / Georgia / No special chars / No color headers
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { v4 as uuidv4 } from 'uuid';
@@ -42,9 +42,28 @@ import { performOCR } from '../../../services/ocrService';
 import type {
   Patient, Surgery, Investigation, ConsumableBOM,
   Prescription,
-  AnaesthesiaType, InvestigationType
+  AnaesthesiaType
 } from '../../../types';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
+
+// The WHO-aligned protocol library from the former Preoperative Planning
+// module. This is the single clinical source of truth for which investigations
+// a case demands and how the patient should be optimised — the workflow used to
+// carry its own flat, comorbidity-blind list instead.
+import {
+  COMORBIDITY_PROTOCOLS,
+  generateInvestigationList,
+  suggestASAClass,
+  getProtocolForComorbidity,
+} from '../../preoperative-planning/data/protocols';
+import type { ComorbidityCategory } from '../../preoperative-planning/types';
+import {
+  toAppInvestigation,
+  toProtocolAnaesthesia,
+  toProcedureCategory,
+  REQUIREMENT_META,
+} from '../data/preopProtocolBridge';
+import { generateSurgicalConsentPDF, findEducationForProcedure } from '../utils/surgicalDocumentGenerator';
 
 // Suppress unused-import warnings for types used as type annotations only
 void (undefined as unknown as ConsumableBOM);
@@ -105,6 +124,10 @@ const RCRI_FACTORS = [
   'Preoperative serum creatinine > 2.0 mg/dL',
 ];
 
+// The protocol library grades ASA in Roman numerals; the workflow stores it as
+// a number. Used to compare the clinician's choice with the suggestion.
+const ASA_ROMAN: Record<number, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V' };
+
 // ASA Classification
 const ASA_CLASSES = [
   { value: 1, label: 'ASA I - Normal healthy patient' },
@@ -114,26 +137,6 @@ const ASA_CLASSES = [
   { value: 5, label: 'ASA V - Moribund, not expected to survive without surgery' },
 ];
 
-// Common preoperative investigations
-const PREOP_INVESTIGATIONS: { type: InvestigationType | string; name: string; category: string }[] = [
-  { type: 'full_blood_count', name: 'Full Blood Count (FBC)', category: 'hematology' },
-  { type: 'electrolytes', name: 'Serum Electrolytes, Urea & Creatinine', category: 'biochemistry' },
-  { type: 'coagulation', name: 'Coagulation Profile (PT/INR, aPTT)', category: 'hematology' },
-  { type: 'liver_function', name: 'Liver Function Tests', category: 'biochemistry' },
-  { type: 'blood_glucose', name: 'Fasting Blood Glucose', category: 'biochemistry' },
-  { type: 'urinalysis', name: 'Urinalysis', category: 'laboratory' },
-  { type: 'ecg', name: 'Electrocardiogram (ECG)', category: 'cardiology' },
-  { type: 'xray', name: 'Chest X-Ray', category: 'radiology' },
-  { type: 'blood_culture', name: 'Blood Group & Cross-match', category: 'hematology' },
-  { type: 'hba1c', name: 'HbA1c', category: 'biochemistry' },
-  { type: 'thyroid_function', name: 'Thyroid Function Tests', category: 'biochemistry' },
-  { type: 'echocardiogram', name: 'Echocardiogram', category: 'cardiology' },
-  { type: 'renal_function', name: 'Renal Function Tests', category: 'biochemistry' },
-  { type: 'lipid_profile', name: 'Lipid Profile', category: 'biochemistry' },
-  { type: 'ct_scan', name: 'CT Scan', category: 'radiology' },
-  { type: 'mri', name: 'MRI', category: 'radiology' },
-  { type: 'ultrasound', name: 'Ultrasound', category: 'radiology' },
-];
 
 // ========================================
 // PDF GENERATION UTILITY (A4, Georgia 12, no colors)
@@ -521,6 +524,10 @@ export default function SurgicalWorkflowPage() {
   const [rcriFactors, setRcriFactors] = useState<boolean[]>(new Array(RCRI_FACTORS.length).fill(false));
   const [riskNotes, setRiskNotes] = useState('');
   const [npoStatus, setNpoStatus] = useState(false);
+  // Comorbidities drive the WHO-aligned protocol library: which investigations
+  // are demanded, how the patient should be optimised, and whether it is safe
+  // to proceed. Carried over from the Preoperative Planning module.
+  const [comorbidities, setComorbidities] = useState<ComorbidityCategory[]>([]);
 
   // SECTION 2: INVESTIGATIONS
   const [selectedInvestigations, setSelectedInvestigations] = useState<string[]>([]);
@@ -650,6 +657,7 @@ export default function SurgicalWorkflowPage() {
       if (d.bloodLoss) setBloodLoss(d.bloodLoss);
       if (d.fluidInput) setFluidInput(d.fluidInput);
       if (d.sectionCompletion) setSectionCompletion(d.sectionCompletion);
+      if (Array.isArray(d.comorbidities)) setComorbidities(d.comorbidities);
     } catch { /* ignore parse errors */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId]);
@@ -658,7 +666,7 @@ export default function SurgicalWorkflowPage() {
     if (!patientId) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        invResults, clinicalDetails, selectedInvestigations, riskNotes,
+        invResults, clinicalDetails, selectedInvestigations, riskNotes, comorbidities,
         preopInfoNotes, postopInstructions, consentDetails,
         preAnaestheticNotes, airwayAssessment, conferenceNotes,
         preOpDiagnosis, postOpDiagnosis, operativeFindings,
@@ -668,7 +676,7 @@ export default function SurgicalWorkflowPage() {
       }));
     } catch { /* quota errors */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId, invResults, clinicalDetails, selectedInvestigations, riskNotes,
+  }, [patientId, invResults, clinicalDetails, selectedInvestigations, riskNotes, comorbidities,
     preopInfoNotes, postopInstructions, consentDetails,
     preAnaestheticNotes, airwayAssessment, conferenceNotes,
     preOpDiagnosis, postOpDiagnosis, operativeFindings,
@@ -741,6 +749,53 @@ export default function SurgicalWorkflowPage() {
   const rcriScore = rcriFactors.filter(Boolean).length;
   const capriniRisk = capriniScore <= 1 ? 'Very Low' : capriniScore <= 2 ? 'Low' : capriniScore <= 4 ? 'Moderate' : 'High';
   const rcriRisk = rcriScore === 0 ? '3.9%' : rcriScore === 1 ? '6.0%' : rcriScore === 2 ? '10.1%' : '15%+';
+
+  // ---- WHO protocol-driven preoperative workup ----
+  // Age and sex change the required workup (ECG from 40, pregnancy testing for
+  // women of reproductive age), so both come from the patient record.
+  const patientAge = useMemo(() => {
+    if (!patient?.dateOfBirth) return 0;
+    const dob = new Date(patient.dateOfBirth);
+    return Number.isNaN(dob.getTime()) ? 0 : differenceInYears(new Date(), dob);
+  }, [patient?.dateOfBirth]);
+
+  const isFemaleReproductiveAge = useMemo(
+    () => patient?.gender === 'female' && patientAge >= 15 && patientAge <= 50,
+    [patient?.gender, patientAge],
+  );
+
+  const requiredInvestigations = useMemo(() => {
+    const list = generateInvestigationList(
+      comorbidities,
+      toProcedureCategory(surgeryCategory, surgeryType === 'emergency'),
+      toProtocolAnaesthesia(anaesthesiaType),
+      patientAge,
+      isFemaleReproductiveAge,
+    );
+    return list
+      .filter(i => i.requirement !== 'not_required')
+      .sort((a, b) =>
+        REQUIREMENT_META[a.requirement].rank - REQUIREMENT_META[b.requirement].rank ||
+        a.name.localeCompare(b.name));
+  }, [comorbidities, surgeryCategory, surgeryType, anaesthesiaType, patientAge, isFemaleReproductiveAge]);
+
+  /** Optimisation, timing, anaesthesia notes and red flags for the selected comorbidities. */
+  const comorbidityGuidance = useMemo(
+    () => comorbidities
+      .filter(c => c !== 'none')
+      .map(getProtocolForComorbidity)
+      .filter((p): p is NonNullable<typeof p> => Boolean(p)),
+    [comorbidities],
+  );
+
+  const suggestedAsa = useMemo(() => suggestASAClass(comorbidities), [comorbidities]);
+
+  // Surfaced so the surgeon can see whether the consent will carry
+  // procedure-specific content or fall back to general surgical wording.
+  const matchedEducation = useMemo(
+    () => (selectedProcedure ? findEducationForProcedure(selectedProcedure) : null),
+    [selectedProcedure],
+  );
 
   const consumablesTotal = selectedConsumables.reduce((sum, c) => sum + c.quantity * c.unitPrice, 0);
   const assistantFee = assistantFeeIncluded ? surgeonFee * 0.2 : 0;
@@ -831,19 +886,39 @@ export default function SurgicalWorkflowPage() {
       return;
     }
     try {
-      for (const invType of selectedInvestigations) {
-        const existing = investigations?.find(i => i.type === invType && i.status !== 'cancelled');
+      for (const protocolType of selectedInvestigations) {
+        const requirement = requiredInvestigations.find(i => i.type === protocolType);
+        const mapped = toAppInvestigation(protocolType as never);
+
+        // A generic test only differs from its siblings by the name written
+        // into the order, so match on that too before treating it as a duplicate.
+        const existing = investigations?.find(
+          i => i.status !== 'cancelled' &&
+            i.type === mapped.type &&
+            (!mapped.isGeneric || (i.clinicalDetails || '').includes(requirement?.name || '')),
+        );
         if (existing) continue;
-        const invInfo = PREOP_INVESTIGATIONS.find(pi => pi.type === invType);
+
+        // The app's InvestigationType is coarser than the protocol's, so the
+        // test name always leads the clinical details. Without it a mapped
+        // `other` row would reach the lab as an unnamed request.
+        const details = [
+          requirement?.name,
+          requirement?.rationale,
+          clinicalDetails || (selectedProcedure ? `Pre-operative workup for ${selectedProcedure}` : ''),
+        ].filter(Boolean).join(' — ');
+
         const inv: Investigation = {
           id: uuidv4(),
           patientId,
           hospitalId: user?.hospitalId || '',
-          type: invType as InvestigationType,
-          category: (invInfo?.category || 'laboratory') as any,
-          priority: investigationPriority,
+          type: mapped.type,
+          category: mapped.category as any,
+          priority: requirement?.requirement === 'mandatory' && surgeryType === 'emergency'
+            ? 'urgent'
+            : investigationPriority,
           status: 'requested',
-          clinicalDetails: clinicalDetails || `Pre-operative investigation for ${selectedProcedure}`,
+          clinicalDetails: details || 'Pre-operative investigation',
           requestedBy: user?.id || '',
           requestedByName: `${user?.firstName} ${user?.lastName}`,
           requestedAt: new Date(),
@@ -1125,6 +1200,43 @@ export default function SurgicalWorkflowPage() {
     ]);
   };
 
+  /**
+   * Printable preoperative workup — the required investigations with the
+   * reason each is demanded and the level it must reach. This was the most
+   * useful output of the old Preoperative Planning page; it survives here,
+   * driven by the same protocol library.
+   */
+  const downloadPreopWorkupPDF = () => {
+    if (!patient) return;
+    const hospInfo = { name: hospital?.name || 'Hospital', address: hospital?.address, phone: hospital?.phone };
+    generateWorkflowPDF('Preoperative Workup', patient, hospInfo, [
+      {
+        heading: 'Case',
+        rows: [
+          ['Procedure', selectedProcedure || 'Not yet selected'],
+          ['Category', `${surgeryCategory} (${surgeryType})`],
+          ['Anaesthesia', anaesthesiaType],
+          ['Comorbidities', comorbidityGuidance.map(p => p.name).join(', ') || 'None recorded'],
+          ['Suggested ASA', suggestedAsa],
+        ],
+      },
+      {
+        heading: 'Required Investigations',
+        rows: requiredInvestigations.map(inv => [
+          `${inv.name} (${REQUIREMENT_META[inv.requirement].label})`,
+          `${inv.rationale}. Expected: ${inv.expectedValue}. Minimum safe: ${inv.minSafeLevel}.`,
+        ] as [string, string]),
+      },
+      ...(comorbidityGuidance.length ? [{
+        heading: 'Optimisation Before Surgery',
+        rows: comorbidityGuidance.flatMap(p =>
+          p.optimizations
+            .filter(o => o.priority === 'critical' || o.priority === 'important')
+            .map(o => [`${p.name} (${o.priority})`, o.recommendation] as [string, string])),
+      }] : []),
+    ]);
+  };
+
   const downloadPostopInstructionsPDF = () => {
     if (!patient) return;
     const hospInfo = { name: hospital?.name || 'Hospital', address: hospital?.address, phone: hospital?.phone };
@@ -1139,31 +1251,36 @@ export default function SurgicalWorkflowPage() {
     ]);
   };
 
+  /**
+   * Generate the combined patient-information and consent document.
+   *
+   * Replaces a form that named the procedure in a table row and offered one
+   * hardcoded sentence as its "consent details". The generated document states
+   * what the operation is, why it is being done, its risks (general, procedure-
+   * specific from the education library, and any arising from the recorded
+   * comorbidities), the alternatives, and what to expect before and after -
+   * then the declaration and signature blocks.
+   */
   const downloadConsentPDF = () => {
     if (!patient) return;
-    const hospInfo = { name: hospital?.name || 'Hospital', address: hospital?.address, phone: hospital?.phone };
-    generateWorkflowPDF('Surgical Consent Form', patient, hospInfo, [
-      {
-        heading: 'Consent for Surgery',
-        rows: [
-          ['Procedure', selectedProcedure],
-          ['Type', surgeryType],
-          ['Surgeon', surgeons.find(s => s.id === surgeonId)?.firstName + ' ' + surgeons.find(s => s.id === surgeonId)?.lastName || 'TBD'],
-          ['Anaesthesia Type', anaesthesiaType],
-          ['Consent Details', consentDetails || 'Patient has been informed of the nature, risks, benefits, and alternatives of the proposed surgery. Patient understands and consents to the procedure.'],
-        ],
+    const surgeon = surgeons.find(s => s.id === surgeonId);
+    generateSurgicalConsentPDF({
+      procedureName: selectedProcedure,
+      indication: preOpDiagnosis || clinicalDetails,
+      anaesthesiaType,
+      surgeryCategory,
+      scheduledDate: scheduledDate ? format(new Date(scheduledDate), 'dd MMMM yyyy') : undefined,
+      comorbidities,
+      surgeonName: surgeon ? `${surgeon.firstName} ${surgeon.lastName}` : undefined,
+      hospitalName: hospital?.name || 'AstroHEALTH',
+      additionalNotes: consentDetails,
+      patient: {
+        name: `${patient.firstName} ${patient.lastName}`,
+        hospitalNumber: patient.hospitalNumber || 'N/A',
+        age: patient.dateOfBirth ? differenceInYears(new Date(), new Date(patient.dateOfBirth)) : undefined,
+        gender: patient.gender,
       },
-      {
-        heading: 'Patient Declaration',
-        rows: [
-          ['Statement', 'I confirm that I have been given adequate information about the proposed procedure, including its risks and benefits. I have had the opportunity to ask questions and all my queries have been answered satisfactorily.'],
-          ['Patient Signature', '____________________________'],
-          ['Date', format(new Date(), 'dd/MM/yyyy')],
-          ['Witness Signature', '____________________________'],
-          ['Witness Name', '____________________________'],
-        ],
-      },
-    ]);
+    });
   };
 
   const downloadEstimatePDF = () => {
@@ -1449,6 +1566,83 @@ export default function SurgicalWorkflowPage() {
                 </div>
               </div>
 
+              {/* Comorbidities — drive the whole WHO-aligned workup */}
+              <div className="mb-4">
+                <h3 className="text-sm font-bold text-gray-800 mb-1">Comorbidities</h3>
+                <p className="text-xs text-gray-500 mb-2">
+                  These determine the required investigations, the optimisation plan and whether
+                  it is safe to proceed.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {COMORBIDITY_PROTOCOLS.map(p => {
+                    const active = comorbidities.includes(p.category);
+                    return (
+                      <button
+                        key={p.category}
+                        type="button"
+                        onClick={() => setComorbidities(prev =>
+                          prev.includes(p.category)
+                            ? prev.filter(c => c !== p.category)
+                            : [...prev.filter(c => c !== 'none'), p.category])}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                          active
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                        }`}
+                      >
+                        {p.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Protocol guidance for the selected comorbidities */}
+              {comorbidityGuidance.length > 0 && (
+                <div className="mb-4 space-y-2">
+                  {comorbidityGuidance.map(p => {
+                    const critical = p.optimizations.filter(o => o.priority === 'critical');
+                    return (
+                      <div key={p.category} className="border rounded-lg p-3 bg-blue-50/50 border-blue-200">
+                        <h4 className="text-sm font-bold text-gray-800">{p.name}</h4>
+                        <p className="text-xs text-gray-600 mb-2">{p.description}</p>
+
+                        {critical.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-xs font-semibold text-gray-700">Critical optimisation</p>
+                            <ul className="text-xs text-gray-700 list-disc list-inside space-y-0.5">
+                              {critical.map((o, i) => <li key={i}>{o.recommendation}</li>)}
+                            </ul>
+                          </div>
+                        )}
+
+                        {p.redFlags.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-xs font-semibold text-red-700 flex items-center gap-1">
+                              <AlertTriangle className="w-3.5 h-3.5" /> Red flags — do not proceed
+                            </p>
+                            <ul className="text-xs text-red-700 list-disc list-inside space-y-0.5">
+                              {p.redFlags.map((f, i) => <li key={i}>{f}</li>)}
+                            </ul>
+                          </div>
+                        )}
+
+                        {p.anaesthesiaConsiderations.length > 0 && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-gray-600 font-medium">
+                              Anaesthesia considerations ({p.anaesthesiaConsiderations.length})
+                            </summary>
+                            <ul className="list-disc list-inside space-y-0.5 mt-1 text-gray-700">
+                              {p.anaesthesiaConsiderations.map((c, i) => <li key={i}>{c}</li>)}
+                            </ul>
+                          </details>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* ASA & Mallampati */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -1459,6 +1653,12 @@ export default function SurgicalWorkflowPage() {
                       <option key={a.value} value={a.value}>{a.label}</option>
                     ))}
                   </select>
+                  {/* Advisory only — the anaesthetist assigns the final class. */}
+                  {comorbidities.length > 0 && ASA_ROMAN[asaClass] !== suggestedAsa && (
+                    <p className="text-xs text-amber-700 mt-1">
+                      Protocol suggests ASA {suggestedAsa} for the recorded comorbidities.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Mallampati Score</label>
@@ -1556,12 +1756,43 @@ export default function SurgicalWorkflowPage() {
                 </div>
               </div>
               <div className="mb-4">
-                <h3 className="text-sm font-bold text-gray-800 mb-2">Select Investigations</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                  {PREOP_INVESTIGATIONS.map(inv => {
-                    const alreadyRequested = investigations?.some(i => i.type === inv.type && i.status !== 'cancelled');
+                <div className="flex items-start justify-between gap-3 mb-2 flex-wrap">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-800">Required Investigations</h3>
+                    <p className="text-xs text-gray-500">
+                      Derived from the comorbidities, procedure category, anaesthesia and patient
+                      age recorded in section 1 — not a fixed list.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedInvestigations(
+                      requiredInvestigations
+                        .filter(i => i.requirement === 'mandatory')
+                        .map(i => i.type),
+                    )}
+                    className="text-xs px-2.5 py-1.5 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50"
+                  >
+                    Select all mandatory
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  {requiredInvestigations.map(inv => {
+                    const mapped = toAppInvestigation(inv.type);
+                    const alreadyRequested = investigations?.some(
+                      i => i.status !== 'cancelled' &&
+                        (i.type === mapped.type) &&
+                        (!mapped.isGeneric || (i.clinicalDetails || '').includes(inv.name)),
+                    );
+                    const meta = REQUIREMENT_META[inv.requirement];
                     return (
-                      <label key={inv.type} className={`flex items-center gap-2 text-sm py-1.5 px-2 rounded ${alreadyRequested ? 'bg-green-50' : ''}`}>
+                      <label
+                        key={inv.type}
+                        className={`flex items-start gap-2.5 text-sm p-2 rounded-lg border ${
+                          alreadyRequested ? 'bg-green-50 border-green-200' : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
                         <input type="checkbox"
                           checked={selectedInvestigations.includes(inv.type) || !!alreadyRequested}
                           disabled={!!alreadyRequested}
@@ -1569,12 +1800,28 @@ export default function SurgicalWorkflowPage() {
                             if (e.target.checked) setSelectedInvestigations(prev => [...prev, inv.type]);
                             else setSelectedInvestigations(prev => prev.filter(t => t !== inv.type));
                           }}
-                          className="rounded border-gray-300" />
-                        {inv.name}
-                        {alreadyRequested && <span className="text-xs text-green-600 ml-1">(requested)</span>}
+                          className="rounded border-gray-300 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-gray-800">{inv.name}</span>
+                            <span className={`text-[11px] px-1.5 py-0.5 rounded border ${meta.className}`}>
+                              {meta.label}
+                            </span>
+                            {alreadyRequested && <span className="text-xs text-green-700">requested</span>}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">{inv.rationale}</p>
+                          <p className="text-xs text-gray-400">
+                            Expected: {inv.expectedValue} · Min safe: {inv.minSafeLevel}
+                          </p>
+                        </div>
                       </label>
                     );
                   })}
+                  {requiredInvestigations.length === 0 && (
+                    <p className="text-sm text-gray-400 py-2">
+                      Record the procedure and any comorbidities in section 1 to generate the workup.
+                    </p>
+                  )}
                 </div>
               </div>
               {investigations && investigations.length > 0 && (
@@ -2303,6 +2550,22 @@ export default function SurgicalWorkflowPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Surgical Documents</h2>
 
+              {/* Preoperative workup — generated, nothing to type */}
+              <div className="mb-6">
+                <h3 className="text-sm font-bold text-gray-800 mb-1">Preoperative Workup</h3>
+                <p className="text-xs text-gray-500 mb-2">
+                  The required investigations with the reason each is demanded and the level it
+                  must reach, plus the optimisation plan for the recorded comorbidities.
+                </p>
+                <button
+                  onClick={downloadPreopWorkupPDF}
+                  disabled={requiredInvestigations.length === 0}
+                  className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center gap-1"
+                >
+                  <Download className="w-4 h-4" /> Download Preoperative Workup PDF
+                </button>
+              </div>
+
               {/* Preop Info */}
               <div className="mb-6">
                 <h3 className="text-sm font-bold text-gray-800 mb-2">Preoperative Information & Counselling</h3>
@@ -2325,14 +2588,45 @@ export default function SurgicalWorkflowPage() {
                 </button>
               </div>
 
-              {/* Consent */}
+              {/* Patient information & consent — one generated document */}
               <div className="mb-6">
-                <h3 className="text-sm font-bold text-gray-800 mb-2">Surgical Consent</h3>
-                <textarea value={consentDetails} onChange={e => setConsentDetails(e.target.value)} rows={4}
+                <h3 className="text-sm font-bold text-gray-800 mb-1">Patient Information &amp; Consent</h3>
+                <p className="text-xs text-gray-500 mb-2">
+                  Generated from the procedure, the recorded comorbidities and the planned
+                  anaesthetic — the explanation the patient keeps, followed by the declaration
+                  they sign. Anything typed below is appended verbatim.
+                </p>
+
+                {selectedProcedure ? (
+                  <div className="mb-2 text-xs rounded-lg border px-2.5 py-1.5 inline-flex items-center gap-1.5
+                    border-gray-200 bg-gray-50 text-gray-600">
+                    {matchedEducation ? (
+                      <>
+                        <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                        Procedure-specific content found: <strong>{matchedEducation.name}</strong>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                        No procedure-specific leaflet matched — general surgical content will be used.
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-700 mb-2">
+                    Select the procedure in section 1 to generate a complete consent document.
+                  </p>
+                )}
+
+                <textarea value={consentDetails} onChange={e => setConsentDetails(e.target.value)} rows={3}
                   className="w-full border rounded-lg px-3 py-2"
-                  placeholder="Additional consent details, specific risks discussed, patient questions addressed..." />
-                <button onClick={downloadConsentPDF} className="mt-2 text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                  <Download className="w-4 h-4" /> Download Consent Form PDF
+                  placeholder="Anything else discussed: specific risks, patient questions answered..." />
+                <button
+                  onClick={downloadConsentPDF}
+                  disabled={!selectedProcedure}
+                  className="mt-2 text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center gap-1"
+                >
+                  <Download className="w-4 h-4" /> Download Information &amp; Consent PDF
                 </button>
               </div>
 
