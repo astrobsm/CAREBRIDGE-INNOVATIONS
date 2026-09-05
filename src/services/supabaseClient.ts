@@ -191,6 +191,30 @@ export const TABLES = {
 
   // Clinician Assistant (saved diagnostic engine analyses)
   clinicianAnalyses: 'clinician_analyses',
+
+  // Soft Tissue Infection (STI)
+  stiAssessments: 'sti_assessments',
+  stiDebridementRecords: 'sti_debridement_records',
+
+  // Lymphedema
+  lymphedemaAssessments: 'lymphedema_assessments',
+  lymphedemaMonitoringRecords: 'lymphedema_monitoring_records',
+  postOpLymphedemaMonitoring: 'post_op_lymphedema_monitoring',
+
+  // Wound measurements (WoundProgress capture records)
+  woundMeasurements: 'wound_measurements',
+
+  // Investigation request bundles
+  investigationRequestBundles: 'investigation_request_bundles',
+
+  // Finance
+  financeBuckets: 'finance_buckets',
+  financeIncome: 'finance_income',
+  financeTransactions: 'finance_transactions',
+  financeExpenses: 'finance_expenses',
+  financeProjects: 'finance_projects',
+  financeInvestments: 'finance_investments',
+  financeAuditLogs: 'finance_audit_logs',
 } as const;
 
 // Local to cloud table name mapping
@@ -213,6 +237,9 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   bedAssignments: 'bed_assignments',
   treatmentPlans: 'treatment_plans',
   treatmentProgress: 'treatment_progress',
+  treatmentSessions: 'treatment_sessions',
+  treatmentReminders: 'treatment_reminders',
+  treatmentVoiceNotes: 'treatment_voice_notes',
   wardRounds: 'ward_rounds',
   doctorAssignments: 'doctor_assignments',
   nurseAssignments: 'nurse_assignments',
@@ -303,6 +330,25 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   tumourBoardSurveillance: 'tumour_board_surveillance',
   // Clinician Assistant
   clinicianAnalyses: 'clinician_analyses',
+  // Soft Tissue Infection (STI)
+  stiAssessments: 'sti_assessments',
+  stiDebridementRecords: 'sti_debridement_records',
+  // Lymphedema
+  lymphedemaAssessments: 'lymphedema_assessments',
+  lymphedemaMonitoringRecords: 'lymphedema_monitoring_records',
+  postOpLymphedemaMonitoring: 'post_op_lymphedema_monitoring',
+  // Wound measurements
+  woundMeasurements: 'wound_measurements',
+  // Investigation request bundles
+  investigationRequestBundles: 'investigation_request_bundles',
+  // Finance
+  financeBuckets: 'finance_buckets',
+  financeIncome: 'finance_income',
+  financeTransactions: 'finance_transactions',
+  financeExpenses: 'finance_expenses',
+  financeProjects: 'finance_projects',
+  financeInvestments: 'finance_investments',
+  financeAuditLogs: 'finance_audit_logs',
 };
 
 // Type for sync status

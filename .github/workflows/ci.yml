@@ -1,7 +1,8 @@
 name: CI
 
-# Gate: type-check and production build on every PR (and on pushes to main).
-# Catches type errors before they reach main and before Vercel deploys.
+# Gate: type-check, unit tests and production build on every PR (and on pushes
+# to main). Catches type errors, clinical-logic regressions and frontend/backend
+# schema drift before they reach main and before Vercel deploys.
 
 on:
   pull_request:
@@ -15,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  typecheck-build:
+  typecheck-test-build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,6 +33,11 @@ jobs:
 
       - name: Type-check (tsc --noEmit)
         run: npm run typecheck
+
+      # Includes syncTableAlignment, which fails if the frontend sync lists and
+      # the Supabase schema drift apart again.
+      - name: Unit tests (vitest)
+        run: npm test
 
       - name: Production build (vite)
         run: npm run build

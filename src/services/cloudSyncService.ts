@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { db, suppressAudit, resumeAudit } from '../database/db';
-import { supabase, isSupabaseConfigured, TABLES } from './supabaseClient';
+import { supabase, isSupabaseConfigured, TABLES, LOCAL_TO_CLOUD_TABLE } from './supabaseClient';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Sync state management
@@ -877,6 +877,30 @@ async function pullAllFromCloud(): Promise<void> {
   // Clinician Assistant (saved diagnostic engine analyses)
   await pullTable(TABLES.clinicianAnalyses, 'clinicianAnalyses');
 
+  // Soft Tissue Infection (STI)
+  await pullTable(TABLES.stiAssessments, 'stiAssessments');
+  await pullTable(TABLES.stiDebridementRecords, 'stiDebridementRecords');
+
+  // Lymphedema
+  await pullTable(TABLES.lymphedemaAssessments, 'lymphedemaAssessments');
+  await pullTable(TABLES.lymphedemaMonitoringRecords, 'lymphedemaMonitoringRecords');
+  await pullTable(TABLES.postOpLymphedemaMonitoring, 'postOpLymphedemaMonitoring');
+
+  // Wound measurements (capture records behind the WoundProgress trend)
+  await pullTable(TABLES.woundMeasurements, 'woundMeasurements');
+
+  // Investigation request bundles
+  await pullTable(TABLES.investigationRequestBundles, 'investigationRequestBundles');
+
+  // Finance
+  await pullTable(TABLES.financeBuckets, 'financeBuckets');
+  await pullTable(TABLES.financeIncome, 'financeIncome');
+  await pullTable(TABLES.financeTransactions, 'financeTransactions');
+  await pullTable(TABLES.financeExpenses, 'financeExpenses');
+  await pullTable(TABLES.financeProjects, 'financeProjects');
+  await pullTable(TABLES.financeInvestments, 'financeInvestments');
+  await pullTable(TABLES.financeAuditLogs, 'financeAuditLogs');
+
   // Audit Logs (for accountability across devices) - uses 'timestamp' column instead of 'updated_at'
   await pullTable(TABLES.auditLogs, 'auditLogs', 'timestamp');
   
@@ -1044,6 +1068,30 @@ async function pushAllToCloud(): Promise<void> {
 
   // Clinician Assistant (saved diagnostic engine analyses)
   await pushTable('clinicianAnalyses', TABLES.clinicianAnalyses);
+
+  // Soft Tissue Infection (STI)
+  await pushTable('stiAssessments', TABLES.stiAssessments);
+  await pushTable('stiDebridementRecords', TABLES.stiDebridementRecords);
+
+  // Lymphedema
+  await pushTable('lymphedemaAssessments', TABLES.lymphedemaAssessments);
+  await pushTable('lymphedemaMonitoringRecords', TABLES.lymphedemaMonitoringRecords);
+  await pushTable('postOpLymphedemaMonitoring', TABLES.postOpLymphedemaMonitoring);
+
+  // Wound measurements (capture records behind the WoundProgress trend)
+  await pushTable('woundMeasurements', TABLES.woundMeasurements);
+
+  // Investigation request bundles
+  await pushTable('investigationRequestBundles', TABLES.investigationRequestBundles);
+
+  // Finance
+  await pushTable('financeBuckets', TABLES.financeBuckets);
+  await pushTable('financeIncome', TABLES.financeIncome);
+  await pushTable('financeTransactions', TABLES.financeTransactions);
+  await pushTable('financeExpenses', TABLES.financeExpenses);
+  await pushTable('financeProjects', TABLES.financeProjects);
+  await pushTable('financeInvestments', TABLES.financeInvestments);
+  await pushTable('financeAuditLogs', TABLES.financeAuditLogs);
 
   // Audit Logs (for accountability across devices)
   await pushTable('auditLogs', TABLES.auditLogs);
@@ -1643,116 +1691,16 @@ export async function deleteRecordFromCloud(localTableName: string, recordId: st
   }
 }
 
-// Get cloud table name from local table name
+// Get cloud table name from local table name.
+//
+// Derived from LOCAL_TO_CLOUD_TABLE rather than restating it. This was a
+// hand-maintained second copy of the same mapping, and it had already drifted:
+// treatmentSessions, treatmentReminders and treatmentVoiceNotes were synced by
+// pullAllFromCloud/pushAllToCloud but were missing from LOCAL_TO_CLOUD_TABLE, so
+// single-record syncRecord() calls for them resolved to null and never reached
+// the cloud. One source of truth means the two can no longer disagree.
 function getCloudTableName(localTableName: string): string | null {
-  const mapping: Record<string, string> = {
-    users: TABLES.users,
-    hospitals: TABLES.hospitals,
-    patients: TABLES.patients,
-    vitalSigns: TABLES.vitalSigns,
-    clinicalEncounters: TABLES.clinicalEncounters,
-    surgeries: TABLES.surgeries,
-    wounds: TABLES.wounds,
-    burnAssessments: TABLES.burnAssessments,
-    labRequests: TABLES.labRequests,
-    prescriptions: TABLES.prescriptions,
-    nutritionAssessments: TABLES.nutritionAssessments,
-    nutritionPlans: TABLES.nutritionPlans,
-    invoices: TABLES.invoices,
-    admissions: TABLES.admissions,
-    admissionNotes: TABLES.admissionNotes,
-    bedAssignments: TABLES.bedAssignments,
-    treatmentPlans: TABLES.treatmentPlans,
-    treatmentProgress: TABLES.treatmentProgress,
-    treatmentSessions: TABLES.treatmentSessions,
-    treatmentReminders: TABLES.treatmentReminders,
-    treatmentVoiceNotes: TABLES.treatmentVoiceNotes,
-    wardRounds: TABLES.wardRounds,
-    doctorAssignments: TABLES.doctorAssignments,
-    nurseAssignments: TABLES.nurseAssignments,
-    investigations: TABLES.investigations,
-    chatRooms: TABLES.chatRooms,
-    chatMessages: TABLES.chatMessages,
-    videoConferences: TABLES.videoConferences,
-    enhancedVideoConferences: TABLES.enhancedVideoConferences,
-    dischargeSummaries: TABLES.dischargeSummaries,
-    consumableBOMs: TABLES.consumableBOMs,
-    histopathologyRequests: TABLES.histopathologyRequests,
-    bloodTransfusions: TABLES.bloodTransfusions,
-    mdtMeetings: TABLES.mdtMeetings,
-    limbSalvageAssessments: TABLES.limbSalvageAssessments,
-    burnMonitoringRecords: TABLES.burnMonitoringRecords,
-    escharotomyRecords: TABLES.escharotomyRecords,
-    skinGraftRecords: TABLES.skinGraftRecords,
-    burnCarePlans: TABLES.burnCarePlans,
-    appointments: TABLES.appointments,
-    appointmentSlots: TABLES.appointmentSlots,
-    appointmentReminders: TABLES.appointmentReminders,
-    clinicSessions: TABLES.clinicSessions,
-    // NPWT
-    npwtSessions: TABLES.npwtSessions,
-    npwtNotifications: TABLES.npwtNotifications,
-    // Medication Charts
-    medicationCharts: TABLES.medicationCharts,
-    nursePatientAssignments: TABLES.nursePatientAssignments,
-    // Transfusion
-    transfusionOrders: TABLES.transfusionOrders,
-    transfusionMonitoringCharts: TABLES.transfusionMonitoringCharts,
-    // Staff Assignments & Billing
-    staffPatientAssignments: TABLES.staffPatientAssignments,
-    activityBillingRecords: TABLES.activityBillingRecords,
-    // Payroll
-    payrollPeriods: TABLES.payrollPeriods,
-    staffPayrollRecords: TABLES.staffPayrollRecords,
-    payslips: TABLES.payslips,
-    // Post-Operative Notes
-    postOperativeNotes: TABLES.postOperativeNotes,
-    // Preoperative Assessments
-    preoperativeAssessments: TABLES.preoperativeAssessments,
-    // External Reviews (Admin only)
-    externalReviews: TABLES.externalReviews,
-    // Referrals
-    referrals: TABLES.referrals,
-    // Patient Education Records
-    patientEducationRecords: TABLES.patientEducationRecords,
-    // Calculator Results
-    calculatorResults: TABLES.calculatorResults,
-    // User & Hospital Settings
-    userSettings: TABLES.userSettings,
-    hospitalSettings: TABLES.hospitalSettings,
-    // Audit Logs
-    auditLogs: TABLES.auditLogs,
-    // Keloid Care Plans
-    keloidCarePlans: TABLES.keloidCarePlans,
-    // Meeting Minutes & Transcription
-    meetingMinutes: TABLES.meetingMinutes,
-    // Substance Use Disorder Assessment & Detoxification
-    substanceUseAssessments: TABLES.substanceUseAssessments,
-    detoxMonitoringRecords: TABLES.detoxMonitoringRecords,
-    detoxFollowUps: TABLES.detoxFollowUps,
-    substanceUseConsents: TABLES.substanceUseConsents,
-    substanceUseClinicalSummaries: TABLES.substanceUseClinicalSummaries,
-    // Clinical Comments
-    clinicalComments: TABLES.clinicalComments,
-    // Investigation Approval Logs
-    investigationApprovalLogs: TABLES.investigationApprovalLogs,
-    // Public Clinic Bookings
-    publicClinicBookings: TABLES.publicClinicBookings,
-    // Scanned Documents (OCR)
-    scannedDocuments: TABLES.scannedDocuments,
-    // WoundProgress Monitor
-    monitoredWounds: TABLES.monitoredWounds,
-    woundAssessments: TABLES.woundAssessments,
-    // Tumour Board
-    tumourBoardCases: TABLES.tumourBoardCases,
-    tumourBoardAssessments: TABLES.tumourBoardAssessments,
-    tumourBoardPlans: TABLES.tumourBoardPlans,
-    tumourBoardReferrals: TABLES.tumourBoardReferrals,
-    tumourBoardSurveillance: TABLES.tumourBoardSurveillance,
-    // Clinician Assistant
-    clinicianAnalyses: TABLES.clinicianAnalyses,
-  };
-  return mapping[localTableName] || null;
+  return LOCAL_TO_CLOUD_TABLE[localTableName] || null;
 }
 
 // Convert record from Supabase format (snake_case) to local format (camelCase)
@@ -1847,9 +1795,19 @@ const SPECIAL_FIELD_MAPPINGS: Record<string, string> = {
   patientWhatsApp: 'patient_whatsapp',
   whatsAppNumber: 'whatsapp_number',
   whatsApp: 'whatsapp',
+  // The naive converter turns this into whats_app_message_id, which matches no
+  // column and is inconsistent with the whatsapp_* names above.
+  whatsAppMessageId: 'whatsapp_message_id',
   // is24Hours should be is_24_hours (with underscore before number)
   is24Hours: 'is_24_hours',
 };
+
+// Fields that live only on the local record and must never be sent to Postgres.
+// A Blob has no meaningful JSON form - it serialises to {} and would otherwise be
+// re-sent on every upsert until the PGRST204 handler happened to strip it.
+const LOCAL_ONLY_FIELDS = new Set<string>([
+  'audioBlob', // TreatmentVoiceNote: the audio itself stays in IndexedDB
+]);
 
 // Reverse mappings for converting from Supabase to local
 const REVERSE_FIELD_MAPPINGS: Record<string, string> = Object.fromEntries(
@@ -1861,9 +1819,11 @@ function convertToSupabase(record: Record<string, unknown>): Record<string, unkn
   const result: Record<string, unknown> = {};
   
   for (const key in record) {
+    if (LOCAL_ONLY_FIELDS.has(key)) continue;
+
     // Check for special case mappings first
     let snakeKey = SPECIAL_FIELD_MAPPINGS[key];
-    
+
     if (!snakeKey) {
       // Convert camelCase to snake_case using regex
       snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
