@@ -147,15 +147,11 @@ const navigation: NavItem[] = [
     ],
   },
   {
+    // The standalone Wounds page was merged into the WoundProgress Monitor, so
+    // wound care is one entry now. /wounds redirects here.
     name: 'Wounds',
-    href: '/wounds',
-    icon: <CircleDot size={20} />,
-    permission: 'manage_wounds',
-  },
-  {
-    name: 'WoundProgress Monitor',
     href: '/wound-monitor',
-    icon: <Activity size={20} />,
+    icon: <CircleDot size={20} />,
     permission: 'manage_wounds',
   },
   {
@@ -388,7 +384,6 @@ const SECTION_BY_HREF: Record<string, string> = {
   '/': 'main',
   '/patients': 'main',
   // Surfaced top-level, matching the source application's flat navigation.
-  '/wound-monitor': 'main',
   '/clinician-assistant': 'main',
   // Outpatient Care
   '/appointments': 'outpatient',
@@ -415,7 +410,7 @@ const SECTION_BY_HREF: Record<string, string> = {
   '/pre-surgical-conference': 'theatre',
   '/billing/surgical-estimate': 'theatre',
   // Wound Care
-  '/wounds': 'wound-care',
+  '/wound-monitor': 'wound-care',
   '/burns': 'wound-care',
   '/limb-salvage': 'wound-care',
   '/npwt': 'wound-care',

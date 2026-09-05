@@ -17,8 +17,9 @@
 
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Activity, AlertTriangle, ArrowLeft, Camera, ChevronRight, LineChart, Plus,
-  RefreshCw, Ruler, Search, TrendingDown, TrendingUp, Minus, Loader2, X,
+  Activity, AlertTriangle, ArrowLeft, Camera, ChevronRight, Download, FileText,
+  LineChart, Plus, Printer, RefreshCw, Ruler, Search, TrendingDown, TrendingUp,
+  Minus, Loader2, X,
 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../database';
@@ -26,20 +27,40 @@ import { useAuth } from '../../../contexts/AuthContext';
 import type { Patient } from '../../../types';
 import { aiWoundMeasurement, type WoundProgressEntry, type AiWoundAssessment } from '../services/aiWoundMeasurement';
 import {
+  printDressingProtocol,
+  exportDressingProtocolPDF,
+  determineWoundPhase as getDressingPhase,
+  type DressingProtocolData,
+} from '../../../utils/dressingProtocolPrint';
+import { generateCalibrationRulerPDF } from '../../../utils/calibrationRulerPdf';
+import {
+  generateWoundAssessmentPDF,
+  type WoundAssessmentPDFOptions,
+} from '../../../utils/clinicalPdfGenerators';
+import type { CalibratedMeasurement } from '../../../services/woundMeasurementEngine';
+import {
   listWounds, getWoundTimeline, getMonitorDashboard, createWound, addAssessment,
-  computeHealingAnalytics, healingAlerts, HEALING_STATUS_META,
+  importLegacyWounds,
+  computeHealingAnalytics, healingAlerts, HEALING_STATUS_META, INFECTION_SIGNS,
   type MonitoredWound, type WoundAssessment, type HealingStatus, type MonitoredWoundSummary,
-  type MonitorDashboard,
+  type MonitorDashboard, type ExudateAmount, type ExudateType, type TissueType,
+  type HealingAnalytics,
 } from '../services/woundMonitorService';
 
 const WoundHealingMap = lazy(() => import('../components/WoundHealingMap'));
 const MonitorTrendChart = lazy(() => import('../components/MonitorTrendChart'));
+// Heavy (pulls TensorFlow via the measurement engine) and only needed when the
+// clinician chooses the guided path, so it stays out of the main chunk.
+const CalibratedWoundCapture = lazy(() => import('../components/CalibratedWoundCapture'));
 
 const WOUND_TYPES = [
   'Burn', 'Pressure Injury', 'Venous Ulcer', 'Diabetic Foot Ulcer', 'Surgical Wound',
   'Traumatic Wound', 'Skin Graft Donor Site', 'Flap', 'Necrotizing Fasciitis', "Fournier's Gangrene",
 ];
 const BODY_SIDES = ['Left', 'Right', 'Midline', 'Bilateral'];
+const TISSUE_TYPES: TissueType[] = ['epithelial', 'granulation', 'slough', 'necrotic', 'eschar'];
+const EXUDATE_AMOUNTS: ExudateAmount[] = ['none', 'light', 'moderate', 'heavy'];
+const EXUDATE_TYPES: ExudateType[] = ['serous', 'sanguineous', 'serosanguineous', 'purulent'];
 
 type View =
   | { kind: 'dashboard' }
@@ -132,10 +153,21 @@ const DashboardView: React.FC<{
   const [data, setData] = useState<MonitorDashboard | null>(null);
   const [showPicker, setShowPicker] = useState(false);
 
+  const [imported, setImported] = useState(0);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
+      // Pull across anything still sitting in the old Wounds module — including
+      // legacy rows that only arrive later via cloud sync. Idempotent, so a
+      // failure here must never block the dashboard.
+      try {
+        const n = await importLegacyWounds();
+        if (n) setImported(n);
+      } catch (e) {
+        console.warn('[WoundMonitor] Legacy import skipped:', e);
+      }
       setData(await getMonitorDashboard());
     } catch (e: any) {
       setError(e?.message || 'Could not load the monitor dashboard.');
@@ -155,6 +187,12 @@ const DashboardView: React.FC<{
 
   return (
     <div className="space-y-6">
+      {imported > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-sm text-blue-800">
+          Brought {imported} wound{imported === 1 ? '' : 's'} across from the previous Wounds
+          module. Each opens with its recorded measurements as the first assessment.
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-gray-800">Monitored wounds</h2>
         <div className="flex items-center gap-2">
@@ -336,6 +374,7 @@ const WoundDetailView: React.FC<{ patient: Patient; wound: MonitoredWound; onBac
   const [assessments, setAssessments] = useState<WoundAssessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [capturing, setCapturing] = useState(false);
+  const { user } = useAuth();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -437,18 +476,79 @@ const WoundDetailView: React.FC<{ patient: Patient; wound: MonitoredWound; onBac
           )}
         </div>
 
-        {/* Right: latest description */}
+        {/* Right: latest clinical assessment */}
         <div className="bg-white rounded-xl border p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Latest clinical description</h3>
-          {latest?.clinicalDescription ? (
-            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{latest.clinicalDescription}</p>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Latest clinical assessment</h3>
+          {latest ? (
+            <div className="space-y-2.5">
+              {latest.infectionSigns?.length ? (
+                <div className="flex items-start gap-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2 py-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span>Infection signs: {latest.infectionSigns.join(', ')}</span>
+                </div>
+              ) : null}
+
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
+                <ClinicalFact label="Exudate" value={
+                  [latest.exudateAmount, latest.exudateType].filter(Boolean).join(' · ')
+                } />
+                <ClinicalFact label="Pain" value={latest.painLevel != null ? `${latest.painLevel}/10` : ''} />
+                <ClinicalFact label="Odour" value={latest.odor === undefined ? '' : latest.odor ? 'Present' : 'Absent'} />
+                <ClinicalFact label="Peri-wound" value={latest.periWoundCondition} />
+                <ClinicalFact label="Dressing" value={latest.dressingType} />
+                <ClinicalFact label="Frequency" value={latest.dressingFrequency} />
+              </dl>
+
+              {latest.tissueTypes?.length ? (
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {latest.tissueTypes.map(t => (
+                    <span key={t} className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[11px] capitalize">{t}</span>
+                  ))}
+                </div>
+              ) : null}
+
+              {latest.clinicalDescription && (
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap pt-1 border-t">
+                  {latest.clinicalDescription}
+                </p>
+              )}
+              {latest.assessedAt && (
+                <p className="text-xs text-gray-400">Assessed {new Date(latest.assessedAt).toLocaleString()}</p>
+              )}
+            </div>
           ) : (
-            <p className="text-sm text-gray-400">No description recorded on the latest assessment.</p>
-          )}
-          {latest?.assessedAt && (
-            <p className="text-xs text-gray-400 mt-3">Assessed {new Date(latest.assessedAt).toLocaleString()}</p>
+            <p className="text-sm text-gray-400">No assessment recorded yet.</p>
           )}
         </div>
+      </div>
+
+      {/* Clinical outputs — carried over from the Wounds module */}
+      <div className="bg-white rounded-xl border p-4">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Clinical documents</h3>
+        <div className="flex flex-wrap gap-2">
+          <DocButton icon={<Printer className="w-4 h-4" />} disabled={!latest}
+            onClick={() => latest && printDressingProtocol(dressingData(patient, wound, latest, user))}>
+            Print dressing protocol
+          </DocButton>
+          <DocButton icon={<Download className="w-4 h-4" />} disabled={!latest}
+            onClick={() => latest && exportDressingProtocolPDF(dressingData(patient, wound, latest, user))}>
+            Dressing protocol PDF
+          </DocButton>
+          <DocButton icon={<FileText className="w-4 h-4" />} disabled={!latest}
+            onClick={() => latest && generateWoundAssessmentPDF(
+              woundReportOptions(patient, wound, latest, analytics, user),
+            )}>
+            Assessment report PDF
+          </DocButton>
+          <DocButton icon={<Ruler className="w-4 h-4" />} onClick={() => generateCalibrationRulerPDF()}>
+            Calibration ruler
+          </DocButton>
+        </div>
+        {!latest && (
+          <p className="text-xs text-gray-400 mt-2">
+            Capture an assessment to generate a dressing protocol.
+          </p>
+        )}
       </div>
 
       {/* Trend chart */}
@@ -468,12 +568,39 @@ const WoundDetailView: React.FC<{ patient: Patient; wound: MonitoredWound; onBac
         ) : (
           <ul className="divide-y">
             {assessments.map(a => (
-              <li key={a.id} className="py-2.5 flex items-center justify-between gap-3">
+              <li key={a.id} className="py-2.5 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-gray-800 tabular-nums">{fmtArea(a.areaCm2)}</div>
                   <div className="text-xs text-gray-400">
                     {a.assessedAt ? new Date(a.assessedAt).toLocaleString() : '—'}
                     {a.scaleReliable === false && ' • uncalibrated'}
+                  </div>
+                  {/* Clinical shorthand, so the timeline reads as a record of
+                      care and not just a column of areas. */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    {a.exudateAmount && (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                        {a.exudateAmount} exudate
+                      </span>
+                    )}
+                    {a.painLevel != null && (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                        pain {a.painLevel}/10
+                      </span>
+                    )}
+                    {a.odor && (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">odour</span>
+                    )}
+                    {!!a.infectionSigns?.length && (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                        infection ×{a.infectionSigns.length}
+                      </span>
+                    )}
+                    {!!a.photos?.length && (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                        {a.photos.length} photo{a.photos.length === 1 ? '' : 's'}
+                      </span>
+                    )}
                   </div>
                 </div>
                 {a.lengthCm != null && a.widthCm != null && (
@@ -497,6 +624,141 @@ const WoundDetailView: React.FC<{ patient: Patient; wound: MonitoredWound; onBac
     </div>
   );
 };
+
+const ClinicalFact: React.FC<{ label: string; value?: string | null }> = ({ label, value }) => (
+  <div>
+    <dt className="text-[11px] uppercase tracking-wide text-gray-400">{label}</dt>
+    <dd className={`text-sm capitalize ${value ? 'text-gray-800' : 'text-gray-300'}`}>{value || '—'}</dd>
+  </div>
+);
+
+const DocButton: React.FC<{
+  icon: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}> = ({ icon, onClick, disabled, children }) => (
+  <button
+    onClick={onClick} disabled={disabled}
+    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+  >
+    {icon} {children}
+  </button>
+);
+
+/**
+ * Build the dressing-protocol payload from a monitored wound + its latest
+ * assessment. The phase is derived from the tissue actually recorded, falling
+ * back to the granulation percentage when the clinician did not tick tissue
+ * types — so a photo-only assessment still yields the right protocol.
+ */
+function dressingData(
+  patient: Patient,
+  wound: MonitoredWound,
+  a: WoundAssessment,
+  user: { firstName?: string; lastName?: string } | null,
+): DressingProtocolData {
+  const tissues = a.tissueTypes?.length
+    ? a.tissueTypes
+    : inferTissueTypes(a);
+  return {
+    patientName: patientName(patient),
+    hospitalNumber: patient.hospitalNumber || wound.hospitalNumber || '',
+    woundLocation: [wound.anatomicalLocation, wound.bodySide].filter(Boolean).join(' ') || '—',
+    woundType: wound.woundType || '—',
+    woundDimensions: {
+      length: Number(a.lengthCm) || 0,
+      width: Number(a.widthCm) || 0,
+      depth: a.depthCm ?? undefined,
+      area: a.areaCm2 ?? undefined,
+    },
+    tissueTypes: tissues,
+    exudateAmount: a.exudateAmount || 'Not recorded',
+    exudateType: a.exudateType,
+    phase: getDressingPhase(tissues, a.granulationPct ?? undefined),
+    painLevel: a.painLevel ?? undefined,
+    assessedBy: [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Clinician',
+    assessedAt: a.assessedAt ? new Date(a.assessedAt) : new Date(),
+  };
+}
+
+/**
+ * Build the wound assessment report from the monitored wound, its latest
+ * assessment and the derived healing picture. Rendered through the shared
+ * generator, which builds on createSafePDF — so no unencodable glyph reaches
+ * the page.
+ */
+function woundReportOptions(
+  patient: Patient,
+  wound: MonitoredWound,
+  a: WoundAssessment,
+  analytics: HealingAnalytics,
+  user: { firstName?: string; lastName?: string } | null,
+): WoundAssessmentPDFOptions {
+  const tissues = a.tissueTypes?.length ? a.tissueTypes : inferTissueTypes(a);
+  return {
+    woundId: wound.id,
+    assessmentDate: a.assessedAt ? new Date(a.assessedAt) : new Date(),
+    patient: {
+      name: patientName(patient),
+      hospitalNumber: patient.hospitalNumber || wound.hospitalNumber || 'N/A',
+      age: ageFrom(patient.dateOfBirth),
+      gender: patient.gender,
+    },
+    hospitalName: 'AstroHEALTH',
+    assessedBy: [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Clinical Staff',
+    woundType: wound.woundType || 'Not recorded',
+    location: [wound.anatomicalLocation, wound.bodySide].filter(Boolean).join(' ') || 'Not recorded',
+    etiology: wound.etiology || 'Not recorded',
+    dimensions: {
+      length: Number(a.lengthCm) || 0,
+      width: Number(a.widthCm) || 0,
+      depth: a.depthCm ?? undefined,
+      area: a.areaCm2 ?? undefined,
+    },
+    phase: getDressingPhase(tissues, a.granulationPct ?? undefined),
+    tissueTypes: tissues,
+    exudateAmount: a.exudateAmount || 'Not recorded',
+    exudateType: a.exudateType,
+    odor: Boolean(a.odor),
+    periWoundCondition: a.periWoundCondition,
+    painLevel: Number(a.painLevel) || 0,
+    dressingType: a.dressingType,
+    dressingFrequency: a.dressingFrequency,
+    // The report states the trend the timeline actually shows, rather than a
+    // clinician's impression typed at a single visit.
+    healingProgress: HEALING_TO_REPORT[analytics.status],
+    notes: a.clinicalDescription,
+  };
+}
+
+/** Map the Monitor's healing status onto the report's narrower vocabulary. */
+const HEALING_TO_REPORT: Record<HealingStatus, 'improving' | 'static' | 'deteriorating' | undefined> = {
+  improving: 'improving',
+  healed: 'improving',
+  stagnant: 'static',
+  worsening: 'deteriorating',
+  insufficient_data: undefined,
+};
+
+/** Whole years between a date of birth and today, or undefined if unknown. */
+function ageFrom(dob?: Date | string): number | undefined {
+  if (!dob) return undefined;
+  const d = dob instanceof Date ? dob : new Date(dob);
+  if (Number.isNaN(d.getTime())) return undefined;
+  const years = (Date.now() - d.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+  return years >= 0 ? Math.floor(years) : undefined;
+}
+
+/** Derive tissue types from the measured percentages when none were ticked. */
+function inferTissueTypes(a: WoundAssessment): TissueType[] {
+  const present: TissueType[] = [];
+  if (Number(a.necroticPct) > 0) present.push('necrotic');
+  if (Number(a.sloughPct) > 0) present.push('slough');
+  if (Number(a.granulationPct) > 0) present.push('granulation');
+  if (Number(a.epithelialPct) > 0) present.push('epithelial');
+  return present;
+}
 
 const Metric: React.FC<{ label: string; value: string; tone?: string }> = ({ label, value, tone }) => (
   <div>
@@ -656,7 +918,7 @@ const NewWoundModal: React.FC<{ patient: Patient; onClose: () => void; onCreated
 
 const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => void; onSaved: () => void }> = ({ wound, onClose, onSaved }) => {
   const { user } = useAuth();
-  const [mode, setMode] = useState<'photo' | 'manual'>('photo');
+  const [mode, setMode] = useState<'photo' | 'guided' | 'manual'>('photo');
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -669,6 +931,8 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
   const [visionState, setVisionState] = useState<'idle' | 'running' | 'done' | 'unavailable'>('idle');
   const [vision, setVision] = useState<AiWoundAssessment | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  // The captured frame, kept so it can be stored alongside the assessment.
+  const [photoDataUrl, setPhotoDataUrl] = useState<string>('');
   // Set once the clinician edits a field, so the async enrichment never
   // overwrites something a human has already typed.
   const editedRef = useRef(false);
@@ -691,6 +955,7 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
       ctx.drawImage(bitmap, 0, 0);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setPhotoDataUrl(dataUrl);
 
       await aiWoundMeasurement.initialize();
       // measureWound auto-detects the calibration marker internally (green
@@ -737,15 +1002,25 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
     setWarnings(merged.warnings || []);
     setVisionState('done');
 
-    if (!editedRef.current && merged.tissue) {
+    // The Vision pass already reads exudate, peri-wound skin and infection
+    // signs. Previously those were only rendered for the clinician to retype;
+    // now they pre-fill the clinical fields, which stay fully editable.
+    if (!editedRef.current) {
       setM(prev => ({
         ...prev,
-        granulationPct: round(merged.tissue!.granulation),
-        sloughPct: round(merged.tissue!.slough),
-        necroticPct: round(merged.tissue!.necrotic),
-        epithelialPct: round(merged.tissue!.epithelial),
+        ...(merged.tissue ? {
+          granulationPct: round(merged.tissue.granulation),
+          sloughPct: round(merged.tissue.slough),
+          necroticPct: round(merged.tissue.necrotic),
+          epithelialPct: round(merged.tissue.epithelial),
+        } : {}),
         healingStage: ai.healing_stage || prev.healingStage,
         clinicalDescription: prev.clinicalDescription || visionSummary(ai),
+        exudateAmount: prev.exudateAmount ?? matchExudateAmount(ai.exudate),
+        exudateType: prev.exudateType ?? matchExudateType(ai.exudate_type),
+        periWoundCondition: prev.periWoundCondition || ai.surrounding_skin || undefined,
+        infectionSigns: prev.infectionSigns ?? matchInfectionSigns(ai.signs_of_infection),
+        odor: prev.odor ?? mentionsOdour(ai),
       }));
     }
   };
@@ -775,6 +1050,19 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
         calibrationType: calibType,
         scaleReliable,
         contourCm: m.contourCm,
+        // Bedside clinical layer
+        tissueTypes: m.tissueTypes,
+        exudateAmount: m.exudateAmount,
+        exudateType: m.exudateType,
+        odor: m.odor,
+        painLevel: numOrNull(m.painLevel),
+        periWoundCondition: m.periWoundCondition,
+        infectionSigns: m.infectionSigns,
+        dressingType: m.dressingType,
+        dressingFrequency: m.dressingFrequency,
+        photos: photoDataUrl
+          ? [{ id: crypto.randomUUID(), imageData: photoDataUrl, takenAt: new Date().toISOString() }]
+          : undefined,
         assessedAt: new Date().toISOString(),
       });
       onSaved();
@@ -785,20 +1073,79 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
     }
   };
 
+  /**
+   * Fold a guided-capture result into the form. The clinician calibrated and
+   * outlined this one by hand, so it is treated as edited — the async Vision
+   * pass must not overwrite it — and the calibration is taken as reliable.
+   */
+  const applyGuidedMeasurement = useCallback((result: CalibratedMeasurement) => {
+    editedRef.current = true;
+    const t = result.tissueComposition;
+    setScaleReliable(true);
+    setCalibType(result.calibration?.method || 'manual_points');
+    setM(prev => ({
+      ...prev,
+      lengthCm: round(result.lengthCm),
+      widthCm: round(result.widthCm),
+      areaCm2: round(result.areaCm2),
+      perimeterCm: round(result.perimeterCm),
+      depthCm: result.depthCm != null ? round(result.depthCm) : prev.depthCm,
+      granulationPct: t ? round(t.granulationPercent) : prev.granulationPct,
+      sloughPct: t ? round(t.sloughPercent) : prev.sloughPct,
+      necroticPct: t ? round(t.necroticPercent) : prev.necroticPct,
+      epithelialPct: t ? round(t.epithelialPercent) : prev.epithelialPct,
+    }));
+    // Drop back to the form so the clinician confirms and adds the clinical layer.
+    setMode('manual');
+  }, []);
+
   const setField = (k: keyof WoundAssessment, v: string) => {
     editedRef.current = true;
     setM(prev => ({ ...prev, [k]: v === '' ? undefined : Number(v) }));
   };
 
+  /** Set a non-numeric field, marking the record as clinician-edited. */
+  const setValue = <K extends keyof WoundAssessment>(k: K, v: WoundAssessment[K]) => {
+    editedRef.current = true;
+    setM(prev => ({ ...prev, [k]: v }));
+  };
+
+  /** Toggle membership of one of the multi-select clinical lists. */
+  const toggleIn = (k: 'tissueTypes' | 'infectionSigns', value: string) => {
+    editedRef.current = true;
+    setM(prev => {
+      const current = (prev[k] as string[] | undefined) ?? [];
+      const next = current.includes(value)
+        ? current.filter(x => x !== value)
+        : [...current, value];
+      return { ...prev, [k]: next.length ? next : undefined };
+    });
+  };
+
   return (
     <Modal title="New assessment" onClose={onClose} wide>
-      <div className="flex gap-2 mb-4">
-        {(['photo', 'manual'] as const).map(t => (
+      <div className="flex flex-wrap gap-2 mb-4">
+        {(['photo', 'guided', 'manual'] as const).map(t => (
           <button key={t} onClick={() => setMode(t)} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${mode === t ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-            {t === 'photo' ? 'AI photo measurement' : 'Manual entry'}
+            {t === 'photo' ? 'AI photo measurement' : t === 'guided' ? 'Guided capture' : 'Manual entry'}
           </button>
         ))}
       </div>
+
+      {/* Guided capture: step-by-step calibration and manual tracing, for when
+          the one-shot AI pass cannot find a marker or gets the outline wrong. */}
+      {mode === 'guided' && (
+        <div className="mb-4">
+          <Suspense fallback={<div className="h-48 bg-gray-50 rounded-xl animate-pulse" />}>
+            <CalibratedWoundCapture
+              patientId={wound.patientId}
+              woundId={wound.id}
+              onCancel={() => setMode('photo')}
+              onMeasurementComplete={applyGuidedMeasurement}
+            />
+          </Suspense>
+        </div>
+      )}
 
       {mode === 'photo' && (
         <div className="mb-4">
@@ -876,6 +1223,101 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
         <NumField label="Epithelial %" value={m.epithelialPct} onChange={v => setField('epithelialPct', v)} />
       </div>
 
+      {/* ── Bedside clinical assessment (merged in from the Wounds module) ── */}
+      <div className="border-t pt-4 mb-4">
+        <h4 className="text-sm font-semibold text-gray-800 mb-3">Clinical assessment</h4>
+
+        <div className="mb-3">
+          <span className="text-xs font-medium text-gray-600 mb-1.5 block">Tissue types present</span>
+          <div className="flex flex-wrap gap-1.5">
+            {TISSUE_TYPES.map(t => (
+              <Chip key={t} active={!!m.tissueTypes?.includes(t)} onClick={() => toggleIn('tissueTypes', t)}>
+                {t}
+              </Chip>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <Field label="Exudate amount">
+            <select
+              value={m.exudateAmount || ''}
+              onChange={e => setValue('exudateAmount', (e.target.value || undefined) as ExudateAmount | undefined)}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">Not recorded</option>
+              {EXUDATE_AMOUNTS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </Field>
+          <Field label="Exudate type">
+            <select
+              value={m.exudateType || ''}
+              onChange={e => setValue('exudateType', (e.target.value || undefined) as ExudateType | undefined)}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">Not recorded</option>
+              {EXUDATE_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <Field label={`Pain score — ${m.painLevel ?? 0}/10`}>
+            <input
+              type="range" min={0} max={10} step={1}
+              value={m.painLevel ?? 0}
+              onChange={e => setValue('painLevel', Number(e.target.value))}
+              className="w-full"
+            />
+          </Field>
+          <label className="flex items-end gap-2 pb-2">
+            <input
+              type="checkbox" checked={!!m.odor}
+              onChange={e => setValue('odor', e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300"
+            />
+            <span className="text-sm text-gray-700">Malodour present</span>
+          </label>
+        </div>
+
+        <div className="mb-3">
+          <span className="text-xs font-medium text-gray-600 mb-1.5 block">Signs of infection</span>
+          <div className="flex flex-wrap gap-1.5">
+            {INFECTION_SIGNS.map(s => (
+              <Chip key={s} tone="red" active={!!m.infectionSigns?.includes(s)} onClick={() => toggleIn('infectionSigns', s)}>
+                {s}
+              </Chip>
+            ))}
+          </div>
+        </div>
+
+        <Field label="Peri-wound skin">
+          <input
+            value={m.periWoundCondition || ''}
+            onChange={e => setValue('periWoundCondition', e.target.value || undefined)}
+            className="w-full border rounded-lg px-3 py-2 text-sm"
+            placeholder="Intact / macerated / erythematous / excoriated…"
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <Field label="Dressing in use">
+            <input
+              value={m.dressingType || ''}
+              onChange={e => setValue('dressingType', e.target.value || undefined)}
+              className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. Hera Gel + foam"
+            />
+          </Field>
+          <Field label="Change frequency">
+            <input
+              value={m.dressingFrequency || ''}
+              onChange={e => setValue('dressingFrequency', e.target.value || undefined)}
+              className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. Daily"
+            />
+          </Field>
+        </div>
+      </div>
+
       <Field label="Clinical description (optional)">
         <textarea
           value={m.clinicalDescription || ''}
@@ -896,6 +1338,27 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
 };
 
 // ── Small shared primitives ─────────────────────────────────────────────────
+
+const Chip: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  tone?: 'teal' | 'red';
+  children: React.ReactNode;
+}> = ({ active, onClick, tone = 'teal', children }) => {
+  const on = tone === 'red'
+    ? 'bg-red-600 text-white border-red-600'
+    : 'bg-teal-600 text-white border-teal-600';
+  return (
+    <button
+      type="button" onClick={onClick}
+      className={`px-2.5 py-1 rounded-full text-xs font-medium border capitalize transition-colors ${
+        active ? on : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+      }`}
+    >
+      {children}
+    </button>
+  );
+};
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <label className="block">
@@ -941,6 +1404,60 @@ function visionSummary(ai: AiWoundAssessment): string {
     ai.observations || '',
   ].filter(Boolean);
   return parts.join(' ').trim();
+}
+
+// ── Vision → clinical field matchers ────────────────────────────────────────
+// The Vision layer returns free text ("moderate serous exudate"), so each value
+// is matched against the closed vocabulary the form stores. Anything that does
+// not match confidently is left unset for the clinician rather than guessed at.
+
+function matchExudateAmount(text?: string): ExudateAmount | undefined {
+  if (!text) return undefined;
+  const t = text.toLowerCase();
+  if (/\bnone\b|\bdry\b|absent/.test(t)) return 'none';
+  if (/heavy|copious|profuse|high/.test(t)) return 'heavy';
+  if (/moderate|medium/.test(t)) return 'moderate';
+  if (/light|scant|minimal|small|low/.test(t)) return 'light';
+  return undefined;
+}
+
+function matchExudateType(text?: string): ExudateType | undefined {
+  if (!text) return undefined;
+  const t = text.toLowerCase();
+  // Check the compound term before its two constituents.
+  if (/serosanguin/.test(t)) return 'serosanguineous';
+  if (/purulent|pus\b/.test(t)) return 'purulent';
+  if (/sanguin|blood|haemorrhag|hemorrhag/.test(t)) return 'sanguineous';
+  if (/serous/.test(t)) return 'serous';
+  return undefined;
+}
+
+/** Map free-text infection findings onto the INFECTION_SIGNS vocabulary. */
+function matchInfectionSigns(signs?: string[]): string[] | undefined {
+  if (!signs?.length) return undefined;
+  const blob = signs.join(' ').toLowerCase();
+  const matched = INFECTION_SIGNS.filter(sign => {
+    switch (sign) {
+      case 'Erythema': return /erythem|redness|red\b|inflam/.test(blob);
+      case 'Warmth': return /warm|hot\b|heat/.test(blob);
+      case 'Swelling': return /swell|oedema|edema/.test(blob);
+      case 'Purulent discharge': return /purulent|pus\b|discharge/.test(blob);
+      case 'Malodour': return /odour|odor|smell|malodor|foul/.test(blob);
+      case 'Increasing pain': return /pain|tender/.test(blob);
+      case 'Delayed healing': return /delay|stall|static|non-?healing/.test(blob);
+      case 'Friable granulation': return /friable|bleed/.test(blob);
+      default: return false;
+    }
+  });
+  return matched.length ? [...matched] : undefined;
+}
+
+/** True when the Vision read mentions odour anywhere it reports findings. */
+function mentionsOdour(ai: AiWoundAssessment): boolean | undefined {
+  const blob = [ai.exudate, ai.exudate_type, ...(ai.signs_of_infection || [])]
+    .filter(Boolean).join(' ').toLowerCase();
+  if (!blob) return undefined;
+  return /odour|odor|smell|malodor|foul/.test(blob) || undefined;
 }
 
 function round(v: number): number { return Math.round(v * 10) / 10; }

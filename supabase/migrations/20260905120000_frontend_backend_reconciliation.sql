@@ -75,7 +75,7 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------------
--- 2. Missing model columns (364 across 45 tables)
+-- 2. Missing model columns (375 across 47 tables)
 -- ---------------------------------------------------------------------------
 
 -- activity_billing_records  (10 columns)
@@ -463,6 +463,16 @@ BEGIN
   END IF;
 END $$;
 
+-- monitored_wounds  (1 column)
+DO $$
+BEGIN
+  IF to_regclass('public.monitored_wounds') IS NOT NULL THEN
+    ALTER TABLE public.monitored_wounds ADD COLUMN IF NOT EXISTS source_wound_id TEXT; -- sourceWoundId: string
+  ELSE
+    RAISE NOTICE 'skipped %: table not present', 'monitored_wounds';
+  END IF;
+END $$;
+
 -- nurse_patient_assignments  (2 columns)
 DO $$
 BEGIN
@@ -829,6 +839,25 @@ BEGIN
     ALTER TABLE public.vital_signs ADD COLUMN IF NOT EXISTS heart_rate NUMERIC;    -- heartRate: number
   ELSE
     RAISE NOTICE 'skipped %: table not present', 'vital_signs';
+  END IF;
+END $$;
+
+-- wound_assessments  (10 columns)
+DO $$
+BEGIN
+  IF to_regclass('public.wound_assessments') IS NOT NULL THEN
+    ALTER TABLE public.wound_assessments ADD COLUMN IF NOT EXISTS tissue_types JSONB; -- tissueTypes: TissueType[]
+    ALTER TABLE public.wound_assessments ADD COLUMN IF NOT EXISTS exudate_amount TEXT; -- exudateAmount: ExudateAmount
+    ALTER TABLE public.wound_assessments ADD COLUMN IF NOT EXISTS exudate_type TEXT; -- exudateType: ExudateType
+    ALTER TABLE public.wound_assessments ADD COLUMN IF NOT EXISTS odor BOOLEAN;    -- odor: boolean
+    ALTER TABLE public.wound_assessments ADD COLUMN IF NOT EXISTS pain_level NUMERIC; -- painLevel: number | null
+    ALTER TABLE public.wound_assessments ADD COLUMN IF NOT EXISTS peri_wound_condition TEXT; -- periWoundCondition: string
+    ALTER TABLE public.wound_assessments ADD COLUMN IF NOT EXISTS infection_signs JSONB; -- infectionSigns: string[]
+    ALTER TABLE public.wound_assessments ADD COLUMN IF NOT EXISTS dressing_type TEXT; -- dressingType: string
+    ALTER TABLE public.wound_assessments ADD COLUMN IF NOT EXISTS dressing_frequency TEXT; -- dressingFrequency: string
+    ALTER TABLE public.wound_assessments ADD COLUMN IF NOT EXISTS photos JSONB;    -- photos: WoundAssessmentPhoto[]
+  ELSE
+    RAISE NOTICE 'skipped %: table not present', 'wound_assessments';
   END IF;
 END $$;
 

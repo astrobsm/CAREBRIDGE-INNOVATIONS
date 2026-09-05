@@ -25,18 +25,26 @@ import {
   type WoundAssessment,
   type HealingStatus,
   type MonitoredWoundSummary,
+  type TissueType,
+  type ExudateAmount,
+  type ExudateType,
   HEALING_STATUS_META,
 } from '../monitorTypes';
 
 export {
   HEALING_STATUS_META,
 };
+export { INFECTION_SIGNS } from '../monitorTypes';
 export type {
   MonitoredWound,
   WoundAssessment,
+  WoundAssessmentPhoto,
   HealingAnalytics,
   HealingStatus,
   MonitoredWoundSummary,
+  ExudateAmount,
+  ExudateType,
+  TissueType,
 } from '../monitorTypes';
 
 // The pure healing analytics live in ./woundAnalytics so they can be unit-tested
@@ -231,6 +239,141 @@ export async function createWound(input: CreateWoundInput): Promise<MonitoredWou
   await db.monitoredWounds.add(wound);
   syncRecord('monitoredWounds', wound as unknown as Record<string, unknown>);
   return wound;
+}
+
+/**
+ * Bring legacy `wounds` records into the Monitor.
+ *
+ * The standalone Wounds module stored one flat record per wound, mixing the
+ * wound's identity with a single point-in-time assessment. The Monitor splits
+ * those apart, so each legacy record becomes one MonitoredWound plus one
+ * WoundAssessment holding its measurements and clinical findings.
+ *
+ * Idempotent, and safe to call on every page load: a legacy record is imported
+ * only if no MonitoredWound already carries its id in `sourceWoundId`. That
+ * also covers legacy rows that arrive later from cloud sync, which a one-shot
+ * Dexie upgrade hook would have missed.
+ *
+ * Returns the number of wounds imported.
+ */
+export async function importLegacyWounds(): Promise<number> {
+  let legacy: LegacyWound[];
+  try {
+    legacy = (await db.wounds.toArray()) as unknown as LegacyWound[];
+  } catch {
+    return 0; // table absent on this device — nothing to migrate
+  }
+  if (!legacy.length) return 0;
+
+  const alreadyImported = new Set(
+    (await db.monitoredWounds.toArray())
+      .map(w => (w as MonitoredWound).sourceWoundId)
+      .filter(Boolean) as string[],
+  );
+
+  const pending = legacy.filter(w => w?.id && !alreadyImported.has(w.id));
+  if (!pending.length) return 0;
+
+  let imported = 0;
+  for (const old of pending) {
+    try {
+      const createdAt = toIso(old.createdAt);
+      const updatedAt = toIso(old.updatedAt);
+
+      const wound: MonitoredWound = {
+        id: uuidv4(),
+        patientId: old.patientId,
+        label: [old.location, old.type].filter(Boolean).join(' ').trim() || 'Imported wound',
+        woundType: old.type,
+        anatomicalLocation: old.location,
+        etiology: old.etiology,
+        dateFirstSeen: createdAt,
+        // A legacy wound recorded as healing/healed still opens as active; the
+        // Monitor derives status from the assessment timeline, not a flag.
+        status: 'active',
+        sourceWoundId: old.id,
+        createdAt,
+        updatedAt,
+      };
+      await db.monitoredWounds.add(wound);
+      syncRecord('monitoredWounds', wound as unknown as Record<string, unknown>);
+
+      // The legacy record's measurements become the first point on the timeline.
+      const area = num(old.area) ?? (num(old.length) != null && num(old.width) != null
+        ? Number(old.length) * Number(old.width)
+        : null);
+
+      const assessment: WoundAssessment = {
+        id: uuidv4(),
+        woundId: wound.id,
+        patientId: old.patientId,
+        assessedAt: updatedAt,
+        lengthCm: num(old.length),
+        widthCm: num(old.width),
+        depthCm: num(old.depth),
+        areaCm2: area,
+        tissueTypes: old.tissueType,
+        exudateAmount: old.exudateAmount,
+        exudateType: old.exudateType,
+        odor: old.odor,
+        painLevel: num(old.painLevel),
+        periWoundCondition: old.periWoundCondition,
+        dressingType: old.dressingType,
+        dressingFrequency: old.dressingFrequency,
+        photos: (old.photos || [])
+          .filter(p => p && (p.imageData || p.url))
+          .map(p => ({ id: p.id || uuidv4(), imageData: p.imageData, url: p.url })),
+        clinicalDescription: 'Imported from the Wounds module.',
+        // Legacy sizes were entered by hand, never calibrated against a marker.
+        scaleReliable: false,
+        createdAt,
+        updatedAt,
+      };
+      await db.woundAssessments.add(assessment);
+      syncRecord('woundAssessments', assessment as unknown as Record<string, unknown>);
+      imported++;
+    } catch (e) {
+      console.warn('[WoundMonitor] Could not import legacy wound', old?.id, e);
+    }
+  }
+
+  if (imported) console.log(`[WoundMonitor] Imported ${imported} legacy wound(s).`);
+  return imported;
+}
+
+/** The subset of the legacy `Wound` shape this import depends on. */
+interface LegacyWound {
+  id: string;
+  patientId: string;
+  location?: string;
+  type?: string;
+  etiology?: string;
+  length?: number;
+  width?: number;
+  depth?: number;
+  area?: number;
+  tissueType?: TissueType[];
+  exudateAmount?: ExudateAmount;
+  exudateType?: ExudateType;
+  odor?: boolean;
+  periWoundCondition?: string;
+  painLevel?: number;
+  dressingType?: string;
+  dressingFrequency?: string;
+  photos?: Array<{ id?: string; imageData?: string; url?: string }>;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+function toIso(v: Date | string | undefined): string {
+  if (!v) return nowIso();
+  const d = v instanceof Date ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? nowIso() : d.toISOString();
+}
+
+function num(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 /** Append an assessment to a wound's timeline. */

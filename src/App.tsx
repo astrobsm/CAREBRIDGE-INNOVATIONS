@@ -29,7 +29,6 @@ import PreoperativeAssessmentDetailsPage from './domains/surgery/pages/Preoperat
 import PostOperativeNotePage from './domains/surgery/pages/PostOperativeNotePage';
 import PostOpNotesListPage from './domains/surgery/pages/PostOpNotesListPage';
 import PostOpNoteFormPage from './domains/surgery/pages/PostOpNoteFormPage';
-import WoundsPage from './domains/wounds/pages/WoundsPage';
 import WoundProgressMonitorPage from './domains/wounds/pages/WoundProgressMonitorPage';
 import TumourBoardPage from './domains/tumour-board/pages/TumourBoardPage';
 import ClinicianAssistantPage from './domains/clinician-assistant/pages/ClinicianAssistantPage';
@@ -186,7 +185,7 @@ function App() {
           <Route path=":patientId/follow-up" element={<EnhancedFollowUpPage />} />
           <Route path=":patientId/clinical-summary" element={<PatientClinicalSummaryPage />} />
           <Route path=":patientId/vitals" element={<VitalsPage />} />
-          <Route path=":patientId/wounds" element={<WoundsPage />} />
+          <Route path=":patientId/wounds" element={<Navigate to="/wound-monitor" replace />} />
         </Route>
 
         {/* Surgery Routes */}
@@ -232,7 +231,11 @@ function App() {
         <Route path="patients/:patientId/investigations/request" element={<InvestigationRequestsPage />} />
         <Route path="patients/:patientId/investigations/request/new" element={<InvestigationRequestForm />} />
         <Route path="investigation-requests/:bundleId" element={<InvestigationRequestForm />} />
-        <Route path="wounds" element={<WoundsPage />} />
+        {/* The standalone Wounds module was merged into the WoundProgress
+            Monitor, which now owns wound identity, the serial assessment
+            timeline and the clinical documents. Old links redirect rather than
+            dead-end; legacy wound records import themselves on first load. */}
+        <Route path="wounds" element={<Navigate to="/wound-monitor" replace />} />
         <Route path="wound-monitor" element={<WoundProgressMonitorPage />} />
         <Route path="burns" element={<BurnsAssessmentPage />} />
         <Route path="limb-salvage" element={<LimbSalvagePage />} />

@@ -38,17 +38,62 @@ export interface MonitoredWound {
   cause?: string;
   status?: WoundMonitorStatus;
   createdBy?: string;
+  /**
+   * Set when this wound was imported from a legacy `wounds` record (the
+   * standalone Wounds module that the Monitor replaced). Holds that record's
+   * id, which makes the import idempotent and preserves the audit trail back
+   * to the original entry.
+   */
+  sourceWoundId?: string;
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }
 
-/** One serial assessment on a monitored wound. */
+export type ExudateAmount = 'none' | 'light' | 'moderate' | 'heavy';
+export type ExudateType = 'serous' | 'sanguineous' | 'serosanguineous' | 'purulent';
+export type TissueType = 'epithelial' | 'granulation' | 'slough' | 'necrotic' | 'eschar';
+
+/** A clinical photograph attached to one assessment. */
+export interface WoundAssessmentPhoto {
+  id: string;
+  /** Data URL, for offline-first storage; uploaded copies carry `url` instead. */
+  imageData?: string;
+  url?: string;
+  caption?: string;
+  takenAt?: string; // ISO
+}
+
+/** Local signs of wound infection, offered as checkboxes at assessment time. */
+export const INFECTION_SIGNS = [
+  'Erythema',
+  'Warmth',
+  'Swelling',
+  'Purulent discharge',
+  'Malodour',
+  'Increasing pain',
+  'Delayed healing',
+  'Friable granulation',
+] as const;
+
+/**
+ * One serial assessment on a monitored wound.
+ *
+ * Carries both the measurement layer (dimensions, tissue percentages, the CV
+ * contour) and the bedside clinical layer that the standalone Wounds page used
+ * to own — exudate, odour, pain, peri-wound skin, infection signs and the
+ * dressing in use. They belong on one record: an assessment that reports 40%
+ * slough but cannot say whether the wound is malodorous and strikes through
+ * daily is not one a clinician can act on, and splitting them is precisely what
+ * produced two half-complete wound modules.
+ */
 export interface WoundAssessment {
   id: string;
   woundId: string;
   patientId: string;
   assessedBy?: string;
   assessedAt?: string; // ISO
+
+  // ── Measurement ──
   lengthCm?: number | null;
   widthCm?: number | null;
   depthCm?: number | null;
@@ -65,6 +110,23 @@ export interface WoundAssessment {
   scaleReliable?: boolean;
   contourCm?: Array<{ x: number; y: number }>;
   imageUrl?: string;
+
+  // ── Bedside clinical assessment (merged in from the Wounds module) ──
+  /** Qualitative tissue types present, alongside the quantitative *Pct fields. */
+  tissueTypes?: TissueType[];
+  exudateAmount?: ExudateAmount;
+  exudateType?: ExudateType;
+  /** Malodour present. Feeds the infection prompt and the dressing protocol. */
+  odor?: boolean;
+  /** 0-10 numeric rating scale. */
+  painLevel?: number | null;
+  periWoundCondition?: string;
+  infectionSigns?: string[];
+  dressingType?: string;
+  dressingFrequency?: string;
+  /** Serial clinical photographs for this assessment. */
+  photos?: WoundAssessmentPhoto[];
+
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }
