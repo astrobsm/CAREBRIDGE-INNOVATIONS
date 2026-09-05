@@ -13,57 +13,193 @@ import type { ClinicLocationConfig } from '../types';
 // Slot duration in minutes
 export const DEFAULT_SLOT_DURATION = 20;
 
-// All clinic locations with their schedules
-export const CLINIC_LOCATIONS: ClinicLocationConfig[] = [
+/**
+ * What kind of session occupies a slot in the working week.
+ * Only `clinic` sessions are bookable by patients; ward rounds and theatre
+ * lists live here too so the whole week has one definition rather than being
+ * rediscovered from ad-hoc records.
+ */
+export type SessionType = 'clinic' | 'ward_round' | 'theatre';
+
+export interface WeeklySession extends ClinicLocationConfig {
+  type: SessionType;
+}
+
+/**
+ * The standing weekly timetable — single source of truth for clinics, ward
+ * rounds and theatre lists.
+ *
+ * Thursday runs as one continuous circuit:
+ *   10:00 Raymond Anikwe clinic -> 12:30 Niger Foundation ward round
+ *   -> 15:00 St Mary's -> 16:30 Roza-Mystica -> 17:30 Mercy.
+ */
+export const WEEKLY_SESSIONS: WeeklySession[] = [
+  // ── Monday ────────────────────────────────────────────────────────────────
+  {
+    id: 'niger-foundation-ward-round-mon',
+    type: 'ward_round',
+    hospitalName: 'Niger Foundation Hospital',
+    hospitalCode: 'NFH',
+    address: 'Enugu, Nigeria',
+    dayOfWeek: 1,
+    dayName: 'Monday',
+    startTime: '08:00',
+    endTime: '09:00',
+    slotDuration: DEFAULT_SLOT_DURATION,
+    isActive: true,
+  },
+
+  // ── Thursday circuit ──────────────────────────────────────────────────────
   {
     id: 'raymond-anikwe',
+    type: 'clinic',
     hospitalName: 'Raymond Anikwe Hospital',
     hospitalCode: 'RAH',
     address: 'Enugu, Nigeria',
-    dayOfWeek: 4, // Thursday
+    dayOfWeek: 4,
     dayName: 'Thursday',
-    startTime: '12:00',
+    startTime: '10:00',
+    endTime: '12:00',
+    slotDuration: DEFAULT_SLOT_DURATION,
+    isActive: true,
+  },
+  {
+    id: 'niger-foundation-ward-round-thu',
+    type: 'ward_round',
+    hospitalName: 'Niger Foundation Hospital',
+    hospitalCode: 'NFH',
+    address: 'Enugu, Nigeria',
+    dayOfWeek: 4,
+    dayName: 'Thursday',
+    startTime: '12:30',
+    endTime: '14:30',
+    slotDuration: DEFAULT_SLOT_DURATION,
+    isActive: true,
+  },
+  {
+    id: 'st-marys',
+    type: 'clinic',
+    hospitalName: "St. Mary's Hospital",
+    hospitalCode: 'SMH',
+    address: 'Enugu, Nigeria',
+    dayOfWeek: 4,
+    dayName: 'Thursday',
+    startTime: '15:00',
     endTime: '16:00',
     slotDuration: DEFAULT_SLOT_DURATION,
     isActive: true,
   },
   {
-    id: 'st-gabriels-damija',
-    hospitalName: "St. Gabriel's Hospital (Damija)",
-    hospitalCode: 'SGH',
-    address: 'Damija, Enugu, Nigeria',
-    dayOfWeek: 6, // Saturday
+    id: 'roza-mystica',
+    type: 'clinic',
+    hospitalName: 'Roza-Mystica Hospital',
+    hospitalCode: 'RMH',
+    address: 'Enugu, Nigeria',
+    dayOfWeek: 4,
+    dayName: 'Thursday',
+    startTime: '16:30',
+    endTime: '17:30',
+    slotDuration: DEFAULT_SLOT_DURATION,
+    isActive: true,
+  },
+  {
+    id: 'mercy',
+    type: 'clinic',
+    hospitalName: 'Mercy Hospital',
+    hospitalCode: 'MCH',
+    address: 'Enugu, Nigeria',
+    dayOfWeek: 4,
+    dayName: 'Thursday',
+    startTime: '17:30',
+    endTime: '18:30',
+    slotDuration: DEFAULT_SLOT_DURATION,
+    isActive: true,
+  },
+
+  // ── Friday ────────────────────────────────────────────────────────────────
+  {
+    id: 'niger-foundation-clinic',
+    type: 'clinic',
+    hospitalName: 'Niger Foundation Hospital',
+    hospitalCode: 'NFH',
+    address: 'Enugu, Nigeria',
+    dayOfWeek: 5,
+    dayName: 'Friday',
+    startTime: '09:30',
+    endTime: '16:00',
+    slotDuration: DEFAULT_SLOT_DURATION,
+    isActive: true,
+  },
+
+  // ── Saturday ──────────────────────────────────────────────────────────────
+  {
+    id: 'niger-foundation-theatre',
+    type: 'theatre',
+    hospitalName: 'Niger Foundation Hospital',
+    hospitalCode: 'NFH',
+    address: 'Enugu, Nigeria',
+    dayOfWeek: 6,
     dayName: 'Saturday',
-    startTime: '16:00',
+    startTime: '10:00',
     endTime: '17:00',
     slotDuration: DEFAULT_SLOT_DURATION,
     isActive: true,
   },
+
+  // ── Retired from the timetable ────────────────────────────────────────────
+  // Kept but inactive rather than deleted, so historical bookings still resolve
+  // their clinic by id and either can be reinstated by flipping isActive.
   {
-    id: 'roza-mystica',
-    hospitalName: 'Roza-Mystica Hospital',
-    hospitalCode: 'RMH',
-    address: 'Enugu, Nigeria',
-    dayOfWeek: 6, // Saturday
+    id: 'st-gabriels-damija',
+    type: 'clinic',
+    hospitalName: "St. Gabriel's Hospital (Damija)",
+    hospitalCode: 'SGH',
+    address: 'Damija, Enugu, Nigeria',
+    dayOfWeek: 6,
     dayName: 'Saturday',
-    startTime: '17:30',
-    endTime: '19:00',
+    startTime: '16:00',
+    endTime: '17:00',
     slotDuration: DEFAULT_SLOT_DURATION,
-    isActive: true,
+    isActive: false,
   },
   {
     id: 'st-patricks-independence',
+    type: 'clinic',
     hospitalName: "St. Patrick's Hospital, Independence Layout",
     hospitalCode: 'SPH',
     address: 'Independence Layout, Enugu, Nigeria',
-    dayOfWeek: 1, // Monday
+    dayOfWeek: 1,
     dayName: 'Monday',
     startTime: '16:00',
     endTime: '18:00',
     slotDuration: DEFAULT_SLOT_DURATION,
-    isActive: true,
+    isActive: false,
   },
 ];
+
+/**
+ * Patient-bookable clinics, derived from the timetable above. Ward rounds and
+ * theatre lists are deliberately excluded — patients must never be offered a
+ * slot in one.
+ */
+export const CLINIC_LOCATIONS: ClinicLocationConfig[] =
+  WEEKLY_SESSIONS.filter(s => s.type === 'clinic');
+
+/** Active ward rounds in the standing timetable. */
+export const WARD_ROUND_SESSIONS: WeeklySession[] =
+  WEEKLY_SESSIONS.filter(s => s.type === 'ward_round' && s.isActive);
+
+/** Active theatre lists in the standing timetable. */
+export const THEATRE_SESSIONS: WeeklySession[] =
+  WEEKLY_SESSIONS.filter(s => s.type === 'theatre' && s.isActive);
+
+/** Every active session, ordered by day then start time. */
+export function getWeeklyTimetable(): WeeklySession[] {
+  return WEEKLY_SESSIONS
+    .filter(s => s.isActive)
+    .slice()
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
+}
 
 // Get all active clinic locations
 export function getActiveClinicLocations(): ClinicLocationConfig[] {
