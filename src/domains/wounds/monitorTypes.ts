@@ -87,6 +87,16 @@ export interface WoundAssessmentPhoto {
   calibrationMethod?: string;
   /** Whether the scale was trustworthy at capture time. */
   scaleReliable?: boolean;
+  /**
+   * True when the detected wound margin is drawn onto the stored frame.
+   *
+   * This is what makes the photograph evidence rather than decoration: the
+   * area is only believable if the outline it was computed from actually
+   * follows the wound edge, and the only way to know that is to look.
+   */
+  hasContourOverlay?: boolean;
+  /** Number of points in the traced margin, 0 when nothing was outlined. */
+  contourPointCount?: number;
 }
 
 /** Local signs of wound infection, offered as checkboxes at assessment time. */

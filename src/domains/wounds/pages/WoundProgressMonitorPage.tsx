@@ -710,6 +710,13 @@ const PhotoStrip: React.FC<{
             }`}>
               {r.photo.scaleReliable ? 'calibrated' : 'uncalibrated'}
             </span>
+            {/* A frame with no traced margin produced an area from nothing
+                identifiable, so it is flagged separately from calibration. */}
+            {r.photo.hasContourOverlay === false && (
+              <span className="absolute top-1 left-1 text-[10px] px-1.5 py-0.5 rounded bg-red-600/90 text-white">
+                no outline
+              </span>
+            )}
           </div>
           <div className="mt-1.5">
             <div className="text-xs font-medium text-gray-700 tabular-nums">{fmtArea(r.assessment.areaCm2)}</div>
@@ -800,6 +807,19 @@ const PhotoViewer: React.FC<{
             tone={photo.scaleReliable ? 'text-green-300' : 'text-amber-300'}
           />
         </div>
+
+        {photo.hasContourOverlay && (
+          <p className="text-[11px] text-cyan-300 mt-2 flex items-center gap-1.5">
+            <span className="inline-block w-4 h-0.5 bg-cyan-300 rounded" aria-hidden />
+            The cyan outline is the margin this area was measured from
+            {photo.contourPointCount ? ` (${photo.contourPointCount} points)` : ''}.
+          </p>
+        )}
+        {photo.hasContourOverlay === false && (
+          <p className="text-[11px] text-red-300 mt-2">
+            No wound margin was detected in this frame — its dimensions cannot be relied on.
+          </p>
+        )}
         {!photo.scaleReliable && (
           <p className="text-[11px] text-amber-300 mt-2">
             This frame was not reliably calibrated — treat its dimensions as approximate.
@@ -1161,11 +1181,16 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
       setCalibType(result.calibrationMethod || 'reference-card');
       setWarnings(result.warnings || []);
 
-      // Keep the frame as the evidence behind the number — marker included.
+      // Keep the frame as the evidence behind the number: the marker that set
+      // the scale, and the margin the area was computed from, drawn on top.
       // Downscaled, because the raw frame is several megabytes of base64 and
-      // this rides a synced JSONB column. The scale is rescaled with it, so the
-      // stored image can still be measured against later.
-      const shot = downscaleCanvas(canvas, REFERENCE_PHOTO_MAX_PX);
+      // this rides a synced JSONB column.
+      const shot = renderReferencePhoto(
+        canvas,
+        result.contourPoints,
+        result.measurements?.calibrationFactor ?? null,
+        REFERENCE_PHOTO_MAX_PX,
+      );
       const ratio = shot.width / canvas.width;
       setPhoto({
         id: crypto.randomUUID(),
@@ -1178,6 +1203,8 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
           : null,
         calibrationMethod: result.calibrationMethod,
         scaleReliable: Boolean(result.scaleReliable),
+        hasContourOverlay: shot.contourDrawn,
+        contourPointCount: shot.points,
       });
       setM({
         lengthCm: round(result.length),
@@ -1431,6 +1458,14 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
                   {photo.scaleReliable
                     ? 'Calibration marker found in frame'
                     : 'No reliable marker in frame'}
+                </p>
+                {/* The outline is the thing to check before saving: if the cyan
+                    line does not follow the wound edge, the area is wrong no
+                    matter how good the calibration was. */}
+                <p className={photo.hasContourOverlay ? 'text-teal-600' : 'text-red-600'}>
+                  {photo.hasContourOverlay
+                    ? `Margin traced (${photo.contourPointCount} points) — check it follows the wound edge`
+                    : 'No wound margin detected — do not rely on this measurement'}
                 </p>
               </div>
             </div>
@@ -1718,30 +1753,100 @@ function mentionsOdour(ai: AiWoundAssessment): boolean | undefined {
  */
 const REFERENCE_PHOTO_MAX_PX = 1280;
 
-/** Downscale a canvas to fit `maxEdge`, returning a JPEG data URL. */
-function downscaleCanvas(
+/**
+ * Build the stored reference frame: the photograph, downscaled, with the
+ * detected wound margin traced on top and a 1 cm scale bar when the scale is
+ * known.
+ *
+ * The outline is the point. An area of 5 cm2 means nothing on its own — it is
+ * believable only if the boundary it was computed from actually follows the
+ * wound edge. Drawing it makes that checkable at a glance, and makes a bad
+ * segmentation (caught skin, missed undermined edge, split into two regions)
+ * obvious instead of silently becoming a number in the record.
+ *
+ * The outline is drawn in cyan, deliberately: it reads clearly against red
+ * granulation, yellow slough and black eschar alike, and — unlike a green line —
+ * it cannot be mistaken for the calibration marker if this frame is ever passed
+ * back through the detector.
+ */
+function renderReferencePhoto(
   source: HTMLCanvasElement,
+  contourPoints: Array<{ x: number; y: number }> | undefined,
+  pxPerCmFull: number | null,
   maxEdge: number,
-): { dataUrl: string; width: number; height: number } {
+): { dataUrl: string; width: number; height: number; contourDrawn: boolean; points: number } {
   const longest = Math.max(source.width, source.height);
   const scale = longest > maxEdge ? maxEdge / longest : 1;
   const width = Math.round(source.width * scale);
   const height = Math.round(source.height * scale);
 
-  if (scale === 1) {
-    return { dataUrl: source.toDataURL('image/jpeg', 0.75), width, height };
-  }
   const out = document.createElement('canvas');
   out.width = width;
   out.height = height;
   const ctx = out.getContext('2d');
-  if (!ctx) return { dataUrl: source.toDataURL('image/jpeg', 0.6), width: source.width, height: source.height };
-  // Smoothing matters here: a nearest-neighbour reduction would alias the
-  // marker's edges, and the marker is the thing this photo exists to show.
+  if (!ctx) {
+    return {
+      dataUrl: source.toDataURL('image/jpeg', 0.6),
+      width: source.width, height: source.height,
+      contourDrawn: false, points: 0,
+    };
+  }
+
+  // Smoothing matters: a nearest-neighbour reduction would alias the marker's
+  // edges, and reading the marker is half of what this photo is for.
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(source, 0, 0, width, height);
-  return { dataUrl: out.toDataURL('image/jpeg', 0.75), width, height };
+
+  const pts = (contourPoints || []).filter(p => Number.isFinite(p?.x) && Number.isFinite(p?.y));
+  let contourDrawn = false;
+
+  if (pts.length >= 3) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x * scale, pts[0].y * scale);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * scale, pts[i].y * scale);
+    ctx.closePath();
+
+    const stroke = Math.max(1.5, width / 500);
+
+    // Dark casing first, then the bright line over it, so the outline stays
+    // readable over pale skin and over dark eschar without a fill that would
+    // hide the wound bed being judged.
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.lineWidth = stroke * 2.2;
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.95)';
+    ctx.lineWidth = stroke;
+    ctx.stroke();
+
+    contourDrawn = true;
+  }
+
+  // A 1 cm bar makes the calibration visible too, so the frame carries both
+  // halves of the claim: this is the boundary, and this is what 1 cm looked like.
+  const pxPerCmScaled = pxPerCmFull && pxPerCmFull > 0 ? pxPerCmFull * scale : 0;
+  if (pxPerCmScaled > 4 && pxPerCmScaled < width * 0.8) {
+    const pad = Math.round(width * 0.03);
+    const y = height - pad;
+    const barH = Math.max(3, height / 220);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillRect(pad - 2, y - barH - 2, pxPerCmScaled + 4, barH + 4);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.fillRect(pad, y - barH, pxPerCmScaled, barH);
+
+    const fontPx = Math.max(10, Math.round(height / 45));
+    ctx.font = `600 ${fontPx}px sans-serif`;
+    ctx.textBaseline = 'bottom';
+    ctx.lineWidth = Math.max(2, fontPx / 6);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.strokeText('1 cm', pad, y - barH - 3);
+    ctx.fillText('1 cm', pad, y - barH - 3);
+  }
+
+  return { dataUrl: out.toDataURL('image/jpeg', 0.78), width, height, contourDrawn, points: pts.length };
 }
 
 /** Rough byte size of a data URL, for showing how much a photo costs. */

@@ -758,11 +758,17 @@ export class AIWoundMeasurementService {
 
     const step = Math.max(1, Math.floor(contour.length / 200));
     const sampledContour = contour.filter((_, i) => i % step === 0);
-    // Contour in cm, centred on the centroid — the shape used by the serial healing map.
-    const contourCm = sampledContour.map(p => ({
-      x: parseFloat(((p.x - centroid.x) / pxPerCm).toFixed(3)),
-      y: parseFloat(((p.y - centroid.y) / pxPerCm).toFixed(3)),
-    }));
+    // Contour in cm, centred on the centroid — the shape used by the serial
+    // healing map. Only meaningful with a scale: dividing by a zero pxPerCm
+    // would fill the map with Infinity, so an unscaled frame contributes no
+    // shape. The pixel-space contour above is still returned, because the
+    // stored photograph draws the margin from it whether or not cm are known.
+    const contourCm = hasScale
+      ? sampledContour.map(p => ({
+          x: parseFloat(((p.x - centroid.x) / pxPerCm).toFixed(3)),
+          y: parseFloat(((p.y - centroid.y) / pxPerCm).toFixed(3)),
+        }))
+      : [];
 
     return {
       length: parseFloat(lengthCm.toFixed(2)),
