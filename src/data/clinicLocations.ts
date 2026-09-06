@@ -48,6 +48,32 @@ export const WEEKLY_SESSIONS: WeeklySession[] = [
     slotDuration: DEFAULT_SLOT_DURATION,
     isActive: true,
   },
+  {
+    id: 'st-patricks-independence',
+    type: 'clinic',
+    hospitalName: "St. Patrick's Hospital, Independence Layout",
+    hospitalCode: 'SPH',
+    address: 'Independence Layout, Enugu, Nigeria',
+    dayOfWeek: 1,
+    dayName: 'Monday',
+    startTime: '16:00',
+    endTime: '17:00',
+    slotDuration: DEFAULT_SLOT_DURATION,
+    isActive: true,
+  },
+  {
+    id: 'st-gabriels-damija',
+    type: 'clinic',
+    hospitalName: "St. Gabriel's Hospital (Damija)",
+    hospitalCode: 'SGH',
+    address: 'Damija, Enugu, Nigeria',
+    dayOfWeek: 1,
+    dayName: 'Monday',
+    startTime: '17:30',
+    endTime: '19:00',
+    slotDuration: DEFAULT_SLOT_DURATION,
+    isActive: true,
+  },
 
   // ── Thursday circuit ──────────────────────────────────────────────────────
   {
@@ -146,35 +172,6 @@ export const WEEKLY_SESSIONS: WeeklySession[] = [
     isActive: true,
   },
 
-  // ── Retired from the timetable ────────────────────────────────────────────
-  // Kept but inactive rather than deleted, so historical bookings still resolve
-  // their clinic by id and either can be reinstated by flipping isActive.
-  {
-    id: 'st-gabriels-damija',
-    type: 'clinic',
-    hospitalName: "St. Gabriel's Hospital (Damija)",
-    hospitalCode: 'SGH',
-    address: 'Damija, Enugu, Nigeria',
-    dayOfWeek: 6,
-    dayName: 'Saturday',
-    startTime: '16:00',
-    endTime: '17:00',
-    slotDuration: DEFAULT_SLOT_DURATION,
-    isActive: false,
-  },
-  {
-    id: 'st-patricks-independence',
-    type: 'clinic',
-    hospitalName: "St. Patrick's Hospital, Independence Layout",
-    hospitalCode: 'SPH',
-    address: 'Independence Layout, Enugu, Nigeria',
-    dayOfWeek: 1,
-    dayName: 'Monday',
-    startTime: '16:00',
-    endTime: '18:00',
-    slotDuration: DEFAULT_SLOT_DURATION,
-    isActive: false,
-  },
 ];
 
 /**
