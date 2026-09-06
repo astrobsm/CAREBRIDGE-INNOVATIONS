@@ -546,119 +546,83 @@ function generateGridReferencePage(doc: jsPDF): void {
 }
 
 /**
- * Green calibration markers — the sheet the AI measurement actually wants.
+ * Green calibration markers — the sheet the photo measurement calibrates from.
  *
- * The measurement engine's primary and most accurate calibration path detects a
- * green square border and divides its bounding box by the marker's known size.
- * Every other path (grid, ruler ticks, reference object) is a fallback that
- * reports "scale unreliable" far more often. Until this page existed the app
- * printed only black-and-white rulers, so that primary path could never fire —
- * the marker it wanted did not exist anywhere in the product.
+ * Reproduces the sheet already in clinical use at the Plastic Surgery Unit,
+ * UNTH Enugu, so what the app prints and what is already in the ward drawer are
+ * the same object: solid #00A000 bars, 10 mm wide, in 5 cm and 10 cm lengths.
  *
- * Two layout rules follow directly from how the detector works:
+ * Green because it is the complement of red, so it separates cleanly from
+ * blood, granulation and slough; a grey or black marker occupies the same tonal
+ * range as eschar and shadow and cannot be segmented reliably against a wound.
  *
- *  1. The green must trace the marker's OUTER edge, because the detector takes
- *     the bounding box of all green pixels as the marker's size.
- *  2. Nothing else on the page may be green, and each marker needs a quiet
- *     zone — two markers caught in one photograph would merge into a single
- *     bounding box and silently halve the computed scale.
+ * The layout follows from how detection works:
+ *
+ *  1. Every bar is 10 mm wide, so a bar's length in centimetres equals its
+ *     aspect ratio. That is what tells a 5 cm bar from a 10 cm one, which is
+ *     why the bars must print at exactly 5:1 and 10:1 and never be scaled.
+ *  2. The detector takes the bounding box of the largest green region, so no
+ *     other green may appear on the page and the bars are spaced apart — two
+ *     bars in one photograph would merge into a single box and halve the scale.
  */
-function generateGreenMarkersPage(doc: jsPDF): void {
-  const { rgb, borderMm, sizeMm, largeSizeMm, hex } = CALIBRATION_MARKER;
+function generateGreenMarkersPage(
+  doc: jsPDF,
+  lengthMm: number,
+  columns: number,
+  title: string,
+  guidance: string,
+): void {
+  const { rgb, barWidthMm, hex } = CALIBRATION_MARKER;
 
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, A4_WIDTH, A4_HEIGHT, 'F');
 
-  doc.setFontSize(14);
-  doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.setTextColor(...PDF_COLORS.primary);
-  doc.text('AI Calibration Markers', A4_WIDTH / 2, MARGIN + 10, { align: 'center' });
-
-  doc.setFontSize(8);
-  doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.setTextColor(100, 100, 100);
-  doc.text(
-    'Print at 100% scale (no fit-to-page). Verify against a ruler before first use.',
-    A4_WIDTH / 2, MARGIN + 16, { align: 'center' },
-  );
-  doc.text(
-    'Place ONE marker beside the wound, level with the wound surface.',
-    A4_WIDTH / 2, MARGIN + 21, { align: 'center' },
-  );
-
-  /** One marker, drawn as a green ring: filled square with the centre knocked out. */
-  const drawMarker = (x: number, y: number, size: number, label: string) => {
-    doc.setFillColor(rgb.r, rgb.g, rgb.b);
-    doc.rect(x, y, size, size, 'F');
-    doc.setFillColor(255, 255, 255);
-    doc.rect(x + borderMm, y + borderMm, size - borderMm * 2, size - borderMm * 2, 'F');
-
-    // Text inside the marker is black — never green, or it joins the bounding box.
-    doc.setFontSize(7);
-    doc.setFont(PDF_FONTS.primary, 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text(`${size} mm`, x + size / 2, y + size / 2 + 1, { align: 'center' });
-    doc.setFontSize(6);
-    doc.setFont(PDF_FONTS.primary, 'normal');
-    doc.setTextColor(120, 120, 120);
-    doc.text(label, x + size / 2, y + size + 4, { align: 'center' });
-
-    // Cut guide sits outside the green so it never merges with it.
-    doc.setDrawColor(190, 190, 190);
-    doc.setLineWidth(0.2);
-    doc.setLineDashPattern([1, 1], 0);
-    doc.rect(x - 3, y - 3, size + 6, size + 6);
-    doc.setLineDashPattern([], 0);
-  };
-
-  let y = MARGIN + 32;
-  const rows = [
-    { size: sizeMm, label: `AstroHEALTH Cal-${sizeMm}`, note: 'Standard - most wounds' },
-    { size: sizeMm, label: `AstroHEALTH Cal-${sizeMm}`, note: 'Spare' },
-    { size: largeSizeMm, label: `AstroHEALTH Cal-${largeSizeMm}`, note: 'Large wounds, or photographed from further back' },
-    { size: largeSizeMm, label: `AstroHEALTH Cal-${largeSizeMm}`, note: 'Spare' },
-  ];
-
-  for (const row of rows) {
-    drawMarker(MARGIN + 6, y, row.size, row.label);
-    doc.setFontSize(8);
-    doc.setFont(PDF_FONTS.primary, 'normal');
-    doc.setTextColor(80, 80, 80);
-    doc.text(row.note, MARGIN + 6 + row.size + 12, y + row.size / 2);
-    y += row.size + 18;
-  }
-
-  // Stated on the sheet itself: the marker is useless if laid on the wound or
-  // photographed beside green drapes, and nobody will read a manual.
-  doc.setFontSize(9);
+  doc.setFontSize(13);
   doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text('For reliable measurement', MARGIN, y + 4);
+  doc.text(title, MARGIN, MARGIN + 8);
 
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setFont(PDF_FONTS.primary, 'normal');
-  doc.setTextColor(60, 60, 60);
-  const notes = [
-    'Use ONE marker per photograph. Two in frame are read as a single larger marker.',
-    'Keep other green objects out of frame - drapes, gloves, instrument wraps, bin bags.',
-    'Lay the marker flat beside the wound, not on it, and level with the wound surface.',
-    'Photograph square-on. Tilting foreshortens the marker and distorts the scale.',
-    'Reprint if creased, soiled or faded - the border must read as a solid square.',
-    `Marker colour is ${hex}. Do not photocopy; copiers shift colour unpredictably.`,
-  ];
-  let ny = y + 10;
-  for (const n of notes) {
-    doc.text('-', MARGIN, ny);
-    const lines = doc.splitTextToSize(n, A4_WIDTH - MARGIN * 2 - 5) as string[];
-    doc.text(lines, MARGIN + 4, ny);
-    ny += 5 * lines.length;
+  doc.setTextColor(70, 70, 70);
+  doc.text(
+    `${lengthMm} x ${barWidthMm} mm. PRINT AT 100% - no "fit to page". Check with a ruler: ` +
+    `the green block must measure exactly ${lengthMm} mm. ${guidance}`,
+    MARGIN, MARGIN + 14, { maxWidth: A4_WIDTH - MARGIN * 2 },
+  );
+
+  // Cell geometry. Each bar sits inside a bordered cell with a margin of white
+  // around it, so a cut-out marker keeps a quiet zone of paper on every side.
+  const padX = 6;
+  const padY = 4;
+  const cellW = lengthMm + padX * 2;
+  const cellH = barWidthMm + padY * 2;
+  const gridW = cellW * columns;
+  const originX = Math.max(MARGIN, (A4_WIDTH - gridW) / 2);
+  const originY = MARGIN + 22;
+  const rows = Math.floor((A4_HEIGHT - originY - MARGIN - 8) / cellH);
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < columns; c++) {
+      const cx = originX + c * cellW;
+      const cy = originY + r * cellH;
+
+      // Cut guide in grey — never green, or it would join the bounding box.
+      doc.setDrawColor(170, 170, 170);
+      doc.setLineWidth(0.15);
+      doc.rect(cx, cy, cellW, cellH);
+
+      doc.setFillColor(rgb.r, rgb.g, rgb.b);
+      doc.rect(cx + padX, cy + padY, lengthMm, barWidthMm, 'F');
+    }
   }
 
-  doc.setFontSize(6);
-  doc.setTextColor(150, 150, 150);
+  doc.setFontSize(6.5);
+  doc.setTextColor(140, 140, 140);
   doc.text(
-    `AstroHEALTH Innovations in Healthcare • Generated: ${new Date().toLocaleDateString()}`,
-    A4_WIDTH / 2, A4_HEIGHT - 5, { align: 'center' },
+    `${columns} x ${rows} = ${columns * rows} markers - colour ${hex} - ` +
+    `Plastic Surgery Unit, UNTH Enugu - cut along the grey lines`,
+    MARGIN, A4_HEIGHT - 8,
   );
 }
 
@@ -677,11 +641,21 @@ export function generateCalibrationRulerPDF(): void {
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-  // Page 1: the green markers the AI detector actually looks for. First,
-  // because it is the only page that enables the accurate calibration path.
-  generateGreenMarkersPage(doc);
+  // Pages 1-2: the green markers the photo measurement calibrates from.
+  // First, because they are what enables the accurate calibration path.
+  generateGreenMarkersPage(
+    doc, CALIBRATION_MARKER.sizeMm, 3,
+    'Wound calibration markers - 5 cm',
+    'Page 1 of 2 - use for most wounds.',
+  );
+  doc.addPage();
+  generateGreenMarkersPage(
+    doc, CALIBRATION_MARKER.largeSizeMm, 1,
+    'Wound calibration markers - 10 cm',
+    'Page 2 of 2 - use when the wound exceeds about 10 cm.',
+  );
 
-  // Page 2: 15cm Standard Rulers
+  // Page 3: 15cm Standard Rulers
   doc.addPage();
   generate15cmRulersPage(doc);
 

@@ -38,9 +38,7 @@ import {
   calibrateFromReferenceObject,
   segmentWoundAI,
   computeCalibratedMeasurement,
-  drawContourOverlay,
-  generateCalibrationStickerData,
-  type CalibrationResult,
+  drawContourOverlay,  type CalibrationResult,
   type WoundContour,
   type CalibratedMeasurement,
 } from '../../../services/woundMeasurementEngine';

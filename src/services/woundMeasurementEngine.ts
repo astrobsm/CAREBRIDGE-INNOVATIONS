@@ -101,15 +101,6 @@ export interface WoundProgressDataPoint {
 // =====================================================
 
 /**
- * The QR-coded scale marker encodes a known physical dimension.
- * Standard AstroHEALTH markers are 3cm x 3cm with embedded
- * corner ArUco-style patterns for perspective correction.
- *
- * QR payload: "ASTRO_CAL:30" means 30mm (3cm) marker.
- */
-const ASTRO_MARKER_SIZE_MM = 30;
-
-/**
  * The calibration marker specification — the single source of truth shared by
  * the detector below and the printable marker sheet (utils/calibrationRulerPdf).
  *
@@ -125,19 +116,45 @@ const ASTRO_MARKER_SIZE_MM = 30;
  * quiet zone and no green ink anywhere else on the page.
  */
 export const CALIBRATION_MARKER = {
-  /** Outer edge of the green square, in mm. */
-  sizeMm: ASTRO_MARKER_SIZE_MM,
-  /** Larger variant, for big wounds photographed from further back. */
-  largeSizeMm: 50,
-  /** Border thickness in mm — thick enough to survive printing and downscaling. */
-  borderMm: 4,
   /**
-   * #00C853. Clears the detector's test (g > 120, g > r*1.5, g > b*1.5) with
-   * margin, and reproduces well on both laser and inkjet output.
+   * Marker geometry, matching the sheet already in clinical use at the
+   * Plastic Surgery Unit, UNTH Enugu: solid green bars, all 10 mm wide, in two
+   * lengths. The app prints the same sheet so field and software agree.
+   *
+   * The constant width is the useful property. Because every bar is 10 mm
+   * across, a bar's length in centimetres equals its aspect ratio, which gives
+   * a second, independent read on the scale — see inferGreenReferenceCm.
    */
-  rgb: { r: 0, g: 200, b: 83 },
-  hex: '#00C853',
+  barWidthMm: 10,
+  /** Standard bar. Suits most wounds. */
+  sizeMm: 50,
+  /** Long bar, for wounds beyond roughly 10 cm. */
+  largeSizeMm: 100,
+
+  /**
+   * #00A000 — the ink already printed on the unit's sheets.
+   *
+   * Darker than a vivid green (g=160), which matters: the detector's absolute
+   * brightness gate has to sit low enough that this still registers under ward
+   * lighting and in shadow. See isMarkerGreen.
+   */
+  rgb: { r: 0, g: 160, b: 0 },
+  hex: '#00A000',
 } as const;
+
+/**
+ * Absolute floor on the green channel.
+ *
+ * Its only job is to reject dark noise, since the ratio tests below already
+ * exclude every grey and every warm tissue colour. It was 120, which rejected
+ * the unit's #00A000 marker (g=160) as soon as exposure dropped below about
+ * 0.75 — routine indoors, under a shadow, or at the edge of a flash. At 90 the
+ * same marker survives down to roughly 0.56 exposure.
+ *
+ * Verified against blood, granulation, slough, eschar, skin, gauze, drapes and
+ * steel in calibrationMarker.test.ts; none pass at this floor.
+ */
+const MARKER_GREEN_FLOOR = 90;
 
 /**
  * Whether a pixel counts as marker green.
@@ -146,7 +163,68 @@ export const CALIBRATION_MARKER = {
  * actually detectable, rather than trusting a copied constant to stay correct.
  */
 export function isMarkerGreen(r: number, g: number, b: number): boolean {
-  return g > 120 && g > r * 1.5 && g > b * 1.5;
+  return g > MARKER_GREEN_FLOOR && g > r * 1.5 && g > b * 1.5;
+}
+
+/** Known bar lengths, in cm, that a detected green bar may be. */
+const BAR_LENGTHS_CM = [
+  CALIBRATION_MARKER.sizeMm / 10,      // 5 cm
+  CALIBRATION_MARKER.largeSizeMm / 10, // 10 cm
+];
+
+export interface GreenReference {
+  /** Real-world length of the green object's long edge, in cm. */
+  knownCm: number;
+  /** How far the shape sits from the nearest known marker, 0 = exact. */
+  aspectDeviation: number;
+  /** False when the shape matches no known marker and the scale is a guess. */
+  recognised: boolean;
+}
+
+/**
+ * Identify a detected green object and return the real length of its long edge.
+ *
+ * Every marker on the sheet is 10 mm wide, so a bar's length in centimetres is
+ * simply its aspect ratio — a 5 cm bar photographs at 5:1, a 10 cm bar at 10:1.
+ * That makes the aspect ratio, not an arbitrary size table, the thing that
+ * identifies the marker.
+ *
+ * The measured aspect is snapped to the nearest printed length so that ordinary
+ * perspective foreshortening does not shift the scale; how far it had to move is
+ * returned, and a large deviation means the marker was photographed at a steep
+ * angle or is not one of ours, which the caller surfaces rather than silently
+ * trusting.
+ *
+ * This replaces a table that read anything with aspect > 8 as a 15 cm ruler,
+ * which turned the unit's 10 cm bar into a 15 cm one: a scale 1.5x too large,
+ * and an area 56% too small.
+ */
+export function inferGreenReferenceCm(aspect: number): GreenReference {
+  // A roughly square green object is not one of the bars. It is most likely a
+  // green swab, drape corner or instrument handle, so no scale is claimed.
+  if (aspect < 2.5) {
+    return { knownCm: 0, aspectDeviation: Infinity, recognised: false };
+  }
+
+  let best = BAR_LENGTHS_CM[0];
+  let bestDev = Infinity;
+  for (const cm of BAR_LENGTHS_CM) {
+    const dev = Math.abs(aspect - cm) / cm;
+    if (dev < bestDev) { bestDev = dev; best = cm; }
+  }
+
+  // Beyond 25% from any printed bar, the shape is not confidently identifiable.
+  // The midpoint between the two bars sits at aspect 7, where snapping either
+  // way would be a coin toss that doubles or halves the scale, so that region
+  // is deliberately left unrecognised.
+  //
+  // The fallback is not a guess: every bar is 10 mm wide, so the length in cm
+  // IS the aspect ratio. It is simply less certain than a clean match, and the
+  // caller lowers confidence accordingly.
+  if (bestDev > 0.25) {
+    return { knownCm: aspect, aspectDeviation: bestDev, recognised: false };
+  }
+  return { knownCm: best, aspectDeviation: bestDev, recognised: true };
 }
 
 /**
@@ -168,7 +246,7 @@ export async function detectCalibrationMarker(
       pixelsPerCm: markerResult.pixelsPerCm,
       method: 'qr_marker',
       confidence: markerResult.confidence,
-      referenceObjectSizeCm: ASTRO_MARKER_SIZE_MM / 10,
+      referenceObjectSizeCm: markerResult.knownCm,
       detectedSizePixels: markerResult.sizePixels,
       angleCorrectionApplied: false,
       perspectiveCorrectionApplied: false,
@@ -187,7 +265,7 @@ function detectColorMarker(
   imageData: ImageData,
   width: number,
   height: number
-): { pixelsPerCm: number; sizePixels: number; confidence: number } | null {
+): { pixelsPerCm: number; sizePixels: number; confidence: number; knownCm: number } | null {
   const data = imageData.data;
 
   // Find green pixels (calibration marker border)
@@ -224,18 +302,29 @@ function detectColorMarker(
 
   const detectedWidth = maxX - minX;
   const detectedHeight = maxY - minY;
-  
-  // Marker should be roughly square
-  const aspectRatio = Math.min(detectedWidth, detectedHeight) / Math.max(detectedWidth, detectedHeight);
-  if (aspectRatio < 0.7) return null;
 
-  const avgSizePixels = (detectedWidth + detectedHeight) / 2;
-  const pixelsPerCm = avgSizePixels / (ASTRO_MARKER_SIZE_MM / 10);
+  // The printed markers are bars, not squares. This previously required a
+  // roughly square shape and rejected anything below 0.7 — which threw away
+  // every real marker, since a 5 cm bar is 5:1 and a 10 cm bar is 10:1.
+  const longer = Math.max(detectedWidth, detectedHeight);
+  const shorter = Math.max(1, Math.min(detectedWidth, detectedHeight));
+  const aspect = longer / shorter;
+
+  const ref = inferGreenReferenceCm(aspect);
+  if (ref.knownCm <= 0) return null;
+
+  const pixelsPerCm = longer / ref.knownCm;
 
   return {
     pixelsPerCm,
-    sizePixels: avgSizePixels,
-    confidence: Math.min(95, 70 + aspectRatio * 25),
+    sizePixels: longer,
+    knownCm: ref.knownCm,
+    // A shape that had to be snapped a long way to reach a known bar was
+    // photographed at an angle, and its scale is correspondingly less certain.
+    confidence: Math.max(
+      40,
+      Math.min(95, (ref.recognised ? 90 : 60) - ref.aspectDeviation * 100),
+    ),
   };
 }
 
@@ -902,31 +991,6 @@ export function drawContourOverlay(
 // QR CALIBRATION STICKER PDF GENERATOR
 // =====================================================
 
-/**
- * Generate a printable PDF containing QR-coded calibration stickers.
- * Each sticker is exactly 3cm x 3cm with a distinctive green border,
- * 1cm grid, and embedded scale information.
- */
-export function generateCalibrationStickerData(): {
-  markers: { sizeMm: number; gridSizeMm: number; color: string; label: string }[];
-  instructions: string[];
-} {
-  return {
-    markers: [
-      { sizeMm: 30, gridSizeMm: 10, color: '#00C853', label: 'AstroHEALTH Cal-30' },
-      { sizeMm: 50, gridSizeMm: 10, color: '#00C853', label: 'AstroHEALTH Cal-50' },
-    ],
-    instructions: [
-      'Print this page at 100% scale (no fit-to-page)',
-      'Cut out the calibration stickers along the dotted lines',
-      'Verify size with a physical ruler before first use',
-      'Place the sticker next to (not on) the wound',
-      'Ensure the sticker is on the same plane as the wound surface',
-      'Capture the image with both wound and sticker fully visible',
-      'The green border will be auto-detected for calibration',
-    ],
-  };
-}
 
 export default {
   detectCalibrationMarker,
@@ -939,5 +1003,4 @@ export default {
   generateProgressData,
   calculateWoundHealingScore,
   drawContourOverlay,
-  generateCalibrationStickerData,
 };

@@ -14,7 +14,7 @@
  */
 
 import * as tf from '@tensorflow/tfjs';
-import { CALIBRATION_MARKER } from '../../../services/woundMeasurementEngine';
+import { CALIBRATION_MARKER, inferGreenReferenceCm } from '../../../services/woundMeasurementEngine';
 
 /**
  * System prompt for the optional GPT-4o Vision enrichment layer
@@ -362,31 +362,8 @@ function minAreaRect(pts: Array<{ x: number; y: number }>): { length: number; wi
 // CALIBRATION DETECTION
 // ============================================
 
-/**
- * The real-world length, in cm, of the green reference found in a photograph,
- * inferred from its aspect ratio.
- *
- * The printed sheet carries both square calibration markers and elongated
- * rulers, and shape is the only way to tell which one is in frame. A roughly
- * square green object is the standard calibration marker, whose size is defined
- * once in CALIBRATION_MARKER.
- *
- * This previously returned 1 cm for a square marker while the marker the app
- * actually specifies is 3 cm. Every photograph calibrated from the marker was
- * therefore three times too small in each dimension — and NINE times too small
- * in area, since area scales with the square of the linear error.
- *
- * Exported for test: the constant here and the printed marker must agree, and
- * nothing else in the pipeline checks that they do.
- */
-export function inferGreenReferenceCm(aspect: number): number {
-  if (aspect > 8) return 15;  // 15 cm ruler strip
-  if (aspect > 3) return 5;   // 5 cm ruler strip
-  return CALIBRATION_MARKER.sizeMm / 10; // square calibration marker
-}
-
 /** Detect green calibration markers from our printed rulers */
-function detectGreenMarkers(data: Uint8ClampedArray, w: number, h: number): { found: boolean; pixelsPerCm: number; confidence: number } {
+function detectGreenMarkers(data: Uint8ClampedArray, w: number, h: number): { found: boolean; pixelsPerCm: number; confidence: number; knownCm: number } {
   const greenMask = new Uint8Array(w * h);
   let greenCount = 0;
   for (let i = 0; i < w * h; i++) {
@@ -394,10 +371,10 @@ function detectGreenMarkers(data: Uint8ClampedArray, w: number, h: number): { fo
     const [hue, sat, val] = rgbToHsv(data[idx], data[idx + 1], data[idx + 2]);
     if (hue >= 80 && hue <= 160 && sat > 30 && val > 25) { greenMask[i] = 255; greenCount++; }
   }
-  if (greenCount < 50) return { found: false, pixelsPerCm: 0, confidence: 0 };
+  if (greenCount < 50) return { found: false, pixelsPerCm: 0, confidence: 0, knownCm: 0 };
   const cleaned = morphOpen(morphClose(greenMask, w, h, 2), w, h, 1);
   const cc = connectedComponents(cleaned, w, h);
-  if (cc.count === 0) return { found: false, pixelsPerCm: 0, confidence: 0 };
+  if (cc.count === 0) return { found: false, pixelsPerCm: 0, confidence: 0, knownCm: 0 };
   const targetLabel = largestComponent(cc.labels, cc.count);
   let minX = w, maxX = 0, minY = h, maxY = 0, count = 0;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -407,14 +384,27 @@ function detectGreenMarkers(data: Uint8ClampedArray, w: number, h: number): { fo
   const longer = Math.max(mW, mH);
   const aspect = mW > mH ? mW / Math.max(1, mH) : mH / Math.max(1, mW);
 
-  const knownCm = inferGreenReferenceCm(aspect);
-  const pxPerCm = longer / knownCm;
+  const ref = inferGreenReferenceCm(aspect);
+  if (ref.knownCm <= 0) return { found: false, pixelsPerCm: 0, confidence: 0, knownCm: 0 };
+  const pxPerCm = longer / ref.knownCm;
+
+  // A printed bar is a solid rectangle, so its pixels should nearly fill its
+  // bounding box. A low fill means the green region is a drape fold, a glove or
+  // several objects merged - not a marker - and its "size" would be arbitrary.
   const fill = count / ((mW + 1) * (mH + 1));
-  return { found: true, pixelsPerCm: pxPerCm, confidence: Math.min(0.95, 0.5 + fill * 0.3 + (longer > 100 ? 0.15 : 0)) };
+
+  // Confidence is reduced when the shape had to be snapped a long way to reach
+  // a known bar, which is what a steep camera angle looks like.
+  const shapePenalty = ref.recognised ? Math.min(0.25, ref.aspectDeviation) : 0.35;
+  const confidence = Math.max(
+    0,
+    Math.min(0.95, 0.5 + fill * 0.3 + (longer > 100 ? 0.15 : 0) - shapePenalty),
+  );
+  return { found: fill > 0.55, pixelsPerCm: pxPerCm, confidence, knownCm: ref.knownCm };
 }
 
 /** Detect 1cm grid lines via horizontal line frequency analysis */
-function detectGridLines(gray: Uint8Array, w: number, h: number): { found: boolean; pixelsPerCm: number; confidence: number } {
+function detectGridLines(gray: Uint8Array, w: number, h: number): { found: boolean; pixelsPerCm: number; confidence: number; knownCm: number } {
   const hEdges = new Float32Array(w * h);
   for (let y = 1; y < h - 1; y++)
     for (let x = 1; x < w - 1; x++)
@@ -425,20 +415,20 @@ function detectGridLines(gray: Uint8Array, w: number, h: number): { found: boole
   const peaks: number[] = [];
   for (let y = 2; y < h - 2; y++)
     if (rowProj[y] > thresh && rowProj[y] >= rowProj[y - 1] && rowProj[y] >= rowProj[y + 1]) peaks.push(y);
-  if (peaks.length < 3) return { found: false, pixelsPerCm: 0, confidence: 0 };
+  if (peaks.length < 3) return { found: false, pixelsPerCm: 0, confidence: 0, knownCm: 0 };
   const spacings: number[] = [];
   for (let i = 1; i < peaks.length; i++) spacings.push(peaks[i] - peaks[i - 1]);
   spacings.sort((a, b) => a - b);
   const median = spacings[Math.floor(spacings.length / 2)];
   const consistent = spacings.filter(s => Math.abs(s - median) / median < 0.3);
-  if (consistent.length < 2) return { found: false, pixelsPerCm: 0, confidence: 0 };
+  if (consistent.length < 2) return { found: false, pixelsPerCm: 0, confidence: 0, knownCm: 0 };
   const avg = consistent.reduce((a, b) => a + b, 0) / consistent.length;
   const ratio = consistent.length / spacings.length;
-  return { found: true, pixelsPerCm: avg, confidence: Math.min(0.95, 0.4 + ratio * 0.4 + (consistent.length > 5 ? 0.15 : 0)) };
+  return { found: true, pixelsPerCm: avg, confidence: Math.min(0.95, 0.4 + ratio * 0.4 + (consistent.length > 5 ? 0.15 : 0)), knownCm: 1 };
 }
 
 /** Detect ruler tick marks via vertical edge projection */
-function detectRulerMarkings(gray: Uint8Array, w: number, h: number): { found: boolean; pixelsPerCm: number; confidence: number } {
+function detectRulerMarkings(gray: Uint8Array, w: number, h: number): { found: boolean; pixelsPerCm: number; confidence: number; knownCm: number } {
   const vEdges = new Float32Array(w * h);
   for (let y = 1; y < h - 1; y++)
     for (let x = 1; x < w - 1; x++)
@@ -449,17 +439,17 @@ function detectRulerMarkings(gray: Uint8Array, w: number, h: number): { found: b
   const peaks: number[] = [];
   for (let x = 2; x < w - 2; x++)
     if (colProj[x] > thresh && colProj[x] >= colProj[x - 1] && colProj[x] >= colProj[x + 1]) peaks.push(x);
-  if (peaks.length < 3) return { found: false, pixelsPerCm: 0, confidence: 0 };
+  if (peaks.length < 3) return { found: false, pixelsPerCm: 0, confidence: 0, knownCm: 0 };
   const spacings: number[] = [];
   for (let i = 1; i < peaks.length; i++) spacings.push(peaks[i] - peaks[i - 1]);
   spacings.sort((a, b) => a - b);
   const median = spacings[Math.floor(spacings.length / 2)];
   const consistent = spacings.filter(s => Math.abs(s - median) / median < 0.3);
-  if (consistent.length < 2) return { found: false, pixelsPerCm: 0, confidence: 0 };
+  if (consistent.length < 2) return { found: false, pixelsPerCm: 0, confidence: 0, knownCm: 0 };
   const avg = consistent.reduce((a, b) => a + b, 0) / consistent.length;
   const pxPerCm = avg < 20 ? avg * 10 : avg; // 1mm vs 1cm ticks
   const ratio = consistent.length / spacings.length;
-  return { found: true, pixelsPerCm: pxPerCm, confidence: Math.min(0.9, 0.35 + ratio * 0.4 + (consistent.length > 5 ? 0.15 : 0)) };
+  return { found: true, pixelsPerCm: pxPerCm, confidence: Math.min(0.9, 0.35 + ratio * 0.4 + (consistent.length > 5 ? 0.15 : 0)), knownCm: 1 };
 }
 
 // ============================================
@@ -620,7 +610,7 @@ export class AIWoundMeasurementService {
 
     const green = detectGreenMarkers(data, w, h);
     if (green.found && green.confidence > 0.5) {
-      return { type: 'green_marker', knownSizeCm: 1, pixelSize: green.pixelsPerCm, detectionMethod: 'automatic', confidence: green.confidence };
+      return { type: 'green_marker', knownSizeCm: green.knownCm, pixelSize: green.pixelsPerCm, detectionMethod: 'automatic', confidence: green.confidence };
     }
     const grid = detectGridLines(gray, w, h);
     if (grid.found && grid.confidence > 0.45) {
@@ -726,12 +716,15 @@ export class AIWoundMeasurementService {
     } else if (!scaleReliable) {
       warnings.push('Scale reference weak — dimensions are approximate. Include the printed green marker for accurate cm.');
     } else if (calibration.type === 'green_marker') {
-      // Both printed square markers are green and square, so shape alone cannot
-      // tell them apart. State the assumption rather than let a 50 mm marker be
-      // silently read as 30 mm, which would overstate the wound by ~2.8x in area.
+      // The two bars are told apart by shape alone (5:1 versus 10:1), so the
+      // assumption is stated rather than left implicit — mistaking one for the
+      // other doubles or halves every dimension.
+      const usedCm = calibration.knownSizeCm;
       warnings.push(
-        `Calibrated from the ${CALIBRATION_MARKER.sizeMm} mm green marker. ` +
-        `If you used the ${CALIBRATION_MARKER.largeSizeMm} mm marker, correct the dimensions below.`,
+        `Calibrated from the ${usedCm} cm green marker. ` +
+        `If you used the ${usedCm === CALIBRATION_MARKER.sizeMm / 10
+          ? CALIBRATION_MARKER.largeSizeMm / 10
+          : CALIBRATION_MARKER.sizeMm / 10} cm marker instead, correct the dimensions below.`,
       );
     }
     // Area vs. ellipse(L×W) consistency: a good segmentation is roughly elliptical.

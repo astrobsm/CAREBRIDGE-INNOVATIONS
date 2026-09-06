@@ -1,17 +1,25 @@
 /**
  * The calibration marker only works if the colour we PRINT is a colour the
- * detector RECOGNISES. Those lived in two files that knew nothing about each
- * other: the engine hunted for green while the only printable sheet was black
- * and white, so the accurate calibration path could never fire and every
- * measurement fell through to "scale unreliable".
+ * detector RECOGNISES, and if the marker's shape identifies its true length.
+ * Those lived in separate files that knew nothing about each other, and both
+ * had drifted from the sheet actually in clinical use.
  *
- * These tests bind the two together. If someone restyles the marker or retunes
- * the detector, this fails rather than silently degrading every wound
- * measurement in the product.
+ * The markers in the ward are #00A000 bars, 10 mm wide, 50 mm and 100 mm long.
+ * Two consequences follow, and both are tested here:
+ *
+ *  - #00A000 is a darker green than a vivid one, so the detector's brightness
+ *    floor has to sit low enough for it to survive ward lighting — but still
+ *    high enough to reject tissue, drapes and instruments.
+ *  - Because every bar is 10 mm wide, a bar's length in cm equals its aspect
+ *    ratio. That, not a size table, is what tells the 5 cm bar from the 10 cm.
  */
 
 import { describe, it, expect } from 'vitest';
-import { CALIBRATION_MARKER, isMarkerGreen } from '../../../services/woundMeasurementEngine';
+import {
+  CALIBRATION_MARKER,
+  isMarkerGreen,
+  inferGreenReferenceCm,
+} from '../../../services/woundMeasurementEngine';
 
 const { r, g, b } = CALIBRATION_MARKER.rgb;
 
@@ -25,11 +33,12 @@ describe('calibration marker colour', () => {
     expect(hex.toLowerCase()).toBe(CALIBRATION_MARKER.hex.toLowerCase());
   });
 
-  it('survives realistic exposure variation', () => {
+  it('survives the exposure range of real ward photography', () => {
     // A printed marker is never photographed under studio light. Ward lighting,
-    // phone auto-exposure and JPEG compression shift every channel, so the
-    // colour needs headroom on both sides rather than sitting on the threshold.
-    for (const scale of [0.7, 0.85, 1.0, 1.15, 1.3]) {
+    // shadow, phone auto-exposure and JPEG compression all move the channels.
+    // #00A000 is dark enough that this range is the binding constraint on the
+    // detector's brightness floor.
+    for (const scale of [0.6, 0.75, 0.9, 1.0, 1.2, 1.4]) {
       const sr = Math.min(255, Math.round(r * scale));
       const sg = Math.min(255, Math.round(g * scale));
       const sb = Math.min(255, Math.round(b * scale));
@@ -38,9 +47,9 @@ describe('calibration marker colour', () => {
   });
 
   it('survives a warm white-balance cast', () => {
-    // Tungsten ward lighting pushes red up and blue down; a marker that only
+    // Tungsten ward lighting lifts red and drops blue. A marker that only
     // passes under neutral light would fail on half the photographs taken.
-    expect(isMarkerGreen(Math.round(r + 40), g, Math.max(0, b - 20))).toBe(true);
+    expect(isMarkerGreen(Math.round(r + 45), g, Math.max(0, b - 20))).toBe(true);
   });
 
   it('does not match the tissue and materials it must be told apart from', () => {
@@ -55,58 +64,74 @@ describe('calibration marker colour', () => {
       ['blue drape', 60, 90, 180],
       ['stainless instrument', 170, 172, 175],
       ['black background', 10, 10, 10],
+      ['shadowed skin', 70, 50, 42],
+      ['dried blood on gauze', 120, 70, 60],
     ];
     for (const [label, cr, cg, cb] of notGreen) {
       expect(isMarkerGreen(cr, cg, cb), `${label} was misread as marker green`).toBe(false);
     }
   });
-
-  it('keeps the marker square and large enough to measure', () => {
-    // The detector divides the green bounding box by sizeMm, and rejects
-    // anything whose aspect ratio drifts below 0.7 — so the marker must be
-    // square by construction, and big enough to span many pixels at arm's length.
-    expect(CALIBRATION_MARKER.sizeMm).toBeGreaterThanOrEqual(20);
-    expect(CALIBRATION_MARKER.largeSizeMm).toBeGreaterThan(CALIBRATION_MARKER.sizeMm);
-    // The border has to stay a ring: two borders must not meet in the middle.
-    expect(CALIBRATION_MARKER.borderMm * 2).toBeLessThan(CALIBRATION_MARKER.sizeMm);
-  });
 });
 
-// ---------------------------------------------------------------------------
+describe('green marker size inference', () => {
+  const short = CALIBRATION_MARKER.sizeMm / 10;       // 5 cm
+  const long = CALIBRATION_MARKER.largeSizeMm / 10;   // 10 cm
 
-import { inferGreenReferenceCm } from '../services/aiWoundMeasurement';
+  it('reads each printed bar as its true length', () => {
+    // A 50x10 mm bar photographs at 5:1, a 100x10 mm bar at 10:1.
+    expect(inferGreenReferenceCm(5).knownCm).toBe(short);
+    expect(inferGreenReferenceCm(10).knownCm).toBe(long);
+    expect(inferGreenReferenceCm(5).recognised).toBe(true);
+    expect(inferGreenReferenceCm(10).recognised).toBe(true);
+  });
 
-describe('green reference size inference', () => {
-  it('reads a square green marker as the marker size, not 1 cm', () => {
-    // The bug: a square marker was assumed to be 1 cm while the printed marker
-    // is 3 cm. That made every calibrated photo 3x too small in length and 9x
-    // too small in area.
-    const expected = CALIBRATION_MARKER.sizeMm / 10;
-    expect(expected).toBe(3);
-    for (const aspect of [1, 1.05, 1.2, 1.5, 2, 2.9]) {
-      expect(inferGreenReferenceCm(aspect)).toBe(expected);
+  it('no longer reads the 10 cm bar as 15 cm', () => {
+    // The defect: any aspect above 8 was assumed to be a 15 cm ruler, so the
+    // 10 cm bar produced a scale 1.5x too large and an area 56% too small.
+    const wrongScale = 15 / 10;
+    const areaFactor = 1 / (wrongScale * wrongScale);
+    expect(areaFactor).toBeCloseTo(0.444, 3);
+    expect(inferGreenReferenceCm(10).knownCm).not.toBe(15);
+  });
+
+  it('tolerates the foreshortening of a normal hand-held photograph', () => {
+    // Small tilts move the measured aspect; the marker must still be identified.
+    for (const aspect of [4.3, 4.7, 5.4, 6.2]) {
+      expect(inferGreenReferenceCm(aspect).knownCm, `aspect ${aspect}`).toBe(short);
+    }
+    for (const aspect of [8.0, 9.2, 10.8, 12.5]) {
+      expect(inferGreenReferenceCm(aspect).knownCm, `aspect ${aspect}`).toBe(long);
     }
   });
 
-  it('still recognises the elongated ruler strips', () => {
-    expect(inferGreenReferenceCm(4)).toBe(5);
-    expect(inferGreenReferenceCm(12)).toBe(15);
+  it('reports how far a shape had to be snapped', () => {
+    expect(inferGreenReferenceCm(5).aspectDeviation).toBeCloseTo(0, 6);
+    expect(inferGreenReferenceCm(6).aspectDeviation).toBeCloseTo(0.2, 6);
   });
 
-  it('produces the correct area for a known marker and wound', () => {
-    // A 3 cm marker spanning 150 px gives 50 px/cm. A wound of 12,500 px²
-    // is then 12500 / 50^2 = 5 cm².
-    const pxPerCm = 150 / inferGreenReferenceCm(1);
+  it('claims no scale from a roughly square green object', () => {
+    // A green swab, drape corner or instrument handle is not a marker, and
+    // guessing a size for it would silently corrupt the measurement.
+    for (const aspect of [1, 1.3, 2, 2.4]) {
+      const ref = inferGreenReferenceCm(aspect);
+      expect(ref.recognised).toBe(false);
+      expect(ref.knownCm).toBe(0);
+    }
+  });
+
+  it('falls back on the width invariant for an unrecognised bar', () => {
+    // Every bar is 10 mm wide, so length in cm is the aspect ratio. For a shape
+    // that matches no printed bar this is still the best available estimate,
+    // but it is flagged unrecognised so confidence is reduced.
+    const ref = inferGreenReferenceCm(7);
+    expect(ref.recognised).toBe(false);
+    expect(ref.knownCm).toBe(7);
+  });
+
+  it('computes the right area from a correctly identified bar', () => {
+    // A 5 cm bar spanning 250 px gives 50 px/cm; a 12,500 px wound is 5 cm2.
+    const pxPerCm = 250 / inferGreenReferenceCm(5).knownCm;
     expect(pxPerCm).toBe(50);
     expect(12500 / (pxPerCm * pxPerCm)).toBe(5);
-  });
-
-  it('would have produced the old 9x under-read before the fix', () => {
-    // Documents the defect this test exists to prevent returning: the same
-    // wound read against a 1 cm assumption came out at 0.55 cm² instead of 5.
-    const wrongPxPerCm = 150 / 1;
-    const wrongArea = 12500 / (wrongPxPerCm * wrongPxPerCm);
-    expect(wrongArea).toBeCloseTo(0.556, 3);
-    expect(5 / wrongArea).toBeCloseTo(9, 5);
   });
 });
