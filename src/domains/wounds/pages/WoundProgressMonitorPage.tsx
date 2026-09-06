@@ -17,7 +17,8 @@
 
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Activity, AlertTriangle, ArrowLeft, Camera, ChevronRight, Download, FileText,
+  Activity, AlertTriangle, ArrowLeft, Camera, ChevronLeft, ChevronRight, Download, FileText,
+  Image as ImageIcon,
   LineChart, Plus, Printer, RefreshCw, Ruler, Search, TrendingDown, TrendingUp,
   Minus, Loader2, X,
 } from 'lucide-react';
@@ -44,6 +45,7 @@ import {
   computeHealingAnalytics, healingAlerts, HEALING_STATUS_META, INFECTION_SIGNS,
   type MonitoredWound, type WoundAssessment, type HealingStatus, type MonitoredWoundSummary,
   type MonitorDashboard, type ExudateAmount, type ExudateType, type TissueType,
+  type WoundAssessmentPhoto,
   type HealingAnalytics,
 } from '../services/woundMonitorService';
 
@@ -393,6 +395,22 @@ const WoundDetailView: React.FC<{ patient: Patient; wound: MonitoredWound; onBac
   const alerts = healingAlerts(analytics);
   const latest = assessments.find(a => a.assessedAt) || assessments[0];
 
+  // Every photograph across the wound's timeline, oldest first, each still
+  // paired with the assessment it was measured from.
+  const photoRecords = useMemo<PhotoRecord[]>(() => {
+    const out: PhotoRecord[] = [];
+    for (const a of assessments) {
+      for (const photo of a.photos || []) {
+        if (photo?.imageData || photo?.url) out.push({ photo, assessment: a });
+      }
+    }
+    return out.sort((x, y) =>
+      new Date(x.assessment.assessedAt || x.assessment.createdAt).getTime() -
+      new Date(y.assessment.assessedAt || y.assessment.createdAt).getTime());
+  }, [assessments]);
+
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+
   return (
     <div className="space-y-4">
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
@@ -555,6 +573,11 @@ const WoundDetailView: React.FC<{ patient: Patient; wound: MonitoredWound; onBac
         )}
       </div>
 
+      {/* Serial photographs — the evidence behind the numbers */}
+      {photoRecords.length > 0 && (
+        <PhotoStrip records={photoRecords} onOpen={setViewerIndex} />
+      )}
+
       {/* Trend chart */}
       {report && (
         <Suspense fallback={<div className="h-72 bg-white rounded-xl border animate-pulse" />}>
@@ -625,9 +648,177 @@ const WoundDetailView: React.FC<{ patient: Patient; wound: MonitoredWound; onBac
           onSaved={() => { setCapturing(false); load(); }}
         />
       )}
+
+      {viewerIndex !== null && (
+        <PhotoViewer
+          records={photoRecords}
+          index={viewerIndex}
+          onIndex={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+        />
+      )}
     </div>
   );
 };
+
+/** One photograph plus the assessment it belongs to, for the gallery. */
+interface PhotoRecord {
+  photo: WoundAssessmentPhoto;
+  assessment: WoundAssessment;
+}
+
+/**
+ * Serial photographs for a wound, oldest first.
+ *
+ * The visual counterpart to the trend chart: the chart says the area fell from
+ * 9 cm2 to 4, and these show the wound bed that produced those numbers, with
+ * the calibration marker still in frame.
+ */
+const PhotoStrip: React.FC<{
+  records: PhotoRecord[];
+  onOpen: (index: number) => void;
+}> = ({ records, onOpen }) => (
+  <div className="bg-white rounded-xl border p-4">
+    <div className="flex items-baseline justify-between gap-3 mb-3">
+      <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+        <ImageIcon className="w-4 h-4 text-teal-600" /> Photographs
+      </h3>
+      <span className="text-xs text-gray-400">
+        {records.length} image{records.length === 1 ? '' : 's'} · oldest first
+      </span>
+    </div>
+
+    <div className="flex gap-3 overflow-x-auto pb-1">
+      {records.map((r, i) => (
+        <button
+          key={r.photo.id}
+          onClick={() => onOpen(i)}
+          className="group shrink-0 w-32 text-left rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+        >
+          <div className="relative w-32 h-32 rounded-lg overflow-hidden border bg-gray-50">
+            <img
+              src={r.photo.imageData || r.photo.url}
+              alt={`Wound on ${r.assessment.assessedAt ? new Date(r.assessment.assessedAt).toLocaleDateString() : 'an unknown date'}`}
+              className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+              loading="lazy"
+            />
+            {/* Whether the frame was calibrated decides how far the measurement
+                drawn from it can be trusted, so it sits on the thumbnail rather
+                than a click away. */}
+            <span className={`absolute bottom-1 left-1 text-[10px] px-1.5 py-0.5 rounded ${
+              r.photo.scaleReliable ? 'bg-green-600/90 text-white' : 'bg-amber-500/90 text-white'
+            }`}>
+              {r.photo.scaleReliable ? 'calibrated' : 'uncalibrated'}
+            </span>
+          </div>
+          <div className="mt-1.5">
+            <div className="text-xs font-medium text-gray-700 tabular-nums">{fmtArea(r.assessment.areaCm2)}</div>
+            <div className="text-[11px] text-gray-400">
+              {r.assessment.assessedAt ? new Date(r.assessment.assessedAt).toLocaleDateString() : '—'}
+            </div>
+          </div>
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+/** Full-size photograph with the measurement and calibration it produced. */
+const PhotoViewer: React.FC<{
+  records: PhotoRecord[];
+  index: number;
+  onIndex: (i: number) => void;
+  onClose: () => void;
+}> = ({ records, index, onIndex, onClose }) => {
+  // Arrow keys step through the series, which is how the images are actually
+  // reviewed — one visit against the next.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft' && index > 0) onIndex(index - 1);
+      if (e.key === 'ArrowRight' && index < records.length - 1) onIndex(index + 1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [index, records.length, onIndex, onClose]);
+
+  const record = records[index];
+  if (!record) return null;
+  const { photo, assessment } = record;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/85 flex flex-col" role="dialog" aria-modal="true">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 text-white">
+        <div className="min-w-0">
+          <div className="text-sm font-medium">
+            {assessment.assessedAt ? new Date(assessment.assessedAt).toLocaleString() : 'Undated'}
+          </div>
+          <div className="text-xs text-white/60">Image {index + 1} of {records.length}</div>
+        </div>
+        <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10" aria-label="Close">
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div className="flex-1 min-h-0 flex items-center justify-center px-2 relative">
+        <button
+          onClick={() => onIndex(index - 1)} disabled={index === 0}
+          className="absolute left-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white disabled:opacity-0"
+          aria-label="Previous photograph"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+        <img
+          src={photo.imageData || photo.url}
+          alt="Wound photograph with calibration marker"
+          className="max-h-full max-w-full object-contain rounded-lg"
+        />
+        <button
+          onClick={() => onIndex(index + 1)} disabled={index === records.length - 1}
+          className="absolute right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white disabled:opacity-0"
+          aria-label="Next photograph"
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Provenance. A photograph is only evidence if it says what was measured
+          from it and how the scale was obtained. */}
+      <div className="bg-black/60 text-white px-4 py-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <ViewerFact label="Area" value={fmtArea(assessment.areaCm2)} />
+          <ViewerFact
+            label="Dimensions"
+            value={assessment.lengthCm != null && assessment.widthCm != null
+              ? `${Number(assessment.lengthCm).toFixed(1)} x ${Number(assessment.widthCm).toFixed(1)} cm`
+              : '—'}
+          />
+          <ViewerFact label="Calibration" value={(photo.calibrationMethod || '—').replace(/_/g, ' ')} />
+          <ViewerFact
+            label="Scale"
+            value={photo.pixelsPerCm ? `${photo.pixelsPerCm} px/cm` : '—'}
+            tone={photo.scaleReliable ? 'text-green-300' : 'text-amber-300'}
+          />
+        </div>
+        {!photo.scaleReliable && (
+          <p className="text-[11px] text-amber-300 mt-2">
+            This frame was not reliably calibrated — treat its dimensions as approximate.
+          </p>
+        )}
+        {assessment.clinicalDescription && (
+          <p className="text-xs text-white/70 mt-2">{assessment.clinicalDescription}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ViewerFact: React.FC<{ label: string; value: string; tone?: string }> = ({ label, value, tone }) => (
+  <div>
+    <div className="text-white/50 uppercase tracking-wide text-[10px]">{label}</div>
+    <div className={`capitalize ${tone || 'text-white'}`}>{value}</div>
+  </div>
+);
 
 const ClinicalFact: React.FC<{ label: string; value?: string | null }> = ({ label, value }) => (
   <div>
@@ -935,8 +1126,8 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
   const [visionState, setVisionState] = useState<'idle' | 'running' | 'done' | 'unavailable'>('idle');
   const [vision, setVision] = useState<AiWoundAssessment | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
-  // The captured frame, kept so it can be stored alongside the assessment.
-  const [photoDataUrl, setPhotoDataUrl] = useState<string>('');
+  // The captured frame, kept as the reference behind the measurement.
+  const [photo, setPhoto] = useState<WoundAssessmentPhoto | null>(null);
   // Set once the clinician edits a field, so the async enrichment never
   // overwrites something a human has already typed.
   const editedRef = useRef(false);
@@ -958,8 +1149,8 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(bitmap, 0, 0);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      // Full resolution for the Vision pass, which reads wound-bed detail.
       dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      setPhotoDataUrl(dataUrl);
 
       await aiWoundMeasurement.initialize();
       // measureWound auto-detects the calibration marker internally (green
@@ -969,6 +1160,25 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
       setScaleReliable(Boolean(result.scaleReliable));
       setCalibType(result.calibrationMethod || 'reference-card');
       setWarnings(result.warnings || []);
+
+      // Keep the frame as the evidence behind the number — marker included.
+      // Downscaled, because the raw frame is several megabytes of base64 and
+      // this rides a synced JSONB column. The scale is rescaled with it, so the
+      // stored image can still be measured against later.
+      const shot = downscaleCanvas(canvas, REFERENCE_PHOTO_MAX_PX);
+      const ratio = shot.width / canvas.width;
+      setPhoto({
+        id: crypto.randomUUID(),
+        imageData: shot.dataUrl,
+        takenAt: new Date().toISOString(),
+        widthPx: shot.width,
+        heightPx: shot.height,
+        pixelsPerCm: result.measurements?.calibrationFactor
+          ? round(result.measurements.calibrationFactor * ratio)
+          : null,
+        calibrationMethod: result.calibrationMethod,
+        scaleReliable: Boolean(result.scaleReliable),
+      });
       setM({
         lengthCm: round(result.length),
         widthCm: round(result.width),
@@ -1069,9 +1279,7 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
         infectionSigns: m.infectionSigns,
         dressingType: m.dressingType,
         dressingFrequency: m.dressingFrequency,
-        photos: photoDataUrl
-          ? [{ id: crypto.randomUUID(), imageData: photoDataUrl, takenAt: new Date().toISOString() }]
-          : undefined,
+        photos: photo ? [photo] : undefined,
         assessedAt: new Date().toISOString(),
       });
       onSaved();
@@ -1203,6 +1411,29 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
                 </li>
               ))}
             </ul>
+          )}
+
+          {/* What will be kept. Shown so it is obvious whether the marker made
+              it into frame — the one thing that decides if this measurement
+              can be trusted or re-checked later. */}
+          {photo?.imageData && (
+            <div className="mt-3 flex gap-3 items-start">
+              <img
+                src={photo.imageData}
+                alt="Photograph that will be saved with this assessment"
+                className="w-24 h-24 object-cover rounded-lg border"
+              />
+              <div className="text-xs text-gray-500 space-y-0.5">
+                <p className="text-gray-700 font-medium">Saved with this assessment</p>
+                <p>{photo.widthPx}×{photo.heightPx} px · {formatBytes(dataUrlBytes(photo.imageData))}</p>
+                {photo.pixelsPerCm ? <p>{photo.pixelsPerCm} px/cm</p> : null}
+                <p className={photo.scaleReliable ? 'text-green-600' : 'text-amber-600'}>
+                  {photo.scaleReliable
+                    ? 'Calibration marker found in frame'
+                    : 'No reliable marker in frame'}
+                </p>
+              </div>
+            </div>
           )}
 
           {vision && (
@@ -1475,6 +1706,55 @@ function mentionsOdour(ai: AiWoundAssessment): boolean | undefined {
     .filter(Boolean).join(' ').toLowerCase();
   if (!blob) return undefined;
   return /odour|odor|smell|malodor|foul/.test(blob) || undefined;
+}
+
+/**
+ * Longest edge of the stored reference photograph, in pixels.
+ *
+ * Measurement runs on the full-resolution frame; only the kept copy is reduced.
+ * 1280 px still shows the wound bed and lets the calibration marker be read by
+ * eye, at roughly 120-200 KB per assessment instead of the 3-6 MB a raw phone
+ * frame costs — which matters because these ride a synced JSONB column.
+ */
+const REFERENCE_PHOTO_MAX_PX = 1280;
+
+/** Downscale a canvas to fit `maxEdge`, returning a JPEG data URL. */
+function downscaleCanvas(
+  source: HTMLCanvasElement,
+  maxEdge: number,
+): { dataUrl: string; width: number; height: number } {
+  const longest = Math.max(source.width, source.height);
+  const scale = longest > maxEdge ? maxEdge / longest : 1;
+  const width = Math.round(source.width * scale);
+  const height = Math.round(source.height * scale);
+
+  if (scale === 1) {
+    return { dataUrl: source.toDataURL('image/jpeg', 0.75), width, height };
+  }
+  const out = document.createElement('canvas');
+  out.width = width;
+  out.height = height;
+  const ctx = out.getContext('2d');
+  if (!ctx) return { dataUrl: source.toDataURL('image/jpeg', 0.6), width: source.width, height: source.height };
+  // Smoothing matters here: a nearest-neighbour reduction would alias the
+  // marker's edges, and the marker is the thing this photo exists to show.
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, 0, 0, width, height);
+  return { dataUrl: out.toDataURL('image/jpeg', 0.75), width, height };
+}
+
+/** Rough byte size of a data URL, for showing how much a photo costs. */
+function dataUrlBytes(dataUrl?: string): number {
+  if (!dataUrl) return 0;
+  const i = dataUrl.indexOf(',');
+  return i < 0 ? 0 : Math.floor(((dataUrl.length - i - 1) * 3) / 4);
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function round(v: number): number { return Math.round(v * 10) / 10; }

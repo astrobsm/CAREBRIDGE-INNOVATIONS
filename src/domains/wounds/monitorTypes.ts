@@ -54,6 +54,18 @@ export type ExudateType = 'serous' | 'sanguineous' | 'serosanguineous' | 'purule
 export type TissueType = 'epithelial' | 'granulation' | 'slough' | 'necrotic' | 'eschar';
 
 /** A clinical photograph attached to one assessment. */
+/**
+ * A clinical photograph kept as the evidence behind a measurement.
+ *
+ * The frame is stored exactly as captured, calibration marker included — that
+ * is the point of keeping it. A number in the record says the wound was 5 cm2;
+ * the photograph shows the marker that number was derived from, so the
+ * measurement can be checked, re-measured or defended months later.
+ *
+ * Stored downscaled. The measurement runs on the full-resolution frame, but
+ * keeping that frame would put several megabytes of base64 into a synced JSONB
+ * column on every assessment.
+ */
 export interface WoundAssessmentPhoto {
   id: string;
   /** Data URL, for offline-first storage; uploaded copies carry `url` instead. */
@@ -61,6 +73,20 @@ export interface WoundAssessmentPhoto {
   url?: string;
   caption?: string;
   takenAt?: string; // ISO
+
+  /** Pixel dimensions of the STORED (downscaled) image. */
+  widthPx?: number;
+  heightPx?: number;
+  /**
+   * Scale of the stored image, in pixels per cm — rescaled from the
+   * full-resolution measurement. Lets the saved frame be re-measured later
+   * without the original.
+   */
+  pixelsPerCm?: number | null;
+  /** How that scale was obtained (green_marker, grid, ruler, manual…). */
+  calibrationMethod?: string;
+  /** Whether the scale was trustworthy at capture time. */
+  scaleReliable?: boolean;
 }
 
 /** Local signs of wound infection, offered as checkboxes at assessment time. */
