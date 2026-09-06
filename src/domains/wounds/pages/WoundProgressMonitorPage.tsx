@@ -541,9 +541,13 @@ const WoundDetailView: React.FC<{ patient: Patient; wound: MonitoredWound; onBac
             Assessment report PDF
           </DocButton>
           <DocButton icon={<Ruler className="w-4 h-4" />} onClick={() => generateCalibrationRulerPDF()}>
-            Calibration ruler
+            Print calibration markers
           </DocButton>
         </div>
+        <p className="text-xs text-gray-500 mt-2">
+          Page 1 carries the green markers the photo measurement calibrates from. Print at 100%
+          scale, cut one out, and lay it flat beside the wound when photographing.
+        </p>
         {!latest && (
           <p className="text-xs text-gray-400 mt-2">
             Capture an assessment to generate a dressing protocol.
@@ -1028,7 +1032,12 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
   const save = async () => {
     if (saving) return;
     const area = Number(m.areaCm2);
-    if (!Number.isFinite(area)) { setError('A wound area is required.'); return; }
+    // Zero is what an uncalibrated photo now yields, and a wound recorded as
+    // 0 cm² would read as healed on the trend. Require a real number.
+    if (!Number.isFinite(area) || area <= 0) {
+      setError('A wound area is required. Photograph with the green marker, use Guided capture, or enter the size manually.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -1157,11 +1166,19 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
           >
             {analyzing ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />}
             <span className="text-sm font-medium">{analyzing ? 'Analysing…' : 'Capture or upload wound photo'}</span>
-            <span className="text-xs text-gray-500">Include a calibration marker (coin / card / ruler) for accurate sizing</span>
+            <span className="text-xs text-gray-500">
+              Place the printed green marker flat beside the wound — it is what gives an accurate size
+            </span>
           </button>
           {!analyzing && m.areaCm2 != null && (
-            <p className={`text-xs mt-2 ${scaleReliable ? 'text-green-600' : 'text-amber-600'}`}>
-              {scaleReliable ? '✓ Calibrated measurement' : '⚠ No reliable calibration marker — size is approximate. Confirm below.'}
+            <p className={`text-xs mt-2 ${
+              scaleReliable ? 'text-green-600' : Number(m.areaCm2) > 0 ? 'text-amber-600' : 'text-red-600'
+            }`}>
+              {scaleReliable
+                ? '✓ Calibrated measurement'
+                : Number(m.areaCm2) > 0
+                  ? '⚠ Weak calibration — size is approximate. Confirm below.'
+                  : '✗ No scale reference found. The outline was measured but its real size is unknown — re-shoot with the green marker, switch to Guided capture, or enter the size yourself.'}
             </p>
           )}
 

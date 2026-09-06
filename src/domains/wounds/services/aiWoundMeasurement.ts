@@ -14,6 +14,7 @@
  */
 
 import * as tf from '@tensorflow/tfjs';
+import { CALIBRATION_MARKER } from '../../../services/woundMeasurementEngine';
 
 /**
  * System prompt for the optional GPT-4o Vision enrichment layer
@@ -361,6 +362,29 @@ function minAreaRect(pts: Array<{ x: number; y: number }>): { length: number; wi
 // CALIBRATION DETECTION
 // ============================================
 
+/**
+ * The real-world length, in cm, of the green reference found in a photograph,
+ * inferred from its aspect ratio.
+ *
+ * The printed sheet carries both square calibration markers and elongated
+ * rulers, and shape is the only way to tell which one is in frame. A roughly
+ * square green object is the standard calibration marker, whose size is defined
+ * once in CALIBRATION_MARKER.
+ *
+ * This previously returned 1 cm for a square marker while the marker the app
+ * actually specifies is 3 cm. Every photograph calibrated from the marker was
+ * therefore three times too small in each dimension — and NINE times too small
+ * in area, since area scales with the square of the linear error.
+ *
+ * Exported for test: the constant here and the printed marker must agree, and
+ * nothing else in the pipeline checks that they do.
+ */
+export function inferGreenReferenceCm(aspect: number): number {
+  if (aspect > 8) return 15;  // 15 cm ruler strip
+  if (aspect > 3) return 5;   // 5 cm ruler strip
+  return CALIBRATION_MARKER.sizeMm / 10; // square calibration marker
+}
+
 /** Detect green calibration markers from our printed rulers */
 function detectGreenMarkers(data: Uint8ClampedArray, w: number, h: number): { found: boolean; pixelsPerCm: number; confidence: number } {
   const greenMask = new Uint8Array(w * h);
@@ -382,7 +406,8 @@ function detectGreenMarkers(data: Uint8ClampedArray, w: number, h: number): { fo
   const mW = maxX - minX, mH = maxY - minY;
   const longer = Math.max(mW, mH);
   const aspect = mW > mH ? mW / Math.max(1, mH) : mH / Math.max(1, mW);
-  const knownCm = aspect > 8 ? 15 : aspect > 3 ? 5 : 1;
+
+  const knownCm = inferGreenReferenceCm(aspect);
   const pxPerCm = longer / knownCm;
   const fill = count / ((mW + 1) * (mH + 1));
   return { found: true, pixelsPerCm: pxPerCm, confidence: Math.min(0.95, 0.5 + fill * 0.3 + (longer > 100 ? 0.15 : 0)) };
@@ -605,8 +630,16 @@ export class AIWoundMeasurementService {
     if (ruler.found && ruler.confidence > 0.4) {
       return { type: 'ruler', knownSizeCm: 1, pixelSize: ruler.pixelsPerCm, detectionMethod: 'automatic', confidence: ruler.confidence };
     }
-    const estimatedPxPerCm = Math.max(w, h) / 20;
-    return { type: 'manual', knownSizeCm: 1, pixelSize: estimatedPxPerCm, detectionMethod: 'automatic', confidence: 0.2 };
+    // Nothing detected. This used to return `max(w, h) / 20` — an assumption
+    // that every photograph spans exactly 20 cm — and the result was reported
+    // as a measurement in cm. It was wrong by however far the true field of
+    // view differed from 20 cm, which is arbitrary and unknowable, yet it
+    // produced a confident-looking figure that went into the clinical record.
+    //
+    // A wound size that is silently invented is worse than no wound size, so
+    // no scale is returned. measureWound() reports the pixel geometry, marks
+    // the result unscaled, and asks for the marker or manual calibration.
+    return { type: 'manual', knownSizeCm: 0, pixelSize: 0, detectionMethod: 'automatic', confidence: 0 };
   }
 
   createManualCalibration(pixelLength: number, knownCm: number): CalibrationReference {
@@ -671,17 +704,35 @@ export class AIWoundMeasurementService {
       ? minAreaRect(contour)
       : { length: maxX - minX, width: maxY - minY, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
 
-    const lengthCm = rect.length / pxPerCm;
-    const widthCm = rect.width / pxPerCm;
-    const areaCm2 = pixelArea / (pxPerCm * pxPerCm);
-    const perimeterCm = pixelPerimeter / pxPerCm;
-
     // --- Sanity checks & scale reliability ---
     const warnings: string[] = [];
     const scalePlausible = pxPerCm > 3 && pxPerCm < 4000;
-    const scaleReliable = calibration.confidence >= 0.5 && scalePlausible;
-    if (!scaleReliable) {
-      warnings.push('Scale reference weak or missing — dimensions are approximate. Include a ruler or the printed marker for accurate cm.');
+    const hasScale = pxPerCm > 0 && scalePlausible;
+    const scaleReliable = calibration.confidence >= 0.5 && hasScale;
+
+    // With no usable scale there is no honest conversion from pixels to cm, so
+    // none is invented. The pixel geometry below is still real and is returned,
+    // so a manual calibration can be applied to the same outline afterwards.
+    const lengthCm = hasScale ? rect.length / pxPerCm : 0;
+    const widthCm = hasScale ? rect.width / pxPerCm : 0;
+    const areaCm2 = hasScale ? pixelArea / (pxPerCm * pxPerCm) : 0;
+    const perimeterCm = hasScale ? pixelPerimeter / pxPerCm : 0;
+
+    if (!hasScale) {
+      warnings.push(
+        'No scale reference found — the wound outline was measured, but its real size cannot be calculated. ' +
+        'Photograph again with the printed green marker beside the wound, or use Guided capture to calibrate by hand.',
+      );
+    } else if (!scaleReliable) {
+      warnings.push('Scale reference weak — dimensions are approximate. Include the printed green marker for accurate cm.');
+    } else if (calibration.type === 'green_marker') {
+      // Both printed square markers are green and square, so shape alone cannot
+      // tell them apart. State the assumption rather than let a 50 mm marker be
+      // silently read as 30 mm, which would overstate the wound by ~2.8x in area.
+      warnings.push(
+        `Calibrated from the ${CALIBRATION_MARKER.sizeMm} mm green marker. ` +
+        `If you used the ${CALIBRATION_MARKER.largeSizeMm} mm marker, correct the dimensions below.`,
+      );
     }
     // Area vs. ellipse(L×W) consistency: a good segmentation is roughly elliptical.
     const ellipseArea = Math.PI * (lengthCm / 2) * (widthCm / 2);

@@ -110,6 +110,46 @@ export interface WoundProgressDataPoint {
 const ASTRO_MARKER_SIZE_MM = 30;
 
 /**
+ * The calibration marker specification — the single source of truth shared by
+ * the detector below and the printable marker sheet (utils/calibrationRulerPdf).
+ *
+ * Green is deliberate, not decorative. It is the complement of red, so it
+ * separates cleanly from blood, granulation and slough; a black or grey marker
+ * occupies the same tonal range as eschar and shadow and cannot be segmented
+ * reliably against a wound bed.
+ *
+ * These values must stay in step with `detectColorMarker` below, which measures
+ * the BOUNDING BOX of green pixels and divides by `sizeMm`. The printed green
+ * must therefore describe the marker's outer edge exactly, and nothing else in
+ * the frame may be green — which is why the sheet prints markers alone, with a
+ * quiet zone and no green ink anywhere else on the page.
+ */
+export const CALIBRATION_MARKER = {
+  /** Outer edge of the green square, in mm. */
+  sizeMm: ASTRO_MARKER_SIZE_MM,
+  /** Larger variant, for big wounds photographed from further back. */
+  largeSizeMm: 50,
+  /** Border thickness in mm — thick enough to survive printing and downscaling. */
+  borderMm: 4,
+  /**
+   * #00C853. Clears the detector's test (g > 120, g > r*1.5, g > b*1.5) with
+   * margin, and reproduces well on both laser and inkjet output.
+   */
+  rgb: { r: 0, g: 200, b: 83 },
+  hex: '#00C853',
+} as const;
+
+/**
+ * Whether a pixel counts as marker green.
+ *
+ * Exported so the printable sheet can assert that the ink it specifies is
+ * actually detectable, rather than trusting a copied constant to stay correct.
+ */
+export function isMarkerGreen(r: number, g: number, b: number): boolean {
+  return g > 120 && g > r * 1.5 && g > b * 1.5;
+}
+
+/**
  * Attempts to detect the AstroHEALTH QR calibration marker in an image.
  * Falls back to color-based marker detection if QR decode fails.
  */
@@ -159,8 +199,9 @@ function detectColorMarker(
     const g = data[i + 1];
     const b = data[i + 2];
 
-    // Bright green detection (HSV-like in RGB)
-    if (g > 120 && g > r * 1.5 && g > b * 1.5) {
+    // Bright green detection (HSV-like in RGB). Shared with the printable
+    // marker sheet so the ink and the detector cannot disagree.
+    if (isMarkerGreen(r, g, b)) {
       greenMask[i / 4] = true;
       greenCount++;
     }
