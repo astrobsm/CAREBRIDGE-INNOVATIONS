@@ -42,6 +42,8 @@ import {
 import type { CalibratedMeasurement } from '../../../services/woundMeasurementEngine';
 import { detectCalibrationMarker } from '../../../services/woundMeasurementEngine';
 import { computePlanimetry, measureTrace, type Trace } from '../../../services/planimetry';
+import GroupedSelect from '../../../components/common/GroupedSelect';
+import { ANATOMICAL_SITES, WOUND_ETIOLOGIES } from '../../../data/anatomy';
 import {
   listWounds, getWoundTimeline, getMonitorDashboard, createWound, addAssessment,
   importLegacyWounds,
@@ -1289,10 +1291,21 @@ const NewWoundModal: React.FC<{ patient: Patient; onClose: () => void; onCreated
             {WOUND_TYPES.map(t => <option key={t}>{t}</option>)}
           </select>
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Anatomical location *">
-            <input value={form.anatomicalLocation || ''} onChange={e => set({ anatomicalLocation: e.target.value })} placeholder="e.g. Left heel" className="w-full border rounded-lg px-3 py-2 text-sm" />
-          </Field>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Site is picked from a list so the same wound is written the same
+              way at every visit. "Left heel", "L heel" and "lt. heel" are one
+              site to a clinician and three to a database. */}
+          <div className="sm:col-span-2">
+            <Field label="Anatomical location *">
+              <GroupedSelect
+                value={form.anatomicalLocation || ''}
+                onChange={v => set({ anatomicalLocation: v })}
+                groups={ANATOMICAL_SITES}
+                placeholder="Select the site…"
+                otherPlaceholder="Describe the site"
+              />
+            </Field>
+          </div>
           <Field label="Body side">
             <select value={form.bodySide} onChange={e => set({ bodySide: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
               {BODY_SIDES.map(s => <option key={s}>{s}</option>)}
@@ -1304,7 +1317,13 @@ const NewWoundModal: React.FC<{ patient: Patient; onClose: () => void; onCreated
           <Field label="Date of injury"><input type="date" value={form.dateOfInjury || ''} onChange={e => set({ dateOfInjury: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></Field>
         </div>
         <Field label="Etiology / cause">
-          <input value={form.cause || ''} onChange={e => set({ cause: e.target.value })} placeholder="e.g. Prolonged pressure, immobility" className="w-full border rounded-lg px-3 py-2 text-sm" />
+          <GroupedSelect
+            value={form.cause || ''}
+            onChange={v => set({ cause: v })}
+            groups={WOUND_ETIOLOGIES}
+            placeholder="Select the cause…"
+            otherPlaceholder="Describe the cause"
+          />
         </Field>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex gap-2 pt-1">
