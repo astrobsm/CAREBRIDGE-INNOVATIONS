@@ -93,3 +93,58 @@ Rides the existing offline-first Dexie + Supabase sync. Photographs are stored
 downscaled with their calibration and segmentation provenance, as the wound
 monitor already does. Original captures are never overwritten; a corrected
 assessment is a new record referencing the original.
+
+---
+
+## Model search — findings (September 2026)
+
+The question asked was whether a trained viability or epithelialization model
+could be installed here rather than relying on a heuristic. It was searched
+properly. The answer is no, and the reasoning is recorded so it is not
+re-litigated from memory.
+
+### There is no trained model for what this module measures
+
+No publicly available, licensed, trained model exists for **skin-graft take** or
+**donor-site re-epithelialization from clinical photographs**. The published
+deep-learning work on epithelialization measures it on optical coherence
+tomography B-scans — a different imaging modality that says nothing about a ward
+photograph.
+
+### Trained wound *segmentation* models do exist
+
+| Model | Licence | Verdict |
+|---|---|---|
+| [FUSegNet](https://github.com/mrinal054/FUSegNet) | MIT | Strongest available: Dice 0.927 on chronic wounds, weights published. Segments wound from background — it does **not** classify tissue, so it cannot supply viability. Trained on diabetic foot ulcers, not grafts. EfficientNet-B7 encoder is far too heavy for this PWA. |
+| [uwm-bigdata/wound-segmentation](https://github.com/uwm-bigdata/wound-segmentation) | **None stated** | Keras, so TensorFlow.js conversion would be easy. Unusable: a repository with no licence reserves all rights. |
+| Hugging Face `wound-*` models | Mixed / mostly unstated | Whole-image classifiers, not segmentation. Undocumented training data, no published validation. |
+| [Wound tissue segmentation benchmark](https://arxiv.org/abs/2502.10652) | Research | 147 images; necrosis Dice ≈ 0.50. Not adequate to derive a viability percentage from. |
+
+### What was done instead
+
+Installing a foot-ulcer segmentation model and presenting its output as graft
+viability would be off-label use dressed in clinical language — the failure mode
+the specification explicitly prohibits. So:
+
+1. **`TissueProvider` abstraction** — the seam a real model drops into. Register
+   one with a higher priority and it takes precedence; if its weights fail to
+   load, analysis falls back to the heuristic rather than failing.
+2. **`describeOnnxIntegration()`** — the requirements a candidate must meet, and
+   why each model above was or was not used, kept in code and under test.
+3. **The heuristic was hardened**, since it is what actually runs:
+   - classification moved from raw RGB thresholds to HSV, because hue is stable
+     across daylight, fluorescent light and flash where the red channel is not;
+   - the calibration marker is excluded from tissue classification;
+   - deep shadow is no longer read as necrosis;
+   - **ambiguous pixels are reported as unclassified rather than defaulted to
+     granulation.** The previous implementation counted them as granulation,
+     which counts as viable, inflating graft take — a failing graft reading
+     healthier than it is. Unclassified area now lowers confidence instead of
+     biasing the number.
+
+### What installing a real model would take
+
+Institutional data: grafted and donor sites, photographed to the standardised
+protocol, labelled per-pixel by clinicians, across the skin tones of the
+patients it will be used on. The learning loop in §56 and the paired
+AI-result/clinician-review records exist to accumulate exactly that dataset.

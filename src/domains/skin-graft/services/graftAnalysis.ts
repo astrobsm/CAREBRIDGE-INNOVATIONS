@@ -32,7 +32,14 @@ export const PREDICTION_MODEL_VERSION = 'trajectory-linear-1.0.0';
 const clampPct = (v: number): number => Math.max(0, Math.min(100, v));
 const round1 = (v: number): number => Math.round(v * 10) / 10;
 
-/** Sum of the tissue channels, used to judge whether the breakdown is usable. */
+/**
+ * Sum of the *classified* tissue channels.
+ *
+ * Deliberately excludes any unclassified remainder. Everything below divides by
+ * this rather than by 100, so pixels the provider could not assign lower the
+ * confidence instead of being silently counted as viable or non-viable — either
+ * of which would push the graft take number in a direction nobody chose.
+ */
 function tissueTotal(t: TissueBreakdown): number {
   return (t.granulationPct ?? 0) + (t.sloughPct ?? 0) +
     (t.necroticPct ?? 0) + (t.epithelialPct ?? 0);
