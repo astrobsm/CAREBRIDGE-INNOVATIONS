@@ -6,14 +6,15 @@
  * as tracing onto acetate, which has been the clinical reference standard for
  * irregular wound area for decades.
  *
- * Used for any wound: a raw wound outline gives total surface area and the
- * derived dimensions; a graft or donor site adds inner regions, so non-viable
- * graft and still-raw donor areas are subtracted from the whole.
+ * A real wound surface is not one thing. A donor site at day seven is patches
+ * of new epithelium, patches still raw, and patches under slough, scattered
+ * across the harvest. So the outline is traced once, and then each patch is
+ * traced and labelled — as many as there are, in any order, added one at a time
+ * with a running total visible throughout.
  *
- * Coordinates are kept in IMAGE pixel space throughout, never display space.
- * The canvas is scaled by CSS to fit the screen, and a trace recorded in
- * display pixels would silently change area with the size of the window it was
- * drawn in.
+ * Coordinates are kept in IMAGE pixel space, never display space. The canvas is
+ * scaled by CSS to fit the screen, and a trace recorded in display pixels would
+ * silently change area with the size of the window it was drawn in.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,6 +24,7 @@ import {
   measureTrace,
   simplify,
   type Point,
+  type SurfaceKind,
   type Trace,
   type TraceRole,
 } from '../../services/planimetry';
@@ -33,29 +35,34 @@ export interface WoundTracerProps {
   /** Scale from calibration. Without it, areas cannot be given in cm². */
   pixelsPerCm: number | null;
   /**
-   * What the inner regions mean for this site, which differs by context:
-   * still-raw areas on a donor site, non-viable graft on a recipient site.
-   * Omit for a plain wound, where only the outline is traced.
+   * Which patch types to offer. Defaults suit a plain wound; a donor site
+   * wants raw/slough/epithelialised, a graft wants necrotic/slough.
+   * Pass an empty array for outline-only tracing.
    */
-  subregionLabel?: string;
-  /** Existing traces, so an assessment can be reopened and adjusted. */
+  surfaceKinds?: SurfaceKind[];
+  /** Existing traces, so an assessment can be reopened and added to. */
   initialTraces?: Trace[];
   onCancel: () => void;
   onComplete: (result: { traces: Trace[]; annotatedDataUrl: string }) => void;
 }
 
-const ROLE_STYLE: Record<TraceRole, { stroke: string; fill: string; label: string }> = {
+const STYLE: Record<TraceRole, { stroke: string; fill: string; label: string }> = {
   // Cyan for the outline, matching the automatic contour overlay elsewhere in
   // the app, and safely distinct from the green calibration marker.
-  total: { stroke: '#00E5FF', fill: 'rgba(0,229,255,0.12)', label: 'Whole wound' },
-  subregion: { stroke: '#FF5252', fill: 'rgba(255,82,82,0.22)', label: 'Inner region' },
-  island: { stroke: '#FFD740', fill: 'rgba(255,215,64,0.22)', label: 'Healed island' },
+  total: { stroke: '#00E5FF', fill: 'rgba(0,229,255,0.10)', label: 'Wound outline' },
+  raw: { stroke: '#FF5252', fill: 'rgba(255,82,82,0.24)', label: 'Raw' },
+  slough: { stroke: '#FFD740', fill: 'rgba(255,215,64,0.24)', label: 'Slough' },
+  epithelialised: { stroke: '#69F0AE', fill: 'rgba(105,240,174,0.22)', label: 'Epithelialised' },
+  granulation: { stroke: '#FF80AB', fill: 'rgba(255,128,171,0.22)', label: 'Granulation' },
+  necrotic: { stroke: '#B388FF', fill: 'rgba(179,136,255,0.24)', label: 'Necrotic' },
 };
+
+const DEFAULT_KINDS: SurfaceKind[] = ['raw', 'slough', 'epithelialised'];
 
 export default function WoundTracer({
   imageSrc,
   pixelsPerCm,
-  subregionLabel,
+  surfaceKinds = DEFAULT_KINDS,
   initialTraces,
   onCancel,
   onComplete,
@@ -66,13 +73,13 @@ export default function WoundTracer({
 
   const [traces, setTraces] = useState<Trace[]>(initialTraces ?? []);
   const [current, setCurrent] = useState<Point[]>([]);
-  const [role, setRole] = useState<TraceRole>(initialTraces?.length ? 'subregion' : 'total');
+  const [role, setRole] = useState<TraceRole>(
+    initialTraces?.some(t => t.role === 'total') ? (surfaceKinds[0] ?? 'total') : 'total',
+  );
   const [redoStack, setRedoStack] = useState<Trace[]>([]);
   const [imageReady, setImageReady] = useState(false);
 
   const hasTotal = traces.some(t => t.role === 'total');
-
-  // ── Image ────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const img = new Image();
@@ -82,7 +89,7 @@ export default function WoundTracer({
   }, [imageSrc]);
 
   /**
-   * Convert a pointer event to image pixel coordinates.
+   * Pointer event to image pixel coordinates.
    *
    * The canvas backing store is the image's natural size while CSS scales it to
    * fit; without this conversion every trace would be recorded at whatever size
@@ -99,8 +106,6 @@ export default function WoundTracer({
     };
   }, []);
 
-  // ── Rendering ────────────────────────────────────────────────────────────
-
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     const img = imgRef.current;
@@ -112,11 +117,11 @@ export default function WoundTracer({
     canvas.height = img.naturalHeight || img.height;
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    // Line weight scales with the image so a trace is equally visible on a
-    // 1280px frame and a 4000px one.
+    // Line weight scales with the image so a trace reads the same on a 1280px
+    // frame and a 4000px one.
     const weight = Math.max(2, canvas.width / 400);
 
-    const drawRing = (points: Point[], style: typeof ROLE_STYLE[TraceRole], closed: boolean) => {
+    const drawRing = (points: Point[], style: typeof STYLE[TraceRole], closed: boolean) => {
       if (points.length < 2) return;
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
@@ -128,8 +133,8 @@ export default function WoundTracer({
       }
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
-      // Dark casing under the colour so the line reads on pale skin and on
-      // dark eschar alike.
+      // Dark casing under the colour so the line reads on pale skin and on dark
+      // eschar alike.
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = weight * 2;
       ctx.stroke();
@@ -138,13 +143,13 @@ export default function WoundTracer({
       ctx.stroke();
     };
 
-    for (const t of traces) drawRing(t.points, ROLE_STYLE[t.role], true);
-    if (current.length) drawRing(current, ROLE_STYLE[role], false);
+    // Outline first so patch fills sit above it.
+    for (const t of traces.filter(t => t.role === 'total')) drawRing(t.points, STYLE.total, true);
+    for (const t of traces.filter(t => t.role !== 'total')) drawRing(t.points, STYLE[t.role], true);
+    if (current.length) drawRing(current, STYLE[role], false);
   }, [traces, current, role]);
 
   useEffect(() => { if (imageReady) redraw(); }, [imageReady, redraw]);
-
-  // ── Drawing ──────────────────────────────────────────────────────────────
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const p = toImagePoint(e);
@@ -160,8 +165,8 @@ export default function WoundTracer({
     if (!p) return;
     setCurrent(prev => {
       const last = prev[prev.length - 1];
-      // Drop points closer than a pixel: a finger produces many events in the
-      // same place and they add nothing but storage.
+      // Drop sub-pixel moves: a finger produces many events in the same place
+      // and they add nothing but storage.
       if (last && Math.hypot(p.x - last.x, p.y - last.y) < 1) return prev;
       return [...prev, p];
     });
@@ -180,51 +185,39 @@ export default function WoundTracer({
 
       setTraces(prev => [
         ...prev,
-        {
-          id: crypto.randomUUID(),
-          role,
-          points: simplified,
-          label: role === 'subregion' ? subregionLabel : ROLE_STYLE[role].label,
-        },
+        { id: crypto.randomUUID(), role, points: simplified, label: STYLE[role].label },
       ]);
       setRedoStack([]);
       return [];
     });
 
-    // After the outline, inner regions are the likely next action.
-    setRole(prev => (prev === 'total' ? 'subregion' : prev));
-  }, [role, subregionLabel]);
-
-  // ── Derived measurements, live ───────────────────────────────────────────
+    // After the outline, patches are the likely next action. The chosen patch
+    // type then STAYS selected, so several patches of the same surface can be
+    // added one after another without reselecting each time.
+    setRole(prev => (prev === 'total' ? (surfaceKinds[0] ?? 'total') : prev));
+  }, [role, surfaceKinds]);
 
   const result = useMemo(
     () => computePlanimetry(traces, pixelsPerCm),
     [traces, pixelsPerCm],
   );
 
-  /** Dimensions of the outline, for the wounds that only need an outline. */
   const totalGeometry = useMemo(() => {
     const total = traces.find(t => t.role === 'total');
     return total ? measureTrace(total.points, pixelsPerCm) : null;
   }, [traces, pixelsPerCm]);
 
-  const undo = () => {
-    setTraces(prev => {
-      if (!prev.length) return prev;
-      const last = prev[prev.length - 1];
-      setRedoStack(r => [...r, last]);
-      return prev.slice(0, -1);
-    });
-  };
+  const undo = () => setTraces(prev => {
+    if (!prev.length) return prev;
+    setRedoStack(r => [...r, prev[prev.length - 1]]);
+    return prev.slice(0, -1);
+  });
 
-  const redo = () => {
-    setRedoStack(prev => {
-      if (!prev.length) return prev;
-      const last = prev[prev.length - 1];
-      setTraces(t => [...t, last]);
-      return prev.slice(0, -1);
-    });
-  };
+  const redo = () => setRedoStack(prev => {
+    if (!prev.length) return prev;
+    setTraces(t => [...t, prev[prev.length - 1]]);
+    return prev.slice(0, -1);
+  });
 
   const complete = () => {
     const canvas = canvasRef.current;
@@ -233,28 +226,28 @@ export default function WoundTracer({
   };
 
   const fmtArea = (v: number | null) => (v === null ? '—' : `${v.toFixed(1)} cm²`);
+  const tracedKinds = surfaceKinds.filter(k => result.surfaces[k].patches > 0);
 
   return (
     <div className="space-y-3">
+      {/* Palette. The outline is drawn once; patch types stay selected so
+          several patches of the same surface can be added in succession. */}
       <div className="flex flex-wrap items-center gap-2">
-        {(['total', 'subregion'] as const).map(r => {
-          if (r === 'subregion' && !subregionLabel) return null;
-          return (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRole(r)}
-              disabled={r === 'total' && hasTotal}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border flex items-center gap-1.5 disabled:opacity-40 ${
-                role === r ? 'text-white border-transparent' : 'bg-white text-gray-700 border-gray-300'
-              }`}
-              style={role === r ? { backgroundColor: ROLE_STYLE[r].stroke, color: '#00323a' } : undefined}
-            >
-              <Circle className="w-3 h-3" fill={ROLE_STYLE[r].stroke} strokeWidth={0} />
-              {r === 'total' ? 'Wound outline' : subregionLabel}
-            </button>
-          );
-        })}
+        <PaletteButton
+          active={role === 'total'} disabled={hasTotal}
+          style={STYLE.total} onClick={() => setRole('total')}
+          count={hasTotal ? 1 : 0}
+        />
+        {surfaceKinds.map(k => (
+          <PaletteButton
+            key={k}
+            active={role === k}
+            disabled={!hasTotal}
+            style={STYLE[k]}
+            onClick={() => setRole(k)}
+            count={result.surfaces[k].patches}
+          />
+        ))}
 
         <div className="ml-auto flex gap-1">
           <button onClick={undo} disabled={!traces.length}
@@ -267,7 +260,8 @@ export default function WoundTracer({
             title="Redo">
             <Redo2 className="w-4 h-4" />
           </button>
-          <button onClick={() => { setTraces([]); setRedoStack([]); setCurrent([]); setRole('total'); }}
+          <button
+            onClick={() => { setTraces([]); setRedoStack([]); setCurrent([]); setRole('total'); }}
             disabled={!traces.length}
             className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
             title="Clear all traces">
@@ -278,9 +272,9 @@ export default function WoundTracer({
 
       <p className="text-xs text-gray-500">
         {!hasTotal
-          ? 'Draw around the edge of the wound. Release to close the outline.'
-          : subregionLabel
-            ? `Outline traced. Now draw around any ${subregionLabel.toLowerCase()}, or save.`
+          ? 'Draw around the edge of the whole wound. Release to close the outline.'
+          : surfaceKinds.length
+            ? `Now draw around each patch of ${STYLE[role as SurfaceKind]?.label.toLowerCase() ?? 'tissue'} — one at a time, as many as there are. A patch drawn inside another is treated as an island within it.`
             : 'Outline traced. Adjust it, or save.'}
       </p>
 
@@ -298,31 +292,53 @@ export default function WoundTracer({
         />
       </div>
 
-      {/* Live measurements. These are the numbers that will be recorded. */}
+      {/* Running totals — the numbers that will be recorded. */}
       <div className="rounded-xl border bg-white p-3">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
           <Metric label="Total area" value={fmtArea(result.totalAreaCm2)} strong />
-          {subregionLabel ? (
-            <>
-              <Metric label={subregionLabel} value={fmtArea(result.subregionAreaCm2)} />
-              <Metric label="Remaining" value={fmtArea(result.remainderAreaCm2)} />
-              <Metric
-                label="Proportion"
-                value={result.remainderPercent === null ? '—' : `${result.remainderPercent}%`}
-                strong
-              />
-            </>
-          ) : (
-            <>
-              <Metric label="Perimeter"
-                value={totalGeometry?.perimeterCm === null || !totalGeometry
-                  ? '—' : `${totalGeometry.perimeterCm!.toFixed(1)} cm`} />
-              <Metric label="Traces" value={String(traces.length)} />
-              <Metric label="Scale"
-                value={pixelsPerCm ? `${pixelsPerCm.toFixed(1)} px/cm` : 'not calibrated'} />
-            </>
-          )}
+          <Metric
+            label="Perimeter"
+            value={totalGeometry?.perimeterCm != null ? `${totalGeometry.perimeterCm.toFixed(1)} cm` : '—'}
+          />
+          <Metric
+            label="Traced patches"
+            value={result.classifiedAreaCm2 === null ? '—' : fmtArea(result.classifiedAreaCm2)}
+          />
+          <Metric
+            label="Not traced"
+            value={result.unclassifiedPercent === null ? '—' : `${result.unclassifiedPercent}%`}
+          />
         </div>
+
+        {tracedKinds.length > 0 && (
+          <div className="mt-3 pt-3 border-t space-y-1.5">
+            {tracedKinds.map(k => {
+              const s = result.surfaces[k];
+              return (
+                <div key={k} className="flex items-center gap-2 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: STYLE[k].stroke }} />
+                  <span className="text-gray-700">{STYLE[k].label}</span>
+                  <span className="text-gray-400">
+                    {s.patches} patch{s.patches === 1 ? '' : 'es'}
+                  </span>
+                  <span className="ml-auto tabular-nums text-gray-800">
+                    {fmtArea(s.areaCm2)}{s.percent !== null ? ` · ${s.percent}%` : ''}
+                  </span>
+                </div>
+              );
+            })}
+            {result.unclassifiedPercent !== null && result.unclassifiedPercent > 0 && (
+              <div className="flex items-center gap-2 text-xs pt-1">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-gray-300" />
+                <span className="text-gray-500">Not traced</span>
+                <span className="ml-auto tabular-nums text-gray-500">
+                  {fmtArea(result.unclassifiedAreaCm2)} · {result.unclassifiedPercent}%
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {result.problems.length > 0 && (
           <ul className="mt-2 space-y-1">
@@ -349,6 +365,32 @@ export default function WoundTracer({
     </div>
   );
 }
+
+const PaletteButton: React.FC<{
+  active: boolean;
+  disabled?: boolean;
+  style: { stroke: string; label: string };
+  onClick: () => void;
+  count: number;
+}> = ({ active, disabled, style, onClick, count }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    className={`px-3 py-1.5 rounded-lg text-sm font-medium border flex items-center gap-1.5 disabled:opacity-40 ${
+      active ? 'border-transparent text-gray-900' : 'bg-white text-gray-700 border-gray-300'
+    }`}
+    style={active ? { backgroundColor: style.stroke } : undefined}
+  >
+    <Circle className="w-3 h-3" fill={style.stroke} strokeWidth={0} />
+    {style.label}
+    {count > 0 && (
+      <span className={`text-[11px] tabular-nums ${active ? 'text-gray-700' : 'text-gray-400'}`}>
+        ×{count}
+      </span>
+    )}
+  </button>
+);
 
 const Metric: React.FC<{ label: string; value: string; strong?: boolean }> = ({ label, value, strong }) => (
   <div>

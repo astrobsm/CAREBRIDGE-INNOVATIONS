@@ -147,53 +147,145 @@ describe('measureTrace', () => {
   });
 });
 
-describe('computePlanimetry', () => {
-  const PX_PER_CM = 10; // 100 px2 = 1 cm2
 
-  it('subtracts subregions from the total', () => {
-    const traces = [
-      trace('total', rect(0, 0, 100, 100)),        // 100 cm2
-      trace('subregion', rect(10, 10, 50, 50), 's'), // 25 cm2
-    ];
-    const r = computePlanimetry(traces, PX_PER_CM);
-    expect(r.totalAreaCm2).toBeCloseTo(100, 2);
-    expect(r.subregionAreaCm2).toBeCloseTo(25, 2);
-    expect(r.remainderAreaCm2).toBeCloseTo(75, 2);
-    expect(r.subregionPercent).toBeCloseTo(25, 1);
-    expect(r.remainderPercent).toBeCloseTo(75, 1);
-    expect(r.valid).toBe(true);
-  });
+describe('computePlanimetry — typed patches', () => {
+  const PX_PER_CM = 10; // 100 px² = 1 cm²
+  const outline = () => trace('total', rect(0, 0, 100, 100)); // 100 cm²
 
-  it('sums multiple subregions', () => {
+  it('accumulates several patches of the same surface', () => {
+    // A donor site is rarely one raw area. Three separate raw patches must add
+    // up, not replace one another.
     const r = computePlanimetry([
-      trace('total', rect(0, 0, 100, 100)),
-      trace('subregion', rect(5, 5, 30, 30), 'a'),   // 9 cm2
-      trace('subregion', rect(60, 60, 20, 20), 'b'), // 4 cm2
+      outline(),
+      trace('raw', rect(5, 5, 20, 20), 'r1'),    // 4 cm²
+      trace('raw', rect(40, 5, 20, 20), 'r2'),   // 4 cm²
+      trace('raw', rect(70, 70, 10, 20), 'r3'),  // 2 cm²
     ], PX_PER_CM);
-    expect(r.subregionAreaCm2).toBeCloseTo(13, 2);
-    expect(r.remainderAreaCm2).toBeCloseTo(87, 2);
+
+    expect(r.surfaces.raw.patches).toBe(3);
+    expect(r.surfaces.raw.areaCm2).toBeCloseTo(10, 2);
+    expect(r.surfaces.raw.percent).toBeCloseTo(10, 1);
   });
 
-  it('adds islands back, so an island is not counted as still raw', () => {
-    // An epithelial island inside an open area is healed tissue; counting it as
-    // open would hold the percentage down for the rest of the admission.
+  it('keeps different surfaces separate and sums them into the open total', () => {
     const r = computePlanimetry([
-      trace('total', rect(0, 0, 100, 100)),
-      trace('subregion', rect(10, 10, 50, 50), 'open'),
-      trace('island', rect(20, 20, 20, 20), 'island'), // 4 cm2 healed inside
+      outline(),
+      trace('raw', rect(5, 5, 20, 20), 'raw'),        // 4 cm²
+      trace('slough', rect(40, 5, 30, 20), 'slough'), // 6 cm²
+      trace('necrotic', rect(5, 60, 10, 10), 'nec'),  // 1 cm²
     ], PX_PER_CM);
-    expect(r.subregionAreaCm2).toBeCloseTo(21, 2);
-    expect(r.remainderAreaCm2).toBeCloseTo(79, 2);
+
+    expect(r.surfaces.raw.areaCm2).toBeCloseTo(4, 2);
+    expect(r.surfaces.slough.areaCm2).toBeCloseTo(6, 2);
+    expect(r.surfaces.necrotic.areaCm2).toBeCloseTo(1, 2);
+    // Everything not yet epithelialised, added together.
+    expect(r.openAreaCm2).toBeCloseTo(11, 2);
+    expect(r.openPercent).toBeCloseTo(11, 1);
   });
 
-  it('will not compute anything without a total outline', () => {
-    const r = computePlanimetry([trace('subregion', rect(0, 0, 10, 10))], PX_PER_CM);
+  it('does not decide for itself what untraced area means', () => {
+    // Whether the remainder is healed skin or more wound depends on what the
+    // outline represents: a donor harvest, or a raw wound. This layer measures;
+    // it does not interpret. The donor rule lives in donorFromTraces.
+    const r = computePlanimetry([
+      outline(),
+      trace('raw', rect(5, 5, 40, 50), 'raw'), // 20 cm²
+    ], PX_PER_CM);
+
+    expect(r.openAreaCm2).toBeCloseTo(20, 2);
+    expect(r.unclassifiedAreaCm2).toBeCloseTo(80, 2);
+    // Nothing was traced as epithelium, so nothing is reported as epithelium.
+    expect(r.epithelialisedAreaCm2).toBeCloseTo(0, 2);
+    expect(r.epithelialisedInferred).toBe(false);
+  });
+
+  it('uses traced epithelium directly when it is given', () => {
+    const r = computePlanimetry([
+      outline(),
+      trace('raw', rect(5, 5, 40, 50), 'raw'),               // 20 cm²
+      trace('epithelialised', rect(60, 60, 30, 30), 'epi'),  // 9 cm²
+    ], PX_PER_CM);
+
+    expect(r.epithelialisedInferred).toBe(false);
+    expect(r.epithelialisedAreaCm2).toBeCloseTo(9, 2);
+    // The rest of the outline is simply untraced, and says so.
+    expect(r.unclassifiedAreaCm2).toBeCloseTo(71, 2);
+  });
+
+  it('treats a patch inside another as an island, not a double count', () => {
+    // An island of new epithelium within a raw area: the raw patch is a ring.
+    const r = computePlanimetry([
+      outline(),
+      trace('raw', rect(10, 10, 60, 60), 'raw'),               // 36 cm²
+      trace('epithelialised', rect(20, 20, 20, 20), 'island'), // 4 cm² inside it
+    ], PX_PER_CM);
+
+    // Raw is net of the island, so the two do not sum past 36.
+    expect(r.surfaces.raw.areaCm2).toBeCloseTo(32, 2);
+    expect(r.surfaces.epithelialised.areaCm2).toBeCloseTo(4, 2);
+    expect(r.classifiedAreaCm2).toBeCloseTo(36, 2);
+  });
+
+  it('warns when two patches partly overlap', () => {
+    // Partial overlap means the same tissue was traced twice under two labels.
+    const r = computePlanimetry([
+      outline(),
+      trace('raw', rect(10, 10, 40, 40), 'a'),
+      trace('slough', rect(30, 30, 40, 40), 'b'),
+    ], PX_PER_CM);
+
+    expect(r.problems.join(' ')).toMatch(/overlap/i);
     expect(r.valid).toBe(false);
-    expect(r.totalAreaCm2).toBeNull();
-    expect(r.problems.join(' ')).toMatch(/whole site/i);
   });
 
-  it('refuses two total outlines rather than picking one', () => {
+  it('does not mistake a nested patch for an overlap', () => {
+    const r = computePlanimetry([
+      outline(),
+      trace('raw', rect(10, 10, 60, 60), 'outer'),
+      trace('epithelialised', rect(20, 20, 20, 20), 'inner'),
+    ], PX_PER_CM);
+    expect(r.problems.join(' ')).not.toMatch(/overlap/i);
+  });
+
+  it('reports untraced area rather than assigning it', () => {
+    const r = computePlanimetry([
+      outline(),
+      trace('raw', rect(5, 5, 30, 30), 'raw'), // 9 cm²
+    ], PX_PER_CM);
+    expect(r.classifiedAreaCm2).toBeCloseTo(9, 2);
+    expect(r.unclassifiedAreaCm2).toBeCloseTo(91, 2);
+    expect(r.unclassifiedPercent).toBeCloseTo(91, 1);
+  });
+
+  it('flags a patch traced outside the outline', () => {
+    const r = computePlanimetry([
+      outline(),
+      trace('raw', rect(300, 300, 20, 20), 'stray'),
+    ], PX_PER_CM);
+    expect(r.problems.join(' ')).toMatch(/outside/i);
+    expect(r.valid).toBe(false);
+  });
+
+  it('refuses a self-crossing patch but keeps measuring the rest', () => {
+    const bowtie = [{ x: 10, y: 10 }, { x: 50, y: 50 }, { x: 50, y: 10 }, { x: 10, y: 50 }];
+    const r = computePlanimetry([
+      outline(),
+      { id: 'x', role: 'raw', points: bowtie, label: 'bad' },
+      trace('slough', rect(60, 60, 20, 20), 'ok'),
+    ], PX_PER_CM);
+
+    expect(r.problems.join(' ')).toMatch(/crosses itself/i);
+    expect(r.surfaces.raw.patches).toBe(0);
+    expect(r.surfaces.slough.areaCm2).toBeCloseTo(4, 2);
+  });
+
+  it('needs an outline before anything can be measured', () => {
+    const r = computePlanimetry([trace('raw', rect(0, 0, 10, 10))], PX_PER_CM);
+    expect(r.valid).toBe(false);
+    expect(r.problems.join(' ')).toMatch(/outline/i);
+  });
+
+  it('refuses two outlines rather than picking one', () => {
     const r = computePlanimetry([
       trace('total', rect(0, 0, 100, 100), 'a'),
       trace('total', rect(0, 0, 50, 50), 'b'),
@@ -202,122 +294,93 @@ describe('computePlanimetry', () => {
     expect(r.problems.join(' ')).toMatch(/more than one/i);
   });
 
-  it('reports pixels-only and stays invalid without a scale', () => {
-    const r = computePlanimetry([trace('total', rect(0, 0, 100, 100))], null);
+  it('stays invalid without a calibration scale', () => {
+    const r = computePlanimetry([outline()], null);
     expect(r.totalAreaCm2).toBeNull();
     expect(r.valid).toBe(false);
     expect(r.problems.join(' ')).toMatch(/calibration/i);
   });
 
-  it('flags a self-crossing total and refuses to call it valid', () => {
-    const bowtie = [{ x: 0, y: 0 }, { x: 100, y: 100 }, { x: 100, y: 0 }, { x: 0, y: 100 }];
-    const r = computePlanimetry([trace('total', bowtie)], PX_PER_CM);
-    expect(r.valid).toBe(false);
-    expect(r.problems.join(' ')).toMatch(/crosses itself/i);
+  it('reports a fully raw wound as 0% epithelialised', () => {
+    const r = computePlanimetry([
+      outline(),
+      trace('raw', rect(0, 0, 100, 100), 'raw'),
+    ], PX_PER_CM);
+    expect(r.openPercent).toBeCloseTo(100, 1);
+    expect(r.epithelialisedPercent).toBeCloseTo(0, 1);
   });
 
-  it('flags a subregion traced outside the total', () => {
+  it('never lets percentages exceed 100 or go negative', () => {
     const r = computePlanimetry([
       trace('total', rect(0, 0, 50, 50)),
-      trace('subregion', rect(200, 200, 20, 20), 's'),
+      trace('raw', rect(0, 0, 100, 100), 'toobig'),
     ], PX_PER_CM);
-    expect(r.valid).toBe(false);
-    expect(r.problems.join(' ')).toMatch(/outside/i);
-  });
-
-  it('never lets the remainder go negative', () => {
-    const r = computePlanimetry([
-      trace('total', rect(0, 0, 50, 50)),
-      trace('subregion', rect(0, 0, 100, 100), 's'), // larger than the total
-    ], PX_PER_CM);
-    expect(r.remainderAreaCm2).toBeGreaterThanOrEqual(0);
-    expect(r.subregionPercent).toBeLessThanOrEqual(100);
-    expect(r.problems.join(' ')).toMatch(/more than the whole site/i);
-  });
-
-  it('reports a fully open site as 0% remaining', () => {
-    const r = computePlanimetry([
-      trace('total', rect(0, 0, 100, 100)),
-      trace('subregion', rect(0, 0, 100, 100), 's'),
-    ], PX_PER_CM);
-    expect(r.subregionPercent).toBeCloseTo(100, 1);
-    expect(r.remainderPercent).toBeCloseTo(0, 1);
-  });
-
-  it('reports a site with nothing traced open as fully remaining', () => {
-    const r = computePlanimetry([trace('total', rect(0, 0, 100, 100))], PX_PER_CM);
-    expect(r.remainderPercent).toBe(100);
-    expect(r.subregionAreaCm2).toBe(0);
+    expect(r.openPercent!).toBeLessThanOrEqual(100);
+    expect(r.epithelialisedPercent!).toBeGreaterThanOrEqual(0);
   });
 });
 
-describe('donor site', () => {
+describe('donor site from patches', () => {
   const PX_PER_CM = 10;
 
-  it('derives re-epithelialization from the traced geometry', () => {
-    // At 10 px/cm, 100 px2 is 1 cm2.
-    // Harvested 60x60 px = 36 cm2; still raw 40x18 px = 7.2 cm2.
-    // Epithelialised 28.8 cm2, i.e. 80% — computed, never judged by eye.
+  it('derives re-epithelialization from patches traced in steps', () => {
+    // 36 cm² harvested; two raw patches totalling 7.2 cm² => 80% healed.
     const r = donorFromTraces([
       trace('total', rect(0, 0, 60, 60)),
-      trace('subregion', rect(5, 5, 40, 18), 'raw'),
+      trace('raw', rect(5, 5, 40, 12), 'r1'),  // 4.8 cm²
+      trace('raw', rect(5, 40, 20, 12), 'r2'), // 2.4 cm²
     ], PX_PER_CM);
+
     expect(r.totalAreaCm2).toBeCloseTo(36, 2);
     expect(r.openAreaCm2).toBeCloseTo(7.2, 2);
     expect(r.epithelializedAreaCm2).toBeCloseTo(28.8, 2);
     expect(r.epithelializedPercent).toBeCloseTo(80, 1);
-    // The parts must account for the whole.
-    expect(r.epithelializedAreaCm2! + r.openAreaCm2!).toBeCloseTo(r.totalAreaCm2!, 1);
+    expect(r.inferred).toBe(true);
     expect(r.valid).toBe(true);
   });
 
-  it('reaches 100% when nothing raw is traced', () => {
+  it('counts slough as not yet healed', () => {
+    const r = donorFromTraces([
+      trace('total', rect(0, 0, 100, 100)),
+      trace('raw', rect(5, 5, 20, 20), 'raw'),         // 4 cm²
+      trace('slough', rect(40, 40, 20, 20), 'slough'), // 4 cm²
+    ], PX_PER_CM);
+    expect(r.openAreaCm2).toBeCloseTo(8, 2);
+    expect(r.epithelializedPercent).toBeCloseTo(92, 1);
+  });
+
+  it('reaches 100% when nothing is left raw', () => {
     const r = donorFromTraces([trace('total', rect(0, 0, 100, 100))], PX_PER_CM);
     expect(r.epithelializedPercent).toBe(100);
-    expect(r.valid).toBe(true);
-  });
-
-  it('carries its problems through rather than returning a bare number', () => {
-    const r = donorFromTraces([trace('total', rect(0, 0, 100, 100))], null);
-    expect(r.valid).toBe(false);
-    expect(r.problems.length).toBeGreaterThan(0);
   });
 });
 
-describe('recipient site', () => {
+describe('graft take from patches', () => {
   const PX_PER_CM = 10;
 
-  it('measures take against the preserved baseline, not the current outline', () => {
-    // Graft applied at 100 cm2. Today it outlines 50 cm2, all of it viable.
-    // Against the baseline that is 50% take; against itself it would be 100%.
-    const traces = [trace('total', rect(0, 0, 100, 50))]; // 5000 px2 = 50 cm2
-    const r = graftFromTraces(traces, PX_PER_CM, 100);
-    expect(r.viableAreaCm2).toBeCloseTo(50, 1);
-    expect(r.takePercent).toBeCloseTo(50, 1);
-
-    const selfReferential = graftFromTraces(traces, PX_PER_CM, 50);
-    expect(selfReferential.takePercent).toBeCloseTo(100, 1);
-  });
-
-  it('subtracts traced non-viable areas from the graft', () => {
+  it('treats necrotic and sloughy patches as graft that has not taken', () => {
     const r = graftFromTraces([
-      trace('total', rect(0, 0, 100, 100)),             // 100 cm2
-      trace('subregion', rect(10, 10, 50, 50), 'loss'), // 25 cm2 lost
+      trace('total', rect(0, 0, 100, 100)),             // 100 cm²
+      trace('necrotic', rect(5, 5, 30, 30), 'nec'),     // 9 cm²
+      trace('slough', rect(50, 50, 40, 40), 'slough'),  // 16 cm²
     ], PX_PER_CM, 100);
-    expect(r.nonviableAreaCm2).toBeCloseTo(25, 1);
-    expect(r.viableAreaCm2).toBeCloseTo(75, 1);
+
+    expect(r.nonviableAreaCm2).toBeCloseTo(25, 2);
+    expect(r.viableAreaCm2).toBeCloseTo(75, 2);
     expect(r.takePercent).toBeCloseTo(75, 1);
   });
 
-  it('will not report a take percentage without a baseline', () => {
-    const r = graftFromTraces([trace('total', rect(0, 0, 100, 100))], PX_PER_CM, null);
-    expect(r.takePercent).toBeNull();
-    expect(r.valid).toBe(false);
-    expect(r.problems.join(' ')).toMatch(/baseline/i);
+  it('measures take against the preserved baseline, not the current outline', () => {
+    // Applied at 100 cm². Today it outlines 50 cm², all viable: 50% take.
+    const traces = [trace('total', rect(0, 0, 100, 50))];
+    expect(graftFromTraces(traces, PX_PER_CM, 100).takePercent).toBeCloseTo(50, 1);
+    // Measured against itself it would read as complete take of a failing graft.
+    expect(graftFromTraces(traces, PX_PER_CM, 50).takePercent).toBeCloseTo(100, 1);
   });
 
-  it('caps take at 100% when the trace exceeds the baseline', () => {
-    const r = graftFromTraces([trace('total', rect(0, 0, 200, 200))], PX_PER_CM, 100);
-    expect(r.takePercent).toBe(100);
+  it('will not report take without a baseline', () => {
+    const r = graftFromTraces([trace('total', rect(0, 0, 100, 100))], PX_PER_CM, null);
+    expect(r.takePercent).toBeNull();
+    expect(r.problems.join(' ')).toMatch(/baseline/i);
   });
 });
