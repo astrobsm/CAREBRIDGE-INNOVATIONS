@@ -21,11 +21,19 @@ import {
   estimateGraftTake,
   estimateEpithelialization,
   predictDonorHealing,
+  predictHealing,
   classifyGraftTrend,
+  DONOR_BENCHMARK,
+  RECIPIENT_BENCHMARK,
   type TrajectoryPoint,
 } from './graftAnalysis';
+import {
+  recommendHealingActions,
+  type HealingRecommendation,
+} from './healingGuidance';
 
 const nowIso = () => new Date().toISOString();
+const clampPct = (v: number) => Math.max(0, Math.min(100, v));
 
 // ── Episodes ────────────────────────────────────────────────────────────────
 
@@ -217,11 +225,19 @@ export async function recordAssessment(
           ? null
           : Math.max(0, planimetry.totalAreaCm2 - nonviable);
         const base = site.baselineAreaCm2;
+        // Everything still open, which includes granulation: granulating bed is
+        // lost graft healing as it should, so it is not viable graft but is not
+        // a failure either. Take counts it against you; healing does not.
+        const open = planimetry.openAreaCm2;
         return {
           viableAreaCm2: viable,
           nonviableAreaCm2: planimetry.totalAreaCm2 === null ? null : nonviable,
           takePercent: viable !== null && base != null && base > 0
             ? Math.round(Math.min(100, (viable / base) * 100) * 10) / 10
+            : null,
+          openAreaCm2: open,
+          healedPercent: open != null && base != null && base > 0
+            ? Math.round(clampPct(((base - open) / base) * 100) * 10) / 10
             : null,
           confidence: planimetry.valid ? ('high' as const) : ('low' as const),
         };
@@ -298,23 +314,65 @@ export async function listAssessments(siteId: string): Promise<GraftPhotoAssessm
 
 // ── Derived views ───────────────────────────────────────────────────────────
 
+/**
+ * One point on the progress chart.
+ *
+ * Both the percentage and the absolute area are carried. Percentages are what
+ * a trajectory is fitted to, but they hide the thing a surgeon most wants to
+ * see on a graft that is failing: whether the wound itself is getting bigger.
+ */
+export interface ProgressPoint {
+  assessmentId: string;
+  postOpDay: number;
+  date: string;
+  /** Share of the site that has closed. The line the prediction is fitted to. */
+  healedPercent: number | null;
+  /** Recipient sites only — plotted alongside healing, never instead of it. */
+  takePercent: number | null;
+  /** Absolute area still open, in cm². */
+  openAreaCm2: number | null;
+  /** Total traced area of the site in this photograph, in cm². */
+  areaCm2: number | null;
+  qualityScore: number | null;
+}
+
 export interface SiteSummary {
   site: GraftSite;
   assessments: GraftPhotoAssessment[];
   latest?: GraftPhotoAssessment;
   /** Take for a recipient site, epithelialization for a donor site. */
   currentPercent: number | null;
+  /** Share closed, on both kinds of site. What the prediction is fitted to. */
+  healingPercent: number | null;
   trajectory: ReturnType<typeof classifyGraftTrend>;
-  prediction?: ReturnType<typeof predictDonorHealing>;
+  /** Projected time to complete healing. Present for both kinds of site. */
+  prediction: ReturnType<typeof predictHealing>;
+  /** The longitudinal series, oldest first, for charting. */
+  series: ProgressPoint[];
+  /** How many assessments were left off the chart for want of a graft date. */
+  undatedAssessments: number;
+  recommendations: HealingRecommendation[];
+}
+
+/**
+ * The healed fraction of a site, whichever kind it is.
+ *
+ * For a donor site this is epithelialization. For a recipient site it is
+ * emphatically NOT take: a graft at 92% take is not 92% healed, because the 8%
+ * that failed still has to close. Fitting a time-to-healing prediction to take
+ * would project closure for a wound that is still wide open.
+ */
+function healedPercentOf(site: GraftSite, a: GraftPhotoAssessment): number | null {
+  return site.kind === 'recipient'
+    ? a.graft?.healedPercent ?? null
+    : a.donor?.epithelializedPercent ?? null;
 }
 
 /** Trajectory points for a site, skipping assessments that produced no figure. */
 function trajectoryPoints(site: GraftSite, assessments: GraftPhotoAssessment[]): TrajectoryPoint[] {
   return assessments
     .map(a => {
-      const percent = site.kind === 'recipient'
-        ? a.graft?.takePercent
-        : a.donor?.epithelializedPercent;
+      const percent = healedPercentOf(site, a);
       return a.postOpDay !== null && percent != null
         ? { postOpDay: a.postOpDay, percent }
         : null;
@@ -322,7 +380,39 @@ function trajectoryPoints(site: GraftSite, assessments: GraftPhotoAssessment[]):
     .filter((p): p is TrajectoryPoint => p !== null);
 }
 
-export async function summariseSite(site: GraftSite): Promise<SiteSummary> {
+function buildSeries(site: GraftSite, assessments: GraftPhotoAssessment[]): ProgressPoint[] {
+  return assessments
+    .filter(a => a.postOpDay !== null)
+    .map(a => ({
+      assessmentId: a.id,
+      postOpDay: a.postOpDay as number,
+      date: a.capturedAt,
+      healedPercent: healedPercentOf(site, a),
+      takePercent: site.kind === 'recipient' ? a.graft?.takePercent ?? null : null,
+      openAreaCm2: site.kind === 'recipient'
+        ? a.graft?.openAreaCm2 ?? null
+        : a.donor?.openAreaCm2 ?? null,
+      areaCm2: a.measurement?.areaCm2 ?? null,
+      qualityScore: a.imageQuality?.score ?? null,
+    }))
+    .sort((x, y) => x.postOpDay - y.postOpDay);
+}
+
+export interface SummariseOptions {
+  /** Saves a lookup when the caller already holds the episode. */
+  episode?: SkinGraftEpisode;
+  /**
+   * From the patient record. Guidance that depends on the patient is only
+   * raised when this is supplied — an absent list means "not known", not
+   * "no comorbidities", so nothing is inferred from its emptiness.
+   */
+  chronicConditions?: string[];
+}
+
+export async function summariseSite(
+  site: GraftSite,
+  opts: SummariseOptions = {},
+): Promise<SiteSummary> {
   const assessments = await listAssessments(site.id);
   const latest = assessments[assessments.length - 1];
   const points = trajectoryPoints(site, assessments);
@@ -331,20 +421,49 @@ export async function summariseSite(site: GraftSite): Promise<SiteSummary> {
     ? latest?.graft?.takePercent ?? null
     : latest?.donor?.epithelializedPercent ?? null;
 
+  const trajectory = classifyGraftTrend(points);
+  const prediction = predictHealing(
+    points,
+    site.kind === 'recipient' ? RECIPIENT_BENCHMARK : DONOR_BENCHMARK,
+  );
+
+  const episode = opts.episode ?? await db.skinGraftEpisodes.get(site.episodeId);
+
   return {
     site,
     assessments,
     latest,
     currentPercent,
-    trajectory: classifyGraftTrend(points),
-    prediction: site.kind === 'donor' ? predictDonorHealing(points) : undefined,
+    healingPercent: latest ? healedPercentOf(site, latest) : null,
+    trajectory,
+    prediction,
+    series: buildSeries(site, assessments),
+    undatedAssessments: assessments.filter(a => a.postOpDay === null).length,
+    recommendations: episode
+      ? recommendHealingActions({
+          episode,
+          site,
+          latest,
+          assessments,
+          trajectory,
+          prediction,
+          chronicConditions: opts.chronicConditions,
+        })
+      : [],
   };
 }
 
-export async function summariseEpisode(episodeId: string): Promise<SiteSummary[]> {
-  const sites = await listSites(episodeId);
-  return Promise.all(sites.map(summariseSite));
+export async function summariseEpisode(
+  episodeId: string,
+  opts: Omit<SummariseOptions, 'episode'> = {},
+): Promise<SiteSummary[]> {
+  const [sites, episode] = await Promise.all([
+    listSites(episodeId),
+    db.skinGraftEpisodes.get(episodeId),
+  ]);
+  return Promise.all(sites.map(site => summariseSite(site, { ...opts, episode })));
 }
 
 // Re-exported so callers have one entry point for the module's analysis.
-export { estimateGraftTake, estimateEpithelialization, predictDonorHealing };
+export { estimateGraftTake, estimateEpithelialization, predictDonorHealing, predictHealing };
+export type { HealingRecommendation };

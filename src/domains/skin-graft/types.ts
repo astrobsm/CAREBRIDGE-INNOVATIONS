@@ -189,6 +189,27 @@ export interface GraftTakeFindings {
   viableAreaCm2: number | null;
   nonviableAreaCm2: number | null;
   takePercent: number | null;
+
+  /**
+   * Everything still open: raw, sloughy, granulating or necrotic.
+   *
+   * Distinct from `nonviableAreaCm2`, which counts only the graft that has
+   * failed. Granulation is lost graft doing exactly what it should — it is
+   * not viable graft, but neither is it a problem — so it belongs here and
+   * not there.
+   */
+  openAreaCm2: number | null;
+
+  /**
+   * Share of the site that has closed, over the preserved baseline.
+   *
+   * Take and healing are different questions and must not be conflated. A
+   * graft at 92% take is not 92% healed: the 8% that failed still has to close
+   * secondarily, and it is this figure — not take — that a time-to-healing
+   * prediction can be fitted to.
+   */
+  healedPercent: number | null;
+
   confidence: ConfidenceBand;
 }
 

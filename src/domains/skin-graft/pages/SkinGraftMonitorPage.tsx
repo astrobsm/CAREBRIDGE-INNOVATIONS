@@ -11,7 +11,7 @@
  *   site     → the serial timeline, and the button that adds to it
  */
 
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowLeft, Camera, ChevronRight, Layers, Plus, RefreshCw,
 } from 'lucide-react';
@@ -20,6 +20,7 @@ import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Patient } from '../../../types';
 import GroupedSelect from '../../../components/common/GroupedSelect';
+import { PatientSelector } from '../../../components/patient/PatientSelector';
 import { ANATOMICAL_SITES } from '../../../data/anatomy';
 import { assessCanvasQuality } from '../services/imageQualityService';
 import { detectCalibrationMarker } from '../../../services/woundMeasurementEngine';
@@ -28,6 +29,8 @@ import {
   createEpisode, listEpisodes, createSite, listSites, recordAssessment,
   summariseEpisode, type SiteSummary,
 } from '../services/skinGraftService';
+import GraftProgressChart from '../components/GraftProgressChart';
+import { HealingPredictionCard, HealingRecommendations } from '../components/HealingOutlook';
 import type { GraftSite, GraftType, SkinGraftEpisode, SiteKind } from '../types';
 
 const WoundTracer = lazy(() => import('../../../components/clinical/WoundTracer'));
@@ -171,23 +174,12 @@ const NewEpisodeModal: React.FC<{
   onCreated: (e: SkinGraftEpisode) => void;
 }> = ({ onClose, onCreated }) => {
   const { user } = useAuth();
-  const patients = useLiveQuery(() => db.patients.toArray(), []);
-  const [q, setQ] = useState('');
   const [patient, setPatient] = useState<Patient | null>(null);
   const [graftType, setGraftType] = useState<GraftType>('stsg');
   const [meshRatio, setMeshRatio] = useState('1.5');
   const [graftedAt, setGraftedAt] = useState(new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
-  const matches = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    const list = (patients || []).filter(p => p.isActive !== false);
-    if (!term) return list.slice(0, 8);
-    return list.filter(p =>
-      [p.firstName, p.lastName, p.hospitalNumber].filter(Boolean).join(' ').toLowerCase().includes(term),
-    ).slice(0, 8);
-  }, [q, patients]);
 
   const save = async () => {
     if (!patient) { setError('Select a patient.'); return; }
@@ -212,35 +204,16 @@ const NewEpisodeModal: React.FC<{
   return (
     <Modal title="New graft episode" onClose={onClose}>
       <div className="space-y-3">
-        {patient ? (
-          <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-            <span className="text-sm text-gray-800">
-              {patient.firstName} {patient.lastName}
-              <span className="text-gray-400 ml-2">{patient.hospitalNumber}</span>
-            </span>
-            <button onClick={() => setPatient(null)} className="text-xs text-teal-700">Change</button>
-          </div>
-        ) : (
-          <div>
-            <input
-              autoFocus value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Search patient by name or folder number…"
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-            />
-            <ul className="max-h-44 overflow-y-auto divide-y mt-2 border rounded-lg">
-              {matches.map(p => (
-                <li key={p.id}>
-                  <button onClick={() => setPatient(p)}
-                    className="w-full text-left px-3 py-2 hover:bg-gray-50 flex justify-between">
-                    <span className="text-sm">{p.firstName} {p.lastName}</span>
-                    <span className="text-xs text-gray-400">{p.hospitalNumber}</span>
-                  </button>
-                </li>
-              ))}
-              {!matches.length && <li className="px-3 py-3 text-sm text-gray-400">No match.</li>}
-            </ul>
-          </div>
-        )}
+        {/* The shared selector searches the patient database and can register a
+            new patient inline, so a graft can be started for someone who has
+            just arrived without leaving this screen. */}
+        <PatientSelector
+          label="Patient"
+          required
+          value={patient?.id}
+          onChange={(_id, p) => setPatient(p ?? null)}
+          placeholder="Search by name or folder number…"
+        />
 
         <label className="block">
           <span className="text-xs font-medium text-gray-600 mb-1 block">Graft type</span>
@@ -471,7 +444,12 @@ const SiteDetail: React.FC<{
   const load = useCallback(async () => {
     const sites = await listSites(episode.id);
     const fresh = sites.find(s => s.id === site.id) ?? site;
-    const all = await summariseEpisode(episode.id);
+    // Comorbidities steer the guidance, so they are read from the patient
+    // record rather than asked for again here.
+    const patient = await db.patients.get(site.patientId);
+    const all = await summariseEpisode(episode.id, {
+      chronicConditions: patient?.chronicConditions,
+    });
     setSummary(all.find(s => s.site.id === fresh.id) ?? null);
   }, [episode.id, site]);
   useEffect(() => { load(); }, [load]);
@@ -501,22 +479,26 @@ const SiteDetail: React.FC<{
         </button>
       </div>
 
-      {summary?.prediction && summary.prediction.caveats.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-          <p className="text-sm font-medium text-blue-900">
-            {summary.prediction.predictedClosurePodFrom != null
-              ? `Projected complete healing: POD ${summary.prediction.predictedClosurePodFrom}–${summary.prediction.predictedClosurePodTo}`
-              : 'No closure date projected'}
-            <span className="ml-2 text-xs font-normal text-blue-700">
-              ({summary.prediction.trajectory.replace('_', ' ')}, confidence {summary.prediction.confidence})
-            </span>
-          </p>
-          <ul className="mt-1 space-y-0.5">
-            {summary.prediction.caveats.map((c, i) => (
-              <li key={i} className="text-xs text-blue-800">{c}</li>
-            ))}
-          </ul>
-        </div>
+      {summary && (
+        <>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <GraftProgressChart
+                series={summary.series}
+                kind={site.kind}
+                prediction={summary.prediction}
+                baselineAreaCm2={summary.site.baselineAreaCm2}
+                undatedAssessments={summary.undatedAssessments}
+              />
+            </div>
+            <HealingPredictionCard
+              prediction={summary.prediction}
+              latestPod={summary.latest?.postOpDay ?? null}
+            />
+          </div>
+
+          <HealingRecommendations recommendations={summary.recommendations} />
+        </>
       )}
 
       <div className="bg-white rounded-xl border p-4">
@@ -529,6 +511,7 @@ const SiteDetail: React.FC<{
           <ul className="divide-y">
             {summary.assessments.map(a => {
               const percent = isRecipient ? a.graft?.takePercent : a.donor?.epithelializedPercent;
+              const healed = isRecipient ? a.graft?.healedPercent : a.donor?.epithelializedPercent;
               return (
                 <li key={a.id} className="py-2.5 flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -549,9 +532,16 @@ const SiteDetail: React.FC<{
                       </div>
                     ) : null}
                   </div>
-                  <span className="text-base font-semibold tabular-nums text-gray-900 shrink-0">
-                    {percent == null ? '—' : `${percent}%`}
-                  </span>
+                  <div className="text-right shrink-0">
+                    <span className="text-base font-semibold tabular-nums text-gray-900 block">
+                      {percent == null ? '—' : `${percent}%`}
+                    </span>
+                    <span className="text-[11px] text-gray-400 block">
+                      {isRecipient
+                        ? (healed == null ? 'take' : `take · ${healed}% closed`)
+                        : 'epithelialised'}
+                    </span>
+                  </div>
                 </li>
               );
             })}

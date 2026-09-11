@@ -84,12 +84,18 @@ export function estimateGraftTake(
   const confidence = tissueConfidence(tissue, imageQualityScore);
 
   if (currentAreaCm2 === null || !Number.isFinite(currentAreaCm2) || currentAreaCm2 <= 0) {
-    return { viableAreaCm2: null, nonviableAreaCm2: null, takePercent: null, confidence: 'uncertain' };
+    return {
+      viableAreaCm2: null, nonviableAreaCm2: null, takePercent: null,
+      openAreaCm2: null, healedPercent: null, confidence: 'uncertain',
+    };
   }
 
   const total = tissueTotal(tissue);
   if (total <= 0) {
-    return { viableAreaCm2: null, nonviableAreaCm2: null, takePercent: null, confidence: 'uncertain' };
+    return {
+      viableAreaCm2: null, nonviableAreaCm2: null, takePercent: null,
+      openAreaCm2: null, healedPercent: null, confidence: 'uncertain',
+    };
   }
 
   // Normalise against the classified total rather than assuming it reaches 100,
@@ -103,16 +109,29 @@ export function estimateGraftTake(
   const viableAreaCm2 = round1(viableExact);
   const nonviableAreaCm2 = round1(Math.max(0, currentAreaCm2 - viableExact));
 
-  // Without a baseline there is viable area but no meaningful take percentage.
+  /**
+   * Open area is a different cut of the same photograph from non-viable area.
+   * Only epithelium is closed: granulation counts as viable graft bed for take
+   * but is still an open wound for healing, so it is excluded here and included
+   * in `nonviableAreaCm2`'s complement above.
+   */
+  const openExact = currentAreaCm2 * (1 - ((tissue.epithelialPct ?? 0) / total));
+  const openAreaCm2 = round1(Math.max(0, openExact));
+
+  // Without a baseline there is viable area but no meaningful percentage of it.
   if (baselineAreaCm2 === null || !Number.isFinite(baselineAreaCm2) || baselineAreaCm2 <= 0) {
-    return { viableAreaCm2, nonviableAreaCm2, takePercent: null, confidence };
+    return {
+      viableAreaCm2, nonviableAreaCm2, takePercent: null,
+      openAreaCm2, healedPercent: null, confidence,
+    };
   }
 
   // Capped at 100: a graft cannot take more than it was given, and a value
   // above 100 means the segmentation caught surrounding tissue.
   const takePercent = round1(clampPct((viableExact / baselineAreaCm2) * 100));
+  const healedPercent = round1(clampPct(((baselineAreaCm2 - openExact) / baselineAreaCm2) * 100));
 
-  return { viableAreaCm2, nonviableAreaCm2, takePercent, confidence };
+  return { viableAreaCm2, nonviableAreaCm2, takePercent, openAreaCm2, healedPercent, confidence };
 }
 
 // ── Donor site: re-epithelialization ────────────────────────────────────────
@@ -215,14 +234,51 @@ function fitSlope(points: TrajectoryPoint[]): number | null {
 }
 
 /**
- * Predict donor-site closure from the observed photographic trajectory.
+ * What counts as brisk or adequate healing depends on what is healing.
+ *
+ * A split-thickness donor site is a partial-thickness wound reseeded from
+ * surviving adnexae across its whole surface, and closes in a fortnight or so.
+ * A grafted bed that has lost graft closes secondarily from its margins alone,
+ * which is slower, and judging it against the donor benchmark would flag
+ * perfectly ordinary healing as delayed.
+ */
+export interface HealingBenchmark {
+  /** Percentage points per day at or above which healing is brisk. */
+  briskPerDay: number;
+  /** Below this, healing is slower than expected for this kind of wound. */
+  adequatePerDay: number;
+  /** Named in the caveat when healing is slower than expected. */
+  label: string;
+  /** Names the subject in plain statements, e.g. 'The donor site'. */
+  subject: string;
+}
+
+export const DONOR_BENCHMARK: HealingBenchmark = {
+  briskPerDay: 5,
+  adequatePerDay: 2,
+  label: 'a typical split-thickness donor site',
+  subject: 'The donor site',
+};
+
+export const RECIPIENT_BENCHMARK: HealingBenchmark = {
+  briskPerDay: 3,
+  adequatePerDay: 1,
+  label: 'a grafted bed closing secondarily',
+  subject: 'The grafted site',
+};
+
+/**
+ * Predict complete closure from the observed photographic trajectory.
  *
  * A transparent linear fit over the measured points — not a trained model, and
  * labelled as such. Expressed as a range because a straight line through a
  * handful of ward photographs does not justify a single day, and healing
  * decelerates as a wound closes.
  */
-export function predictDonorHealing(points: TrajectoryPoint[]): HealingPrediction {
+export function predictHealing(
+  points: TrajectoryPoint[],
+  benchmark: HealingBenchmark = DONOR_BENCHMARK,
+): HealingPrediction {
   const usable = points
     .filter(p => Number.isFinite(p.postOpDay) && Number.isFinite(p.percent))
     .sort((a, b) => a.postOpDay - b.postOpDay);
@@ -250,7 +306,7 @@ export function predictDonorHealing(points: TrajectoryPoint[]): HealingPredictio
       predictedClosurePodFrom: latest.postOpDay,
       predictedClosurePodTo: latest.postOpDay,
       confidence: 'high',
-      caveats: ['The donor site is recorded as fully epithelialised.'],
+      caveats: [`${benchmark.subject} is recorded as fully healed.`],
     };
   }
 
@@ -326,12 +382,16 @@ export function predictDonorHealing(points: TrajectoryPoint[]): HealingPredictio
     caveats.push('The assessments span a short interval, so the rate is provisional.');
   }
 
-  // A trajectory is only "expected" against a reference; without one, say what
-  // was measured. Roughly 7%/day closes a typical split-thickness donor site in
-  // about a fortnight, which is the comparison a surgeon makes by eye.
-  const trajectory: Trajectory = slope >= 5 ? 'improving' : slope >= 2 ? 'stable' : 'delayed';
+  // A trajectory is only "expected" against a reference, and the reference
+  // differs by wound: see HealingBenchmark. Roughly 7%/day closes a typical
+  // split-thickness donor site in about a fortnight, which is the comparison a
+  // surgeon makes by eye; a bed closing secondarily is held to a slower one.
+  const trajectory: Trajectory =
+    slope >= benchmark.briskPerDay ? 'improving'
+      : slope >= benchmark.adequatePerDay ? 'stable'
+        : 'delayed';
   if (trajectory === 'delayed') {
-    caveats.push('Closing more slowly than a typical split-thickness donor site.');
+    caveats.push(`Closing more slowly than ${benchmark.label}.`);
   }
 
   const confidence: ConfidenceBand =
@@ -349,6 +409,14 @@ export function predictDonorHealing(points: TrajectoryPoint[]): HealingPredictio
     caveats,
     modelVersion: PREDICTION_MODEL_VERSION,
   };
+}
+
+/**
+ * Donor-site closure — the original entry point, kept because donor prediction
+ * is the common case and reads better named.
+ */
+export function predictDonorHealing(points: TrajectoryPoint[]): HealingPrediction {
+  return predictHealing(points, DONOR_BENCHMARK);
 }
 
 /**
