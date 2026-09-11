@@ -9,6 +9,7 @@ import { complicationLikelihood } from '../data/patientEducation';
 import { addBrandedHeader, addBrandedFooter, PDFDocumentInfo, PDF_COLORS } from './pdfUtils';
 import { PDF_FONTS } from './pdfConfig';
 import { createSafePDF } from './pdfTextSafe';
+import { formatDateSafe } from './safeDate';
 
 // Re-export types for use by consumers
 export type { ProcedureEducation, Complication };
@@ -86,7 +87,7 @@ export function generatePatientCounselingPDF(options: CounselingPDFOptions): voi
   pdf.setFont(PDF_FONTS.primary, 'normal');
   pdf.text(`Name: ${patient.firstName} ${patient.lastName}`, margin + 3, yPos + 14);
   pdf.text(`Hospital No: ${patient.hospitalNumber}`, margin + 80, yPos + 14);
-  pdf.text(`Date of Birth: ${format(new Date(patient.dateOfBirth), 'dd/MM/yyyy')}`, margin + 3, yPos + 22);
+  pdf.text(`Date of Birth: ${formatDateSafe(patient.dateOfBirth)}`, margin + 3, yPos + 22);
   pdf.text(`Gender: ${patient.gender === 'male' ? 'Male' : 'Female'}`, margin + 80, yPos + 22);
   
   pdf.setFont(PDF_FONTS.primary, 'bold');

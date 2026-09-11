@@ -25,6 +25,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { syncRecord } from '../../../services/cloudSyncService';
 import type { Patient } from '../../../types';
 import { aiWoundMeasurement, type WoundProgressEntry, type AiWoundAssessment } from '../services/aiWoundMeasurement';
 import {
@@ -1009,8 +1010,17 @@ const TissueBar: React.FC<{ latest: WoundAssessment }> = ({ latest }) => {
 
 // ── Patient picker ──────────────────────────────────────────────────────────
 
+/** Folder number for a patient registered without one. */
+function generateHospitalNumber(): string {
+  const year = new Date().getFullYear().toString().slice(-2);
+  const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+  return `CB${year}${random}`;
+}
+
 const PatientPickerModal: React.FC<{ onClose: () => void; onPick: (p: Patient) => void }> = ({ onClose, onPick }) => {
+  const { user } = useAuth();
   const [q, setQ] = useState('');
+  const [registering, setRegistering] = useState(false);
   const all = useLiveQuery(() => db.patients.toArray(), []);
   const loading = all === undefined;
 
@@ -1023,6 +1033,17 @@ const PatientPickerModal: React.FC<{ onClose: () => void; onPick: (p: Patient) =
     ).slice(0, 30);
   }, [q, all]);
 
+  if (registering) {
+    return (
+      <QuickRegisterPatient
+        initialName={q}
+        hospitalId={user?.hospitalId}
+        onCancel={() => setRegistering(false)}
+        onCreated={onPick}
+      />
+    );
+  }
+
   return (
     <Modal title="Select patient" onClose={onClose}>
       <div className="relative mb-3">
@@ -1033,6 +1054,19 @@ const PatientPickerModal: React.FC<{ onClose: () => void; onPick: (p: Patient) =
           className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
         />
       </div>
+
+      {/* Registering from here keeps the clinician in the flow. A wound is
+          often the reason a patient is first entered at all, and being sent
+          away to the full registration form loses the wound they came to
+          record. The rest of the profile can be completed later. */}
+      <button
+        onClick={() => setRegistering(true)}
+        className="w-full mb-3 flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-teal-300 text-teal-700 hover:bg-teal-50 text-sm font-medium"
+      >
+        <Plus className="w-4 h-4" />
+        {q.trim() ? `Register "${q.trim()}" as a new patient` : 'Register a new patient'}
+      </button>
+
       {loading ? (
         <div className="h-40 bg-gray-50 rounded animate-pulse" />
       ) : (
@@ -1045,9 +1079,160 @@ const PatientPickerModal: React.FC<{ onClose: () => void; onPick: (p: Patient) =
               </button>
             </li>
           ))}
-          {!filtered.length && <li className="py-6 text-center text-sm text-gray-400">No patients found.</li>}
+          {!filtered.length && (
+            <li className="py-6 text-center text-sm text-gray-400">
+              No patients match “{q.trim()}”.
+            </li>
+          )}
         </ul>
       )}
+    </Modal>
+  );
+};
+
+/**
+ * Minimal patient registration: name, folder number, gender.
+ *
+ * Everything else on the Patient record is optional here and completed later
+ * from the patient's profile. The record is marked so it is obvious downstream
+ * that the profile is still a stub rather than a fully registered patient.
+ */
+const QuickRegisterPatient: React.FC<{
+  initialName: string;
+  hospitalId?: string;
+  onCancel: () => void;
+  onCreated: (p: Patient) => void;
+}> = ({ initialName, hospitalId, onCancel, onCreated }) => {
+  // A typed search term is usually "SURNAME Firstname" or just a name; seed the
+  // first field with it so nothing is retyped.
+  const seeded = initialName.trim();
+  const [firstName, setFirstName] = useState(seeded.split(/\s+/)[0] || '');
+  const [lastName, setLastName] = useState(seeded.split(/\s+/).slice(1).join(' '));
+  const [hospitalNumber, setHospitalNumber] = useState('');
+  const [gender, setGender] = useState<'male' | 'female' | ''>('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async () => {
+    if (saving) return;
+    if (!firstName.trim() && !lastName.trim()) { setError('Enter the patient’s name.'); return; }
+    if (!gender) { setError('Select a gender.'); return; }
+
+    setSaving(true);
+    setError('');
+    try {
+      const folder = hospitalNumber.trim() || generateHospitalNumber();
+
+      // A folder number is how staff find the patient, so a duplicate would
+      // create two records that look identical on every list in the app.
+      const clash = await db.patients
+        .filter(p => (p.hospitalNumber || '').toLowerCase() === folder.toLowerCase())
+        .first();
+      if (clash) {
+        setError(`Folder number ${folder} already belongs to ${patientName(clash)}.`);
+        setSaving(false);
+        return;
+      }
+
+      const now = new Date();
+      const patient = {
+        id: crypto.randomUUID(),
+        hospitalNumber: folder,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        gender,
+        // Unknown for now. Recorded as-is rather than invented, so nothing
+        // downstream mistakes a placeholder for a real date of birth.
+        dateOfBirth: undefined,
+        maritalStatus: undefined,
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        allergies: [],
+        chronicConditions: [],
+        nextOfKin: { name: '', relationship: '', phone: '', address: '' },
+        careType: 'hospital',
+        hospitalId,
+        registeredHospitalId: hospitalId || 'global',
+        isActive: true,
+        // Flags the record as a stub so the profile can be completed later.
+        registrationComplete: false,
+        createdAt: now,
+        updatedAt: now,
+      } as unknown as Patient;
+
+      await db.patients.add(patient);
+      syncRecord('patients', patient as unknown as Record<string, unknown>);
+      onCreated(patient);
+    } catch (e: any) {
+      console.error('[WoundMonitor] Quick registration failed:', e);
+      setError(e?.message || 'Could not register the patient.');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Register a new patient" onClose={onCancel}>
+      <p className="text-xs text-gray-500 mb-3">
+        Just enough to record a wound now. The rest of the profile can be completed later
+        from the patient’s record.
+      </p>
+
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <Field label="First name">
+          <input
+            autoFocus value={firstName} onChange={e => setFirstName(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Given name"
+          />
+        </Field>
+        <Field label="Surname">
+          <input
+            value={lastName} onChange={e => setLastName(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Family name"
+          />
+        </Field>
+      </div>
+
+      <Field label="Folder number">
+        <input
+          value={hospitalNumber} onChange={e => setHospitalNumber(e.target.value)}
+          className="w-full border rounded-lg px-3 py-2 text-sm"
+          placeholder="Leave blank to generate one"
+        />
+      </Field>
+
+      <div className="mt-3">
+        <span className="text-xs font-medium text-gray-600 mb-1.5 block">Gender</span>
+        <div className="flex gap-2">
+          {(['female', 'male'] as const).map(g => (
+            <button
+              key={g} type="button" onClick={() => setGender(g)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium border capitalize transition-colors ${
+                gender === g
+                  ? 'bg-teal-600 text-white border-teal-600'
+                  : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+              }`}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+
+      <div className="flex gap-2 pt-4">
+        <button onClick={onCancel} className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium">
+          Back
+        </button>
+        <button
+          onClick={save} disabled={saving}
+          className="flex-1 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Register &amp; continue
+        </button>
+      </div>
     </Modal>
   );
 };
@@ -1339,6 +1524,35 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
       necroticPct: t ? round(t.necroticPercent) : prev.necroticPct,
       epithelialPct: t ? round(t.epithelialPercent) : prev.epithelialPct,
     }));
+
+    // Keep the guided frame too, on the same terms as the AI path: the
+    // annotated copy already carries the traced margin, so the evidence behind
+    // a hand-calibrated measurement is preserved exactly like an automatic one.
+    const source = result.annotatedImageDataUrl || result.imageDataUrl;
+    if (source) {
+      downscaleDataUrl(source, REFERENCE_PHOTO_MAX_PX)
+        .then(shot => {
+          if (!shot) return;
+          const ratio = shot.width / Math.max(1, shot.originalWidth);
+          setPhoto({
+            id: crypto.randomUUID(),
+            imageData: shot.dataUrl,
+            takenAt: new Date().toISOString(),
+            widthPx: shot.width,
+            heightPx: shot.height,
+            pixelsPerCm: result.calibration?.pixelsPerCm
+              ? round(result.calibration.pixelsPerCm * ratio)
+              : null,
+            calibrationMethod: result.calibration?.method || 'manual_points',
+            scaleReliable: true,
+            // The outline is baked into annotatedImageDataUrl by the guided
+            // component itself; the unannotated fallback carries none.
+            hasContourOverlay: Boolean(result.annotatedImageDataUrl),
+          });
+        })
+        .catch(e => console.warn('[WoundMonitor] Could not keep guided frame:', e));
+    }
+
     // Drop back to the form so the clinician confirms and adds the clinical layer.
     setMode('manual');
   }, []);
@@ -1847,6 +2061,35 @@ function renderReferencePhoto(
   }
 
   return { dataUrl: out.toDataURL('image/jpeg', 0.78), width, height, contourDrawn, points: pts.length };
+}
+
+/**
+ * Downscale an existing data URL, for frames that arrive already rendered —
+ * the guided capture hands back an annotated image rather than a canvas.
+ */
+function downscaleDataUrl(
+  src: string,
+  maxEdge: number,
+): Promise<{ dataUrl: string; width: number; height: number; originalWidth: number } | null> {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if (!w || !h) { resolve(null); return; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(null); return; }
+      ctx.drawImage(img, 0, 0);
+      // Reuse the same reducer so both capture paths produce identical output.
+      const shot = renderReferencePhoto(canvas, undefined, null, maxEdge);
+      resolve({ dataUrl: shot.dataUrl, width: shot.width, height: shot.height, originalWidth: w });
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
 }
 
 /** Rough byte size of a data URL, for showing how much a photo costs. */

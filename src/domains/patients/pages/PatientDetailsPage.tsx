@@ -46,11 +46,17 @@ interface EditPatientModalProps {
 }
 
 function EditPatientModal({ patient, onClose, onSave }: EditPatientModalProps) {
-  const getDateString = (date: Date | string) => {
+  // A patient can now be registered from the wound module with only a name,
+  // folder number and gender, so every date on the record must tolerate being
+  // absent or unparseable. date-fns format() throws on an invalid date rather
+  // than returning something harmless.
+  const getDateString = (date: Date | string | undefined | null) => {
+    if (!date) return '';
     if (typeof date === 'string') {
       return date.split('T')[0];
     }
-    return format(new Date(date), 'yyyy-MM-dd');
+    const d = new Date(date);
+    return Number.isNaN(d.getTime()) ? '' : format(d, 'yyyy-MM-dd');
   };
 
   const [formData, setFormData] = useState({
@@ -527,7 +533,10 @@ export default function PatientDetailsPage() {
     );
   }
 
-  const age = differenceInYears(new Date(), new Date(patient.dateOfBirth));
+  // Null when the date of birth has not been recorded yet — see getDateString.
+  const dob = patient.dateOfBirth ? new Date(patient.dateOfBirth) : null;
+  const dobValid = dob !== null && !Number.isNaN(dob.getTime());
+  const age = dobValid ? differenceInYears(new Date(), dob) : null;
 
   return (
     <div className="space-y-6">
@@ -593,7 +602,11 @@ export default function PatientDetailsPage() {
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <Calendar size={16} className="text-gray-400" />
-                  <span>{age} years ({format(new Date(patient.dateOfBirth), 'MMM d, yyyy')})</span>
+                  <span>
+                    {dobValid
+                      ? `${age} years (${format(dob!, 'MMM d, yyyy')})`
+                      : 'Date of birth not recorded'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <Phone size={16} className="text-gray-400" />

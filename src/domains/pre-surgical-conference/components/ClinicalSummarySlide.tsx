@@ -1,6 +1,7 @@
 import { differenceInYears, format } from 'date-fns';
 import type { Patient, Surgery, Admission } from '../../../types';
 import { FileText, User, Droplets, AlertTriangle, Heart, Calendar, MapPin, Phone, BedDouble } from 'lucide-react';
+import { formatDateSafe } from '../../../utils/safeDate';
 
 interface ClinicalSummarySlideProps {
   patient: Patient;
@@ -43,7 +44,7 @@ export default function ClinicalSummarySlide({ patient, surgeries, admissions }:
               )}
             </div>
             <div className="flex flex-wrap gap-4 text-gray-300 text-sm mt-2">
-              <span className="flex items-center gap-1"><Calendar size={14} /> DOB: {format(new Date(patient.dateOfBirth), 'PPP')}</span>
+              <span className="flex items-center gap-1"><Calendar size={14} /> DOB: {formatDateSafe(patient.dateOfBirth, 'PPP')}</span>
               <span className="flex items-center gap-1"><Phone size={14} /> {patient.phone}</span>
               <span className="flex items-center gap-1"><MapPin size={14} /> {patient.city}, {patient.state}</span>
             </div>

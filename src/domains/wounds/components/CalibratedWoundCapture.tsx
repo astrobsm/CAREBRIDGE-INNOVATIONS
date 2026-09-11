@@ -41,10 +41,26 @@ import {
   drawContourOverlay,  type CalibrationResult,
   type WoundContour,
   type CalibratedMeasurement,
+  CALIBRATION_MARKER,
 } from '../../../services/woundMeasurementEngine';
 
 // Reference objects for manual calibration
 const REFERENCE_OBJECTS = [
+  // The unit's own printed markers come first: they are what is actually in
+  // the ward, and tapping their two ends is the most reliable manual fallback
+  // when auto-detection cannot find the bar.
+  {
+    id: 'green_marker_5cm',
+    label: 'Green marker 5 cm (click both ends)',
+    sizeCm: CALIBRATION_MARKER.sizeMm / 10,
+    method: 'ruler' as const,
+  },
+  {
+    id: 'green_marker_10cm',
+    label: 'Green marker 10 cm (click both ends)',
+    sizeCm: CALIBRATION_MARKER.largeSizeMm / 10,
+    method: 'ruler' as const,
+  },
   { id: 'ruler_1cm', label: 'Ruler (click 2 points, 1 cm apart)', sizeCm: 1, method: 'ruler' as const },
   { id: 'ruler_5cm', label: 'Ruler (click 2 points, 5 cm apart)', sizeCm: 5, method: 'ruler' as const },
   { id: 'coin_1naira', label: '₦1 Coin (Ø 2.2 cm)', sizeCm: 2.2, method: 'coin' as const },
@@ -104,39 +120,85 @@ export default function CalibratedWoundCapture({
 
   // === STEP 1: CAPTURE ===
 
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setIsCameraActive(false);
+  }, []);
+
   const startCamera = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.error('This browser cannot open a live camera. Use "Take / choose photo" instead.');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
       setIsCameraActive(true);
-    } catch (err) {
-      toast.error('Camera access denied');
+
+      const video = videoRef.current;
+      if (!video) {
+        // The element is mounted unconditionally now, so this should not
+        // happen — but a stream left running would hold the camera open.
+        stream.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+        setIsCameraActive(false);
+        toast.error('Could not start the preview. Use "Take / choose photo" instead.');
+        return;
+      }
+      video.srcObject = stream;
+      await video.play().catch(() => { /* autoplay policies; the frame check below is what matters */ });
+    } catch {
+      toast.error('Camera access was denied. Use "Take / choose photo" instead.');
+      setIsCameraActive(false);
     }
   }, []);
 
-  const captureFrame = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const canvas = canvasRef.current;
+  /**
+   * Wait until the video actually has pixel dimensions.
+   *
+   * play() resolving does not mean a frame exists: videoWidth stays 0 until
+   * metadata arrives. Capturing before then silently produced a 0x0 canvas and
+   * a blank image, which is what made this step appear to do nothing at all.
+   */
+  const waitForVideoFrame = (video: HTMLVideoElement, timeoutMs = 4000): Promise<boolean> =>
+    new Promise(resolve => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) { resolve(true); return; }
+      const done = (ok: boolean) => {
+        video.removeEventListener('loadedmetadata', onReady);
+        clearTimeout(timer);
+        resolve(ok);
+      };
+      const onReady = () => { if (video.videoWidth > 0) done(true); };
+      const timer = setTimeout(() => done(video.videoWidth > 0), timeoutMs);
+      video.addEventListener('loadedmetadata', onReady);
+    });
+
+  const captureFrame = useCallback(async () => {
     const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) { toast.error('Camera is not ready yet.'); return; }
+
+    const ready = await waitForVideoFrame(video);
+    if (!ready || !video.videoWidth || !video.videoHeight) {
+      toast.error('No image from the camera. Use "Take / choose photo" instead.');
+      return;
+    }
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0);
-    setImageSrc(canvas.toDataURL('image/jpeg', 0.92));
+    if (!ctx) { toast.error('Could not read the captured frame.'); return; }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Stop camera
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    setIsCameraActive(false);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    stopCamera();
+    setImageSrc(dataUrl);
     setStep('calibrate');
-    toast.success('Image captured — now calibrate');
-  }, []);
+  }, [stopCamera]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -166,12 +228,18 @@ export default function CalibratedWoundCapture({
       // Draw point marker
       const ctx = canvasRef.current.getContext('2d');
       if (ctx) {
-        ctx.fillStyle = '#00FF00';
+        // Magenta, not green. These marks are painted onto the same canvas the
+        // marker detector later reads, and pure green dots would themselves be
+        // detected as a calibration marker — corrupting the very scale the
+        // clinician is setting by hand.
+        const MARK = '#FF00FF';
+        const radius = Math.max(5, canvasRef.current.width / 220);
+        ctx.fillStyle = MARK;
         ctx.beginPath();
-        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = Math.max(2, radius / 3);
         ctx.stroke();
 
         // Connect points with line
@@ -179,9 +247,9 @@ export default function CalibratedWoundCapture({
           ctx.beginPath();
           ctx.moveTo(newPoints[0].x, newPoints[0].y);
           ctx.lineTo(newPoints[1].x, newPoints[1].y);
-          ctx.strokeStyle = '#00FF00';
-          ctx.lineWidth = 2;
-          ctx.setLineDash([5, 5]);
+          ctx.strokeStyle = MARK;
+          ctx.lineWidth = Math.max(2, radius / 2);
+          ctx.setLineDash([radius, radius]);
           ctx.stroke();
           ctx.setLineDash([]);
         }
@@ -204,44 +272,51 @@ export default function CalibratedWoundCapture({
     [calPoints, selectedRef]
   );
 
+  /**
+   * Find the calibration marker in the frame already drawn on the canvas.
+   *
+   * Reads the canvas as it stands rather than reloading and redrawing the
+   * image, which is what previously raced with the draw effect. Callers are
+   * responsible for having drawn the frame first.
+   */
   const tryAutoCalibrate = useCallback(async () => {
-    if (!canvasRef.current || !imageSrc) return;
+    const canvas = canvasRef.current;
+    if (!canvas || !canvas.width || !canvas.height) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
     setIsProcessing(true);
-
-    // Draw image on canvas
-    const ctx = canvasRef.current.getContext('2d');
-    if (!ctx) { setIsProcessing(false); return; }
-
-    const img = new Image();
-    img.onload = async () => {
-      canvasRef.current!.width = img.width;
-      canvasRef.current!.height = img.height;
-      ctx.drawImage(img, 0, 0);
-
-      // Try QR marker detection first
-      const markerResult = await detectCalibrationMarker(canvasRef.current!);
+    try {
+      // Green marker first — the accurate path, and the one the printed sheet
+      // is designed for.
+      const markerResult = await detectCalibrationMarker(canvas);
       if (markerResult) {
         setCalibration(markerResult);
-        toast.success(`QR marker detected: ${markerResult.pixelsPerCm.toFixed(1)} px/cm`);
-        setIsProcessing(false);
+        setCalPoints([]);
+        toast.success(
+          `Green marker found: ${markerResult.referenceObjectSizeCm} cm, ` +
+          `${markerResult.pixelsPerCm.toFixed(1)} px/cm`,
+        );
         return;
       }
 
-      // Try grid sticker detection
-      const imageData = ctx.getImageData(0, 0, img.width, img.height);
-      const gridResult = detectGridCalibration(imageData, img.width, img.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const gridResult = detectGridCalibration(imageData, canvas.width, canvas.height);
       if (gridResult) {
         setCalibration(gridResult);
+        setCalPoints([]);
         toast.success(`Grid detected: ${gridResult.pixelsPerCm.toFixed(1)} px/cm`);
-        setIsProcessing(false);
         return;
       }
 
-      toast('Auto-calibration failed — please calibrate manually', { icon: '⚠️' });
+      toast('No marker found — pick a reference below and click both of its ends.', { icon: '📏' });
+    } catch (e) {
+      console.warn('[GuidedCapture] Auto-calibration failed:', e);
+      toast('Auto-calibration could not run — calibrate manually below.', { icon: '📏' });
+    } finally {
       setIsProcessing(false);
-    };
-    img.src = imageSrc;
-  }, [imageSrc]);
+    }
+  }, []);
 
   // === STEP 3: SEGMENT ===
 
@@ -378,25 +453,53 @@ export default function CalibratedWoundCapture({
     setIsProcessing(false);
   }, [contour, calibration, depthCm, patientId, woundId, segMode]);
 
-  // Redraw image when moving back to calibrate/segment steps
-  const drawImageOnCanvas = useCallback(() => {
-    if (!imageSrc || !canvasRef.current) return;
-    const ctx = canvasRef.current.getContext('2d');
-    if (!ctx) return;
+  /**
+   * Paint the captured image onto the working canvas, resolving only once it
+   * is actually drawn.
+   *
+   * This used to be fire-and-forget while auto-calibration separately loaded
+   * and drew the same image. The two raced: whichever finished last won, so
+   * calibration could read a blank canvas, or the freshly drawn image could
+   * wipe the calibration marks the clinician had just placed.
+   */
+  const drawImageOnCanvas = useCallback((): Promise<boolean> => new Promise(resolve => {
+    const canvas = canvasRef.current;
+    if (!imageSrc || !canvas) { resolve(false); return; }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { resolve(false); return; }
     const img = new Image();
     img.onload = () => {
-      canvasRef.current!.width = img.width;
-      canvasRef.current!.height = img.height;
-      ctx.drawImage(img, 0, 0);
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(true);
     };
+    img.onerror = () => resolve(false);
     img.src = imageSrc;
-  }, [imageSrc]);
+  }), [imageSrc]);
+
+  // Draw first, then try to find the marker — in that order, once per image.
+  // Auto-detection runs without being asked, because with a printed marker in
+  // frame the whole calibrate step should need no interaction at all.
+  const autoTriedFor = useRef<string>('');
 
   useEffect(() => {
-    if (step === 'calibrate' || step === 'segment') {
-      drawImageOnCanvas();
-    }
-  }, [step, drawImageOnCanvas]);
+    let cancelled = false;
+    (async () => {
+      if (step !== 'calibrate' && step !== 'segment') return;
+      const drawn = await drawImageOnCanvas();
+      if (cancelled || !drawn) return;
+
+      if (step === 'calibrate' && !calibration && imageSrc && autoTriedFor.current !== imageSrc) {
+        autoTriedFor.current = imageSrc;
+        await tryAutoCalibrate();
+      }
+    })();
+    return () => { cancelled = true; };
+    // tryAutoCalibrate is intentionally omitted: it depends on imageSrc, which
+    // is already a dependency, and including it would re-run on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, imageSrc, drawImageOnCanvas, calibration]);
 
   // ==================== RENDER ====================
 
@@ -433,25 +536,37 @@ export default function CalibratedWoundCapture({
         {/* === STEP 1: CAPTURE === */}
         {step === 'capture' && (
           <div className="space-y-4">
-            {isCameraActive ? (
-              <div className="relative">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full rounded-lg border border-gray-300"
-                />
-                <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-                  <button
-                    onClick={captureFrame}
-                    className="px-6 py-3 bg-red-500 text-white rounded-full font-medium shadow-lg hover:bg-red-600"
-                  >
-                    <Camera className="w-5 h-5 inline mr-2" /> Capture
-                  </button>
-                </div>
+            {/* The video element stays mounted whether or not the camera is
+                running. It used to be rendered only once isCameraActive was
+                true, which meant videoRef.current was still null at the moment
+                startCamera() tried to attach the stream — so the stream was
+                never attached, the preview stayed blank, and Capture produced a
+                zero-by-zero frame. */}
+            <div className={isCameraActive ? 'relative' : 'hidden'}>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full rounded-lg border border-gray-300 bg-black"
+              />
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+                <button
+                  onClick={captureFrame}
+                  className="px-6 py-3 bg-red-500 text-white rounded-full font-medium shadow-lg hover:bg-red-600"
+                >
+                  <Camera className="w-5 h-5 inline mr-2" /> Capture
+                </button>
+                <button
+                  onClick={stopCamera}
+                  className="px-4 py-3 bg-white/90 text-gray-700 rounded-full font-medium shadow-lg hover:bg-white"
+                >
+                  Cancel
+                </button>
               </div>
-            ) : (
+            </div>
+
+            {!isCameraActive && (
               <div className="space-y-4">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-start gap-2">
@@ -459,29 +574,40 @@ export default function CalibratedWoundCapture({
                     <div className="text-sm text-blue-700">
                       <p className="font-semibold mb-1">For accurate measurements:</p>
                       <ul className="list-disc pl-4 space-y-1 text-xs">
-                        <li>Place a calibration sticker or ruler next to the wound</li>
+                        <li>Put a printed green marker flat beside the wound, not on it</li>
                         <li>Keep the camera parallel to the wound surface</li>
                         <li>Ensure good lighting — avoid shadows on the wound</li>
-                        <li>Include the full wound and calibration object in frame</li>
+                        <li>Include the whole wound and the marker in frame</li>
                       </ul>
                     </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    onClick={startCamera}
-                    className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-primary rounded-lg text-primary font-medium hover:bg-primary/5"
-                  >
-                    <Camera className="w-6 h-6" /> Open Camera
-                  </button>
+                  {/* Listed first: the device camera app focuses better and
+                      returns a far higher-resolution frame than a getUserMedia
+                      preview, and it is the only option that works when the
+                      browser denies camera access to the installed app. */}
                   <button
                     onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-primary rounded-lg text-primary font-medium hover:bg-primary/5"
+                  >
+                    <Camera className="w-6 h-6" /> Take / choose photo
+                  </button>
+                  <button
+                    onClick={startCamera}
                     className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 font-medium hover:bg-gray-50"
                   >
-                    <Upload className="w-6 h-6" /> Upload Image
+                    <Upload className="w-6 h-6" /> Use live camera
                   </button>
                 </div>
-                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
               </div>
             )}
           </div>

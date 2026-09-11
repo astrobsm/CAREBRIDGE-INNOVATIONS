@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { db } from '../../../database';
+import { formatDateSafe } from '../../../utils/safeDate';
 import {
   asaClassifications,
   rcriFactors,
@@ -194,7 +195,7 @@ export default function PreoperativeAssessmentDetailsPage() {
               <div className="flex justify-between">
                 <span className="text-gray-500">Date of Birth:</span>
                 <span className="font-medium">
-                  {format(new Date(patient.dateOfBirth), 'MMMM d, yyyy')}
+                  {formatDateSafe(patient.dateOfBirth, 'MMMM d, yyyy')}
                 </span>
               </div>
               <div className="flex justify-between">

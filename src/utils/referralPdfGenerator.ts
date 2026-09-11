@@ -16,6 +16,7 @@ import { PDF_COLORS, addBrandedHeader, addBrandedFooter, type PDFDocumentInfo } 
 import { PDF_FONTS, PDF_FONT_SIZES } from './pdfConfig';
 import type { Patient } from '../types';
 import { createSafePDF } from './pdfTextSafe';
+import { formatDateSafe } from './safeDate';
 
 export interface ReferralData {
   // Referring Information
@@ -228,7 +229,7 @@ export async function generateReferralPDF(data: ReferralData): Promise<jsPDF> {
   doc.text(`Hospital No: ${data.patient.hospitalNumber}`, margin + 105, yPos);
   
   yPos += 5;
-  doc.text(`DOB: ${format(new Date(data.patient.dateOfBirth), 'dd/MM/yyyy')}`, margin + 3, yPos);
+  doc.text(`DOB: ${formatDateSafe(data.patient.dateOfBirth)}`, margin + 3, yPos);
   doc.text(`Gender: ${data.patient.gender === 'male' ? 'Male' : 'Female'}`, margin + 105, yPos);
   
   yPos += 5;
