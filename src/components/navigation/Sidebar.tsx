@@ -37,6 +37,7 @@ import {
   Heart,
   Microscope,
   Brain,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -155,6 +156,12 @@ const navigation: NavItem[] = [
     href: '/clinician-assistant',
     icon: <Brain size={20} />,
     permission: 'create_encounters',
+  },
+  {
+    name: 'Skin Graft Monitor',
+    href: '/skin-graft',
+    icon: <Layers size={20} />,
+    permission: 'manage_wounds',
   },
   {
     name: 'Burns',
@@ -406,6 +413,7 @@ const SECTION_BY_HREF: Record<string, string> = {
   '/billing/surgical-estimate': 'theatre',
   // Wound Care
   '/wound-monitor': 'wound-care',
+  '/skin-graft': 'wound-care',
   '/burns': 'wound-care',
   '/limb-salvage': 'wound-care',
   '/npwt': 'wound-care',

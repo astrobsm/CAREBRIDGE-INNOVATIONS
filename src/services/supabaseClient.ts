@@ -207,6 +207,11 @@ export const TABLES = {
   // Investigation request bundles
   investigationRequestBundles: 'investigation_request_bundles',
 
+  // Photographic skin graft monitoring
+  skinGraftEpisodes: 'skin_graft_episodes',
+  graftSites: 'graft_sites',
+  graftPhotoAssessments: 'graft_photo_assessments',
+
   // Finance
   financeBuckets: 'finance_buckets',
   financeIncome: 'finance_income',
@@ -349,6 +354,10 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   financeProjects: 'finance_projects',
   financeInvestments: 'finance_investments',
   financeAuditLogs: 'finance_audit_logs',
+  // Photographic skin graft monitoring
+  skinGraftEpisodes: 'skin_graft_episodes',
+  graftSites: 'graft_sites',
+  graftPhotoAssessments: 'graft_photo_assessments',
 };
 
 // Type for sync status

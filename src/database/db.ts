@@ -1,6 +1,9 @@
 import Dexie, { Table } from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
 import type {
+  SkinGraftEpisode, GraftSite, GraftPhotoAssessment,
+} from '../domains/skin-graft/types';
+import type {
   User,
   Hospital,
   Patient,
@@ -234,6 +237,11 @@ export class AstroHEALTHDatabase extends Dexie {
   scannedDocuments!: Table<ScannedDocument, string>;
   // WoundProgress Monitor — longitudinal wound identity + serial assessments
   monitoredWounds!: Table<MonitoredWound, string>;
+  // Photographic skin graft monitoring: one episode binds its recipient and
+  // donor sites, and every assessment is a photograph measured against them.
+  skinGraftEpisodes!: Table<SkinGraftEpisode, string>;
+  graftSites!: Table<GraftSite, string>;
+  graftPhotoAssessments!: Table<GraftPhotoAssessment, string>;
   woundAssessments!: Table<WoundAssessment, string>;
   // Tumour Board — oncology cases + append-only staging timeline and artefacts
   tumourBoardCases!: Table<TumourBoardCase, string>;
@@ -405,6 +413,12 @@ export class AstroHEALTHDatabase extends Dexie {
     // (a clinician's disagreement goes in `notes` beside it).
     this.version(83).stores({
       clinicianAnalyses: 'id, patientId, hospitalId, source, analysedBy, analysedAt, createdAt, updatedAt',
+    });
+
+    this.version(84).stores({
+      skinGraftEpisodes: 'id, patientId, hospitalId, surgeryId, status, graftedAt, createdAt, updatedAt',
+      graftSites: 'id, episodeId, patientId, kind, status, createdAt, updatedAt',
+      graftPhotoAssessments: 'id, episodeId, siteId, patientId, kind, capturedAt, status, createdAt, updatedAt',
     });
   }
 }

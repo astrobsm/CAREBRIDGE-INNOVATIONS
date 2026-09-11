@@ -28,6 +28,7 @@ import PostOperativeNotePage from './domains/surgery/pages/PostOperativeNotePage
 import PostOpNotesListPage from './domains/surgery/pages/PostOpNotesListPage';
 import PostOpNoteFormPage from './domains/surgery/pages/PostOpNoteFormPage';
 import WoundProgressMonitorPage from './domains/wounds/pages/WoundProgressMonitorPage';
+import SkinGraftMonitorPage from './domains/skin-graft/pages/SkinGraftMonitorPage';
 import TumourBoardPage from './domains/tumour-board/pages/TumourBoardPage';
 import ClinicianAssistantPage from './domains/clinician-assistant/pages/ClinicianAssistantPage';
 import BurnsAssessmentPage from './domains/burns/pages/BurnsAssessmentPage';
@@ -250,6 +251,7 @@ function App() {
             dead-end; legacy wound records import themselves on first load. */}
         <Route path="wounds" element={<Navigate to="/wound-monitor" replace />} />
         <Route path="wound-monitor" element={<WoundProgressMonitorPage />} />
+        <Route path="skin-graft" element={<SkinGraftMonitorPage />} />
         <Route path="burns" element={<BurnsAssessmentPage />} />
         <Route path="limb-salvage" element={<LimbSalvagePage />} />
         <Route path="npwt" element={<NPWTPage />} />

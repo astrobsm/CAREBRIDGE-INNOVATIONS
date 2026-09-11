@@ -892,6 +892,11 @@ async function pullAllFromCloud(): Promise<void> {
   // Investigation request bundles
   await pullTable(TABLES.investigationRequestBundles, 'investigationRequestBundles');
 
+  // Photographic skin graft monitoring
+  await pullTable(TABLES.skinGraftEpisodes, 'skinGraftEpisodes');
+  await pullTable(TABLES.graftSites, 'graftSites');
+  await pullTable(TABLES.graftPhotoAssessments, 'graftPhotoAssessments');
+
   // Finance
   await pullTable(TABLES.financeBuckets, 'financeBuckets');
   await pullTable(TABLES.financeIncome, 'financeIncome');
@@ -1083,6 +1088,11 @@ async function pushAllToCloud(): Promise<void> {
 
   // Investigation request bundles
   await pushTable('investigationRequestBundles', TABLES.investigationRequestBundles);
+
+  // Photographic skin graft monitoring
+  await pushTable('skinGraftEpisodes', TABLES.skinGraftEpisodes);
+  await pushTable('graftSites', TABLES.graftSites);
+  await pushTable('graftPhotoAssessments', TABLES.graftPhotoAssessments);
 
   // Finance
   await pushTable('financeBuckets', TABLES.financeBuckets);
