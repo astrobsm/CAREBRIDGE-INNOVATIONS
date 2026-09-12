@@ -896,6 +896,10 @@ async function pullAllFromCloud(): Promise<void> {
   await pullTable(TABLES.skinGraftEpisodes, 'skinGraftEpisodes');
   await pullTable(TABLES.graftSites, 'graftSites');
   await pullTable(TABLES.graftPhotoAssessments, 'graftPhotoAssessments');
+  await pullTable(TABLES.scarCases, 'scarCases');
+  await pullTable(TABLES.scarAssessments, 'scarAssessments');
+  await pullTable(TABLES.scarTreatments, 'scarTreatments');
+  await pullTable(TABLES.scarAlerts, 'scarAlerts');
 
   // Finance
   await pullTable(TABLES.financeBuckets, 'financeBuckets');
@@ -1093,6 +1097,10 @@ async function pushAllToCloud(): Promise<void> {
   await pushTable('skinGraftEpisodes', TABLES.skinGraftEpisodes);
   await pushTable('graftSites', TABLES.graftSites);
   await pushTable('graftPhotoAssessments', TABLES.graftPhotoAssessments);
+  await pushTable('scarCases', TABLES.scarCases);
+  await pushTable('scarAssessments', TABLES.scarAssessments);
+  await pushTable('scarTreatments', TABLES.scarTreatments);
+  await pushTable('scarAlerts', TABLES.scarAlerts);
 
   // Finance
   await pushTable('financeBuckets', TABLES.financeBuckets);

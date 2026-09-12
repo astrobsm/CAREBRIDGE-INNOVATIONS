@@ -14,7 +14,7 @@
  * referenced by no UI and are built around a manually typed take percentage.
  */
 
-import type { ImageQualityReport } from './services/imageQualityService';
+import type { ImageQualityReport } from '../../services/imageQualityService';
 
 // ── Provenance ──────────────────────────────────────────────────────────────
 

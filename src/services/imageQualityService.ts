@@ -28,7 +28,7 @@
  * photography under ward lighting rather than studio conditions.
  */
 
-import { isMarkerGreen } from '../../../services/woundMeasurementEngine';
+import { isMarkerGreen } from './woundMeasurementEngine';
 
 export type QualityVerdict = 'accept' | 'review' | 'recapture';
 

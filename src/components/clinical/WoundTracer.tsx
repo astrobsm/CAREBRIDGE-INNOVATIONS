@@ -42,6 +42,16 @@ export interface WoundTracerProps {
   surfaceKinds?: SurfaceKind[];
   /** Existing traces, so an assessment can be reopened and added to. */
   initialTraces?: Trace[];
+  /**
+   * What the outline represents, when it is not a wound.
+   *
+   * The scar module traces a scar boundary, a patch of reference skin and an
+   * original wound margin through this same component; labelling them all
+   * 'Wound outline' would be wrong on screen and wrong in the stored trace.
+   */
+  outlineLabel?: string;
+  /** Instruction shown while the outline is being drawn. */
+  outlineInstruction?: string;
   onCancel: () => void;
   onComplete: (result: { traces: Trace[]; annotatedDataUrl: string }) => void;
 }
@@ -64,6 +74,8 @@ export default function WoundTracer({
   pixelsPerCm,
   surfaceKinds = DEFAULT_KINDS,
   initialTraces,
+  outlineLabel,
+  outlineInstruction,
   onCancel,
   onComplete,
 }: WoundTracerProps) {
@@ -185,7 +197,10 @@ export default function WoundTracer({
 
       setTraces(prev => [
         ...prev,
-        { id: crypto.randomUUID(), role, points: simplified, label: STYLE[role].label },
+        {
+          id: crypto.randomUUID(), role, points: simplified,
+          label: role === 'total' ? (outlineLabel ?? STYLE.total.label) : STYLE[role].label,
+        },
       ]);
       setRedoStack([]);
       return [];
@@ -272,7 +287,8 @@ export default function WoundTracer({
 
       <p className="text-xs text-gray-500">
         {!hasTotal
-          ? 'Draw around the edge of the whole wound. Release to close the outline.'
+          ? (outlineInstruction
+              ?? 'Draw around the edge of the whole wound. Release to close the outline.')
           : surfaceKinds.length
             ? `Now draw around each patch of ${STYLE[role as SurfaceKind]?.label.toLowerCase() ?? 'tissue'} — one at a time, as many as there are. A patch drawn inside another is treated as an island within it.`
             : 'Outline traced. Adjust it, or save.'}

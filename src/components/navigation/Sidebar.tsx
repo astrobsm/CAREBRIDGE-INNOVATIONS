@@ -38,6 +38,7 @@ import {
   Microscope,
   Brain,
   Layers,
+  ScanLine,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -161,6 +162,12 @@ const navigation: NavItem[] = [
     name: 'Skin Graft Monitor',
     href: '/skin-graft',
     icon: <Layers size={20} />,
+    permission: 'manage_wounds',
+  },
+  {
+    name: 'Scar & Keloid Monitor',
+    href: '/scar-monitor',
+    icon: <ScanLine size={20} />,
     permission: 'manage_wounds',
   },
   {
@@ -414,6 +421,7 @@ const SECTION_BY_HREF: Record<string, string> = {
   // Wound Care
   '/wound-monitor': 'wound-care',
   '/skin-graft': 'wound-care',
+  '/scar-monitor': 'wound-care',
   '/burns': 'wound-care',
   '/limb-salvage': 'wound-care',
   '/npwt': 'wound-care',

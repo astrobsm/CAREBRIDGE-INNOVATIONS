@@ -11,7 +11,7 @@ import {
   assessImageQuality,
   IMAGE_QUALITY_VERSION,
   type QualityCheckId,
-} from '../services/imageQualityService';
+} from '../../../services/imageQualityService';
 
 const W = 240;
 const H = 180;

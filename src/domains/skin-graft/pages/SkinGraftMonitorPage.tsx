@@ -22,7 +22,7 @@ import type { Patient } from '../../../types';
 import GroupedSelect from '../../../components/common/GroupedSelect';
 import { PatientSelector } from '../../../components/patient/PatientSelector';
 import { ANATOMICAL_SITES } from '../../../data/anatomy';
-import { assessCanvasQuality } from '../services/imageQualityService';
+import { assessCanvasQuality } from '../../../services/imageQualityService';
 import { detectCalibrationMarker } from '../../../services/woundMeasurementEngine';
 import type { Trace } from '../../../services/planimetry';
 import {

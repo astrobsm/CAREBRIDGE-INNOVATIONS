@@ -211,6 +211,10 @@ export const TABLES = {
   skinGraftEpisodes: 'skin_graft_episodes',
   graftSites: 'graft_sites',
   graftPhotoAssessments: 'graft_photo_assessments',
+  scarCases: 'scar_cases',
+  scarAssessments: 'scar_assessments',
+  scarTreatments: 'scar_treatments',
+  scarAlerts: 'scar_alerts',
 
   // Finance
   financeBuckets: 'finance_buckets',
@@ -358,6 +362,10 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   skinGraftEpisodes: 'skin_graft_episodes',
   graftSites: 'graft_sites',
   graftPhotoAssessments: 'graft_photo_assessments',
+  scarCases: 'scar_cases',
+  scarAssessments: 'scar_assessments',
+  scarTreatments: 'scar_treatments',
+  scarAlerts: 'scar_alerts',
 };
 
 // Type for sync status

@@ -4,6 +4,9 @@ import type {
   SkinGraftEpisode, GraftSite, GraftPhotoAssessment,
 } from '../domains/skin-graft/types';
 import type {
+  ScarCase, ScarAssessment, ScarTreatment, ScarAlert,
+} from '../domains/scar/types';
+import type {
   User,
   Hospital,
   Patient,
@@ -242,6 +245,14 @@ export class AstroHEALTHDatabase extends Dexie {
   skinGraftEpisodes!: Table<SkinGraftEpisode, string>;
   graftSites!: Table<GraftSite, string>;
   graftPhotoAssessments!: Table<GraftPhotoAssessment, string>;
+
+  // Scar and keloid longitudinal assessment. A scar is a persistent entity
+  // with its own baseline and trajectory; assessments and treatments hang off
+  // it, and are never merged across scars.
+  scarCases!: Table<ScarCase, string>;
+  scarAssessments!: Table<ScarAssessment, string>;
+  scarTreatments!: Table<ScarTreatment, string>;
+  scarAlerts!: Table<ScarAlert, string>;
   woundAssessments!: Table<WoundAssessment, string>;
   // Tumour Board — oncology cases + append-only staging timeline and artefacts
   tumourBoardCases!: Table<TumourBoardCase, string>;
@@ -419,6 +430,13 @@ export class AstroHEALTHDatabase extends Dexie {
       skinGraftEpisodes: 'id, patientId, hospitalId, surgeryId, status, graftedAt, createdAt, updatedAt',
       graftSites: 'id, episodeId, patientId, kind, status, createdAt, updatedAt',
       graftPhotoAssessments: 'id, episodeId, siteId, patientId, kind, capturedAt, status, createdAt, updatedAt',
+    });
+
+    this.version(85).stores({
+      scarCases: 'id, patientId, hospitalId, anatomicalSite, status, createdAt, updatedAt',
+      scarAssessments: 'id, scarId, patientId, assessedAt, status, isBaseline, createdAt, updatedAt',
+      scarTreatments: 'id, scarId, patientId, kind, administeredAt, createdAt, updatedAt',
+      scarAlerts: 'id, scarId, patientId, assessmentId, kind, priority, createdAt, updatedAt',
     });
   }
 }
