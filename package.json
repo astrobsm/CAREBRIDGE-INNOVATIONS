@@ -11,6 +11,11 @@
     "preview": "vite preview",
     "generate-sw": "workbox generateSW workbox-config.js",
     "test": "vitest run",
+    "db:check": "node scripts/check-migrations.mjs",
+    "db:status": "node scripts/db-migrate.mjs --status",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:setup": "node scripts/setup-db-secret.mjs",
+    "db:url": "node scripts/db-url.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {

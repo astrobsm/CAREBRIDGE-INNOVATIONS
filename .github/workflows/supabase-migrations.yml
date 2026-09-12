@@ -5,19 +5,24 @@ name: Supabase migrations
 # it never fires on preview deploys and keeps DB credentials out of the frontend
 # build. `supabase db push` only applies migrations not yet recorded in the
 # remote migration-history table, so it is safe to run on every push.
+#
+# Setup is one command on a developer machine: `npm run db:setup`.
 
 on:
   push:
     branches: [main]
     paths:
       - 'supabase/migrations/**'
-  # Lets you run the very first migration manually from the Actions tab.
+  # Lets you apply a backlog manually from the Actions tab.
   workflow_dispatch:
 
 # Never run two migration pushes at once.
 concurrency:
   group: supabase-migrations
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   push-migrations:
@@ -26,15 +31,78 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Fails with an instruction rather than a connection error. Without this
+      # the CLI reports an unparseable URL, which reads like a problem with the
+      # migration and sends you looking in the wrong place entirely.
+      - name: Check the credential is configured
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::The SUPABASE_DB_URL repository secret is not set, so migrations cannot be applied."
+            echo ""
+            echo "Set it once with:  npm run db:setup"
+            echo "Or by hand:        Settings -> Secrets and variables -> Actions -> New repository secret"
+            echo "                   Name:  SUPABASE_DB_URL"
+            echo "                   Value: printed by 'npm run db:url'"
+            exit 1
+          fi
+          echo "Credential is configured."
+
+      # The remote history is empty if migrations were ever applied by hand
+      # through the SQL editor, in which case db push replays the whole folder.
+      # A single non-idempotent statement would abort the run partway through,
+      # so this is checked before anything touches the database.
+      - name: Check migrations are safe to re-run
+        run: node scripts/check-migrations.mjs
+
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      - name: Push pending migrations
-        # SUPABASE_DB_URL is the full Postgres connection URI (with password),
-        # stored as a repository secret. Using --db-url keeps this self-contained
-        # (no `supabase link` / config.toml needed).
-        run: supabase db push --db-url "$SUPABASE_DB_URL"
+      - name: Show what is pending
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase migration list --db-url "$SUPABASE_DB_URL"
+
+      # --include-all applies migrations whose timestamp predates the newest one
+      # already recorded remotely. Without it, a migration merged out of
+      # chronological order is skipped silently and never applied at all.
+      - name: Push pending migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --include-all
+
+      # Proves the push did what it claimed. Without this, a green step that
+      # applied nothing looks exactly like a green step that applied everything.
+      - name: Verify the remote history matches
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          supabase migration list --db-url "$SUPABASE_DB_URL" | tee /tmp/migration-list.txt
+          # A row with a local version but an empty remote column is unapplied.
+          if grep -qE '^[[:space:]]*[0-9]{14}[[:space:]]*\|[[:space:]]*\|' /tmp/migration-list.txt; then
+            echo "::error::A local migration is still missing from the remote history."
+            exit 1
+          fi
+          echo "Every local migration is recorded as applied."
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Supabase migrations"
+            echo ""
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "All migrations are applied and the remote history matches the repository."
+            else
+              echo "The run did not complete. Each migration runs in its own transaction, so any"
+              echo "migration that failed left the database unchanged."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

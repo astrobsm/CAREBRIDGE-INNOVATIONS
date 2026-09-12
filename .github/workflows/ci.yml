@@ -34,6 +34,12 @@ jobs:
       - name: Type-check (tsc --noEmit)
         run: npm run typecheck
 
+      # Migrations are replayed in full against a fresh migration history, so a
+      # statement that cannot be re-run would block every later migration behind
+      # it. Cheap to check here; expensive to discover during a deploy.
+      - name: Migrations are safe to re-run
+        run: npm run db:check
+
       # Includes syncTableAlignment, which fails if the frontend sync lists and
       # the Supabase schema drift apart again.
       - name: Unit tests (vitest)
