@@ -29,3 +29,6 @@ Thumbs.db
 
 # Local Netlify folder
 .netlify
+
+# Supabase CLI scratch (version cache written by db:migrate / db:status)
+supabase/.temp/
