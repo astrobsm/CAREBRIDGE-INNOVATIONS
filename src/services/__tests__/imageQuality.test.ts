@@ -11,7 +11,7 @@ import {
   assessImageQuality,
   IMAGE_QUALITY_VERSION,
   type QualityCheckId,
-} from '../../../services/imageQualityService';
+} from '../imageQualityService';
 
 const W = 240;
 const H = 180;
@@ -39,17 +39,49 @@ const hash = (x: number, y: number) => {
 };
 
 /** Pale skin background with a red wound bed, sharp texture, and a green bar. */
-function goodFrame(opts: { marker?: boolean } = {}): Uint8ClampedArray {
+function goodFrame(opts: { marker?: boolean; fillFrame?: boolean } = {}): Uint8ClampedArray {
   const marker = opts.marker !== false;
   return makeImage((x, y) => {
     // Calibration bar: 50x10 proportions, left edge, clear of the wound.
     if (marker && y > 150 && y < 162 && x > 20 && x < 80) return [0, 160, 0];
 
-    const inWound = (x - 120) ** 2 / 1600 + (y - 80) ** 2 / 900 < 1;
+    const inWound = opts.fillFrame
+      ? true
+      : (x - 120) ** 2 / 1600 + (y - 80) ** 2 / 900 < 1;
     const grain = hash(x, y) * 70; // high-frequency detail => sharp
     return inWound
       ? [170 + grain * 0.5, 60 + grain * 0.3, 60 + grain * 0.3]
       : [190 + grain * 0.4, 150 + grain * 0.4, 135 + grain * 0.4];
+  });
+}
+
+/**
+ * A subject too big for the frame, truncated on all four sides.
+ *
+ * A disc centred in the frame with a radius that clears every edge midpoint but
+ * not the corners, so the border ring is mostly lesion while the corners stay
+ * background — which is exactly the signature the framing check looks for.
+ */
+function runsOffTheEdgeFrame(): Uint8ClampedArray {
+  const cx = W / 2;
+  const cy = H / 2;
+  // Edge midpoints sit 90 and 120 px from the centre; the corners sit at 150.
+  const radius = 130;
+  return makeImage((x, y) => {
+    const grain = hash(x, y) * 70;
+    const inLesion = Math.hypot(x - cx, y - cy) < radius;
+    return inLesion
+      ? [170 + grain * 0.5, 60 + grain * 0.3, 60 + grain * 0.3]
+      : [190 + grain * 0.4, 150 + grain * 0.4, 135 + grain * 0.4];
+  });
+}
+
+/** A soft frame: a smooth gradient has almost no second derivative. */
+function blurredFrame(marker = true): Uint8ClampedArray {
+  return makeImage((x, y) => {
+    if (marker && y > 150 && y < 162 && x > 20 && x < 80) return [0, 160, 0];
+    const v = 150 + (x / W) * 20 + (y / H) * 10;
+    return [v + 20, v - 10, v - 20];
   });
 }
 
@@ -161,10 +193,58 @@ describe('image quality gate', () => {
       expect(check(noMarker, 'calibration').passed).toBe(false);
     });
 
-    it('treats a missing marker as unrecoverable', () => {
-      // Without a marker there is no scale, so there is no area in cm2 to
-      // review — the frame has to be retaken.
-      expect(assessImageQuality(goodFrame({ marker: false }), W, H).verdict).toBe('recapture');
+    it('does not reject a frame merely for having no marker', () => {
+      // A missing marker costs the dimensions and nothing else: shape
+      // descriptors are ratios, colour is a contrast measured inside the same
+      // frame, and the clinical scales are answered by a person. Refusing the
+      // photograph outright would make the uncalibrated path unreachable even
+      // though every stage downstream already withholds sizes and says so.
+      const r = assessImageQuality(goodFrame({ marker: false }), W, H);
+      expect(r.verdict).toBe('review');
+      expect(r.problems.join(' ')).toMatch(/no size in centimetres/i);
+    });
+
+    it('still refuses a frame with nothing measurable in it', () => {
+      // Focus and obstruction remain fatal: if the lesion is not sharply
+      // visible there is nothing to measure, whoever reviews it.
+      expect(assessImageQuality(blurredFrame(), W, H).verdict).toBe('recapture');
+    });
+  });
+
+  describe('cropped frames', () => {
+    it('does not fail the framing check on a deliberate crop', () => {
+      // A crop to the lesion guarantees the subject reaches the border, so the
+      // framing test does not apply. Left on, cropping a rejected photograph
+      // would make the rejection worse — the opposite of the point.
+      const truncated = runsOffTheEdgeFrame();
+
+      const uncropped = assessImageQuality(truncated, W, H);
+      const cropped = assessImageQuality(truncated, W, H, { cropped: true });
+
+      // The fixture must genuinely trip the check, or this proves nothing.
+      expect(uncropped.checks.find(c => c.id === 'framing')?.passed).toBe(false);
+      expect(uncropped.problems.join(' ')).toMatch(/runs off the edge/i);
+
+      expect(cropped.checks.find(c => c.id === 'framing')?.skipped).toBe(true);
+      expect(cropped.checks.find(c => c.id === 'framing')?.passed).toBe(true);
+      expect(cropped.problems.join(' ')).not.toMatch(/runs off the edge/i);
+      // No longer dragged down by a test that did not apply.
+      expect(cropped.score).toBeGreaterThan(uncropped.score);
+    });
+
+    it('excludes the skipped check from the score rather than scoring it zero', () => {
+      const frame = goodFrame({ marker: true });
+      const cropped = assessImageQuality(frame, W, H, { cropped: true });
+      // Weight is redistributed, so a clean cropped frame can still reach the
+      // top of the scale.
+      expect(cropped.score).toBeGreaterThan(60);
+      expect(cropped.checks.filter(c => c.skipped).length).toBe(1);
+    });
+
+    it('keeps judging everything else on a cropped frame', () => {
+      const r = assessImageQuality(blurredFrame(), W, H, { cropped: true });
+      expect(r.verdict).toBe('recapture');
+      expect(r.checks.find(c => c.id === 'focus')?.passed).toBe(false);
     });
   });
 

@@ -48,6 +48,28 @@ export interface QualityCheck {
   passed: boolean;
   /** Shown to the clinician when the check fails. Says what to do, not just what is wrong. */
   detail: string;
+  /**
+   * Set when the check cannot meaningfully be applied to this frame.
+   *
+   * A skipped check is neither a pass nor a fail: it is excluded from the
+   * score entirely and its weight redistributed, so a frame is not marked down
+   * for a test that was never valid for it.
+   */
+  skipped?: boolean;
+}
+
+/** What the caller knows about the frame that the pixels cannot reveal. */
+export interface QualityOptions {
+  /**
+   * The frame was deliberately cropped.
+   *
+   * This turns the framing check off, and it has to. That check asks whether
+   * the subject reaches the border — and a crop to the lesion guarantees that
+   * it does, because filling the frame with the lesion is the whole purpose.
+   * Left on, cropping a rejected photograph makes the rejection *more*
+   * emphatic, which is precisely backwards.
+   */
+  cropped?: boolean;
 }
 
 export interface ImageQualityReport {
@@ -293,6 +315,7 @@ export function assessImageQuality(
   data: Uint8ClampedArray,
   width: number,
   height: number,
+  options: QualityOptions = {},
 ): ImageQualityReport {
   if (!width || !height || data.length < width * height * 4) {
     return {
@@ -349,8 +372,11 @@ export function assessImageQuality(
     {
       id: 'framing',
       label: 'Framing',
-      score: rampDown(edge, T.edgeTouch.good, T.edgeTouch.max),
-      passed: edge <= T.edgeTouch.max,
+      // A cropped frame is *meant* to reach its own edges, so the test does not
+      // apply and is excluded rather than failed.
+      score: options.cropped ? 1 : rampDown(edge, T.edgeTouch.good, T.edgeTouch.max),
+      passed: options.cropped ? true : edge <= T.edgeTouch.max,
+      skipped: options.cropped === true,
       detail: 'The subject runs off the edge of the frame. Step back so the whole wound and the marker are inside the picture.',
     },
     {
@@ -367,22 +393,40 @@ export function assessImageQuality(
       // calibration stage, which measures it properly.
       score: greenRatio > 0.0008 ? 1 : 0,
       passed: greenRatio > 0.0008,
-      detail: 'No green calibration marker is visible. Place one flat beside the wound — without it the size cannot be calculated.',
+      detail:
+        'No green calibration marker is visible, so no size in centimetres can be reported. '
+        + 'Shape, colour and the clinical scales are still measurable — place a marker flat beside '
+        + 'the lesion and retake if you need dimensions.',
     },
   ];
 
+  // A skipped check contributes nothing and its weight is shared out among the
+  // rest, so excluding an inapplicable test neither rewards nor penalises the
+  // frame — it simply is not counted.
+  const counted = checks.filter(c => !c.skipped);
+  const totalWeight = counted.reduce((sum, c) => sum + WEIGHTS[c.id], 0);
   const score = Math.round(
-    checks.reduce((sum, c) => sum + c.score * WEIGHTS[c.id], 0) * 100,
+    (counted.reduce((sum, c) => sum + c.score * WEIGHTS[c.id], 0) / totalWeight) * 100,
   );
 
-  const failed = checks.filter(c => !c.passed);
+  const failed = counted.filter(c => !c.passed);
   const problems = failed.map(c => c.detail);
 
-  // Focus and obstruction are not recoverable by review — if the wound is not
-  // sharply visible there is nothing to measure, whoever looks at it. A missing
-  // marker is likewise fatal to a size in cm. Everything else can be accepted
-  // with a flag so a usable frame is not thrown away over a marginal score.
-  const fatal = failed.some(c => c.id === 'focus' || c.id === 'obstruction' || c.id === 'calibration');
+  /**
+   * Only two failures make a frame unmeasurable.
+   *
+   * If the lesion is not sharply visible, or something is covering it, there is
+   * nothing to measure and no amount of reviewing changes that.
+   *
+   * A missing calibration marker is deliberately NOT among them. It costs the
+   * dimensions and nothing else: shape descriptors are ratios and need no
+   * scale, colour is a contrast against adjacent skin in the same frame, and
+   * the clinical scales are answered by a person. Treating it as fatal made the
+   * whole uncalibrated path unreachable even though every stage downstream
+   * already handles a null scale by withholding sizes and saying so — which is
+   * the honest behaviour, and stricter than refusing the photograph outright.
+   */
+  const fatal = failed.some(c => c.id === 'focus' || c.id === 'obstruction');
 
   const verdict: QualityVerdict =
     fatal || score < 50 ? 'recapture'
@@ -393,7 +437,10 @@ export function assessImageQuality(
 }
 
 /** Convenience wrapper for a canvas, which is what the capture screen holds. */
-export function assessCanvasQuality(canvas: HTMLCanvasElement): ImageQualityReport {
+export function assessCanvasQuality(
+  canvas: HTMLCanvasElement,
+  options: QualityOptions = {},
+): ImageQualityReport {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx || !canvas.width || !canvas.height) {
     return {

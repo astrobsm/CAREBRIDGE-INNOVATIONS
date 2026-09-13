@@ -184,13 +184,20 @@ const AssessmentWizard: React.FC<Props> = ({ scar, userId, onCancel, onSaved }) 
    * longer be in the picture at all, and a scale whose evidence has been cut
    * away is not one to keep trusting.
    */
-  const processCanvas = async (canvas: HTMLCanvasElement): Promise<Prepared> => {
+  const processCanvas = async (
+    canvas: HTMLCanvasElement,
+    options: { cropped?: boolean } = {},
+  ): Promise<Prepared> => {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Could not read the photograph.');
 
     // The gate runs first: a frame that cannot be measured honestly should be
     // re-shot, or cropped, while the patient is still in front of you.
-    const quality = assessCanvasQuality(canvas);
+    //
+    // The crop flag matters. Without it the framing check asks whether the
+    // subject reaches the border — which a crop to the lesion guarantees — so
+    // cropping a rejected photograph would make the rejection worse.
+    const quality = assessCanvasQuality(canvas, { cropped: options.cropped });
 
     let pixelsPerCm: number | null = null;
     try {
@@ -238,7 +245,7 @@ const AssessmentWizard: React.FC<Props> = ({ scar, userId, onCancel, onSaved }) 
     setBusy(true);
     setError('');
     try {
-      const next = await processCanvas(canvas);
+      const next = await processCanvas(canvas, { cropped: true });
       setPrepared(next);
       setCroppedFraction(retained);
       setCropping(false);
