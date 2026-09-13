@@ -1,8 +1,7 @@
 /**
  * The 3D service boundary.
  *
- * THERE IS NO RECONSTRUCTION ENGINE IN THIS APPLICATION, AND THIS FILE DOES NOT
- * PRETEND OTHERWISE.
+ * NOTHING HERE ESTIMATES HEIGHT FROM A SINGLE FRONT-ON PHOTOGRAPH.
  *
  * Elevation and volume cannot be recovered from a single photograph. Every
  * shortcut that looks like it might — inferring height from shading, from
@@ -11,11 +10,17 @@
  * exactly the form a surgeon will act on. A fabricated 4.1 mm elevation is far
  * worse than a blank field, because a blank field cannot be believed.
  *
- * So this module exports an interface and a registry, and nothing else. Until a
- * real provider is registered — photogrammetry, LiDAR, structured light, a
- * depth camera — every 3D measurement is null and `quality` is 'unavailable'.
- * The UI shows the gap and what would fill it. The longitudinal engine skips
- * the domain. The prediction engine treats it as missing rather than zero.
+ * So this module is an interface and a registry. Until a provider is registered
+ * every 3D measurement is null and `quality` is 'unavailable': the UI shows the
+ * gap, the longitudinal engine skips the domain, and the prediction engine
+ * treats it as missing rather than zero.
+ *
+ * The provider shipped today is `profileProvider`, which measures elevation
+ * from a calibrated tangential photograph. That is a real measurement of the
+ * height presented to the camera, not an inference from a front-on view, and it
+ * reports `moderate` quality at best because it recovers no surface. A
+ * photogrammetry or depth-sensor provider can replace it through this same
+ * interface without touching the assessment workflow.
  *
  * WHAT A PROVIDER MUST DO
  * Measure elevation against a reference surface fitted to the surrounding
@@ -36,10 +41,28 @@ export interface ReconstructionFrame {
   pixelsPerCm: number | null;
 }
 
+/**
+ * A tangential view with the skin line and raised outline marked on it.
+ *
+ * Supplied when the provider measures elevation from a profile rather than
+ * recovering a surface. A reconstruction engine ignores it and uses `frames`.
+ */
+export interface ProfileCapture {
+  /** Two points along the skin line, either side of the lesion. */
+  baseline: [{ x: number; y: number }, { x: number; y: number }];
+  /** The raised outline traced on the same frame. */
+  outline: { x: number; y: number }[];
+  /** Plan-view area from the en-face photograph, for the volume estimate. */
+  planAreaCm2?: number | null;
+  /** The clinician's statement that the view was genuinely edge-on. */
+  tangentialConfirmed?: boolean;
+}
+
 export interface ReconstructionRequest {
   frames: ReconstructionFrame[];
   /** The scar boundary as traced on the primary frame, in image pixels. */
   scarPolygon?: { x: number; y: number }[];
+  profile?: ProfileCapture;
   anatomicalSite?: string;
 }
 
@@ -211,17 +234,20 @@ export function describe3DStatus(): {
   if (provider) {
     return {
       available: true,
-      headline: `3D via ${provider.name} ${provider.version}`,
-      detail: 'Elevation and volume are measured from reconstruction and recorded with their quality.',
+      headline: `Elevation via ${provider.name} ${provider.version}`,
+      detail:
+        'Capture an edge-on photograph with the marker in the same plane, mark the skin line and '
+        + 'trace the raised outline: height is then measured from the picture and recorded with its '
+        + 'quality. Surface contour and true surface area still need a reconstruction engine and '
+        + 'remain unmeasured.',
     };
   }
   return {
     available: false,
     headline: '3D measurement not configured',
     detail:
-      'Elevation, volume and surface contour need a reconstruction engine — photogrammetry, a depth '
-      + 'camera, or smartphone LiDAR. None is configured, so these are left unmeasured rather than '
-      + 'estimated. Scar height is still captured by examination on the Vancouver Scar Scale, and the '
-      + 'module reads area, shape and colour from the calibrated photograph as usual.',
+      'No provider is registered, so elevation and volume are left unmeasured rather than estimated. '
+      + 'Scar height is still captured by examination on the Vancouver Scar Scale, and the module '
+      + 'reads area, shape and colour from the calibrated photograph as usual.',
   };
 }

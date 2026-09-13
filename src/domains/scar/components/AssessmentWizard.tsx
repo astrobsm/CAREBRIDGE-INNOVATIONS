@@ -16,8 +16,8 @@
 
 import React, { lazy, Suspense, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, Camera, Check, Hand, Palette,
-  Ruler, User, ClipboardCheck,
+  AlertTriangle, ArrowLeft, ArrowRight, Camera, Check, Crop, Hand, Mountain,
+  Palette, Ruler, User, ClipboardCheck,
 } from 'lucide-react';
 import { assessCanvasQuality } from '../../../services/imageQualityService';
 import { detectCalibrationMarker } from '../../../services/woundMeasurementEngine';
@@ -28,21 +28,33 @@ import type {
 } from '../types';
 import { measureScar, suggestClassification } from '../services/scarMorphometry';
 import { analyseScarColour, describeColour } from '../services/colourAnalysis';
-import { unavailableMeasurement, describe3DStatus } from '../services/reconstruction3d';
+import {
+  unavailableMeasurement, describe3DStatus, reconstruct,
+} from '../services/reconstruction3d';
+import type { Scar3DMeasurement } from '../types';
 import { scalesFor } from '../data/scales';
 import { buildScoreEntry, saveAssessment, completenessOf, judgeQuality } from '../services/scarService';
 import ScaleForm from './ScaleForm';
+import ImageCropper from './ImageCropper';
+import ProfileMeasure from './ProfileMeasure';
+import { vssHeightFor } from '../services/profileElevation';
 
 const WoundTracer = lazy(() => import('../../../components/clinical/WoundTracer'));
 
-type Step = 'capture' | 'trace_scar' | 'trace_reference' | 'exam' | 'patient' | 'scales' | 'review';
+type Step =
+  | 'capture' | 'trace_scar' | 'trace_reference' | 'profile'
+  | 'exam' | 'patient' | 'scales' | 'review';
 
-const STEP_ORDER: Step[] = ['capture', 'trace_scar', 'trace_reference', 'exam', 'patient', 'scales', 'review'];
+const STEP_ORDER: Step[] = [
+  'capture', 'trace_scar', 'trace_reference', 'profile',
+  'exam', 'patient', 'scales', 'review',
+];
 
 const STEP_META: Record<Step, { label: string; Icon: typeof Camera }> = {
   capture: { label: 'Photograph', Icon: Camera },
   trace_scar: { label: 'Scar boundary', Icon: Ruler },
   trace_reference: { label: 'Reference skin', Icon: Palette },
+  profile: { label: 'Elevation', Icon: Mountain },
   exam: { label: 'Examination', Icon: Hand },
   patient: { label: 'Patient report', Icon: User },
   scales: { label: 'Scales', Icon: ClipboardCheck },
@@ -72,6 +84,12 @@ const AssessmentWizard: React.FC<Props> = ({ scar, userId, onCancel, onSaved }) 
   const [error, setError] = useState('');
 
   const [prepared, setPrepared] = useState<Prepared | null>(null);
+  const [cropping, setCropping] = useState(false);
+  /** Set once a crop has been applied, so the record shows the frame was cut. */
+  const [croppedFraction, setCroppedFraction] = useState<number | null>(null);
+  const [profileSrc, setProfileSrc] = useState<Prepared | null>(null);
+  const [threeD, setThreeD] = useState<Scar3DMeasurement | null>(null);
+  const [profileAnnotated, setProfileAnnotated] = useState<string | null>(null);
   const [scarTrace, setScarTrace] = useState<Trace | null>(null);
   const [scarAnnotated, setScarAnnotated] = useState<string | null>(null);
   const [referenceTrace, setReferenceTrace] = useState<Trace | null>(null);
@@ -81,6 +99,7 @@ const AssessmentWizard: React.FC<Props> = ({ scar, userId, onCancel, onSaved }) 
   const [notes, setNotes] = useState('');
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const profileFileRef = useRef<HTMLInputElement>(null);
   const isKeloid = scar.classification.clinician === 'keloid';
   const scales = useMemo(() => scalesFor(isKeloid), [isKeloid]);
 
@@ -116,8 +135,20 @@ const AssessmentWizard: React.FC<Props> = ({ scar, userId, onCancel, onSaved }) 
    * rather than accepted reflexively.
    */
   const suggestions = useMemo(() => {
-    if (!colour) return {};
     const out: Record<string, { value: number; basis: string }> = {};
+
+    // VSS height, from the profile measurement when one was taken. Offered, not
+    // applied: the scale's height item is a palpation finding, and a measured
+    // profile informs it rather than replacing it.
+    const vssHeight = vssHeightFor(threeD?.maxElevationMm ?? null);
+    if (vssHeight !== null) {
+      out.height = {
+        value: vssHeight,
+        basis: `Profile measurement: ${threeD?.maxElevationMm} mm above the marked skin line.`,
+      };
+    }
+
+    if (!colour) return out;
 
     // VSS vascularity: 0 normal, 1 pink, 2 red, 3 purple.
     const e = colour.erythemaIndex;
@@ -138,40 +169,96 @@ const AssessmentWizard: React.FC<Props> = ({ scar, userId, onCancel, onSaved }) 
     };
 
     return out;
-  }, [colour]);
+  }, [colour, threeD]);
 
   // ── Capture ───────────────────────────────────────────────────────────────
+
+  /**
+   * Gate and calibrate a frame.
+   *
+   * Everything that reaches measurement passes through here, including a
+   * cropped frame. That is the point: cropping changes the pixels the marker is
+   * detected from, so the scale has to be derived again from what remains. A
+   * pixels-per-cm carried over from the uncropped frame would still be
+   * numerically correct — cropping does not rescale — but the marker may no
+   * longer be in the picture at all, and a scale whose evidence has been cut
+   * away is not one to keep trusting.
+   */
+  const processCanvas = async (canvas: HTMLCanvasElement): Promise<Prepared> => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not read the photograph.');
+
+    // The gate runs first: a frame that cannot be measured honestly should be
+    // re-shot, or cropped, while the patient is still in front of you.
+    const quality = assessCanvasQuality(canvas);
+
+    let pixelsPerCm: number | null = null;
+    try {
+      const cal = await detectCalibrationMarker(canvas);
+      if (cal?.pixelsPerCm) pixelsPerCm = cal.pixelsPerCm;
+    } catch { /* the gate's calibration check reports this */ }
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return {
+      dataUrl: canvas.toDataURL('image/jpeg', 0.85),
+      width: canvas.width,
+      height: canvas.height,
+      pixelsPerCm,
+      quality,
+      pixels: imageData.data,
+    };
+  };
+
+  const fileToCanvas = async (file: File): Promise<HTMLCanvasElement> => {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not read the photograph.');
+    ctx.drawImage(bitmap, 0, 0);
+    return canvas;
+  };
+
   const prepare = async (file: File) => {
     setBusy(true);
     setError('');
     try {
-      const bitmap = await createImageBitmap(file);
-      const canvas = document.createElement('canvas');
-      canvas.width = bitmap.width;
-      canvas.height = bitmap.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not read the photograph.');
-      ctx.drawImage(bitmap, 0, 0);
+      setCroppedFraction(null);
+      setPrepared(await processCanvas(await fileToCanvas(file)));
+    } catch (e: any) {
+      setError(e?.message || 'Could not read the photograph.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      // The gate runs first: a frame that cannot be measured honestly should be
-      // re-shot while the patient is still in front of you.
-      const quality = assessCanvasQuality(canvas);
+  /** Re-gate and re-calibrate the cropped frame, then keep it. */
+  const applyCrop = async (canvas: HTMLCanvasElement, retained: number) => {
+    setBusy(true);
+    setError('');
+    try {
+      const next = await processCanvas(canvas);
+      setPrepared(next);
+      setCroppedFraction(retained);
+      setCropping(false);
+      // Any trace made on the previous framing no longer lines up with these
+      // pixels, so it is discarded rather than silently misplaced.
+      setScarTrace(null);
+      setReferenceTrace(null);
+      setScarAnnotated(null);
+    } catch (e: any) {
+      setError(e?.message || 'Could not crop the photograph.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      let pixelsPerCm: number | null = null;
-      try {
-        const cal = await detectCalibrationMarker(canvas);
-        if (cal?.pixelsPerCm) pixelsPerCm = cal.pixelsPerCm;
-      } catch { /* the gate's calibration check reports this */ }
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      setPrepared({
-        dataUrl: canvas.toDataURL('image/jpeg', 0.85),
-        width: canvas.width,
-        height: canvas.height,
-        pixelsPerCm,
-        quality,
-        pixels: imageData.data,
-      });
+  const prepareProfile = async (file: File) => {
+    setBusy(true);
+    setError('');
+    try {
+      setProfileSrc(await processCanvas(await fileToCanvas(file)));
     } catch (e: any) {
       setError(e?.message || 'Could not read the photograph.');
     } finally {
@@ -227,9 +314,10 @@ const AssessmentWizard: React.FC<Props> = ({ scar, userId, onCancel, onSaved }) 
           regions,
           morphometry: morphometry ?? undefined,
           colour: colour ?? undefined,
-          // No reconstruction engine is configured, so 3D is recorded as
-          // explicitly unavailable rather than left absent or zeroed.
-          threeD: unavailableMeasurement(1),
+          // Whatever the provider returned, including its refusals. When no
+          // profile was captured this is the explicit 'unavailable', never a
+          // zero and never an absent field.
+          threeD: threeD ?? unavailableMeasurement(1),
           exam: Object.keys(exam).length
             ? { ...exam, examinedBy: userId, examinedAt: new Date().toISOString() }
             : undefined,
@@ -296,7 +384,15 @@ const AssessmentWizard: React.FC<Props> = ({ scar, userId, onCancel, onSaved }) 
       )}
 
       {/* ── Capture ─────────────────────────────────────────────────────── */}
-      {step === 'capture' && (
+      {step === 'capture' && cropping && prepared && (
+        <ImageCropper
+          imageSrc={prepared.dataUrl}
+          onCancel={() => setCropping(false)}
+          onComplete={({ canvas, retainedFraction }) => applyCrop(canvas, retainedFraction)}
+        />
+      )}
+
+      {step === 'capture' && !cropping && (
         <div className="space-y-3">
           {!prepared ? (
             <>
@@ -332,27 +428,51 @@ const AssessmentWizard: React.FC<Props> = ({ scar, userId, onCancel, onSaved }) 
                   ))}
                 </ul>
                 <p className="text-xs text-red-600 mt-2">
-                  No measurement is taken from a rejected frame. Retake it now, while the patient is here.
+                  No measurement is taken from a rejected frame. Retake it, or crop to the lesion
+                  and the marker if both are actually inside the picture — a frame is often
+                  rejected only because the surrounding anatomy runs off the edge.
                 </p>
               </div>
               <img src={prepared.dataUrl} alt="Rejected frame" className="w-full rounded-lg border" />
-              <button
-                onClick={() => setPrepared(null)}
-                className="w-full py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium"
-              >
-                Retake
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPrepared(null)}
+                  className="flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium"
+                >
+                  Retake
+                </button>
+                <button
+                  onClick={() => setCropping(true)}
+                  className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-1.5"
+                >
+                  <Crop className="w-4 h-4" /> Crop to the lesion
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
               <QualityBanner quality={prepared.quality} pixelsPerCm={prepared.pixelsPerCm} />
+              {croppedFraction != null && (
+                <p className="text-xs text-gray-500">
+                  Cropped to {Math.round(croppedFraction * 100)}% of the original frame. The scale
+                  and the quality score above were both re-derived from the cropped image.
+                </p>
+              )}
               <img src={prepared.dataUrl} alt="Captured scar" className="w-full rounded-lg border" />
-              <button
-                onClick={() => setPrepared(null)}
-                className="text-xs text-indigo-600 hover:underline"
-              >
-                Retake this photograph
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setCropping(true)}
+                  className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
+                >
+                  <Crop className="w-3 h-3" /> Crop / square on the lesion
+                </button>
+                <button
+                  onClick={() => { setPrepared(null); setCroppedFraction(null); }}
+                  className="text-xs text-indigo-600 hover:underline"
+                >
+                  Retake this photograph
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -416,6 +536,89 @@ const AssessmentWizard: React.FC<Props> = ({ scar, userId, onCancel, onSaved }) 
             Skip — colour will not be analysed for this assessment
           </button>
           {colour && <ColourSummary lines={describeColour(colour)} deltaE={colour.deltaE2000} />}
+        </div>
+      )}
+
+      {/* ── Elevation from a profile view ───────────────────────────────── */}
+      {step === 'profile' && (
+        <div className="space-y-3">
+          {!profileSrc ? (
+            <div className="space-y-3">
+              <div className="bg-gray-50 border rounded-xl p-3">
+                <p className="text-sm font-medium text-gray-800">
+                  Optional: measure how far the scar stands proud of the skin.
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  Photograph the lesion <strong>edge-on</strong>, so it stands against the skin in
+                  profile, with the green marker flat in the same plane. Height is then measured
+                  from the picture rather than estimated — the same planimetry used for area,
+                  turned ninety degrees.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Skip this and elevation stays unmeasured; nothing is inferred from the front-on
+                  photograph.
+                </p>
+              </div>
+              <input
+                ref={profileFileRef} type="file" accept="image/*" capture="environment"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) prepareProfile(f); }}
+              />
+              <button
+                onClick={() => profileFileRef.current?.click()}
+                disabled={busy}
+                className="w-full py-8 border-2 border-dashed border-indigo-300 rounded-xl text-indigo-700 hover:bg-indigo-50 flex flex-col items-center gap-2 disabled:opacity-60"
+              >
+                <Mountain className="w-7 h-7" />
+                <span className="text-sm font-medium">
+                  {busy ? 'Checking the photograph…' : 'Capture the profile view'}
+                </span>
+              </button>
+              <button onClick={() => go(1)} className="text-xs text-gray-500 hover:underline">
+                Skip — no elevation measurement for this assessment
+              </button>
+            </div>
+          ) : threeD ? (
+            <ThreeDSummary
+              measurement={threeD}
+              annotated={profileAnnotated}
+              onRedo={() => { setThreeD(null); setProfileAnnotated(null); setProfileSrc(null); }}
+            />
+          ) : (
+            <>
+              <QualityBanner quality={profileSrc.quality} pixelsPerCm={profileSrc.pixelsPerCm} />
+              <ProfileMeasure
+                imageSrc={profileSrc.dataUrl}
+                pixelsPerCm={profileSrc.pixelsPerCm}
+                planAreaCm2={morphometry?.areaCm2 ?? null}
+                onCancel={() => setProfileSrc(null)}
+                onComplete={async ({ baseline, outline, tangentialConfirmed, annotatedDataUrl }) => {
+                  setBusy(true);
+                  // Goes through the registered provider rather than calling the
+                  // measurement directly, so the same quality contract applies
+                  // here as would apply to a photogrammetry engine.
+                  const result = await reconstruct({
+                    frames: [{
+                      imageId: 'profile',
+                      dataUrl: profileSrc.dataUrl,
+                      view: 'profile',
+                      pixelsPerCm: profileSrc.pixelsPerCm,
+                    }],
+                    profile: {
+                      baseline,
+                      outline,
+                      planAreaCm2: morphometry?.areaCm2 ?? null,
+                      tangentialConfirmed,
+                    },
+                    anatomicalSite: scar.anatomicalSite,
+                  });
+                  setThreeD(result);
+                  setProfileAnnotated(annotatedDataUrl);
+                  setBusy(false);
+                }}
+              />
+            </>
+          )}
         </div>
       )}
 
@@ -490,6 +693,69 @@ const AssessmentWizard: React.FC<Props> = ({ scar, userId, onCancel, onSaved }) 
 };
 
 // ── Pieces ──────────────────────────────────────────────────────────────────
+
+/**
+ * What the provider returned, shown with its quality and its caveats.
+ *
+ * A failed or low-quality reconstruction is displayed as prominently as a
+ * successful one. The whole reason the 3D field was blank until now is that an
+ * unexplained millimetre figure is worse than none, and that applies equally to
+ * one this module produced itself.
+ */
+const ThreeDSummary: React.FC<{
+  measurement: Scar3DMeasurement;
+  annotated: string | null;
+  onRedo: () => void;
+}> = ({ measurement, annotated, onRedo }) => {
+  const measured = measurement.maxElevationMm != null;
+
+  return (
+    <div className="space-y-3">
+      <div className={`rounded-xl border p-3 ${
+        measured ? 'bg-white' : 'bg-amber-50 border-amber-200'
+      }`}>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <h4 className="text-sm font-semibold text-gray-800">
+            Elevation {measured ? '' : '— not measured'}
+          </h4>
+          <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs font-medium capitalize">
+            {measurement.quality} quality
+          </span>
+        </div>
+
+        {measured && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
+            <Stat label="Max elevation" value={measurement.maxElevationMm} unit="mm" />
+            <Stat label="Mean elevation" value={measurement.meanElevationMm} unit="mm" />
+            <Stat label="Volume (estimated)" value={measurement.volumeCm3} unit="cm³" />
+            <Stat label="Surface area" value={measurement.surfaceAreaCm2} unit="cm²" />
+          </div>
+        )}
+
+        {measurement.referencePlaneMethod && (
+          <p className="text-xs text-gray-500 mt-2">
+            Reference surface: {measurement.referencePlaneMethod}.
+          </p>
+        )}
+
+        <ul className="mt-2 space-y-0.5">
+          {measurement.limitations.map((l, i) => (
+            <li key={i} className="text-xs text-amber-700">{l}</li>
+          ))}
+        </ul>
+      </div>
+
+      {annotated && (
+        <img src={annotated} alt="Profile with the measured height drawn on it"
+          className="w-full rounded-lg border" />
+      )}
+
+      <button onClick={onRedo} className="text-xs text-indigo-600 hover:underline">
+        Measure the profile again
+      </button>
+    </div>
+  );
+};
 
 const QualityBanner: React.FC<{
   quality: ReturnType<typeof assessCanvasQuality>;

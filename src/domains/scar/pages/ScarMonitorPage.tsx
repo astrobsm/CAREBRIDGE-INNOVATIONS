@@ -30,12 +30,18 @@ import {
 import { analyseDomain } from '../services/longitudinal';
 import { riskBand, PREDICTION_VALIDATION_STATUS } from '../services/scarPrediction';
 import { describe3DStatus } from '../services/reconstruction3d';
+import { configureProfileReconstruction } from '../services/profileProvider';
 import {
   SCAR_CLASSIFICATIONS, type ScarCase, type ScarClassification, type Laterality,
   type ScarTreatmentKind, type ScarAlert, type ScarPrediction,
 } from '../types';
 import ScarChart, { TrendChip } from '../components/ScarChart';
 import AssessmentWizard from '../components/AssessmentWizard';
+
+// Registered at module load so the 3D status reads the same everywhere it is
+// shown, including before any assessment has been opened. Swapping in a
+// photogrammetry or depth-sensor engine later is a change to this one line.
+configureProfileReconstruction();
 
 type View =
   | { kind: 'list' }
