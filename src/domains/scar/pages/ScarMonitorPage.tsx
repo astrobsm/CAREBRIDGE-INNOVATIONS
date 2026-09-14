@@ -13,7 +13,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertOctagon, AlertTriangle, ArrowLeft, Info, Layers, Plus,
-  RefreshCw, ScanLine, Stethoscope, Syringe, Check,
+  RefreshCw, ScanLine, Stethoscope, Syringe, Check, FileDown,
 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../database';
@@ -37,6 +37,8 @@ import {
 } from '../types';
 import ScarChart, { TrendChip } from '../components/ScarChart';
 import AssessmentWizard from '../components/AssessmentWizard';
+import ImageComparison from '../components/ImageComparison';
+import { downloadScarReport } from '../services/scarReport';
 
 // Registered at module load so the 3D status reads the same everywhere it is
 // shown, including before any assessment has been opened. Swapping in a
@@ -312,6 +314,24 @@ const ScarDashboard: React.FC<{ scarId: string; onBack: () => void }> = ({ scarI
   const [loading, setLoading] = useState(true);
   const [assessing, setAssessing] = useState(false);
   const [treating, setTreating] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const exportReport = useCallback(async () => {
+    if (!overview) return;
+    setExporting(true);
+    try {
+      // The patient block is looked up here rather than carried in the overview,
+      // so the export is the only place that pulls identifying details together.
+      const patient = await db.patients.get(overview.scar.patientId);
+      await downloadScarReport({
+        overview,
+        patient,
+        preparedBy: user ? `${user.firstName} ${user.lastName}`.trim() || user.email : undefined,
+      });
+    } finally {
+      setExporting(false);
+    }
+  }, [overview, user]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -386,7 +406,14 @@ const ScarDashboard: React.FC<{ scarId: string; onBack: () => void }> = ({ scarI
             {treatments.length > 0 && ` · ${treatments.length} treatment${treatments.length === 1 ? '' : 's'}`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={exportReport}
+            disabled={exporting}
+            className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 rounded-lg text-sm font-medium"
+          >
+            <FileDown className="w-4 h-4" /> {exporting ? 'Preparing…' : 'Report'}
+          </button>
           <button
             onClick={() => setTreating(true)}
             className="flex items-center gap-2 px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded-lg text-sm font-medium"
@@ -546,6 +573,9 @@ const ScarDashboard: React.FC<{ scarId: string; onBack: () => void }> = ({ scarI
           <p className="text-xs text-gray-600 mt-1">{threeD.detail}</p>
         </div>
       )}
+
+      {/* Baseline against current */}
+      <ImageComparison baseline={overview.baseline} latest={latest} assessments={assessments} />
 
       {/* Assessment history */}
       <div className="bg-white rounded-xl border p-4">
