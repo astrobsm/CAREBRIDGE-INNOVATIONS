@@ -17,6 +17,7 @@
     "db:setup": "node scripts/setup-db-secret.mjs",
     "db:url": "node scripts/db-url.mjs",
     "db:sql": "node scripts/db-sql.mjs",
+    "db:verify": "node scripts/db-verify.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
