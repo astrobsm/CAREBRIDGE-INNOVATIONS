@@ -16,6 +16,7 @@
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:setup": "node scripts/setup-db-secret.mjs",
     "db:url": "node scripts/db-url.mjs",
+    "db:sql": "node scripts/db-sql.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
