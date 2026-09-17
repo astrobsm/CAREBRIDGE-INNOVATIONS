@@ -26,14 +26,21 @@
 import type {
   DataOrigin, DomainChange, ScarDomain, TrendDirection,
 } from '../types';
+import {
+  safePercentChange, exceedsNoiseFloor, classifyTrend,
+  ratePerMonth, accelerationPerMonth,
+  type SeriesPoint,
+} from '../../../services/longitudinalMath';
+
+// Re-exported so this module stays the single entry point for scar callers,
+// while the arithmetic itself lives where the vascular module can share it.
+export {
+  safePercentChange, exceedsNoiseFloor, classifyTrend,
+  ratePerMonth, accelerationPerMonth,
+};
+export type { SeriesPoint };
 
 export const LONGITUDINAL_VERSION = 'longitudinal-1.0.0';
-
-/** One domain's value at one point in time. */
-export interface SeriesPoint {
-  at: string;
-  value: number;
-}
 
 export interface DomainSpec {
   domain: ScarDomain;
@@ -110,112 +117,6 @@ export const DOMAIN_SPECS: Record<ScarDomain, DomainSpec> = {
 };
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
-const DAY_MS = 86_400_000;
-
-const daysBetween = (a: string, b: string): number =>
-  (new Date(b).getTime() - new Date(a).getTime()) / DAY_MS;
-
-/**
- * Percentage change, or null when the baseline is too small to divide by.
- *
- * Returning null is the point. A percentage computed against a near-zero
- * denominator is arithmetically valid and clinically misleading, and it is the
- * figure most likely to be quoted out of the report.
- */
-export function safePercentChange(
-  from: number,
-  to: number,
-  floor: number,
-): number | null {
-  if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
-  if (Math.abs(from) < floor) return null;
-  return round2(((to - from) / Math.abs(from)) * 100);
-}
-
-/**
- * Is this difference bigger than the method's own noise?
- *
- * Not a claim of clinical importance — only that the measurement can tell the
- * two values apart.
- */
-export function exceedsNoiseFloor(spec: DomainSpec, from: number, to: number): boolean {
-  const delta = Math.abs(to - from);
-  if (spec.noiseFloorAbsolute != null) return delta >= spec.noiseFloorAbsolute;
-  if (spec.noiseFloorRelative != null) {
-    const base = Math.abs(from);
-    if (base === 0) return delta > 0;
-    return delta / base >= spec.noiseFloorRelative;
-  }
-  return delta > 0;
-}
-
-/**
- * Classify a domain's direction over its whole series.
- *
- * 'fluctuating' exists so that a scar swinging up and down is not reported as
- * stable because its endpoints happen to match. A scar that has been up, down
- * and up again is telling you something, and averaging it away loses it.
- */
-export function classifyTrend(spec: DomainSpec, series: SeriesPoint[]): TrendDirection {
-  const pts = series.filter(p => Number.isFinite(p.value));
-  if (pts.length < 2) return 'indeterminate';
-
-  const first = pts[0];
-  const last = pts[pts.length - 1];
-
-  // Direction of each step, ignoring steps within the noise floor.
-  const steps: number[] = [];
-  for (let i = 1; i < pts.length; i++) {
-    const from = pts[i - 1].value;
-    const to = pts[i].value;
-    if (!exceedsNoiseFloor(spec, from, to)) { steps.push(0); continue; }
-    steps.push(to > from ? 1 : -1);
-  }
-
-  const ups = steps.filter(s => s === 1).length;
-  const downs = steps.filter(s => s === -1).length;
-
-  // Both directions present, more than once: genuinely unsettled.
-  if (ups > 0 && downs > 0 && pts.length >= 3) return 'fluctuating';
-
-  if (!exceedsNoiseFloor(spec, first.value, last.value)) return 'stable';
-
-  const rose = last.value > first.value;
-  const better = spec.lowerIsBetter ? !rose : rose;
-  return better ? 'improving' : 'worsening';
-}
-
-/**
- * Rate of change per 30 days over the most recent interval.
- *
- * The latest interval rather than a fit over everything: a keloid that was
- * quiet for six months and has grown in the last fortnight should report the
- * fortnight. A slope through the whole series would dilute exactly the signal
- * that matters.
- */
-export function ratePerMonth(series: SeriesPoint[]): number | null {
-  if (series.length < 2) return null;
-  const a = series[series.length - 2];
-  const b = series[series.length - 1];
-  const days = daysBetween(a.at, b.at);
-  if (!Number.isFinite(days) || days <= 0) return null;
-  return round2(((b.value - a.value) / days) * 30);
-}
-
-/**
- * Change in the rate itself, between the last two intervals.
- *
- * A keloid accelerating from +0.4 to +1.5 cm²/month is a different clinical
- * situation from one growing steadily, and the acceleration is what separates
- * them. Needs three points; below that it returns null rather than guessing.
- */
-export function accelerationPerMonth(series: SeriesPoint[]): number | null {
-  if (series.length < 3) return null;
-  const recent = ratePerMonth(series);
-  const earlier = ratePerMonth(series.slice(0, -1));
-  if (recent === null || earlier === null) return null;
-  return round2(recent - earlier);
-}
 
 /**
  * Build the full change record for one domain.

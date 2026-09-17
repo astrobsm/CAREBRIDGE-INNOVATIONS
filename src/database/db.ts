@@ -7,6 +7,9 @@ import type {
   ScarCase, ScarAssessment, ScarTreatment, ScarAlert,
 } from '../domains/scar/types';
 import type {
+  PadAssessment, VascularIntervention,
+} from '../domains/vascular/types';
+import type {
   User,
   Hospital,
   Patient,
@@ -253,6 +256,11 @@ export class AstroHEALTHDatabase extends Dexie {
   scarAssessments!: Table<ScarAssessment, string>;
   scarTreatments!: Table<ScarTreatment, string>;
   scarAlerts!: Table<ScarAlert, string>;
+
+  // Peripheral arterial disease. One assessment per limb, so a patient with
+  // bilateral disease carries two independent trajectories.
+  padAssessments!: Table<PadAssessment, string>;
+  vascularInterventions!: Table<VascularIntervention, string>;
   woundAssessments!: Table<WoundAssessment, string>;
   // Tumour Board — oncology cases + append-only staging timeline and artefacts
   tumourBoardCases!: Table<TumourBoardCase, string>;
@@ -437,6 +445,11 @@ export class AstroHEALTHDatabase extends Dexie {
       scarAssessments: 'id, scarId, patientId, assessedAt, status, isBaseline, createdAt, updatedAt',
       scarTreatments: 'id, scarId, patientId, kind, administeredAt, createdAt, updatedAt',
       scarAlerts: 'id, scarId, patientId, assessmentId, kind, priority, createdAt, updatedAt',
+    });
+
+    this.version(86).stores({
+      padAssessments: 'id, patientId, hospitalId, side, assessedAt, status, isBaseline, createdAt, updatedAt',
+      vascularInterventions: 'id, patientId, side, kind, performedAt, createdAt, updatedAt',
     });
   }
 }

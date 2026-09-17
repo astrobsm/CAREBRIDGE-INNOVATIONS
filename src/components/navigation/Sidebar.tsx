@@ -182,6 +182,12 @@ const navigation: NavItem[] = [
     icon: <Footprints size={20} />,
     permission: 'manage_wounds',
   },
+  {
+    name: 'PAD / Limb Ischaemia',
+    href: '/vascular',
+    icon: <HeartPulse size={20} />,
+    permission: 'manage_wounds',
+  },
   { 
     name: 'NPWT', 
     href: '/npwt', 
@@ -422,6 +428,7 @@ const SECTION_BY_HREF: Record<string, string> = {
   '/wound-monitor': 'wound-care',
   '/skin-graft': 'wound-care',
   '/scar-monitor': 'wound-care',
+  '/vascular': 'wound-care',
   '/burns': 'wound-care',
   '/limb-salvage': 'wound-care',
   '/npwt': 'wound-care',

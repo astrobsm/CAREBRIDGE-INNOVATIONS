@@ -30,6 +30,7 @@ import PostOpNoteFormPage from './domains/surgery/pages/PostOpNoteFormPage';
 import WoundProgressMonitorPage from './domains/wounds/pages/WoundProgressMonitorPage';
 import SkinGraftMonitorPage from './domains/skin-graft/pages/SkinGraftMonitorPage';
 import ScarMonitorPage from './domains/scar/pages/ScarMonitorPage';
+import VascularAssessmentPage from './domains/vascular/pages/VascularAssessmentPage';
 import TumourBoardPage from './domains/tumour-board/pages/TumourBoardPage';
 import ClinicianAssistantPage from './domains/clinician-assistant/pages/ClinicianAssistantPage';
 import BurnsAssessmentPage from './domains/burns/pages/BurnsAssessmentPage';
@@ -254,6 +255,7 @@ function App() {
         <Route path="wound-monitor" element={<WoundProgressMonitorPage />} />
         <Route path="skin-graft" element={<SkinGraftMonitorPage />} />
         <Route path="scar-monitor" element={<ScarMonitorPage />} />
+        <Route path="vascular" element={<VascularAssessmentPage />} />
         <Route path="burns" element={<BurnsAssessmentPage />} />
         <Route path="limb-salvage" element={<LimbSalvagePage />} />
         <Route path="npwt" element={<NPWTPage />} />
