@@ -47,6 +47,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import PreviousPlansReviewGuard, { type AckSummary } from '../../../components/clinical/PreviousPlansReviewGuard';
 import { VoiceDictation, ExportOptionsModal } from '../../../components/common';
+import StructuredHistory, { type StructuredHistoryValue } from '../components/StructuredHistory';
+import { TEMPLATE_VERSION } from '../services/templateEngine';
 import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
 import AISummaryButton from '../components/AISummaryButton';
 import TrackedInvestigations from '../components/TrackedInvestigations';
@@ -423,6 +425,17 @@ export default function ClinicalEncounterPage() {
     e.target.value = '';
   }, [handleMedicalScribe]);
 
+  /**
+   * The guided history.
+   *
+   * Default on, because the structure is the point — but a single toggle turns
+   * it off, and the free-text fields underneath are untouched either way. A
+   * clinician who prefers to type, or who has a presentation the templates do
+   * not fit, loses nothing.
+   */
+  const [useGuided, setUseGuided] = useState(true);
+  const [structured, setStructured] = useState<StructuredHistoryValue | null>(null);
+
   const chiefComplaint = watch('chiefComplaint') || '';
   const historyOfPresentIllness = watch('historyOfPresentIllness') || '';
   const pastMedicalHistory = watch('pastMedicalHistory') || '';
@@ -525,6 +538,20 @@ export default function ClinicalEncounterPage() {
         isFirstEncounter: isInitialEncounter,
         chiefComplaint: data.chiefComplaint,
         historyOfPresentIllness: data.historyOfPresentIllness,
+        // Stored beside the prose, never instead of it: the narrative is what
+        // every existing reader consumes, and this is what makes the encounter
+        // queryable later.
+        structuredHistory: structured
+          ? {
+              templateId: structured.templateId,
+              templateVersion: TEMPLATE_VERSION,
+              complaintId: structured.complaintId,
+              complaintOther: structured.complaintOther,
+              answers: structured.answers,
+              otherText: structured.otherText,
+              completedAt: new Date().toISOString(),
+            }
+          : undefined,
         pastMedicalHistory: data.pastMedicalHistory,
         pastSurgicalHistory: data.pastSurgicalHistory,
         familyHistory: data.familyHistory,
@@ -1170,6 +1197,41 @@ export default function ClinicalEncounterPage() {
               <h2 className="font-semibold text-gray-900">Clinical History</h2>
             </div>
             <div className="card-body space-y-4">
+              {/* Guided history. Its output is written into the fields below,
+                  so everything downstream — the PDF, the summary, the letter —
+                  reads exactly as it always has. */}
+              <div className="flex items-center justify-between gap-3 pb-3 border-b">
+                <div>
+                  <span className="text-sm font-medium text-gray-800">Guided history</span>
+                  <p className="text-xs text-gray-500">
+                    Pick the complaint and the relevant history appears. It writes the note for you.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUseGuided((g) => !g)}
+                  className={useGuided
+                    ? 'px-3 py-1.5 rounded-lg text-xs font-medium border bg-sky-600 text-white border-sky-600'
+                    : 'px-3 py-1.5 rounded-lg text-xs font-medium border bg-white text-gray-600 border-gray-200'}
+                >
+                  {useGuided ? 'On' : 'Off — type freely'}
+                </button>
+              </div>
+
+              {useGuided && (
+                <StructuredHistory
+                  value={structured}
+                  onChange={setStructured}
+                  onNarrative={(n) => {
+                    // Only ever writes what the template produced. An empty
+                    // section leaves the existing field alone rather than
+                    // wiping something the clinician typed by hand.
+                    if (n.chiefComplaint) setValue('chiefComplaint', n.chiefComplaint);
+                    if (n.history) setValue('historyOfPresentIllness', n.history);
+                  }}
+                />
+              )}
+
               <VoiceDictation
                 label="History of Present Illness"
                 value={historyOfPresentIllness}

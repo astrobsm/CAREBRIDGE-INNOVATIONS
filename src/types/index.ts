@@ -224,6 +224,23 @@ export interface ClinicalEncounter {
   lmp?: string;                      // Last Menstrual Period (compulsory for female patients)
   developmentalHistory?: string;    // For pediatric patients
   
+  /**
+   * The guided history, when one was used.
+   *
+   * Stored beside the prose above, never instead of it. Every existing reader
+   * consumes the free-text fields and is unaffected; this is what makes an
+   * encounter queryable, comparable and auditable afterwards.
+   */
+  structuredHistory?: {
+    templateId: string;
+    templateVersion: string;
+    complaintId: string;
+    complaintOther?: string;
+    answers: Record<string, string | string[] | number | boolean | null>;
+    otherText?: Record<string, string>;
+    completedAt: string;
+  };
+
   // Follow-up encounter specific
   intervalHistory?: string;          // Changes since last visit
   complianceAssessment?: string;     // Medication/treatment compliance
