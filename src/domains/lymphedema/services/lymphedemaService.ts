@@ -57,12 +57,30 @@ import type {
  * Stage 2 late: Fibrotic - tissue fibrosis, non-pitting
  * Stage 3: Lymphostatic elephantiasis - marked increase, skin changes, trophic changes
  */
+/**
+ * Volume comparisons that treat "unknown" as unknown.
+ *
+ * Volume excess is genuinely undeterminable in bilateral disease with no
+ * baseline — see limbVolume.ts. Passing 0 in that case silently satisfied every
+ * "less than" branch and failed every "greater than" one, which staged severe
+ * bilateral patients as having no volume excess at all. A null now fails every
+ * comparison instead, so the criterion simply does not fire and the stage rests
+ * on the findings that were actually observed.
+ */
+const volOver = (v: number | null | undefined, threshold: number): boolean =>
+  typeof v === 'number' && v > threshold;
+const volAtLeast = (v: number | null | undefined, threshold: number): boolean =>
+  typeof v === 'number' && v >= threshold;
+const volBetween = (v: number | null | undefined, lo: number, hi: number): boolean =>
+  typeof v === 'number' && v > lo && v < hi;
+
 export function determineISLStage(
   pittingGrade: PittingGrade,
   tissueConsistency: TissueConsistency,
   limbElevationResponse: 'reduces_significantly' | 'reduces_partially' | 'no_change',
   skinConditions: SkinCondition[],
-  volumeExcessPercent: number,
+  /** Null when it could not be determined — never conflated with zero. */
+  volumeExcessPercent: number | null,
   stemmerSign: StemmerSignResult
 ): ISLStage {
   const hasTrophicChanges = skinConditions.some(s =>
@@ -75,9 +93,9 @@ export function determineISLStage(
 
   // Stage 3: Elephantiasis
   if (
-    (volumeExcessPercent > 40 && hasTrophicChanges) ||
+    (volOver(volumeExcessPercent, 40) && hasTrophicChanges) ||
     skinConditions.includes('elephantiasis_verrucosa') ||
-    (hasFibrosis && hasSignificantSkinChanges && volumeExcessPercent > 40)
+    (hasFibrosis && hasSignificantSkinChanges && volOver(volumeExcessPercent, 40))
   ) {
     return 3;
   }
@@ -94,7 +112,7 @@ export function determineISLStage(
   // Stage 2: Pitting or non-pitting, doesn't fully resolve with elevation
   if (
     limbElevationResponse !== 'reduces_significantly' &&
-    volumeExcessPercent >= 20
+    volAtLeast(volumeExcessPercent, 20)
   ) {
     return 2;
   }
@@ -126,7 +144,8 @@ export function determineISLStage(
  */
 export function determineCampisiStage(
   islStage: ISLStage,
-  volumeExcessPercent: number,
+  /** Null when it could not be determined — never conflated with zero. */
+  volumeExcessPercent: number | null,
   limbElevationResponse: 'reduces_significantly' | 'reduces_partially' | 'no_change',
   episodesOfCellulitis: number,
   tissueConsistency: TissueConsistency,
@@ -136,20 +155,20 @@ export function determineCampisiStage(
   const hasSevereElephant = skinConditions.includes('elephantiasis_verrucosa');
 
   if (hasSevereElephant && functionalImpairment >= 3) return 'V';
-  if (hasSevereElephant || (islStage === 3 && volumeExcessPercent > 60)) return 'IV';
+  if (hasSevereElephant || (islStage === 3 && volOver(volumeExcessPercent, 60))) return 'IV';
   if (
     (tissueConsistency === 'fibrotic' || tissueConsistency === 'woody_hard') &&
     limbElevationResponse === 'no_change'
   ) return 'IIIB';
   if (
     limbElevationResponse === 'no_change' &&
-    (episodesOfCellulitis >= 2 || volumeExcessPercent > 30)
+    (episodesOfCellulitis >= 2 || volOver(volumeExcessPercent, 30))
   ) return 'IIIA';
   if (
     limbElevationResponse !== 'no_change' &&
-    volumeExcessPercent >= 10
+    volAtLeast(volumeExcessPercent, 10)
   ) return 'II';
-  if (volumeExcessPercent > 0 && volumeExcessPercent < 10) return 'IB';
+  if (volBetween(volumeExcessPercent, 0, 10)) return 'IB';
   return 'IA';
 }
 
@@ -216,19 +235,29 @@ export function calculateLimbVolume(
  * 0-4: Minimal | 5-8: Mild | 9-12: Moderate | 13-16: Severe | 17-20: Elephantiasis
  */
 export function calculateSeverityScore(
-  volumeExcessPercent: number,
+  /** Null when undeterminable; scored as absent rather than as zero excess. */
+  volumeExcessPercent: number | null,
   skinConditions: SkinCondition[],
   tissueConsistency: TissueConsistency,
   episodesOfCellulitisPerYear: number,
   functionalLimitation: number // 0-4
 ): LymphedemaSeverityScore {
-  // Volume excess score (0-4)
-  let volumeScore: number;
-  if (volumeExcessPercent < 10) volumeScore = 0;
-  else if (volumeExcessPercent < 20) volumeScore = 1;
-  else if (volumeExcessPercent < 30) volumeScore = 2;
-  else if (volumeExcessPercent < 50) volumeScore = 3;
-  else volumeScore = 4;
+  // Volume excess score (0-4).
+  //
+  // An undeterminable volume contributes nothing rather than scoring zero.
+  // Zero would assert that the limb has no excess, which is precisely what
+  // is not known in bilateral disease without a baseline — and it would drag
+  // the composite severity down for the patients least able to afford it.
+  const volumeKnown = typeof volumeExcessPercent === 'number';
+  let volumeScore = 0;
+  if (volumeKnown) {
+    const v = volumeExcessPercent as number;
+    if (v < 10) volumeScore = 0;
+    else if (v < 20) volumeScore = 1;
+    else if (v < 30) volumeScore = 2;
+    else if (v < 50) volumeScore = 3;
+    else volumeScore = 4;
+  }
 
   // Skin changes score (0-4)
   let skinScore = 0;
@@ -368,7 +397,7 @@ export function generateCDTIntensivePlan(
   assessment: {
     islStage: ISLStage;
     affectedLimb: LymphedemaLimb;
-    volumeExcessPercent: number;
+    volumeExcessPercent: number | null;
     skinConditions: SkinCondition[];
     tissueConsistency: TissueConsistency;
     severity: LymphedemaSeverity;
@@ -826,7 +855,7 @@ export function evaluateDebulkingCandidacy(
   assessment: {
     islStage: ISLStage;
     tissueConsistency: TissueConsistency;
-    volumeExcessPercent: number;
+    volumeExcessPercent: number | null;
     volumeExcessMl: number;
     episodesOfCellulitisPerYear: number;
     functionalImpairment: number;
@@ -881,7 +910,7 @@ export function generateSurgicalPlan(
     affectedLimb: LymphedemaLimb;
     islStage: ISLStage;
     volumeExcessMl: number;
-    volumeExcessPercent: number;
+    volumeExcessPercent: number | null;
     skinConditions: SkinCondition[];
     severity: LymphedemaSeverity;
   },

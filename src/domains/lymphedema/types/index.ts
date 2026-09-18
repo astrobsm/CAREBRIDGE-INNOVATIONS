@@ -211,7 +211,14 @@ export interface LymphedemaAssessment {
 // ==========================================
 
 export interface LymphedemaSeverityScore {
-  volumeExcessPercent: number;        // 0–20 mild, 20–40 moderate, >40 severe
+  /**
+   * Excess volume over the comparator, as a percentage.
+   *
+   * Null when it could not be determined — bilateral disease with no earlier
+   * volume being the ordinary case, since neither limb is then a control. Null
+   * and zero are different findings and are stored differently.
+   */
+  volumeExcessPercent: number | null; // 0–20 mild, 20–40 moderate, >40 severe
   skinChangesScore: number;           // 0-4
   tissueConsistencyScore: number;     // 0-4
   infectionFrequencyScore: number;    // 0-4
@@ -493,7 +500,7 @@ export interface DebulkingCriteria {
   // Additional factors
   skinChangesScore: number;             // Severity of papillomatosis/verrucae
   volumeExcessMl: number;
-  volumeExcessPercent: number;
+  volumeExcessPercent: number | null;
   frequencyOfCellulitisPerYear: number;
   functionalDebt: string;              // Description of functional limitation
   psychosocialImpact: string;

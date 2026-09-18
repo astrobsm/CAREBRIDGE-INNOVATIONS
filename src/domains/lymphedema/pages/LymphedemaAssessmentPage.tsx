@@ -11,6 +11,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import toast from 'react-hot-toast';
+import BilateralMeasurements, {
+  type BilateralMeasurementValue,
+} from '../components/BilateralMeasurements';
+import { type VolumeAssessment } from '../services/limbVolume';
 import {
   Activity,
   Clipboard,
@@ -30,7 +34,6 @@ import {
 import {
   determineISLStage,
   determineCampisiStage,
-  calculateLimbVolume,
   calculateSeverityScore,
   calculateFunctionalImpactScore,
   calculateQualityOfLifeScore,
@@ -41,8 +44,6 @@ import {
   generateSurgicalPlan,
   generateTreatmentTimeline,
   generateMonitoringAlerts,
-  UPPER_LIMB_MEASUREMENT_POINTS,
-  LOWER_LIMB_MEASUREMENT_POINTS,
 } from '../services/lymphedemaService';
 
 import { PatientSelector } from '../../../components/patient';
@@ -68,7 +69,6 @@ import type {
   StemmerSignResult,
   LymphedemaEtiology,
   LymphedemaLimb,
-  LimbMeasurement,
   LymphedemaMonitoringRecord,
   InfectionControlPlan,
 } from '../types';
@@ -182,11 +182,18 @@ export default function LymphedemaAssessmentPage() {
   const [surgicalPlan, setSurgicalPlan] = useState<SurgicalPlan | null>(null);
   const [infectionPlan, setInfectionPlan] = useState<InfectionControlPlan | null>(null);
   const [treatmentTimeline, setTreatmentTimeline] = useState<TreatmentTimeline | null>(null);
-  const [volumeExcessPercent, setVolumeExcessPercent] = useState(0);
+  /**
+   * Excess volume, which is genuinely unknown in bilateral disease with no
+   * baseline. Null rather than 0 — the two used to be conflated, and a severe
+   * bilateral patient was staged as having no excess at all.
+   */
+  const [volumeExcessPercent, setVolumeExcessPercent] = useState<number | null>(null);
+  const [volumeAssessment, setVolumeAssessment] = useState<VolumeAssessment | null>(null);
+  const [limbMeasurements, setLimbMeasurements] = useState<BilateralMeasurementValue>({
+    right: {}, left: {}, affected: { right: false, left: false },
+  });
   
   // Measurement tracking
-  const [affectedMeasurements, setAffectedMeasurements] = useState<LimbMeasurement[]>([]);
-  const [contralateralMeasurements, setContralateralMeasurements] = useState<LimbMeasurement[]>([]);
   
   // Monitoring records (demo data placeholder)
   const [monitoringRecords] = useState<LymphedemaMonitoringRecord[]>([]);
@@ -233,39 +240,14 @@ export default function LymphedemaAssessmentPage() {
 
   const watchedLimb = watch('affectedLimb');
   const isUpperLimb = watchedLimb?.includes('upper');
-  const measurementPoints = isUpperLimb ? UPPER_LIMB_MEASUREMENT_POINTS : LOWER_LIMB_MEASUREMENT_POINTS;
-
-  const updateMeasurement = useCallback((index: number, value: number, isContralateral: boolean) => {
-    const setter = isContralateral ? setContralateralMeasurements : setAffectedMeasurements;
-    setter(prev => {
-      const updated = [...prev];
-      const point = measurementPoints[index];
-      updated[index] = {
-        locationName: point.locationName,
-        circumferenceCm: value,
-        distanceFromLandmarkCm: point.distanceFromLandmarkCm,
-        landmark: point.landmark,
-        measuredAt: new Date(),
-      };
-      return updated;
-    });
-  }, [measurementPoints]);
 
   const onSubmit = useCallback(async (data: AssessmentFormData) => {
     try {
-      // Calculate volume
-      const validAffected = affectedMeasurements.filter(m => m && m.circumferenceCm > 0);
-      const validContra = contralateralMeasurements.filter(m => m && m.circumferenceCm > 0);
-      
-      let volExcess = 0;
-      let volExcessMl = 0;
-      
-      if (validAffected.length >= 2) {
-        const volumeCalc = calculateLimbVolume(validAffected, validContra.length >= 2 ? validContra : undefined);
-        volExcess = volumeCalc.volumeDifferencePercent;
-        volExcessMl = volumeCalc.volumeDifferenceMl;
-        setVolumeExcessPercent(volExcess);
-      }
+      // Volume comes from the side-aware comparison, which returns null when
+      // the laterality does not support one — bilateral disease with no
+      // baseline being the ordinary case.
+      const volExcess: number | null = volumeAssessment?.excessPercent ?? null;
+      const volExcessMl: number = volumeAssessment?.excessMl ?? 0;
 
       // ISL Stage
       const isl = determineISLStage(
@@ -397,7 +379,7 @@ export default function LymphedemaAssessmentPage() {
       console.error('Assessment error:', error);
       toast.error('Error processing assessment. Check inputs.');
     }
-  }, [affectedMeasurements, contralateralMeasurements]);
+  }, [volumeAssessment]);
 
   // ==================== RENDER ====================
 
@@ -576,60 +558,18 @@ export default function LymphedemaAssessmentPage() {
             </div>
 
             {/* Measurements */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <Ruler className="w-5 h-5 text-primary" />
-                Circumferential Measurements (cm)
-              </h2>
-              <p className="text-sm text-gray-500 mb-4">
-                Measure at standardised points. Enter both affected and contralateral limb for accurate volume comparison.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="text-left p-2 text-xs font-semibold text-gray-500">Location</th>
-                      <th className="text-right p-2 text-xs font-semibold text-gray-500">Affected (cm)</th>
-                      <th className="text-right p-2 text-xs font-semibold text-gray-500">Contralateral (cm)</th>
-                      <th className="text-right p-2 text-xs font-semibold text-gray-500">Difference</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {measurementPoints.map((point, i) => {
-                      const affected = affectedMeasurements[i]?.circumferenceCm || 0;
-                      const contra = contralateralMeasurements[i]?.circumferenceCm || 0;
-                      const diff = affected && contra ? (affected - contra).toFixed(1) : '—';
-                      return (
-                        <tr key={i} className="border-b border-gray-100">
-                          <td className="p-2 text-gray-700">{point.locationName}</td>
-                          <td className="p-2">
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              className="w-20 p-1 border border-gray-300 rounded text-sm text-right"
-                              onChange={(e) => updateMeasurement(i, parseFloat(e.target.value) || 0, false)}
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              className="w-20 p-1 border border-gray-300 rounded text-sm text-right"
-                              onChange={(e) => updateMeasurement(i, parseFloat(e.target.value) || 0, true)}
-                            />
-                          </td>
-                          <td className={`p-2 text-right font-medium ${parseFloat(diff) > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                            {diff}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <BilateralMeasurements
+              region={isUpperLimb ? 'upper' : 'lower'}
+              value={limbMeasurements}
+              onChange={setLimbMeasurements}
+              onAssessment={(a) => {
+                setVolumeAssessment(a);
+                // Null when the comparison is not determinable — passed through
+                // as null so staging declines the criterion rather than reading
+                // it as zero excess.
+                setVolumeExcessPercent(a.excessPercent);
+              }}
+            />
 
             {/* Functional Impact */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -742,7 +682,18 @@ export default function LymphedemaAssessmentPage() {
                   </div>
                   <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                     <span className="text-xs font-semibold text-purple-600">Volume Excess</span>
-                    <p className="text-2xl font-bold text-purple-800">{volumeExcessPercent.toFixed(1)}%</p>
+                    {volumeExcessPercent == null ? (
+                      <>
+                        <p className="text-2xl font-bold text-gray-400">&mdash;</p>
+                        <p className="text-[11px] text-purple-700">
+                          Not determinable from the measurements recorded
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-2xl font-bold text-purple-800">
+                        {volumeExcessPercent.toFixed(1)}%
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
