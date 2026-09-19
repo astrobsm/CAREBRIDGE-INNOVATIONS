@@ -43,23 +43,59 @@ import { EntryTrackingBadge } from '../../../components/common';
 import type { EntryTrackingInfo } from '../../../components/common';
 import type { VitalSigns, User } from '../../../types';
 import { format } from 'date-fns';
-import { convertGlucose, type GlucoseUnit } from '../../../services/bloodGlucoseService';
+import type { GlucoseUnit } from '../../../services/bloodGlucoseService';
+import {
+  parseGlucoseEntry,
+  glucoseLimits,
+  fastingHint,
+  placeholderFor,
+  displayGlucose,
+  loadGlucoseUnitPreference,
+  saveGlucoseUnitPreference,
+} from '../../../services/glucoseEntry';
 
-const vitalsSchema = z.object({
-  temperature: z.number().min(30).max(45),
-  pulse: z.number().min(20).max(250),
-  respiratoryRate: z.number().min(5).max(60),
-  bloodPressureSystolic: z.number().min(50).max(300),
-  bloodPressureDiastolic: z.number().min(30).max(200),
-  oxygenSaturation: z.number().min(50).max(100),
-  weight: z.number().min(0.5).max(500).optional(),
-  height: z.number().min(20).max(300).optional(),
-  painScore: z.number().min(0).max(10).optional(),
-  bloodGlucose: z.number().min(0).max(50).optional(),
-  notes: z.string().optional(),
-  vitalsTakenDate: z.string().min(1, 'Date is required'),
-  vitalsTakenTime: z.string().min(1, 'Time is required'),
-});
+/**
+ * Registration options for an optional numeric field.
+ *
+ * valueAsNumber turns a cleared input into NaN, and z.number() rejects NaN even
+ * behind .optional() — so leaving weight, height, pain score or glucose blank
+ * failed the whole form, with no message against any visible field. A blank
+ * field has to arrive as undefined.
+ */
+const optionalNumberField = {
+  setValueAs: (v: unknown) =>
+    v === '' || v === null || v === undefined ? undefined : Number(v),
+};
+
+const vitalsSchema = z
+  .object({
+    temperature: z.number().min(30).max(45),
+    pulse: z.number().min(20).max(250),
+    respiratoryRate: z.number().min(5).max(60),
+    bloodPressureSystolic: z.number().min(50).max(300),
+    bloodPressureDiastolic: z.number().min(30).max(200),
+    oxygenSaturation: z.number().min(50).max(100),
+    weight: z.number().min(0.5).max(500).optional(),
+    height: z.number().min(20).max(300).optional(),
+    painScore: z.number().min(0).max(10).optional(),
+    // Range-checked against the selected unit in the refinement below, because
+    // the limits for mmol/L and mg/dL are eighteen-fold apart.
+    bloodGlucose: z.number().optional(),
+    bloodGlucoseUnit: z.enum(['mmol/L', 'mg/dL']),
+    notes: z.string().optional(),
+    vitalsTakenDate: z.string().min(1, 'Date is required'),
+    vitalsTakenTime: z.string().min(1, 'Time is required'),
+  })
+  .superRefine((data, ctx) => {
+    const entry = parseGlucoseEntry(data.bloodGlucose ?? null, data.bloodGlucoseUnit);
+    if (entry.status === 'error') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['bloodGlucose'],
+        message: entry.error ?? 'Check this blood glucose reading.',
+      });
+    }
+  });
 
 type VitalsFormData = z.infer<typeof vitalsSchema>;
 
@@ -70,7 +106,8 @@ export default function VitalsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCharts, setShowCharts] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [bloodGlucoseUnit, setBloodGlucoseUnit] = useState<GlucoseUnit>('mmol/L');
+  // Which unit the reader of the Previous Readings list wants to see. Follows
+  // whatever is selected for entry.
 
   const patient = useLiveQuery(
     () => patientId ? db.patients.get(patientId) : undefined,
@@ -171,6 +208,7 @@ export default function VitalsPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<VitalsFormData>({
     resolver: zodResolver(vitalsSchema),
@@ -181,6 +219,8 @@ export default function VitalsPage() {
       bloodPressureSystolic: 120,
       bloodPressureDiastolic: 80,
       oxygenSaturation: 98,
+      // Start in whichever unit this user last worked in.
+      bloodGlucoseUnit: loadGlucoseUnitPreference(),
       vitalsTakenDate: defaultDate,
       vitalsTakenTime: defaultTime,
     },
@@ -188,6 +228,26 @@ export default function VitalsPage() {
 
   const weight = watch('weight');
   const height = watch('height');
+
+  const bloodGlucoseUnit = watch('bloodGlucoseUnit') as GlucoseUnit;
+  const bloodGlucoseValue = watch('bloodGlucose');
+
+  useEffect(() => {
+    saveGlucoseUnitPreference(bloodGlucoseUnit);
+  }, [bloodGlucoseUnit]);
+
+  /**
+   * Live read of what has been typed, in the unit selected. Drives the
+   * conversion line, the range error and the unit-confusion prompt — and is the
+   * same function the resolver and the save path use, so the three cannot
+   * disagree about what is acceptable.
+   */
+  const glucoseEntry = useMemo(
+    () => parseGlucoseEntry(bloodGlucoseValue ?? null, bloodGlucoseUnit),
+    [bloodGlucoseValue, bloodGlucoseUnit],
+  );
+
+  const glucoseRange = glucoseLimits(bloodGlucoseUnit);
 
   const calculateBMI = (): number | undefined => {
     if (weight && height) {
@@ -261,12 +321,10 @@ export default function VitalsPage() {
         height: data.height,
         bmi,
         painScore: data.painScore,
-        // Store blood glucose in mmol/L (convert if entered in mg/dL)
-        bloodGlucose: data.bloodGlucose 
-          ? (bloodGlucoseUnit === 'mg/dL' 
-              ? convertGlucose(data.bloodGlucose, 'mg/dL', 'mmol/L') 
-              : data.bloodGlucose)
-          : undefined,
+        // Stored canonically in mmol/L, whichever unit it was entered in.
+        // parseGlucoseEntry did the conversion and the range check already; a
+        // reading it did not accept is not written.
+        bloodGlucose: glucoseEntry.status === 'ok' ? glucoseEntry.mmolL ?? undefined : undefined,
         notes: data.notes,
         recordedBy: user.id,
         recordedAt: validRecordedAt,
@@ -747,7 +805,7 @@ export default function VitalsPage() {
                   <input
                     type="number"
                     step="0.1"
-                    {...register('weight', { valueAsNumber: true })}
+                    {...register('weight', optionalNumberField)}
                     className="input"
                   />
                 </div>
@@ -760,7 +818,7 @@ export default function VitalsPage() {
                   <input
                     type="number"
                     step="0.1"
-                    {...register('height', { valueAsNumber: true })}
+                    {...register('height', optionalNumberField)}
                     className="input"
                   />
                 </div>
@@ -788,7 +846,7 @@ export default function VitalsPage() {
                     type="number"
                     min="0"
                     max="10"
-                    {...register('painScore', { valueAsNumber: true })}
+                    {...register('painScore', optionalNumberField)}
                     className="input"
                   />
                   <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -802,23 +860,68 @@ export default function VitalsPage() {
                   <div className="flex gap-2">
                     <input
                       type="number"
-                      step={bloodGlucoseUnit === 'mmol/L' ? '0.1' : '1'}
-                      {...register('bloodGlucose', { valueAsNumber: true })}
-                      className="input flex-1"
-                      placeholder={bloodGlucoseUnit === 'mmol/L' ? '4.0 - 7.0' : '72 - 126'}
+                      step={glucoseRange.step}
+                      min={glucoseRange.min}
+                      max={glucoseRange.max}
+                      {...register('bloodGlucose', optionalNumberField)}
+                      className={`input flex-1 ${
+                        glucoseEntry.status === 'error' ? 'border-red-400' : ''
+                      }`}
+                      placeholder={placeholderFor(bloodGlucoseUnit)}
+                      aria-label={`Blood glucose in ${bloodGlucoseUnit}`}
                     />
                     <select
-                      value={bloodGlucoseUnit}
-                      onChange={(e) => setBloodGlucoseUnit(e.target.value as GlucoseUnit)}
+                      {...register('bloodGlucoseUnit')}
                       className="input w-28"
                       title="Blood glucose unit"
+                      aria-label="Blood glucose unit"
                     >
                       <option value="mmol/L">mmol/L</option>
                       <option value="mg/dL">mg/dL</option>
                     </select>
                   </div>
+
+                  {/* The same number in the other unit, so the entry can be
+                      eyeballed against whichever scale the reader thinks in. */}
+                  {glucoseEntry.status === 'ok' && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      = {bloodGlucoseUnit === 'mmol/L'
+                        ? displayGlucose(glucoseEntry.mmolL!, 'mg/dL')
+                        : displayGlucose(glucoseEntry.mmolL!, 'mmol/L')}
+                      <span className="text-gray-400"> · stored as {glucoseEntry.mmolL!.toFixed(1)} mmol/L</span>
+                    </p>
+                  )}
+
+                  {glucoseEntry.error && (
+                    <p className="text-xs text-red-600 mt-1 flex items-start gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 mt-px shrink-0" />
+                      <span>{glucoseEntry.error}</span>
+                    </p>
+                  )}
+
+                  {glucoseEntry.warning && (
+                    <p className="text-xs text-amber-700 mt-1 flex items-start gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 mt-px shrink-0" />
+                      <span>{glucoseEntry.warning}</span>
+                    </p>
+                  )}
+
+                  {/* Offered, never applied automatically: both readings of an
+                      ambiguous glucose are clinically meaningful. */}
+                  {glucoseEntry.suggestUnit && (
+                    <button
+                      type="button"
+                      onClick={() => setValue('bloodGlucoseUnit', glucoseEntry.suggestUnit!, {
+                        shouldValidate: true,
+                      })}
+                      className="text-xs mt-1 px-2 py-1 rounded border border-primary text-primary hover:bg-primary/5"
+                    >
+                      Switch to {glucoseEntry.suggestUnit}
+                    </button>
+                  )}
+
                   <p className="text-xs text-gray-500 mt-1">
-                    Normal fasting: {bloodGlucoseUnit === 'mmol/L' ? '4.0 - 5.4 mmol/L' : '72 - 99 mg/dL'}
+                    Normal fasting: {fastingHint(bloodGlucoseUnit)}
                   </p>
                 </div>
 
@@ -928,6 +1031,14 @@ export default function VitalsPage() {
                           {vital.oxygenSaturation}%
                         </span>
                       </div>
+                      {typeof vital.bloodGlucose === 'number' && (
+                        <div className="flex justify-between col-span-2">
+                          <span className="text-gray-500">Glucose:</span>
+                          <span className="font-medium text-gray-900">
+                            {displayGlucose(vital.bloodGlucose, bloodGlucoseUnit)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))

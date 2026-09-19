@@ -20,6 +20,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, addDays } from 'date-fns';
 import {
+  parseGlucoseEntry,
+  parseGlucoseFromText,
+  placeholderFor,
+  loadGlucoseUnitPreference,
+  type GlucoseUnit,
+} from '../../../services/glucoseEntry';
+import {
   ArrowLeft,
   Save,
   Stethoscope,
@@ -62,6 +69,7 @@ import {
 } from 'recharts';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { EncounterHospitalField, useEncounterHospital } from '../../../components/hospital';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation } from '../../../components/common';
@@ -124,6 +132,8 @@ interface VitalEntry {
   weight: string;
   painScore: string;
   bloodGlucose: string;
+  /** The unit the meter showed. Stored canonically in mmol/L on save. */
+  bloodGlucoseUnit: GlucoseUnit;
   recordedAt: string;
 }
 
@@ -138,6 +148,7 @@ const emptyVital = (): VitalEntry => ({
   weight: '',
   painScore: '',
   bloodGlucose: '',
+  bloodGlucoseUnit: loadGlucoseUnitPreference(),
   recordedAt: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
 });
 
@@ -267,6 +278,11 @@ export default function EnhancedFollowUpPage() {
     () => patientId ? db.patients.get(patientId) : undefined,
     [patientId]
   );
+
+  // Where this encounter is happening. Defaults to the patient's registered
+  // hospital and can be pointed elsewhere for a visit at another site; the
+  // registration itself is untouched.
+  const encounterHospital = useEncounterHospital(patient);
 
   const previousEncounters = useLiveQuery(async () => {
     if (!patientId) return [];
@@ -427,8 +443,11 @@ export default function EnhancedFollowUpPage() {
     const painMatch = vitalsText.match(/(?:pain)[:\s]*(\d{1,2})\s*(?:\/10)?/i);
     if (painMatch) vitalsData.painScore = painMatch[1];
     
-    const glucoseMatch = vitalsText.match(/(?:glucose|rbg|fbg|bg)[:\s]*(\d{1,2}\.?\d?)\s*(?:mmol)?/i);
-    if (glucoseMatch) vitalsData.bloodGlucose = glucoseMatch[1];
+    const glucose = parseGlucoseFromText(vitalsText);
+    if (glucose) {
+      vitalsData.bloodGlucose = String(glucose.value);
+      vitalsData.bloodGlucoseUnit = glucose.unit;
+    }
 
     // Extract diagnoses
     const parsedDiagnoses: Diagnosis[] = [];
@@ -605,7 +624,7 @@ export default function EnhancedFollowUpPage() {
       const encounter: ClinicalEncounter = {
         id: encounterId,
         patientId: patient.id,
-        hospitalId: user.hospitalId || '',
+        hospitalId: encounterHospital.hospitalId || user.hospitalId || '',
         type: 'follow_up',
         status: 'completed',
         chiefComplaint: data.chiefComplaint,
@@ -654,7 +673,9 @@ export default function EnhancedFollowUpPage() {
           oxygenSaturation: v.oxygenSaturation ? parseInt(v.oxygenSaturation) : 0,
           weight: v.weight ? parseFloat(v.weight) : undefined,
           painScore: v.painScore ? parseInt(v.painScore) : undefined,
-          bloodGlucose: v.bloodGlucose ? parseFloat(v.bloodGlucose) : undefined,
+          // Canonical mmol/L, whichever unit it was entered in. A reading
+          // outside the possible range is not written rather than guessed at.
+          bloodGlucose: parseGlucoseEntry(v.bloodGlucose, v.bloodGlucoseUnit).mmolL ?? undefined,
           recordedBy: user.id,
           recordedAt: new Date(v.recordedAt || now),
           notes: '',
@@ -668,7 +689,7 @@ export default function EnhancedFollowUpPage() {
         const investigation: Investigation = {
           id: inv.id,
           patientId: patient.id,
-          hospitalId: user.hospitalId || '',
+          hospitalId: encounterHospital.hospitalId || user.hospitalId || '',
           encounterId,
           type: inv.type,
           category: inv.category as Investigation['category'],
@@ -689,7 +710,7 @@ export default function EnhancedFollowUpPage() {
           id: uuidv4(),
           patientId: patient.id,
           encounterId,
-          hospitalId: user.hospitalId || '',
+          hospitalId: encounterHospital.hospitalId || user.hospitalId || '',
           medications: medications.map(m => ({
             id: m.id,
             name: m.name,
@@ -867,6 +888,20 @@ export default function EnhancedFollowUpPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* Where this encounter is taking place. */}
+        <div className="card card-compact">
+          <div className="card-body">
+            <EncounterHospitalField
+              patient={patient}
+              value={encounterHospital.hospitalId}
+              onChange={encounterHospital.setHospitalId}
+              registeredHospital={encounterHospital.registeredHospital}
+              isElsewhere={encounterHospital.isElsewhere}
+            />
+          </div>
+        </div>
+
+
 
         {/* ═══════════════════════════════════════════════════════════
             SECTION 1: ENCOUNTER
@@ -1069,7 +1104,6 @@ export default function EnhancedFollowUpPage() {
                           { key: 'oxygenSaturation', label: 'SpO₂ (%)', icon: <Activity size={14} />, placeholder: '98' },
                           { key: 'weight', label: 'Weight (kg)', icon: null, placeholder: '70' },
                           { key: 'painScore', label: 'Pain (0-10)', icon: null, placeholder: '3' },
-                          { key: 'bloodGlucose', label: 'RBG (mmol/L)', icon: null, placeholder: '5.5' },
                         ].map(field => (
                           <div key={field.key}>
                             <label className="text-xs text-gray-500 flex items-center gap-1 mb-0.5">
@@ -1089,6 +1123,58 @@ export default function EnhancedFollowUpPage() {
                             />
                           </div>
                         ))}
+
+                        {/* Glucose sits outside the generic grid: it is the one
+                            vital whose number is meaningless without its unit. */}
+                        <div className="col-span-2">
+                          <label className="text-xs text-gray-500 mb-0.5 block">
+                            RBG ({entry.bloodGlucoseUnit})
+                          </label>
+                          <div className="flex gap-1">
+                            <input
+                              type="number"
+                              step={entry.bloodGlucoseUnit === 'mmol/L' ? '0.1' : '1'}
+                              value={entry.bloodGlucose}
+                              onChange={(e) => {
+                                const updated = [...vitalEntries];
+                                updated[idx] = { ...updated[idx], bloodGlucose: e.target.value };
+                                setVitalEntries(updated);
+                              }}
+                              placeholder={placeholderFor(entry.bloodGlucoseUnit)}
+                              aria-label={`Blood glucose in ${entry.bloodGlucoseUnit}`}
+                              className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded text-sm"
+                            />
+                            <select
+                              value={entry.bloodGlucoseUnit}
+                              onChange={(e) => {
+                                const updated = [...vitalEntries];
+                                updated[idx] = {
+                                  ...updated[idx],
+                                  bloodGlucoseUnit: e.target.value as GlucoseUnit,
+                                };
+                                setVitalEntries(updated);
+                              }}
+                              aria-label="Blood glucose unit"
+                              className="px-1 py-1.5 border border-gray-200 rounded text-xs"
+                            >
+                              <option value="mmol/L">mmol/L</option>
+                              <option value="mg/dL">mg/dL</option>
+                            </select>
+                          </div>
+                          {(() => {
+                            const g = parseGlucoseEntry(entry.bloodGlucose, entry.bloodGlucoseUnit);
+                            if (g.error) return <p className="text-xs text-red-600 mt-0.5">{g.error}</p>;
+                            if (g.warning) return <p className="text-xs text-amber-700 mt-0.5">{g.warning}</p>;
+                            if (g.status === 'ok' && entry.bloodGlucoseUnit === 'mg/dL') {
+                              return (
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  = {g.mmolL!.toFixed(1)} mmol/L
+                                </p>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       </div>
                     </div>
                   ))}
