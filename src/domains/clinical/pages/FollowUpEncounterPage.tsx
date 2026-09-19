@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { EncounterHospitalField, useEncounterHospital } from '../../../components/hospital';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation } from '../../../components/common';
@@ -125,6 +126,11 @@ export default function FollowUpEncounterPage() {
     () => patientId ? db.patients.get(patientId) : undefined,
     [patientId]
   );
+
+  // Where this encounter is happening. Defaults to the patient's registered
+  // hospital and can be pointed elsewhere for a visit at another site; the
+  // registration itself is untouched.
+  const encounterHospital = useEncounterHospital(patient);
 
   const previousEncounters = useLiveQuery(
     async () => {
@@ -286,7 +292,7 @@ export default function FollowUpEncounterPage() {
 
     setIsLoading(true);
     try {
-      const hospitalId = user.hospitalId || 'default-hospital';
+      const hospitalId = encounterHospital.hospitalId || user.hospitalId || 'default-hospital';
       const encounterId = uuidv4();
       const now = new Date();
 
@@ -481,6 +487,20 @@ export default function FollowUpEncounterPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Where this encounter is taking place. */}
+        <div className="card card-compact">
+          <div className="card-body">
+            <EncounterHospitalField
+              patient={patient}
+              value={encounterHospital.hospitalId}
+              onChange={encounterHospital.setHospitalId}
+              registeredHospital={encounterHospital.registeredHospital}
+              isElsewhere={encounterHospital.isElsewhere}
+            />
+          </div>
+        </div>
+
+
         {/* Changes Since Last Visit */}
         {activeSection === 'changes' && (
           <motion.div

@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { EncounterHospitalField, useEncounterHospital } from '../../../components/hospital';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import PreviousPlansReviewGuard, { type AckSummary } from '../../../components/clinical/PreviousPlansReviewGuard';
@@ -176,6 +177,11 @@ export default function ClinicalEncounterPage() {
     () => patientId ? db.patients.get(patientId) : undefined,
     [patientId]
   );
+
+  // Where this encounter is happening. Defaults to the patient's registered
+  // hospital and can be pointed elsewhere for a visit at another site; the
+  // registration itself is untouched.
+  const encounterHospital = useEncounterHospital(patient);
 
   // Previous encounters for this patient
   const previousEncounters = useLiveQuery(
@@ -532,7 +538,9 @@ export default function ClinicalEncounterPage() {
       const encounter: ClinicalEncounter = {
         id: uuidv4(),
         patientId,
-        hospitalId: user.hospitalId || 'hospital-1',
+        // Where the patient was actually seen. The clinician's own hospital
+        // is only the fallback — it is wrong for anyone covering two sites.
+        hospitalId: encounterHospital.hospitalId || user.hospitalId || 'hospital-1',
         type: data.type,
         status: 'completed',
         isFirstEncounter: isInitialEncounter,
@@ -1110,6 +1118,21 @@ export default function ClinicalEncounterPage() {
       </motion.div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
+        {/* Where this encounter is taking place. Defaults to where the
+            patient is registered; changing it does not move the registration. */}
+        <div className="card card-compact">
+          <div className="card-body">
+            <EncounterHospitalField
+              patient={patient}
+              value={encounterHospital.hospitalId}
+              onChange={encounterHospital.setHospitalId}
+              registeredHospital={encounterHospital.registeredHospital}
+              isElsewhere={encounterHospital.isElsewhere}
+            />
+          </div>
+        </div>
+
+
         {/* Encounter Type */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

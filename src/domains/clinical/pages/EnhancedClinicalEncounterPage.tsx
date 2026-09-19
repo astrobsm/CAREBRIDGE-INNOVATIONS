@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { EncounterHospitalField, useEncounterHospital } from '../../../components/hospital';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation } from '../../../components/common';
@@ -1231,6 +1232,11 @@ export default function EnhancedClinicalEncounterPage() {
     [patientId]
   );
 
+  // Where this encounter is happening. Defaults to the patient's registered
+  // hospital and can be pointed elsewhere for a visit at another site; the
+  // registration itself is untouched.
+  const encounterHospital = useEncounterHospital(patient);
+
   // Fetch previous encounters
   const previousEncounters = useLiveQuery(
     async () => {
@@ -1270,7 +1276,7 @@ export default function EnhancedClinicalEncounterPage() {
       const encounter: ClinicalEncounter = {
         id: uuidv4(),
         patientId,
-        hospitalId: user.hospitalId || 'hospital-1',
+        hospitalId: encounterHospital.hospitalId || user.hospitalId || 'hospital-1',
         type: data.type,
         status: 'completed',
         chiefComplaint: data.chiefComplaint,
@@ -1321,7 +1327,7 @@ export default function EnhancedClinicalEncounterPage() {
       const encounter: ClinicalEncounter = {
         id: uuidv4(),
         patientId,
-        hospitalId: user.hospitalId || 'hospital-1',
+        hospitalId: encounterHospital.hospitalId || user.hospitalId || 'hospital-1',
         type: data.type,
         status: 'completed',
         chiefComplaint: data.chiefComplaint,
@@ -1447,6 +1453,19 @@ export default function EnhancedClinicalEncounterPage() {
             <UserCheck size={18} />
             Patient Summary
           </button>
+        </div>
+      </div>
+
+      {/* Where this encounter is taking place. */}
+      <div className="card card-compact">
+        <div className="card-body">
+          <EncounterHospitalField
+            patient={patient}
+            value={encounterHospital.hospitalId}
+            onChange={encounterHospital.setHospitalId}
+            registeredHospital={encounterHospital.registeredHospital}
+            isElsewhere={encounterHospital.isElsewhere}
+          />
         </div>
       </div>
 

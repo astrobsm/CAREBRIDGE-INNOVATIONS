@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
+import { HospitalSelector } from '../../../components/hospital';
 import type { Patient } from '../../../types';
 
 /**
@@ -47,6 +48,9 @@ const slimSchema = z.object({
   nextOfKinPhone: z.string().min(7, 'Next-of-kin phone is required'),
   maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed']),
   occupation: z.string().min(2, 'Occupation is required'),
+  // Asked rather than assumed: registeredHospitalId used to fall back to the
+  // string 'global', which belongs to no hospital and matches no filter.
+  hospitalId: z.string().min(1, 'Select the hospital this patient is registered at'),
 });
 
 type SlimFormData = z.infer<typeof slimSchema>;
@@ -63,9 +67,9 @@ export default function SlimNewPatientPage() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<SlimFormData>({
+  const { register, handleSubmit, control, formState: { errors } } = useForm<SlimFormData>({
     resolver: zodResolver(slimSchema),
-    defaultValues: { maritalStatus: 'single' },
+    defaultValues: { maritalStatus: 'single', hospitalId: user?.hospitalId },
   });
 
   const onSubmit = async (data: SlimFormData) => {
@@ -97,9 +101,9 @@ export default function SlimNewPatientPage() {
           address: '',
         },
         careType: 'hospital',
-        hospitalId: user?.hospitalId,
+        hospitalId: data.hospitalId,
         hospitalName: undefined,
-        registeredHospitalId: user?.hospitalId || 'global',
+        registeredHospitalId: data.hospitalId,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -233,6 +237,26 @@ export default function SlimNewPatientPage() {
               <label className="form-label">Occupation *</label>
               <input {...register('occupation')} className="form-input" placeholder="Teacher, Farmer, Trader…" />
               {errors.occupation && <p className="form-error">{errors.occupation.message}</p>}
+            </div>
+            <div className="sm:col-span-2">
+              <Controller
+                name="hospitalId"
+                control={control}
+                render={({ field }) => (
+                  <HospitalSelector
+                    label="Hospital"
+                    value={field.value}
+                    onChange={(id) => field.onChange(id ?? '')}
+                    placeholder="Search or select hospital"
+                    required
+                    error={errors.hospitalId?.message}
+                    showAddNew
+                  />
+                )}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Where this patient is registered. Visits elsewhere are recorded on the encounter.
+              </p>
             </div>
           </div>
         </div>

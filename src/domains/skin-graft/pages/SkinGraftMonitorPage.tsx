@@ -21,6 +21,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import type { Patient } from '../../../types';
 import GroupedSelect from '../../../components/common/GroupedSelect';
 import { PatientSelector } from '../../../components/patient/PatientSelector';
+import { useEncounterHospital } from '../../../components/hospital';
 import { ANATOMICAL_SITES } from '../../../data/anatomy';
 import { assessCanvasQuality } from '../../../services/imageQualityService';
 import { detectCalibrationMarker } from '../../../services/woundMeasurementEngine';
@@ -175,6 +176,9 @@ const NewEpisodeModal: React.FC<{
 }> = ({ onClose, onCreated }) => {
   const { user } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
+  // Defaults to the patient’s registered hospital; overridden when this visit
+  // happens somewhere else, and reset whenever the patient changes.
+  const encounterHospital = useEncounterHospital(patient);
   const [graftType, setGraftType] = useState<GraftType>('stsg');
   const [meshRatio, setMeshRatio] = useState('1.5');
   const [graftedAt, setGraftedAt] = useState(new Date().toISOString().slice(0, 10));
@@ -187,7 +191,9 @@ const NewEpisodeModal: React.FC<{
     try {
       const episode = await createEpisode({
         patientId: patient.id,
-        hospitalId: patient.registeredHospitalId,
+        // Where the graft is being followed up, not where the patient is
+        // registered — these differ whenever review happens elsewhere.
+        hospitalId: encounterHospital.hospitalId ?? patient.registeredHospitalId,
         graftType,
         meshRatio: Number(meshRatio) || undefined,
         graftedAt: graftedAt ? new Date(graftedAt).toISOString() : undefined,
@@ -213,6 +219,11 @@ const NewEpisodeModal: React.FC<{
           value={patient?.id}
           onChange={(_id, p) => setPatient(p ?? null)}
           placeholder="Search by name or folder number…"
+          showEncounterHospital
+          encounterHospitalId={encounterHospital.hospitalId}
+          onEncounterHospitalChange={encounterHospital.setHospitalId}
+          registeredHospital={encounterHospital.registeredHospital}
+          isEncounterElsewhere={encounterHospital.isElsewhere}
         />
 
         <label className="block">

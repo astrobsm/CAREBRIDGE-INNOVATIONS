@@ -67,6 +67,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { PatientSelector } from '../../../components/patient';
+import { useEncounterHospital } from '../../../components/hospital';
 import {
   mdtNotificationService,
   initMDTNotificationService,
@@ -490,6 +491,10 @@ export default function MDTPage() {
     return patients?.find(p => p.id === selectedPatientId);
   }, [patients, selectedPatientId]);
 
+  // The meeting and its invitations are filed against the hospital the patient
+  // is being discussed at, which is the registered one until told otherwise.
+  const encounterHospital = useEncounterHospital(selectedPatient);
+
   // Check if content doesn't require scrolling (fits entirely in view)
   // Or if user has already scrolled near the bottom
   // Must be AFTER selectedPatient is defined to avoid hoisting issues
@@ -739,7 +744,7 @@ export default function MDTPage() {
     try {
       await db.mdtMeetings.put({
         ...newMeeting,
-        hospitalId: selectedPatient?.registeredHospitalId || '',
+        hospitalId: encounterHospital.hospitalId || selectedPatient?.registeredHospitalId || '',
         meetingType: 'mdt',
         updatedAt: new Date(),
       } as any);
@@ -765,7 +770,7 @@ export default function MDTPage() {
           mdtMeetingId: newMeeting.id,
           patientId: selectedPatientId,
           patientName: `${selectedPatient?.firstName} ${selectedPatient?.lastName}`,
-          hospitalId: selectedPatient?.registeredHospitalId || '',
+          hospitalId: encounterHospital.hospitalId || selectedPatient?.registeredHospitalId || '',
           hospitalName,
           specialistId: specialist.userId,
           specialistName: specialist.name,
@@ -1046,6 +1051,12 @@ export default function MDTPage() {
                 value={selectedPatientId}
                 onChange={(patientId) => setSelectedPatientId(patientId || '')}
                 placeholder="Search patient by name or hospital number..."
+                showEncounterHospital
+                encounterHospitalLabel="Discussed at"
+                encounterHospitalId={encounterHospital.hospitalId}
+                onEncounterHospitalChange={encounterHospital.setHospitalId}
+                registeredHospital={encounterHospital.registeredHospital}
+                isEncounterElsewhere={encounterHospital.isElsewhere}
               />
             </div>
 

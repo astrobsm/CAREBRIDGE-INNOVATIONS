@@ -125,8 +125,11 @@ const patientSchema = z.object({
   nextOfKinPhone: z.string().optional(),
   nextOfKinAddress: z.string().optional(),
   // Care type and hospital fields
-  careType: z.enum(['home_care', 'hospital']).optional(),
-  hospitalId: z.string().optional(),
+  careType: z.enum(['homecare', 'hospital']).optional(),
+  // The hospital this patient is being registered at. Until now this was never
+  // asked: registeredHospitalId was forced to the logged-in user's hospital, so
+  // a patient could only ever be registered where the person typing works.
+  hospitalId: z.string().min(1, 'Select the hospital this patient is registered at'),
   otherHospitalName: z.string().optional(),
   ward: z.string().optional(),
 });
@@ -208,6 +211,8 @@ export default function NewPatientPage() {
       maritalStatus: 'single',
       gender: 'male',
       careType: 'hospital',
+      // Almost always right, and changeable — not forced, as it was before.
+      hospitalId: user?.hospitalId,
     },
   });
 
@@ -350,13 +355,11 @@ export default function NewPatientPage() {
     try {
       // Determine the hospital name
       let hospitalName: string | undefined;
-      if (data.careType === 'hospital') {
-        if (data.hospitalId === 'others') {
-          hospitalName = data.otherHospitalName;
-        } else {
-          const selectedHospital = hospitals.find((h: Hospital) => h.id === data.hospitalId);
-          hospitalName = selectedHospital?.name;
-        }
+      if (data.hospitalId === 'others') {
+        hospitalName = data.otherHospitalName;
+      } else {
+        const selectedHospital = hospitals.find((h: Hospital) => h.id === data.hospitalId);
+        hospitalName = selectedHospital?.name;
       }
 
       // Calculate risk assessments
@@ -405,11 +408,14 @@ export default function NewPatientPage() {
         pressureSoreRiskAssessment,
         comorbidities,
         // Care Setting fields
-        careType: (data.careType as 'hospital' | 'homecare') || 'hospital',
+        careType: data.careType || 'hospital',
+        // Current place of care — only meaningful for hospital care.
         hospitalId: data.careType === 'hospital' ? data.hospitalId : undefined,
-        hospitalName: hospitalName,
+        hospitalName: data.careType === 'hospital' ? hospitalName : undefined,
         ward: data.careType === 'hospital' ? data.ward : undefined,
-        registeredHospitalId: user?.hospitalId || 'hospital-1',
+        // Registration, which a home-care patient has too: they are on some
+        // hospital's or service's list even though they are seen at home.
+        registeredHospitalId: data.hospitalId,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -610,36 +616,43 @@ export default function NewPatientPage() {
               </div>
             </div>
 
-            {careType === 'hospital' && (
-              <div className="form-grid-2">
-                <div>
-                  <Controller
-                    name="hospitalId"
-                    control={control}
-                    render={({ field }) => (
-                      <HospitalSelector
-                        label="Hospital"
-                        value={field.value}
-                        onChange={(id) => field.onChange(id)}
-                        placeholder="Search or select hospital"
-                        showAddNew
-                      />
-                    )}
-                  />
-                </div>
-
-                {hospitalId === 'others' && (
-                  <div>
-                    <label className="label">Specify Hospital Name *</label>
-                    <input
-                      {...register('otherHospitalName')}
-                      className={`input ${errors.otherHospitalName ? 'input-error' : ''}`}
-                      placeholder="Enter hospital name"
+            <div className="form-grid-2">
+              <div>
+                <Controller
+                  name="hospitalId"
+                  control={control}
+                  render={({ field }) => (
+                    <HospitalSelector
+                      label={careType === 'homecare' ? 'Registering hospital / service' : 'Hospital'}
+                      value={field.value}
+                      onChange={(id) => field.onChange(id)}
+                      placeholder="Search or select hospital"
+                      required
+                      error={errors.hospitalId?.message}
+                      showAddNew
                     />
-                    {errors.otherHospitalName && <p className="text-sm text-red-500 mt-1">{errors.otherHospitalName.message}</p>}
-                  </div>
-                )}
+                  )}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {careType === 'homecare'
+                    ? 'The patient is seen at home, but remains on this hospital’s list.'
+                    : 'Where this patient is registered. Individual visits elsewhere are recorded on the encounter.'}
+                </p>
+              </div>
 
+              {hospitalId === 'others' && (
+                <div>
+                  <label className="label">Specify Hospital Name *</label>
+                  <input
+                    {...register('otherHospitalName')}
+                    className={`input ${errors.otherHospitalName ? 'input-error' : ''}`}
+                    placeholder="Enter hospital name"
+                  />
+                  {errors.otherHospitalName && <p className="text-sm text-red-500 mt-1">{errors.otherHospitalName.message}</p>}
+                </div>
+              )}
+
+              {careType === 'hospital' && (
                 <div>
                   <label className="label">Ward/Unit</label>
                   <input
@@ -648,10 +661,10 @@ export default function NewPatientPage() {
                     placeholder="e.g., Surgical Ward, ICU, Private Ward"
                   />
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {careType === 'home_care' && (
+            {careType === 'homecare' && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center gap-2 text-green-700">
                   <Home className="w-5 h-5" />

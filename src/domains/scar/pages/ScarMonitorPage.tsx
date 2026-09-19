@@ -20,6 +20,7 @@ import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Patient } from '../../../types';
 import { PatientSelector } from '../../../components/patient/PatientSelector';
+import { useEncounterHospital } from '../../../components/hospital';
 import GroupedSelect from '../../../components/common/GroupedSelect';
 import { ANATOMICAL_SITES } from '../../../data/anatomy';
 import { formatDateSafe } from '../../../utils/safeDate';
@@ -171,6 +172,9 @@ const NewScarModal: React.FC<{
 }> = ({ onClose, onCreated }) => {
   const { user } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
+  // Defaults to the patient’s registered hospital; overridden when this visit
+  // happens somewhere else, and reset whenever the patient changes.
+  const encounterHospital = useEncounterHospital(patient);
   const [label, setLabel] = useState('');
   const [site, setSite] = useState('');
   const [laterality, setLaterality] = useState<Laterality>('not_applicable');
@@ -188,7 +192,8 @@ const NewScarModal: React.FC<{
     try {
       const scar = await createScar({
         patientId: patient.id,
-        hospitalId: patient.registeredHospitalId,
+        // Where this scar was assessed, not where the patient is registered.
+        hospitalId: encounterHospital.hospitalId ?? patient.registeredHospitalId,
         label: label.trim() || `${site} scar`,
         anatomicalSite: site,
         laterality,
@@ -214,6 +219,11 @@ const NewScarModal: React.FC<{
           value={patient?.id}
           onChange={(_id, p) => setPatient(p ?? null)}
           placeholder="Search by name or folder number…"
+          showEncounterHospital
+          encounterHospitalId={encounterHospital.hospitalId}
+          onEncounterHospitalChange={encounterHospital.setHospitalId}
+          registeredHospital={encounterHospital.registeredHospital}
+          isEncounterElsewhere={encounterHospital.isElsewhere}
         />
 
         <label className="block">

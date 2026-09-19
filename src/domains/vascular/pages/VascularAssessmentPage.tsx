@@ -19,6 +19,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../database';
 import type { Patient } from '../../../types';
 import { PatientSelector } from '../../../components/patient/PatientSelector';
+import { useEncounterHospital } from '../../../components/hospital';
 import { formatDateSafe } from '../../../utils/safeDate';
 import {
   limbOverview, saveAssessment, finalizeAssessment, addIntervention,
@@ -37,6 +38,9 @@ import PerfusionWoundChart from '../components/PerfusionWoundChart';
 
 export default function VascularAssessmentPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
+  // Defaults to the patient’s registered hospital; overridden when this visit
+  // happens somewhere else, and reset whenever the patient changes.
+  const encounterHospital = useEncounterHospital(patient);
   const [side, setSide] = useState<Side>('left');
 
   return (
@@ -62,6 +66,11 @@ export default function VascularAssessmentPage() {
             value={patient?.id}
             onChange={(_id, p) => setPatient(p ?? null)}
             placeholder="Search by name or folder number…"
+            showEncounterHospital
+            encounterHospitalId={encounterHospital.hospitalId}
+            onEncounterHospitalChange={encounterHospital.setHospitalId}
+            registeredHospital={encounterHospital.registeredHospital}
+            isEncounterElsewhere={encounterHospital.isElsewhere}
           />
           <div>
             <span className="text-xs font-medium text-gray-600 mb-1 block">Limb</span>
@@ -89,7 +98,7 @@ export default function VascularAssessmentPage() {
       </div>
 
       {patient
-        ? <LimbView key={`${patient.id}-${side}`} patient={patient} side={side} />
+        ? <LimbView key={`${patient.id}-${side}`} patient={patient} side={side} hospitalId={encounterHospital.hospitalId} />
         : (
           <div className="text-center py-12 bg-white rounded-xl border">
             <Footprints className="w-10 h-10 text-gray-300 mx-auto mb-3" />
@@ -102,7 +111,7 @@ export default function VascularAssessmentPage() {
 
 // ── One limb ────────────────────────────────────────────────────────────────
 
-const LimbView: React.FC<{ patient: Patient; side: Side }> = ({ patient, side }) => {
+const LimbView: React.FC<{ patient: Patient; side: Side; hospitalId?: string }> = ({ patient, side, hospitalId }) => {
   const { user } = useAuth();
   const [overview, setOverview] = useState<LimbOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -137,6 +146,7 @@ const LimbView: React.FC<{ patient: Patient; side: Side }> = ({ patient, side })
       <AssessmentForm
         patient={patient}
         side={side}
+        hospitalId={hospitalId}
         onCancel={() => setAssessing(false)}
         onSaved={() => { setAssessing(false); load(); }}
       />
@@ -405,9 +415,11 @@ const TrendTable: React.FC<{ trends: LimbOverview['trends'] }> = ({ trends }) =>
 const AssessmentForm: React.FC<{
   patient: Patient;
   side: Side;
+  /** Where this assessment is happening; falls back to the registration. */
+  hospitalId?: string;
   onCancel: () => void;
   onSaved: () => void;
-}> = ({ patient, side, onCancel, onSaved }) => {
+}> = ({ patient, side, hospitalId, onCancel, onSaved }) => {
   const { user } = useAuth();
   const [presentation, setPresentation] = useState<PadPresentation>('uncertain');
   const [acute, setAcute] = useState<AcuteIschaemiaScreen>({});
@@ -442,7 +454,8 @@ const AssessmentForm: React.FC<{
       createdBy: user?.id,
       assessment: {
         patientId: patient.id,
-        hospitalId: patient.registeredHospitalId,
+        // Where the limb was assessed, not where the patient is registered.
+        hospitalId: hospitalId ?? patient.registeredHospitalId,
         side,
         assessedAt: new Date().toISOString(),
         assessedBy: user?.id,

@@ -25,7 +25,8 @@ import { patientService } from '../../services/patientService';
 import { usePatientById } from '../../services/patientHooks';
 import { db } from '../../database/db';
 import { fullSync } from '../../services/cloudSyncService';
-import type { Patient } from '../../types';
+import { EncounterHospitalField } from '../hospital/EncounterHospitalField';
+import type { Hospital, Patient } from '../../types';
 
 // ============================================================
 // QUICK ADD PATIENT FORM
@@ -254,6 +255,22 @@ export interface PatientSelectorProps {
   label?: string;
   size?: 'sm' | 'md' | 'lg';
   variant?: 'default' | 'minimal';
+  /**
+   * Show a "seen at" hospital field once a patient is chosen.
+   *
+   * Every page that picks a patient then files a record somewhere, and the
+   * hospital it files under used to be the patient's registration — which is
+   * wrong the moment the patient is seen anywhere else. Drive these from
+   * useEncounterHospital so the default, the reset on patient change and the
+   * difference notice all behave the same wherever a patient is selected.
+   */
+  showEncounterHospital?: boolean;
+  encounterHospitalId?: string;
+  onEncounterHospitalChange?: (id: string | undefined) => void;
+  /** From useEncounterHospital, for the notice under the field. */
+  registeredHospital?: Hospital;
+  isEncounterElsewhere?: boolean;
+  encounterHospitalLabel?: string;
 }
 
 export interface PatientDisplayProps {
@@ -282,6 +299,12 @@ export function PatientSelector({
   label,
   size = 'md',
   variant: _variant = 'default',
+  showEncounterHospital = false,
+  encounterHospitalId,
+  onEncounterHospitalChange,
+  registeredHospital,
+  isEncounterElsewhere = false,
+  encounterHospitalLabel,
 }: PatientSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -576,6 +599,20 @@ export function PatientSelector({
           <AlertCircle size={14} />
           {error}
         </p>
+      )}
+
+      {/* Where this visit is happening — asked here because this is where the
+          patient is chosen, and the answer is what the record gets filed under. */}
+      {showEncounterHospital && selectedPatient && onEncounterHospitalChange && (
+        <EncounterHospitalField
+          className="mt-3"
+          patient={selectedPatient}
+          value={encounterHospitalId}
+          onChange={onEncounterHospitalChange}
+          registeredHospital={registeredHospital}
+          isElsewhere={isEncounterElsewhere}
+          {...(encounterHospitalLabel ? { label: encounterHospitalLabel } : {})}
+        />
       )}
     </div>
   );
