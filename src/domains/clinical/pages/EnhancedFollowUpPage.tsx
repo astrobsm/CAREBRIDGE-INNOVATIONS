@@ -76,6 +76,8 @@ import { VoiceDictation } from '../../../components/common';
 import ScanToText from '../../../components/common/ScanToText';
 import { performOCR } from '../../../services/ocrService';
 import PreviousPlansReviewGuard, { type AckSummary } from '../../../components/clinical/PreviousPlansReviewGuard';
+import StructuredEncountersPanel from '../components/clerking/StructuredEncounters';
+import { patientContext, patientIdentifiers, patientLabelOf } from '../services/clerkingService';
 import PrescriptionHistoryReviewGuard, { type RxAckSummary } from '../../../components/clinical/PrescriptionHistoryReviewGuard';
 import type {
   ClinicalEncounter,
@@ -283,6 +285,8 @@ export default function EnhancedFollowUpPage() {
   // hospital and can be pointed elsewhere for a visit at another site; the
   // registration itself is untouched.
   const encounterHospital = useEncounterHospital(patient);
+  /** The structured follow-up: reviews each tracked problem and plan item from the clerking. */
+  const [showStructured, setShowStructured] = useState(false);
 
   const previousEncounters = useLiveQuery(async () => {
     if (!patientId) return [];
@@ -816,6 +820,14 @@ export default function EnhancedFollowUpPage() {
           <div className="flex gap-2">
             <button
               type="button"
+              onClick={() => setShowStructured(v => !v)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-all"
+            >
+              <Stethoscope size={18} />
+              {showStructured ? 'Hide structured follow-up' : 'Structured follow-up'}
+            </button>
+            <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isScanningDoc}
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-medium hover:from-violet-700 hover:to-purple-700 transition-all shadow-lg shadow-violet-200 disabled:opacity-50"
@@ -847,6 +859,19 @@ export default function EnhancedFollowUpPage() {
           </div>
         </div>
       </div>
+
+      {showStructured && (
+        <div className="mb-6">
+          <StructuredEncountersPanel
+            patientId={patient.id}
+            patientLabel={patientLabelOf(patient)}
+            ctx={patientContext(patient)}
+            identifiers={patientIdentifiers(patient)}
+            hospitalId={encounterHospital.hospitalId || user?.hospitalId}
+            autoOpen="follow_up"
+          />
+        </div>
+      )}
 
       {/* Progress bar during scan */}
       {isScanningDoc && (

@@ -28,6 +28,7 @@ import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import { db } from '../../../database';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
+import { ClinicalOutcomesSummary } from '../components/clerking/StructuredEncounters';
 
 interface EncounterExpanded {
   [key: string]: boolean;
@@ -468,6 +469,9 @@ export default function PatientClinicalSummaryPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Structured clerking: problem and plan outcomes across encounters */}
+      {patientId && <ClinicalOutcomesSummary patientId={patientId} />}
 
       {/* Progress Analysis */}
       {progressAnalysis && (

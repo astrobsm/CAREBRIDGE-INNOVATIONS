@@ -10,6 +10,9 @@ import type {
   PadAssessment, VascularIntervention,
 } from '../domains/vascular/types';
 import type {
+  ClinicalProblem, ClinicalPlanItem,
+} from '../domains/clinical/clerking/records';
+import type {
   User,
   Hospital,
   Patient,
@@ -261,6 +264,12 @@ export class AstroHEALTHDatabase extends Dexie {
   // bilateral disease carries two independent trajectories.
   padAssessments!: Table<PadAssessment, string>;
   vascularInterventions!: Table<VascularIntervention, string>;
+
+  // Structured clerking: the diagnoses and plan items a clinician ACCEPTED,
+  // tracked across encounters until resolved / done. The clerking itself rides
+  // on clinicalEncounters (field `clerking`).
+  clinicalProblems!: Table<ClinicalProblem, string>;
+  clinicalPlanItems!: Table<ClinicalPlanItem, string>;
   woundAssessments!: Table<WoundAssessment, string>;
   // Tumour Board — oncology cases + append-only staging timeline and artefacts
   tumourBoardCases!: Table<TumourBoardCase, string>;
@@ -450,6 +459,12 @@ export class AstroHEALTHDatabase extends Dexie {
     this.version(86).stores({
       padAssessments: 'id, patientId, hospitalId, side, assessedAt, status, isBaseline, createdAt, updatedAt',
       vascularInterventions: 'id, patientId, side, kind, performedAt, createdAt, updatedAt',
+    });
+
+    // Structured clerking and the medical scribe's treatment plans.
+    this.version(87).stores({
+      clinicalProblems: 'id, patientId, encounterId, status, createdAt, updatedAt',
+      clinicalPlanItems: 'id, patientId, encounterId, kind, status, createdAt, updatedAt',
     });
   }
 }
