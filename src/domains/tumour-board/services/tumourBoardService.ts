@@ -40,6 +40,7 @@ import {
   type ReferralLetter,
 } from './oncology/referralLetters';
 import { buildSurveillancePlan, type SurveillancePlan } from './oncology/surveillance';
+import { checkTumourMeasurements } from './oncology/tumourMeasurements';
 import { buildCounsellingDocument, type CounsellingDocument } from './oncology/counselling';
 import type {
   BoardSummary,
@@ -289,6 +290,15 @@ export async function recordAssessment(
   input: StagingInput,
   extra: Partial<TumourBoardAssessment> = {},
 ): Promise<{ assessment: TumourBoardAssessment; stage: StageResult }> {
+  // Units guard: the form checks this too, but a Breslow in micrometres or a
+  // size in millimetres must never reach the staging record from any caller.
+  const check = checkTumourMeasurements({
+    breslowMm: input.family === 'cutaneous_melanoma' ? input.breslowMm : null,
+    sizeCm: input.family === 'cutaneous_melanoma' ? null : input.sizeCm,
+    largestNodeCm: input.largestNodeCm,
+  });
+  if (check.errors.length) throw new Error(check.errors[0]);
+
   const stage = computeStage(input);
   const now = nowIso();
 
@@ -388,6 +398,20 @@ export async function savePlan(
   opts: { assessmentId?: string; boardDate?: string; boardMembers?: string; createdBy?: string } = {},
 ): Promise<TumourBoardPlan> {
   const now = nowIso();
+
+  // Saving the same plan twice is not a new plan. Only a changed plan, or one
+  // already ratified (which is frozen), adds a record.
+  try {
+    const existing = await db.tumourBoardPlans.where('caseId').equals(caseRecord.id).toArray();
+    const last = existing.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    if (last && !last.ratified
+      && last.intent === plan.intent
+      && JSON.stringify(last.items || []) === JSON.stringify(plan.items || [])
+      && (last.assessmentId || null) === (opts.assessmentId || null)) {
+      return last;
+    }
+  } catch { /* fall through and save */ }
+
   const record: TumourBoardPlan = {
     id: uuidv4(),
     caseId: caseRecord.id,
@@ -449,7 +473,42 @@ export async function saveReferrals(
   planId?: string,
 ): Promise<TumourBoardReferral[]> {
   const now = nowIso();
-  const records: TumourBoardReferral[] = letters.map(l => ({
+
+  // One live referral per specialty per case. An unsent draft is refreshed in
+  // place; a letter already sent with the same text is not drafted again; a
+  // sent letter whose content has changed gets a new draft beside it.
+  let existing: TumourBoardReferral[] = [];
+  try {
+    existing = await db.tumourBoardReferrals.where('caseId').equals(caseRecord.id).toArray();
+  } catch { /* treat as none */ }
+  const kept: TumourBoardReferral[] = [];
+  const fresh: ReferralLetter[] = [];
+  for (const l of letters) {
+    const same = existing.filter(r => r.specialty === l.specialty);
+    const draft = same.find(r => r.status === 'draft');
+    const sentSame = same.find(r => r.status !== 'draft' && (r.body || '') === (l.body || ''));
+    if (draft) {
+      const updated: TumourBoardReferral = {
+        ...draft,
+        planId: planId || draft.planId || null,
+        specialtyLabel: l.specialtyLabel,
+        subject: l.subject,
+        body: l.body,
+        requestedItems: l.requestedItems,
+        urgency: l.urgency,
+        updatedAt: now,
+      };
+      await db.tumourBoardReferrals.put(updated);
+      syncRecord('tumourBoardReferrals', updated as unknown as Record<string, unknown>);
+      kept.push(updated);
+    } else if (sentSame) {
+      kept.push(sentSame);
+    } else {
+      fresh.push(l);
+    }
+  }
+
+  const records: TumourBoardReferral[] = fresh.map(l => ({
     id: uuidv4(),
     caseId: caseRecord.id,
     patientId: caseRecord.patientId,
@@ -466,12 +525,13 @@ export async function saveReferrals(
     updatedAt: now,
   }));
 
-  if (!records.length) return [];
-  await db.tumourBoardReferrals.bulkAdd(records);
-  for (const r of records) {
-    syncRecord('tumourBoardReferrals', r as unknown as Record<string, unknown>);
+  if (records.length) {
+    await db.tumourBoardReferrals.bulkAdd(records);
+    for (const r of records) {
+      syncRecord('tumourBoardReferrals', r as unknown as Record<string, unknown>);
+    }
   }
-  return records;
+  return [...kept, ...records];
 }
 
 export async function markReferralSent(referralId: string): Promise<TumourBoardReferral | undefined> {
@@ -511,9 +571,15 @@ export async function saveSurveillance(
   plan: SurveillancePlan,
 ): Promise<TumourBoardSurveillanceItem[]> {
   const now = nowIso();
+  // Items already done (or otherwise closed) are a record of what happened;
+  // re-generating the schedule must not add them again as scheduled.
+  const done = new Set<string>();
 
   try {
     const existing = await db.tumourBoardSurveillance.where('caseId').equals(caseRecord.id).toArray();
+    for (const i of existing) {
+      if (i.status !== 'scheduled') done.add(`${i.title}|${i.dueDate ?? ''}`);
+    }
     const superseded = existing.filter(i => i.status === 'scheduled');
     if (superseded.length) {
       await db.tumourBoardSurveillance.bulkDelete(superseded.map(i => i.id));
@@ -525,7 +591,9 @@ export async function saveSurveillance(
     console.warn('[TumourBoard] Could not clear superseded surveillance items:', e);
   }
 
-  const records: TumourBoardSurveillanceItem[] = plan.items.map(item => ({
+  const records: TumourBoardSurveillanceItem[] = plan.items
+    .filter(item => !done.has(`${item.title}|${item.dueDate ?? ''}`))
+    .map(item => ({
     id: uuidv4(),
     caseId: caseRecord.id,
     patientId: caseRecord.patientId,

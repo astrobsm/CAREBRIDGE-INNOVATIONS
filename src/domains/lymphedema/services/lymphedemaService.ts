@@ -50,29 +50,23 @@ import type {
 // ==================== ISL STAGING ====================
 
 /**
- * Determine ISL Stage based on clinical findings
- * Stage 0: Subclinical - impaired lymph transport, no visible swelling
- * Stage 1: Early - pitting edema, reduces with elevation
- * Stage 2: Moderate - pitting may/may not be present, does not resolve with elevation alone
- * Stage 2 late: Fibrotic - tissue fibrosis, non-pitting
- * Stage 3: Lymphostatic elephantiasis - marked increase, skin changes, trophic changes
- */
-/**
  * Volume comparisons that treat "unknown" as unknown.
  *
  * Volume excess is genuinely undeterminable in bilateral disease with no
- * baseline — see limbVolume.ts. Passing 0 in that case silently satisfied every
- * "less than" branch and failed every "greater than" one, which staged severe
- * bilateral patients as having no volume excess at all. A null now fails every
- * comparison instead, so the criterion simply does not fire and the stage rests
- * on the findings that were actually observed.
+ * baseline — see limbVolume.ts. A null fails every comparison, so it can
+ * neither suggest nor rule out swelling.
  */
 const volOver = (v: number | null | undefined, threshold: number): boolean =>
   typeof v === 'number' && v > threshold;
-const volAtLeast = (v: number | null | undefined, threshold: number): boolean =>
-  typeof v === 'number' && v >= threshold;
-const volBetween = (v: number | null | undefined, lo: number, hi: number): boolean =>
-  typeof v === 'number' && v > lo && v < hi;
+
+/**
+ * Determine ISL Stage (ISL consensus 2020) from clinical findings
+ * Stage 0: Latent - impaired lymph transport, no swelling
+ * Stage 1: Early - swelling that subsides with elevation; pitting may occur
+ * Stage 2: Elevation alone rarely reduces the swelling; pitting manifest
+ * Stage 2 late: Fibrosis; pitting may or may not be present
+ * Stage 3: Lymphostatic elephantiasis - trophic skin changes, warty overgrowth
+ */
 
 export function determineISLStage(
   pittingGrade: PittingGrade,
@@ -81,53 +75,57 @@ export function determineISLStage(
   skinConditions: SkinCondition[],
   /** Null when it could not be determined — never conflated with zero. */
   volumeExcessPercent: number | null,
-  stemmerSign: StemmerSignResult
+  _stemmerSign: StemmerSignResult
 ): ISLStage {
+  // ISL consensus 2020: the STAGE is clinical. Volume excess grades severity
+  // within a stage (see islVolumeSeverity) and is not a staging criterion.
+  // Staging by volume left a patient with manifest pitting oedema that does
+  // not settle on elevation at Stage 0 whenever the excess was under 20% — or
+  // unknown, as it is in bilateral disease — and refused Stage III to a limb
+  // with warty overgrowth until it also measured 40% larger (UNTH audit).
+  // A negative Stemmer sign does not exclude lymphoedema, so it is recorded but
+  // does not gate the stage.
   const hasTrophicChanges = skinConditions.some(s =>
-    ['papillomatosis', 'elephantiasis_verrucosa', 'lymphorrhea'].includes(s)
+    ['papillomatosis', 'elephantiasis_verrucosa', 'hyperkeratotic'].includes(s)
   );
   const hasFibrosis = tissueConsistency === 'fibrotic' || tissueConsistency === 'woody_hard';
-  const hasSignificantSkinChanges = skinConditions.some(s =>
-    ['papillomatosis', 'elephantiasis_verrucosa', 'hyperkeratotic', 'lymphorrhea'].includes(s)
-  );
 
-  // Stage 3: Elephantiasis
-  if (
-    (volOver(volumeExcessPercent, 40) && hasTrophicChanges) ||
-    skinConditions.includes('elephantiasis_verrucosa') ||
-    (hasFibrosis && hasSignificantSkinChanges && volOver(volumeExcessPercent, 40))
-  ) {
-    return 3;
-  }
+  // Stage III: lymphostatic elephantiasis — trophic skin changes (acanthosis,
+  // thickening, warty overgrowth); pitting may be absent.
+  if (hasTrophicChanges) return 3;
 
-  // Stage 2 late: Fibrotic
-  if (
-    hasFibrosis &&
-    limbElevationResponse === 'no_change' &&
-    (pittingGrade === 0 || pittingGrade === 1)
-  ) {
-    return '2_late';
-  }
+  // Stage II late: fibrosis has developed; pitting may or may not be present.
+  if (hasFibrosis) return '2_late';
 
-  // Stage 2: Pitting or non-pitting, doesn't fully resolve with elevation
-  if (
-    limbElevationResponse !== 'reduces_significantly' &&
-    volAtLeast(volumeExcessPercent, 20)
-  ) {
-    return 2;
-  }
+  const swellingPresent =
+    pittingGrade >= 1 ||
+    tissueConsistency !== 'soft_pitting' ||
+    limbElevationResponse !== 'reduces_significantly' ||
+    volOver(volumeExcessPercent, 0);
 
-  // Stage 1: Pitting, reduces with elevation
-  if (
-    pittingGrade >= 1 &&
-    limbElevationResponse === 'reduces_significantly' &&
-    stemmerSign !== 'negative'
-  ) {
-    return 1;
-  }
+  // Stage 0: latent — impaired transport, no swelling yet.
+  if (!swellingPresent) return 0;
 
-  // Stage 0: Subclinical
-  return 0;
+  // Stage I: early accumulation that subsides with elevation.
+  if (limbElevationResponse === 'reduces_significantly') return 1;
+
+  // Stage II: elevation alone rarely reduces the swelling; pitting manifest.
+  return 2;
+}
+
+/**
+ * ISL severity, for a unilateral limb, from the excess volume over the
+ * contralateral control: minimal < 20%, moderate 20–40%, severe > 40%.
+ * Null when the excess is not known — never "none".
+ */
+export function islVolumeSeverity(
+  volumeExcessPercent: number | null | undefined,
+): 'none' | 'minimal' | 'moderate' | 'severe' | null {
+  if (volumeExcessPercent == null || !Number.isFinite(volumeExcessPercent)) return null;
+  if (volumeExcessPercent <= 0) return 'none';
+  if (volumeExcessPercent < 20) return 'minimal';
+  if (volumeExcessPercent <= 40) return 'moderate';
+  return 'severe';
 }
 
 // ==================== CAMPISI STAGING ====================
@@ -152,23 +150,23 @@ export function determineCampisiStage(
   skinConditions: SkinCondition[],
   functionalImpairment: number // 0-4
 ): CampisiStage {
+  // Campisi is a clinical staging and follows the clinical (ISL) stage. It
+  // used to need a measured excess of >=10% for Stage II, so a bilateral
+  // patient (excess unknown) with persistent oedema was staged IA (UNTH
+  // audit). Volume is kept in the signature for callers but no longer gates.
+  void volumeExcessPercent;
   const hasSevereElephant = skinConditions.includes('elephantiasis_verrucosa');
+  const hasFibrosis = tissueConsistency === 'fibrotic' || tissueConsistency === 'woody_hard';
 
   if (hasSevereElephant && functionalImpairment >= 3) return 'V';
-  if (hasSevereElephant || (islStage === 3 && volOver(volumeExcessPercent, 60))) return 'IV';
+  if (hasSevereElephant || islStage === 3) return 'IV';
+  if (islStage === '2_late' || (hasFibrosis && limbElevationResponse === 'no_change')) return 'IIIB';
   if (
-    (tissueConsistency === 'fibrotic' || tissueConsistency === 'woody_hard') &&
-    limbElevationResponse === 'no_change'
-  ) return 'IIIB';
-  if (
-    limbElevationResponse === 'no_change' &&
-    (episodesOfCellulitis >= 2 || volOver(volumeExcessPercent, 30))
+    islStage === 2 &&
+    (limbElevationResponse === 'no_change' || episodesOfCellulitis >= 2)
   ) return 'IIIA';
-  if (
-    limbElevationResponse !== 'no_change' &&
-    volAtLeast(volumeExcessPercent, 10)
-  ) return 'II';
-  if (volBetween(volumeExcessPercent, 0, 10)) return 'IB';
+  if (islStage === 2) return 'II';
+  if (islStage === 1) return 'IB';
   return 'IA';
 }
 

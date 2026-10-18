@@ -81,14 +81,17 @@ export interface ScaleDefinition {
 
 const VSS: ScaleDefinition = {
   id: 'vss',
-  name: 'Vancouver Scar Scale',
+  name: 'Vancouver Scar Scale (modified, 0–14)',
   abbreviation: 'VSS',
   version: '1.0',
   appliesTo: 'any_scar',
   lowerIsBetter: true,
   totalRange: [0, 14],
-  citation: 'Sullivan T, Smith J, Kermode J, McIver E, Courtemanche DJ. Rating the burn scar. J Burn Care Rehabil. 1990;11(3):256-60.',
+  // Pigmentation scored 0–3 (normal / hypo / mixed / hyper) is the modified
+  // VSS, total 0–14. The original 1990 scale scores pigmentation 0–2, total 13.
+  citation: 'Sullivan T, Smith J, Kermode J, McIver E, Courtemanche DJ. Rating the burn scar. J Burn Care Rehabil. 1990;11(3):256-60. Modified (pigmentation 0–3, total 0–14): Baryza MJ, Baryza GA. The Vancouver Scar Scale: an administration tool and its interrater reliability. J Burn Care Rehabil. 1995;16(5):535-8.',
   notes: [
+    'Modified VSS: pigmentation 0–3, total 0–14 (the original 1990 scale totals 13).',
     'Pliability is a palpation item and is never derived from a photograph.',
     'Height may be prefilled from 3D reconstruction when one is available; it is measured by examination otherwise.',
   ],

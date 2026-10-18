@@ -173,6 +173,27 @@ export function postOpDay(graftedAt: string | undefined, capturedAt: string): nu
   return Math.max(0, Math.round((to - from) / 86_400_000));
 }
 
+/**
+ * Whether a capture is good enough to become the site's baseline.
+ *
+ * Every later take and healed percentage is a ratio to the baseline area, so
+ * it must come from a photograph whose scale was actually established, whose
+ * outline is clean (no self-crossing, no unscaled trace), and which the
+ * quality gate did not send back for recapture. The first measured capture
+ * used to become the baseline whatever its state (UNTH audit).
+ */
+export function canEstablishBaseline(
+  planimetry: { totalAreaCm2: number | null; valid: boolean },
+  pixelsPerCm: number | null,
+  imageQuality?: { verdict?: string } | null,
+): boolean {
+  return planimetry.totalAreaCm2 !== null
+    && planimetry.totalAreaCm2 > 0
+    && planimetry.valid
+    && pixelsPerCm !== null && Number.isFinite(pixelsPerCm) && pixelsPerCm > 0
+    && imageQuality?.verdict !== 'recapture';
+}
+
 export interface RecordAssessmentInput {
   episode: SkinGraftEpisode;
   site: GraftSite;
@@ -287,9 +308,9 @@ export async function recordAssessment(
     updatedAt: ts,
   };
 
-  // The first measured assessment establishes the baseline the site is
-  // measured against from then on.
-  if (site.baselineAreaCm2 == null && planimetry.totalAreaCm2 !== null) {
+  // The first RELIABLY measured assessment establishes the baseline the site
+  // is measured against from then on.
+  if (site.baselineAreaCm2 == null && canEstablishBaseline(planimetry, pixelsPerCm, imageQuality)) {
     await db.graftSites.update(site.id, {
       baselineAreaCm2: planimetry.totalAreaCm2,
       baselineAssessmentId: assessment.id,

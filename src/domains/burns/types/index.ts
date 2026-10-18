@@ -316,6 +316,9 @@ export interface FluidResuscitationPlan {
   
   // Adjustments
   adjustments: FluidAdjustment[];
+
+  /** Safety notes on the plan (late presentation, rate capped, >24 h). */
+  notes?: string[];
   
   // Colloid addition (after 12-24h)
   colloidStartTime?: Date;

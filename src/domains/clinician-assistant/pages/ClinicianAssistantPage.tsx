@@ -14,7 +14,7 @@
  * ward round is exactly where the network is not.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity, AlertTriangle, ArrowLeft, Calculator, ClipboardList, ExternalLink, FileText,
@@ -156,11 +156,19 @@ export default function ClinicianAssistantPage() {
     }
   }, []);
 
+  const saveKeys = useRef(new WeakMap<RunResult, string>());
+
   const save = async () => {
     if (!result || !selected) return;
     setSaving(true);
     try {
-      await saveAnalysis(selected.id, result, { source: analysisSource });
+      // One record per analysis result: saving it again updates, a new run is new.
+      let key = saveKeys.current.get(result);
+      if (!key) {
+        key = crypto.randomUUID();
+        saveKeys.current.set(result, key);
+      }
+      await saveAnalysis(selected.id, result, { source: analysisSource, id: key });
       toast.success('Analysis saved to the patient record');
       setHistory(await listForPatient(selected.id).catch(() => []));
     } catch (err: any) {
