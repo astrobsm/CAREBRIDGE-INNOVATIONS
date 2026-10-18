@@ -57,6 +57,8 @@ import {
   type HealingAnalytics,
 } from '../services/woundMonitorService';
 
+import { StoredWoundImage, pickImageSrc } from '../components/StoredWoundImage';
+
 const WoundHealingMap = lazy(() => import('../components/WoundHealingMap'));
 const MonitorTrendChart = lazy(() => import('../components/MonitorTrendChart'));
 // Heavy (pulls TensorFlow via the measurement engine) and only needed when the
@@ -730,11 +732,10 @@ const PhotoStrip: React.FC<{
           className="group shrink-0 w-32 text-left rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
         >
           <div className="relative w-32 h-32 rounded-lg overflow-hidden border bg-gray-50">
-            <img
-              src={r.photo.imageData || r.photo.url}
+            <StoredWoundImage
+              src={pickImageSrc(r.photo.imageData, r.photo.url)}
               alt={`Wound on ${r.assessment.assessedAt ? new Date(r.assessment.assessedAt).toLocaleDateString() : 'an unknown date'}`}
               className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
-              loading="lazy"
             />
             {/* Whether the frame was calibrated decides how far the measurement
                 drawn from it can be trusted, so it sits on the thumbnail rather
@@ -809,10 +810,11 @@ const PhotoViewer: React.FC<{
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
-        <img
-          src={photo.imageData || photo.url}
+        <StoredWoundImage
+          src={pickImageSrc(photo.imageData, photo.url)}
           alt="Wound photograph with calibration marker"
           className="max-h-full max-w-full object-contain rounded-lg"
+          loading="eager"
         />
         <button
           onClick={() => onIndex(index + 1)} disabled={index === records.length - 1}
