@@ -11,6 +11,12 @@ import type {
   PadAssessment, VascularIntervention,
 } from '../domains/vascular/types';
 import type {
+  ClinicalProblem, ClinicalPlanItem,
+} from '../domains/clinical/clerking/records';
+import type {
+  ScribeTreatmentPlan, ScribePlanAction, ScribePlanAttachment,
+} from '../domains/clinical/scribe/records';
+import type {
   User,
   Hospital,
   Patient,
@@ -262,6 +268,17 @@ export class AstroHEALTHDatabase extends Dexie {
   // bilateral disease carries two independent trajectories.
   padAssessments!: Table<PadAssessment, string>;
   vascularInterventions!: Table<VascularIntervention, string>;
+
+  // Structured clerking: the diagnoses and plan items a clinician ACCEPTED,
+  // tracked across encounters until resolved / done. The clerking itself rides
+  // on clinicalEncounters (field `clerking`).
+  clinicalProblems!: Table<ClinicalProblem, string>;
+  clinicalPlanItems!: Table<ClinicalPlanItem, string>;
+  // The medical scribe's treatment plans (consultant approval) and the log of
+  // how each approved item was carried out.
+  scribeTreatmentPlans!: Table<ScribeTreatmentPlan, string>;
+  scribePlanActions!: Table<ScribePlanAction, string>;
+  scribePlanAttachments!: Table<ScribePlanAttachment, string>;
   woundAssessments!: Table<WoundAssessment, string>;
   // Tumour Board — oncology cases + append-only staging timeline and artefacts
   tumourBoardCases!: Table<TumourBoardCase, string>;
@@ -451,6 +468,15 @@ export class AstroHEALTHDatabase extends Dexie {
     this.version(86).stores({
       padAssessments: 'id, patientId, hospitalId, side, assessedAt, status, isBaseline, createdAt, updatedAt',
       vascularInterventions: 'id, patientId, side, kind, performedAt, createdAt, updatedAt',
+    });
+
+    // Structured clerking and the medical scribe's treatment plans.
+    this.version(87).stores({
+      clinicalProblems: 'id, patientId, encounterId, status, createdAt, updatedAt',
+      clinicalPlanItems: 'id, patientId, encounterId, kind, status, createdAt, updatedAt',
+      scribeTreatmentPlans: 'id, patientId, status, version, generatedAt, createdAt, updatedAt',
+      scribePlanActions: 'id, scribePlanId, patientId, itemKey, status, loggedAt, createdAt, updatedAt',
+      scribePlanAttachments: 'id, actionId, patientId, createdAt, updatedAt',
     });
 
     // v91 – users.isActive back to a boolean. User Management stored 1/0, so

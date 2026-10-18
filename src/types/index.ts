@@ -243,6 +243,16 @@ export interface ClinicalEncounter {
     completedAt: string;
   };
 
+  /**
+   * The structured clerking, when the encounter was clerked with it.
+   *
+   * Like structuredHistory, stored beside the prose and never instead of it:
+   * the clerking writes its narrative into the free-text fields above. This
+   * block carries the answers, the clinician's decisions on suggestions and
+   * the draft / review / sign lifecycle.
+   */
+  clerking?: import('../domains/clinical/clerking/records').StructuredClerking;
+
   // Follow-up encounter specific
   intervalHistory?: string;          // Changes since last visit
   complianceAssessment?: string;     // Medication/treatment compliance

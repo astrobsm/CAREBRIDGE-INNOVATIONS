@@ -902,6 +902,11 @@ async function pullAllFromCloud(): Promise<void> {
   await pullTable(TABLES.scarAlerts, 'scarAlerts');
   await pullTable(TABLES.padAssessments, 'padAssessments');
   await pullTable(TABLES.vascularInterventions, 'vascularInterventions');
+  await pullTable(TABLES.clinicalProblems, 'clinicalProblems');
+  await pullTable(TABLES.clinicalPlanItems, 'clinicalPlanItems');
+  await pullTable(TABLES.scribeTreatmentPlans, 'scribeTreatmentPlans');
+  await pullTable(TABLES.scribePlanActions, 'scribePlanActions');
+  await pullTable(TABLES.scribePlanAttachments, 'scribePlanAttachments');
 
   // Finance
   await pullTable(TABLES.financeBuckets, 'financeBuckets');
@@ -1105,6 +1110,12 @@ async function pushAllToCloud(): Promise<void> {
   await pushTable('scarAlerts', TABLES.scarAlerts);
   await pushTable('padAssessments', TABLES.padAssessments);
   await pushTable('vascularInterventions', TABLES.vascularInterventions);
+  await pushTable('clinicalProblems', TABLES.clinicalProblems);
+  await pushTable('clinicalPlanItems', TABLES.clinicalPlanItems);
+  // Plans before their log: the database refuses a log entry for a plan it has not seen approved.
+  await pushTable('scribeTreatmentPlans', TABLES.scribeTreatmentPlans);
+  await pushTable('scribePlanActions', TABLES.scribePlanActions);
+  await pushTable('scribePlanAttachments', TABLES.scribePlanAttachments);
 
   // Finance
   await pushTable('financeBuckets', TABLES.financeBuckets);

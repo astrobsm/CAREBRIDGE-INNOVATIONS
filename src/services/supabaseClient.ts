@@ -217,6 +217,11 @@ export const TABLES = {
   scarAlerts: 'scar_alerts',
   padAssessments: 'pad_assessments',
   vascularInterventions: 'vascular_interventions',
+  clinicalProblems: 'clinical_problems',
+  clinicalPlanItems: 'clinical_plan_items',
+  scribeTreatmentPlans: 'scribe_treatment_plans',
+  scribePlanActions: 'scribe_plan_actions',
+  scribePlanAttachments: 'scribe_plan_attachments',
 
   // Finance
   financeBuckets: 'finance_buckets',
@@ -370,6 +375,11 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   scarAlerts: 'scar_alerts',
   padAssessments: 'pad_assessments',
   vascularInterventions: 'vascular_interventions',
+  clinicalProblems: 'clinical_problems',
+  clinicalPlanItems: 'clinical_plan_items',
+  scribeTreatmentPlans: 'scribe_treatment_plans',
+  scribePlanActions: 'scribe_plan_actions',
+  scribePlanAttachments: 'scribe_plan_attachments',
 };
 
 // Type for sync status
