@@ -31,6 +31,8 @@ export interface ResuscitationPlan {
   firstHalfEndTime: Date;
   resuscitationEndTime: Date;
   urineOutputTarget: { min: number; max: number };
+  /** Safety notes on the plan (late presentation, rate capped, paediatrics). */
+  notes: string[];
 }
 
 export interface NutritionTargets {
@@ -53,13 +55,20 @@ export const burnCareService = {
    * current rate rises accordingly — that catch-up is the entire reason the
    * formula is specified from injury, and getting it wrong under-resuscitates
    * exactly the patients who present late.
+   *
+   * The catch-up is capped, though. Giving the whole remaining half in the
+   * time left becomes a huge bolus near the 8-hour mark (7.9 h gave 80x the
+   * scheduled rate), so the rate is held at twice the scheduled rate and the
+   * plan says so; beyond 24 h Parkland no longer applies at all.
    */
   calculateParklandFormula(
     weightKg: number,
     tbsa: number,
     timeOfBurn: Date,
     currentTime: Date = new Date(),
+    ageYears?: number | null,
   ): ResuscitationPlan {
+    const notes: string[] = ['Parkland is a starting estimate — titrate hourly to urine output (ABA / ATLS).'];
     const totalVolume24h = 4 * weightKg * tbsa;
     const firstHalfVolume = totalVolume24h / 2;
     const secondHalfVolume = totalVolume24h / 2;
@@ -70,11 +79,31 @@ export const burnCareService = {
 
     const hoursElapsed = (currentTime.getTime() - burnTime.getTime()) / (1000 * 60 * 60);
 
+    const capAt = (rate: number, scheduled: number, phase: string): number => {
+      if (rate <= scheduled * 2) return rate;
+      notes.push(
+        `Presented late in the ${phase}: catching up would need ${Math.round(rate)} mL/h. `
+        + `Rate capped at 2× the scheduled ${Math.round(scheduled)} mL/h — titrate to urine output; senior review.`,
+      );
+      return scheduled * 2;
+    };
+
     let currentRate = 0;
-    if (hoursElapsed < 8) {
-      currentRate = firstHalfVolume / Math.max(8 - hoursElapsed, 1e-6);
+    if (hoursElapsed < 0) {
+      notes.push('Burn time is in the future — check the time of injury.');
+    } else if (hoursElapsed < 8) {
+      currentRate = capAt(firstHalfVolume / (8 - hoursElapsed), firstHalfVolume / 8, 'first 8 hours');
     } else if (hoursElapsed < 24) {
-      currentRate = secondHalfVolume / Math.max(24 - hoursElapsed, 1e-6);
+      currentRate = capAt(secondHalfVolume / (24 - hoursElapsed), secondHalfVolume / 16, 'second 16 hours');
+    } else {
+      notes.push('More than 24 h since the burn — Parkland no longer applies; give maintenance fluid guided by urine output and ongoing losses.');
+    }
+
+    // Children: higher urine-output target, and resuscitation fluid is given
+    // on top of dextrose-containing maintenance fluid.
+    const child = (ageYears != null && ageYears < 14) || weightKg < 30;
+    if (child) {
+      notes.push('Child: add maintenance fluid (Holliday–Segar, with dextrose) to the resuscitation volume; target urine output 1.0–1.5 mL/kg/h.');
     }
 
     return {
@@ -87,7 +116,8 @@ export const burnCareService = {
       resuscitationStartTime: burnTime,
       firstHalfEndTime,
       resuscitationEndTime,
-      urineOutputTarget: { min: 0.5, max: 1.0 },
+      urineOutputTarget: child ? { min: 1.0, max: 1.5 } : { min: 0.5, max: 1.0 },
+      notes,
     };
   },
 

@@ -98,10 +98,24 @@ export function interpretCaprini(score: number): RiskResult {
   };
 }
 
-export function scoreBraden(s: BradenSubscores): number {
-  return (
-    s.sensory_perception + s.moisture + s.activity + s.mobility + s.nutrition + s.friction_shear
-  );
+const BRADEN_KEYS: (keyof BradenSubscores)[] = [
+  'sensory_perception', 'moisture', 'activity', 'mobility', 'nutrition', 'friction_shear',
+];
+
+const bradenItemValid = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isFinite(v) && v >= 1;
+
+/** True when any of the six subscales is missing or not a valid score. */
+export function bradenIncomplete(s: Partial<BradenSubscores> | null | undefined): boolean {
+  return BRADEN_KEYS.some(k => !bradenItemValid(s?.[k]));
+}
+
+/**
+ * Braden total. A missing subscale is not "no risk": it counts as the worst
+ * score (1), so an unscored patient can never look safe (UNTH audit, batch 3).
+ */
+export function scoreBraden(s: Partial<BradenSubscores>): number {
+  return BRADEN_KEYS.reduce((n, k) => n + (bradenItemValid(s?.[k]) ? (s[k] as number) : 1), 0);
 }
 
 export function interpretBraden(totalScore: number): RiskResult {
@@ -170,10 +184,15 @@ export const riskAssessmentService = {
     return interpretCaprini(scoreCaprini(assessment.risk_factors || {}));
   },
 
-  async calculatePressureSoreRisk(assessment: { braden_subscores?: BradenSubscores }): Promise<RiskResult> {
-    const s = assessment.braden_subscores;
-    if (!s) return interpretBraden(0);
-    return interpretBraden(scoreBraden(s));
+  async calculatePressureSoreRisk(assessment: { braden_subscores?: Partial<BradenSubscores> }): Promise<RiskResult> {
+    const s = assessment.braden_subscores || {};
+    const result = interpretBraden(scoreBraden(s));
+    if (bradenIncomplete(s)) {
+      result.interpretation =
+        'Braden incomplete — score all six subscales (missing items counted as highest risk). '
+        + result.interpretation;
+    }
+    return result;
   },
 
   async calculateNutritionalRisk(assessment: {

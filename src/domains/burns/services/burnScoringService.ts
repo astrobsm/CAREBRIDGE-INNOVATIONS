@@ -465,11 +465,26 @@ export function calculateFluidResuscitation(
   const hoursSinceBurn = Math.max(0, (now.getTime() - timeOfBurn.getTime()) / (1000 * 60 * 60));
   
   // Adjust first half window
+  const notes: string[] = [];
   const hoursRemainingFirstHalf = Math.max(0, 8 - hoursSinceBurn);
-  const firstHalfRate = hoursRemainingFirstHalf > 0 ? firstHalfVolume / hoursRemainingFirstHalf : 0;
+  const scheduledFirstHalfRate = firstHalfVolume / 8;
+  let firstHalfRate = hoursRemainingFirstHalf > 0 ? firstHalfVolume / hoursRemainingFirstHalf : 0;
+  // Late presentation: putting the whole first half into the time left becomes
+  // a bolus near the 8-hour mark (7.9 h gave 80x the scheduled rate). The
+  // catch-up is capped at twice the scheduled rate and flagged.
+  if (firstHalfRate > scheduledFirstHalfRate * 2) {
+    notes.push(
+      `Presented late in the first 8 hours: catching up would need ${Math.round(firstHalfRate)} mL/h. `
+      + `Rate capped at 2× the scheduled ${Math.round(scheduledFirstHalfRate)} mL/h — titrate to urine output; senior review.`,
+    );
+    firstHalfRate = scheduledFirstHalfRate * 2;
+  }
   
   // Second half rate (over 16 hours)
   const secondHalfRate = secondHalfVolume / 16;
+  if (hoursSinceBurn >= 24) {
+    notes.push('More than 24 h since the burn — Parkland no longer applies; give maintenance fluid guided by urine output and ongoing losses.');
+  }
 
   // Urine output target based on age/weight
   // Adults: 0.5-1.0 mL/kg/hr, Children: 1-1.5 mL/kg/hr
@@ -487,12 +502,15 @@ export function calculateFluidResuscitation(
     secondHalfVolume: Math.round(secondHalfVolume),
     firstHalfRate: Math.round(firstHalfRate),
     secondHalfRate: Math.round(secondHalfRate),
-    currentInfusionRate: hoursSinceBurn < 8 ? Math.round(firstHalfRate) : Math.round(secondHalfRate),
+    currentInfusionRate: hoursSinceBurn < 8
+      ? Math.round(firstHalfRate)
+      : hoursSinceBurn < 24 ? Math.round(secondHalfRate) : 0,
     currentHour: Math.floor(hoursSinceBurn),
     fluidAdministered: 0,
     fluidRemaining: Math.round(totalFluid24h),
     urineOutputTarget,
     adjustments: [],
+    notes,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

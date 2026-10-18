@@ -509,10 +509,13 @@ class PreoperativeService {
       else if (coagResults.inr > 1.3) riskScore += 1;
     }
 
-    // Check platelets
+    // Check platelets, in ×10⁹/L (normal 150–400). A count typed per µL (e.g.
+    // 40000) would otherwise read as normal and hide real thrombocytopenia, so
+    // a value above 2000 can only be per µL and is converted (UNTH audit).
     if (coagResults.platelets) {
-      if (coagResults.platelets < 50) riskScore += 2;
-      else if (coagResults.platelets < 100) riskScore += 1;
+      const plt = coagResults.platelets > 2000 ? coagResults.platelets / 1000 : coagResults.platelets;
+      if (plt < 50) riskScore += 2;
+      else if (plt < 100) riskScore += 1;
     }
 
     // Anticoagulant use

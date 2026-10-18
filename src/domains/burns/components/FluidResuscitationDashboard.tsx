@@ -241,6 +241,12 @@ export default function FluidResuscitationDashboard({
         </div>
       </div>
 
+      {plan.notes && plan.notes.length > 0 && (
+        <ul className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 list-disc pl-6 space-y-0.5">
+          {plan.notes.map(n => <li key={n}>{n}</li>)}
+        </ul>
+      )}
+
       {/* 24-Hour Fluid Requirements */}
       <div className="bg-white border rounded-lg p-4">
         <h4 className="font-medium text-gray-900 mb-4">24-Hour Fluid Requirements</h4>

@@ -48,6 +48,27 @@ describe('Parkland resuscitation', () => {
     const p = burnCareService.calculateParklandFormula(70, 30, new Date(0));
     expect(p.urineOutputTarget).toEqual({ min: 0.5, max: 1.0 });
   });
+
+  // Ported from the UNTH batch-3 clinical safety audit.
+  it('never turns late presentation into a bolus', () => {
+    // 7.9 h after the burn the arithmetic catch-up is 80x the scheduled rate.
+    const p = burnCareService.calculateParklandFormula(70, 30, new Date(0), new Date(7.9 * HOUR), 40);
+    const scheduled = (4 * 70 * 30) / 2 / 8;
+    expect(p.currentRate).toBeLessThanOrEqual(Math.round(scheduled * 2));
+    expect(p.notes.join(' ')).toMatch(/capped/);
+  });
+
+  it('says plainly when Parkland no longer applies', () => {
+    const p = burnCareService.calculateParklandFormula(70, 30, new Date(0), new Date(30 * HOUR), 40);
+    expect(p.currentRate).toBe(0);
+    expect(p.notes.join(' ')).toMatch(/More than 24 h/);
+  });
+
+  it('gives children the higher urine-output target and a maintenance-fluid note', () => {
+    const p = burnCareService.calculateParklandFormula(20, 20, new Date(0), new Date(1 * HOUR), 6);
+    expect(p.urineOutputTarget).toEqual({ min: 1.0, max: 1.5 });
+    expect(p.notes.join(' ')).toMatch(/maintenance fluid/);
+  });
 });
 
 describe('Baux scores', () => {
