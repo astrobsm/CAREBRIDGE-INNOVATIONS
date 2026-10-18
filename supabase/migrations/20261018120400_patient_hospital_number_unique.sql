@@ -173,7 +173,7 @@ BEGIN
     RETURN 'blocked: ' || groups || ' duplicate group(s)';
   END IF;
   BEGIN
-    CREATE UNIQUE INDEX ux_patients_hospital_number_key
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_patients_hospital_number_key
       ON public.patients (public.patient_hospital_number_scope(registered_hospital_id),
                           public.patient_hospital_number_key(hospital_number))
       WHERE public.patient_hospital_number_key(hospital_number) <> ''

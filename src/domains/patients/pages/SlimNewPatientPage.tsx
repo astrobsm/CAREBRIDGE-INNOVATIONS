@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Save, User, Phone, MapPin, Users, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
+import { db } from '../../../database/db';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { HospitalSelector } from '../../../components/hospital';
 import type { Patient } from '../../../types';
