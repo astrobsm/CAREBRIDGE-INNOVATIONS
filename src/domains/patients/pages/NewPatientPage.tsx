@@ -361,7 +361,10 @@ export default function NewPatientPage() {
       if (data.hospitalId === 'others') {
         hospitalName = data.otherHospitalName;
       } else {
-        const selectedHospital = hospitals.find((h: Hospital) => h.id === data.hospitalId);
+        // Read the store, not the list loaded on mount: a hospital quick-added from the
+        // selector during this registration is not in that list.
+        const selectedHospital = hospitals.find((h: Hospital) => h.id === data.hospitalId)
+          ?? (data.hospitalId ? await db.hospitals.get(data.hospitalId) : undefined);
         hospitalName = selectedHospital?.name;
       }
 

@@ -24,6 +24,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../database/db';
 import { fullSync } from '../../services/cloudSyncService';
 import type { Hospital } from '../../types';
+import { searchHospitals } from './hospitalSearch';
 
 // ============================================================
 // TYPES
@@ -275,17 +276,10 @@ export function HospitalSelector({
   }, [value, hospitals]);
 
   // Filter hospitals based on search query
-  const searchResults = useMemo(() => {
-    if (!hospitals) return [];
-    if (searchQuery.length < 1) return hospitals.slice(0, 10);
-    
-    const query = searchQuery.toLowerCase();
-    return hospitals.filter(h => 
-      (h.name || '').toLowerCase().includes(query) ||
-      (h.address || '').toLowerCase().includes(query) ||
-      (h.city || '').toLowerCase().includes(query)
-    ).slice(0, 10);
-  }, [hospitals, searchQuery]);
+  const searchResults = useMemo(
+    () => searchHospitals(hospitals ?? [], searchQuery),
+    [hospitals, searchQuery],
+  );
 
   // Close dropdown on outside click
   useEffect(() => {
