@@ -102,7 +102,7 @@ export default function SlimNewPatientPage() {
         },
         careType: 'hospital',
         hospitalId: data.hospitalId,
-        hospitalName: undefined,
+        hospitalName: data.hospitalId ? (await db.hospitals.get(data.hospitalId))?.name : undefined,
         registeredHospitalId: data.hospitalId,
         isActive: true,
         createdAt: new Date(),
