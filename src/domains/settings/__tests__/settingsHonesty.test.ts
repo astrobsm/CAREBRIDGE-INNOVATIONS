@@ -40,3 +40,10 @@ describe('Settings page', () => {
     expect(src).toMatch(/onClick=\{logout\}/);
   });
 });
+
+describe('Header', () => {
+  it('shows no permanent unread dot over an always-empty notifications panel', () => {
+    const header = readFileSync(join(process.cwd(), 'src/components/navigation/Header.tsx'), 'utf8');
+    expect(header).not.toMatch(/absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full/);
+  });
+});
