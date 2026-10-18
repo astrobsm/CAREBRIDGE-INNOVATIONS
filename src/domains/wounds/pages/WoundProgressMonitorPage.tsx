@@ -20,7 +20,7 @@ import {
   Activity, AlertTriangle, ArrowLeft, Camera, ChevronLeft, ChevronRight, Download, FileText,
   Image as ImageIcon,
   LineChart, Plus, Printer, RefreshCw, Ruler, Search, TrendingDown, TrendingUp,
-  Minus, Loader2, X,
+  Minus, Loader2, Pencil, X,
 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../database';
@@ -41,7 +41,10 @@ import {
 } from '../../../utils/clinicalPdfGenerators';
 import type { CalibratedMeasurement } from '../../../services/woundMeasurementEngine';
 import { detectCalibrationMarker } from '../../../services/woundMeasurementEngine';
-import { computePlanimetry, measureTrace, type Trace } from '../../../services/planimetry';
+import {
+  computePlanimetry, measureTrace, tissueComposition, traceDimensionsCm,
+  type Point, type Trace, type TissueRemainder, type SurfaceKind,
+} from '../../../services/planimetry';
 import GroupedSelect from '../../../components/common/GroupedSelect';
 import { ANATOMICAL_SITES, WOUND_ETIOLOGIES } from '../../../data/anatomy';
 import {
@@ -54,6 +57,8 @@ import {
   type HealingAnalytics,
 } from '../services/woundMonitorService';
 
+import { StoredWoundImage, pickImageSrc } from '../components/StoredWoundImage';
+
 const WoundHealingMap = lazy(() => import('../components/WoundHealingMap'));
 const MonitorTrendChart = lazy(() => import('../components/MonitorTrendChart'));
 // Heavy (pulls TensorFlow via the measurement engine) and only needed when the
@@ -61,6 +66,30 @@ const MonitorTrendChart = lazy(() => import('../components/MonitorTrendChart'));
 const CalibratedWoundCapture = lazy(() => import('../components/CalibratedWoundCapture'));
 // Only loaded when the clinician chooses to trace.
 const WoundTracer = lazy(() => import('../../../components/clinical/WoundTracer'));
+// Only loaded when no marker set the scale and the clinician sets it by hand.
+const WoundCalibrationPicker = lazy(() => import('../components/WoundCalibrationPicker'));
+
+/**
+ * The tissues traced on a wound bed — the four the assessment records as
+ * percentages. (Raw / epithelialised-only palettes suit donor sites instead.)
+ */
+const WOUND_TRACE_KINDS: SurfaceKind[] = ['granulation', 'slough', 'necrotic', 'epithelialised'];
+
+/**
+ * A frame prepared for tracing: the decoded, downscaled photograph the tracing
+ * and scale screens draw from directly, and the scale read from it.
+ */
+interface TraceSource {
+  canvas: HTMLCanvasElement;
+  dataUrl: string;
+  width: number;
+  height: number;
+  pxPerCm: number | null;
+  /** How the scale was set, shown beside it. */
+  scaleLabel?: string;
+  /** The automatic outline, in this frame's pixels, offered as a starting point. */
+  suggestedOutline?: Point[] | null;
+}
 
 const WOUND_TYPES = [
   'Burn', 'Pressure Injury', 'Venous Ulcer', 'Diabetic Foot Ulcer', 'Surgical Wound',
@@ -703,11 +732,10 @@ const PhotoStrip: React.FC<{
           className="group shrink-0 w-32 text-left rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
         >
           <div className="relative w-32 h-32 rounded-lg overflow-hidden border bg-gray-50">
-            <img
-              src={r.photo.imageData || r.photo.url}
+            <StoredWoundImage
+              src={pickImageSrc(r.photo.imageData, r.photo.url)}
               alt={`Wound on ${r.assessment.assessedAt ? new Date(r.assessment.assessedAt).toLocaleDateString() : 'an unknown date'}`}
               className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
-              loading="lazy"
             />
             {/* Whether the frame was calibrated decides how far the measurement
                 drawn from it can be trusted, so it sits on the thumbnail rather
@@ -782,10 +810,11 @@ const PhotoViewer: React.FC<{
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
-        <img
-          src={photo.imageData || photo.url}
+        <StoredWoundImage
+          src={pickImageSrc(photo.imageData, photo.url)}
           alt="Wound photograph with calibration marker"
           className="max-h-full max-w-full object-contain rounded-lg"
+          loading="eager"
         />
         <button
           onClick={() => onIndex(index + 1)} disabled={index === records.length - 1}
@@ -1344,10 +1373,10 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
   const [mode, setMode] = useState<'trace' | 'photo' | 'guided' | 'manual'>('trace');
 
   // Tracing: the captured frame and the scale read from its marker.
-  const [traceSource, setTraceSource] = useState<{ dataUrl: string; pxPerCm: number | null } | null>(null);
+  const [traceSource, setTraceSource] = useState<TraceSource | null>(null);
   const traceFileRef = useRef<HTMLInputElement>(null);
-  const photoDataUrlForTracing = traceSource?.dataUrl ?? null;
   const tracingPixelsPerCm = traceSource?.pxPerCm ?? null;
+  const [showCalibration, setShowCalibration] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -1406,6 +1435,24 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
         REFERENCE_PHOTO_MAX_PX,
       );
       const ratio = shot.width / canvas.width;
+
+      // The same frame, ready to trace on: the detected outline is offered as
+      // a starting point, and the scale carried over only when a marker was
+      // reliably found — tracing on a guessed scale would give a guessed area.
+      const traceFrame = prepareTraceFrame(canvas, TRACE_FRAME_MAX_PX);
+      const tRatio = traceFrame.width / canvas.width;
+      const autoScale = result.scaleReliable && result.measurements?.calibrationFactor
+        ? result.measurements.calibrationFactor * tRatio
+        : null;
+      setTraceSource({
+        ...traceFrame,
+        pxPerCm: autoScale ? round(autoScale) : null,
+        scaleLabel: autoScale ? (result.calibrationMethod || 'detected marker') : undefined,
+        suggestedOutline: result.contourPoints?.length > 2
+          ? result.contourPoints.map(p => ({ x: p.x * tRatio, y: p.y * tRatio }))
+          : null,
+      });
+
       setPhoto({
         id: crypto.randomUUID(),
         imageData: shot.dataUrl,
@@ -1620,8 +1667,8 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
 
       if (!pxPerCm) {
         setWarnings([
-          'No green calibration marker was found, so the trace can only be recorded in pixels. ' +
-          'Re-shoot with the marker flat beside the wound to get an area in cm².',
+          'No green calibration marker was found. Set the scale by dragging across a card, ruler ' +
+          'or coin in the photo, or re-shoot with the marker flat beside the wound.',
         ]);
       }
 
@@ -1630,12 +1677,15 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
 
       // Downscaled for tracing: a 4000px frame is slow to redraw on every
       // pointer move, and 1600px is more than enough to follow a wound edge.
-      const shot = renderReferencePhoto(canvas, undefined, null, 1600);
-      const ratio = shot.width / canvas.width;
+      // The decoded frame itself is kept: the tracing and scale screens draw
+      // from it rather than re-loading the photo.
+      const frame = prepareTraceFrame(canvas, TRACE_FRAME_MAX_PX);
+      const ratio = frame.width / canvas.width;
 
       setTraceSource({
-        dataUrl: shot.dataUrl,
+        ...frame,
         pxPerCm: pxPerCm ? round(pxPerCm * ratio) : null,
+        scaleLabel: pxPerCm ? method : undefined,
       });
     } catch (e: any) {
       setError(e?.message || 'Could not read the photograph.');
@@ -1652,7 +1702,7 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
    * numbers in the module that rest on geometry rather than estimation.
    */
   const applyTracedMeasurement = useCallback(
-    ({ traces, annotatedDataUrl }: { traces: Trace[]; annotatedDataUrl: string }) => {
+    ({ traces, annotatedDataUrl, remainder }: { traces: Trace[]; annotatedDataUrl: string; remainder?: TissueRemainder }) => {
       editedRef.current = true;
       const total = traces.find(t => t.role === 'total');
       if (!total) return;
@@ -1660,21 +1710,31 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
       const geometry = measureTrace(total.points, tracingPixelsPerCm);
       const planimetry = computePlanimetry(traces, tracingPixelsPerCm);
 
-      // Length and width come from the traced outline's extent, converted by
-      // the same scale as the area, so every dimension is consistent with it.
-      const xs = total.points.map(p => p.x);
-      const ys = total.points.map(p => p.y);
-      const spanX = Math.max(...xs) - Math.min(...xs);
-      const spanY = Math.max(...ys) - Math.min(...ys);
-      const toCm = (px: number) =>
-        tracingPixelsPerCm ? round(px / tracingPixelsPerCm) : undefined;
+      // Length and width by caliper over the traced outline — the longest axis
+      // and the widest span across it — converted by the same scale as the
+      // area. An axis-aligned box would change with the photo's rotation.
+      const dims = traceDimensionsCm(total.points, tracingPixelsPerCm);
+
+      // Tissue percentages follow the tracing only when tissue was actually
+      // traced or the remainder assigned; otherwise any earlier figures stand.
+      const tissueTraced = traces.some(t => t.role !== 'total');
+      const composition = tissueTraced || (remainder && remainder !== 'unassigned')
+        ? tissueComposition(traces, tracingPixelsPerCm, remainder ?? 'unassigned')
+        : null;
 
       setM(prev => ({
         ...prev,
         areaCm2: planimetry.totalAreaCm2 ?? prev.areaCm2,
         perimeterCm: geometry.perimeterCm ?? prev.perimeterCm,
-        lengthCm: toCm(Math.max(spanX, spanY)) ?? prev.lengthCm,
-        widthCm: toCm(Math.min(spanX, spanY)) ?? prev.widthCm,
+        lengthCm: dims ? round(dims.lengthCm) : prev.lengthCm,
+        widthCm: dims ? round(dims.widthCm) : prev.widthCm,
+        contourCm: tracingPixelsPerCm ? contourCmFromPx(total.points, tracingPixelsPerCm) : prev.contourCm,
+        ...(composition ? {
+          granulationPct: composition.percent.granulation,
+          sloughPct: composition.percent.slough,
+          necroticPct: composition.percent.necrotic,
+          epithelialPct: composition.percent.epithelialised,
+        } : {}),
       }));
 
       setPhoto({
@@ -1694,6 +1754,18 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
       setMode('manual');
     },
     [tracingPixelsPerCm, calibType, scaleReliable],
+  );
+
+  /** The clinician set the scale from a reference object in the frame. */
+  const applyManualScale = useCallback(
+    ({ pixelsPerCm, referenceLabel }: { pixelsPerCm: number; referenceLabel: string }) => {
+      setShowCalibration(false);
+      setTraceSource(prev => (prev ? { ...prev, pxPerCm: round(pixelsPerCm), scaleLabel: referenceLabel } : prev));
+      setScaleReliable(true);
+      setCalibType(`manual:${referenceLabel}`);
+      setWarnings([]);
+    },
+    [],
   );
 
   const setField = (k: keyof WoundAssessment, v: string) => {
@@ -1736,16 +1808,62 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
           colour threshold's guess at where the wound ends — which is why this
           is offered first. */}
       {mode === 'trace' && (
-        photoDataUrlForTracing ? (
-          <div className="mb-4">
+        traceSource ? (
+          <div className="mb-4 space-y-3">
+            {/* 1. Scale, then 2. trace. The tracing is only as good as the
+                scale under it, so it is shown — and settable — first. */}
+            <div className="rounded-xl border border-teal-200 bg-teal-50/60 p-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm">
+                <span className="font-semibold">Scale</span>{' '}
+                {tracingPixelsPerCm
+                  ? <span className="text-green-700">set — {tracingPixelsPerCm.toFixed(1)} px/cm{traceSource.scaleLabel ? ` (${traceSource.scaleLabel})` : ''}</span>
+                  : <span className="text-amber-700">not set — drag across a card, ruler or coin in the photo</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCalibration(true)}
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium ${tracingPixelsPerCm ? 'border border-teal-600 text-teal-700' : 'bg-teal-600 text-white'}`}
+              >
+                <Ruler className="w-3.5 h-3.5 inline mr-1" />{tracingPixelsPerCm ? 'Reset scale' : 'Set scale'}
+              </button>
+            </div>
+            {warnings.length > 0 && (
+              <ul className="space-y-1">
+                {warnings.map((w, i) => (
+                  <li key={i} className="text-xs text-amber-700 flex gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />{w}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-[11px] text-gray-500">
+              Trace the wound margin, then any granulation, slough, necrotic and epithelial areas.
+              Area, length, width, perimeter and the tissue percentages are calculated from the tracing.
+            </p>
             <Suspense fallback={<div className="h-48 bg-gray-50 rounded-xl animate-pulse" />}>
               <WoundTracer
-                imageSrc={photoDataUrlForTracing}
+                source={traceSource.canvas}
+                imageSrc={traceSource.dataUrl}
                 pixelsPerCm={tracingPixelsPerCm}
+                surfaceKinds={WOUND_TRACE_KINDS}
+                suggestedOutline={traceSource.suggestedOutline}
+                assignRemainder
                 onCancel={() => setTraceSource(null)}
                 onComplete={applyTracedMeasurement}
               />
             </Suspense>
+            {showCalibration && (
+              <Suspense fallback={null}>
+                <WoundCalibrationPicker
+                  source={traceSource.canvas}
+                  imageUrl={traceSource.dataUrl}
+                  naturalWidth={traceSource.width}
+                  naturalHeight={traceSource.height}
+                  onCancel={() => setShowCalibration(false)}
+                  onCalibrated={applyManualScale}
+                />
+              </Suspense>
+            )}
           </div>
         ) : (
           <div className="mb-4">
@@ -1808,6 +1926,16 @@ const CaptureAssessmentModal: React.FC<{ wound: MonitoredWound; onClose: () => v
               Place the printed green marker flat beside the wound — it is what gives an accurate size
             </span>
           </button>
+          {!analyzing && traceSource && (
+            <button
+              type="button"
+              onClick={() => setMode('trace')}
+              className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg text-xs font-medium border border-teal-600 text-teal-700 hover:bg-teal-50 inline-flex items-center justify-center gap-1.5"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              {traceSource.suggestedOutline ? 'Check or correct the outline by tracing' : 'Trace the wound on this photo'}
+            </button>
+          )}
           {!analyzing && m.areaCm2 != null && (
             <p className={`text-xs mt-2 ${
               scaleReliable ? 'text-green-600' : Number(m.areaCm2) > 0 ? 'text-amber-600' : 'text-red-600'
@@ -2282,6 +2410,60 @@ function downscaleDataUrl(
 }
 
 /** Rough byte size of a data URL, for showing how much a photo costs. */
+/** Longest edge of the frame traced on — enough to follow a wound edge, light enough to redraw. */
+const TRACE_FRAME_MAX_PX = 1600;
+
+/**
+ * A downscaled copy of the frame for tracing, kept decoded.
+ *
+ * The tracing and scale screens draw from this canvas directly. Re-loading the
+ * photograph from an object URL failed on Android (the camera file can already
+ * be released), which left those screens blank.
+ */
+function prepareTraceFrame(
+  source: HTMLCanvasElement,
+  maxEdge: number,
+): { canvas: HTMLCanvasElement; dataUrl: string; width: number; height: number } {
+  const longest = Math.max(source.width, source.height);
+  const scale = longest > maxEdge ? maxEdge / longest : 1;
+  const out = document.createElement('canvas');
+  out.width = Math.round(source.width * scale);
+  out.height = Math.round(source.height * scale);
+  const ctx = out.getContext('2d');
+  if (ctx) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(source, 0, 0, out.width, out.height);
+  }
+  return { canvas: out, dataUrl: out.toDataURL('image/jpeg', 0.85), width: out.width, height: out.height };
+}
+
+/**
+ * The traced outline in cm, centred on its area-weighted centroid — the form
+ * the serial healing map overlays visit on visit.
+ */
+function contourCmFromPx(points: Point[], pxPerCm: number): Point[] {
+  let cx = 0, cy = 0, a = 0;
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i], q = points[(i + 1) % points.length];
+    const cross = p.x * q.y - q.x * p.y;
+    a += cross; cx += (p.x + q.x) * cross; cy += (p.y + q.y) * cross;
+  }
+  let c: Point;
+  if (Math.abs(a) < 1e-9) {
+    c = {
+      x: points.reduce((s, p) => s + p.x, 0) / points.length,
+      y: points.reduce((s, p) => s + p.y, 0) / points.length,
+    };
+  } else {
+    c = { x: cx / (3 * a), y: cy / (3 * a) };
+  }
+  return points.map(p => ({
+    x: Math.round(((p.x - c.x) / pxPerCm) * 100) / 100,
+    y: Math.round(((p.y - c.y) / pxPerCm) * 100) / 100,
+  }));
+}
+
 function dataUrlBytes(dataUrl?: string): number {
   if (!dataUrl) return 0;
   const i = dataUrl.indexOf(',');
