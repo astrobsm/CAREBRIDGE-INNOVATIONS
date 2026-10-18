@@ -31,6 +31,8 @@ export default function PatientsListPage() {
     if (!patients) return [];
 
     return patients.filter((patient) => {
+      // A registration merged into another is kept only for the audit trail.
+      if (patient.mergedInto) return false;
       const matchesSearch = searchQuery === '' ||
         (patient.firstName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (patient.lastName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||

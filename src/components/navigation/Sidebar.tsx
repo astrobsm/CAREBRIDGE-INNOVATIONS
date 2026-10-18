@@ -39,6 +39,7 @@ import {
   Brain,
   Layers,
   ScanLine,
+  GitMerge,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
@@ -320,6 +321,12 @@ const navigation: NavItem[] = [
     icon: <Users size={20} />,
     permission: 'manage_hospital',
   },
+  {
+    name: 'Duplicate Patients',
+    href: '/patients/duplicates',
+    icon: <GitMerge size={20} />,
+    roles: ['super_admin', 'hospital_admin'],
+  },
   { 
     name: 'Activity Analytics', 
     href: '/user-activity', 
@@ -446,6 +453,7 @@ const SECTION_BY_HREF: Record<string, string> = {
   '/shopping-checklist': 'admin',
   '/hospitals': 'admin',
   '/users': 'admin',
+  '/patients/duplicates': 'admin',
   '/settings': 'admin',
   // Other Modules
   '/finance': 'modules',
