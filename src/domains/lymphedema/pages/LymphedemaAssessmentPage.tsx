@@ -34,6 +34,7 @@ import {
 import {
   determineISLStage,
   determineCampisiStage,
+  islVolumeSeverity,
   calculateSeverityScore,
   calculateFunctionalImpactScore,
   calculateQualityOfLifeScore,
@@ -690,9 +691,18 @@ export default function LymphedemaAssessmentPage() {
                         </p>
                       </>
                     ) : (
-                      <p className="text-2xl font-bold text-purple-800">
-                        {volumeExcessPercent.toFixed(1)}%
-                      </p>
+                      <>
+                        <p className="text-2xl font-bold text-purple-800">
+                          {volumeExcessPercent.toFixed(1)}%
+                        </p>
+                        {/* ISL severity grades excess over a control limb, so
+                            it is shown only for unilateral disease. */}
+                        {volumeAssessment?.strategy === 'inter_limb' && islVolumeSeverity(volumeExcessPercent) && (
+                          <p className="text-[11px] text-purple-700 capitalize">
+                            ISL severity: {islVolumeSeverity(volumeExcessPercent)} (&lt;20% minimal, 20–40% moderate, &gt;40% severe)
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

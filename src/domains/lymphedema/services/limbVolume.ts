@@ -62,12 +62,15 @@ export function lateralityOf(affected: { right: boolean; left: boolean }): Later
  * summed over adjacent pairs. Two measurements are the minimum: a single
  * circumference describes a ring, not a solid, and returning a volume from one
  * would be inventing the limb's length.
+ *
+ * The volume starts at the wrist / ankle. The hand / foot row (metacarpals,
+ * metatarsals) sits at no standard distance from the landmark and the hand or
+ * foot is not a truncated cone, so a segment from it to the wrist / ankle is
+ * an invented height. It is still recorded and checked, but left out of the
+ * volume (UNTH audit).
  */
 export function limbVolumeMl(measurements: SiteMeasurement[]): number | null {
-  const usable = measurements
-    .filter(m => Number.isFinite(m.circumferenceCm) && m.circumferenceCm > 0
-      && Number.isFinite(m.distanceFromLandmarkCm))
-    .sort((a, b) => a.distanceFromLandmarkCm - b.distanceFromLandmarkCm);
+  const usable = usableLevels(measurements);
 
   if (usable.length < 2) return null;
 
@@ -81,6 +84,35 @@ export function limbVolumeMl(measurements: SiteMeasurement[]): number | null {
   }
 
   return total > 0 ? Math.round(total) : null;
+}
+
+/** Readings that can enter a volume: a real girth at or above the landmark. */
+function usableLevels(measurements: SiteMeasurement[]): SiteMeasurement[] {
+  return measurements
+    .filter(m => Number.isFinite(m.circumferenceCm) && m.circumferenceCm > 0
+      && Number.isFinite(m.distanceFromLandmarkCm) && m.distanceFromLandmarkCm >= 0)
+    .sort((a, b) => a.distanceFromLandmarkCm - b.distanceFromLandmarkCm);
+}
+
+/**
+ * The two limbs restricted to the levels measured on BOTH.
+ *
+ * Comparing a right leg measured at five levels with a left leg measured at
+ * three compares two different lengths of limb: the extra segments show up as
+ * "excess" that is nothing but missing data. Only shared levels enter an
+ * inter-limb comparison, so both limbs are integrated over identical segments.
+ */
+export function sharedLevels(
+  right: SiteMeasurement[], left: SiteMeasurement[],
+): { right: SiteMeasurement[]; left: SiteMeasurement[]; dropped: number } {
+  const r = usableLevels(right);
+  const l = usableLevels(left);
+  const rAt = new Set(r.map(m => m.distanceFromLandmarkCm));
+  const lAt = new Set(l.map(m => m.distanceFromLandmarkCm));
+  const both = (m: SiteMeasurement, other: Set<number>) => other.has(m.distanceFromLandmarkCm);
+  const rr = r.filter(m => both(m, lAt));
+  const ll = l.filter(m => both(m, rAt));
+  return { right: rr, left: ll, dropped: (r.length - rr.length) + (l.length - ll.length) };
 }
 
 // ── Comparison ──────────────────────────────────────────────────────────────
@@ -163,24 +195,34 @@ export function compareLimbs(input: CompareInput): VolumeAssessment {
     };
   };
 
-  const right = sideResult('right', rightVol);
-  const left = sideResult('left', leftVol);
+  let right = sideResult('right', rightVol);
+  let left = sideResult('left', leftVol);
 
-  const asymmetryMl = rightVol != null && leftVol != null ? Math.abs(rightVol - leftVol) : null;
-  const asymmetryPercent = asymmetryMl != null && rightVol != null && leftVol != null
-    ? pct(asymmetryMl, Math.min(rightVol, leftVol))
+  // Any comparison between the limbs is made over the levels both share.
+  const shared = sharedLevels(input.right, input.left);
+  const sharedRightVol = limbVolumeMl(shared.right);
+  const sharedLeftVol = limbVolumeMl(shared.left);
+  const levelsNote = shared.dropped > 0 && sharedRightVol != null && sharedLeftVol != null
+    ? `${shared.dropped} reading(s) taken on one limb only were left out of the comparison, so both `
+      + 'limbs are compared over identical segments.'
+    : null;
+
+  const asymmetryMl = sharedRightVol != null && sharedLeftVol != null
+    ? Math.abs(sharedRightVol - sharedLeftVol) : null;
+  const asymmetryPercent = asymmetryMl != null && sharedRightVol != null && sharedLeftVol != null
+    ? pct(asymmetryMl, Math.min(sharedRightVol, sharedLeftVol))
     : null;
 
   // ── Unilateral: the other limb is a control ───────────────────────────────
   if (laterality === 'right_only' || laterality === 'left_only') {
     const affectedSide: Side = laterality === 'right_only' ? 'right' : 'left';
     const controlSide: Side = affectedSide === 'right' ? 'left' : 'right';
-    const affectedVol = affectedSide === 'right' ? rightVol : leftVol;
-    const controlVol = controlSide === 'right' ? rightVol : leftVol;
+    const affectedFull = affectedSide === 'right' ? rightVol : leftVol;
+    const controlFull = controlSide === 'right' ? rightVol : leftVol;
 
-    if (affectedVol == null || controlVol == null) {
+    if (affectedFull == null || controlFull == null) {
       needed.push(
-        affectedVol == null
+        affectedFull == null
           ? `At least two circumferences on the ${affectedSide} limb.`
           : `At least two circumferences on the unaffected ${controlSide} limb, which is the comparator.`,
       );
@@ -192,11 +234,28 @@ export function compareLimbs(input: CompareInput): VolumeAssessment {
       };
     }
 
+    const affectedVol = affectedSide === 'right' ? sharedRightVol : sharedLeftVol;
+    const controlVol = controlSide === 'right' ? sharedRightVol : sharedLeftVol;
+    if (affectedVol == null || controlVol == null) {
+      needed.push('Measure both limbs at the same levels — at least two levels in common.');
+      return {
+        strategy: 'unavailable', laterality, right, left,
+        excessPercent: null, excessMl: null, asymmetryMl, asymmetryPercent,
+        notes: ['The two limbs were measured at different levels, so they cannot be compared yet.'],
+        needed,
+      };
+    }
+
+    // The volumes reported are the ones compared.
+    right = { ...right, volumeMl: sharedRightVol };
+    left = { ...left, volumeMl: sharedLeftVol };
+
     const excessMl = affectedVol - controlVol;
     notes.push(
       `Unilateral disease: the ${controlSide} limb is used as the control, which is the `
       + 'validated comparison.',
     );
+    if (levelsNote) notes.push(levelsNote);
     if (excessMl < 0) {
       notes.push(
         `The ${affectedSide} limb measures smaller than the ${controlSide}. Check the sides have `
