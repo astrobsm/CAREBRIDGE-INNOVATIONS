@@ -13,6 +13,9 @@ import type {
   ClinicalProblem, ClinicalPlanItem,
 } from '../domains/clinical/clerking/records';
 import type {
+  ScribeTreatmentPlan, ScribePlanAction,
+} from '../domains/clinical/scribe/records';
+import type {
   User,
   Hospital,
   Patient,
@@ -270,6 +273,10 @@ export class AstroHEALTHDatabase extends Dexie {
   // on clinicalEncounters (field `clerking`).
   clinicalProblems!: Table<ClinicalProblem, string>;
   clinicalPlanItems!: Table<ClinicalPlanItem, string>;
+  // The medical scribe's treatment plans (consultant approval) and the log of
+  // how each approved item was carried out.
+  scribeTreatmentPlans!: Table<ScribeTreatmentPlan, string>;
+  scribePlanActions!: Table<ScribePlanAction, string>;
   woundAssessments!: Table<WoundAssessment, string>;
   // Tumour Board — oncology cases + append-only staging timeline and artefacts
   tumourBoardCases!: Table<TumourBoardCase, string>;
@@ -465,6 +472,8 @@ export class AstroHEALTHDatabase extends Dexie {
     this.version(87).stores({
       clinicalProblems: 'id, patientId, encounterId, status, createdAt, updatedAt',
       clinicalPlanItems: 'id, patientId, encounterId, kind, status, createdAt, updatedAt',
+      scribeTreatmentPlans: 'id, patientId, status, version, generatedAt, createdAt, updatedAt',
+      scribePlanActions: 'id, scribePlanId, patientId, itemKey, status, loggedAt, createdAt, updatedAt',
     });
   }
 }

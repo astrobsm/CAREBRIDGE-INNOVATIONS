@@ -11,6 +11,7 @@
  */
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../../contexts/AuthContext';
 import type { PatientContext } from '../../clerking/engine';
@@ -99,6 +100,9 @@ export const StructuredEncountersPanel: React.FC<StructuredEncountersPanelProps>
           <button type="button" disabled={!initial && problems.length === 0} onClick={() => setForm({ type: 'follow_up' })}
             title={!initial ? 'Complete an initial clerking first' : undefined}
             className="px-3 py-2 text-sm rounded-lg border border-green-600 text-green-700 disabled:opacity-40">Follow-up encounter</button>
+          <Link to={`/patients/${patientId}/clinical-summary`} className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+            Scribe summary &amp; treatment plan
+          </Link>
         </div>
       </div>
 
