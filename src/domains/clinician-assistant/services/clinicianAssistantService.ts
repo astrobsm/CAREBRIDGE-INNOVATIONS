@@ -81,10 +81,22 @@ export function runForContext(patient: PatientContext, extraction: Extraction): 
 export async function saveAnalysis(
   patientId: string | null,
   result: RunResult,
-  opts: { source?: AnalysisSource; notes?: string; analysedBy?: string; hospitalId?: string } = {},
+  opts: {
+    source?: AnalysisSource; notes?: string; analysedBy?: string; hospitalId?: string;
+    /**
+     * One id per analysis result. Saving the same result again (a double tap,
+     * a retry on flaky ward Wi-Fi) updates that record instead of filing the
+     * analysis twice; a new run gets a new id.
+     */
+    id?: string;
+  } = {},
 ): Promise<ClinicianAnalysis> {
   const { analysis, unmapped } = result;
   const ts = nowIso();
+  let prior: ClinicianAnalysis | undefined;
+  if (opts.id) {
+    try { prior = await db.clinicianAnalyses.get(opts.id); } catch { /* treat as new */ }
+  }
 
   let firstName: string | undefined;
   let lastName: string | undefined;
@@ -97,7 +109,7 @@ export async function saveAnalysis(
   }
 
   const record: ClinicianAnalysis = {
-    id: uuidv4(),
+    id: opts.id || uuidv4(),
     patientId: patientId ?? null,
     hospitalId: opts.hospitalId,
     hospitalNumber: analysis.patient.hospitalNumber || null,
@@ -110,16 +122,16 @@ export async function saveAnalysis(
     patientContext: analysis.patient,
     unmapped,
     engineVersion: ENGINE_VERSION,
-    notes: opts.notes || null,
-    analysedAt: ts,
+    notes: opts.notes || prior?.notes || null,
+    analysedAt: prior?.analysedAt ?? ts,
     analysedBy: opts.analysedBy,
-    createdAt: ts,
+    createdAt: prior?.createdAt ?? ts,
     updatedAt: ts,
     firstName,
     lastName,
   };
 
-  await db.clinicianAnalyses.add(record);
+  await db.clinicianAnalyses.put(record);
   syncRecord('clinicianAnalyses', record as unknown as Record<string, unknown>);
   return record;
 }
