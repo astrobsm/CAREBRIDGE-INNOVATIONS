@@ -115,8 +115,9 @@ const offerSdp = (fp: string) => ({ type: 'offer', sdp: `v=0\r\na=fingerprint:sh
 
 beforeEach(() => {
   vi.stubGlobal('RTCPeerConnection', FakePC);
-  vi.stubGlobal('RTCSessionDescription', class { constructor(d: Desc) { return d; } });
-  vi.stubGlobal('RTCIceCandidate', class { constructor(c: unknown) { return c; } });
+  // `new X(init)` returns the init object itself, as far as these tests care.
+  vi.stubGlobal('RTCSessionDescription', function FakeDescription(d: Desc) { return d; });
+  vi.stubGlobal('RTCIceCandidate', function FakeCandidate(c: object) { return c; });
   vi.stubGlobal('MediaStream', FakeStream);
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -164,7 +165,7 @@ describe('duplicate delivery', () => {
 
   it('a stale answer is ignored, not applied to a settled connection', async () => {
     await rtc.createOffer('conf', 'a', 'A', 'b');
-    const answer = { type: 'answer', sdp: 'a=fingerprint:sha-256 B1' };
+    const answer = { type: 'answer' as const, sdp: 'a=fingerprint:sha-256 B1' };
     await rtc.processSignalingMessage('conf', 'a', 'A', msg('answer', 'b', 'a', answer));
     await expect(rtc.handleAnswer('b', answer)).resolves.toBeUndefined();
     expect(lastPc().signalingState).toBe('stable');
