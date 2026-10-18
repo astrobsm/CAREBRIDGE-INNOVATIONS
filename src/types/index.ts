@@ -50,6 +50,8 @@ export interface User {
   agreementVersion?: string;
   agreementDeviceInfo?: string;
   mustChangePassword?: boolean;
+  /** When this person last signed in (set on sign-in only; see AuthContext). */
+  lastLoginAt?: Date | string;
   // Bank Account Details (for payroll)
   bankName?: string;
   bankAccountNumber?: string;

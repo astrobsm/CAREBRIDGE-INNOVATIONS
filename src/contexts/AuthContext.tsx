@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database';
 import { syncRecord } from '../services/cloudSyncService';
+import { supabase } from '../services/supabaseClient';
+import { normaliseEmail, pickSignInAccount } from '../utils/loginIdentity';
 import { logAuthEvent } from '../services/auditService';
 import type { User, UserRole } from '../types';
 import Dexie from 'dexie';
@@ -143,6 +145,25 @@ const rolePermissions: Record<UserRole, string[]> = {
   ],
 };
 
+/**
+ * Record when this person last signed in, for User Management.
+ *
+ * Deliberately narrow: only `lastLoginAt` is written, locally without bumping
+ * `updatedAt` and in the cloud as a single-column update. Pushing the whole
+ * user row from the signing-in device could replay a stale copy over an
+ * administrator's newer change — re-activating an account that had just been
+ * deactivated elsewhere. Best effort; never holds up sign-in.
+ */
+function recordLastLogin(userId: string): void {
+  const at = new Date();
+  db.users.update(userId, { lastLoginAt: at }).catch(() => { /* not critical */ });
+  if (supabase) {
+    Promise.resolve(
+      supabase.from('users').update({ last_login_at: at.toISOString() }).eq('id', userId)
+    ).catch(() => { /* offline, or column not migrated yet */ });
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -248,9 +269,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       ];
 
+      // Compare emails the way they are stored: case, outer whitespace and
+      // invisible characters (copied from WhatsApp/SMS) do not count.
+      const loginEmail = normaliseEmail(email);
+
       // Check if login matches a seeded admin
       const seededAdmin = SEEDED_ADMINS.find(
-        a => a.email === email.toLowerCase()
+        a => a.email === loginEmail
       );
 
       if (seededAdmin) {
@@ -286,21 +311,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(existingUser);
           localStorage.setItem('AstroHEALTH_user_id', existingUser.id);
           logAuthEvent(existingUser.id, 'login', { email: existingUser.email, role: existingUser.role });
+          recordLastLogin(existingUser.id);
           return true;
         }
         return false;
       }
 
-      // Regular user login — lookup by email
-      const foundUser = await db.users
-        .where('email')
-        .equals(email.toLowerCase())
-        .first();
+      // Regular user login — lookup by email. Every matching row is
+      // considered: accounts added from User Management kept the case they
+      // were typed in (an exact, case-sensitive index match never found them),
+      // and with duplicate rows the first one returned could be a deactivated
+      // copy that locked the person out of their active account.
+      const matches = await db.users
+        .filter(u => normaliseEmail(u.email) === loginEmail)
+        .toArray();
+      const foundUser = pickSignInAccount(matches);
 
-      if (foundUser && foundUser.isActive) {
+      if (foundUser) {
         setUser(foundUser);
         localStorage.setItem('AstroHEALTH_user_id', foundUser.id);
         logAuthEvent(foundUser.id, 'login', { email: foundUser.email, role: foundUser.role });
+        recordLastLogin(foundUser.id);
         return true;
       }
 
@@ -323,10 +354,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = useCallback(async (userData: RegisterData): Promise<boolean> => {
     try {
-      // Check if email already exists
+      // Check if email already exists (in any case or spacing)
+      const email = normaliseEmail(userData.email);
       const existingUser = await db.users
-        .where('email')
-        .equals(userData.email.toLowerCase())
+        .filter(u => normaliseEmail(u.email) === email)
         .first();
 
       if (existingUser) {
@@ -335,7 +366,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const newUser: User = {
         id: uuidv4(),
-        email: userData.email.toLowerCase(),
+        email,
         firstName: userData.firstName,
         lastName: userData.lastName,
         role: userData.role,

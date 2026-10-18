@@ -8,11 +8,14 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { childLogin } from '../../../services/childAuth';
+import { normaliseEmail } from '../../../utils/loginIdentity';
 
 type Portal = 'astro' | 'family';
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  // A pasted address often carries a trailing space or an invisible character;
+  // validate the address as it will be compared, not as it was pasted.
+  email: z.string().transform(normaliseEmail).pipe(z.string().email('Please enter a valid email address')),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -118,6 +121,9 @@ export default function LoginPage() {
                 type="email"
                 id="email"
                 autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 className={`input ${errors.email ? 'input-error' : ''}`}
                 placeholder="you@example.com"
               />
