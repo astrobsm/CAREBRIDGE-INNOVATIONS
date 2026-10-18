@@ -7,11 +7,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Save, User, Phone, MapPin, Users, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { HospitalSelector } from '../../../components/hospital';
 import type { Patient } from '../../../types';
+import { HospitalNumberField, numberCheckBlocks, type NumberCheck } from '../components/HospitalNumberField';
+import { registerPatient, isDuplicateHospitalNumberError } from '../services/patientDedupeService';
 
 /**
  * SLIM Patient Registration
@@ -28,7 +29,8 @@ import type { Patient } from '../../../types';
  *  - Phone
  *  - Email (optional)
  *  - Address
- *  - Hospital Number (auto-generated if blank)
+ *  - Hospital Number (auto-generated if blank; refused if another patient at
+ *    the same hospital already holds it)
  *  - Next-of-Kin name + Next-of-Kin phone
  *  - Marital status
  *  - Occupation
@@ -55,31 +57,32 @@ const slimSchema = z.object({
 
 type SlimFormData = z.infer<typeof slimSchema>;
 
-const generateHospitalNumber = (): string => {
-  const prefix = 'CB';
-  const year = new Date().getFullYear().toString().slice(-2);
-  const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-  return `${prefix}${year}${random}`;
-};
-
 export default function SlimNewPatientPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [numberCheck, setNumberCheck] = useState<NumberCheck>({ state: 'empty' });
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm<SlimFormData>({
+  const { register, handleSubmit, control, watch, formState: { errors } } = useForm<SlimFormData>({
     resolver: zodResolver(slimSchema),
     defaultValues: { maritalStatus: 'single', hospitalId: user?.hospitalId },
   });
 
+  const registeringAt = watch('hospitalId');
+
   const onSubmit = async (data: SlimFormData) => {
+    if (numberCheckBlocks(numberCheck)) {
+      toast.error(numberCheck.state === 'checking'
+        ? 'Still checking the hospital number - try again in a moment.'
+        : 'This hospital number is already registered. Open the existing record instead.');
+      return;
+    }
     setIsLoading(true);
     try {
-      const hospitalNumber = data.folderNumber?.trim() || generateHospitalNumber();
-
-      const patient: Patient = {
+      const draft: Patient = {
         id: uuidv4(),
-        hospitalNumber,
+        // Blank: registerPatient issues an auto-number (CB + YY + 5 digits).
+        hospitalNumber: data.folderNumber?.trim() || '',
         firstName: data.firstName.trim(),
         lastName: data.lastName.trim(),
         middleName: data.middleName?.trim() || undefined,
@@ -109,12 +112,15 @@ export default function SlimNewPatientPage() {
         updatedAt: new Date(),
       } as Patient;
 
+      let patient: Patient;
       try {
-        await db.patients.add(patient);
+        patient = await registerPatient(draft);
       } catch (dbError) {
+        if (isDuplicateHospitalNumberError(dbError)) throw dbError;
         console.error('[SlimPatientRegistration] DB error:', dbError);
         throw new Error('Failed to save patient locally');
       }
+      const hospitalNumber = patient.hospitalNumber;
 
       try {
         if (navigator.onLine) {
@@ -201,15 +207,19 @@ export default function SlimNewPatientPage() {
               <label className="form-label">Other Names</label>
               <input {...register('middleName')} className="form-input" placeholder="Other / middle names" />
             </div>
-            <div>
-              <label className="form-label">Hospital Number</label>
-              <input
-                {...register('folderNumber')}
-                className="form-input"
-                placeholder="Leave blank to auto-generate"
-              />
-              <p className="text-xs text-gray-500 mt-1">Format: CB + YY + 5 digits (e.g. CB2612345)</p>
-            </div>
+            <Controller
+              control={control}
+              name="folderNumber"
+              render={({ field }) => (
+                <HospitalNumberField
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                  hospitalId={registeringAt}
+                  onCheck={setNumberCheck}
+                  hint="Leave blank to auto-generate (CB + YY + 5 digits)"
+                />
+              )}
+            />
             <div>
               <label className="form-label">Date of Birth *</label>
               <input type="date" {...register('dateOfBirth')} className="form-input" />

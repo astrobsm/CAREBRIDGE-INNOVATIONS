@@ -121,6 +121,11 @@ export interface Patient {
   hospitalName?: string;
   ward?: string;
   isActive: boolean;
+  // Set when this registration was a duplicate merged into another record.
+  // The record is kept (inactive, number retired as MERGED-...) for the
+  // audit trail; mergedInto is the id of the registration that was kept.
+  mergedInto?: string;
+  mergedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

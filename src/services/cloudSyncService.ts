@@ -1203,7 +1203,11 @@ async function pullTable(cloudTableName: string, localTableName: string, orderCo
           const localRecord = await (db as any)[localTableName].get(record.id);
           
           if (!localRecord) {
-            // Record doesn't exist locally, add it
+            // Record doesn't exist locally, add it. A pulled patient is a
+            // mirror of the server, not a registration, so it is not run
+            // through registerPatient's duplicate check: if two registrations
+            // share a number in the cloud, both must be visible here to be
+            // merged (Patients -> Duplicate Patients).
             await (db as any)[localTableName].add(record);
             added++;
           } else {
@@ -1254,6 +1258,24 @@ async function pullTable(cloudTableName: string, localTableName: string, orderCo
       console.warn(`[CloudSync] Failed to pull ${cloudTableName}:`, err.message || error);
     }
   }
+}
+
+// The server refused a patient because another registration at the same
+// hospital already holds its hospital number (trigger / unique index from
+// 20261018120400_patient_hospital_number_unique.sql). Retrying cannot succeed:
+// the two registrations are both on this device after the next pull, and an
+// administrator folds them together from Patients -> Duplicate Patients.
+function isDuplicateHospitalNumberRejection(cloudTableName: string, error: { code?: string; message?: string } | null | undefined): boolean {
+  if (cloudTableName !== 'patients' || !error) return false;
+  return error.code === '23505' && /hospital[_ ]number|DUPLICATE_HOSPITAL_NUMBER/i.test(error.message || '');
+}
+
+function reportDuplicateHospitalNumber(recordId: unknown, error: { message?: string }): void {
+  console.error(
+    `[CloudSync] Patient ${String(recordId)} was not uploaded: ${error.message}. ` +
+    'Another registration at the same hospital already holds this hospital number. ' +
+    'Merge the two from Patients -> Duplicate Patients (administrators).',
+  );
 }
 
 // Push a single table to cloud (only dirty / recently-modified records)
@@ -1389,7 +1411,9 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
                 retries++;
               }
               
-              if (singleError) {
+              if (singleError && isDuplicateHospitalNumberRejection(cloudTableName, singleError)) {
+                reportDuplicateHospitalNumber((record as any).id, singleError);
+              } else if (singleError) {
                 console.error(`[CloudSync] Failed record in ${cloudTableName}:`, (record as any).id, singleError.message, singleError.code);
               } else {
                 successCount++;
@@ -1678,7 +1702,9 @@ export async function syncRecord(localTableName: string, record: Record<string, 
       retries++;
     }
 
-    if (error) {
+    if (error && isDuplicateHospitalNumberRejection(cloudTableName, error)) {
+      reportDuplicateHospitalNumber(recordId, error);
+    } else if (error) {
       console.error(`[CloudSync] Error syncing record to ${cloudTableName}:`, error.message, error.details, error.hint);
       // Log the problematic fields for debugging
       console.error(`[CloudSync] Record keys:`, Object.keys(preparedRecord));
