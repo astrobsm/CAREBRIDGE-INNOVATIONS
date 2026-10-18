@@ -1,5 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
+import { toActiveFlag } from '../utils/loginIdentity';
 import type {
   SkinGraftEpisode, GraftSite, GraftPhotoAssessment,
 } from '../domains/skin-graft/types';
@@ -451,6 +452,20 @@ export class AstroHEALTHDatabase extends Dexie {
       padAssessments: 'id, patientId, hospitalId, side, assessedAt, status, isBaseline, createdAt, updatedAt',
       vascularInterventions: 'id, patientId, side, kind, performedAt, createdAt, updatedAt',
     });
+
+    // v91 – users.isActive back to a boolean. User Management stored 1/0, so
+    // deactivated staff (0) stayed in every `isActive !== false` staff picker
+    // and edited staff (1) dropped out of every `isActive === true` list.
+    // Schema unchanged; the upgrade only rewrites the flag. updatedAt is left
+    // alone so the rewrite is not pushed over newer cloud copies.
+    this.version(91).stores({
+      users: 'id, email, role, hospitalId, isActive, createdAt',
+    }).upgrade(tx =>
+      tx.table('users').toCollection().modify((u: { isActive?: unknown }) => {
+        const flag = toActiveFlag(u.isActive);
+        if (flag !== u.isActive) u.isActive = flag;
+      })
+    );
   }
 }
 

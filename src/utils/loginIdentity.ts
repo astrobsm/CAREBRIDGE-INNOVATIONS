@@ -15,13 +15,13 @@
 // ---------------------------------------------------------------------------
 
 /** Zero-width space/joiners, word joiner, BOM and soft hyphen. */
-const INVISIBLE = /[​-‍⁠﻿­]/g;
+const INVISIBLE = /[\u200B-\u200D\u2060\uFEFF\u00AD]/g;
 
 /** An email as stored and compared: invisible characters removed, trimmed, lower case. */
 export function normaliseEmail(value: unknown): string {
   return String(value ?? '')
     .replace(INVISIBLE, '')
-    .replace(/ /g, ' ')
+    .replace(/\u00A0/g, ' ')
     .trim()
     .toLowerCase();
 }
@@ -68,4 +68,19 @@ export function findEmailOwner<T extends AccountLike>(
   const wanted = normaliseEmail(email);
   if (!wanted) return undefined;
   return users.find(u => u.id !== excludeId && normaliseEmail(u.email) === wanted);
+}
+
+/**
+ * A user's active flag as the boolean every list expects.
+ *
+ * User Management once stored 1/0. A deactivated user (0) then passed the
+ * `isActive !== false` checks of the staff pickers and could still be
+ * assigned patients, and an edited one (1) failed `isActive === true` and
+ * vanished from chat contacts. Anything that is not a recognised value is
+ * returned unchanged.
+ */
+export function toActiveFlag(value: unknown): unknown {
+  if (value === 1 || value === '1' || value === 'true') return true;
+  if (value === 0 || value === '0' || value === 'false') return false;
+  return value;
 }

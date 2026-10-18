@@ -126,10 +126,14 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
     e.preventDefault();
     setIsSaving(true);
     try {
+      // A real boolean, as everywhere else. This used to store 1/0, so an
+      // edited user dropped out of every `isActive === true` list (chat
+      // contacts) and a deactivated one stayed in every `isActive !== false`
+      // list (staff assignment, MDT, ward rounds, clinic scheduling).
       await onSave({
         ...formData,
-        isActive: formData.isActive ? 1 : 0,
-      } as unknown as Partial<User>);
+        isActive: !!formData.isActive,
+      });
       toast.success('User updated successfully');
       onClose();
     } catch (error) {
@@ -370,7 +374,7 @@ export default function UsersManagementPage() {
     
     try {
       await db.users.update(userId, {
-        isActive: 0,
+        isActive: false,
         updatedAt: new Date().toISOString(),
       });
       // Sync deactivated user to cloud
