@@ -13,7 +13,7 @@ import type {
   ClinicalProblem, ClinicalPlanItem,
 } from '../domains/clinical/clerking/records';
 import type {
-  ScribeTreatmentPlan, ScribePlanAction,
+  ScribeTreatmentPlan, ScribePlanAction, ScribePlanAttachment,
 } from '../domains/clinical/scribe/records';
 import type {
   User,
@@ -277,6 +277,7 @@ export class AstroHEALTHDatabase extends Dexie {
   // how each approved item was carried out.
   scribeTreatmentPlans!: Table<ScribeTreatmentPlan, string>;
   scribePlanActions!: Table<ScribePlanAction, string>;
+  scribePlanAttachments!: Table<ScribePlanAttachment, string>;
   woundAssessments!: Table<WoundAssessment, string>;
   // Tumour Board — oncology cases + append-only staging timeline and artefacts
   tumourBoardCases!: Table<TumourBoardCase, string>;
@@ -474,6 +475,7 @@ export class AstroHEALTHDatabase extends Dexie {
       clinicalPlanItems: 'id, patientId, encounterId, kind, status, createdAt, updatedAt',
       scribeTreatmentPlans: 'id, patientId, status, version, generatedAt, createdAt, updatedAt',
       scribePlanActions: 'id, scribePlanId, patientId, itemKey, status, loggedAt, createdAt, updatedAt',
+      scribePlanAttachments: 'id, actionId, patientId, createdAt, updatedAt',
     });
   }
 }

@@ -16,6 +16,7 @@ import { canApprove as roleCanApprove, canLog as roleCanLog, filterPlan } from '
 import { approvePlan, forPatient, rejectPlan, submitPlan } from '../../scribe/scribeService';
 import { actorOf } from '../../services/clerkingService';
 import { messageOf } from '../../clerking/lifecycle';
+import { ImplementationTracker } from './ImplementationTracker';
 
 type Excluded = Set<string>;
 
@@ -108,9 +109,7 @@ export function PlanView({ plan, excluded, toggle, editable }: { plan: ScribePla
   );
 }
 
-const NO_EXCLUSIONS: Excluded = new Set();
-
-export function ScribeTreatmentPlanPanel({ patientId, hospitalId, draft, findings }: {
+export function ScribeTreatmentPlanPanel({ patientId, hospitalId, draft, findings, defaultPlace }: {
   patientId: string; hospitalId?: string; draft: ScribePlan; findings: ScribeFinding[];
   /** Where the patient is (e.g. "Ward 10, Bed 16"), offered as the place of each log. */
   defaultPlace?: string;
@@ -194,7 +193,12 @@ export function ScribeTreatmentPlanPanel({ patientId, hospitalId, draft, finding
           <p className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</p>
         ) : approved && !pending && !showDraft ? (
           <>
-            <PlanView plan={approved.approvedPlan || approved.plan} excluded={NO_EXCLUSIONS} toggle={() => undefined} editable={false} />
+            <ImplementationTracker
+              planId={approved.id} patientId={patientId} hospitalId={hospitalId}
+              plan={approved.approvedPlan || approved.plan}
+              actions={(stored?.actions || []).filter(a => a.scribePlanId === approved.id)}
+              canLog={canSubmit} defaultPlace={defaultPlace}
+            />
             {canSubmit && (
               <button onClick={() => setShowDraft(true)} className="text-sm text-green-800 underline">
                 Draft a revised plan from today's record

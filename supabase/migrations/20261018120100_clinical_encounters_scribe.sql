@@ -20,7 +20,8 @@
 -- who may approve) are enforced in the client service; what can be enforced
 -- in the database — the status vocabularies, that only a consultant's
 -- review can approve a plan, that a returned plan and an undone item carry a
--- reason — is enforced here.
+-- reason, that the implementation log only follows an approved plan and is
+-- never edited afterwards — is enforced here.
 --
 -- Additive and idempotent — safe to run and to re-run.
 -- ============================================================================
@@ -184,6 +185,79 @@ CREATE INDEX IF NOT EXISTS idx_scribe_actions_plan       ON public.scribe_plan_a
 CREATE INDEX IF NOT EXISTS idx_scribe_actions_patient    ON public.scribe_plan_actions(patient_id, logged_at DESC);
 
 -- ---------------------------------------------------------------------------
+-- Results photographed, scanned or uploaded with a log entry
+--
+-- Kept apart from the log so reading the log stays light. Photos are
+-- compressed on the device before they are stored.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.scribe_plan_attachments (
+  id           TEXT PRIMARY KEY,
+  action_id    TEXT NOT NULL,
+  patient_id   TEXT NOT NULL,
+  name         TEXT,
+  mime         TEXT,
+  size_bytes   INTEGER,
+  data         TEXT NOT NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_scribe_attachments_updated_at ON public.scribe_plan_attachments(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scribe_attachments_action     ON public.scribe_plan_attachments(action_id);
+
+-- ---------------------------------------------------------------------------
+-- The log cannot be edited after the fact
+--
+-- The original stamped who and when on its server. This app logs offline and
+-- syncs later, so the device records logged_at and the user from its
+-- session, and the database:
+--   * refuses a log entry for a plan that was never approved;
+--   * stamps received_at with its own clock when the row first arrives;
+--   * refuses any later change to who, when, where or what was logged.
+-- A sync re-sending an unchanged row passes, because nothing changed.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.scribe_plan_actions_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.scribe_treatment_plans
+       WHERE id = NEW.scribe_plan_id AND approved_plan IS NOT NULL
+    ) THEN
+      RAISE EXCEPTION 'Only an approved plan can be implemented (plan %)', NEW.scribe_plan_id
+        USING ERRCODE = 'check_violation';
+    END IF;
+    NEW.received_at := NOW();
+    RETURN NEW;
+  END IF;
+
+  IF NEW.scribe_plan_id IS DISTINCT FROM OLD.scribe_plan_id
+     OR NEW.patient_id     IS DISTINCT FROM OLD.patient_id
+     OR NEW.item_key       IS DISTINCT FROM OLD.item_key
+     OR NEW.status         IS DISTINCT FROM OLD.status
+     OR NEW.user_id        IS DISTINCT FROM OLD.user_id
+     OR NEW.user_name      IS DISTINCT FROM OLD.user_name
+     OR NEW.user_role      IS DISTINCT FROM OLD.user_role
+     OR NEW.logged_at      IS DISTINCT FROM OLD.logged_at
+     OR NEW.latitude       IS DISTINCT FROM OLD.latitude
+     OR NEW.longitude      IS DISTINCT FROM OLD.longitude
+     OR NEW.accuracy_m     IS DISTINCT FROM OLD.accuracy_m
+     OR NEW.location_label IS DISTINCT FROM OLD.location_label THEN
+    RAISE EXCEPTION 'A logged implementation step cannot be changed (action %)', OLD.id
+      USING ERRCODE = 'check_violation';
+  END IF;
+  NEW.received_at := OLD.received_at;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_scribe_plan_actions_guard ON public.scribe_plan_actions;
+CREATE TRIGGER trg_scribe_plan_actions_guard
+  BEFORE INSERT OR UPDATE ON public.scribe_plan_actions
+  FOR EACH ROW EXECUTE FUNCTION public.scribe_plan_actions_guard();
+
+-- ---------------------------------------------------------------------------
 -- Row level security
 -- Matching the access model the rest of the clinical tables use: the app
 -- authenticates, and the anon key reaches these only through it.
@@ -192,12 +266,13 @@ ALTER TABLE public.clinical_problems      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clinical_plan_items    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.scribe_treatment_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.scribe_plan_actions    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.scribe_plan_attachments ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
   t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['clinical_problems', 'clinical_plan_items', 'scribe_treatment_plans', 'scribe_plan_actions']
+  FOREACH t IN ARRAY ARRAY['clinical_problems', 'clinical_plan_items', 'scribe_treatment_plans', 'scribe_plan_actions', 'scribe_plan_attachments']
   LOOP
     IF NOT EXISTS (
       SELECT 1 FROM pg_policies
