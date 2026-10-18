@@ -7,16 +7,10 @@ import {
   Shield,
   Database,
   Cloud,
-  Palette,
-  Key,
-  Smartphone,
   Save,
   RefreshCw,
   Download,
-  Upload,
   Trash2,
-  Moon,
-  Sun,
   Monitor,
   Wifi,
   WifiOff,
@@ -54,13 +48,12 @@ const settingsTabs = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: Shield },
-  { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'offline', label: 'Offline & Sync', icon: Cloud },
   { id: 'data', label: 'Data Management', icon: Database },
 ];
 
 export default function SettingsPage() {
-  const { user, logout: _logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [isSaving, setIsSaving] = useState(false);
   const offlineState = useOfflineState();
@@ -105,57 +98,32 @@ export default function SettingsPage() {
     lastName: user?.lastName || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    specialty: user?.specialty || '',
+    specialty: user?.specialty || user?.specialization || '',
   });
 
-  // Notification settings
-  const [notificationSettings, setNotificationSettings] = useState({
-    emailNotifications: true,
-    pushNotifications: true,
-    smsNotifications: false,
-    surgeryReminders: true,
-    patientUpdates: true,
-    labResults: true,
-    systemAlerts: true,
-  });
-
-  // Appearance settings
-  const [appearanceSettings, setAppearanceSettings] = useState({
-    theme: 'system', // light, dark, system
-    compactMode: false,
-    fontSize: 'medium', // small, medium, large
-    colorScheme: 'blue', // blue, green, purple, etc.
-  });
-
-  // Offline settings
-  const [offlineSettings, setOfflineSettings] = useState({
-    autoSync: true,
-    syncInterval: 15, // minutes
-    offlineMode: false,
-    cacheImages: true,
-    maxCacheSize: 500, // MB
-  });
-
+  // Saves for real. This used to wait a second and report success without
+  // writing anything. The email is the sign-in identity and is changed by an
+  // administrator in User Management, where duplicates are refused.
   const handleSaveProfile = async () => {
+    const firstName = profileSettings.firstName.trim();
+    const lastName = profileSettings.lastName.trim();
+    if (!firstName || !lastName) {
+      toast.error('First and last name are required');
+      return;
+    }
     setIsSaving(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Profile updated successfully!');
+      const specialty = profileSettings.specialty.trim();
+      await updateUser({
+        firstName,
+        lastName,
+        phone: profileSettings.phone.trim() || undefined,
+        specialization: specialty || undefined,
+        specialty: specialty || undefined,
+      });
+      toast.success('Profile updated');
     } catch (error) {
       toast.error('Failed to update profile');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveNotifications = async () => {
-    setIsSaving(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      toast.success('Notification preferences saved!');
-    } catch (error) {
-      toast.error('Failed to save preferences');
     } finally {
       setIsSaving(false);
     }
@@ -292,6 +260,18 @@ export default function SettingsPage() {
     }
   };
 
+  // Discarding pending changes loses work that exists only on this device.
+  // It was a bare trash icon with no confirmation.
+  const handleDiscardPending = async () => {
+    const n = offlineState.pendingChanges;
+    if (!window.confirm(
+      `Discard ${n} unsynced ${n === 1 ? 'change' : 'changes'}?\n\n` +
+      'They exist only on this device and will never reach the cloud or other devices. This cannot be undone.'
+    )) return;
+    await offlineDataManager.clearAllPending();
+    toast.success('Unsynced changes discarded');
+  };
+
   const handleExportData = async () => {
     try {
       // Get all data from IndexedDB
@@ -321,7 +301,13 @@ export default function SettingsPage() {
   };
 
   const handleClearCache = async () => {
-    if (window.confirm('Are you sure you want to clear the local cache? This will not delete your data.')) {
+    // The cache holds the app itself. Cleared offline, the app cannot load
+    // again until the device is back online.
+    if (!offlineState.isOnline) {
+      toast.error('You are offline. Clearing the cache now would stop the app opening until you reconnect.');
+      return;
+    }
+    if (window.confirm('Clear the app cache? Your records are not affected; the app files download again on next load.')) {
       try {
         // Clear service worker caches
         clearServiceWorkerCache();
@@ -389,11 +375,12 @@ export default function SettingsPage() {
                   <input
                     type="email"
                     value={profileSettings.email}
-                    onChange={(e) => setProfileSettings({ ...profileSettings, email: e.target.value })}
-                    className="input"
-                    title="Enter email address"
+                    disabled
+                    className="input bg-gray-100"
+                    title="Sign-in email (read-only)"
                     placeholder="Email"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Your sign-in address. An administrator can change it in User Management.</p>
                 </div>
                 <div>
                   <label className="label">Phone</label>
@@ -542,99 +529,8 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Notification Channels</h3>
-              <div className="space-y-4">
-                <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
-                  <div>
-                    <p className="font-medium text-gray-900">Email Notifications</p>
-                    <p className="text-sm text-gray-500">Receive updates via email</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.emailNotifications}
-                    onChange={(e) => setNotificationSettings({ ...notificationSettings, emailNotifications: e.target.checked })}
-                    className="w-5 h-5 text-violet-600 rounded"
-                  />
-                </label>
-                <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
-                  <div>
-                    <p className="font-medium text-gray-900">Push Notifications</p>
-                    <p className="text-sm text-gray-500">Browser and mobile push notifications</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.pushNotifications}
-                    onChange={(e) => setNotificationSettings({ ...notificationSettings, pushNotifications: e.target.checked })}
-                    className="w-5 h-5 text-violet-600 rounded"
-                  />
-                </label>
-                <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
-                  <div>
-                    <p className="font-medium text-gray-900">SMS Notifications</p>
-                    <p className="text-sm text-gray-500">Critical alerts via SMS</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.smsNotifications}
-                    onChange={(e) => setNotificationSettings({ ...notificationSettings, smsNotifications: e.target.checked })}
-                    className="w-5 h-5 text-violet-600 rounded"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Notification Types</h3>
-              <div className="space-y-4">
-                <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
-                  <div>
-                    <p className="font-medium text-gray-900">Surgery Reminders</p>
-                    <p className="text-sm text-gray-500">Upcoming surgeries and schedule changes</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.surgeryReminders}
-                    onChange={(e) => setNotificationSettings({ ...notificationSettings, surgeryReminders: e.target.checked })}
-                    className="w-5 h-5 text-violet-600 rounded"
-                  />
-                </label>
-                <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
-                  <div>
-                    <p className="font-medium text-gray-900">Patient Updates</p>
-                    <p className="text-sm text-gray-500">Status changes and new admissions</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.patientUpdates}
-                    onChange={(e) => setNotificationSettings({ ...notificationSettings, patientUpdates: e.target.checked })}
-                    className="w-5 h-5 text-violet-600 rounded"
-                  />
-                </label>
-                <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
-                  <div>
-                    <p className="font-medium text-gray-900">Lab Results</p>
-                    <p className="text-sm text-gray-500">New laboratory results available</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={notificationSettings.labResults}
-                    onChange={(e) => setNotificationSettings({ ...notificationSettings, labResults: e.target.checked })}
-                    className="w-5 h-5 text-violet-600 rounded"
-                  />
-                </label>
-              </div>
-            </div>
-
             {/* Web Push Notifications - Advanced Settings */}
             <PushNotificationSettings />
-
-            <div className="flex justify-end">
-              <button onClick={handleSaveNotifications} disabled={isSaving} className="btn btn-primary">
-                <Save size={18} />
-                Save Preferences
-              </button>
-            </div>
           </motion.div>
         );
 
@@ -649,139 +545,32 @@ export default function SettingsPage() {
           >
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Password</h3>
-              <div className="card border p-4 space-y-4">
-                <div>
-                  <label className="label">Current Password</label>
-                  <input type="password" className="input" placeholder="••••••••" />
-                </div>
-                <div>
-                  <label className="label">New Password</label>
-                  <input type="password" className="input" placeholder="••••••••" />
-                </div>
-                <div>
-                  <label className="label">Confirm New Password</label>
-                  <input type="password" className="input" placeholder="••••••••" />
-                </div>
-                <button className="btn btn-primary">
-                  <Key size={18} />
-                  Change Password
-                </button>
+              <div className="card border p-4 space-y-2">
+                <p className="text-sm text-gray-700">
+                  Passwords are set and reset by an administrator in User Management. If you have
+                  forgotten yours, or think someone else knows it, ask an administrator to reset it.
+                </p>
               </div>
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Two-Factor Authentication</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">This Device</h3>
               <div className="card border p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900">2FA Status</p>
-                    <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
+                <div className="flex items-center gap-3 mb-4">
+                  <Monitor className="w-8 h-8 text-gray-400" />
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900">Signed in as {user?.firstName} {user?.lastName}</p>
+                    <p className="text-sm text-gray-500 truncate">{user?.email}</p>
                   </div>
-                  <span className="badge badge-warning">Not Enabled</span>
                 </div>
-                <button className="btn btn-secondary mt-4">
-                  <Smartphone size={18} />
-                  Enable 2FA
+                <p className="text-sm text-gray-500 mb-4">
+                  On a shared device, sign out when you finish so the next person cannot see your patients
+                  or receive your alerts.
+                </p>
+                <button onClick={logout} className="btn btn-danger-outline text-sm">
+                  Sign Out of This Device
                 </button>
               </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Active Sessions</h3>
-              <div className="card border p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Monitor className="w-8 h-8 text-gray-400" />
-                    <div>
-                      <p className="font-medium text-gray-900">Current Device</p>
-                      <p className="text-sm text-gray-500">Windows • Chrome • Lagos, Nigeria</p>
-                    </div>
-                  </div>
-                  <span className="badge badge-success">Active Now</span>
-                </div>
-                <button className="btn btn-danger-outline text-sm">
-                  Sign Out All Other Devices
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        );
-
-      case 'appearance':
-        return (
-          <motion.div
-            key="appearance"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="space-y-6"
-          >
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Theme</h3>
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                {[
-                  { value: 'light', label: 'Light', icon: Sun },
-                  { value: 'dark', label: 'Dark', icon: Moon },
-                  { value: 'system', label: 'System', icon: Monitor },
-                ].map((theme) => (
-                  <button
-                    key={theme.value}
-                    onClick={() => setAppearanceSettings({ ...appearanceSettings, theme: theme.value })}
-                    className={`p-3 sm:p-4 rounded-lg border-2 transition-colors ${
-                      appearanceSettings.theme === theme.value
-                        ? 'border-violet-500 bg-violet-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <theme.icon className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-1 sm:mb-2 ${
-                      appearanceSettings.theme === theme.value ? 'text-violet-600' : 'text-gray-400'
-                    }`} />
-                    <p className={`text-xs sm:text-sm font-medium ${
-                      appearanceSettings.theme === theme.value ? 'text-violet-600' : 'text-gray-600'
-                    }`}>
-                      {theme.label}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Font Size</h3>
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                {['small', 'medium', 'large'].map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setAppearanceSettings({ ...appearanceSettings, fontSize: size })}
-                    className={`p-3 sm:p-4 rounded-lg border-2 transition-colors ${
-                      appearanceSettings.fontSize === size
-                        ? 'border-violet-500 bg-violet-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <p className={`font-medium capitalize ${
-                      size === 'small' ? 'text-sm' : size === 'large' ? 'text-lg' : 'text-base'
-                    } ${appearanceSettings.fontSize === size ? 'text-violet-600' : 'text-gray-600'}`}>
-                      {size}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
-                <div>
-                  <p className="font-medium text-gray-900">Compact Mode</p>
-                  <p className="text-sm text-gray-500">Reduce spacing for more content on screen</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={appearanceSettings.compactMode}
-                  onChange={(e) => setAppearanceSettings({ ...appearanceSettings, compactMode: e.target.checked })}
-                  className="w-5 h-5 text-violet-600 rounded"
-                />
-              </label>
             </div>
           </motion.div>
         );
@@ -890,51 +679,15 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Sync Settings */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Sync Settings</h3>
-              <div className="space-y-4">
-                <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
-                  <div>
-                    <p className="font-medium text-gray-900">Auto-Sync</p>
-                    <p className="text-sm text-gray-500">Automatically sync data when online</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={offlineSettings.autoSync}
-                    onChange={(e) => setOfflineSettings({ ...offlineSettings, autoSync: e.target.checked })}
-                    className="w-5 h-5 text-violet-600 rounded"
-                  />
-                </label>
-
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <label className="label">Sync Interval (minutes)</label>
-                  <select
-                    value={offlineSettings.syncInterval}
-                    onChange={(e) => setOfflineSettings({ ...offlineSettings, syncInterval: parseInt(e.target.value) })}
-                    className="input"
-                    title="Select sync interval"
-                  >
-                    <option value={5}>Every 5 minutes</option>
-                    <option value={15}>Every 15 minutes</option>
-                    <option value={30}>Every 30 minutes</option>
-                    <option value={60}>Every hour</option>
-                  </select>
-                </div>
-
-                <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer">
-                  <div>
-                    <p className="font-medium text-gray-900">Cache Images</p>
-                    <p className="text-sm text-gray-500">Store images for offline access</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={offlineSettings.cacheImages}
-                    onChange={(e) => setOfflineSettings({ ...offlineSettings, cacheImages: e.target.checked })}
-                    className="w-5 h-5 text-violet-600 rounded"
-                  />
-                </label>
-              </div>
+            {/* How sync works. These were toggles (auto-sync, interval, cache
+                images) that changed nothing; this says what actually happens. */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">How Sync Works</h3>
+              <ul className="list-disc ml-5 space-y-1 text-sm text-gray-600">
+                <li>Every change is saved on this device first, then sent to the cloud.</li>
+                <li>While online, the app syncs about every 30 seconds and receives other devices&rsquo; changes as they happen.</li>
+                <li>After repeated failures it backs off, up to every 5 minutes, and resumes when the connection returns.</li>
+              </ul>
             </div>
 
             <div className="flex gap-4">
@@ -948,9 +701,9 @@ export default function SettingsPage() {
               </button>
               {offlineState.pendingChanges > 0 && (
                 <button 
-                  onClick={() => offlineDataManager.clearAllPending()}
+                  onClick={handleDiscardPending}
                   className="btn btn-danger-outline"
-                  title="Clear pending changes (data will not be synced)"
+                  title="Discard unsynced changes (they will never be synced)"
                 >
                   <Trash2 size={18} />
                 </button>
@@ -1151,21 +904,11 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-gray-900">Export Data</p>
-                    <p className="text-sm text-gray-500">Download all your data as JSON</p>
+                    <p className="text-sm text-gray-500">Download this device&rsquo;s patients, encounters and surgeries as JSON</p>
                   </div>
                   <button onClick={handleExportData} className="btn btn-secondary">
                     <Download size={18} />
                     Export
-                  </button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900">Import Data</p>
-                    <p className="text-sm text-gray-500">Restore data from a backup file</p>
-                  </div>
-                  <button className="btn btn-secondary">
-                    <Upload size={18} />
-                    Import
                   </button>
                 </div>
               </div>
@@ -1177,27 +920,11 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-gray-900">Clear Cache</p>
-                    <p className="text-sm text-gray-500">Remove temporary files to free up space</p>
+                    <p className="text-sm text-gray-500">Remove the downloaded app files; your records are kept</p>
                   </div>
                   <button onClick={handleClearCache} className="btn btn-warning-outline">
                     <Trash2 size={18} />
                     Clear Cache
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-red-600 mb-4">Danger Zone</h3>
-              <div className="card border border-red-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-red-600">Delete All Local Data</p>
-                    <p className="text-sm text-gray-500">Permanently delete all data stored on this device</p>
-                  </div>
-                  <button className="btn bg-red-600 text-white hover:bg-red-700">
-                    <Trash2 size={18} />
-                    Delete All
                   </button>
                 </div>
               </div>

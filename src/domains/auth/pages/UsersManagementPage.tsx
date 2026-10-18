@@ -22,12 +22,22 @@ import {
   Copy,
   Eye,
   EyeOff,
+  Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import BulkImportModal from '../../../components/common/BulkImportModal';
 import type { User, UserRole, Hospital } from '../../../types';
+import { findEmailOwner, normaliseEmail } from '../../../utils/loginIdentity';
+
+/** "Never", or the date and time of the last sign-in. */
+function formatLastLogin(value?: Date | string): string {
+  if (!value) return 'Never signed in';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return 'Never signed in';
+  return `Last sign-in ${d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`;
+}
 
 const roles: { value: UserRole; label: string }[] = [
   { value: 'super_admin', label: 'Super Admin' },
@@ -116,14 +126,19 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
     e.preventDefault();
     setIsSaving(true);
     try {
+      // A real boolean, as everywhere else. This used to store 1/0, so an
+      // edited user dropped out of every `isActive === true` list (chat
+      // contacts) and a deactivated one stayed in every `isActive !== false`
+      // list (staff assignment, MDT, ward rounds, clinic scheduling).
       await onSave({
         ...formData,
-        isActive: formData.isActive ? 1 : 0,
-      } as unknown as Partial<User>);
+        isActive: !!formData.isActive,
+      });
       toast.success('User updated successfully');
       onClose();
     } catch (error) {
-      toast.error('Failed to update user');
+      // Say why — e.g. the email already belongs to someone else.
+      toast.error(error instanceof Error && error.message ? error.message : 'Failed to update user');
     } finally {
       setIsSaving(false);
     }
@@ -332,6 +347,16 @@ export default function UsersManagementPage() {
 
   // Handle user update
   const handleUpdateUser = async (userId: string, updates: Partial<User>) => {
+    // An edit must not give two accounts the same sign-in address: sign-in
+    // would then pick one of them and the other person could not get in.
+    if (updates.email !== undefined) {
+      const email = normaliseEmail(updates.email);
+      const owner = findEmailOwner(await db.users.toArray(), email, userId);
+      if (owner) {
+        throw new Error(`That email address is already used by ${owner.firstName} ${owner.lastName}`.trim());
+      }
+      updates = { ...updates, email };
+    }
     await db.users.update(userId, {
       ...updates,
       updatedAt: new Date().toISOString(),
@@ -349,7 +374,7 @@ export default function UsersManagementPage() {
     
     try {
       await db.users.update(userId, {
-        isActive: 0,
+        isActive: false,
         updatedAt: new Date().toISOString(),
       });
       // Sync deactivated user to cloud
@@ -409,8 +434,10 @@ export default function UsersManagementPage() {
     licenseNumber?: string;
     password: string;
   }) => {
-    // Check if email already exists
-    const existingUser = await db.users.where('email').equals(formData.email).first();
+    // Check if email already exists — compared the way sign-in compares it,
+    // so "Ada@x.ng" and "ada@x.ng " are the same address.
+    const email = normaliseEmail(formData.email);
+    const existingUser = findEmailOwner(await db.users.toArray(), email);
     if (existingUser) {
       toast.error('A user with this email already exists');
       return false;
@@ -419,7 +446,7 @@ export default function UsersManagementPage() {
     const now = new Date();
     const newUser: User = {
       id: crypto.randomUUID(),
-      email: formData.email,
+      email,
       password: formData.password, // Store password (should be hashed in production)
       firstName: formData.firstName,
       lastName: formData.lastName,
@@ -626,6 +653,10 @@ export default function UsersManagementPage() {
                       <div className="flex items-center gap-2">
                         <Building2 className="w-3.5 h-3.5" />
                         <span className="truncate">{getHospitalName(user.hospitalId)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span className="truncate">{formatLastLogin(user.lastLoginAt)}</span>
                       </div>
                     </div>
                   </div>

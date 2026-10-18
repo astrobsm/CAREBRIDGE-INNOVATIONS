@@ -98,6 +98,7 @@ export {
   getRemoteStream,
   getAllRemoteStreams,
   updateLocalStream,
+  setOutgoingVideoTrack,
   isInWaitingRoom,
   getWaitingParticipants,
   getAdmittedParticipants,

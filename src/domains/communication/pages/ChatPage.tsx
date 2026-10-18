@@ -37,6 +37,7 @@ import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import type { ChatRoom, ChatMessage, ChatParticipant, UserRole, ChatRoomType } from '../../../types';
+import { findDirectRoom, isListedRoom, roomDisplayName } from '../utils/chatRooms';
 
 // Room type icons and colors
 const roomTypeConfig: Record<string, { icon: React.ReactNode; color: string; bgColor: string }> = {
@@ -81,10 +82,9 @@ export default function ChatPage() {
 
   // Fetch chat rooms
   const chatRooms = useLiveQuery(async () => {
-    const rooms = await db.chatRooms
-      .where('isArchived')
-      .equals(0)
-      .toArray();
+    // Not an index query: rooms store isArchived as a boolean, which IndexedDB
+    // cannot index, so looking them up through that index found none of them.
+    const rooms = await db.chatRooms.filter(isListedRoom).toArray();
     
     // Filter rooms where user is a participant
     return rooms.filter(room => 
@@ -212,6 +212,22 @@ export default function ChatPage() {
   // Create new room
   const handleCreateRoom = async (name: string, type: ChatRoomType, participantIds: string[]) => {
     if (!user) return;
+
+    // A direct conversation is with exactly one other person, and there is
+    // only ever one per pair: open the existing one rather than a duplicate.
+    if (type === 'direct') {
+      if (participantIds.length !== 1) {
+        toast.error('A direct message is with one person. Choose Group for more.');
+        return;
+      }
+      const existing = findDirectRoom(chatRooms || [], user.id, participantIds[0]);
+      if (existing) {
+        setSelectedRoomId(existing.id);
+        setShowNewRoomModal(false);
+        toast.success('Opened your existing conversation');
+        return;
+      }
+    }
 
     try {
       const participants: ChatParticipant[] = [];
@@ -505,7 +521,7 @@ export default function ChatPage() {
               </div>
               
               <div>
-                <h2 className="font-semibold text-gray-900">{selectedRoom.name}</h2>
+                <h2 className="font-semibold text-gray-900">{roomDisplayName(selectedRoom, user?.id)}</h2>
                 <p className="text-sm text-gray-500">
                   {selectedRoom.participants.length} participants
                 </p>
@@ -711,7 +727,7 @@ export default function ChatPage() {
                   {roomTypeConfig[selectedRoom.type].icon}
                 </span>
               </div>
-              <h2 className="text-xl font-bold text-center text-gray-900">{selectedRoom.name}</h2>
+              <h2 className="text-xl font-bold text-center text-gray-900">{roomDisplayName(selectedRoom, user?.id)}</h2>
               <p className="text-center text-gray-500 capitalize">{selectedRoom.type.replace('_', ' ')}</p>
 
               <div className="mt-6">

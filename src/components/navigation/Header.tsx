@@ -141,7 +141,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
               title="Notifications"
             >
               <Bell size={20} className="text-gray-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+              {/* No unread dot: it was permanent, over a panel that always
+                  says "No new notifications". */}
             </button>
 
             <AnimatePresence>

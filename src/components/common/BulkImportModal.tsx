@@ -20,6 +20,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../database';
 import { syncRecord } from '../../services/cloudSyncService';
 import type { Hospital, User, UserRole } from '../../types';
+import { normaliseEmail } from '../../utils/loginIdentity';
 
 interface BulkImportModalProps {
   isOpen: boolean;
@@ -270,8 +271,10 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
           }
 
           try {
-            // Check for duplicate email
-            const existingUser = await db.users.where('email').equals(row.email).first();
+            // Check for duplicate email — in any case or spacing, since that is
+            // how sign-in compares them.
+            const email = normaliseEmail(row.email);
+            const existingUser = await db.users.filter(u => normaliseEmail(u.email) === email).first();
             if (existingUser) {
               errors.push(`Row ${i + 1}: Email "${row.email}" already exists`);
               failCount++;
@@ -280,7 +283,7 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
 
             const user: User = {
               id: uuidv4(),
-              email: row.email,
+              email,
               firstName: row.firstName,
               lastName: row.lastName,
               role: row.role as UserRole,
