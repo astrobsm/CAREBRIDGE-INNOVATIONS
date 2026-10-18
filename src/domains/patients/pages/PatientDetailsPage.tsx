@@ -573,6 +573,14 @@ export default function PatientDetailsPage() {
         </div>
       </div>
 
+      {/* A registration retired by a duplicate merge: everything moved to the kept record. */}
+      {patient.mergedInto && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          This was a duplicate registration and has been merged. Its records are now on{' '}
+          <Link to={`/patients/${patient.mergedInto}`} className="font-semibold underline">the kept patient record</Link>.
+        </div>
+      )}
+
       {/* Patient Header Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

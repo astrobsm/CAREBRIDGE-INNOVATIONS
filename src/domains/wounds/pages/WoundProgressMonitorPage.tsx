@@ -56,6 +56,8 @@ import {
   type WoundAssessmentPhoto,
   type HealingAnalytics,
 } from '../services/woundMonitorService';
+import { HospitalNumberField, type NumberCheck } from '../../patients/components/HospitalNumberField';
+import { registerPatient } from '../../patients/services/patientDedupeService';
 
 import { StoredWoundImage, pickImageSrc } from '../components/StoredWoundImage';
 
@@ -1045,13 +1047,6 @@ const TissueBar: React.FC<{ latest: WoundAssessment }> = ({ latest }) => {
 
 // ── Patient picker ──────────────────────────────────────────────────────────
 
-/** Folder number for a patient registered without one. */
-function generateHospitalNumber(): string {
-  const year = new Date().getFullYear().toString().slice(-2);
-  const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-  return `CB${year}${random}`;
-}
-
 const PatientPickerModal: React.FC<{ onClose: () => void; onPick: (p: Patient) => void }> = ({ onClose, onPick }) => {
   const { user } = useAuth();
   const [q, setQ] = useState('');
@@ -1144,6 +1139,7 @@ const QuickRegisterPatient: React.FC<{
   const [firstName, setFirstName] = useState(seeded.split(/\s+/)[0] || '');
   const [lastName, setLastName] = useState(seeded.split(/\s+/).slice(1).join(' '));
   const [hospitalNumber, setHospitalNumber] = useState('');
+  const [numberCheck, setNumberCheck] = useState<NumberCheck>({ state: 'empty' });
   const [gender, setGender] = useState<'male' | 'female' | ''>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -1156,23 +1152,17 @@ const QuickRegisterPatient: React.FC<{
     setSaving(true);
     setError('');
     try {
-      const folder = hospitalNumber.trim() || generateHospitalNumber();
-
-      // A folder number is how staff find the patient, so a duplicate would
-      // create two records that look identical on every list in the app.
-      const clash = await db.patients
-        .filter(p => (p.hospitalNumber || '').toLowerCase() === folder.toLowerCase())
-        .first();
-      if (clash) {
-        setError(`Folder number ${folder} already belongs to ${patientName(clash)}.`);
+      if (numberCheck.state === 'duplicate') {
+        setError(`Folder number ${numberCheck.matches[0].hospitalNumber} already belongs to ${numberCheck.matches[0].name || 'another patient'}.`);
         setSaving(false);
         return;
       }
 
       const now = new Date();
-      const patient = {
+      const draft = {
         id: crypto.randomUUID(),
-        hospitalNumber: folder,
+        // Blank: registerPatient issues a CB + YY + 5 digit number not already taken.
+        hospitalNumber: hospitalNumber.trim(),
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         gender,
@@ -1197,7 +1187,10 @@ const QuickRegisterPatient: React.FC<{
         updatedAt: now,
       } as unknown as Patient;
 
-      await db.patients.add(patient);
+      // A folder number is how staff find the patient, so a duplicate would
+      // create two records that look identical on every list in the app.
+      // registerPatient refuses one (this device, and the cloud when online).
+      const patient = await registerPatient(draft);
       syncRecord('patients', patient as unknown as Record<string, unknown>);
       onCreated(patient);
     } catch (e: any) {
@@ -1229,13 +1222,21 @@ const QuickRegisterPatient: React.FC<{
         </Field>
       </div>
 
-      <Field label="Folder number">
-        <input
-          value={hospitalNumber} onChange={e => setHospitalNumber(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2 text-sm"
-          placeholder="Leave blank to generate one"
-        />
-      </Field>
+      <HospitalNumberField
+        value={hospitalNumber}
+        onChange={setHospitalNumber}
+        hospitalId={hospitalId || ''}
+        onCheck={setNumberCheck}
+        onUseExisting={async (m) => {
+          const existing = await db.patients.get(m.id);
+          if (existing) onCreated(existing);
+          else setError('That patient is registered on another device and has not synced here yet.');
+        }}
+        label="Folder number"
+        hint="Leave blank to generate one"
+        labelClassName="text-xs font-medium text-gray-600 mb-1 block"
+        inputClassName="w-full border rounded-lg px-3 py-2 text-sm"
+      />
 
       <div className="mt-3">
         <span className="text-xs font-medium text-gray-600 mb-1.5 block">Gender</span>

@@ -5,6 +5,7 @@
 
 import { db } from '../database/db';
 import { syncRecord } from './cloudSyncService';
+import { registerPatient, assertRenumberAllowed } from '../domains/patients/services/patientDedupeService';
 import { supabase, isSupabaseConfigured, LOCAL_TO_CLOUD_TABLE } from './supabaseClient';
 import type {
   User,
@@ -275,20 +276,20 @@ export const PatientAPI = {
   },
 
   async create(patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>): Promise<Patient> {
-    const newPatient: Patient = {
+    // Refuses a hospital number another registration at the hospital holds.
+    const newPatient = await registerPatient({
       ...patient,
       id: generateId('pat'),
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as Patient;
-    
-    await db.patients.add(newPatient);
+    } as Patient);
     syncRecord('patients', newPatient as unknown as Record<string, unknown>);
     syncToCloud('patients', newPatient as unknown as Record<string, unknown>, 'create');
     return newPatient;
   },
 
   async update(id: string, updates: Partial<Patient>): Promise<Patient | undefined> {
+    await assertRenumberAllowed(id, updates);
     const updated = { ...updates, updatedAt: new Date() };
     await db.patients.update(id, updated);
     
