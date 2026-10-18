@@ -15,6 +15,8 @@
 // document (the caller parses it), so the response shape never changes.
 // ---------------------------------------------------------------------------
 
+import { guardSameOrigin } from './_lib/sameOrigin.js';
+
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 const MEDICAL_SYSTEM = `You are a medical document OCR specialist. Extract ALL text from this handwritten or printed medical document image.
@@ -29,10 +31,8 @@ const GENERAL_SYSTEM = `You are an OCR specialist. Extract ALL text from this ha
 Preserve line breaks and structure. Return ONLY the extracted text, no commentary.`;
 
 export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
+  // Only this app's own origin may spend the server's keys (see _lib/sameOrigin).
+  if (guardSameOrigin(req, res)) return;
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;

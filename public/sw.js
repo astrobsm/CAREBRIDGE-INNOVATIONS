@@ -97,10 +97,17 @@ registerRoute(
   })
 );
 
+// Live endpoints: never cached, never queued for later replay.
+// An AI request answered hours later is useless, the queue would hold the
+// patient's photo or notes in IndexedDB, and the fake "202 queued" reply made
+// the screen report an empty AI answer instead of "you are offline".
+const LIVE_API_PREFIXES = ['/api/ai-chat', '/api/ai-vision'];
+const isLiveApi = (url) => LIVE_API_PREFIXES.some((p) => url.pathname.startsWith(p));
+
 // API GET requests: NetworkFirst with fast timeout for poor connectivity
 registerRoute(
   ({ url, request }) =>
-    url.pathname.startsWith('/api/') && request.method === 'GET',
+    url.pathname.startsWith('/api/') && request.method === 'GET' && !isLiveApi(url),
   new NetworkFirst({
     cacheName: `carebridge-api-v${CACHE_VERSION}`,
     networkTimeoutSeconds: 3,
@@ -111,10 +118,26 @@ registerRoute(
   })
 );
 
+// AI proxy: straight to the network; offline is an honest error.
+registerRoute(
+  ({ url }) => isLiveApi(url),
+  async ({ request }) => {
+    try {
+      return await fetch(request);
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: 'You are offline. AI features need an internet connection.' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  },
+  'POST'
+);
+
 // API mutations (POST/PUT/DELETE): Try network, queue offline
 registerRoute(
   ({ url, request }) =>
-    url.pathname.startsWith('/api/') && request.method !== 'GET',
+    url.pathname.startsWith('/api/') && request.method !== 'GET' && !isLiveApi(url),
   async ({ request }) => {
     let bodyText = '';
     try { bodyText = await request.clone().text(); } catch (e) { /* empty body */ }
@@ -438,6 +461,14 @@ async function processPendingQueue() {
     let failCount = 0;
 
     for (const item of pendingRequests) {
+      // Older builds queued AI requests too. Drop them unsent: the answer is
+      // no longer wanted and the body may hold a patient photo.
+      try {
+        if (isLiveApi(new URL(item.url, self.location.origin))) {
+          await offlineQueue.remove(item.id);
+          continue;
+        }
+      } catch (e) { /* unparseable URL: let the replay below decide */ }
       try {
         const response = await fetch(item.url, {
           method: item.method,
