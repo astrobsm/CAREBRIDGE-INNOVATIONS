@@ -4,6 +4,7 @@ import { db } from '../database';
 import { syncRecord } from '../services/cloudSyncService';
 import { supabase } from '../services/supabaseClient';
 import { normaliseEmail, pickSignInAccount } from '../utils/loginIdentity';
+import { releasePushOnSignOut, restorePushOnSignIn } from '../services/webPushService';
 import { logAuthEvent } from '../services/auditService';
 import type { User, UserRole } from '../types';
 import Dexie from 'dexie';
@@ -312,6 +313,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem('AstroHEALTH_user_id', existingUser.id);
           logAuthEvent(existingUser.id, 'login', { email: existingUser.email, role: existingUser.role });
           recordLastLogin(existingUser.id);
+          void restorePushOnSignIn(existingUser.id, existingUser.hospitalId);
           return true;
         }
         return false;
@@ -332,6 +334,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('AstroHEALTH_user_id', foundUser.id);
         logAuthEvent(foundUser.id, 'login', { email: foundUser.email, role: foundUser.role });
         recordLastLogin(foundUser.id);
+        void restorePushOnSignIn(foundUser.id, foundUser.hospitalId);
         return true;
       }
 
@@ -397,6 +400,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     if (user) {
       logAuthEvent(user.id, 'logout', { email: user.email, role: user.role });
+      // A shared ward phone must stop showing this person's patient alerts.
+      // Best effort and never holds up sign-out.
+      void releasePushOnSignOut(user.id);
     }
     setUser(null);
     localStorage.removeItem('AstroHEALTH_user_id');
