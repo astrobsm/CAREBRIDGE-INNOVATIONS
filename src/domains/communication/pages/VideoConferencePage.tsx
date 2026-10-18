@@ -1351,9 +1351,27 @@ export default function VideoConferencePage() {
     };
   }, [conferenceId, user, isJoined, isInWaitingRoom, isWebRTCInitialized, navigate, remoteStreams]);
 
-  // Initialize WebRTC when joined and stream is available
+  // Initialize WebRTC once per joined conference.
+  //
+  // This effect used to depend on the whole conference object and on its own
+  // isWebRTCInitialized flag. The conference is replaced by every 3-second
+  // poll, and the flag flips on every run, so the cleanup - which closes every
+  // peer connection - ran again and again: calls were torn down and rebuilt
+  // continuously and rarely stayed connected. It now runs when the person
+  // joins or leaves (or the conference / user changes) and reads the latest
+  // participants and stream through refs; a changed camera stream is applied
+  // by the effect below without reconnecting.
+  const webrtcConferenceRef = useRef(conference);
+  webrtcConferenceRef.current = conference;
+  const webrtcStreamRef = useRef(stream);
+  webrtcStreamRef.current = stream;
+  const hasLocalStream = !!stream;
+  const webrtcConferenceId = conference?.id;
+
   useEffect(() => {
-    if (!isJoined || !stream || !conference || !user || isWebRTCInitialized) return;
+    const conference = webrtcConferenceRef.current;
+    const stream = webrtcStreamRef.current;
+    if (!isJoined || !stream || !conference || !user) return;
 
     // Initialize WebRTC service
     WebRTCSignalingService.initializeWebRTC(stream);
@@ -1396,7 +1414,7 @@ export default function VideoConferencePage() {
       p => p.admissionStatus === 'admitted' && p.userId !== user.id && !p.leftAt
     );
     
-    setTimeout(() => {
+    const connectTimer = setTimeout(() => {
       WebRTCSignalingService.connectToParticipants(
         conference.id,
         user.id,
@@ -1406,10 +1424,27 @@ export default function VideoConferencePage() {
     }, 1000);
 
     return () => {
+      clearTimeout(connectTimer);
       WebRTCSignalingService.closeAllConnections();
       setIsWebRTCInitialized(false);
     };
-  }, [isJoined, stream, conference, user, isWebRTCInitialized]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isJoined, hasLocalStream, webrtcConferenceId, user?.id]);
+
+  // A new camera/microphone stream (device switch) reaches every peer without
+  // reconnecting.
+  useEffect(() => {
+    if (isWebRTCInitialized && stream) {
+      void WebRTCSignalingService.updateLocalStream(stream);
+    }
+  }, [stream, isWebRTCInitialized]);
+
+  // Screen sharing goes to the other participants, not only to this screen:
+  // the shared screen replaces the camera on every connection while it lasts.
+  useEffect(() => {
+    if (!isWebRTCInitialized) return;
+    WebRTCSignalingService.setOutgoingVideoTrack(screenStream?.getVideoTracks()[0] ?? null);
+  }, [screenStream, isWebRTCInitialized]);
 
   // Subscribe to WebRTC signaling messages AND poll for updates
   useEffect(() => {
