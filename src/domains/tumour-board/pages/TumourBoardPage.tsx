@@ -41,6 +41,9 @@ import type {
 } from '../services/oncology/stagingEngine';
 import { SPECIALTY_LABELS } from '../services/oncology/managementPlan';
 import {
+  checkTumourMeasurements, marginStatus, marginsSummary, melanomaExcisionMargin,
+} from '../services/oncology/tumourMeasurements';
+import {
   generateBoardSummaryPdf, generateAllReferralLettersPdf,
   generateSurveillancePdf, generateCounsellingPdf,
 } from '../services/tumourBoardPdfService';
@@ -329,7 +332,10 @@ const AssessmentForm: React.FC<{
   const [localSpread, setLocalSpread] = useState('');
   const [regionalSpread, setRegionalSpread] = useState('');
   const [metastaticSpread, setMetastaticSpread] = useState('');
-  const [margins, setMargins] = useState('');
+  // Margins as distances, so their status can be read rather than typed.
+  const [marginNote, setMarginNote] = useState('');
+  const [peripheralMm, setPeripheralMm] = useState('');
+  const [deepMm, setDeepMm] = useState('');
   const [notes, setNotes] = useState('');
 
   const isMelanoma = family === 'cutaneous_melanoma';
@@ -364,8 +370,23 @@ const AssessmentForm: React.FC<{
   // staging engine is pure, so this costs nothing.
   const preview = useMemo(() => computeStage(stagingInput), [stagingInput]);
 
+  // Range checks: a Breslow typed in micrometres used to stage as T4, a size
+  // in millimetres as a 30 cm tumour.
+  const toNum = (v: string): number | null => (v.trim() === '' ? null : Number(v));
+  const measureCheck = checkTumourMeasurements({
+    breslowMm: isMelanoma ? toNum(breslowMm) : null,
+    sizeCm: !isMelanoma ? toNum(sizeCm) : null,
+    largestNodeCm: toNum(largestNodeCm),
+    peripheralMarginMm: toNum(peripheralMm),
+    deepMarginMm: toNum(deepMm),
+  });
+  const mStatus = marginStatus(toNum(peripheralMm), toNum(deepMm));
+  const margins = marginsSummary({ peripheralMarginMm: toNum(peripheralMm), deepMarginMm: toNum(deepMm), note: marginNote });
+  const excisionAdvice = isMelanoma ? melanomaExcisionMargin(toNum(breslowMm), inSitu) : null;
+
   const submit = async () => {
     if (!existingCase && !patient) { toast.error('Select a patient first'); return; }
+    if (measureCheck.errors.length) { toast.error(measureCheck.errors[0]); return; }
     setSaving(true);
     try {
       const caseRecord = existingCase || await createCase({
@@ -464,14 +485,23 @@ const AssessmentForm: React.FC<{
           {isMelanoma ? (
             <>
               <Field label="Breslow thickness (mm)">
-                <input type="number" step="0.01" value={breslowMm} onChange={e => setBreslowMm(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                <input type="number" step="0.01" min={0} max={50} inputMode="decimal" value={breslowMm} onChange={e => setBreslowMm(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="e.g. 1.2" />
+                <p className="text-xs text-gray-500 mt-1">From the histology report, in millimetres. Recorded to 0.1 mm for staging (AJCC 8).</p>
               </Field>
+              {excisionAdvice && (
+                <p className="text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 rounded p-2">
+                  Recommended wide local excision: <strong>{excisionAdvice}</strong>
+                </p>
+              )}
               <Check label="Ulceration present" checked={ulceration} onChange={setUlceration} />
               <Check label="In situ (no invasion)" checked={inSitu} onChange={setInSitu} />
             </>
           ) : (
             <Field label="Greatest dimension (cm)">
-              <input type="number" step="0.1" value={sizeCm} onChange={e => setSizeCm(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
+              <input type="number" step="0.1" min={0} inputMode="decimal" value={sizeCm} onChange={e => setSizeCm(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
+              {isSarcoma && (
+                <p className="text-xs text-gray-500 mt-1">For a deep sarcoma use the imaging (MRI/CT) dimension.</p>
+              )}
             </Field>
           )}
           {isKeratinocyte && (
@@ -559,9 +589,24 @@ const AssessmentForm: React.FC<{
         </Section>
 
         <Section title="Pathology & notes">
-          <Field label="Margins">
-            <input value={margins} onChange={e => setMargins(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="e.g. clear, 8 mm closest deep margin" />
+          <Field label="Histological margins (mm)">
+            <div className="grid grid-cols-2 gap-2">
+              <input type="number" step="0.1" min={0} inputMode="decimal" value={peripheralMm} onChange={e => setPeripheralMm(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Closest peripheral" aria-label="Closest peripheral margin (mm)" />
+              <input type="number" step="0.1" min={0} inputMode="decimal" value={deepMm} onChange={e => setDeepMm(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Deep" aria-label="Deep margin (mm)" />
+            </div>
+            <input value={marginNote} onChange={e => setMarginNote(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm mt-2" placeholder="Margin note (e.g. closest at 3 o'clock)" />
+            {mStatus !== 'not_reported' && (
+              <p className={`text-xs mt-1 font-semibold ${mStatus === 'involved' ? 'text-red-700' : mStatus === 'close' ? 'text-amber-700' : 'text-green-700'}`}>
+                {mStatus === 'involved' ? 'Involved margin (0 mm) — re-excision / adjuvant discussion' : mStatus === 'close' ? 'Close margin (< 1 mm)' : 'Clear margins'}
+              </p>
+            )}
           </Field>
+          {(measureCheck.errors.length > 0 || measureCheck.warnings.length > 0) && (
+            <ul className="text-xs space-y-0.5">
+              {measureCheck.errors.map(e => <li key={e} className="text-red-700">• {e}</li>)}
+              {measureCheck.warnings.map(w => <li key={w} className="text-amber-700">• {w}</li>)}
+            </ul>
+          )}
           <Field label="Notes">
             <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" rows={2} />
           </Field>
