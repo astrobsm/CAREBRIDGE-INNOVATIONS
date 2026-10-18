@@ -583,3 +583,181 @@ export function graftFromTraces(
     valid: p.valid && takePercent !== null,
   };
 }
+
+// ── Length, width and tissue composition from a tracing ─────────────────────
+
+/**
+ * Greatest separation between any two points of a ring, and its greatest
+ * extent at right angles to that axis.
+ *
+ * This is what a clinician means by "length and width": the longest axis of
+ * the wound and its widest span across it — not the sides of an axis-aligned
+ * box, which change when the same wound is photographed at a different
+ * rotation. Units are those of the points; divide by pixels-per-cm for cm.
+ *
+ * O(n²), which is nothing for a simplified freehand trace.
+ */
+export function maxCaliper(points: Point[]): { length: number; width: number } {
+  if (points.length < 2) return { length: 0, width: 0 };
+
+  let best = 0, ai = 0, bi = 1;
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      const d = Math.hypot(points[j].x - points[i].x, points[j].y - points[i].y);
+      if (d > best) { best = d; ai = i; bi = j; }
+    }
+  }
+  if (best === 0) return { length: 0, width: 0 };
+
+  // Unit vector along the long axis; width is the spread of the projections
+  // onto its normal.
+  const ux = (points[bi].x - points[ai].x) / best;
+  const uy = (points[bi].y - points[ai].y) / best;
+  let minPerp = Infinity, maxPerp = -Infinity;
+  for (const p of points) {
+    const perp = -uy * p.x + ux * p.y;
+    if (perp < minPerp) minPerp = perp;
+    if (perp > maxPerp) maxPerp = perp;
+  }
+
+  return { length: best, width: maxPerp - minPerp };
+}
+
+/** Length and width of a traced ring in cm, or null without a scale. */
+export function traceDimensionsCm(
+  points: Point[],
+  pixelsPerCm: number | null,
+): { lengthCm: number; widthCm: number } | null {
+  if (!(pixelsPerCm !== null && Number.isFinite(pixelsPerCm) && pixelsPerCm > 0)) return null;
+  if (distinctCount(points) < 3) return null;
+  const { length, width } = maxCaliper(points);
+  return { lengthCm: round2(length / pixelsPerCm), widthCm: round2(width / pixelsPerCm) };
+}
+
+/** Integers that sum to `total`, by largest remainder. */
+export function roundToTotal(values: number[], total = 100): number[] {
+  const sum = values.reduce((s, v) => s + v, 0);
+  if (sum <= 0) return values.map(() => 0);
+  const scaled = values.map(v => (v / sum) * total);
+  const floors = scaled.map(Math.floor);
+  let left = total - floors.reduce((s, v) => s + v, 0);
+  const order = scaled.map((v, i) => [v - floors[i], i] as const).sort((a, b) => b[0] - a[0]);
+  for (const [, i] of order) { if (left <= 0) break; floors[i]++; left--; }
+  return floors;
+}
+
+/** The four tissues a wound assessment records as percentages. */
+export const WOUND_TISSUES = ['granulation', 'slough', 'necrotic', 'epithelialised'] as const;
+export type WoundTissue = typeof WOUND_TISSUES[number];
+
+/**
+ * What the untraced part of the outline counts as.
+ *
+ * On a donor site the remainder is healed skin; on an open wound it is usually
+ * more of the predominant bed. That is the clinician's reading of the picture,
+ * so it is chosen explicitly — or left unassigned, and reported as such.
+ */
+export type TissueRemainder = WoundTissue | 'unassigned';
+
+export interface TissueComposition {
+  /** Whole-number percentages of the outline; with the remainder they sum to 100. */
+  percent: Record<WoundTissue, number>;
+  unassignedPercent: number;
+  /** Each tissue's share of the outline's area, in cm² (null without a scale). */
+  areaCm2: Record<WoundTissue, number | null>;
+  /**
+   * A tissue tracing lies substantially (over a quarter of its points) outside
+   * the margin. Only the part inside is counted; this says so.
+   */
+  tracedOutsideMargin: boolean;
+}
+
+/**
+ * Tissue percentages for the assessment record, from a tracing.
+ *
+ * Composition is found by sampling the outline on a fine grid (about 40 000
+ * samples across its bounding box): each sample inside the margin takes the
+ * tissue of the traced patch that contains it. That makes two things exact
+ * that summing patch areas cannot:
+ *  - a patch that overshoots the margin — natural when tracing tissue at the
+ *    wound edge — counts only for the part inside the wound;
+ *  - an island traced within another patch belongs to the island (the
+ *    innermost, i.e. smallest, containing patch wins), matching how
+ *    computePlanimetry nets nested patches.
+ * Samples no patch covers are the remainder, assigned to `remainder` or left
+ * unassigned. Percentages are rounded by largest remainder so they always sum
+ * to exactly 100 — a 33/33/33 split that adds to 99 reads as a missing tissue.
+ *
+ * Raw-surface patches (offered on donor sites, not on the wound monitor) are
+ * not one of the four recorded tissues, so their samples count as remainder.
+ *
+ * Returns null when there is no single closed outline to take percentages of.
+ */
+export function tissueComposition(
+  traces: Trace[],
+  pixelsPerCm: number | null,
+  remainder: TissueRemainder,
+  options: { samples?: number } = {},
+): TissueComposition | null {
+  const totals = traces.filter(t => t.role === 'total');
+  if (totals.length !== 1) return null;
+  const outline = totals[0].points;
+  const outlineGeom = measureTrace(outline, pixelsPerCm);
+  if (outlineGeom.degenerate || !(outlineGeom.areaPx > 0)) return null;
+
+  // Smallest first, so the innermost containing patch is found first.
+  const patches = traces
+    .filter(t => t.role !== 'total' && t.points.length >= 3)
+    .map(t => ({ role: t.role as SurfaceKind, points: t.points, areaPx: areaPx(t.points) }))
+    .filter(p => p.areaPx > 0)
+    .sort((a, b) => a.areaPx - b.areaPx);
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of outline) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const target = options.samples ?? 40000;
+  const step = Math.max(Math.sqrt(((maxX - minX) * (maxY - minY)) / target), 0.5);
+
+  const counts: Record<WoundTissue, number> = { granulation: 0, slough: 0, necrotic: 0, epithelialised: 0 };
+  let inWound = 0, unlabelled = 0;
+  for (let y = minY + step / 2; y < maxY; y += step) {
+    for (let x = minX + step / 2; x < maxX; x += step) {
+      const q = { x, y };
+      if (!pointInPolygon(q, outline)) continue;
+      inWound++;
+      const hit = patches.find(pt => pointInPolygon(q, pt.points));
+      if (hit && (WOUND_TISSUES as readonly string[]).includes(hit.role)) counts[hit.role as WoundTissue]++;
+      else unlabelled++;
+    }
+  }
+
+  const tracedOutsideMargin = patches.some(pt => {
+    const outside = pt.points.filter(q => !pointInPolygon(q, outline)).length;
+    return outside / pt.points.length > 0.25;
+  });
+
+  const scaleOk = pixelsPerCm !== null && Number.isFinite(pixelsPerCm) && pixelsPerCm > 0;
+  const outlineCm2 = scaleOk ? outlineGeom.areaPx / (pixelsPerCm! * pixelsPerCm!) : null;
+
+  if (inWound === 0) {
+    const zero = { granulation: 0, slough: 0, necrotic: 0, epithelialised: 0 };
+    return {
+      percent: zero, unassignedPercent: 100, tracedOutsideMargin,
+      areaCm2: Object.fromEntries(WOUND_TISSUES.map(k => [k, scaleOk ? 0 : null])) as Record<WoundTissue, number | null>,
+    };
+  }
+
+  if (remainder !== 'unassigned') { counts[remainder] += unlabelled; unlabelled = 0; }
+
+  const rounded = roundToTotal([...WOUND_TISSUES.map(k => counts[k]), unlabelled]);
+  const percent = Object.fromEntries(WOUND_TISSUES.map((k, i) => [k, rounded[i]])) as Record<WoundTissue, number>;
+  const areaCm2 = Object.fromEntries(WOUND_TISSUES.map(k => [
+    k, outlineCm2 === null ? null : round2((counts[k] / inWound) * outlineCm2),
+  ])) as Record<WoundTissue, number | null>;
+
+  return { percent, unassignedPercent: rounded[WOUND_TISSUES.length], areaCm2, tracedOutsideMargin };
+}
