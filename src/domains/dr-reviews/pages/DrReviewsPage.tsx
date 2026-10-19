@@ -1,6 +1,7 @@
 // Dr. Nnadi's Reviews & Analytics Dashboard
-// Password-protected access for patient review management and billing analytics
-// Access Password: blackvelvet
+// Patient review management and billing analytics — super administrators only.
+// (This was gated by a shared password written in the source; access now
+// follows the signed-in account's role.)
 
 import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -22,16 +23,12 @@ import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { format } from 'date-fns';
 
-const DR_REVIEWS_PASSWORD = 'blackvelvet';
-const SESSION_KEY = 'dr_reviews_auth';
 
 export default function DrReviewsPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState('all');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [passwordError, setPasswordError] = useState('');
+  const isAuthenticated = user?.role === 'super_admin';
 
   // IMPORTANT: All hooks must be called before any conditional returns
   // Fetch clinical encounters for reviews
@@ -46,27 +43,7 @@ export default function DrReviewsPage() {
     []
   );
 
-  // Check session storage for existing authentication
-  useEffect(() => {
-    const sessionAuth = sessionStorage.getItem(SESSION_KEY);
-    if (sessionAuth === 'true') {
-      setIsAuthenticated(true);
-    }
-  }, []);
-
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordInput === DR_REVIEWS_PASSWORD) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem(SESSION_KEY, 'true');
-      setPasswordError('');
-    } else {
-      setPasswordError('Incorrect password. Please try again.');
-      setPasswordInput('');
-    }
-  };
-
-  // Password authentication screen
+  // Restricted screen for everyone else
   if (!isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
@@ -80,41 +57,8 @@ export default function DrReviewsPage() {
               <Lock className="w-8 h-8 text-indigo-600" />
             </div>
             <h2 className="text-3xl font-bold text-gray-800 mb-2">Dr. Nnadi's Reviews</h2>
-            <p className="text-gray-600">Enter password to access analytics dashboard</p>
+            <p className="text-gray-600">This dashboard is available to super administrators only.</p>
           </div>
-
-          <form onSubmit={handlePasswordSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                Access Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900"
-                placeholder="Enter password"
-                autoFocus
-              />
-              {passwordError && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="mt-2 text-sm text-red-600 font-medium"
-                >
-                  {passwordError}
-                </motion.p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition-colors shadow-lg hover:shadow-xl"
-            >
-              Access Dashboard
-            </button>
-          </form>
 
           <div className="mt-6 text-center">
             <p className="text-xs text-gray-500">

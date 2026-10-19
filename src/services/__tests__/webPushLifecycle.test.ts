@@ -50,8 +50,11 @@ describe('subscription lifecycle wiring', () => {
   });
 
   it('sign-out releases and sign-in restores', () => {
-    expect(auth).toMatch(/void releasePushOnSignOut\(user\.id\)/);
-    expect(auth.match(/void restorePushOnSignIn\(/g)?.length).toBe(2);
+    expect(auth).toMatch(/void releasePushOnSignOut\(current\.id\)/);
+    // Every way of becoming signed in (online, offline, restored) goes through
+    // completeSignIn, which restores push once.
+    expect(auth.match(/void restorePushOnSignIn\(/g)?.length).toBe(1);
+    expect(auth.slice(auth.indexOf('const completeSignIn'), auth.indexOf('const clearLocalSession'))).toMatch(/void restorePushOnSignIn\(signedIn\.id, signedIn\.hospitalId\)/);
     const restore = svc.slice(svc.indexOf('export async function restorePushOnSignIn'));
     // Never prompts, never subscribes someone who has not opted in here.
     expect(restore).toMatch(/Notification\.permission !== 'granted'\) return;/);

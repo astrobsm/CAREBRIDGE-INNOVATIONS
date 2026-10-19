@@ -19,20 +19,21 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
-import { db } from '../../../database';
 import { format } from 'date-fns';
 
 const AGREEMENT_VERSION = '1.0';
 
 export default function UserAgreementPage() {
   const navigate = useNavigate();
-  const { user, refreshUser } = useAuth();
+  const { user, updateUser, changePassword } = useAuth();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isAgreed, setIsAgreed] = useState(false);
-  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  // Someone who has accepted the agreement before and only has a temporary
+  // password to replace (an administrator reset it) goes straight to that step.
+  const [showPasswordChange, setShowPasswordChange] = useState(!!user?.hasAcceptedAgreement);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -110,27 +111,23 @@ export default function UserAgreementPage() {
     setIsSubmitting(true);
 
     try {
-      // Update user with agreement acceptance and new password
-      await db.users.update(user!.id, {
-        hasAcceptedAgreement: true,
-        agreementAcceptedAt: new Date().toISOString(),
-        agreementVersion: AGREEMENT_VERSION,
-        agreementDeviceInfo: JSON.stringify(deviceInfo),
-        password: newPassword, // In production, this should be hashed
-        mustChangePassword: false,
-        updatedAt: new Date().toISOString(),
-      });
+      // The new password goes to Supabase Auth — never onto the user record.
+      await changePassword(newPassword);
 
-      // Refresh user context
-      if (refreshUser) {
-        await refreshUser();
-      }
+      // Then record the agreement and clear the temporary-password flag.
+      await updateUser({
+        hasAcceptedAgreement: true,
+        agreementAcceptedAt: user?.agreementAcceptedAt ?? new Date().toISOString(),
+        agreementVersion: user?.agreementVersion ?? AGREEMENT_VERSION,
+        agreementDeviceInfo: user?.agreementDeviceInfo ?? JSON.stringify(deviceInfo),
+        mustChangePassword: false,
+      });
 
       toast.success('Agreement accepted and password updated successfully');
       navigate('/dashboard');
     } catch (error) {
       console.error('Error saving agreement:', error);
-      toast.error('Failed to save. Please try again.');
+      toast.error(error instanceof Error && error.message ? error.message : 'Failed to save. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

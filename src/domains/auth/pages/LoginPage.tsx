@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { childLogin } from '../../../services/childAuth';
 import { normaliseEmail } from '../../../utils/loginIdentity';
+import AwaitingApprovalNotice from '../components/AwaitingApprovalNotice';
 
 type Portal = 'astro' | 'family';
 
@@ -27,6 +28,7 @@ export default function LoginPage() {
   const [portal, setPortal] = useState<Portal>('astro');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingApproval, setPendingApproval] = useState(false);
 
   // Child portal state
   const [childUsername, setChildUsername] = useState('');
@@ -45,9 +47,16 @@ export default function LoginPage() {
   const onAstroSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      const success = await login(data.email, data.password);
-      if (success) toast.success('Welcome back!');
-      else toast.error('Invalid email or password');
+      const result = await login(data.email, data.password);
+      if (result.ok) {
+        toast.success(result.mode === 'offline'
+          ? 'Signed in offline. Your work is saved on this device and syncs after an online sign-in.'
+          : 'Welcome back!');
+      } else if (result.reason === 'pending') {
+        setPendingApproval(true);
+      } else {
+        toast.error(result.message || 'Invalid email or password');
+      }
     } catch {
       toast.error('An error occurred. Please try again.');
     } finally {
@@ -112,6 +121,12 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {portal === 'astro' && pendingApproval && (
+          <div className="mb-6">
+            <AwaitingApprovalNotice onDismiss={() => setPendingApproval(false)} />
+          </div>
+        )}
+
         {portal === 'astro' ? (
           <form onSubmit={handleSubmit(onAstroSubmit)} className="space-y-6">
             <div>
@@ -165,7 +180,13 @@ export default function LoginPage() {
                 <input type="checkbox" className="w-5 h-5 rounded border-gray-300 text-sky-500 focus:ring-sky-500"/>
                 <span className="text-sm text-gray-600">Remember me</span>
               </label>
-              <a href="#" className="text-sm text-sky-600 hover:text-sky-700 font-medium min-h-touch flex items-center">Forgot password?</a>
+              <button
+                type="button"
+                onClick={() => toast('Ask your hospital administrator to reset your password in User Management. You will get a temporary password to sign in with.', { duration: 7000 })}
+                className="text-sm text-sky-600 hover:text-sky-700 font-medium min-h-touch flex items-center"
+              >
+                Forgot password?
+              </button>
             </div>
 
             <button type="submit" disabled={isLoading} className="btn btn-primary w-full">

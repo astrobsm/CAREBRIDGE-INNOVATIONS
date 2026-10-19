@@ -114,6 +114,7 @@ import BookingSharePage from './domains/appointments/pages/public/BookingSharePa
 import ClinicBookingsManagementPage from './domains/appointments/pages/ClinicBookingsManagementPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
+import OfflineSessionBanner from './domains/auth/components/OfflineSessionBanner';
 import InstallPrompt from './components/pwa/InstallPrompt';
 import { UpdatePrompt } from './components/pwa';
 
@@ -147,6 +148,7 @@ function App() {
 
   return (
     <>
+    {isAuthenticated && <OfflineSessionBanner />}
     <Routes>
       {/* Public Routes */}
       <Route element={<AuthLayout />}>
@@ -159,8 +161,8 @@ function App() {
         path="/agreement" 
         element={
           isAuthenticated 
-            ? (user?.hasAcceptedAgreement 
-                ? <Navigate to="/" replace /> 
+            ? (user?.hasAcceptedAgreement && !user?.mustChangePassword
+                ? <Navigate to="/" replace />
                 : <UserAgreementPage />)
             : <Navigate to="/login" replace />
         } 
@@ -289,7 +291,12 @@ function App() {
             : <Navigate to="/" replace />
         } />
         <Route path="hospitals" element={<HospitalsPage />} />
-        <Route path="users" element={<UsersManagementPage />} />
+        {/* Administrators only (the server enforces this for every action too). */}
+        <Route path="users" element={
+          (user?.role === 'super_admin' || user?.role === 'hospital_admin')
+            ? <UsersManagementPage />
+            : <Navigate to="/" replace />
+        } />
         <Route path="user-activity" element={
           user?.role === 'super_admin' 
             ? <UserActivityAnalyticsPage /> 

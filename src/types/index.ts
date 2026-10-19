@@ -33,7 +33,10 @@ export type UserRole =
 export interface User {
   id: string;
   email: string;
-  password?: string;
+  // No password: sign-in is Supabase Auth. Never add one back to this record —
+  // it is synced to every device and to the cloud users table.
+  /** The Supabase Auth account (auth.users.id) that signs in as this user. */
+  authUserId?: string | null;
   firstName: string;
   lastName: string;
   role: UserRole;

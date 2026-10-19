@@ -74,7 +74,9 @@ describe('wiring', () => {
   it('sign-in, registration, User Management and bulk import all compare through normaliseEmail', () => {
     const auth = read('src/contexts/AuthContext.tsx');
     expect(auth).toMatch(/normaliseEmail\(u\.email\) === loginEmail/);
-    expect(auth).toMatch(/pickSignInAccount\(matches\)/);
+    // The duplicate-row choice now lives in the pure sign-in resolver.
+    expect(auth).toMatch(/resolveAppUser\(/);
+    expect(read('src/utils/signInFlow.ts')).toMatch(/pickSignInAccount\(matches\)/);
     expect(auth).not.toMatch(/\.equals\(email\.toLowerCase\(\)\)/);
     expect(read('src/domains/auth/pages/UsersManagementPage.tsx')).toMatch(/findEmailOwner\(await db\.users\.toArray\(\), email, userId\)/);
     expect(read('src/components/common/BulkImportModal.tsx')).toMatch(/normaliseEmail\(u\.email\) === email/);
@@ -103,7 +105,9 @@ describe('active flag', () => {
     const page = read('src/domains/auth/pages/UsersManagementPage.tsx');
     expect(page).not.toMatch(/isActive: formData\.isActive \? 1 : 0/);
     expect(page).not.toMatch(/isActive: 0,/);
-    expect(page).toMatch(/isActive: false,/);
+    // (De)activation goes through /api/admin-users with a real boolean.
+    expect(page).toMatch(/setAccountActive\(userId, !!isActive\)/);
+    expect(page).toMatch(/setAccountActive\(target\.id, active\)/);
     const db = read('src/database/db.ts');
     expect(db).toMatch(/this\.version\(91\)[\s\S]*toActiveFlag\(u\.isActive\)/);
   });

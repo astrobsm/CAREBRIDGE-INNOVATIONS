@@ -6,6 +6,8 @@ import { useState, useEffect } from 'react';
 import { db, suppressAudit, resumeAudit } from '../database/db';
 import { supabase, isSupabaseConfigured, TABLES, LOCAL_TO_CLOUD_TABLE } from './supabaseClient';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { getCloudSession, hasCloudSession, setCloudSession, type CloudSession } from './cloudSession';
+import { canPushUserRow, prepareUserRowsForPush, stripSecretColumns } from './userSyncRules';
 
 // Sync state management
 export interface CloudSyncState {
@@ -407,7 +409,9 @@ export function initCloudSync() {
     console.log('[CloudSync] Device online');
     updateSyncState({ isOnline: true });
     resetBackoff();
-    if (isSupabaseConfigured()) {
+    // Only with a real session: before sign-in, after sign-out and while
+    // signed in offline there is nothing this device may send or fetch.
+    if (isSupabaseConfigured() && hasCloudSession()) {
       fullSync();
       rescheduleSync(); // restart timer at base interval
     }
@@ -418,24 +422,67 @@ export function initCloudSync() {
     updateSyncState({ isOnline: false });
   });
 
-  // Initial sync and setup if online and configured
-  if (navigator.onLine && isSupabaseConfigured()) {
-    console.log('[CloudSync] Starting initial sync...');
-    // Pull data first, then set up real-time
-    fullSync().then(() => {
-      console.log('[CloudSync] Initial sync complete, setting up real-time...');
-      setupRealtimeSubscriptions();
-    }).catch(err => {
-      console.error('[CloudSync] Initial sync failed:', err);
-    });
-    
-    // Single periodic sync loop (backs off on failures). fullSync already pulls
-    // every table — including the critical clinical ones — so there is no
-    // separate critical-data poller; realtime subscriptions handle immediacy.
-    rescheduleSync();
-  } else {
-    console.log('[CloudSync] Skipping sync - not online or Supabase not configured');
+  // Nothing is synced from here: syncing starts when AuthContext has a real
+  // Supabase session for an active user and calls startCloudSync().
+  if (hasCloudSession()) beginSessionSync();
+}
+
+/** First sync, realtime and the periodic loop for the current session. */
+function beginSessionSync(): void {
+  if (!navigator.onLine || !isSupabaseConfigured() || !hasCloudSession()) {
+    console.log('[CloudSync] Skipping sync - offline, not configured, or no session');
+    return;
   }
+  console.log('[CloudSync] Starting initial sync...');
+  // Pull data first, then set up real-time
+  fullSync().then(() => {
+    if (!hasCloudSession()) return; // signed out meanwhile
+    console.log('[CloudSync] Initial sync complete, setting up real-time...');
+    setupRealtimeSubscriptions();
+  }).catch(err => {
+    console.error('[CloudSync] Initial sync failed:', err);
+  });
+
+  // Single periodic sync loop (backs off on failures). fullSync already pulls
+  // every table — including the critical clinical ones — so there is no
+  // separate critical-data poller; realtime subscriptions handle immediacy.
+  rescheduleSync();
+}
+
+/**
+ * Start cloud sync and realtime for a signed-in user with a real Supabase
+ * session. Called by AuthContext after an online sign-in or a session
+ * restore — never for an offline (verifier-only) sign-in.
+ */
+export function startCloudSync(session: CloudSession): void {
+  const previous = getCloudSession();
+  setCloudSession(session);
+  if (!isCloudSyncInitialized) {
+    initCloudSync(); // registers listeners, then begins the session sync
+  } else if (!previous || previous.appUserId !== session.appUserId) {
+    beginSessionSync();
+  }
+}
+
+/** Stop syncing and drop realtime channels. Called on sign-out. */
+export function stopCloudSync(): void {
+  setCloudSession(null);
+  if (syncInterval) {
+    clearInterval(syncInterval);
+    syncInterval = null;
+  }
+  realtimeDebounce.forEach(timer => clearTimeout(timer));
+  realtimeDebounce.clear();
+  recentlySyncedIds.clear();
+  subscriptionRetryCount.clear();
+  resetBackoff();
+  if (supabase) {
+    realtimeChannels.forEach(channel => {
+      try { supabase?.removeChannel(channel); } catch (_e) { /* ignore */ }
+    });
+  }
+  realtimeChannels = [];
+  isSettingUpSubscriptions = false;
 }
 
 // Test Supabase connection and verify tables exist
@@ -566,9 +613,15 @@ export async function forcePushUsers(): Promise<{ success: boolean; message: str
   if (!isSupabaseConfigured() || !supabase) {
     return { success: false, message: 'Supabase not configured' };
   }
-  
+  if (!hasCloudSession()) {
+    return { success: false, message: 'Not signed in' };
+  }
+
   try {
-    const localUsers = await db.users.toArray();
+    const localUsers = prepareUserRowsForPush(
+      getCloudSession(),
+      (await db.users.toArray()) as unknown as Record<string, unknown>[],
+    );
     console.log('[CloudSync] Force pushing', localUsers.length, 'users to cloud...');
     
     if (localUsers.length === 0) {
@@ -576,7 +629,9 @@ export async function forcePushUsers(): Promise<{ success: boolean; message: str
     }
     
     // Convert to Supabase format (cast to any to handle User type)
-    const preparedUsers = localUsers.map((user: any) => convertToSupabase(user as Record<string, unknown>));
+    const preparedUsers = localUsers.map((user: any) =>
+      stripSecretColumns(TABLES.users, convertToSupabase(user as Record<string, unknown>))
+    );
     console.log('[CloudSync] Prepared users for upload:', preparedUsers);
     
     const { error, data } = await supabase
@@ -630,7 +685,7 @@ export async function forcePullUsers(): Promise<{ success: boolean; message: str
     let updated = 0;
     
     for (const cloudRecord of data) {
-      const record = convertFromSupabase(cloudRecord) as any;
+      const record = userFromCloudRow(cloudRecord) as any;
       try {
         const existing = await db.users.get(record.id as string);
         if (existing) {
@@ -668,6 +723,11 @@ export async function forcePullUsers(): Promise<{ success: boolean; message: str
 export async function fullSync(): Promise<void> {
   if (!isSupabaseConfigured() || !supabase) {
     console.log('[CloudSync] Supabase not configured, skipping sync');
+    return;
+  }
+
+  if (!hasCloudSession()) {
+    console.log('[CloudSync] No signed-in session, skipping sync');
     return;
   }
 
@@ -1203,8 +1263,11 @@ async function pullTable(cloudTableName: string, localTableName: string, orderCo
     }
 
     if (data && data.length > 0) {
-      // Convert snake_case to camelCase and parse dates
-      const records = data.map((record: Record<string, unknown>) => convertFromSupabase(record));
+      // Convert snake_case to camelCase and parse dates. A users row may still
+      // carry a legacy plaintext password: it is never stored on the device.
+      const records = data.map((record: Record<string, unknown>) =>
+        cloudTableName === TABLES.users ? userFromCloudRow(record) : convertFromSupabase(record)
+      );
 
       // Merge with local data (cloud wins for conflicts based on updated_at)
       let added = 0, updated = 0, skipped = 0;
@@ -1320,6 +1383,11 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
       });
     }
 
+    // Only an administrator's device pushes other people's accounts.
+    if (localTableName === 'users') {
+      localRecords = localRecords.filter((u: any) => canPushUserRow(getCloudSession(), u));
+    }
+
     if (localRecords.length === 0) {
       if (localTableName === 'users') {
         console.log('[CloudSync] No dirty users to push');
@@ -1334,7 +1402,7 @@ async function pushTable(localTableName: string, cloudTableName: string): Promis
 
     // Convert to Supabase format and strip any previously-excluded columns
     const preparedRecords = localRecords.map((record: Record<string, unknown>) =>
-      stripExcludedColumns(cloudTableName, convertToSupabase(record))
+      stripExcludedColumns(cloudTableName, stripSecretColumns(cloudTableName, convertToSupabase(record)))
     );
     
     // Debug log for users
@@ -1578,7 +1646,7 @@ function subscribeBatch(
 
 // Set up real-time subscriptions for live updates
 function setupRealtimeSubscriptions() {
-  if (!supabase) return;
+  if (!supabase || !hasCloudSession()) return;
   
   // Prevent re-entrant/concurrent calls
   if (isSettingUpSubscriptions) {
@@ -1668,16 +1736,20 @@ function setupRealtimeSubscriptions() {
 
 // Sync a single record immediately (call this when creating/updating data)
 export async function syncRecord(localTableName: string, record: Record<string, any>): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase || !navigator.onLine || isSupabasePaymentPaused()) {
-    console.log('[CloudSync] Offline, paused, or not configured; record will sync later');
+  if (!isSupabaseConfigured() || !supabase || !navigator.onLine || isSupabasePaymentPaused() || !hasCloudSession()) {
+    console.log('[CloudSync] Offline, paused, not configured or not signed in; record will sync later');
     return;
   }
 
   const cloudTableName = getCloudTableName(localTableName);
   if (!cloudTableName) return;
+  if (cloudTableName === TABLES.users && !canPushUserRow(getCloudSession(), record)) return;
 
   try {
-    let preparedRecord = stripExcludedColumns(cloudTableName, convertToSupabase(record));
+    let preparedRecord = stripExcludedColumns(
+      cloudTableName,
+      stripSecretColumns(cloudTableName, convertToSupabase(record)),
+    );
     
     const recordId = (record as any).id as string;
     console.log(`[CloudSync] Syncing record to ${cloudTableName}:`, recordId);
@@ -1729,7 +1801,7 @@ export async function syncRecord(localTableName: string, record: Record<string, 
 
 // Delete a record from cloud
 export async function deleteRecordFromCloud(localTableName: string, recordId: string): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase || !navigator.onLine) {
+  if (!isSupabaseConfigured() || !supabase || !navigator.onLine || !hasCloudSession()) {
     return;
   }
 
@@ -1846,6 +1918,14 @@ function convertFromSupabase(record: Record<string, unknown>): Record<string, un
   }
   
   return result;
+}
+
+/**
+ * A cloud users row as the local User record: camelCase, and without any
+ * legacy password column — passwords live in Supabase Auth only.
+ */
+export function userFromCloudRow(record: Record<string, unknown>): Record<string, unknown> {
+  return stripSecretColumns(TABLES.users, convertFromSupabase(stripSecretColumns(TABLES.users, record)));
 }
 
 // Special case mappings for fields that don't follow simple camelCase to snake_case conversion
