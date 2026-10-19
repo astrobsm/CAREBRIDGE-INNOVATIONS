@@ -110,7 +110,7 @@ describe('deployment config', () => {
 
   it('the service worker never caches or queues AI requests, and drops ones older builds queued', () => {
     const sw = read('public/sw.js');
-    expect(sw).toMatch(/LIVE_API_PREFIXES = \['\/api\/ai-chat', '\/api\/ai-vision'\]/);
+    expect(sw).toMatch(/LIVE_API_PREFIXES = \['\/api\/ai-chat', '\/api\/ai-vision', '\/api\/admin-users'\]/);
     expect(sw).toMatch(/request\.method !== 'GET' && !isLiveApi\(url\)/);
     expect(sw).toMatch(/request\.method === 'GET' && !isLiveApi\(url\)/);
     expect(sw).toMatch(/if \(isLiveApi\(new URL\(item\.url, self\.location\.origin\)\)\)/);

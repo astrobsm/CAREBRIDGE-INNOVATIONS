@@ -101,7 +101,10 @@ registerRoute(
 // An AI request answered hours later is useless, the queue would hold the
 // patient's photo or notes in IndexedDB, and the fake "202 queued" reply made
 // the screen report an empty AI answer instead of "you are offline".
-const LIVE_API_PREFIXES = ['/api/ai-chat', '/api/ai-vision'];
+// Administration (/api/admin-users) is live too: replaying a queued "create
+// user" or "reset password" later would act on a stale request, and the
+// queue would hold the administrator's access token.
+const LIVE_API_PREFIXES = ['/api/ai-chat', '/api/ai-vision', '/api/admin-users'];
 const isLiveApi = (url) => LIVE_API_PREFIXES.some((p) => url.pathname.startsWith(p));
 
 // API GET requests: NetworkFirst with fast timeout for poor connectivity
@@ -126,7 +129,7 @@ registerRoute(
       return await fetch(request);
     } catch (error) {
       return new Response(
-        JSON.stringify({ error: 'You are offline. AI features need an internet connection.' }),
+        JSON.stringify({ error: 'You are offline. This needs an internet connection.' }),
         { status: 503, headers: { 'Content-Type': 'application/json' } }
       );
     }

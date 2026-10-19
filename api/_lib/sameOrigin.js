@@ -13,8 +13,9 @@
 // headers.
 //
 // This is not authentication: a non-browser client can send any Origin it
-// likes. The app has no server-verifiable session to check yet (see the port
-// notes); this closes the drive-by, in-browser abuse that the wildcard invited.
+// likes. Authentication is requireUser.js (a verified Supabase access token
+// for an active user), which every function runs after this guard; this one
+// closes the drive-by, in-browser abuse that the wildcard invited.
 // ---------------------------------------------------------------------------
 
 const ALLOW_METHODS = 'POST, OPTIONS';

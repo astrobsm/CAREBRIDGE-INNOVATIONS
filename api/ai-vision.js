@@ -16,6 +16,7 @@
 // ---------------------------------------------------------------------------
 
 import { guardSameOrigin } from './_lib/sameOrigin.js';
+import { requireAppUser } from './_lib/requireUser.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -37,6 +38,10 @@ export default async function handler(req, res) {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
+
+  // Only a signed-in, active AstroHEALTH user may spend the server's keys.
+  // The origin guard above stops other web pages; this stops everyone else.
+  if (!(await requireAppUser(req, res))) return;
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
