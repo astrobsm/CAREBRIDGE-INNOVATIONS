@@ -95,6 +95,51 @@ export function authSettingsPatch({ siteUrl, existingAllowList = '', smtp = null
   return patch;
 }
 
+function decodeJwtPayload(token) {
+  const part = token.split('.')[1];
+  if (!part) return null;
+  try {
+    const json = Buffer.from(part.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What a pasted "service-role key" actually is, without revealing it.
+ *
+ * The API Keys page shows several keys that look alike, and a hidden prompt
+ * gives no clue when a paste was cut short — both end as the same "Invalid API
+ * key" from Supabase. This names the mistake instead.
+ *
+ * @returns {{ ok: boolean, key: string, kind?: 'legacy'|'secret', problem?: string }}
+ */
+export function describeServiceKey(raw, projectRef) {
+  const key = String(raw ?? '').trim().replace(/^["']|["']$/g, '').trim();
+  const bad = (problem) => ({ ok: false, key, problem });
+
+  if (!key) return bad('Nothing was pasted.');
+  if (/\s/.test(key)) return bad('The key contains a space or line break — copy it again with the Copy button.');
+  if (key.startsWith('sbp_')) return bad('That is a personal access token (sbp_…), not the service-role key.');
+  if (key.startsWith('sb_publishable_')) return bad('That is the publishable key, which is public. Copy the SECRET key instead.');
+  if (key.startsWith('sb_secret_')) {
+    return key.length >= 40 ? { ok: true, key, kind: 'secret' } : bad(`That secret key looks cut short (${key.length} characters).`);
+  }
+  if (key.startsWith('eyJ')) {
+    if (key.split('.').length !== 3) return bad(`That key looks cut short (${key.length} characters; a full one is usually over 200).`);
+    const payload = decodeJwtPayload(key);
+    if (!payload) return bad(`That key looks cut short or damaged (${key.length} characters).`);
+    if (payload.role === 'anon') return bad('That is the anon (public) key. Copy the service_role key instead.');
+    if (payload.role !== 'service_role') return bad(`That key's role is "${payload.role}", not service_role.`);
+    if (payload.ref && projectRef && payload.ref !== projectRef) {
+      return bad(`That key belongs to a different Supabase project (${payload.ref}), not ${projectRef}.`);
+    }
+    return { ok: true, key, kind: 'legacy' };
+  }
+  return bad('That does not look like a Supabase key. It should start with "eyJ" (service_role) or "sb_secret_".');
+}
+
 /** The accounts whose passwords were hard-coded in the source (now in git history). */
 export const LEAKED_ACCOUNTS = [
   'admin@astrohealth.ng',

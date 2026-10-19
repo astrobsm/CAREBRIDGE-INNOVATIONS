@@ -22,6 +22,7 @@ let normaliseSiteUrl: (raw: string) => string | null;
 let isProjectRef: (ref: string) => boolean;
 let passwordCsvName: (prefix: string, now?: Date) => string;
 let PRODUCTION_REF: string;
+let describeServiceKey: (raw: string, ref: string) => { ok: boolean; key: string; kind?: string; problem?: string };
 let checkMigrations: (dir: string) => { ok: boolean; problems: string[] };
 let OPEN_POLICY_CUTOFF: string;
 
@@ -31,7 +32,7 @@ beforeAll(async () => {
   const plan: any = await import(/* @vite-ignore */ planPath);
   const check: any = await import(/* @vite-ignore */ checkPath);
   ({ STEPS, GUARDED, missingPrerequisites, nextStep, authSettingsPatch,
-    normaliseSiteUrl, isProjectRef, passwordCsvName, PRODUCTION_REF } = plan);
+    normaliseSiteUrl, isProjectRef, passwordCsvName, PRODUCTION_REF, describeServiceKey } = plan);
   ({ checkMigrations, OPEN_POLICY_CUTOFF } = check);
 });
 
@@ -102,6 +103,35 @@ describe('Supabase Auth settings patch', () => {
     expect(() => authSettingsPatch({ siteUrl: 'http://astrohealth.vercel.app' })).toThrow();
     expect(normaliseSiteUrl('not a url')).toBeNull();
     expect(normaliseSiteUrl('http://localhost:5173/x')).toBe('http://localhost:5173');
+  });
+});
+
+describe('which key was pasted', () => {
+  // Made-up keys with the right shape; none is a real credential.
+  const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const jwt = (payload: object) => `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(payload)}.${'s'.repeat(43)}`;
+  const ref = 'mgblgewvpzcaimqaeqcp';
+
+  it('accepts a legacy service_role key for this project, and a secret key', () => {
+    expect(describeServiceKey(jwt({ iss: 'supabase', ref, role: 'service_role' }), ref)).toMatchObject({ ok: true, kind: 'legacy' });
+    expect(describeServiceKey(`sb_secret_${'x'.repeat(40)}`, ref)).toMatchObject({ ok: true, kind: 'secret' });
+  });
+
+  it('cleans quotes and surrounding whitespace from the paste', () => {
+    const key = jwt({ ref, role: 'service_role' });
+    expect(describeServiceKey(`  "${key}"\r\n`, ref)).toMatchObject({ ok: true, key });
+  });
+
+  it('names each look-alike mistake', () => {
+    expect(describeServiceKey(jwt({ ref, role: 'anon' }), ref).problem).toMatch(/anon/);
+    expect(describeServiceKey(jwt({ ref: 'abcdefghijklmnopqrst', role: 'service_role' }), ref).problem).toMatch(/different Supabase project/);
+    expect(describeServiceKey('sbp_0123456789abcdef', ref).problem).toMatch(/access token/);
+    expect(describeServiceKey('sb_publishable_abc', ref).problem).toMatch(/publishable/);
+    expect(describeServiceKey('sb_secret_abc', ref).problem).toMatch(/cut short/);
+    expect(describeServiceKey(jwt({ ref, role: 'service_role' }).slice(0, 60), ref).problem).toMatch(/cut short/);
+    expect(describeServiceKey('eyJ only.half', ref).problem).toMatch(/space|cut short/);
+    expect(describeServiceKey('hello', ref).problem).toMatch(/does not look like/);
+    expect(describeServiceKey('', ref).problem).toMatch(/Nothing/);
   });
 });
 

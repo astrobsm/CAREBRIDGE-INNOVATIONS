@@ -60,9 +60,14 @@ export function isInsideRepo(path, root = REPO_ROOT) {
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
+/** Raised by fail(); reported once by the entry point. */
+class MigrationStop extends Error {}
+
+// Throws rather than calling process.exit(): exiting while supabase-js still
+// has sockets closing trips a libuv assertion on Windows
+// (`!(handle->flags & UV_HANDLE_CLOSING)`), which buries the real message.
 function fail(message) {
-  console.error(`\n${message}`);
-  process.exit(1);
+  throw new MigrationStop(message);
 }
 
 async function fetchAllRows(admin) {
@@ -226,5 +231,11 @@ async function main() {
 
 const invoked = process.argv[1] ? resolve(process.argv[1]) : '';
 if (invoked && resolve(fileURLToPath(import.meta.url)) === invoked) {
-  main().catch((e) => fail(`Migration failed: ${e?.message || e}`));
+  main().catch((e) => {
+    console.error(`\n${e instanceof MigrationStop ? e.message : `Migration failed: ${e?.message || e}`}`);
+    if (/invalid api key/i.test(String(e?.message))) {
+      console.error('The service-role key was refused. Copy the service_role (secret) key again, in full.');
+    }
+    process.exitCode = 1;
+  });
 }

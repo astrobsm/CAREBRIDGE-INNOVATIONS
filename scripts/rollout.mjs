@@ -32,7 +32,7 @@ import { generateTempPassword } from '../api/_lib/tempPassword.js';
 import {
   STEPS, GUARDED, stepById, missingPrerequisites, nextStep,
   PRODUCTION_REF, DEFAULT_SITE_URL, supabaseUrlFor, sqlEditorUrlFor, isProjectRef,
-  normaliseSiteUrl, authSettingsPatch, LEAKED_ACCOUNTS, passwordCsvName,
+  normaliseSiteUrl, authSettingsPatch, LEAKED_ACCOUNTS, passwordCsvName, describeServiceKey,
 } from './lib/rolloutPlan.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -158,15 +158,39 @@ function clearDone(id) {
 
 // ── Secrets, asked for once per run ───────────────────────────────────────
 
+/** Ask Supabase whether it accepts the key, reading nothing (limit=0). */
+async function keyAccepted(key, kind) {
+  const headers = { apikey: key };
+  // A legacy key is a JWT and also goes in Authorization; a new sb_secret_ key
+  // is not a JWT and is sent as apikey only.
+  if (kind === 'legacy') headers.Authorization = `Bearer ${key}`;
+  try {
+    const res = await fetch(`${supabaseUrlFor(session.ref)}/rest/v1/users?select=id&limit=0`, { headers });
+    if (res.ok) return { ok: true };
+    const body = await res.text().catch(() => '');
+    return { ok: false, why: `Supabase refused it (${res.status}${/invalid api key/i.test(body) ? ': Invalid API key' : ''}).` };
+  } catch (e) {
+    return { ok: false, why: `Could not reach Supabase to check it (${e?.message || e}).` };
+  }
+}
+
 async function serviceKey() {
   if (session.serviceKey) return session.serviceKey;
   console.log('\n  The service-role key is needed. Find it at:');
-  console.log(`  https://supabase.com/dashboard/project/${session.ref}/settings/api-keys  →  service_role (secret)`);
-  console.log('  It is read with echo off and kept in memory for this run only.');
-  const key = await promptHidden('  Service-role key: ');
-  if (!key) throw new Error('No key entered.');
-  session.serviceKey = key;
-  return key;
+  console.log(`  https://supabase.com/dashboard/project/${session.ref}/settings/api-keys`);
+  console.log('    • "Legacy API keys" tab → service_role → Reveal → Copy   (starts with eyJ…), or');
+  console.log('    • "Secret keys" → Copy                                   (starts with sb_secret_…)');
+  console.log('  Use the page\'s Copy button. It is read with echo off — nothing shows while you paste.');
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const described = describeServiceKey(await promptHidden('  Service-role key: '), session.ref);
+    if (!described.ok) { console.log(`  ✗ ${described.problem}`); continue; }
+    const check = await keyAccepted(described.key, described.kind);
+    if (!check.ok) { console.log(`  ✗ ${check.why} Copy it again in full.`); continue; }
+    console.log(`  ✓ Key accepted (${described.kind === 'legacy' ? 'service_role' : 'secret key'}).`);
+    session.serviceKey = described.key;
+    return described.key;
+  }
+  throw new Error('No working service-role key after three tries.');
 }
 
 const adminClient = async () => createClient(supabaseUrlFor(session.ref), await serviceKey(), {
