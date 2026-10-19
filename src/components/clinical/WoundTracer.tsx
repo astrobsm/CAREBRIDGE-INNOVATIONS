@@ -15,23 +15,40 @@
  * Coordinates are kept in IMAGE pixel space, never display space. The canvas is
  * scaled by CSS to fit the screen, and a trace recorded in display pixels would
  * silently change area with the size of the window it was drawn in.
+ *
+ * The photograph is drawn from the decoded image (`source`) when the caller has
+ * one. Re-loading a photo from an object URL can fail silently on Android —
+ * the camera file may already be released — which left the canvas blank. A
+ * photograph that genuinely cannot be shown says so instead.
+ *
+ * Phones: zoom in for precision, switch to Move to pan the zoomed photo, and
+ * back to Draw to trace. Each lift of the finger closes the shape.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Circle, Redo2, Trash2, Undo2 } from 'lucide-react';
+import { Check, Circle, Hand, Pencil, Redo2, Trash2, Undo2, Wand2, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   computePlanimetry,
   measureTrace,
   simplify,
+  tissueComposition,
+  traceDimensionsCm,
+  WOUND_TISSUES,
   type Point,
   type SurfaceKind,
   type Trace,
   type TraceRole,
+  type TissueRemainder,
 } from '../../services/planimetry';
 
 export interface WoundTracerProps {
   /** The calibrated photograph, as a data URL or object URL. */
-  imageSrc: string;
+  imageSrc?: string | null;
+  /**
+   * The decoded photograph. Preferred over `imageSrc`: drawing from it cannot
+   * fail the way re-loading an object URL can.
+   */
+  source?: ImageBitmap | HTMLCanvasElement | null;
   /** Scale from calibration. Without it, areas cannot be given in cm². */
   pixelsPerCm: number | null;
   /**
@@ -52,9 +69,23 @@ export interface WoundTracerProps {
   outlineLabel?: string;
   /** Instruction shown while the outline is being drawn. */
   outlineInstruction?: string;
+  /**
+   * An automatically detected outline, in image pixels, offered as a starting
+   * point. It is never applied unasked: the clinician chooses to use it.
+   */
+  suggestedOutline?: Point[] | null;
+  /**
+   * Ask what the untraced part of the outline counts as, and show the tissue
+   * percentages that follow. For wound beds, where the remainder is usually
+   * more of the predominant tissue; donor sites infer healed skin instead.
+   */
+  assignRemainder?: boolean;
+  initialRemainder?: TissueRemainder;
   onCancel: () => void;
-  onComplete: (result: { traces: Trace[]; annotatedDataUrl: string }) => void;
+  onComplete: (result: { traces: Trace[]; annotatedDataUrl: string; remainder?: TissueRemainder }) => void;
 }
+
+const MAX_ZOOM = 5;
 
 const STYLE: Record<TraceRole, { stroke: string; fill: string; label: string }> = {
   // Cyan for the outline, matching the automatic contour overlay elsewhere in
@@ -71,17 +102,25 @@ const DEFAULT_KINDS: SurfaceKind[] = ['raw', 'slough', 'epithelialised'];
 
 export default function WoundTracer({
   imageSrc,
+  source,
   pixelsPerCm,
   surfaceKinds = DEFAULT_KINDS,
   initialTraces,
   outlineLabel,
   outlineInstruction,
+  suggestedOutline,
+  assignRemainder = false,
+  initialRemainder = 'granulation',
   onCancel,
   onComplete,
 }: WoundTracerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  const imgRef = useRef<CanvasImageSource | null>(null);
   const drawingRef = useRef(false);
+  const [zoom, setZoom] = useState(1);
+  const [mode, setMode] = useState<'draw' | 'move'>('draw');
+  const [remainder, setRemainder] = useState<TissueRemainder>(initialRemainder);
+  const [loadError, setLoadError] = useState(false);
 
   const [traces, setTraces] = useState<Trace[]>(initialTraces ?? []);
   const [current, setCurrent] = useState<Point[]>([]);
@@ -94,11 +133,16 @@ export default function WoundTracer({
   const hasTotal = traces.some(t => t.role === 'total');
 
   useEffect(() => {
+    // The decoded photograph, when given, is drawn directly.
+    if (source) { imgRef.current = source; setLoadError(false); setImageReady(true); return; }
+    if (!imageSrc) { imgRef.current = null; setImageReady(false); setLoadError(true); return; }
+    let cancelled = false;
     const img = new Image();
-    img.onload = () => { imgRef.current = img; setImageReady(true); };
-    img.onerror = () => setImageReady(false);
+    img.onload = () => { if (cancelled) return; imgRef.current = img; setLoadError(false); setImageReady(true); };
+    img.onerror = () => { if (cancelled) return; setImageReady(false); setLoadError(true); };
     img.src = imageSrc;
-  }, [imageSrc]);
+    return () => { cancelled = true; };
+  }, [source, imageSrc]);
 
   /**
    * Pointer event to image pixel coordinates.
@@ -125,8 +169,9 @@ export default function WoundTracer({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = img.naturalWidth || img.width;
-    canvas.height = img.naturalHeight || img.height;
+    const dims = img as { naturalWidth?: number; naturalHeight?: number; width: number; height: number };
+    canvas.width = dims.naturalWidth || dims.width;
+    canvas.height = dims.naturalHeight || dims.height;
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
     // Line weight scales with the image so a trace reads the same on a 1280px
@@ -164,6 +209,8 @@ export default function WoundTracer({
   useEffect(() => { if (imageReady) redraw(); }, [imageReady, redraw]);
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // In Move mode the finger pans the zoomed photograph instead of drawing.
+    if (mode !== 'draw') return;
     const p = toImagePoint(e);
     if (!p) return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -222,6 +269,31 @@ export default function WoundTracer({
     return total ? measureTrace(total.points, pixelsPerCm) : null;
   }, [traces, pixelsPerCm]);
 
+  // Length and width by caliper over the outline: the longest axis and the
+  // widest span across it, independent of how the photo happens to be rotated.
+  const dimensions = useMemo(() => {
+    const total = traces.find(t => t.role === 'total');
+    return total ? traceDimensionsCm(total.points, pixelsPerCm) : null;
+  }, [traces, pixelsPerCm]);
+
+  const composition = useMemo(
+    () => (assignRemainder ? tissueComposition(traces, pixelsPerCm, remainder) : null),
+    [assignRemainder, traces, pixelsPerCm, remainder],
+  );
+
+  const applySuggestedOutline = () => {
+    if (!suggestedOutline || suggestedOutline.length < 3) return;
+    setTraces(prev => [
+      ...prev.filter(t => t.role !== 'total'),
+      {
+        id: crypto.randomUUID(), role: 'total', points: suggestedOutline,
+        label: outlineLabel ?? STYLE.total.label,
+      },
+    ]);
+    setRedoStack([]);
+    setRole(surfaceKinds[0] ?? 'total');
+  };
+
   const undo = () => setTraces(prev => {
     if (!prev.length) return prev;
     setRedoStack(r => [...r, prev[prev.length - 1]]);
@@ -237,7 +309,11 @@ export default function WoundTracer({
   const complete = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    onComplete({ traces, annotatedDataUrl: canvas.toDataURL('image/jpeg', 0.8) });
+    onComplete({
+      traces,
+      annotatedDataUrl: canvas.toDataURL('image/jpeg', 0.8),
+      ...(assignRemainder ? { remainder } : {}),
+    });
   };
 
   const fmtArea = (v: number | null) => (v === null ? '—' : `${v.toFixed(1)} cm²`);
@@ -294,7 +370,47 @@ export default function WoundTracer({
             : 'Outline traced. Adjust it, or save.'}
       </p>
 
-      <div className="rounded-xl overflow-hidden border bg-gray-900">
+      {/* Draw / move and zoom. Zooming in switches to Move so the clinician
+          can pan to the edge they want before drawing it. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+          <button type="button" onClick={() => setMode('draw')}
+            className={`px-2.5 py-1.5 text-xs flex items-center gap-1 ${mode === 'draw' ? 'bg-teal-600 text-white' : 'text-gray-700'}`}>
+            <Pencil className="w-3.5 h-3.5" /> Draw
+          </button>
+          <button type="button" onClick={() => setMode('move')}
+            className={`px-2.5 py-1.5 text-xs flex items-center gap-1 ${mode === 'move' ? 'bg-teal-600 text-white' : 'text-gray-700'}`}>
+            <Hand className="w-3.5 h-3.5" /> Move
+          </button>
+        </span>
+        <button type="button" onClick={() => setZoom(z => Math.max(1, z / 1.5))} disabled={zoom <= 1}
+          className="p-1.5 rounded border border-gray-300 disabled:opacity-40" aria-label="Zoom out">
+          <ZoomOut className="w-4 h-4" />
+        </button>
+        <span className="text-xs w-9 text-center tabular-nums">{zoom.toFixed(1)}×</span>
+        <button type="button" onClick={() => { setZoom(z => Math.min(MAX_ZOOM, z * 1.5)); setMode('move'); }}
+          disabled={zoom >= MAX_ZOOM}
+          className="p-1.5 rounded border border-gray-300 disabled:opacity-40" aria-label="Zoom in">
+          <ZoomIn className="w-4 h-4" />
+        </button>
+        {suggestedOutline && suggestedOutline.length > 2 && (
+          <button type="button" onClick={applySuggestedOutline}
+            className="px-2 py-1.5 rounded border border-gray-300 text-xs flex items-center gap-1 text-gray-700">
+            <Wand2 className="w-3.5 h-3.5" /> Use detected outline
+          </button>
+        )}
+      </div>
+
+      {loadError && (
+        <p className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+          The photograph could not be displayed. Close this and take or upload the photo again.
+        </p>
+      )}
+
+      <div
+        className={`rounded-xl border bg-gray-900 ${zoom > 1 ? 'overflow-auto max-h-[60vh]' : 'overflow-hidden'}`}
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         <canvas
           ref={canvasRef}
           onPointerDown={onPointerDown}
@@ -303,18 +419,24 @@ export default function WoundTracer({
           onPointerCancel={finishStroke}
           onPointerLeave={finishStroke}
           // touch-none stops the browser scrolling the page while a finger is
-          // drawing, which otherwise makes tracing on a phone impossible.
-          className="w-full touch-none cursor-crosshair block"
+          // drawing, which otherwise makes tracing on a phone impossible. In
+          // Move mode scrolling is exactly what is wanted.
+          className={`block max-w-none ${mode === 'draw' ? 'touch-none cursor-crosshair' : 'touch-auto cursor-grab'}`}
+          style={{ width: `${zoom * 100}%` }}
         />
       </div>
 
       {/* Running totals — the numbers that will be recorded. */}
       <div className="rounded-xl border bg-white p-3">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
           <Metric label="Total area" value={fmtArea(result.totalAreaCm2)} strong />
           <Metric
             label="Perimeter"
             value={totalGeometry?.perimeterCm != null ? `${totalGeometry.perimeterCm.toFixed(1)} cm` : '—'}
+          />
+          <Metric
+            label="Length × width"
+            value={dimensions ? `${dimensions.lengthCm.toFixed(1)} × ${dimensions.widthCm.toFixed(1)} cm` : '—'}
           />
           <Metric
             label="Traced patches"
@@ -352,6 +474,33 @@ export default function WoundTracer({
                   {fmtArea(result.unclassifiedAreaCm2)} · {result.unclassifiedPercent}%
                 </span>
               </div>
+            )}
+          </div>
+        )}
+
+        {assignRemainder && hasTotal && (
+          <div className="mt-3 pt-3 border-t space-y-2">
+            <label className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-gray-600">Untraced part of the wound counts as</span>
+              <select
+                value={remainder}
+                onChange={e => setRemainder(e.target.value as TissueRemainder)}
+                className="border border-gray-300 rounded px-1.5 py-1 text-xs"
+              >
+                {WOUND_TISSUES.map(k => <option key={k} value={k}>{STYLE[k].label}</option>)}
+                <option value="unassigned">Leave unassigned</option>
+              </select>
+            </label>
+            {composition && (
+              <p className="text-xs text-gray-700 tabular-nums">
+                {WOUND_TISSUES.map(k => `${STYLE[k].label} ${composition.percent[k]}%`).join(' · ')}
+                {composition.unassignedPercent > 0 ? ` · Unassigned ${composition.unassignedPercent}%` : ''}
+              </p>
+            )}
+            {composition?.tracedOutsideMargin && (
+              <p className="text-[11px] text-amber-700">
+                Part of a tissue tracing lies outside the wound margin; only the part inside the margin is counted.
+              </p>
             )}
           </div>
         )}

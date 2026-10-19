@@ -161,7 +161,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 // Initialize cloud sync AFTER React has mounted
 // This prevents state updates from happening before React is ready
 setTimeout(() => {
-  // Initialize Supabase cloud sync
+  // Prepare Supabase cloud sync (listeners and local clean-up only). Nothing
+  // is pushed, pulled or subscribed until AuthContext has a real Supabase
+  // session for an active user and calls startCloudSync(); it stops again at
+  // sign-out. The `fullSync()` on reconnect above is a no-op without one.
   initCloudSync();
   
   // Initialize notification system

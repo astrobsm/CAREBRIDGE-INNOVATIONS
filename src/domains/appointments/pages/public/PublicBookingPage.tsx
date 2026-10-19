@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../../../database';
+import { fetchTakenSlots, isPublicVisitor, submitPublicBooking } from '../../../../services/publicBookingService';
 import { 
   CLINIC_LOCATIONS, 
   getAvailableDates,
@@ -148,8 +149,11 @@ const PublicBookingPage: React.FC = () => {
         .equals([selectedClinic.hospitalCode, dateStr])
         .filter(b => b.status !== 'cancelled')
         .toArray();
-      
-      const bookedSlots = new Set(existingBookings.map(b => b.timeSlot));
+
+      // Plus the slots taken at the clinic: a visitor's device has none of
+      // the clinic's bookings locally.
+      const takenAtServer = await fetchTakenSlots(selectedClinic.hospitalCode, dateStr);
+      const bookedSlots = new Set([...existingBookings.map(b => b.timeSlot), ...takenAtServer]);
       
       // Mark slots as available or unavailable
       const slotsWithAvailability: ClinicTimeSlot[] = allSlots.map(slot => ({
@@ -220,7 +224,10 @@ const PublicBookingPage: React.FC = () => {
         .filter(b => b.status !== 'cancelled')
         .first();
       
-      if (existingBooking) {
+      const takenNow = existingBooking
+        ? true
+        : (await fetchTakenSlots(selectedClinic.hospitalCode, dateStr)).includes(selectedSlot);
+      if (takenNow) {
         toast.error('This time slot was just booked. Please select another slot.');
         setCurrentStep('time');
         // Refresh available slots
@@ -246,8 +253,13 @@ const PublicBookingPage: React.FC = () => {
         updatedAt: new Date(),
       };
       
+      // A visitor (not signed in) has no cloud sync: the booking goes straight
+      // to the clinic first, and is kept on this device only once it is there.
+      if (isPublicVisitor()) {
+        await submitPublicBooking(booking);
+      }
       await db.publicClinicBookings.add(booking);
-      
+
       setBookingResult(booking);
       setCurrentStep('confirmation');
       toast.success('Appointment booked successfully!');
@@ -257,7 +269,7 @@ const PublicBookingPage: React.FC = () => {
       
     } catch (error) {
       console.error('Error creating booking:', error);
-      toast.error('Failed to book appointment. Please try again.');
+      toast.error(error instanceof Error && error.message ? error.message : 'Failed to book appointment. Please try again.');
     } finally {
       setIsLoading(false);
     }

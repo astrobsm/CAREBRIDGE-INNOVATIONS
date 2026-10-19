@@ -19,7 +19,9 @@ import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../database';
 import { syncRecord } from '../../services/cloudSyncService';
+import { createAccount } from '../../services/adminUsersClient';
 import type { Hospital, User, UserRole } from '../../types';
+import { normaliseEmail } from '../../utils/loginIdentity';
 
 interface BulkImportModalProps {
   isOpen: boolean;
@@ -67,6 +69,28 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
+  // Temporary passwords of the accounts just created: held in memory only,
+  // offered once as a download, gone when the modal closes.
+  const [issued, setIssued] = useState<{ user: User; password: string }[]>([]);
+
+  const handleDownloadCredentials = () => {
+    const quote = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [
+      ['email', 'firstName', 'lastName', 'role', 'temporaryPassword'].map(quote).join(','),
+      ...issued.map(({ user, password }) =>
+        [user.email, user.firstName, user.lastName, user.role, password].map(quote).join(',')),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'new_user_temporary_passwords.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success('Downloaded. Hand the passwords out securely, then delete the file.');
+  };
   const [previewData, setPreviewData] = useState<Record<string, string>[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -212,6 +236,7 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
       let successCount = 0;
       let failCount = 0;
       const errors: string[] = [];
+      const credentials: { user: User; password: string }[] = [];
 
       if (type === 'hospitals') {
         for (let i = 0; i < data.length; i++) {
@@ -270,17 +295,21 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
           }
 
           try {
-            // Check for duplicate email
-            const existingUser = await db.users.where('email').equals(row.email).first();
+            // Check for duplicate email — in any case or spacing, since that is
+            // how sign-in compares them.
+            const email = normaliseEmail(row.email);
+            const existingUser = await db.users.filter(u => normaliseEmail(u.email) === email).first();
             if (existingUser) {
               errors.push(`Row ${i + 1}: Email "${row.email}" already exists`);
               failCount++;
               continue;
             }
 
-            const user: User = {
-              id: uuidv4(),
-              email: row.email,
+            // The server creates the Supabase sign-in account and the users
+            // row together, with a temporary password that must be changed at
+            // first sign-in. It decides what this administrator may create.
+            const issued = await createAccount({
+              email,
               firstName: row.firstName,
               lastName: row.lastName,
               role: row.role as UserRole,
@@ -288,15 +317,8 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
               specialization: row.specialization || undefined,
               licenseNumber: row.licenseNumber || undefined,
               hospitalId: row.hospitalId || undefined,
-              isActive: true,
-              hasAcceptedAgreement: false,
-              mustChangePassword: true, // Force password change on first login
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            };
-
-            await db.users.add(user);
-            syncRecord('users', user as unknown as Record<string, unknown>);
+            });
+            credentials.push({ user: issued.user, password: issued.temporaryPassword });
             successCount++;
           } catch (err) {
             errors.push(`Row ${i + 1}: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -310,6 +332,7 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
         failed: failCount,
         errors: errors.slice(0, 10), // Show first 10 errors
       });
+      setIssued(credentials);
 
       if (successCount > 0) {
         toast.success(`Successfully imported ${successCount} ${type}!`);
@@ -326,6 +349,7 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
   const resetForm = () => {
     setFile(null);
     setResult(null);
+    setIssued([]);
     setPreviewData(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -507,6 +531,22 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
                         <>, <span className="text-red-600 font-medium">{result.failed} failed</span></>
                       )}
                     </p>
+                    {issued.length > 0 && (
+                      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                        <p className="text-xs text-amber-800">
+                          Each new account has a temporary password, shown only now. Download them before
+                          closing this window; users must change it at first sign-in.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleDownloadCredentials}
+                          className="mt-2 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download temporary passwords ({issued.length})
+                        </button>
+                      </div>
+                    )}
                     {result.errors.length > 0 && (
                       <div className="mt-2 max-h-32 overflow-y-auto">
                         <p className="text-xs font-medium text-red-600 mb-1">Errors:</p>

@@ -1,5 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
+import { toActiveFlag } from '../utils/loginIdentity';
 import type {
   SkinGraftEpisode, GraftSite, GraftPhotoAssessment,
 } from '../domains/skin-graft/types';
@@ -9,6 +10,12 @@ import type {
 import type {
   PadAssessment, VascularIntervention,
 } from '../domains/vascular/types';
+import type {
+  ClinicalProblem, ClinicalPlanItem,
+} from '../domains/clinical/clerking/records';
+import type {
+  ScribeTreatmentPlan, ScribePlanAction, ScribePlanAttachment,
+} from '../domains/clinical/scribe/records';
 import type {
   User,
   Hospital,
@@ -261,6 +268,17 @@ export class AstroHEALTHDatabase extends Dexie {
   // bilateral disease carries two independent trajectories.
   padAssessments!: Table<PadAssessment, string>;
   vascularInterventions!: Table<VascularIntervention, string>;
+
+  // Structured clerking: the diagnoses and plan items a clinician ACCEPTED,
+  // tracked across encounters until resolved / done. The clerking itself rides
+  // on clinicalEncounters (field `clerking`).
+  clinicalProblems!: Table<ClinicalProblem, string>;
+  clinicalPlanItems!: Table<ClinicalPlanItem, string>;
+  // The medical scribe's treatment plans (consultant approval) and the log of
+  // how each approved item was carried out.
+  scribeTreatmentPlans!: Table<ScribeTreatmentPlan, string>;
+  scribePlanActions!: Table<ScribePlanAction, string>;
+  scribePlanAttachments!: Table<ScribePlanAttachment, string>;
   woundAssessments!: Table<WoundAssessment, string>;
   // Tumour Board — oncology cases + append-only staging timeline and artefacts
   tumourBoardCases!: Table<TumourBoardCase, string>;
@@ -451,6 +469,42 @@ export class AstroHEALTHDatabase extends Dexie {
       padAssessments: 'id, patientId, hospitalId, side, assessedAt, status, isBaseline, createdAt, updatedAt',
       vascularInterventions: 'id, patientId, side, kind, performedAt, createdAt, updatedAt',
     });
+
+    // Structured clerking and the medical scribe's treatment plans.
+    this.version(87).stores({
+      clinicalProblems: 'id, patientId, encounterId, status, createdAt, updatedAt',
+      clinicalPlanItems: 'id, patientId, encounterId, kind, status, createdAt, updatedAt',
+      scribeTreatmentPlans: 'id, patientId, status, version, generatedAt, createdAt, updatedAt',
+      scribePlanActions: 'id, scribePlanId, patientId, itemKey, status, loggedAt, createdAt, updatedAt',
+      scribePlanAttachments: 'id, actionId, patientId, createdAt, updatedAt',
+    });
+
+    // v91 – users.isActive back to a boolean. User Management stored 1/0, so
+    // deactivated staff (0) stayed in every `isActive !== false` staff picker
+    // and edited staff (1) dropped out of every `isActive === true` list.
+    // Schema unchanged; the upgrade only rewrites the flag. updatedAt is left
+    // alone so the rewrite is not pushed over newer cloud copies.
+    this.version(91).stores({
+      users: 'id, email, role, hospitalId, isActive, createdAt',
+    }).upgrade(tx =>
+      tx.table('users').toCollection().modify((u: { isActive?: unknown }) => {
+        const flag = toActiveFlag(u.isActive);
+        if (flag !== u.isActive) u.isActive = flag;
+      })
+    );
+
+    // v92: sign-in moved to Supabase Auth. Index the link to the Auth account
+    // (sign-in finds the person by it), and drop the plaintext passwords that
+    // older builds copied onto this device from the cloud. updatedAt is left
+    // alone so the clean-up is not pushed over newer cloud copies.
+    this.version(92).stores({
+      users: 'id, email, role, hospitalId, isActive, createdAt, authUserId',
+    }).upgrade(tx =>
+      tx.table('users').toCollection().modify((u: { password?: unknown; passwordHash?: unknown }) => {
+        if ('password' in u) delete u.password;
+        if ('passwordHash' in u) delete u.passwordHash;
+      })
+    );
   }
 }
 
@@ -681,32 +735,8 @@ export async function initializeDemoData(): Promise<void> {
     });
   }
 
-  // Ensure super admin user exists
-  try {
-    const superAdminEmail = 'douglas@carebridge.edu.ng';
-    const existingSuperAdmin = await db.users.where('email').equals(superAdminEmail).first();
-    
-    if (!existingSuperAdmin) {
-      await db.users.add({
-        id: '00000000-0000-4000-8000-000000000001',
-        email: superAdminEmail,
-        password: 'BLACK@2velvet',
-        firstName: 'Douglas',
-        lastName: 'Admin',
-        role: 'super_admin',
-        hospitalId: 'hospital-1',
-        isActive: true,
-        hasAcceptedAgreement: true,
-        agreementAcceptedAt: new Date().toISOString(),
-        agreementVersion: '1.0',
-        mustChangePassword: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      console.log('[Database] Super admin user created: douglas@carebridge.edu.ng');
-    }
-  } catch (error) {
-    // Ignore constraint errors - user may already exist from cloud sync
-    console.log('[Database] Super admin already exists or could not be created');
-  }
+  // No user is seeded. Accounts are Supabase Auth accounts, created by an
+  // administrator (/api/admin-users) or by scripts/migrate-users-to-auth.mjs;
+  // a users row on this device without one could never sign in. (This used to
+  // seed a super admin with a password in the source code.)
 }

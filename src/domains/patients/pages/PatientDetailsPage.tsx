@@ -26,6 +26,8 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { format, differenceInYears } from 'date-fns';
 import ScannedDocumentsPanel from '../../document-scanner/components/ScannedDocumentsPanel';
+import StructuredEncountersPanel from '../../clinical/components/clerking/StructuredEncounters';
+import { patientContext, patientIdentifiers, patientLabelOf } from '../../clinical/services/clerkingService';
 import AIClinicalAssistant from '../../ai-assistant/components/AIClinicalAssistant';
 import AdmissionDurationClock, { AdmissionDurationBadge } from '../../admissions/components/AdmissionDurationClock';
 import { generateEncounterPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
@@ -571,6 +573,14 @@ export default function PatientDetailsPage() {
         </div>
       </div>
 
+      {/* A registration retired by a duplicate merge: everything moved to the kept record. */}
+      {patient.mergedInto && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          This was a duplicate registration and has been merged. Its records are now on{' '}
+          <Link to={`/patients/${patient.mergedInto}`} className="font-semibold underline">the kept patient record</Link>.
+        </div>
+      )}
+
       {/* Patient Header Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -843,6 +853,17 @@ export default function PatientDetailsPage() {
                 </div>
               )}
             </div>
+          </motion.div>
+
+          {/* Structured clerking: initial encounter, follow-ups, problem list and plan */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+            <StructuredEncountersPanel
+              patientId={patient.id}
+              patientLabel={patientLabelOf(patient)}
+              ctx={patientContext(patient)}
+              identifiers={patientIdentifiers(patient)}
+              hospitalId={patient.hospitalId || patient.registeredHospitalId}
+            />
           </motion.div>
 
           {/* Recent Encounters */}

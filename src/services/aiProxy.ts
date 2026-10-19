@@ -1,7 +1,11 @@
 // ---------------------------------------------------------------------------
 // Client helper for the server-side AI proxy (/api/ai-chat, /api/ai-vision).
 // Keeps API keys off the client — the serverless functions hold the secrets.
+// Every call carries the signed-in person's Supabase access token, which the
+// functions verify before spending anything (see api/_lib/requireUser.js).
 // ---------------------------------------------------------------------------
+
+import { withAuthHeaders } from './authToken';
 
 export interface ProxyChatArgs {
   prompt: string;
@@ -27,7 +31,7 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
 export async function proxyChat(args: ProxyChatArgs): Promise<string> {
   const res = await fetch('/api/ai-chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await withAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       provider: args.provider ?? 'openai',
       model: args.model,
@@ -51,7 +55,7 @@ export async function proxyVision(
 ): Promise<string> {
   const res = await fetch('/api/ai-vision', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await withAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ provider, imageDataUrl, medicalContext }),
   });
   if (!res.ok) throw new Error(await errorMessage(res, 'Vision request failed'));
@@ -79,7 +83,7 @@ export async function proxyVisionJson<T = unknown>(
 ): Promise<T> {
   const res = await fetch('/api/ai-vision', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await withAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ provider: 'openai', imageDataUrl, system, userText, jsonMode: true }),
     signal: opts.signal,
   });

@@ -79,7 +79,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
     .replace(/-/g, '+')
     .replace(/_/g, '/');
 
-  const rawData = window.atob(base64);
+  const rawData = atob(base64);
   const outputArray = new Uint8Array(rawData.length);
 
   for (let i = 0; i < rawData.length; ++i) {
@@ -87,6 +87,42 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   }
   return outputArray;
 }
+
+/**
+ * Was this subscription made with `keyB64` as its application server key?
+ *
+ * A push service only accepts messages signed with the key the subscription
+ * was created with. A subscription left over from an earlier key (rotated
+ * keys, another build) was kept as "already subscribed" and every push to the
+ * device then failed silently on the server side.
+ */
+export function sameServerKey(current: ArrayBuffer | null | undefined, keyB64: string): boolean {
+  if (!current || !keyB64) return false;
+  const a = new Uint8Array(current);
+  let b: Uint8Array;
+  try {
+    b = urlBase64ToUint8Array(keyB64);
+  } catch {
+    return false;
+  }
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+const DEFAULT_PREFERENCES: PushNotificationPreferences = {
+  patientAssignments: true,
+  surgeryReminders: true,
+  appointmentReminders: true,
+  labResults: true,
+  investigationResults: true,
+  prescriptionReady: true,
+  treatmentPlanUpdates: true,
+  vitalAlerts: true,
+  staffMessages: true,
+  systemAlerts: true,
+  quietHoursEnabled: false,
+  quietHoursStart: '22:00',
+  quietHoursEnd: '07:00',
+};
 
 // ============================================
 // SUBSCRIPTION MANAGEMENT
@@ -141,8 +177,12 @@ export async function subscribeToPush(
     // Get service worker registration
     const registration = await navigator.serviceWorker.ready;
 
-    // Check for existing subscription
+    // Check for existing subscription - and that it uses our key
     let subscription = await registration.pushManager.getSubscription();
+    if (subscription && !sameServerKey(subscription.options?.applicationServerKey, VAPID_PUBLIC_KEY)) {
+      await subscription.unsubscribe().catch(() => false);
+      subscription = null;
+    }
 
     // If no subscription, create one
     if (!subscription) {
@@ -172,24 +212,16 @@ export async function subscribeToPush(
       updatedAt: new Date(),
       isActive: true,
       preferences: {
-        patientAssignments: true,
-        surgeryReminders: true,
-        appointmentReminders: true,
-        labResults: true,
-        investigationResults: true,
-        prescriptionReady: true,
-        treatmentPlanUpdates: true,
-        vitalAlerts: true,
-        staffMessages: true,
-        systemAlerts: true,
-        quietHoursEnabled: false,
-        quietHoursStart: '22:00',
-        quietHoursEnd: '07:00',
+        ...DEFAULT_PREFERENCES,
         ...preferences,
       },
     };
 
-    // Save to local IndexedDB
+    // Save to local IndexedDB. The store is keyed by user with a unique
+    // endpoint index, so a previous user's record for this same device made
+    // the put fail and the second person on a shared phone could never
+    // subscribe. That record is replaced.
+    await removeLocalSubscriptionsForEndpoint(subscriptionData.endpoint, userId);
     await saveSubscriptionLocally(subscriptionData);
 
     // Save to Supabase if configured
@@ -219,9 +251,10 @@ export async function unsubscribeFromPush(userId: string): Promise<boolean> {
     // Remove from local storage
     await removeSubscriptionLocally(userId);
 
-    // Remove from cloud
+    // Remove from cloud - this device only. Turning push off on one phone
+    // used to switch it off on every device the person had.
     if (isSupabaseConfigured()) {
-      await removeSubscriptionFromCloud(userId);
+      await removeSubscriptionFromCloud(userId, subscription?.endpoint);
     }
 
     console.log('[WebPush] Successfully unsubscribed from push notifications');
@@ -340,6 +373,94 @@ async function removeSubscriptionLocally(userId: string): Promise<void> {
   });
 }
 
+/** Delete other users' records for this device (the endpoint index is unique). */
+async function removeLocalSubscriptionsForEndpoint(endpoint: string, keepUserId?: string): Promise<void> {
+  try {
+    const database = await openPushDB();
+    await new Promise<void>((resolve) => {
+      const transaction = database.transaction([PUSH_SUBSCRIPTION_STORE], 'readwrite');
+      const store = transaction.objectStore(PUSH_SUBSCRIPTION_STORE);
+      const request = store.index('endpoint').openCursor(IDBKeyRange.only(endpoint));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        if ((cursor.value as PushSubscriptionData).userId !== keepUserId) cursor.delete();
+        cursor.continue();
+      };
+      transaction.oncomplete = () => { database.close(); resolve(); };
+      transaction.onerror = () => { database.close(); resolve(); };
+    });
+  } catch {
+    /* best effort */
+  }
+}
+
+// ============================================
+// SIGN-IN / SIGN-OUT ON A SHARED DEVICE
+// ============================================
+
+/**
+ * Sign-out: this device stops receiving the signed-out person's alerts.
+ *
+ * Nothing happened on sign-out before, so on a shared ward phone the next
+ * person kept getting the previous user's patient alerts. The browser
+ * subscription itself is kept (it belongs to the device, and re-prompting for
+ * permission on every sign-in would be worse); only this person's link to it
+ * is switched off, locally and in the cloud. Their opt-in is remembered and
+ * restored when they sign in here again.
+ */
+export async function releasePushOnSignOut(userId: string): Promise<void> {
+  if (!isPushSupported()) return;
+  try {
+    const subscription = await getCurrentSubscription();
+    const local = await getLocalSubscription(userId).catch(() => null);
+    if (local) {
+      await saveSubscriptionLocally({ ...local, isActive: false, updatedAt: new Date() });
+    }
+    if (subscription && isSupabaseConfigured()) {
+      await removeSubscriptionFromCloud(userId, subscription.endpoint);
+    }
+  } catch (error) {
+    console.warn('[WebPush] Could not release push on sign-out:', error);
+  }
+}
+
+/**
+ * Sign-in: if this person turned push on on this device before, point the
+ * device's subscription back at them. Never prompts and never subscribes
+ * someone who has not opted in here.
+ */
+export async function restorePushOnSignIn(userId: string, hospitalId?: string): Promise<void> {
+  if (!isPushSupported() || !isVapidConfigured()) return;
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  try {
+    const local = await getLocalSubscription(userId).catch(() => null);
+    if (!local) return;
+    const subscription = await getCurrentSubscription();
+    if (!subscription || !sameServerKey(subscription.options?.applicationServerKey, VAPID_PUBLIC_KEY)) return;
+    const p256dh = subscription.getKey('p256dh');
+    const auth = subscription.getKey('auth');
+    if (!p256dh || !auth) return;
+    const data: PushSubscriptionData = {
+      ...local,
+      userId,
+      hospitalId: hospitalId ?? local.hospitalId,
+      endpoint: subscription.endpoint,
+      p256dh: arrayBufferToBase64(p256dh),
+      auth: arrayBufferToBase64(auth),
+      isActive: true,
+      updatedAt: new Date(),
+      createdAt: local.createdAt ? new Date(local.createdAt) : new Date(),
+      preferences: { ...DEFAULT_PREFERENCES, ...(local.preferences || {}) },
+    };
+    await removeLocalSubscriptionsForEndpoint(data.endpoint, userId);
+    await saveSubscriptionLocally(data);
+    if (isSupabaseConfigured()) await saveSubscriptionToCloud(data);
+  } catch (error) {
+    console.warn('[WebPush] Could not restore push on sign-in:', error);
+  }
+}
+
 // ============================================
 // CLOUD STORAGE (Supabase)
 // ============================================
@@ -367,14 +488,16 @@ async function saveSubscriptionToCloud(subscription: PushSubscriptionData): Prom
   }
 }
 
-async function removeSubscriptionFromCloud(userId: string): Promise<void> {
+async function removeSubscriptionFromCloud(userId: string, endpoint?: string): Promise<void> {
   if (!supabase) return;
 
   try {
-    await supabase
+    let q = supabase
       .from('push_subscriptions')
-      .update({ is_active: false })
+      .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq('user_id', userId);
+    if (endpoint) q = q.eq('endpoint', endpoint);
+    await q;
   } catch (error) {
     console.error('[WebPush] Error removing from cloud:', error);
   }
@@ -726,6 +849,8 @@ export default {
   getSubscriptionStatus,
   updateSubscriptionPreferences,
   initializePushNotifications,
+  releasePushOnSignOut,
+  restorePushOnSignIn,
   // Send notifications
   sendPushToUser,
   sendPushToUsers,

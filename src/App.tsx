@@ -10,6 +10,7 @@ import PatientsListPage from './domains/patients/pages/PatientsListPage';
 import PatientDetailsPage from './domains/patients/pages/PatientDetailsPage';
 import NewPatientPage from './domains/patients/pages/NewPatientPage';
 import SlimNewPatientPage from './domains/patients/pages/SlimNewPatientPage';
+import DuplicatePatientsPage from './domains/patients/pages/DuplicatePatientsPage';
 import ClinicalEncounterPage from './domains/clinical/pages/ClinicalEncounterPage';
 import FollowUpEncounterPage from './domains/clinical/pages/FollowUpEncounterPage';
 import EnhancedFollowUpPage from './domains/clinical/pages/EnhancedFollowUpPage';
@@ -113,6 +114,7 @@ import BookingSharePage from './domains/appointments/pages/public/BookingSharePa
 import ClinicBookingsManagementPage from './domains/appointments/pages/ClinicBookingsManagementPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
+import OfflineSessionBanner from './domains/auth/components/OfflineSessionBanner';
 import InstallPrompt from './components/pwa/InstallPrompt';
 import { UpdatePrompt } from './components/pwa';
 
@@ -146,6 +148,7 @@ function App() {
 
   return (
     <>
+    {isAuthenticated && <OfflineSessionBanner />}
     <Routes>
       {/* Public Routes */}
       <Route element={<AuthLayout />}>
@@ -158,8 +161,8 @@ function App() {
         path="/agreement" 
         element={
           isAuthenticated 
-            ? (user?.hasAcceptedAgreement 
-                ? <Navigate to="/" replace /> 
+            ? (user?.hasAcceptedAgreement && !user?.mustChangePassword
+                ? <Navigate to="/" replace />
                 : <UserAgreementPage />)
             : <Navigate to="/login" replace />
         } 
@@ -189,6 +192,12 @@ function App() {
           <Route index element={<PatientsListPage />} />
           <Route path="new" element={<SlimNewPatientPage />} />
           <Route path="new-comprehensive" element={<NewPatientPage />} />
+          {/* Merging double registrations: administrators only. */}
+          <Route path="duplicates" element={
+            (user?.role === 'super_admin' || user?.role === 'hospital_admin')
+              ? <DuplicatePatientsPage />
+              : <Navigate to="/patients" replace />
+          } />
           <Route path=":patientId" element={<PatientDetailsPage />} />
           <Route path=":patientId/encounter" element={<ClinicalEncounterPage />} />
           <Route path=":patientId/follow-up" element={<EnhancedFollowUpPage />} />
@@ -282,7 +291,12 @@ function App() {
             : <Navigate to="/" replace />
         } />
         <Route path="hospitals" element={<HospitalsPage />} />
-        <Route path="users" element={<UsersManagementPage />} />
+        {/* Administrators only (the server enforces this for every action too). */}
+        <Route path="users" element={
+          (user?.role === 'super_admin' || user?.role === 'hospital_admin')
+            ? <UsersManagementPage />
+            : <Navigate to="/" replace />
+        } />
         <Route path="user-activity" element={
           user?.role === 'super_admin' 
             ? <UserActivityAnalyticsPage /> 

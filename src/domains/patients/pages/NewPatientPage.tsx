@@ -24,6 +24,8 @@ import {
 import { PatientCategoryBadge } from '../../../components/common/DynamicFormComponents';
 import { differenceInYears } from 'date-fns';
 import type { Patient, BloodGroup, Genotype, Hospital, DVTRiskAssessment, PressureSoreRiskAssessment, Comorbidity } from '../../../types';
+import { HospitalNumberField, numberCheckBlocks, type NumberCheck } from '../components/HospitalNumberField';
+import { registerPatient, isDuplicateHospitalNumberError } from '../services/patientDedupeService';
 
 // Hospital options will be fetched from database
 
@@ -250,12 +252,7 @@ export default function NewPatientPage() {
   const showDvtAssessment = !patientCategory?.isPediatric || 
     (patientCategory?.ageInYears && patientCategory.ageInYears >= 14);
 
-  const generateHospitalNumber = (): string => {
-    const prefix = 'CB';
-    const year = new Date().getFullYear().toString().slice(-2);
-    const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-    return `${prefix}${year}${random}`;
-  };
+  const [numberCheck, setNumberCheck] = useState<NumberCheck>({ state: 'empty' });
 
   // Calculate DVT Risk Score (Caprini)
   const calculateDvtRisk = (): DVTRiskAssessment => {
@@ -350,6 +347,12 @@ export default function NewPatientPage() {
     if (!validateRiskAssessments()) {
       return;
     }
+    if (numberCheckBlocks(numberCheck)) {
+      toast.error(numberCheck.state === 'checking'
+        ? 'Still checking the folder number - try again in a moment.'
+        : 'This folder number is already registered. Open the existing record instead.');
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -358,7 +361,10 @@ export default function NewPatientPage() {
       if (data.hospitalId === 'others') {
         hospitalName = data.otherHospitalName;
       } else {
-        const selectedHospital = hospitals.find((h: Hospital) => h.id === data.hospitalId);
+        // Read the store, not the list loaded on mount: a hospital quick-added from the
+        // selector during this registration is not in that list.
+        const selectedHospital = hospitals.find((h: Hospital) => h.id === data.hospitalId)
+          ?? (data.hospitalId ? await db.hospitals.get(data.hospitalId) : undefined);
         hospitalName = selectedHospital?.name;
       }
 
@@ -372,12 +378,10 @@ export default function NewPatientPage() {
         currentlyManaged: true,
       }));
 
-      // Use provided folder number or auto-generate one
-      const hospitalNumber = data.folderNumber?.trim() || generateHospitalNumber();
-
-      const patient: Patient = {
+      const draft: Patient = {
         id: uuidv4(),
-        hospitalNumber,
+        // Blank: registerPatient issues an auto-number (CB + YY + 5 digits).
+        hospitalNumber: data.folderNumber?.trim() || '',
         firstName: data.firstName,
         lastName: data.lastName,
         middleName: data.middleName,
@@ -422,10 +426,12 @@ export default function NewPatientPage() {
       };
 
       // Save to local database first
+      let patient: Patient;
       try {
-        await db.patients.add(patient);
+        patient = await registerPatient(draft);
         console.log('[Patient Registration] Patient saved to local database:', patient.id);
       } catch (dbError) {
+        if (isDuplicateHospitalNumberError(dbError)) throw dbError;
         console.error('[Patient Registration] Database error:', dbError);
         throw new Error('Failed to save patient to local database');
       }
@@ -504,15 +510,22 @@ export default function NewPatientPage() {
               <label className="label">Middle Name</label>
               <input {...register('middleName')} className="input" />
             </div>
-            <div>
-              <label className="label">Folder Number</label>
-              <input 
-                {...register('folderNumber')} 
-                className="input" 
-                placeholder="Auto-generated if left empty"
-              />
-              <p className="text-xs text-gray-500 mt-1">Leave empty to auto-generate</p>
-            </div>
+            <Controller
+              control={control}
+              name="folderNumber"
+              render={({ field }) => (
+                <HospitalNumberField
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                  hospitalId={hospitalId}
+                  onCheck={setNumberCheck}
+                  label="Folder Number"
+                  hint="Leave empty to auto-generate"
+                  labelClassName="label"
+                  inputClassName="input"
+                />
+              )}
+            />
             <div>
               <label className="label">Date of Birth</label>
               <input type="date" {...register('dateOfBirth')} className="input" />

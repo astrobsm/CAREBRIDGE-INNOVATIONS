@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   limbVolumeMl, compareLimbs, lateralityOf, siteWarnings, limbProfileWarnings,
-  sitesFor, LOWER_LIMB_SITES, UPPER_LIMB_SITES,
+  sitesFor, sharedLevels, LOWER_LIMB_SITES, UPPER_LIMB_SITES,
   type SiteMeasurement,
 } from '../services/limbVolume';
 import {
-  determineISLStage, determineCampisiStage, calculateSeverityScore,
+  determineISLStage, determineCampisiStage, calculateSeverityScore, islVolumeSeverity,
 } from '../services/lymphedemaService';
 import type {
   PittingGrade, SkinCondition, StemmerSignResult, TissueConsistency,
@@ -52,6 +52,29 @@ describe('limbVolumeMl', () => {
     // The empty middle level is dropped, leaving one 0–20 segment.
     expect(withGap).toBe(limbVolumeMl(cylinder(40, [0, 20])));
   });
+
+  it('matches the frustum formula for a single segment', () => {
+    // 4 × (22² + 22·24 + 24²) / 12π = 168 mL (UNTH reference case).
+    expect(limbVolumeMl([
+      { distanceFromLandmarkCm: 0, circumferenceCm: 22 },
+      { distanceFromLandmarkCm: 4, circumferenceCm: 24 },
+    ])).toBe(168);
+  });
+
+  it('leaves the hand / foot row out of the volume — it has no standard segment height', () => {
+    const fromWrist = cylinder(20, [0, 10, 20]);
+    const withHand = [{ distanceFromLandmarkCm: -8, circumferenceCm: 18 }, ...fromWrist];
+    expect(limbVolumeMl(withHand)).toBe(limbVolumeMl(fromWrist));
+  });
+});
+
+describe('sharedLevels', () => {
+  it('keeps only the levels measured on both limbs', () => {
+    const s = sharedLevels(cylinder(44, [0, 10, 20, 30]), cylinder(40, [0, 10, 20]));
+    expect(s.right.map(m => m.distanceFromLandmarkCm)).toEqual([0, 10, 20]);
+    expect(s.left.map(m => m.distanceFromLandmarkCm)).toEqual([0, 10, 20]);
+    expect(s.dropped).toBe(1);
+  });
 });
 
 describe('lateralityOf', () => {
@@ -89,6 +112,30 @@ describe('compareLimbs — unilateral', () => {
     const a = compareLimbs({ ...input, right: cylinder(36) });
     expect(a.excessMl!).toBeLessThan(0);
     expect(a.notes.join(' ')).toMatch(/wrong way round/i);
+  });
+
+  it('compares the limbs over identical segments only', () => {
+    // The affected limb measured one level higher than the control: that
+    // extra segment is missing data, not excess.
+    const a = compareLimbs({
+      right: cylinder(40, [0, 10, 20, 30]),
+      left: cylinder(40, [0, 10, 20]),
+      affected: { right: true, left: false },
+    });
+    expect(a.excessMl).toBe(0);
+    expect(a.excessPercent).toBe(0);
+    expect(a.notes.join(' ')).toMatch(/identical segments/i);
+  });
+
+  it('declines when the limbs share fewer than two levels', () => {
+    const a = compareLimbs({
+      right: cylinder(44, [0, 10]),
+      left: cylinder(40, [20, 30]),
+      affected: { right: true, left: false },
+    });
+    expect(a.strategy).toBe('unavailable');
+    expect(a.excessPercent).toBeNull();
+    expect(a.needed.join(' ')).toMatch(/same levels/i);
   });
 
   it('declines when the control limb has not been measured', () => {
@@ -265,20 +312,45 @@ describe('staging with an undeterminable volume', () => {
     expect(withUnknown).toBe('IIIB');
   });
 
-  it('never lets an unknown volume satisfy a volume threshold', () => {
-    // A null must not upstage.
-    expect(determineISLStage(
-      2 as PittingGrade, 'soft_pitting' as TissueConsistency,
-      'reduces_partially', ['papillomatosis'] as SkinCondition[],
-      null, 'positive' as StemmerSignResult,
-    )).not.toBe(3);
+  it('stages by clinical signs, so an unknown volume neither upstages nor downstages', () => {
+    // ISL 2020: the stage is clinical; volume grades severity. Warty overgrowth
+    // is Stage III whatever the limb measures.
+    const isl = (pitting: number, tissue: string, elevation: 'reduces_significantly' | 'reduces_partially' | 'no_change',
+      skin: string[], vol: number | null) =>
+      determineISLStage(pitting as PittingGrade, tissue as TissueConsistency, elevation,
+        skin as SkinCondition[], vol, 'positive' as StemmerSignResult);
 
-    // The same findings with a genuinely high measured excess do upstage.
-    expect(determineISLStage(
-      2 as PittingGrade, 'soft_pitting' as TissueConsistency,
-      'reduces_partially', ['papillomatosis'] as SkinCondition[],
-      55, 'positive' as StemmerSignResult,
-    )).toBe(3);
+    expect(isl(2, 'soft_pitting', 'reduces_partially', ['papillomatosis'], null)).toBe(3);
+    expect(isl(2, 'soft_pitting', 'reduces_partially', ['papillomatosis'], 55)).toBe(3);
+
+    // Manifest pitting that elevation does not clear is Stage II — it used to
+    // be Stage 0 whenever the excess was unknown or under 20%.
+    expect(isl(2, 'soft_pitting', 'reduces_partially', [], null)).toBe(2);
+    expect(isl(2, 'soft_pitting', 'reduces_partially', [], 12)).toBe(2);
+
+    expect(isl(1, 'soft_pitting', 'reduces_significantly', [], null)).toBe(1);
+    expect(isl(0, 'fibrotic', 'no_change', [], null)).toBe('2_late');
+    expect(isl(0, 'soft_pitting', 'reduces_significantly', [], null)).toBe(0);
+  });
+
+  it('maps Campisi from the clinical stage, not from the volume', () => {
+    expect(determineCampisiStage(0, null, 'reduces_significantly', 0, 'soft_pitting', skin, 0)).toBe('IA');
+    expect(determineCampisiStage(1, null, 'reduces_significantly', 0, 'soft_pitting', skin, 0)).toBe('IB');
+    // Persistent oedema, partial regression: II even with no measured excess.
+    expect(determineCampisiStage(2, null, 'reduces_partially', 0, 'soft_pitting', skin, 0)).toBe('II');
+    expect(determineCampisiStage(2, null, 'reduces_partially', 3, 'soft_pitting', skin, 0)).toBe('IIIA');
+    expect(determineCampisiStage('2_late', null, 'reduces_partially', 0, 'fibrotic', skin, 0)).toBe('IIIB');
+    expect(determineCampisiStage(3, null, 'no_change', 0, 'fibrotic', ['papillomatosis'], 1)).toBe('IV');
+    expect(determineCampisiStage(3, null, 'no_change', 0, 'fibrotic', ['elephantiasis_verrucosa'], 3)).toBe('V');
+  });
+
+  it('grades ISL severity from excess volume, and says nothing when it is unknown', () => {
+    expect(islVolumeSeverity(10)).toBe('minimal');
+    expect(islVolumeSeverity(20)).toBe('moderate');
+    expect(islVolumeSeverity(40)).toBe('moderate');
+    expect(islVolumeSeverity(41)).toBe('severe');
+    expect(islVolumeSeverity(-2)).toBe('none');
+    expect(islVolumeSeverity(null)).toBeNull();
   });
 
   it('does not let an unknown volume report a measured zero excess in severity', () => {

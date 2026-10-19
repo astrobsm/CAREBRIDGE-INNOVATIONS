@@ -4,6 +4,7 @@
 // ============================================================
 
 import { db } from './db';
+import { registerPatient, assertRenumberAllowed } from '../domains/patients/services/patientDedupeService';
 import type {
   User,
   Hospital,
@@ -86,17 +87,20 @@ export const PatientOps = {
   // Create patient
   async create(patient: Patient): Promise<string> {
     try {
-      const id = await db.patients.add(patient);
+      // Refuses a hospital number another registration at the hospital holds.
+      const { id } = await registerPatient(patient);
       console.log('[DB] Patient created successfully:', id);
       return id;
     } catch (error) {
       console.error('[DB] Error creating patient:', error);
+      if ((error as { code?: string })?.code === 'DUPLICATE_HOSPITAL_NUMBER') throw error;
       throw new Error(`Failed to create patient: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
 
   // Update patient
   async update(id: string, updates: Partial<Patient>): Promise<number> {
+    await assertRenumberAllowed(id, updates);
     return db.patients.update(id, { ...updates, updatedAt: new Date() });
   },
 

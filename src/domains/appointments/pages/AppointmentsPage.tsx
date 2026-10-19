@@ -407,7 +407,7 @@ export default function AppointmentsPage() {
           <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
             <button
               onClick={() => setViewMode('calendar')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
                 viewMode === 'calendar'
                   ? 'bg-white text-emerald-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800'
@@ -418,7 +418,7 @@ export default function AppointmentsPage() {
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
                 viewMode === 'list'
                   ? 'bg-white text-emerald-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800'
@@ -435,7 +435,7 @@ export default function AppointmentsPage() {
               <button
                 key={range}
                 onClick={() => setDateRange(range)}
-                className={`px-3 py-2 rounded-lg font-medium transition-colors capitalize ${
+                className={`flex-1 lg:flex-none px-2 sm:px-3 py-2 rounded-lg text-sm sm:text-base font-medium transition-colors capitalize ${
                   dateRange === range
                     ? 'bg-white text-emerald-600 shadow-sm'
                     : 'text-gray-600 hover:text-gray-800'
@@ -449,7 +449,7 @@ export default function AppointmentsPage() {
           {/* Filters Button */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl font-medium transition-colors ${
+            className={`flex items-center justify-center gap-2 px-4 py-2.5 border rounded-xl font-medium transition-colors ${
               showFilters || filterStatus !== 'all' || filterType !== 'all' || filterHospital !== 'all'
                 ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                 : 'border-gray-300 hover:bg-gray-50'
@@ -557,8 +557,8 @@ export default function AppointmentsPage() {
           />
         ) : (
           <div className="divide-y">
-            {/* List Header */}
-            <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 text-sm font-medium text-gray-600">
+            {/* List Header (table from md up; phones get cards) */}
+            <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 text-sm font-medium text-gray-600">
               <div className="col-span-3">Patient</div>
               <div className="col-span-2">Date & Time</div>
               <div className="col-span-2">Type</div>
@@ -591,13 +591,13 @@ export default function AppointmentsPage() {
                     key={appointment.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className={`grid grid-cols-12 gap-4 px-6 py-4 hover:bg-gray-50 cursor-pointer items-center ${
+                    className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 md:grid md:grid-cols-12 md:gap-4 md:px-6 md:py-4 hover:bg-gray-50 cursor-pointer ${
                       !isUpcoming && appointment.status === 'scheduled' ? 'bg-red-50' : ''
                     }`}
                     onClick={() => setSelectedAppointment(appointment)}
                   >
                     {/* Patient */}
-                    <div className="col-span-3">
+                    <div className="w-full min-w-0 md:w-auto md:col-span-3">
                       <p className="font-medium text-gray-900">
                         {patient?.name || 'Unknown Patient'}
                       </p>
@@ -607,7 +607,7 @@ export default function AppointmentsPage() {
                     </div>
 
                     {/* Date & Time */}
-                    <div className="col-span-2">
+                    <div className="md:col-span-2">
                       <p className="font-medium">
                         {isToday(aptDate) ? (
                           <span className="text-emerald-600">Today</span>
@@ -624,7 +624,7 @@ export default function AppointmentsPage() {
                     </div>
 
                     {/* Type */}
-                    <div className="col-span-2">
+                    <div className="md:col-span-2">
                       <span className="flex items-center gap-2">
                         <span className="text-lg">{typeIcons[appointment.type]}</span>
                         <span className="text-sm">{appointment.type.replace('_', ' ')}</span>
@@ -639,7 +639,7 @@ export default function AppointmentsPage() {
                     </div>
 
                     {/* Location */}
-                    <div className="col-span-2">
+                    <div className="min-w-0 md:col-span-2">
                       <div className="flex items-center gap-2 text-sm">
                         {getLocationIcon(appointment.location.type)}
                         <span className="truncate">
@@ -654,14 +654,14 @@ export default function AppointmentsPage() {
                     </div>
 
                     {/* Status */}
-                    <div className="col-span-2">
+                    <div className="md:col-span-2">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[appointment.status]}`}>
                         {appointment.status.replace('_', ' ')}
                       </span>
                     </div>
 
                     {/* Actions */}
-                    <div className="col-span-1 flex items-center gap-2">
+                    <div className="ml-auto md:ml-0 md:col-span-1 flex items-center gap-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

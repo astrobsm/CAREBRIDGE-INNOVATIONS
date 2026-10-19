@@ -18,6 +18,7 @@
     "db:url": "node scripts/db-url.mjs",
     "db:sql": "node scripts/db-sql.mjs",
     "db:verify": "node scripts/db-verify.mjs",
+    "auth:migrate-users": "node scripts/migrate-users-to-auth.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {

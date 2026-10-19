@@ -22,12 +22,42 @@ import {
   Copy,
   Eye,
   EyeOff,
+  Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
+import { createAccount, resetAccountPassword, setAccountActive } from '../../../services/adminUsersClient';
 import BulkImportModal from '../../../components/common/BulkImportModal';
+import { useAuth } from '../../../contexts/AuthContext';
 import type { User, UserRole, Hospital } from '../../../types';
+import { findEmailOwner, normaliseEmail } from '../../../utils/loginIdentity';
+
+// Passwords are never stored or shown here. Creating an account and resetting
+// a password go through /api/admin-users, which sets a temporary password on
+// the person's Supabase Auth account and returns it ONCE for the administrator
+// to hand over; the person must replace it at first sign-in. Activating and
+// deactivating go through it too, so a deactivated account is also banned
+// from signing in.
+
+/** The roles this administrator may give: only a super admin makes super admins. */
+function assignableRoles(currentUser: User | null): { value: UserRole; label: string }[] {
+  return currentUser?.role === 'super_admin' ? roles : roles.filter(r => r.value !== 'super_admin');
+}
+
+/** The hospitals this administrator may assign: a hospital admin, their own. */
+function assignableHospitals(currentUser: User | null, hospitals: Hospital[]): Hospital[] {
+  if (currentUser?.role === 'super_admin') return hospitals;
+  return hospitals.filter(h => h.id === currentUser?.hospitalId);
+}
+
+/** "Never", or the date and time of the last sign-in. */
+function formatLastLogin(value?: Date | string): string {
+  if (!value) return 'Never signed in';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return 'Never signed in';
+  return `Last sign-in ${d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`;
+}
 
 const roles: { value: UserRole; label: string }[] = [
   { value: 'super_admin', label: 'Super Admin' },
@@ -93,12 +123,21 @@ const roleColors: Record<string, string> = {
 
 interface EditUserModalProps {
   user: User;
+  currentUser: User | null;
   hospitals: Hospital[];
   onClose: () => void;
   onSave: (updates: Partial<User>) => Promise<void>;
 }
 
-function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps) {
+function EditUserModal({ user, currentUser, hospitals, onClose, onSave }: EditUserModalProps) {
+  // The sign-in email belongs to the Supabase account: changing it here would
+  // leave the person signing in with the old one, so a linked account's email
+  // is shown but not edited.
+  const emailLocked = !!user.authUserId;
+  const roleOptions = assignableRoles(currentUser).some(r => r.value === user.role)
+    ? assignableRoles(currentUser)
+    : [...assignableRoles(currentUser), ...roles.filter(r => r.value === user.role)];
+  const hospitalOptions = assignableHospitals(currentUser, hospitals);
   const [formData, setFormData] = useState({
     firstName: user.firstName,
     lastName: user.lastName,
@@ -116,14 +155,19 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
     e.preventDefault();
     setIsSaving(true);
     try {
+      // A real boolean, as everywhere else. This used to store 1/0, so an
+      // edited user dropped out of every `isActive === true` list (chat
+      // contacts) and a deactivated one stayed in every `isActive !== false`
+      // list (staff assignment, MDT, ward rounds, clinic scheduling).
       await onSave({
         ...formData,
-        isActive: formData.isActive ? 1 : 0,
-      } as unknown as Partial<User>);
+        isActive: !!formData.isActive,
+      });
       toast.success('User updated successfully');
       onClose();
     } catch (error) {
-      toast.error('Failed to update user');
+      // Say why — e.g. the email already belongs to someone else.
+      toast.error(error instanceof Error && error.message ? error.message : 'Failed to update user');
     } finally {
       setIsSaving(false);
     }
@@ -180,9 +224,13 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="input"
               required
-              title="Email address"
+              readOnly={emailLocked}
+              title={emailLocked ? 'The sign-in email cannot be changed here' : 'Email address'}
               placeholder="user@example.com"
             />
+            {emailLocked && (
+              <p className="text-xs text-gray-500 mt-1">This is the sign-in email and cannot be changed here.</p>
+            )}
           </div>
 
           <div>
@@ -206,7 +254,7 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
               required
               title="Select user role"
             >
-              {roles.map((role) => (
+              {roleOptions.map((role) => (
                 <option key={role.value} value={role.value}>
                   {role.label}
                 </option>
@@ -223,7 +271,7 @@ function EditUserModal({ user, hospitals, onClose, onSave }: EditUserModalProps)
               title="Select hospital"
             >
               <option value="">Not assigned</option>
-              {hospitals.map((hospital) => (
+              {hospitalOptions.map((hospital) => (
                 <option key={hospital.id} value={hospital.id}>
                   {hospital.name}
                 </option>
@@ -308,6 +356,8 @@ export default function UsersManagementPage() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [credentialsUser, setCredentialsUser] = useState<User | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+  const [issuedCredentials, setIssuedCredentials] = useState<{ user: User; password: string } | null>(null);
+  const { user: currentUser } = useAuth();
 
   // Fetch users and hospitals
   const users = useLiveQuery(() => db.users.toArray(), []);
@@ -332,8 +382,27 @@ export default function UsersManagementPage() {
 
   // Handle user update
   const handleUpdateUser = async (userId: string, updates: Partial<User>) => {
+    // An edit must not give two accounts the same sign-in address: sign-in
+    // would then pick one of them and the other person could not get in.
+    if (updates.email !== undefined) {
+      const email = normaliseEmail(updates.email);
+      const owner = findEmailOwner(await db.users.toArray(), email, userId);
+      if (owner) {
+        throw new Error(`That email address is already used by ${owner.firstName} ${owner.lastName}`.trim());
+      }
+      updates = { ...updates, email };
+    }
+
+    // Activating or deactivating also (un)bans the Supabase account, which
+    // only the server can do. A real boolean either way (never 1/0).
+    const { isActive, ...rest } = updates;
+    const existing = await db.users.get(userId);
+    if (isActive !== undefined && existing && !!existing.isActive !== !!isActive) {
+      await setAccountActive(userId, !!isActive);
+    }
+
     await db.users.update(userId, {
-      ...updates,
+      ...rest,
       updatedAt: new Date().toISOString(),
     });
     // Sync updated user to cloud
@@ -343,56 +412,25 @@ export default function UsersManagementPage() {
     }
   };
 
-  // Handle user deactivation
-  const handleDeactivateUser = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to deactivate this user?')) return;
-    
+  // Activate (e.g. approve a registration) or deactivate an account
+  const handleSetActive = async (target: User, active: boolean) => {
+    if (!active && !window.confirm('Are you sure you want to deactivate this user? They will not be able to sign in.')) return;
     try {
-      await db.users.update(userId, {
-        isActive: 0,
-        updatedAt: new Date().toISOString(),
-      });
-      // Sync deactivated user to cloud
-      const deactivatedUser = await db.users.get(userId);
-      if (deactivatedUser) {
-        syncRecord('users', deactivatedUser as unknown as Record<string, unknown>);
-      }
-      toast.success('User deactivated successfully');
+      await setAccountActive(target.id, active);
+      toast.success(active ? 'User activated' : 'User deactivated successfully');
     } catch (error) {
-      toast.error('Failed to deactivate user');
+      toast.error(error instanceof Error ? error.message : 'Failed to update the account');
     }
   };
 
-  // Generate a random temporary password
-  const generateTempPassword = (): string => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    const specials = '!@#$%&*';
-    let password = '';
-    for (let i = 0; i < 8; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    password += specials.charAt(Math.floor(Math.random() * specials.length));
-    // Shuffle
-    return password.split('').sort(() => Math.random() - 0.5).join('');
-  };
-
-  // Handle password reset
+  // Handle password reset: the server sets a temporary password on the
+  // person's sign-in account and returns it this once.
   const handleResetPassword = async (userId: string) => {
     try {
-      const tempPassword = generateTempPassword();
-      await db.users.update(userId, {
-        password: tempPassword,
-        mustChangePassword: true,
-        updatedAt: new Date().toISOString(),
-      });
-      // Sync to cloud
-      const updatedUser = await db.users.get(userId);
-      if (updatedUser) {
-        syncRecord('users', updatedUser as unknown as Record<string, unknown>);
-      }
-      return tempPassword;
+      const { temporaryPassword } = await resetAccountPassword(userId);
+      return temporaryPassword;
     } catch (error) {
-      toast.error('Failed to reset password');
+      toast.error(error instanceof Error ? error.message : 'Failed to reset password');
       return null;
     }
   };
@@ -407,39 +445,27 @@ export default function UsersManagementPage() {
     hospitalId?: string;
     specialization?: string;
     licenseNumber?: string;
-    password: string;
   }) => {
-    // Check if email already exists
-    const existingUser = await db.users.where('email').equals(formData.email).first();
+    // Check if email already exists — compared the way sign-in compares it,
+    // so "Ada@x.ng" and "ada@x.ng " are the same address. (The server checks
+    // again against every account.)
+    const email = normaliseEmail(formData.email);
+    const existingUser = findEmailOwner(await db.users.toArray(), email);
     if (existingUser) {
       toast.error('A user with this email already exists');
       return false;
     }
 
-    const now = new Date();
-    const newUser: User = {
-      id: crypto.randomUUID(),
-      email: formData.email,
-      password: formData.password, // Store password (should be hashed in production)
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      role: formData.role,
-      phone: formData.phone,
-      hospitalId: formData.hospitalId,
-      specialization: formData.specialization,
-      licenseNumber: formData.licenseNumber,
-      isActive: true,
-      mustChangePassword: true,
-      hasAcceptedAgreement: false,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    await db.users.add(newUser);
-    // Sync new user to cloud immediately
-    syncRecord('users', newUser as unknown as Record<string, unknown>);
-    toast.success('User added successfully');
-    return true;
+    try {
+      // Creates the Supabase sign-in account and the users row together.
+      const issued = await createAccount({ ...formData, email });
+      setIssuedCredentials({ user: issued.user, password: issued.temporaryPassword });
+      toast.success('User added successfully');
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add user');
+      return false;
+    }
   };
 
   // Stats
@@ -627,6 +653,10 @@ export default function UsersManagementPage() {
                         <Building2 className="w-3.5 h-3.5" />
                         <span className="truncate">{getHospitalName(user.hospitalId)}</span>
                       </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span className="truncate">{formatLastLogin(user.lastLoginAt)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -679,16 +709,29 @@ export default function UsersManagementPage() {
                           <RefreshCw className="w-4 h-4" />
                           Reset Password
                         </button>
-                        <button
-                          onClick={() => {
-                            handleDeactivateUser(user.id);
-                            setActiveMenu(null);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Deactivate
-                        </button>
+                        {user.isActive ? (
+                          <button
+                            onClick={() => {
+                              handleSetActive(user, false);
+                              setActiveMenu(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              handleSetActive(user, true);
+                              setActiveMenu(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-green-700"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            Activate / Approve
+                          </button>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -720,9 +763,22 @@ export default function UsersManagementPage() {
       <AnimatePresence>
         {showAddUser && (
           <AddUserModal
+            currentUser={currentUser}
             hospitals={hospitals || []}
             onClose={() => setShowAddUser(false)}
             onSave={handleAddUser}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* The new account's temporary password, shown once */}
+      <AnimatePresence>
+        {issuedCredentials && (
+          <ResetPasswordModal
+            user={issuedCredentials.user}
+            initialPassword={issuedCredentials.password}
+            onClose={() => setIssuedCredentials(null)}
+            onReset={handleResetPassword}
           />
         )}
       </AnimatePresence>
@@ -732,6 +788,7 @@ export default function UsersManagementPage() {
         {editingUser && (
           <EditUserModal
             user={editingUser}
+            currentUser={currentUser}
             hospitals={hospitals || []}
             onClose={() => setEditingUser(null)}
             onSave={(updates) => handleUpdateUser(editingUser.id, updates)}
@@ -773,6 +830,7 @@ export default function UsersManagementPage() {
 
 // Add User Modal Component
 interface AddUserModalProps {
+  currentUser: User | null;
   hospitals: Hospital[];
   onClose: () => void;
   onSave: (data: {
@@ -784,38 +842,26 @@ interface AddUserModalProps {
     hospitalId?: string;
     specialization?: string;
     licenseNumber?: string;
-    password: string;
   }) => Promise<boolean>;
 }
 
-function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
+function AddUserModal({ currentUser, hospitals, onClose, onSave }: AddUserModalProps) {
+  const hospitalOptions = assignableHospitals(currentUser, hospitals);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
     role: 'nurse' as UserRole,
-    hospitalId: '',
+    // A hospital administrator adds users to their own hospital.
+    hospitalId: currentUser?.role === 'super_admin' ? '' : (currentUser?.hospitalId ?? ''),
     specialization: '',
     licenseNumber: '',
-    password: '',
-    confirmPassword: '',
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      toast.error('Password must be at least 8 characters');
-      return;
-    }
 
     setIsSaving(true);
     try {
@@ -828,7 +874,6 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
         hospitalId: formData.hospitalId || undefined,
         specialization: formData.specialization || undefined,
         licenseNumber: formData.licenseNumber || undefined,
-        password: formData.password,
       });
       
       if (success) {
@@ -916,7 +961,7 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
               required
               title="Select user role"
             >
-              {roles.map((role) => (
+              {assignableRoles(currentUser).map((role) => (
                 <option key={role.value} value={role.value}>
                   {role.label}
                 </option>
@@ -932,8 +977,8 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
               className="input"
               title="Select hospital"
             >
-              <option value="">Not assigned</option>
-              {hospitals.map((hospital) => (
+              {currentUser?.role === 'super_admin' && <option value="">Not assigned</option>}
+              {hospitalOptions.map((hospital) => (
                 <option key={hospital.id} value={hospital.id}>
                   {hospital.name}
                 </option>
@@ -965,41 +1010,12 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
             />
           </div>
 
-          <div>
-            <label className="label">Password *</label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="input pr-10"
-                required
-                minLength={8}
-                title="Password"
-                placeholder="Enter password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                title="Toggle password visibility"
-              >
-                {showPassword ? <X className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="label">Confirm Password *</label>
-            <input
-              type="password"
-              value={formData.confirmPassword}
-              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-              className="input"
-              required
-              title="Confirm password"
-              placeholder="Re-enter password"
-            />
+          <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <Key className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-blue-700">
+              A temporary password is generated and shown once when the account is created.
+              The user must change it at first sign-in.
+            </p>
           </div>
 
           <div className="flex gap-3 pt-4">
@@ -1035,8 +1051,9 @@ function AddUserModal({ hospitals, onClose, onSave }: AddUserModalProps) {
 }
 
 // User Credentials Modal - Shows current login details
+// Passwords are not stored anywhere an administrator can read them; to give
+// someone a password, Reset Password issues a new temporary one.
 function UserCredentialsModal({ user, onClose }: { user: User; onClose: () => void }) {
-  const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, label: string) => {
@@ -1052,9 +1069,8 @@ function UserCredentialsModal({ user, onClose }: { user: User; onClose: () => vo
   const copyAllDetails = () => {
     const details = `Login Details for ${user.firstName} ${user.lastName}\n` +
       `Email: ${user.email}\n` +
-      `Password: ${user.password || '(not available)'}\n` +
       `Role: ${user.role}\n` +
-      `\nPlease change your password after first login.`;
+      `\nSign in with your email and the password you were given.`;
     copyToClipboard(details, 'All details');
   };
 
@@ -1107,33 +1123,23 @@ function UserCredentialsModal({ user, onClose }: { user: User; onClose: () => vo
             </div>
           </div>
 
-          {/* Password */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Password</label>
-            <div className="mt-1 flex items-center gap-2">
-              <div className="flex-1 px-3 py-2 bg-gray-50 border rounded-lg font-mono text-sm text-gray-900">
-                {user.password ? (showPassword ? user.password : '••••••••••') : '(not available)'}
-              </div>
-              {user.password && (
-                <>
-                  <button
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
-                    title={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => copyToClipboard(user.password!, 'Password')}
-                    className={`p-2 rounded-lg transition-colors ${copied === 'Password' ? 'bg-green-100 text-green-600' : 'hover:bg-gray-100 text-gray-500'}`}
-                    title="Copy password"
-                  >
-                    {copied === 'Password' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  </button>
-                </>
-              )}
-            </div>
+          {/* Password: never stored where it could be shown */}
+          <div className="flex items-start gap-2 p-3 bg-gray-50 border rounded-lg">
+            <Key className="w-4 h-4 text-gray-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-gray-600">
+              Passwords are not stored and cannot be shown. If this user cannot sign in,
+              use <span className="font-medium">Reset Password</span> to issue a new temporary password.
+            </p>
           </div>
+
+          {!user.authUserId && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-700">
+                This user has no sign-in account yet. Reset Password creates one.
+              </p>
+            </div>
+          )}
 
           {/* Must change password notice */}
           {user.mustChangePassword && (
@@ -1179,17 +1185,22 @@ function UserCredentialsModal({ user, onClose }: { user: User; onClose: () => vo
 }
 
 // Reset Password Modal
+// Also shows a just-created account's temporary password (initialPassword).
+// The password exists only in this component's state: closing the modal is
+// the last time anyone can see it.
 function ResetPasswordModal({
   user,
+  initialPassword,
   onClose,
   onReset,
 }: {
   user: User;
+  initialPassword?: string;
   onClose: () => void;
   onReset: (userId: string) => Promise<string | null>;
 }) {
   const [isResetting, setIsResetting] = useState(false);
-  const [newPassword, setNewPassword] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState<string | null>(initialPassword ?? null);
   const [showPassword, setShowPassword] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -1211,7 +1222,7 @@ function ResetPasswordModal({
   };
 
   const copyCredentials = () => {
-    const details = `Password Reset for ${user.firstName} ${user.lastName}\n` +
+    const details = `${initialPassword ? 'New account' : 'Password Reset'} for ${user.firstName} ${user.lastName}\n` +
       `Email: ${user.email}\n` +
       `New Temporary Password: ${newPassword}\n` +
       `\nPlease change your password after logging in.`;
@@ -1235,7 +1246,7 @@ function ResetPasswordModal({
         <div className="border-b px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <RefreshCw className="w-5 h-5 text-amber-600" />
-            <h3 className="text-lg font-semibold">Reset Password</h3>
+            <h3 className="text-lg font-semibold">{initialPassword ? 'Account Created' : 'Reset Password'}</h3>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
             <X className="w-5 h-5" />
@@ -1296,7 +1307,8 @@ function ResetPasswordModal({
               <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-green-700">
-                  Password has been reset. Share the new temporary password with the user securely.
+                  {initialPassword ? 'Account created.' : 'Password has been reset.'} Share the temporary password with
+                  the user securely. It is shown only now and cannot be retrieved later; they must change it at first sign-in.
                 </p>
               </div>
 

@@ -33,7 +33,10 @@ export type UserRole =
 export interface User {
   id: string;
   email: string;
-  password?: string;
+  // No password: sign-in is Supabase Auth. Never add one back to this record —
+  // it is synced to every device and to the cloud users table.
+  /** The Supabase Auth account (auth.users.id) that signs in as this user. */
+  authUserId?: string | null;
   firstName: string;
   lastName: string;
   role: UserRole;
@@ -50,6 +53,8 @@ export interface User {
   agreementVersion?: string;
   agreementDeviceInfo?: string;
   mustChangePassword?: boolean;
+  /** When this person last signed in (set on sign-in only; see AuthContext). */
+  lastLoginAt?: Date | string;
   // Bank Account Details (for payroll)
   bankName?: string;
   bankAccountNumber?: string;
@@ -121,6 +126,11 @@ export interface Patient {
   hospitalName?: string;
   ward?: string;
   isActive: boolean;
+  // Set when this registration was a duplicate merged into another record.
+  // The record is kept (inactive, number retired as MERGED-...) for the
+  // audit trail; mergedInto is the id of the registration that was kept.
+  mergedInto?: string;
+  mergedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -240,6 +250,16 @@ export interface ClinicalEncounter {
     otherText?: Record<string, string>;
     completedAt: string;
   };
+
+  /**
+   * The structured clerking, when the encounter was clerked with it.
+   *
+   * Like structuredHistory, stored beside the prose and never instead of it:
+   * the clerking writes its narrative into the free-text fields above. This
+   * block carries the answers, the clinician's decisions on suggestions and
+   * the draft / review / sign lifecycle.
+   */
+  clerking?: import('../domains/clinical/clerking/records').StructuredClerking;
 
   // Follow-up encounter specific
   intervalHistory?: string;          // Changes since last visit

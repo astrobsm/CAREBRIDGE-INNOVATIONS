@@ -5,7 +5,10 @@
 
 import { db } from '../database/db';
 import { syncRecord } from './cloudSyncService';
+import { registerPatient, assertRenumberAllowed } from '../domains/patients/services/patientDedupeService';
 import { supabase, isSupabaseConfigured, LOCAL_TO_CLOUD_TABLE } from './supabaseClient';
+import { hasCloudSession } from './cloudSession';
+import { stripSecretColumns } from './userSyncRules';
 import type {
   User,
   Hospital,
@@ -196,7 +199,8 @@ async function syncToCloud(
   record: Record<string, unknown>,
   operation: 'create' | 'update' | 'delete'
 ): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) {
+  // No cloud writes without a signed-in Supabase session: queue for later.
+  if (!isSupabaseConfigured() || !supabase || !hasCloudSession()) {
     // Queue for later sync
     syncQueue.add({
       tableName,
@@ -215,7 +219,7 @@ async function syncToCloud(
   }
 
   try {
-    const preparedRecord = toSnakeCase(record);
+    const preparedRecord = stripSecretColumns(cloudTableName, toSnakeCase(record));
 
     if (operation === 'delete') {
       const { error } = await supabase
@@ -275,20 +279,20 @@ export const PatientAPI = {
   },
 
   async create(patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>): Promise<Patient> {
-    const newPatient: Patient = {
+    // Refuses a hospital number another registration at the hospital holds.
+    const newPatient = await registerPatient({
       ...patient,
       id: generateId('pat'),
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as Patient;
-    
-    await db.patients.add(newPatient);
+    } as Patient);
     syncRecord('patients', newPatient as unknown as Record<string, unknown>);
     syncToCloud('patients', newPatient as unknown as Record<string, unknown>, 'create');
     return newPatient;
   },
 
   async update(id: string, updates: Partial<Patient>): Promise<Patient | undefined> {
+    await assertRenumberAllowed(id, updates);
     const updated = { ...updates, updatedAt: new Date() };
     await db.patients.update(id, updated);
     
@@ -1146,7 +1150,7 @@ export const SyncAPI = {
   },
 
   async processPendingSync(): Promise<{ success: number; failed: number }> {
-    if (!isSupabaseConfigured() || !supabase) {
+    if (!isSupabaseConfigured() || !supabase || !hasCloudSession()) {
       return { success: 0, failed: 0 };
     }
 
@@ -1162,7 +1166,7 @@ export const SyncAPI = {
       }
 
       try {
-        const preparedRecord = toSnakeCase(item.data);
+        const preparedRecord = stripSecretColumns(cloudTableName, toSnakeCase(item.data));
 
         if (item.operation === 'delete') {
           const { error } = await supabase
@@ -1191,7 +1195,7 @@ export const SyncAPI = {
   },
 
   async pullFromCloud(): Promise<void> {
-    if (!isSupabaseConfigured() || !supabase) {
+    if (!isSupabaseConfigured() || !supabase || !hasCloudSession()) {
       return;
     }
 
@@ -1211,7 +1215,8 @@ export const SyncAPI = {
         }
 
         if (data && data.length > 0) {
-          const records = data.map(record => toCamelCase(record));
+          // A legacy plaintext password on a users row never reaches the device.
+          const records = data.map(record => stripSecretColumns(cloudTable, toCamelCase(stripSecretColumns(cloudTable, record))));
           
           for (const record of records) {
             try {

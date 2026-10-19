@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { db } from '../database/db';
 import { syncService } from './syncService';
 import { syncRecord } from './cloudSyncService';
+import { registerPatient, assertRenumberAllowed } from '../domains/patients/services/patientDedupeService';
 import type { Patient, Hospital, User } from '../types';
 import { useLiveQuery } from 'dexie-react-hooks';
 
@@ -126,14 +127,16 @@ export function usePatients(hospitalId?: string) {
     [hospitalId]
   );
 
-  const createPatient = useCallback(async (patient: Patient) => {
-    await db.patients.add(patient);
+  const createPatient = useCallback(async (input: Patient) => {
+    // Refuses a hospital number another registration at the hospital holds.
+    const patient = await registerPatient(input);
     syncRecord('patients', patient as unknown as Record<string, unknown>);
     await syncService.queueChange('patients', patient.id, 'create', patient as unknown as Record<string, unknown>);
     return patient;
   }, []);
 
   const updatePatient = useCallback(async (id: string, changes: Partial<Patient>) => {
+    await assertRenumberAllowed(id, changes);
     await db.patients.update(id, changes);
     const updated = await db.patients.get(id);
     if (updated) {

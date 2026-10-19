@@ -6,18 +6,33 @@
 // optionally, ANTHROPIC_API_KEY.
 // ---------------------------------------------------------------------------
 
+import { guardSameOrigin } from './_lib/sameOrigin.js';
+import { requireAppUser } from './_lib/requireUser.js';
+
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 
+/** Ceiling on the completion budget and on the prompt a caller may send. */
+export const MAX_COMPLETION_TOKENS = 4096;
+const MAX_PROMPT_CHARS = 200_000;
+
+export function clampTokens(value) {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 1) return 1500;
+  return Math.min(n, MAX_COMPLETION_TOKENS);
+}
+
 export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
+  // Only this app's own origin may spend the server's keys (see _lib/sameOrigin).
+  if (guardSameOrigin(req, res)) return;
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
+
+  // Only a signed-in, active AstroHEALTH user may spend the server's keys.
+  // The origin guard above stops other web pages; this stops everyone else.
+  if (!(await requireAppUser(req, res))) return;
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
@@ -35,6 +50,13 @@ export default async function handler(req, res) {
       res.status(400).json({ error: 'Missing "prompt".' });
       return;
     }
+    if (prompt.length + String(system || '').length > MAX_PROMPT_CHARS) {
+      res.status(413).json({ error: 'Prompt too large.' });
+      return;
+    }
+    // The caller chooses the budget, within a ceiling: an unbounded max_tokens
+    // let any request run up the bill.
+    const maxTokens = clampTokens(max_tokens);
 
     if (provider === 'anthropic') {
       const key = process.env.ANTHROPIC_API_KEY;
@@ -51,7 +73,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           model: model || 'claude-3-5-sonnet-20241022',
-          max_tokens,
+          max_tokens: maxTokens,
           system,
           messages: [{ role: 'user', content: prompt }],
         }),
@@ -79,7 +101,7 @@ export default async function handler(req, res) {
     const r = await fetch(OPENAI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: model || 'gpt-4o', messages, temperature, max_tokens, response_format }),
+      body: JSON.stringify({ model: model || 'gpt-4o', messages, temperature, max_tokens: maxTokens, response_format }),
     });
     if (!r.ok) {
       const detail = (await r.text()).slice(0, 300);

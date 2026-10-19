@@ -7,6 +7,15 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
+/**
+ * Where supabase-js keeps the signed-in session (localStorage). Fixed rather
+ * than derived from the project URL so sign-out can remove it even when the
+ * server cannot be reached: supabase-js only clears its stored session after
+ * the server confirms the sign-out, and a ward phone signed out offline must
+ * not come back signed in on the next load.
+ */
+export const AUTH_STORAGE_KEY = 'astrohealth.auth.session';
+
 // Create Supabase client (only if credentials are provided)
 let supabase: SupabaseClient | null = null;
 
@@ -15,6 +24,7 @@ if (supabaseUrl && supabaseAnonKey) {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
+      storageKey: AUTH_STORAGE_KEY,
     },
     realtime: {
       params: {
@@ -217,6 +227,11 @@ export const TABLES = {
   scarAlerts: 'scar_alerts',
   padAssessments: 'pad_assessments',
   vascularInterventions: 'vascular_interventions',
+  clinicalProblems: 'clinical_problems',
+  clinicalPlanItems: 'clinical_plan_items',
+  scribeTreatmentPlans: 'scribe_treatment_plans',
+  scribePlanActions: 'scribe_plan_actions',
+  scribePlanAttachments: 'scribe_plan_attachments',
 
   // Finance
   financeBuckets: 'finance_buckets',
@@ -370,6 +385,11 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   scarAlerts: 'scar_alerts',
   padAssessments: 'pad_assessments',
   vascularInterventions: 'vascular_interventions',
+  clinicalProblems: 'clinical_problems',
+  clinicalPlanItems: 'clinical_plan_items',
+  scribeTreatmentPlans: 'scribe_treatment_plans',
+  scribePlanActions: 'scribe_plan_actions',
+  scribePlanAttachments: 'scribe_plan_attachments',
 };
 
 // Type for sync status

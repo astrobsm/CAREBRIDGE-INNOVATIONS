@@ -474,7 +474,7 @@ export function ckdStageFromEGFR(egfr: number): 1 | 2 | 3 | 4 | 5 {
 // Mapping: bundle category -> Investigation type/category fields
 // ------------------------------------------------------------
 
-function categoryToInvestigationFields(cat: InvestigationCategory): {
+export function categoryToInvestigationFields(cat: InvestigationCategory): {
   type: Investigation['type'];
   category: Investigation['category'];
 } {

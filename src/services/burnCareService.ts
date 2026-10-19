@@ -219,9 +219,19 @@ class BurnCareService {
     const first8h = totalVolume / 2;
     const next16h = totalVolume / 2;
     
-    // Adjust for time already elapsed
+    // Adjust for time already elapsed. The catch-up is capped at twice the
+    // scheduled rate: near the 8-hour mark the uncapped arithmetic is a bolus
+    // (7.9 h gave 80x the scheduled rate).
     const remainingFirst8h = Math.max(0, 8 - hoursSinceBurn);
-    const adjustedFirst8hRate = remainingFirst8h > 0 ? first8h / remainingFirst8h : 0;
+    const catchUpRate = remainingFirst8h > 0 ? first8h / remainingFirst8h : 0;
+    const adjustedFirst8hRate = Math.min(catchUpRate, (first8h / 8) * 2);
+    const lateNotes: string[] = [];
+    if (catchUpRate > adjustedFirst8hRate) {
+      lateNotes.push(`Presented late: catching up would need ${Math.round(catchUpRate)} mL/h. Rate capped at 2× the scheduled ${Math.round(first8h / 8)} mL/h — titrate to urine output; senior review.`);
+    }
+    if (hoursSinceBurn >= 24) {
+      lateNotes.push('More than 24 h since the burn — Parkland no longer applies; give maintenance fluid guided by urine output and ongoing losses.');
+    }
 
     return {
       formula: 'parkland',
@@ -233,6 +243,7 @@ class BurnCareService {
       crystalloidVolume: Math.round(totalVolume), // Lactated Ringer's
       urineOutputTarget: weight > 30 ? 0.5 : 1, // mL/kg/hr
       recommendations: [
+        ...lateNotes,
         'Use Lactated Ringer\'s solution',
         `Target urine output: ${weight > 30 ? '0.5-1' : '1-2'} mL/kg/hr`,
         'Monitor and adjust based on clinical response',

@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { UserRole } from '../../../types';
+import AwaitingApprovalNotice from '../components/AwaitingApprovalNotice';
 
 const registerSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
@@ -41,6 +42,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [submitted, setSubmitted] = useState<{ status: string; message: string } | null>(null);
 
   const {
     register,
@@ -53,7 +55,9 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
-      const success = await registerUser({
+      // The password goes to Supabase Auth only. The account starts inactive
+      // until an administrator approves it.
+      const result = await registerUser({
         email: data.email,
         password: data.password,
         firstName: data.firstName,
@@ -62,11 +66,10 @@ export default function RegisterPage() {
         role: data.role as UserRole,
       });
 
-      if (success) {
-        toast.success('Account created successfully!');
-        navigate('/');
+      if (result.ok) {
+        setSubmitted({ status: result.status, message: result.message });
       } else {
-        toast.error('Email already exists');
+        toast.error(result.message);
       }
     } catch {
       toast.error('An error occurred. Please try again.');
@@ -74,6 +77,22 @@ export default function RegisterPage() {
       setIsLoading(false);
     }
   };
+
+  if (submitted) {
+    return (
+      <div className="px-1">
+        <div className="card p-4 sm:p-6 lg:p-8 space-y-6">
+          <AwaitingApprovalNotice
+            title={submitted.status === 'confirm_email' ? 'Confirm your email' : 'Awaiting approval'}
+            message={submitted.message}
+          />
+          <button type="button" onClick={() => navigate('/login')} className="btn btn-primary w-full">
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-1">

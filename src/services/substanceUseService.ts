@@ -18,6 +18,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database';
+import { reviewMonitoringRecord } from '../domains/substance-use/services/detoxMonitoring';
 import type {
   SubstanceUseAssessment,
   SubstanceIntake,
@@ -1182,10 +1183,21 @@ export const SubstanceUseOps = {
 
 // Monitoring Records Operations
 export const DetoxMonitoringOps = {
+  /**
+   * Store a monitoring record. Withdrawal scores outside their scale's range
+   * are rejected, each score's severity band is added to the alerts, and
+   * escalation is set when the score or the vital signs call for it — it is
+   * never cleared if the clinician raised it.
+   */
   async create(record: Omit<DetoxMonitoringRecord, 'id'>): Promise<string> {
+    const review = reviewMonitoringRecord(record);
+    if (review.errors.length) throw new Error(review.errors.join(' '));
     const id = uuidv4();
     await db.detoxMonitoringRecords.add({
       ...record,
+      alertsTriggered: review.alertsTriggered,
+      requiresEscalation: review.requiresEscalation,
+      escalationReason: review.escalationReason,
       id,
     } as DetoxMonitoringRecord);
     return id;

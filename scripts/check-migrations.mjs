@@ -29,6 +29,9 @@ import { fileURLToPath } from 'node:url';
 
 const DIR = 'supabase/migrations';
 
+/** Migrations from this version on must not create policies open to everyone. */
+export const OPEN_POLICY_CUTOFF = '20261019090000';
+
 /** Either "a quoted name with spaces" or a bare identifier. */
 const NAME = '(?:"([^"]+)"|([A-Za-z0-9_]+))';
 
@@ -70,6 +73,25 @@ export function checkMigrations(dir = DIR) {
         problems.push(`${file}:${i + 1}  CREATE ${kind} ${name} — no DROP ... IF EXISTS before it`);
       }
     });
+
+    // From the Supabase Auth migration on, no new policy may be open to anyone.
+    // Older migrations created "Allow all access" (USING (true), or TO anon /
+    // public), and copying that pattern would put a table outside the RLS
+    // lockdown. A policy that really is meant for the public says so on the
+    // line above it: `-- public-access: <why>`.
+    if (file.slice(0, 14) >= OPEN_POLICY_CUTOFF) {
+      lines.forEach((line, i) => {
+        if (!/^\s*CREATE\s+POLICY\b/i.test(line)) return;
+        const end = lines.findIndex((l, j) => j >= i && l.includes(';'));
+        const statement = lines.slice(i, end === -1 ? undefined : end + 1).join(' ');
+        const open = /\b(USING|WITH\s+CHECK)\s*\(\s*true\s*\)/i.test(statement)
+          || /\bTO\s+(?:[A-Za-z_, ]*\b)?(anon|public)\b/i.test(statement);
+        const declared = /--\s*public-access:/i.test(lines[i - 1] ?? '');
+        if (open && !declared) {
+          problems.push(`${file}:${i + 1}  ${line.trim().slice(0, 60)} — open to everyone; use public.is_app_member() (or mark it -- public-access: <why>)`);
+        }
+      });
+    }
 
     // A bare CREATE TABLE / CREATE INDEX without IF NOT EXISTS fails the same way.
     lines.forEach((line, i) => {

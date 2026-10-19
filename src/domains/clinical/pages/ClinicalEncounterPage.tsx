@@ -49,6 +49,8 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import PreviousPlansReviewGuard, { type AckSummary } from '../../../components/clinical/PreviousPlansReviewGuard';
 import { VoiceDictation, ExportOptionsModal } from '../../../components/common';
 import StructuredHistory, { type StructuredHistoryValue } from '../components/StructuredHistory';
+import StructuredEncountersPanel from '../components/clerking/StructuredEncounters';
+import { patientContext, patientIdentifiers, patientLabelOf } from '../services/clerkingService';
 import { TEMPLATE_VERSION } from '../services/templateEngine';
 import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
 import AISummaryButton from '../components/AISummaryButton';
@@ -440,6 +442,12 @@ export default function ClinicalEncounterPage() {
    * not fit, loses nothing.
    */
   const [useGuided, setUseGuided] = useState(true);
+  /**
+   * The full structured clerking (several complaints, whole history,
+   * examination, rule-based and AI differentials, review and sign). Opened
+   * from the mode banner; the classic form below stays available.
+   */
+  const [structuredClerking, setStructuredClerking] = useState<'initial' | 'follow_up' | null>(null);
   const [structured, setStructured] = useState<StructuredHistoryValue | null>(null);
 
   const chiefComplaint = watch('chiefComplaint') || '';
@@ -909,6 +917,14 @@ export default function ClinicalEncounterPage() {
             
             {/* Option to switch mode */}
             <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setStructuredClerking(encounterMode === 'initial' ? 'initial' : 'follow_up')}
+                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
+              >
+                <ClipboardList size={16} />
+                {encounterMode === 'initial' ? 'Structured clerking (recommended)' : 'Structured follow-up (tracked problems)'}
+              </button>
               {encounterMode === 'follow_up' && (
                 <button
                   type="button"
@@ -943,6 +959,20 @@ export default function ClinicalEncounterPage() {
           </div>
         </div>
       </motion.div>
+
+      {structuredClerking && patient && (
+        <div className="mb-6">
+          <StructuredEncountersPanel
+            key={structuredClerking}
+            patientId={patient.id}
+            patientLabel={patientLabelOf(patient)}
+            ctx={patientContext(patient)}
+            identifiers={patientIdentifiers(patient)}
+            hospitalId={encounterHospital.hospitalId || user?.hospitalId}
+            autoOpen={structuredClerking}
+          />
+        </div>
+      )}
 
       {/* Header */}
       <div className="mb-6">

@@ -27,6 +27,8 @@ import { db } from '../../database/db';
 import { fullSync } from '../../services/cloudSyncService';
 import { EncounterHospitalField } from '../hospital/EncounterHospitalField';
 import type { Hospital, Patient } from '../../types';
+import { HospitalNumberField, numberCheckBlocks, type NumberCheck } from '../../domains/patients/components/HospitalNumberField';
+import { registerPatient, isDuplicateHospitalNumberError } from '../../domains/patients/services/patientDedupeService';
 
 // ============================================================
 // QUICK ADD PATIENT FORM
@@ -39,16 +41,20 @@ interface QuickAddPatientFormData {
   address: string;
   gender: 'male' | 'female';
   dateOfBirth: string;
+  hospitalNumber: string;
 }
 
 function QuickAddPatientForm({
   onSave,
   onCancel,
   initialName,
+  hospitalId,
 }: {
   onSave: (patient: Patient) => void;
   onCancel: () => void;
   initialName?: string;
+  /** Hospital the selector is scoped to; the new patient is registered there. */
+  hospitalId?: string;
 }) {
   const [formData, setFormData] = useState<QuickAddPatientFormData>({
     firstName: initialName?.split(' ')[0] || '',
@@ -57,8 +63,21 @@ function QuickAddPatientForm({
     address: '',
     gender: 'male',
     dateOfBirth: '',
+    hospitalNumber: '',
   });
   const [saving, setSaving] = useState(false);
+  const [numberCheck, setNumberCheck] = useState<NumberCheck>({ state: 'empty' });
+
+  // The number is already registered: carry on with that patient instead.
+  const pickExisting = async (id: string) => {
+    const existing = await db.patients.get(id) ?? await patientService.getById(id);
+    if (existing) {
+      toast.success(`Using existing record for ${existing.firstName} ${existing.lastName}`);
+      onSave(existing);
+    } else {
+      toast.error('That patient is registered elsewhere and has not reached this device yet. Sync and search again.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,14 +92,20 @@ function QuickAddPatientForm({
       return;
     }
 
+    if (numberCheckBlocks(numberCheck)) {
+      toast.error('This hospital number is already registered - use the existing patient.');
+      return;
+    }
+
     setSaving(true);
     try {
-      // Generate a unique hospital number
+      // The folder number when known; otherwise a quick-add number that
+      // cannot repeat (time + random).
       const timestamp = Date.now().toString(36).toUpperCase();
       const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const hospitalNumber = `QP-${timestamp}-${random}`;
+      const hospitalNumber = formData.hospitalNumber.trim() || `QP-${timestamp}-${random}`;
 
-      const newPatient: Patient = {
+      const draft: Patient = {
         id: crypto.randomUUID(),
         hospitalNumber,
         firstName: formData.firstName.trim(),
@@ -100,14 +125,14 @@ function QuickAddPatientForm({
         },
         allergies: [],
         chronicConditions: [],
-        registeredHospitalId: '',
+        registeredHospitalId: hospitalId || '',
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      // Save to local IndexedDB
-      await db.patients.add(newPatient);
+      // Save to local IndexedDB (refused if the number is already registered)
+      const newPatient = await registerPatient(draft);
 
       // Trigger cloud sync
       fullSync().catch(err => console.warn('Sync failed:', err));
@@ -116,7 +141,7 @@ function QuickAddPatientForm({
       onSave(newPatient);
     } catch (error) {
       console.error('Failed to add patient:', error);
-      toast.error('Failed to add patient');
+      toast.error(isDuplicateHospitalNumberError(error) ? error.message : 'Failed to add patient');
     } finally {
       setSaving(false);
     }
@@ -206,6 +231,17 @@ function QuickAddPatientForm({
             />
           </div>
         </div>
+
+        <HospitalNumberField
+          value={formData.hospitalNumber}
+          onChange={(v) => setFormData({ ...formData, hospitalNumber: v })}
+          hospitalId={hospitalId}
+          onCheck={setNumberCheck}
+          onUseExisting={(m) => { void pickExisting(m.id); }}
+          hint="Folder number, if known (optional)"
+          labelClassName="block text-xs font-medium text-gray-700 mb-1"
+          inputClassName="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+        />
 
         <div className="flex gap-2 pt-2">
           <button
@@ -581,6 +617,7 @@ export function PatientSelector({
               {showQuickAdd && (
                 <QuickAddPatientForm
                   initialName={searchQuery}
+                  hospitalId={hospitalId}
                   onSave={(patient) => {
                     setShowQuickAdd(false);
                     handleSelect(patient);
