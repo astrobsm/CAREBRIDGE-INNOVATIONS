@@ -80,7 +80,8 @@ describe('server-side guarantee (Supabase migration)', () => {
     const fn = sql.slice(sql.indexOf('FUNCTION public.ensure_patient_hospital_number_unique'));
     const body = fn.slice(0, fn.indexOf('$$;', fn.indexOf('$$') + 2));
     expect(sql.match(/CREATE UNIQUE INDEX/g)?.length).toBe(1);
-    expect(body).toContain('CREATE UNIQUE INDEX ux_patients_hospital_number_key');
+    // IF NOT EXISTS is what db:check requires of every CREATE INDEX.
+    expect(body).toMatch(/CREATE UNIQUE INDEX (IF NOT EXISTS )?ux_patients_hospital_number_key/);
     expect(body.indexOf('patient_hospital_number_duplicates()')).toBeLessThan(body.indexOf('CREATE UNIQUE INDEX'));
     expect(body).toContain('EXCEPTION WHEN unique_violation');
   });
