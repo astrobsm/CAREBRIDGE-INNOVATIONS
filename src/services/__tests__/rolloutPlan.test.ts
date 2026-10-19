@@ -78,11 +78,20 @@ describe('rollout ordering', () => {
 
 describe('Supabase Auth settings patch', () => {
   it('always turns email confirmation on and keeps existing redirect URLs', () => {
-    const p = authSettingsPatch({ siteUrl: 'https://astrohealth.vercel.app/', existingAllowList: 'http://localhost:5173/**' });
+    const p = authSettingsPatch({ siteUrl: 'https://carebridge-innovations.vercel.app/', existingAllowList: 'http://localhost:5173/**' });
     expect(p.mailer_autoconfirm).toBe(false);
-    expect(p.site_url).toBe('https://astrohealth.vercel.app');
-    expect(p.uri_allow_list.split(',')).toEqual(['http://localhost:5173/**', 'https://astrohealth.vercel.app/**']);
+    expect(p.site_url).toBe('https://carebridge-innovations.vercel.app');
+    expect(p.uri_allow_list.split(',')).toEqual(['http://localhost:5173/**', 'https://carebridge-innovations.vercel.app/**']);
     expect(p).not.toHaveProperty('smtp_host');
+  });
+
+  it('removes the unrelated astrohealth.vercel.app and refuses it as the site', () => {
+    const p = authSettingsPatch({
+      siteUrl: 'https://carebridge-innovations.vercel.app',
+      existingAllowList: 'https://astrohealth.vercel.app/**,http://localhost:5173/**',
+    });
+    expect(p.uri_allow_list).toBe('http://localhost:5173/**,https://carebridge-innovations.vercel.app/**');
+    expect(() => authSettingsPatch({ siteUrl: 'https://astrohealth.vercel.app' })).toThrow(/not this app/);
   });
 
   it('does not duplicate the site in the allow-list', () => {

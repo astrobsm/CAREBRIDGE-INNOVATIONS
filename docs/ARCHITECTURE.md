@@ -442,7 +442,8 @@ triggerSync();            // Manual sync
 
 ## 🚀 Deployment URLs
 
-- **Production:** https://astrohealth.vercel.app
+- **Production:** https://carebridge-innovations.vercel.app
+  (not astrohealth.vercel.app — that address belongs to an unrelated project)
 - **Supabase Dashboard:** https://supabase.com/dashboard
 
 ---
