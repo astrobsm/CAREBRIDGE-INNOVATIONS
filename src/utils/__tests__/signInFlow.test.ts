@@ -112,8 +112,15 @@ describe('resolveAppUser (user resolution and linking)', () => {
   });
 
   it('no linked row: the active row with this email, to be linked', () => {
-    const r = resolveAppUser('auth-2', '​ada@X.ng', [rows[1]]);
+    const r = resolveAppUser('auth-2', '​ada@X.ng', [rows[1]], true);
     expect(r).toEqual({ status: 'ok', user: rows[1], needsLink: true });
+  });
+
+  it('an unconfirmed email never claims an existing account', () => {
+    expect(resolveAppUser('auth-2', 'ada@x.ng', [rows[1]], false)).toEqual({ status: 'none' });
+    expect(resolveAppUser('auth-2', 'ada@x.ng', [rows[1]])).toEqual({ status: 'none' });
+    // ...but an account already linked to this Supabase user still signs in.
+    expect(resolveAppUser('auth-1', 'ada@x.ng', rows, false)).toMatchObject({ status: 'ok', needsLink: false });
   });
 
   it('duplicates: the active one, most recently updated', () => {
@@ -122,7 +129,7 @@ describe('resolveAppUser (user resolution and linking)', () => {
       { id: 'off', email: 'b@x.ng', isActive: false, updatedAt: t('2026-09-01') },
       { id: 'new', email: 'B@x.ng', isActive: 1, updatedAt: t('2026-03-01') },
     ];
-    const r = resolveAppUser('auth-9', 'b@x.ng', dupes);
+    const r = resolveAppUser('auth-9', 'b@x.ng', dupes, true);
     expect(r.status === 'ok' && r.user.id).toBe('new');
   });
 
@@ -131,15 +138,15 @@ describe('resolveAppUser (user resolution and linking)', () => {
   });
 
   it('only inactive rows: inactive; nothing at all: none', () => {
-    expect(resolveAppUser('a', 'c@x.ng', [{ id: '1', email: 'c@x.ng', isActive: false }])).toEqual({ status: 'inactive' });
-    expect(resolveAppUser('a', 'd@x.ng', rows)).toEqual({ status: 'none' });
-    expect(resolveAppUser('a', '', rows)).toEqual({ status: 'none' });
+    expect(resolveAppUser('a', 'c@x.ng', [{ id: '1', email: 'c@x.ng', isActive: false }], true)).toEqual({ status: 'inactive' });
+    expect(resolveAppUser('a', 'd@x.ng', rows, true)).toEqual({ status: 'none' });
+    expect(resolveAppUser('a', '', rows, true)).toEqual({ status: 'none' });
   });
 
   it('reads PostgREST rows', () => {
     const row = cloudRowForResolution({ id: 7, email: 'e@x.ng', is_active: true, auth_user_id: null, updated_at: '2026-01-01' });
     expect(row).toMatchObject({ id: '7', email: 'e@x.ng', isActive: true, authUserId: null });
-    expect(resolveAppUser('z', 'e@x.ng', [row])).toMatchObject({ status: 'ok', needsLink: true });
+    expect(resolveAppUser('z', 'e@x.ng', [row], true)).toMatchObject({ status: 'ok', needsLink: true });
   });
 
   it('AuthContext links through the server first (claim_app_user), the email fallback only before the migration', () => {

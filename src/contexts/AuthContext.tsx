@@ -310,7 +310,10 @@ async function localCandidates(authUserId: string, email: string): Promise<User[
 
 /** Resolve from this device's copy only (the server is unreachable). */
 async function resolveLocally(authUser: AuthUser): Promise<Resolution> {
-  const result = resolveAppUser(authUser.id, authUser.email ?? '', await localCandidates(authUser.id, authUser.email ?? ''));
+  const result = resolveAppUser(
+    authUser.id, authUser.email ?? '', await localCandidates(authUser.id, authUser.email ?? ''),
+    !!authUser.email_confirmed_at,
+  );
   if (result.status === 'ok') return { status: 'ok', user: result.user };
   return { status: result.status };
 }
@@ -373,7 +376,7 @@ async function resolveOnlineAppUser(authUser: AuthUser): Promise<Resolution> {
       // email the way sign-in always has, on the server's rows and ours.
       const { data } = await sb.from('users').select('*').ilike('email', likeExact(email));
       const cloud = (data ?? []).map(r => cloudRowForResolution(r as Record<string, unknown>));
-      const result = resolveAppUser(authUser.id, email, cloud);
+      const result = resolveAppUser(authUser.id, email, cloud, !!authUser.email_confirmed_at);
       if (result.status === 'ok') row = result.user.row;
       else if (result.status === 'inactive') return { status: 'inactive' };
     }

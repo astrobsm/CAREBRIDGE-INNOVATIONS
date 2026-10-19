@@ -90,12 +90,19 @@ export function resolveAppUser<T extends AppUserRow>(
   authUserId: string,
   email: string,
   rows: T[],
+  emailConfirmed = false,
 ): AppUserResolution<T> {
   const linked = rows.filter(r => r.authUserId === authUserId);
   if (linked.length > 0) {
     const user = pickSignInAccount(linked);
     return user ? { status: 'ok', user, needsLink: false } : { status: 'inactive' };
   }
+
+  // Matching by email hands over someone's existing account, so the email must
+  // be proven. Without this, a sign-up with a colleague's address — on a project
+  // with email confirmation off — would sign in as that colleague. Mirrors the
+  // email_confirmed_at check in claim_app_user().
+  if (!emailConfirmed) return { status: 'none' };
 
   const loginEmail = normaliseEmail(email);
   if (!loginEmail) return { status: 'none' };
