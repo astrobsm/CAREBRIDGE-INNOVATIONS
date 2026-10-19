@@ -5,6 +5,39 @@ Supabase Auth, and the database stops being open to anyone holding the public
 anon key. This is the exact order to roll it out in. **Do the steps in order** —
 each one is safe only because the ones before it are done.
 
+## The guided way: `node scripts/rollout.mjs`
+
+Run it in a terminal from the repository root. It walks every step below as a
+menu — "run every remaining step in order", or one step at a time — and offers
+the options for each (automatic, by hand with the SQL copied to your clipboard
+and the Supabase SQL editor opened, or skip). It remembers what is done per
+Supabase project (in the git-ignored `supabase/.combined/rollout-state.json`;
+never any secret), and it refuses to merge before the users are migrated, or to
+lock the database before sign-in is verified, unless you type `MERGE` / `LOCK`.
+Keys, passwords and tokens are typed with echo off and kept in memory only.
+
+Choose **"Just give me the SQL scripts"** in its menu for the files alone:
+`supabase/.combined/all-migrations.sql` (all migrations, one transaction),
+`supabase/.combined/verify.sql`, and the lockdown and rollback in `supabase/manual/`.
+
+## Re-running migrations after the lockdown
+
+Older migrations (`20260127224153_fix_users_rls.sql` and others) create
+"Allow all access" policies. **Replaying them after step 8 re-opens those
+tables.** That happens when the combined script is pasted again, or when
+`supabase db push` runs against an empty migration history. So:
+
+* `node scripts/db-sql.mjs --with-lockdown` builds the combined script with the
+  lockdown re-applied inside the same transaction; the rollout script does this
+  automatically once the lockdown is recorded as done.
+* `npm run db:check` now fails any migration from `20261019090000` on that
+  creates a policy open to everyone (`USING (true)`, `TO anon`/`public`) unless
+  the line above it says `-- public-access: <why>`.
+* The lockdown records `app_private.rls_lockdown_state.in_force`; the rollback
+  sets it false. The migrations workflow does **not** yet re-apply the lockdown
+  after a push — if you want that, add a step that runs the lockdown file with
+  `psql` when `in_force` is true. After any CI replay, re-run step 8.
+
 ## What changes
 
 | Before | After |

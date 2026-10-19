@@ -66,6 +66,20 @@ CREATE TABLE IF NOT EXISTS app_private.rls_lockdown_view_grants (
   saved_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Whether the lockdown is in force. The backup tables outlive a rollback, so
+-- they cannot answer that; this row can. The migrations workflow reads it after
+-- every push and re-applies this file while it is on, because replaying the
+-- migrations (20260127224153_fix_users_rls.sql among others) recreates
+-- "Allow all access" policies and would otherwise silently re-open the data.
+CREATE TABLE IF NOT EXISTS app_private.rls_lockdown_state (
+  id         BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+  in_force   BOOLEAN NOT NULL,
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO app_private.rls_lockdown_state (id, in_force, changed_at)
+VALUES (TRUE, TRUE, now())
+ON CONFLICT (id) DO UPDATE SET in_force = TRUE, changed_at = now();
+
 -- ── Every table: drop open policies, enable RLS, members only ───────────────
 DO $$
 DECLARE

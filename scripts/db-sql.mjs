@@ -31,6 +31,7 @@ import { checkMigrations, reportMigrations } from './check-migrations.mjs';
 const DIR = 'supabase/migrations';
 const OUT_DIR = 'supabase/.combined';
 const OUT = join(OUT_DIR, 'all-migrations.sql');
+const LOCKDOWN = 'supabase/manual/20261019100000_rls_lockdown.sql';
 
 const rule = (char = '=') => char.repeat(76);
 
@@ -76,6 +77,28 @@ function main() {
       `-- ${rule('-')}`,
       '',
       readFileSync(join(DIR, file), 'utf8').trimEnd(),
+      '',
+    );
+  }
+
+  // --with-lockdown: for a database where the RLS lockdown is already in force.
+  // Replaying the migrations recreates their "Allow all access" policies, so the
+  // lockdown is re-applied before the same COMMIT — the data is never open, not
+  // even between two statements. Its own BEGIN/COMMIT are dropped so it joins
+  // this transaction.
+  if (process.argv.includes('--with-lockdown')) {
+    const lockdown = readFileSync(LOCKDOWN, 'utf8')
+      .split(/\r?\n/)
+      .filter((line) => !/^\s*(BEGIN|COMMIT)\s*;\s*$/i.test(line))
+      .join('\n')
+      .trimEnd();
+    parts.push(
+      '',
+      `-- ${rule('-')}`,
+      `-- ${LOCKDOWN} (re-applied: the lockdown is in force on this database)`,
+      `-- ${rule('-')}`,
+      '',
+      lockdown,
       '',
     );
   }

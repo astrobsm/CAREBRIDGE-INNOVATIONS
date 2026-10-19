@@ -100,6 +100,16 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Switch the lockdown off, so the migrations workflow stops re-applying it.
+CREATE TABLE IF NOT EXISTS app_private.rls_lockdown_state (
+  id         BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+  in_force   BOOLEAN NOT NULL,
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO app_private.rls_lockdown_state (id, in_force, changed_at)
+VALUES (TRUE, FALSE, now())
+ON CONFLICT (id) DO UPDATE SET in_force = FALSE, changed_at = now();
+
 COMMIT;
 
 NOTIFY pgrst, 'reload schema';
