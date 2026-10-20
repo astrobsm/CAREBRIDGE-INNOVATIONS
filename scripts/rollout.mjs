@@ -464,7 +464,7 @@ const steps = {
   async scoping() {
     console.log('\n  Today every signed-in member sees every hospital\'s patients. This limits each');
     console.log('  person to the patients of their own hospitals (plus those seen, referred or');
-    console.log('  discussed there). Super admins still see everything. docs/AUTH_ROLLOUT.md, step 11.');
+    console.log('  discussed there). Super admins still see everything. docs/AUTH_ROLLOUT.md, step 10.');
     console.log('  Rehearse it on a staging copy first (choose "Another project" at the start).');
     const how = await choose('Limit staff to their own hospitals?', [
       { key: 'apply', label: 'Copy the hospital scoping script for the SQL editor', recommended: true },
