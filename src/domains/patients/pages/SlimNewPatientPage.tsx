@@ -14,6 +14,7 @@ import { HospitalSelector } from '../../../components/hospital';
 import type { Patient } from '../../../types';
 import { HospitalNumberField, numberCheckBlocks, type NumberCheck } from '../components/HospitalNumberField';
 import { registerPatient, isDuplicateHospitalNumberError } from '../services/patientDedupeService';
+import { registrationScopeProblem } from '../services/registrationScope';
 
 /**
  * SLIM Patient Registration
@@ -76,6 +77,11 @@ export default function SlimNewPatientPage() {
       toast.error(numberCheck.state === 'checking'
         ? 'Still checking the hospital number - try again in a moment.'
         : 'This hospital number is already registered. Open the existing record instead.');
+      return;
+    }
+    const scopeProblem = await registrationScopeProblem(data.hospitalId, user);
+    if (scopeProblem) {
+      toast.error(scopeProblem, { duration: 8000 });
       return;
     }
     setIsLoading(true);
