@@ -2,7 +2,7 @@
 /**
  * Guided rollout of Supabase Auth and the ported features.
  *
- *   npm run rollout
+ *   node scripts/rollout.mjs
  *
  * A menu: run every step in order, or pick one. Each step offers its options
  * (do it automatically, do it by hand with the SQL copied for you, or skip),
@@ -102,7 +102,7 @@ function npxArgs(pkgAndArgs) {
     join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js'),
   ].filter(Boolean);
   const cli = candidates.find((p) => existsSync(p));
-  if (!cli) throw new Error('Could not find npx. Run this through `npm run rollout`.');
+  if (!cli) throw new Error('Could not find npx, which ships with Node.js. Reinstall Node.js and try again.');
   return [process.execPath, [cli, ...pkgAndArgs]];
 }
 
@@ -534,7 +534,7 @@ async function main() {
       }
     }
   }
-  safeLog('\nBye. Progress is saved; run `npm run rollout` to carry on.');
+  safeLog('\nBye. Progress is saved; run `node scripts/rollout.mjs` to carry on.');
 }
 
 main().catch((e) => { safeError(`Rollout failed: ${e?.message || e}`); process.exit(1); });

@@ -37,7 +37,15 @@ export function nextStep(done = {}) {
 }
 
 export const PRODUCTION_REF = 'mgblgewvpzcaimqaeqcp';
-export const DEFAULT_SITE_URL = 'https://astrohealth.vercel.app';
+// The production alias of this repository's Vercel project (also the GitHub
+// repository's homepage).
+export const DEFAULT_SITE_URL = 'https://carebridge-innovations.vercel.app';
+
+// Addresses that are NOT this app. astrohealth.vercel.app — named in older docs
+// — is an unrelated project (HorizonMed). Auth emails carry sign-in tokens in
+// their redirect, so these are removed from the allow-list whenever it is
+// written.
+export const FOREIGN_SITES = ['https://astrohealth.vercel.app'];
 
 export const supabaseUrlFor = (ref) => `https://${ref}.supabase.co`;
 export const sqlEditorUrlFor = (ref) => `https://supabase.com/dashboard/project/${ref}/sql/new`;
@@ -68,7 +76,10 @@ export function authSettingsPatch({ siteUrl, existingAllowList = '', smtp = null
   const site = normaliseSiteUrl(siteUrl);
   if (!site) throw new Error(`Not a usable https site URL: ${siteUrl}`);
 
-  const allow = new Set(String(existingAllowList || '').split(',').map((s) => s.trim()).filter(Boolean));
+  if (FOREIGN_SITES.includes(site)) throw new Error(`${site} is not this app (it belongs to another project).`);
+
+  const foreign = (entry) => FOREIGN_SITES.some((f) => entry === f || entry.startsWith(`${f}/`));
+  const allow = new Set(String(existingAllowList || '').split(',').map((s) => s.trim()).filter((s) => s && !foreign(s)));
   allow.add(`${site}/**`);
 
   const patch = {
