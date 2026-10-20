@@ -62,7 +62,7 @@ describe('rollout ordering', () => {
   });
 
   it('merging and locking need a typed word to override', () => {
-    expect(GUARDED).toEqual({ merge: 'MERGE', lockdown: 'LOCK' });
+    expect(GUARDED).toEqual({ merge: 'MERGE', lockdown: 'LOCK', scoping: 'SCOPE' });
   });
 
   it('resumes at the first step not done', () => {
@@ -214,7 +214,7 @@ describe('migrations can never quietly re-open data', () => {
     // Its own BEGIN/COMMIT are stripped, and it is pushed before the final COMMIT.
     expect(src).toMatch(/--with-lockdown/);
     expect(src).toMatch(/\(BEGIN\|COMMIT\)/);
-    expect(src.indexOf("includes('--with-lockdown')")).toBeLessThan(src.indexOf("parts.push('', 'COMMIT;', '')"));
+    expect(src.indexOf("if (lockdown) {")).toBeLessThan(src.indexOf("parts.push('', 'COMMIT;', '')"));
   });
 });
 

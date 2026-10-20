@@ -17,10 +17,24 @@ export const STEPS = [
   { id: 'merge', title: 'Merge the pull request (deploys the new sign-in)', needs: ['vercel', 'auth-settings', 'migrations', 'users'] },
   { id: 'verify-signin', title: 'Check people can sign in on the live site', needs: ['merge'] },
   { id: 'lockdown', title: 'Lock the database to signed-in members', needs: ['merge', 'verify-signin'] },
+  // supabase/manual/20261020100000_hospital_scoping.sql: narrows the lockdown
+  // from "every member" to "members of the patient's hospitals".
+  { id: 'scoping', title: 'Limit staff to their own hospitals', needs: ['lockdown'] },
 ];
 
 /** Steps that may only be overridden by typing a confirmation word. */
-export const GUARDED = { merge: 'MERGE', lockdown: 'LOCK' };
+export const GUARDED = { merge: 'MERGE', lockdown: 'LOCK', scoping: 'SCOPE' };
+
+/**
+ * The db-sql.mjs flags for re-applying the migrations to a database in this
+ * state: the lockdown — and hospital scoping on top of it — must be re-applied
+ * in the same transaction, or replaying old migrations would widen access.
+ */
+export function migrationSqlFlags(done = {}) {
+  if (done.scoping) return ['--with-lockdown', '--with-scoping'];
+  if (done.lockdown) return ['--with-lockdown'];
+  return [];
+}
 
 export const stepById = (id) => STEPS.find((s) => s.id === id);
 
