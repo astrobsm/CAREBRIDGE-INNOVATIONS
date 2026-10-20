@@ -107,6 +107,40 @@ export function checkMigrations(dir = DIR) {
 }
 
 /** Print a result. Returns true when everything is safe. */
+export const SCOPING_FILE = 'supabase/manual/20261020100000_hospital_scoping.sql';
+
+/**
+ * Every table a migration creates must be classified in the hospital-scoping
+ * file (patient / hospital / parent / members ...). The scoping refuses to
+ * apply with an unclassified table in the database, and a table created after
+ * it was applied stays members-wide until it is re-applied — so the class is
+ * decided when the table is written, not discovered in production.
+ *
+ * @returns {{ ok: boolean, problems: string[], classified: Set<string> }}
+ */
+export function checkScopingClassification(dir = DIR, scopingFile = SCOPING_FILE) {
+  const classified = classifiedTables(readFileSync(scopingFile, 'utf8'));
+  const problems = [];
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {
+    const sql = readFileSync(join(dir, file), 'utf8').replace(/--.*$/gm, '');
+    for (const m of sql.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?"?([A-Za-z0-9_]+)"?\s*\(/gi)) {
+      const name = m[1].toLowerCase();
+      if (name.startsWith('family_')) continue;
+      if (!classified.has(name)) {
+        problems.push(`${file}  CREATE TABLE ${name} — not classified in ${scopingFile}; add it to hospital_scoping_classes`);
+      }
+    }
+  }
+  return { ok: problems.length === 0, problems, classified };
+}
+
+/** The table names in the scoping file's classification list. */
+export function classifiedTables(scopingSql) {
+  const list = String(scopingSql).match(/INSERT INTO app_private\.hospital_scoping_classes[^;]*?VALUES([\s\S]*?\));\s*$/m);
+  if (!list) throw new Error('No hospital_scoping_classes list found in the scoping file.');
+  return new Set([...list[1].matchAll(/^\s*\(\s*'([a-z0-9_]+)'\s*,/gm)].map((m) => m[1]));
+}
+
 export function reportMigrations(result = checkMigrations()) {
   if (!result.ok) {
     console.error('Migrations that are NOT safe to re-run:\n');
@@ -126,5 +160,13 @@ export function reportMigrations(result = checkMigrations()) {
 // CLI entry: only when run directly, not when imported.
 const invoked = process.argv[1] ? resolve(process.argv[1]) : '';
 if (invoked && resolve(fileURLToPath(import.meta.url)) === invoked) {
-  process.exit(reportMigrations() ? 0 : 1);
+  const safe = reportMigrations();
+  const scoping = checkScopingClassification();
+  if (!scoping.ok) {
+    console.error('\nTables with no hospital-scoping class:\n');
+    for (const p of scoping.problems) console.error(`  ${p}`);
+  } else {
+    console.log(`Every table the migrations create is classified for hospital scoping (${scoping.classified.size} classified).`);
+  }
+  process.exit(safe && scoping.ok ? 0 : 1);
 }

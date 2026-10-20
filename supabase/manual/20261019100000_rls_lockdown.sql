@@ -9,8 +9,11 @@
 --
 -- What it does, for every table in the public schema EXCEPT family_* tables
 -- and the public booking table:
---   * backs up, then drops, every policy that grants to anon or PUBLIC or
---     whose condition is literally `true` ("Allow all access");
+--   * backs up, then drops, every policy whose condition is literally `true`
+--     ("Allow all access"); a permissive anon/PUBLIC policy with a real
+--     condition is kept but moved to authenticated; restrictive policies are
+--     left alone (an earlier version dropped every PUBLIC policy, which turned
+--     app_secrets' USING (false) into members-may-read);
 --   * enables RLS where it was off;
 --   * creates one policy: signed-in, active AstroHEALTH users
 --     (public.is_app_member()) may read and write.
@@ -24,6 +27,10 @@
 --
 -- Re-runnable: policies are dropped before being created, and the backup keeps
 -- the FIRST copy of every policy it saw.
+--
+-- Hospital scoping (20261020100000_hospital_scoping.sql) narrows this further.
+-- While it is on, the end of this file re-applies it in the same transaction,
+-- so re-running the lockdown never widens access back to every hospital.
 -- =============================================================================
 
 BEGIN;
@@ -95,19 +102,29 @@ BEGIN
        AND c.relname NOT LIKE 'family\_%'
        AND c.relname <> 'public_clinic_bookings'
   LOOP
+    -- Open policies ("Allow all access": a condition that is literally true)
+    -- are dropped. A PERMISSIVE policy for anon/PUBLIC with a real condition
+    -- (owner-only, deny-all, ...) keeps its condition but stops applying to
+    -- anon: it is moved to authenticated. RESTRICTIVE policies only ever
+    -- narrow access and are left exactly as they are. Everything changed is
+    -- backed up first, so the rollback restores it as it was.
     FOR p IN
       SELECT * FROM pg_policies
        WHERE schemaname = 'public'
          AND tablename = t.name
          AND policyname NOT LIKE 'app\_%'
-         AND (roles && ARRAY['public', 'anon']::name[]
-              OR btrim(coalesce(qual, '')) = 'true'
-              OR btrim(coalesce(with_check, '')) = 'true')
+         AND (btrim(coalesce(qual, '')) = 'true'
+              OR btrim(coalesce(with_check, '')) = 'true'
+              OR (permissive = 'PERMISSIVE' AND roles && ARRAY['public', 'anon']::name[]))
     LOOP
       INSERT INTO app_private.rls_lockdown_policies (tablename, policyname, permissive, roles, cmd, qual, with_check)
       VALUES (p.tablename, p.policyname, p.permissive, p.roles::text[], p.cmd, p.qual, p.with_check)
       ON CONFLICT DO NOTHING;
-      EXECUTE format('DROP POLICY %I ON public.%I', p.policyname, t.name);
+      IF btrim(coalesce(p.qual, '')) = 'true' OR btrim(coalesce(p.with_check, '')) = 'true' THEN
+        EXECUTE format('DROP POLICY %I ON public.%I', p.policyname, t.name);
+      ELSE
+        EXECUTE format('ALTER POLICY %I ON public.%I TO authenticated', p.policyname, t.name);
+      END IF;
     END LOOP;
 
     IF NOT t.rls THEN
@@ -115,7 +132,16 @@ BEGIN
       EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t.name);
     END IF;
 
-    IF t.name <> 'users' THEN
+    -- users: own policies below. No client access at all (no members policy;
+    -- the service role bypasses RLS): user_hospitals (which hospitals a user
+    -- belongs to — written only by /api/admin-users), app_secrets (the VAPID
+    -- private key; its original policy was USING (false)), and the push
+    -- internals the app never reads (only the send-push edge function does).
+    -- Matches 20261020110000_security_hardening.sql, whose RESTRICTIVE
+    -- app_server_only policies this file never drops (app_* are skipped).
+    IF t.name IN ('user_hospitals', 'app_secrets', 'push_notification_log', 'push_notification_queue', 'notification_logs') THEN
+      EXECUTE format('DROP POLICY IF EXISTS app_members_all ON public.%I', t.name);
+    ELSIF t.name <> 'users' THEN
       EXECUTE format('DROP POLICY IF EXISTS app_members_all ON public.%I', t.name);
       EXECUTE format(
         'CREATE POLICY app_members_all ON public.%I FOR ALL TO authenticated '
@@ -232,6 +258,33 @@ END $$;
 -- value left (a duplicate row it reported, or a row an old client wrote since)
 -- is a plaintext secret readable by every member. Not restored by the rollback.
 UPDATE public.users SET password = NULL WHERE password IS NOT NULL;
+
+-- ── Hospital scoping, when it is on ─────────────────────────────────────────
+-- The members-only policies above are wider than hospital scoping
+-- (20261020100000_hospital_scoping.sql). While app_private.access_policy_state
+-- says hospital_scoped, put the scoping straight back in this same
+-- transaction, so re-applying the lockdown never opens one hospital's data to
+-- another — not even between two statements. If the scoping cannot be
+-- re-applied (e.g. a new table is not classified yet), this fails and the
+-- whole lockdown run is rolled back: loud, never wider.
+-- db-sql --with-scoping sets app.hospital_scoping_follows when the full
+-- scoping file comes later in the same transaction (with the repository's
+-- newest classification); it is re-applied there instead.
+DO $$
+BEGIN
+  IF to_regclass('app_private.access_policy_state') IS NULL
+     OR NOT EXISTS (SELECT 1 FROM app_private.access_policy_state WHERE hospital_scoped IS TRUE) THEN
+    RETURN;
+  END IF;
+  IF coalesce(current_setting('app.hospital_scoping_follows', true), '') = 'on' THEN
+    RAISE NOTICE 'Hospital scoping is on; it is re-applied later in this transaction.';
+    RETURN;
+  END IF;
+  IF to_regprocedure('app_private.apply_hospital_scoping()') IS NULL THEN
+    RAISE EXCEPTION 'Hospital scoping is on but app_private.apply_hospital_scoping() is missing. Apply supabase/manual/20261020100000_hospital_scoping.sql in the same run (node scripts/db-sql.mjs --with-lockdown --with-scoping).';
+  END IF;
+  PERFORM app_private.apply_hospital_scoping();
+END $$;
 
 COMMIT;
 

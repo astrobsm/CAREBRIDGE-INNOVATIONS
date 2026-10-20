@@ -24,6 +24,12 @@ BEGIN
   IF to_regclass('app_private.rls_lockdown_policies') IS NULL THEN
     RAISE EXCEPTION 'No lockdown backup found (app_private.rls_lockdown_policies): the lockdown was never applied here.';
   END IF;
+  -- Hospital scoping sits on top of the lockdown; undo it first, or its
+  -- policies would be left mixed with the old open ones.
+  IF to_regclass('app_private.access_policy_state') IS NOT NULL
+     AND EXISTS (SELECT 1 FROM app_private.access_policy_state WHERE hospital_scoped IS TRUE) THEN
+    RAISE EXCEPTION 'Hospital scoping is on. Apply supabase/manual/20261020100000_hospital_scoping_rollback.sql first.';
+  END IF;
 END $$;
 
 -- ── Drop the lockdown's own policies ────────────────────────────────────────
