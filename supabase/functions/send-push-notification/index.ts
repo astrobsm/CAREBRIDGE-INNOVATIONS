@@ -39,6 +39,10 @@ interface RequestBody {
   payload: NotificationPayload;
 }
 
+const MAX_TITLE = 200;
+const MAX_BODY = 2000;
+const MAX_RECIPIENTS = 500;
+
 // CORS headers for Supabase Edge Functions
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,21 +56,52 @@ serve(async (req) => {
   }
 
   try {
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // ── Who is calling ──────────────────────────────────────────────────────
+    // The platform's JWT check accepts the anon key (it is a valid JWT), and
+    // the anon key ships in the web bundle — so without this anyone could push
+    // any text and link to every device. Only a signed-in, ACTIVE AstroHEALTH
+    // user may send, and only within their own hospital unless super_admin.
+    const json = (status: number, data: unknown) =>
+      new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+    if (!token) return json(401, { error: 'Sign in to send notifications.' });
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authData?.user) return json(401, { error: 'Your session has expired. Please sign in again.' });
+    const { data: callerRows, error: callerError } = await supabase
+      .from('users')
+      .select('id, role, hospital_id, is_active')
+      .eq('auth_user_id', authData.user.id)
+      .limit(1);
+    if (callerError) return json(503, { error: 'Could not verify your account.' });
+    const caller = callerRows?.[0];
+    if (!caller || caller.is_active !== true) return json(403, { error: 'Your account is not active.' });
+
     // Parse request body
     const body: RequestBody = await req.json();
     const { userId, userIds, hospitalId, role, payload } = body;
 
     if (!payload || !payload.title) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required payload with title' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json(400, { error: 'Missing required payload with title' });
     }
-
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    if (String(payload.title).length > MAX_TITLE || String(payload.body ?? '').length > MAX_BODY) {
+      return json(413, { error: 'Notification text too long.' });
+    }
+    if (Array.isArray(userIds) && userIds.length > MAX_RECIPIENTS) {
+      return json(413, { error: `At most ${MAX_RECIPIENTS} recipients per request.` });
+    }
+    if (hospitalId && caller.role !== 'super_admin' && String(hospitalId) !== String(caller.hospital_id ?? '')) {
+      return json(403, { error: 'You can only notify your own hospital.' });
+    }
+    // The click target must stay inside the app (the service worker also checks).
+    if (payload.data && typeof payload.data.url === 'string' && !/^\/(?![\/\\])/.test(payload.data.url)) {
+      delete payload.data.url;
+    }
 
     // Get VAPID keys from secrets
     const { data: vapidPublicData } = await supabase
