@@ -24,9 +24,12 @@ import {
  * Who may sign a clerking. The original default (Clinical Governance D6) was
  * registrar, junior registrar, senior registrar and consultant, plus admins;
  * a house officer submits for review. `resident` is this app's junior
- * registrar.
+ * registrar. Surgeons and plastic surgeons sign too (clinical decision
+ * 2026-10-20); approving scribe plans stays consultant-only.
  */
-export const SIGN_ROLES: readonly UserRole[] = ['registrar', 'resident', 'senior_registrar', 'consultant', 'super_admin', 'hospital_admin'];
+export const SIGN_ROLES: readonly UserRole[] = [
+  'registrar', 'resident', 'senior_registrar', 'consultant', 'surgeon', 'plastic_surgeon', 'super_admin', 'hospital_admin',
+];
 /** Who may mark a signed encounter entered in error (D6 amend roles). */
 export const AMEND_ROLES: readonly UserRole[] = ['senior_registrar', 'consultant', 'super_admin', 'hospital_admin'];
 

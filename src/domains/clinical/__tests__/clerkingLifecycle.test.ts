@@ -29,6 +29,11 @@ describe('who may sign', () => {
     expect(canSign(REG)).toBe(true);
     expect(canSign({ id: 'c', role: 'consultant' })).toBe(true);
     expect(canSign(HO)).toBe(false);
+    // Clinical decision 2026-10-20: surgeons and plastic surgeons sign; doctors do not.
+    expect(canSign({ id: 's', role: 'surgeon' })).toBe(true);
+    expect(canSign({ id: 'p', role: 'plastic_surgeon' })).toBe(true);
+    expect(canSign({ id: 'd', role: 'doctor' })).toBe(false);
+    expect(canSign({ id: 'm', role: 'medical_officer' })).toBe(false);
     expect(assertCanSubmit(enc(clerking()), 3, HO, false)).toBe('pending_review');
     expect(assertCanSubmit(enc(clerking()), 3, REG, false)).toBe('signed');
   });

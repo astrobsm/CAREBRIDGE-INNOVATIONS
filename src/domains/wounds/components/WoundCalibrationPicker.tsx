@@ -27,12 +27,12 @@ import { Check, Move, RotateCcw, X } from 'lucide-react';
 /**
  * Real-world sizes in centimetres. The card figures are the ISO/IEC 7810 ID-1
  * dimensions used by every bank and ID card, which makes a card the most
- * reliably available object in a clinic; coin diameters are the issuing mints'
- * specifications.
+ * reliably available object in a clinic.
  *
- * Nigerian coins are deliberately absent: the published diameters disagree
- * between sources, and a reference that is 10% off makes every area ~20% off.
- * Use "Other — enter size" with a measured coin until the figures are verified.
+ * Cards and rulers only, by clinical decision (2026-10-20). Coins are absent:
+ * the published Nigerian diameters disagree between sources, foreign coins are
+ * not to hand, and a reference that is 10% off makes every area ~20% off.
+ * "Other — enter size" remains for any object whose size has been measured.
  */
 export const REFERENCE_OBJECTS: { id: string; label: string; cm: number; hint: string }[] = [
   { id: 'card', label: 'Bank / ID card (long edge)', cm: 8.56, hint: 'ISO ID-1 — 85.6 mm. The most dependable everyday marker.' },
@@ -40,9 +40,6 @@ export const REFERENCE_OBJECTS: { id: string; label: string; cm: number; hint: s
   { id: 'ruler1', label: 'Ruler — 1 cm', cm: 1, hint: 'Mark exactly one centimetre.' },
   { id: 'ruler5', label: 'Ruler — 5 cm', cm: 5, hint: 'Longer spans give a more accurate scale.' },
   { id: 'ruler10', label: 'Ruler — 10 cm', cm: 10, hint: 'Best accuracy if a ruler is available.' },
-  { id: 'coin_2p', label: 'UK 2p', cm: 2.59, hint: '25.9 mm diameter.' },
-  { id: 'us_quarter', label: 'US quarter', cm: 2.426, hint: '24.26 mm diameter.' },
-  { id: 'euro1', label: '€1', cm: 2.325, hint: '23.25 mm diameter.' },
   { id: 'custom', label: 'Other — enter size', cm: 0, hint: 'Any object whose real size you know.' },
 ];
 
