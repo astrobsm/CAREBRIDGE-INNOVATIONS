@@ -83,3 +83,57 @@ export function decideAdminAction(caller, action, target, input = {}) {
   }
   return { allow: true };
 }
+
+// ---------------------------------------------------------------------------
+// Extra hospitals (public.user_hospitals, read by hospital scoping —
+// supabase/manual/20261020100000_hospital_scoping.sql).
+//
+//  - super_admin: grants or revokes any hospital, for any account.
+//  - hospital_admin: only their OWN hospital (users.hospital_id — never one
+//    they were granted, so a grant cannot be passed along), for any account
+//    except a super_admin's. That is how a visiting surgeon from another
+//    hospital is let in to see this hospital's patients.
+//  - everyone else: nothing. Members cannot write the table at all (no RLS
+//    write policy), so this function is the only way in.
+//  - A user's primary hospital is not a grant: change it by editing the user.
+//  - Anyone who may grant may list an account's hospitals.
+// ---------------------------------------------------------------------------
+
+export const MEMBERSHIP_ACTIONS = ['list_hospitals', 'grant_hospital', 'revoke_hospital'];
+
+/**
+ * @param caller  the caller's users row
+ * @param action  'list_hospitals' | 'grant_hospital' | 'revoke_hospital'
+ * @param target  the users row whose hospitals change
+ * @param input   { hospital_id } for grant/revoke
+ * @returns {{ allow: true } | { allow: false, status: number, error: string }}
+ */
+export function decideMembershipAction(caller, action, target, input = {}) {
+  if (!MEMBERSHIP_ACTIONS.includes(action)) return deny(400, `Unknown action "${action}".`);
+  if (!caller || !isActive(caller)) return deny(403, 'Your account is not active.');
+  const role = caller.role;
+  if (role !== 'super_admin' && role !== 'hospital_admin') {
+    return deny(403, 'Only administrators can change which hospitals a user belongs to.');
+  }
+  if (!target) return deny(404, 'User not found.');
+  const isSuper = role === 'super_admin';
+  if (!isSuper && !caller.hospital_id) {
+    return deny(403, 'Your administrator account is not assigned to a hospital.');
+  }
+  if (action === 'list_hospitals') return { allow: true };
+
+  const hospitalId = typeof input.hospital_id === 'string' ? input.hospital_id.trim() : '';
+  if (!hospitalId) return deny(400, 'A hospital is required.');
+  if (action === 'grant_hospital' && sameHospital(hospitalId, target.hospital_id)) {
+    return deny(400, 'That is already this user\'s own hospital.');
+  }
+  if (isSuper) return { allow: true };
+
+  if (target.role === 'super_admin') {
+    return deny(403, 'A super administrator already sees every hospital.');
+  }
+  if (!sameHospital(hospitalId, caller.hospital_id)) {
+    return deny(403, 'You can only grant or remove your own hospital.');
+  }
+  return { allow: true };
+}

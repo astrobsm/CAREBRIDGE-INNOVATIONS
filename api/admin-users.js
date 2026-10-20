@@ -15,6 +15,13 @@
 //       -> { user, temporaryPassword }   (the password is returned this once)
 //   { action: 'reset_password', userId }  -> { user, temporaryPassword }
 //   { action: 'set_active', userId, active }  -> { user }
+//   { action: 'list_hospitals', userId }
+//   { action: 'grant_hospital', userId, hospitalId }
+//   { action: 'revoke_hospital', userId, hospitalId }
+//       -> { userId, primaryHospitalId, hospitals: [{ hospital_id, granted_by, created_at }] }
+//       Extra hospitals (public.user_hospitals) for hospital scoping. Members
+//       have no write access to that table; this is the only way to change it,
+//       so the grant is checked and granted_by is set here, not by the client.
 //
 // Who may do what: _lib/adminUsersPolicy.js.
 // ---------------------------------------------------------------------------
@@ -22,7 +29,7 @@
 import { randomUUID } from 'node:crypto';
 import { guardSameOrigin } from './_lib/sameOrigin.js';
 import { bearerToken, getServiceClient, publicUserRow } from './_lib/supabaseServer.js';
-import { decideAdminAction } from './_lib/adminUsersPolicy.js';
+import { decideAdminAction, decideMembershipAction, MEMBERSHIP_ACTIONS } from './_lib/adminUsersPolicy.js';
 import { generateTempPassword } from './_lib/tempPassword.js';
 import { isPlausibleEmail, likeExact, normaliseEmail } from './_lib/email.js';
 
@@ -41,6 +48,72 @@ async function firstRow(query) {
 
 function isEmailTaken(error) {
   return error?.code === 'email_exists' || error?.code === 'user_already_exists' || error?.status === 422;
+}
+
+/** The table is created by the hand-applied scoping SQL; say so if it is not there. */
+function isMissingTable(error) {
+  const message = String(error?.message || '');
+  return error?.code === '42P01' || error?.code === 'PGRST205'
+    || (/user_hospitals/.test(message) && /does not exist|schema cache/.test(message));
+}
+
+async function handleMembership(admin, res, caller, action, body) {
+  // By id, or — for staff of another hospital, whom a hospital admin cannot
+  // see in User Management — by their exact sign-in email.
+  const userId = text(body.userId);
+  const email = userId ? null : normaliseEmail(body.email);
+  let target = null;
+  if (userId) {
+    target = await firstRow(admin.from('users').select('*').eq('id', userId).limit(1));
+  } else if (email && isPlausibleEmail(email)) {
+    const { data, error } = await admin.from('users').select('*').ilike('email', likeExact(email));
+    if (error) throw error;
+    target = (data || []).find((u) => normaliseEmail(u.email) === email) ?? null;
+  }
+  const hospitalId = text(body.hospitalId);
+  const decision = decideMembershipAction(caller, action, target, { hospital_id: hospitalId });
+  if (!decision.allow) {
+    res.status(decision.status).json({ error: decision.error });
+    return;
+  }
+
+  try {
+    if (action === 'grant_hospital') {
+      const hospital = await firstRow(admin.from('hospitals').select('id').eq('id', hospitalId).limit(1));
+      if (!hospital) {
+        res.status(404).json({ error: 'Hospital not found. Sync the hospital list first.' });
+        return;
+      }
+      const { error } = await admin.from('user_hospitals').upsert(
+        { user_id: String(target.id), hospital_id: String(hospital.id), granted_by: String(caller.id) },
+        { onConflict: 'user_id,hospital_id', ignoreDuplicates: true },
+      );
+      if (error) throw error;
+    } else if (action === 'revoke_hospital') {
+      const { error } = await admin.from('user_hospitals').delete()
+        .eq('user_id', String(target.id)).eq('hospital_id', hospitalId);
+      if (error) throw error;
+    }
+    const { data, error } = await admin.from('user_hospitals')
+      .select('hospital_id, granted_by, created_at').eq('user_id', String(target.id));
+    if (error) throw error;
+    res.status(200).json({
+      userId: String(target.id),
+      name: [target.first_name, target.last_name].filter(Boolean).join(' ') || target.email || null,
+      primaryHospitalId: target.hospital_id ?? null,
+      hospitals: (data || []).map((r) => ({
+        hospital_id: r.hospital_id, granted_by: r.granted_by ?? null, created_at: r.created_at ?? null,
+      })),
+    });
+  } catch (e) {
+    if (isMissingTable(e)) {
+      res.status(503).json({
+        error: 'Extra hospitals are not set up on this database yet (apply supabase/manual/20261020100000_hospital_scoping.sql).',
+      });
+      return;
+    }
+    throw e;
+  }
 }
 
 export default async function handler(req, res) {
@@ -230,6 +303,11 @@ export async function handleAdminUsers(req, res, deps) {
         .from('users').update(patch).eq('id', target.id).select('*');
       if (updateError) throw updateError;
       res.status(200).json({ user: publicUserRow(updated?.[0] ?? { ...target, ...patch }) });
+      return;
+    }
+
+    if (MEMBERSHIP_ACTIONS.includes(action)) {
+      await handleMembership(admin, res, caller, action, body);
       return;
     }
 

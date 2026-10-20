@@ -77,3 +77,37 @@ export async function setAccountActive(userId: string, active: boolean): Promise
   const data = await call<{ user: Record<string, unknown> }>({ action: 'set_active', userId, active });
   return storeLocally(data.user);
 }
+
+// ── Extra hospitals (hospital scoping) ─────────────────────────────────────
+
+export interface HospitalMembership {
+  hospital_id: string;
+  granted_by: string | null;
+  created_at: string | null;
+}
+
+export interface UserHospitals {
+  userId: string;
+  name: string | null;
+  primaryHospitalId: string | null;
+  hospitals: HospitalMembership[];
+}
+
+/** Grant a hospital to staff found by their sign-in email (e.g. a visiting surgeon from another hospital). */
+export function grantHospitalByEmail(email: string, hospitalId: string): Promise<UserHospitals> {
+  return call<UserHospitals>({ action: 'grant_hospital', email, hospitalId });
+}
+
+/** The hospitals a user belongs to beyond their own (users.hospitalId). */
+export function listUserHospitals(userId: string): Promise<UserHospitals> {
+  return call<UserHospitals>({ action: 'list_hospitals', userId });
+}
+
+/** Let a user see a hospital's patients (super admin: any; hospital admin: their own). */
+export function grantUserHospital(userId: string, hospitalId: string): Promise<UserHospitals> {
+  return call<UserHospitals>({ action: 'grant_hospital', userId, hospitalId });
+}
+
+export function revokeUserHospital(userId: string, hospitalId: string): Promise<UserHospitals> {
+  return call<UserHospitals>({ action: 'revoke_hospital', userId, hospitalId });
+}
