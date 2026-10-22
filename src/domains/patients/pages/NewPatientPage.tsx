@@ -26,6 +26,7 @@ import { differenceInYears } from 'date-fns';
 import type { Patient, BloodGroup, Genotype, Hospital, DVTRiskAssessment, PressureSoreRiskAssessment, Comorbidity } from '../../../types';
 import { HospitalNumberField, numberCheckBlocks, type NumberCheck } from '../components/HospitalNumberField';
 import { registerPatient, isDuplicateHospitalNumberError } from '../services/patientDedupeService';
+import { registrationScopeProblem } from '../services/registrationScope';
 
 // Hospital options will be fetched from database
 
@@ -351,6 +352,11 @@ export default function NewPatientPage() {
       toast.error(numberCheck.state === 'checking'
         ? 'Still checking the folder number - try again in a moment.'
         : 'This folder number is already registered. Open the existing record instead.');
+      return;
+    }
+    const scopeProblem = await registrationScopeProblem(data.hospitalId, user);
+    if (scopeProblem) {
+      toast.error(scopeProblem, { duration: 8000 });
       return;
     }
 

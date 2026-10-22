@@ -8,6 +8,10 @@ import { supabase, isSupabaseConfigured, TABLES, LOCAL_TO_CLOUD_TABLE } from './
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { getCloudSession, hasCloudSession, setCloudSession, type CloudSession } from './cloudSession';
 import { canPushUserRow, prepareUserRowsForPush, stripSecretColumns } from './userSyncRules';
+import {
+  EPOCH_ISO, recordTimestamp, planScopePurge, parseAccessPolicy, purgeKey, shouldReconcile,
+  keptUnsyncedMessage, type PurgeMark, type CachedAccessPolicy,
+} from './scopePurge';
 
 // Sync state management
 export interface CloudSyncState {
@@ -112,21 +116,13 @@ function rescheduleSync(): void {
 
 // ── Per-table last-pushed timestamp (dirty-record tracking) ──
 const LAST_PUSH_PREFIX = 'astro_last_push_';
-const EPOCH_ISO = '1970-01-01T00:00:00.000Z';
 
 function getLastPushTime(tableName: string): string {
   return localStorage.getItem(`${LAST_PUSH_PREFIX}${tableName}`) || EPOCH_ISO;
 }
 
-// Resolve a record's effective "modified" timestamp. Many tables have no
-// `updatedAt` (e.g. auditLogs→timestamp, vitalSigns→recordedAt,
-// labRequests→requestedAt); fall back through the common alternatives.
-function recordTimestamp(r: any): string | null {
-  const ts = r?.updatedAt || r?.createdAt || r?.timestamp || r?.recordedAt || r?.requestedAt || r?.modifiedAt;
-  if (!ts) return null;
-  const d = new Date(String(ts));
-  return isNaN(d.getTime()) ? null : d.toISOString();
-}
+// recordTimestamp (a record's effective "modified" time) lives in scopePurge.ts:
+// the push engine and the out-of-scope purge must agree on what "synced" means.
 
 function setLastPushTime(tableName: string, iso: string): void {
   localStorage.setItem(`${LAST_PUSH_PREFIX}${tableName}`, iso);
@@ -753,6 +749,10 @@ export async function fullSync(): Promise<void> {
     // Then push local changes to cloud
     await pushAllToCloud();
 
+    // Hospital scoping: drop synced rows this user can no longer see (a
+    // previous user's patients on a shared device). Never throws.
+    await reconcileLocalScope();
+
     resetBackoff();
     rescheduleSync();
     updateSyncState({
@@ -770,6 +770,128 @@ export async function fullSync(): Promise<void> {
       isSyncing: false,
       error: error instanceof Error ? error.message : 'Sync failed',
     });
+  }
+}
+
+// ===== Hospital scoping: out-of-scope local rows =====
+// See scopePurge.ts for the rule. Runs after a full sync (pull, then push),
+// once per user / hospital set / switch-on of scoping, and again at most every
+// PURGE_RETRY_MS while something had to be kept.
+const SCOPE_PURGE_KEY = 'astrohealth.scopePurge';
+const SCOPE_PAGE = 1000;
+/** Stores the purge never touches: the sync engine's own bookkeeping. */
+const SCOPE_SKIP_STORES = new Set(['syncStatus']);
+
+const ACCESS_POLICY_KEY = 'astrohealth.accessPolicy';
+
+/** The hospitals this user belonged to at the last sync, if scoping is on (null: unknown). */
+export function getCachedAccessPolicy(userId: string | null | undefined): CachedAccessPolicy | null {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem(ACCESS_POLICY_KEY);
+    const cached = raw ? (JSON.parse(raw) as CachedAccessPolicy) : null;
+    return cached && cached.userId === String(userId) ? cached : null;
+  } catch { return null; }
+}
+
+function readPurgeMark(): PurgeMark | null {
+  try {
+    const raw = localStorage.getItem(SCOPE_PURGE_KEY);
+    return raw ? (JSON.parse(raw) as PurgeMark) : null;
+  } catch { return null; }
+}
+
+/** Every id of `cloudTable` the signed-in user can see, or null if that could not be established. */
+async function fetchVisibleIds(cloudTable: string): Promise<Set<string> | null> {
+  if (!supabase) return null;
+  const ids = new Set<string>();
+  // Page until an EMPTY page: the server may cap a page below SCOPE_PAGE, and
+  // stopping at a short page would mistake visible rows for invisible ones.
+  for (let from = 0; ; from += SCOPE_PAGE) {
+    const { data, error } = await supabase
+      .from(cloudTable)
+      .select('id')
+      .order('id', { ascending: true })
+      .range(from, from + SCOPE_PAGE - 1);
+    if (error) return null;
+    if (!data || data.length === 0) return ids;
+    for (const row of data as Array<{ id?: unknown }>) if (row.id !== undefined && row.id !== null) ids.add(String(row.id));
+    if (from > 5_000_000) return null; // runaway guard
+  }
+}
+
+export async function reconcileLocalScope(): Promise<{ purged: number; keptUnsynced: number } | null> {
+  const session = getCloudSession();
+  if (!supabase || !session?.appUserId || !navigator.onLine) return null;
+  try {
+    const { data, error } = await supabase.rpc('app_access_policy');
+    if (error) return null; // scoping not installed on this database: nothing to do
+    const policy = parseAccessPolicy(data);
+    if (policy) {
+      try {
+        localStorage.setItem(ACCESS_POLICY_KEY, JSON.stringify({
+          userId: String(session.appUserId), fetchedAt: Date.now(), policy,
+        } satisfies CachedAccessPolicy));
+      } catch { /* ignore */ }
+    }
+    const last = readPurgeMark();
+    if (!shouldReconcile(session.appUserId, policy, last)) return null;
+
+    let purged = 0;
+    let keptUnsynced = 0;
+    let complete = true;
+    const protect = new Set([String(session.appUserId)]);
+
+    for (const [local, cloud] of Object.entries(LOCAL_TO_CLOUD_TABLE)) {
+      if (SCOPE_SKIP_STORES.has(local)) continue;
+      const table = (db as any)[local];
+      if (!table || typeof table.toArray !== 'function') continue;
+      const rows = await table.toArray();
+      if (rows.length === 0) continue;
+      const visible = await fetchVisibleIds(cloud);
+      if (!visible) { complete = false; continue; } // could not ask: leave this table alone
+      const plan = planScopePurge(rows, visible, getLastPushTime(local), protect);
+      if (plan.purge.length) {
+        suppressAudit();
+        try { await table.bulkDelete(plan.purge); } finally { resumeAudit(); }
+        purged += plan.purge.length;
+      }
+      if (plan.keptUnsynced.length) {
+        keptUnsynced += plan.keptUnsynced.length;
+        complete = false;
+        console.warn(`[CloudSync] Kept ${plan.keptUnsynced.length} unsynced out-of-scope record(s) in ${local}`);
+      }
+    }
+
+    try {
+      localStorage.setItem(SCOPE_PURGE_KEY, JSON.stringify({
+        key: purgeKey(session.appUserId, policy!), at: Date.now(), complete,
+      } satisfies PurgeMark));
+    } catch { /* storage full: it simply runs again next time */ }
+
+    if (purged) console.log(`[CloudSync] Removed ${purged} record(s) outside your hospitals from this device`);
+    if (keptUnsynced) updateSyncState({ error: keptUnsyncedMessage(keptUnsynced) });
+    return { purged, keptUnsynced };
+  } catch (err) {
+    console.warn('[CloudSync] Hospital-scope reconciliation skipped:', err);
+    return null;
+  }
+}
+
+/**
+ * Sign-out: try to upload this person's unsynced work while their session
+ * still exists, so a different user signing in next is not left holding it.
+ * Bounded; never throws.
+ */
+export async function flushPendingChanges(timeoutMs = 8000): Promise<void> {
+  if (!supabase || !navigator.onLine || isSupabasePaymentPaused()) return;
+  try {
+    await Promise.race([
+      pushAllToCloud(),
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
+  } catch (err) {
+    console.warn('[CloudSync] Final upload before sign-out failed:', err);
   }
 }
 

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { v4 as uuidv4 } from 'uuid';
 import type { AuthChangeEvent, Session, User as AuthUser } from '@supabase/supabase-js';
 import { db } from '../database';
-import { syncRecord, startCloudSync, stopCloudSync, userFromCloudRow } from '../services/cloudSyncService';
+import { syncRecord, startCloudSync, stopCloudSync, userFromCloudRow, flushPendingChanges } from '../services/cloudSyncService';
 import { getCloudSession } from '../services/cloudSession';
 import { supabase, AUTH_STORAGE_KEY } from '../services/supabaseClient';
 import { normaliseEmail, toActiveFlag } from '../utils/loginIdentity';
@@ -738,7 +738,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       void releasePushOnSignOut(current.id);
     }
     clearLocalSession();
-    void endSupabaseSession();
+    // Upload what this person still has pending while their session exists
+    // (bounded), so the next person on a shared device is not left holding
+    // work they may not be allowed to see or send. Then end the session.
+    void flushPendingChanges(5000).finally(() => endSupabaseSession());
   }, [clearLocalSession]);
 
   const changePassword = useCallback(async (newPassword: string) => {

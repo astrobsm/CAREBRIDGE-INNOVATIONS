@@ -77,7 +77,10 @@ describe('cloud sync needs a real session', () => {
   it('sign-out stops sync and ends the Supabase session; sign-in starts it', () => {
     const logout = auth.slice(auth.indexOf('const logout = useCallback'), auth.indexOf('const changePassword'));
     expect(logout).toMatch(/clearLocalSession\(\);/);
-    expect(logout).toMatch(/void endSupabaseSession\(\);/);
+    // Pending work is uploaded (bounded) while the session still exists, then
+    // the session ends whatever happened.
+    expect(logout).toMatch(/void flushPendingChanges\(\d+\)\.finally\(\(\) => endSupabaseSession\(\)\);/);
+    expect(logout.indexOf('clearLocalSession();')).toBeLessThan(logout.indexOf('flushPendingChanges('));
     const clear = auth.slice(auth.indexOf('const clearLocalSession'), auth.indexOf('/** Sign in against'));
     expect(clear).toMatch(/stopCloudSync\(\);/);
     expect(auth).toMatch(/supabase\.auth\.signOut\(\{ scope: 'local' \}\)/);

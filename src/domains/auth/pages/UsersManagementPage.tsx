@@ -29,6 +29,7 @@ import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { createAccount, resetAccountPassword, setAccountActive } from '../../../services/adminUsersClient';
 import BulkImportModal from '../../../components/common/BulkImportModal';
+import UserHospitalsModal from '../components/UserHospitalsModal';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { User, UserRole, Hospital } from '../../../types';
 import { findEmailOwner, normaliseEmail } from '../../../utils/loginIdentity';
@@ -357,6 +358,8 @@ export default function UsersManagementPage() {
   const [credentialsUser, setCredentialsUser] = useState<User | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
   const [issuedCredentials, setIssuedCredentials] = useState<{ user: User; password: string } | null>(null);
+  // Hospitals modal: a user to manage, or 'email' to let in staff of another hospital.
+  const [hospitalsFor, setHospitalsFor] = useState<User | 'email' | null>(null);
   const { user: currentUser } = useAuth();
 
   // Fetch users and hospitals
@@ -500,6 +503,14 @@ export default function UsersManagementPage() {
             <Upload className="w-4 h-4" />
             <span className="hidden sm:inline">Bulk Import</span>
             <span className="sm:hidden">Import</span>
+          </button>
+          <button
+            onClick={() => setHospitalsFor('email')}
+            className="btn btn-secondary flex items-center gap-2"
+            title="Let staff from another hospital see this hospital's patients"
+          >
+            <Building2 className="w-4 h-4" />
+            <span className="hidden sm:inline">Visiting Staff</span>
           </button>
           <button
             onClick={() => setShowAddUser(true)}
@@ -709,6 +720,18 @@ export default function UsersManagementPage() {
                           <RefreshCw className="w-4 h-4" />
                           Reset Password
                         </button>
+                        {user.role !== 'super_admin' && (
+                          <button
+                            onClick={() => {
+                              setHospitalsFor(user);
+                              setActiveMenu(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <Building2 className="w-4 h-4" />
+                            Hospitals
+                          </button>
+                        )}
                         {user.isActive ? (
                           <button
                             onClick={() => {
@@ -813,6 +836,18 @@ export default function UsersManagementPage() {
             user={resetPasswordUser}
             onClose={() => setResetPasswordUser(null)}
             onReset={handleResetPassword}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Extra hospitals (hospital scoping) */}
+      <AnimatePresence>
+        {hospitalsFor && (
+          <UserHospitalsModal
+            user={hospitalsFor === 'email' ? null : hospitalsFor}
+            hospitals={hospitals || []}
+            grantable={assignableHospitals(currentUser, hospitals || [])}
+            onClose={() => setHospitalsFor(null)}
           />
         )}
       </AnimatePresence>

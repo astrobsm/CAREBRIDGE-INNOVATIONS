@@ -33,6 +33,7 @@ import {
   STEPS, GUARDED, stepById, missingPrerequisites, nextStep,
   PRODUCTION_REF, DEFAULT_SITE_URL, supabaseUrlFor, sqlEditorUrlFor, isProjectRef,
   normaliseSiteUrl, authSettingsPatch, LEAKED_ACCOUNTS, passwordCsvName, describeServiceKey,
+  migrationSqlFlags,
 } from './lib/rolloutPlan.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -42,6 +43,9 @@ const COMBINED_SQL = join(STATE_DIR, 'all-migrations.sql');
 const VERIFY_SQL = join(STATE_DIR, 'verify.sql');
 const LOCKDOWN_SQL = join(REPO_ROOT, 'supabase', 'manual', '20261019100000_rls_lockdown.sql');
 const ROLLBACK_SQL = join(REPO_ROOT, 'supabase', 'manual', '20261019100000_rls_lockdown_rollback.sql');
+const SCOPING_SQL = join(REPO_ROOT, 'supabase', 'manual', '20261020100000_hospital_scoping.sql');
+const SCOPING_ROLLBACK_SQL = join(REPO_ROOT, 'supabase', 'manual', '20261020100000_hospital_scoping_rollback.sql');
+const SCOPING_VERIFY_SQL = join(REPO_ROOT, 'supabase', 'manual', '20261020100000_hospital_scoping_verify.sql');
 const PR_NUMBER = '1';
 const BRANCH = 'port/unth-48h';
 
@@ -330,15 +334,21 @@ const steps = {
       if ((await runScript('db-migrate.mjs', [], env)) !== 0) return false;
       if (!doneFor(session.ref).lockdown) return true;
       // With an empty migration history, db push replays every file, old open
-      // policies included. Put the lockdown straight back.
+      // policies included. Put the lockdown straight back (while hospital
+      // scoping is on, the lockdown script re-applies it too).
       console.log('\n  The lockdown is in force here; re-applying it after the migrations.');
-      return pasteIntoSqlEditor(LOCKDOWN_SQL, 'The lockdown script');
+      if (!(await pasteIntoSqlEditor(LOCKDOWN_SQL, 'The lockdown script'))) return false;
+      if (!doneFor(session.ref).scoping) return true;
+      console.log('\n  Hospital scoping is on here; re-applying it with this repository\'s classification.');
+      return pasteIntoSqlEditor(SCOPING_SQL, 'The hospital scoping script');
     }
     // Replaying the migrations recreates old "Allow all access" policies; once
-    // the lockdown is in force, it is re-applied in the same transaction.
-    const locked = !!doneFor(session.ref).lockdown;
-    if (locked) console.log('  The lockdown is in force here, so the script re-applies it at the end.');
-    if ((await runScript('db-sql.mjs', locked ? ['--with-lockdown'] : [])) !== 0) return false;
+    // the lockdown (and hospital scoping) is in force, it is re-applied in the
+    // same transaction.
+    const flags = migrationSqlFlags(doneFor(session.ref));
+    if (flags.includes('--with-lockdown')) console.log('  The lockdown is in force here, so the script re-applies it at the end.');
+    if (flags.includes('--with-scoping')) console.log('  Hospital scoping is on here, so the script re-applies it after the lockdown.');
+    if ((await runScript('db-sql.mjs', flags)) !== 0) return false;
     console.log(`  The combined script is at:\n    ${COMBINED_SQL}`);
     return pasteIntoSqlEditor(COMBINED_SQL, 'The migration script');
   },
@@ -437,6 +447,11 @@ const steps = {
     ]);
     if (how === 'cancel') return false;
     if (how === 'rollback') {
+      if (doneFor(session.ref).scoping) {
+        console.log('\n  Hospital scoping is on and sits on top of the lockdown. Undo it first');
+        console.log('  ("Limit staff to their own hospitals" -> rollback); the lockdown rollback refuses otherwise.');
+        return false;
+      }
       const ok = await pasteIntoSqlEditor(ROLLBACK_SQL, 'The rollback script');
       if (ok) clearDone('lockdown');
       return false;
@@ -444,6 +459,42 @@ const steps = {
     const ok = await pasteIntoSqlEditor(LOCKDOWN_SQL, 'The lockdown script');
     if (ok) console.log('\n  Sign in again on the live site and open a patient to confirm data still loads.');
     return ok;
+  },
+
+  async scoping() {
+    console.log('\n  Today every signed-in member sees every hospital\'s patients. This limits each');
+    console.log('  person to the patients of their own hospitals (plus those seen, referred or');
+    console.log('  discussed there). Super admins still see everything. docs/AUTH_ROLLOUT.md, step 10.');
+    console.log('  Rehearse it on a staging copy first (choose "Another project" at the start).');
+    const how = await choose('Limit staff to their own hospitals?', [
+      { key: 'apply', label: 'Copy the hospital scoping script for the SQL editor', recommended: true },
+      { key: 'verify', label: 'Copy the verification query (read-only)' },
+      { key: 'rollback', label: 'Undo hospital scoping (back to every member sees everything)' },
+      { key: 'cancel', label: 'Not yet' },
+    ]);
+    if (how === 'cancel') return false;
+    if (how === 'verify') {
+      await pasteIntoSqlEditor(SCOPING_VERIFY_SQL, 'The verification query');
+      return false;
+    }
+    if (how === 'rollback') {
+      const ok = await pasteIntoSqlEditor(SCOPING_ROLLBACK_SQL, 'The hospital scoping rollback');
+      if (ok) clearDone('scoping');
+      return false;
+    }
+    console.log('\n  Before running it: give visiting staff their extra hospitals in User Management');
+    console.log('  -> Hospitals (works once the script has run), and check the legacy count it prints.');
+    console.log('  If it stops with "not classified", add the table it names to the list in');
+    console.log('  supabase/manual/20261020100000_hospital_scoping.sql — nothing was changed.');
+    const ok = await pasteIntoSqlEditor(SCOPING_SQL, 'The hospital scoping script');
+    if (!ok) return false;
+    console.log('\n  Now run the verification query and check, on the live site:');
+    console.log('   1. A clinician sees only their hospital\'s patients (after one sync, other');
+    console.log('      hospitals\' patients disappear from their device).');
+    console.log('   2. A super admin still sees every hospital.');
+    console.log('   3. A new patient registered at the clinician\'s hospital saves and syncs.');
+    await pasteIntoSqlEditor(SCOPING_VERIFY_SQL, 'The verification query');
+    return yes('  Did all three work?');
   },
 };
 
@@ -512,13 +563,18 @@ async function main() {
 
     if (action === 'quit') break;
     if (action === 'sql') {
-      await runScript('db-sql.mjs');
+      // Generated for this project's state: a locked (or scoped) database
+      // refuses a combined file that would not put the protection back.
+      await runScript('db-sql.mjs', migrationSqlFlags(done));
       await runScript('db-verify.mjs');
       console.log('\n  Run these in the Supabase SQL editor, in this order:');
       console.log(`   1. Migrations:    ${COMBINED_SQL}`);
       console.log(`   2. Verification:  ${VERIFY_SQL}`);
       console.log(`   3. Lockdown, only after the new build is live and sign-in works:\n                     ${LOCKDOWN_SQL}`);
-      console.log(`   Undo the lockdown: ${ROLLBACK_SQL}`);
+      console.log(`   4. Hospital scoping, after the lockdown:\n                     ${SCOPING_SQL}`);
+      console.log(`      then check it: ${SCOPING_VERIFY_SQL}`);
+      console.log(`   Undo the scoping:  ${SCOPING_ROLLBACK_SQL}`);
+      console.log(`   Undo the lockdown (scoping first): ${ROLLBACK_SQL}`);
       continue;
     }
     if (action === 'pick') {
