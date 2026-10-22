@@ -186,6 +186,9 @@ function App() {
       {/* Protected Routes - with Agreement Guard */}
       <Route element={isAuthenticated ? <AgreementGuard><MainLayout /></AgreementGuard> : <Navigate to="/login" replace />}>
         <Route index element={<DashboardPage />} />
+        {/* The dashboard is the index route. Old links, bookmarks and already-sent
+            notifications still point at /dashboard. */}
+        <Route path="dashboard" element={<Navigate to="/" replace />} />
         
         {/* Patient Routes */}
         <Route path="patients">

@@ -124,7 +124,7 @@ export default function UserAgreementPage() {
       });
 
       toast.success('Agreement accepted and password updated successfully');
-      navigate('/dashboard');
+      navigate('/', { replace: true });
     } catch (error) {
       console.error('Error saving agreement:', error);
       toast.error(error instanceof Error && error.message ? error.message : 'Failed to save. Please try again.');

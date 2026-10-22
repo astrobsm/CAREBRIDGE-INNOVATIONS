@@ -456,7 +456,7 @@ async function sendPushNotification(notification: VoiceNotification): Promise<vo
           notificationId: notification.id,
           patientId: notification.patientId,
           userId: notification.userId,
-          url: '/dashboard',
+          url: '/',
         },
         actions: [
           { action: 'acknowledge', title: '✓ Acknowledge' },
