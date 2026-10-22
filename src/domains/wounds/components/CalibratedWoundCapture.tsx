@@ -63,9 +63,11 @@ const REFERENCE_OBJECTS = [
   },
   { id: 'ruler_1cm', label: 'Ruler (click 2 points, 1 cm apart)', sizeCm: 1, method: 'ruler' as const },
   { id: 'ruler_5cm', label: 'Ruler (click 2 points, 5 cm apart)', sizeCm: 5, method: 'ruler' as const },
-  { id: 'coin_1naira', label: '₦1 Coin (Ø 2.2 cm)', sizeCm: 2.2, method: 'coin' as const },
-  { id: 'coin_50kobo', label: '50 Kobo Coin (Ø 2.0 cm)', sizeCm: 2.0, method: 'coin' as const },
-  { id: 'credit_card', label: 'Credit Card Width (5.4 cm)', sizeCm: 5.4, method: 'credit_card' as const },
+  // Cards and rulers only (clinical decision 2026-10-20): the naira coin sizes
+  // that were listed here were unverified, and a reference 10% off makes every
+  // area ~20% off. Card sizes are the ISO/IEC 7810 ID-1 standard.
+  { id: 'credit_card_long', label: 'Bank / ID card, long edge (8.56 cm)', sizeCm: 8.56, method: 'credit_card' as const },
+  { id: 'credit_card', label: 'Bank / ID card, short edge (5.4 cm)', sizeCm: 5.4, method: 'credit_card' as const },
   { id: 'grid_sticker', label: 'AstroHEALTH Grid Sticker (auto-detect)', sizeCm: 3, method: 'grid_sticker' as const },
   { id: 'qr_marker', label: 'AstroHEALTH QR Marker (auto-detect)', sizeCm: 3, method: 'qr_marker' as const },
 ];
@@ -255,7 +257,7 @@ export default function CalibratedWoundCapture({
         }
       }
 
-      if (newPoints.length >= 2 && (selectedRef.method === 'ruler' || selectedRef.method === 'coin' || selectedRef.method === 'credit_card')) {
+      if (newPoints.length >= 2 && (selectedRef.method === 'ruler' || selectedRef.method === 'credit_card')) {
         const distPx = Math.sqrt(
           Math.pow(newPoints[1].x - newPoints[0].x, 2) +
           Math.pow(newPoints[1].y - newPoints[0].y, 2)

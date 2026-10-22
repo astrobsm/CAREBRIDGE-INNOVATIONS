@@ -1,0 +1,9 @@
+# Node scripts keep LF line endings on every checkout. With core.autocrlf on
+# Windows they were checked out as CRLF, and a `#!/usr/bin/env node` line ending
+# in CR is not stripped by Vitest's module loader, so importing these scripts
+# from a test failed with "SyntaxError: Invalid or unexpected token".
+*.mjs text eol=lf
+*.cjs text eol=lf
+scripts/**/*.js text eol=lf
+api/**/*.js text eol=lf
+*.sh text eol=lf
