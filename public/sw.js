@@ -844,8 +844,22 @@ async function sendMessageToClients(message) {
   });
 }
 
+// A notification's click target, kept inside the app. The URL comes from the
+// push payload; anything that resolves to another origin (https://…, //host,
+// javascript:) opens the app's home page instead of a stranger's site.
+function sameOriginPath(url) {
+  try {
+    const resolved = new URL(String(url || '/'), self.location.origin);
+    if (resolved.origin !== self.location.origin) return '/';
+    return resolved.pathname + resolved.search + resolved.hash;
+  } catch (e) {
+    return '/';
+  }
+}
+
 // Open app window helper
-async function openAppWindow(url) {
+async function openAppWindow(rawUrl) {
+  const url = sameOriginPath(rawUrl);
   const clientList = await self.clients.matchAll({ type: 'window' });
   
   // Focus existing window if available

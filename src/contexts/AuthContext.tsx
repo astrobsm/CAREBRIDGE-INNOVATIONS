@@ -18,7 +18,8 @@ import { checkOfflinePassword, forgetOfflineVerifier, saveOfflineVerifier } from
 import { releasePushOnSignOut, restorePushOnSignIn } from '../services/webPushService';
 import { logAuthEvent } from '../services/auditService';
 import type { User, UserRole } from '../types';
-import Dexie from 'dexie';
+import { classifyDbOpenFailure, describeDbError, type DbOpenFailure } from '../database/recovery/dbOpenRecovery';
+import DatabaseRecoveryScreen from '../components/pwa/DatabaseRecoveryScreen';
 
 // ---------------------------------------------------------------------------
 // Sign-in is Supabase Auth (signInWithPassword). The person's app account is
@@ -405,6 +406,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [sessionMode, setSessionMode] = useState<SessionMode | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  /** Set when the device database will not open: the recovery screen replaces the app. */
+  const [dbFailure, setDbFailure] = useState<DbOpenFailure | null>(null);
 
   // Read by the auth-state listener, which outlives any one render.
   const userRef = useRef<User | null>(null);
@@ -531,55 +534,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAndCheckAuth = async () => {
       try {
-        // Try to open the database - this will trigger version upgrade if needed
+        // Opening runs any pending schema upgrade.
         await db.open();
       } catch (error) {
-        console.warn('[Auth] Database open failed, attempting recovery...', error);
-        
-        // Check for various database corruption errors
-        const errorName = error instanceof Error ? error.name : String(error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        const isCorruptionError = 
-          error instanceof Dexie.VersionError || 
-          error instanceof Dexie.UpgradeError ||
-          errorName === 'UnknownError' ||
-          errorMessage.includes('Internal error opening backing store') ||
-          errorMessage.includes('corrupted') ||
-          errorMessage.includes('UnknownError');
-        
-        if (isCorruptionError) {
-          console.log('[Auth] Deleting corrupted database...');
-          try {
-            // Close any open connections first
-            if (db.isOpen()) {
-              db.close();
-            }
-            // Wait a moment for connections to close
-            await new Promise(resolve => setTimeout(resolve, 100));
-            // Delete the database
-            await Dexie.delete('AstroHEALTHDB');
-            console.log('[Auth] Database deleted successfully, reloading...');
-          } catch (deleteError) {
-            console.error('[Auth] Failed to delete database:', deleteError);
-            // Try using native IndexedDB delete as fallback
-            try {
-              await new Promise<void>((resolve, reject) => {
-                const req = indexedDB.deleteDatabase('AstroHEALTHDB');
-                req.onsuccess = () => resolve();
-                req.onerror = () => reject(req.error);
-                req.onblocked = () => {
-                  console.warn('[Auth] Database delete blocked, will try reload anyway');
-                  resolve();
-                };
-              });
-            } catch {
-              console.error('[Auth] Native delete also failed');
-            }
-          }
-          // Reload the page to reinitialize with fresh database
-          window.location.reload();
-          return;
-        }
+        // NEVER delete the database here: it holds clinical work that may not
+        // have reached the cloud. A newer schema on the device (an old cached
+        // build) needs an app update; anything else gets the recovery screen,
+        // which saves a copy first and deletes only on a typed confirmation.
+        const failure = { kind: classifyDbOpenFailure(error), detail: describeDbError(error) };
+        console.error(`[Auth] Local database could not be opened (${failure.kind}):`, error);
+        setDbFailure(failure);
+        setIsLoading(false);
+        return;
       }
 
       // The listener below ignores the SIGNED_IN supabase-js emits while it
@@ -861,6 +827,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     hasRole,
     needsAgreement,
   };
+
+  if (dbFailure) {
+    return <DatabaseRecoveryScreen failure={dbFailure} closeDatabase={() => { try { db.close(); } catch { /* not open */ } }} />;
+  }
 
   return (
     <AuthContext.Provider value={value}>
