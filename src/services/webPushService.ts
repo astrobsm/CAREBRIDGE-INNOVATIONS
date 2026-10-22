@@ -675,7 +675,7 @@ export async function sendPatientAssignmentNotification(
       patientName,
       wardName,
       bedNumber,
-      url: '/dashboard',
+      url: '/',
     },
     actions: [
       { action: 'view', title: 'View Patient' },
