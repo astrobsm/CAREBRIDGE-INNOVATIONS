@@ -3,15 +3,9 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
-
-// Web Push implementation for Deno
-// Using web-push compatible algorithm
-
-interface PushSubscription {
-  endpoint: string;
-  p256dh: string;
-  auth: string;
-}
+// VAPID signing and payload encryption (RFC 8291 / 8292), checked against the
+// reference web-push implementation in src/services/__tests__/webPush.test.ts.
+import { sendWebPush } from './webpush.ts';
 
 interface NotificationPayload {
   title: string;
@@ -298,6 +292,12 @@ serve(async (req) => {
       (r) => r.status === 'fulfilled' && r.value.success
     ).length;
     const failed = results.length - sent;
+    // Why each failure happened (status and message only, never the endpoint),
+    // so a failing send can be diagnosed from the response alone.
+    const errors = results
+      .map((r) => (r.status === 'fulfilled' ? r.value : { success: false, error: String(r.reason) }))
+      .filter((r) => !r.success)
+      .map((r) => String((r as { error?: string }).error ?? 'unknown error').slice(0, 300));
 
     return new Response(
       JSON.stringify({
@@ -306,6 +306,7 @@ serve(async (req) => {
         failed,
         total: filteredSubscriptions.length,
         skipped: subscriptions.length - filteredSubscriptions.length,
+        ...(errors.length ? { errors } : {}),
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -333,248 +334,4 @@ function getPreferenceKeyForType(type: string): string | null {
     system_alert: 'systemAlerts',
   };
   return typeMap[type] || null;
-}
-
-// Web Push implementation using Web Crypto API
-async function sendWebPush(
-  subscription: PushSubscription,
-  payload: string,
-  vapidPublicKey: string,
-  vapidPrivateKey: string,
-  vapidSubject: string
-): Promise<boolean> {
-  // Parse endpoint URL
-  const endpointUrl = new URL(subscription.endpoint);
-  const audience = `${endpointUrl.protocol}//${endpointUrl.host}`;
-
-  // Create VAPID JWT
-  const jwt = await createVapidJwt(vapidPrivateKey, audience, vapidSubject);
-
-  // Encrypt the payload
-  const encryptedPayload = await encryptPayload(
-    payload,
-    subscription.p256dh,
-    subscription.auth
-  );
-
-  // Send the push notification
-  const response = await fetch(subscription.endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': `vapid t=${jwt}, k=${vapidPublicKey}`,
-      'Content-Type': 'application/octet-stream',
-      'Content-Encoding': 'aes128gcm',
-      'Content-Length': encryptedPayload.byteLength.toString(),
-      'TTL': '86400', // 24 hours
-      'Urgency': 'high',
-    },
-    body: encryptedPayload,
-  });
-
-  if (!response.ok) {
-    const error = new Error(`Push failed: ${response.status} ${response.statusText}`);
-    (error as any).status = response.status;
-    throw error;
-  }
-
-  return true;
-}
-
-// Create VAPID JWT token
-async function createVapidJwt(
-  privateKey: string,
-  audience: string,
-  subject: string
-): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const expires = now + 12 * 60 * 60; // 12 hours
-
-  const header = {
-    typ: 'JWT',
-    alg: 'ES256',
-  };
-
-  const payload = {
-    aud: audience,
-    exp: expires,
-    sub: subject,
-  };
-
-  const headerB64 = base64UrlEncode(JSON.stringify(header));
-  const payloadB64 = base64UrlEncode(JSON.stringify(payload));
-  const unsignedToken = `${headerB64}.${payloadB64}`;
-
-  // Import private key
-  const keyData = base64UrlDecode(privateKey);
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    keyData,
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false,
-    ['sign']
-  );
-
-  // Sign the token
-  const signatureBuffer = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    cryptoKey,
-    new TextEncoder().encode(unsignedToken)
-  );
-
-  const signature = base64UrlEncode(new Uint8Array(signatureBuffer));
-  return `${unsignedToken}.${signature}`;
-}
-
-// Encrypt payload using AES-128-GCM
-async function encryptPayload(
-  payload: string,
-  p256dhKey: string,
-  authSecret: string
-): Promise<Uint8Array> {
-  // Decode keys
-  const userPublicKey = base64UrlDecode(p256dhKey);
-  const authSecretBytes = base64UrlDecode(authSecret);
-
-  // Generate ephemeral key pair
-  const keyPair = await crypto.subtle.generateKey(
-    { name: 'ECDH', namedCurve: 'P-256' },
-    true,
-    ['deriveBits']
-  );
-
-  // Import user public key
-  const importedUserKey = await crypto.subtle.importKey(
-    'raw',
-    userPublicKey,
-    { name: 'ECDH', namedCurve: 'P-256' },
-    false,
-    []
-  );
-
-  // Derive shared secret
-  const sharedSecret = await crypto.subtle.deriveBits(
-    { name: 'ECDH', public: importedUserKey },
-    keyPair.privateKey,
-    256
-  );
-
-  // Export ephemeral public key
-  const ephemeralPublicKey = await crypto.subtle.exportKey('raw', keyPair.publicKey);
-
-  // Generate salt
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-
-  // Derive encryption key using HKDF
-  const ikm = await hkdf(
-    new Uint8Array(sharedSecret),
-    authSecretBytes,
-    new TextEncoder().encode('Content-Encoding: auth\x00'),
-    32
-  );
-
-  const prk = await hkdf(
-    ikm,
-    salt,
-    new TextEncoder().encode('Content-Encoding: aes128gcm\x00'),
-    16
-  );
-
-  const nonce = await hkdf(
-    ikm,
-    salt,
-    new TextEncoder().encode('Content-Encoding: nonce\x00'),
-    12
-  );
-
-  // Import encryption key
-  const encryptionKey = await crypto.subtle.importKey(
-    'raw',
-    prk,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt']
-  );
-
-  // Pad and encrypt payload
-  const paddedPayload = new Uint8Array(payload.length + 2);
-  paddedPayload[0] = 0; // Padding length (2 bytes, big endian)
-  paddedPayload[1] = 0;
-  new TextEncoder().encodeInto(payload, paddedPayload.subarray(2));
-
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce, tagLength: 128 },
-    encryptionKey,
-    paddedPayload
-  );
-
-  // Build the encrypted content (header + ciphertext)
-  const recordSize = 4096;
-  const header = new Uint8Array(21 + ephemeralPublicKey.byteLength);
-  
-  // Salt (16 bytes)
-  header.set(salt, 0);
-  
-  // Record size (4 bytes, big endian)
-  new DataView(header.buffer).setUint32(16, recordSize, false);
-  
-  // Key ID length (1 byte)
-  header[20] = ephemeralPublicKey.byteLength;
-  
-  // Key ID (ephemeral public key)
-  header.set(new Uint8Array(ephemeralPublicKey), 21);
-
-  // Combine header and ciphertext
-  const result = new Uint8Array(header.length + ciphertext.byteLength);
-  result.set(header, 0);
-  result.set(new Uint8Array(ciphertext), header.length);
-
-  return result;
-}
-
-// HKDF implementation
-async function hkdf(
-  ikm: Uint8Array,
-  salt: Uint8Array,
-  info: Uint8Array,
-  length: number
-): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    ikm,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
-  const prk = await crypto.subtle.sign('HMAC', key, salt);
-
-  const prkKey = await crypto.subtle.importKey(
-    'raw',
-    prk,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
-  const infoWithCounter = new Uint8Array(info.length + 1);
-  infoWithCounter.set(info);
-  infoWithCounter[info.length] = 1;
-
-  const okm = await crypto.subtle.sign('HMAC', prkKey, infoWithCounter);
-
-  return new Uint8Array(okm.slice(0, length));
-}
-
-// Base64 URL encoding/decoding
-function base64UrlEncode(data: string | Uint8Array): string {
-  const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
-  const base64 = btoa(String.fromCharCode(...bytes));
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-function base64UrlDecode(str: string): Uint8Array {
-  const padding = '='.repeat((4 - (str.length % 4)) % 4);
-  const base64 = (str + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64);
-  return new Uint8Array([...rawData].map((c) => c.charCodeAt(0)));
 }
