@@ -734,7 +734,7 @@ const timers: PlanRule = ctx => {
 const tetanus: PlanRule = ctx => {
   const a = ctx.answers;
   const status = a['core.tetanus'];
-  if (status !== 'due' && status !== 'unknown') return null;
+  if (status !== 'due' && status !== 'primary_incomplete' && status !== 'unknown') return null;
   const wound = a['core.tetanus_wound'];
   const vaccine = child(ctx) && isUnder(ctx.patient, 10, ctx.module)
     ? 'the age-appropriate tetanus-containing vaccine of the national childhood schedule'
@@ -743,10 +743,13 @@ const tetanus: PlanRule = ctx => {
     ? `An immediate dose of ${vaccine}, then a full course if the records confirm it is needed`
     : `A reinforcing dose of ${vaccine}, then further doses to complete the schedule`;
   const htig = 'human tetanus immunoglobulin (250 IU IM; 500 IU if over 24 hours since the injury, heavy contamination or a burn) at a different site';
-  const needsHtig = wound === 'high_risk' || (status === 'unknown' && wound === 'prone');
-  const why = `Tetanus status ${status === 'unknown' ? 'not immunised / unknown' : 'incomplete'}${wound ? `; ${String(wound).replace('_', '-')} wound` : ''} (UK Green Book ch. 30; WHO tetanus position paper 2017)`;
+  // Without a complete primary course, any tetanus-prone wound needs HTIG.
+  const unprimed = status === 'unknown' || status === 'primary_incomplete';
+  const needsHtig = wound === 'high_risk' || (unprimed && wound === 'prone');
+  const statusText = status === 'unknown' ? 'not immunised / unknown' : status === 'primary_incomplete' ? 'primary course incomplete' : 'booster not up to date';
+  const why = `Tetanus status ${statusText}${wound ? `; ${String(wound).replace('_', '-')} wound` : ''} (UK Green Book ch. 30; WHO tetanus position paper 2017)`;
   const text = !wound
-    ? `Tetanus prophylaxis now: ${dose.charAt(0).toLowerCase()}${dose.slice(1)}; plus ${htig} if the wound is ${status === 'unknown' ? 'tetanus-prone' : 'high-risk tetanus-prone'}`
+    ? `Tetanus prophylaxis now: ${dose.charAt(0).toLowerCase()}${dose.slice(1)}; plus ${htig} if the wound is ${unprimed ? 'tetanus-prone' : 'high-risk tetanus-prone'}`
     : `Tetanus prophylaxis now: ${dose.charAt(0).toLowerCase()}${dose.slice(1)}${needsHtig ? `; plus ${htig}` : ''}`;
   return { problem: { treatment: [
     L(text, why, 'urgent'),

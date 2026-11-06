@@ -21,15 +21,20 @@ export const TETANUS: EncounterSection = {
       options: [
         { value: 'up_to_date', label: 'Up to date for age (primary course complete, boosters as scheduled)' },
         { value: 'given_today', label: 'Given today' },
-        { value: 'due', label: 'Incomplete — primary course incomplete or boosters not up to date', flag: 'amber',
+        // Green Book table 30.1 separates a complete primary course whose
+        // booster is overdue (HTIG only for a high-risk wound) from an
+        // incomplete primary course (HTIG for any tetanus-prone wound).
+        { value: 'due', label: 'Primary course complete, but booster not up to date (e.g. last dose over 10 years ago)', flag: 'amber',
           flagReason: 'Tetanus prophylaxis is outstanding for this wound.' },
+        { value: 'primary_incomplete', label: 'Primary course incomplete (fewer than 3 doses)', flag: 'amber',
+          flagReason: 'Incomplete primary course: vaccine now, and immunoglobulin as well for a tetanus-prone wound (Green Book ch. 30).' },
         { value: 'unknown', label: 'Not immunised, or not known', flag: 'amber',
           flagReason: 'Treat an unknown immunisation history as incomplete.' },
       ],
     },
     {
       id: 'core.tetanus_wound', label: 'Tetanus risk of the wound', kind: 'select',
-      showWhen: { field: 'core.tetanus', equals: ['due', 'unknown'] },
+      showWhen: { field: 'core.tetanus', equals: ['due', 'primary_incomplete', 'unknown'] },
       help: 'Green Book: tetanus-prone = puncture, devitalised tissue, contact with soil or manure, foreign body, compound fracture, burn, or surgery delayed over 6 hours; high-risk = heavy contamination with soil / manure or extensive devitalised tissue.',
       options: [
         { value: 'clean', label: 'Clean wound' },
