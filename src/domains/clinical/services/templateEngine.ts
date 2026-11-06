@@ -48,6 +48,7 @@ export function templateOptions(complaintId: string): EncounterTemplate[] {
 
 /** Whether a conditional field should be shown, given what has been answered. */
 export function isVisible(field: EncounterField, answers: EncounterAnswers): boolean {
+  if (field.visibleWhen && !field.visibleWhen(answers)) return false;
   if (!field.showWhen) return true;
   const value = answers[field.showWhen.field];
   if (value == null) return false;
@@ -108,13 +109,31 @@ export function raisedFlags(
 
     // Boolean fields carry their concern in the question itself: answering yes
     // to "compartment syndrome concern" is the flag.
-    if (field.kind === 'boolean' && answers[field.id] === true && CONCERNING_BOOLEANS[field.id]) {
+    const yesFlag = field.flagWhenTrue ?? CONCERNING_BOOLEANS[field.id];
+    if (field.kind === 'boolean' && answers[field.id] === true && yesFlag) {
       flags.push({
-        level: CONCERNING_BOOLEANS[field.id].level,
+        level: yesFlag.level,
         fieldLabel: field.label,
         answerLabel: 'Yes',
-        reason: CONCERNING_BOOLEANS[field.id].reason,
+        reason: yesFlag.reason,
       });
+    }
+
+    // Number fields carry published thresholds.
+    const n = answers[field.id];
+    if (field.kind === 'number' && typeof n === 'number' && Number.isFinite(n)) {
+      // Nested thresholds (platelets < 100, < 50) raise only the most severe.
+      const hits = (field.numericFlags ?? []).filter(t => (t.op === '<' ? n < t.value : t.op === '<=' ? n <= t.value
+        : t.op === '>' ? n > t.value : n >= t.value));
+      const t = hits.find(h => h.level === 'red') ?? hits[0];
+      if (t) {
+        flags.push({
+          level: t.level,
+          fieldLabel: field.label,
+          answerLabel: `${n}${field.unit ? ` ${field.unit}` : ''}`,
+          reason: t.reason,
+        });
+      }
     }
   }
 
@@ -236,6 +255,13 @@ function renderValue(
   const extra = otherText?.[field.id];
   return `${proseLabel(field)}: ${extra ? `${label} — ${extra}` : label}`;
 }
+
+/**
+ * One answered field as a phrase of prose ("Pain: moderate"), or null when it
+ * contributes nothing. Exported so other composers (procedure reviews) write
+ * their notes in exactly the same voice as the guided history.
+ */
+export const renderFieldValue = renderValue;
 
 export interface GeneratedNarrative {
   /** One line, for the chief complaint field. */

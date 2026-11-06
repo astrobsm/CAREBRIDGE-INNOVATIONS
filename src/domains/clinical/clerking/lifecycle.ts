@@ -69,19 +69,25 @@ export function cleanPayload(p: { data: unknown; suggestions: unknown; summary: 
 
 type WithClerking = Pick<ClinicalEncounter, 'id' | 'patientId'> & { clerking?: StructuredClerking };
 
-export function assertCanEdit(enc: WithClerking | undefined, version: number | undefined, user: Actor): StructuredClerking {
-  const c = enc?.clerking;
-  if (!enc || !c) throw new ClerkingError('Encounter not found', 404);
+/**
+ * What the lifecycle rules need from any signed clinical record: its status,
+ * its version and who wrote it. A structured clerking is one; a procedure
+ * review (procedureReview/) is another. The rules are written once, here,
+ * against this shape, so the two cannot drift apart.
+ */
+export interface LifecycleRecord { status: ClerkingStatus; version: number; createdBy: string }
+
+/** May this user edit this record now? Throws a ClerkingError when not. */
+export function assertCanEditRecord(c: LifecycleRecord | undefined, version: number | undefined, user: Actor): void {
+  if (!c) throw new ClerkingError('Encounter not found', 404);
   if (!['draft', 'pending_review'].includes(c.status)) throw new ClerkingError('This encounter is signed. Add a follow-up encounter instead.', 409);
   if (String(c.createdBy) !== String(user.id) && !canSign(user)) throw new ClerkingError('Only the author or a registrar / consultant can edit this encounter', 403);
   if (version != null && Number(version) !== c.version) throw new ClerkingError('Someone else saved this encounter after you opened it. Reload to see their changes.', 409);
-  return c;
 }
 
-/** Submit for review, or sign. Returns the status the encounter moves to. */
-export function assertCanSubmit(enc: WithClerking | undefined, version: number | undefined, user: Actor, sign: boolean): ClerkingStatus {
-  const c = enc?.clerking;
-  if (!enc || !c) throw new ClerkingError('Encounter not found', 404);
+/** Submit for review, or sign. Returns the status the record moves to. */
+export function assertCanSubmitRecord(c: LifecycleRecord | undefined, version: number | undefined, user: Actor, sign: boolean): ClerkingStatus {
+  if (!c) throw new ClerkingError('Encounter not found', 404);
   if (c.status === 'signed') throw new ClerkingError('Already signed', 409);
   if (c.status === 'entered_in_error') throw new ClerkingError('This encounter was marked entered in error', 409);
   if (version != null && Number(version) !== c.version) throw new ClerkingError('The encounter changed since you opened it. Reload first.', 409);
@@ -91,14 +97,28 @@ export function assertCanSubmit(enc: WithClerking | undefined, version: number |
   return signer ? 'signed' : 'pending_review';
 }
 
-export function assertCanMarkError(enc: WithClerking | undefined, user: Actor, reason: string | undefined) {
-  const c = enc?.clerking;
-  if (!enc || !c) throw new ClerkingError('Encounter not found', 404);
+export function assertCanMarkErrorRecord(c: LifecycleRecord | undefined, user: Actor, reason: string | undefined) {
+  if (!c) throw new ClerkingError('Encounter not found', 404);
   const isAuthorDraft = String(c.createdBy) === String(user.id) && c.status !== 'signed';
   if (!isAuthorDraft && !canAmend(user)) {
     throw new ClerkingError('Only the author (before signing) or a senior registrar / consultant can mark this entered in error', 403);
   }
   if (!reason || String(reason).trim().length < 3) throw new ClerkingError('A reason is required', 400);
+}
+
+export function assertCanEdit(enc: WithClerking | undefined, version: number | undefined, user: Actor): StructuredClerking {
+  const c = enc ? enc.clerking : undefined;
+  assertCanEditRecord(c, version, user);
+  return c!;
+}
+
+/** Submit for review, or sign. Returns the status the encounter moves to. */
+export function assertCanSubmit(enc: WithClerking | undefined, version: number | undefined, user: Actor, sign: boolean): ClerkingStatus {
+  return assertCanSubmitRecord(enc ? enc.clerking : undefined, version, user, sign);
+}
+
+export function assertCanMarkError(enc: WithClerking | undefined, user: Actor, reason: string | undefined) {
+  assertCanMarkErrorRecord(enc ? enc.clerking : undefined, user, reason);
 }
 
 export function assertTrackedStatus(kind: 'problem' | 'plan', status: string) {

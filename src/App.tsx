@@ -15,6 +15,7 @@ import ClinicalEncounterPage from './domains/clinical/pages/ClinicalEncounterPag
 import FollowUpEncounterPage from './domains/clinical/pages/FollowUpEncounterPage';
 import EnhancedFollowUpPage from './domains/clinical/pages/EnhancedFollowUpPage';
 import PatientClinicalSummaryPage from './domains/clinical/pages/PatientClinicalSummaryPage';
+import ProcedureReviewPage from './domains/clinical/pages/ProcedureReviewPage';
 import VitalsPage from './domains/clinical/pages/VitalsPage';
 import MDTPage from './domains/clinical/pages/MDTPage';
 import BloodTransfusionPage from './domains/clinical/pages/BloodTransfusionPage';
@@ -205,6 +206,7 @@ function App() {
           <Route path=":patientId/encounter" element={<ClinicalEncounterPage />} />
           <Route path=":patientId/follow-up" element={<EnhancedFollowUpPage />} />
           <Route path=":patientId/clinical-summary" element={<PatientClinicalSummaryPage />} />
+          <Route path=":patientId/procedure-review" element={<ProcedureReviewPage />} />
           <Route path=":patientId/vitals" element={<VitalsPage />} />
           <Route path=":patientId/wounds" element={<Navigate to="/wound-monitor" replace />} />
         </Route>

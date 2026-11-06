@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { ENCOUNTER_TYPES, ENCOUNTER_TYPE_IDS } from '../data/encounterTypes';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
@@ -62,7 +63,7 @@ import type {
 
 // First encounter schema - comprehensive
 const firstEncounterSchema = z.object({
-  type: z.enum(['outpatient', 'inpatient', 'emergency', 'surgical', 'follow_up', 'home_visit']),
+  type: z.enum(ENCOUNTER_TYPE_IDS),
   chiefComplaint: z.string().min(5, 'Chief complaint is required'),
   historyOfPresentIllness: z.string().min(10, 'History of present illness is required for first encounter'),
   pastMedicalHistory: z.string().optional(),
@@ -83,7 +84,7 @@ const firstEncounterSchema = z.object({
 
 // Follow-up encounter schema - focused
 const followUpSchema = z.object({
-  type: z.enum(['outpatient', 'inpatient', 'emergency', 'surgical', 'follow_up', 'home_visit']),
+  type: z.enum(ENCOUNTER_TYPE_IDS),
   chiefComplaint: z.string().min(5, 'Chief complaint is required'),
   intervalHistory: z.string().min(5, 'Interval history since last visit is required'),
   complianceAssessment: z.string().optional(),
@@ -96,14 +97,10 @@ const followUpSchema = z.object({
 type FirstEncounterFormData = z.infer<typeof firstEncounterSchema>;
 type FollowUpFormData = z.infer<typeof followUpSchema>;
 
-const encounterTypes: { value: EncounterType; label: string }[] = [
-  { value: 'outpatient', label: 'Outpatient Visit' },
-  { value: 'inpatient', label: 'Inpatient Admission' },
-  { value: 'emergency', label: 'Emergency' },
-  { value: 'surgical', label: 'Surgical Consultation' },
-  { value: 'follow_up', label: 'Follow-up' },
-  { value: 'home_visit', label: 'Home Visit' },
-];
+// The picker reads the one encounter-type definition (data/encounterTypes).
+// This page never offered 'initial' (it has its own first-encounter form).
+const encounterTypes: { value: EncounterType; label: string }[] =
+  ENCOUNTER_TYPES.filter(t => t.id !== 'initial').map(t => ({ value: t.id, label: t.label }));
 
 // ============================================
 // Previous Encounters Summary Component

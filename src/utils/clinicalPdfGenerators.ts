@@ -4,6 +4,7 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { PDF_FONTS } from './pdfConfig';
+import { encounterTypeLabel } from '../domains/clinical/data/encounterTypes';
 import {
   addBrandedHeader,
   addBrandedFooter,
@@ -1919,7 +1920,7 @@ export function generateEncounterPDFFromEntity(encounter: ClinicalEncounter, pat
     encounterDate: new Date(encounter.createdAt),
     patient: patientInfo,
     hospitalName: DEFAULT_HOSPITAL,
-    encounterType: encounter.type,
+    encounterType: encounterTypeLabel(encounter.type),
     chiefComplaint: encounter.chiefComplaint,
     historyOfPresentIllness: encounter.historyOfPresentIllness,
     pastMedicalHistory: encounter.pastMedicalHistory,

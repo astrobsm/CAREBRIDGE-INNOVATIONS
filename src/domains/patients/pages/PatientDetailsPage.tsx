@@ -21,7 +21,7 @@ import {
   X,
   Save,
 } from 'lucide-react';
-import { FileScan, Sparkles } from 'lucide-react';
+import { ClipboardList, FileScan, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { format, differenceInYears } from 'date-fns';
@@ -565,6 +565,10 @@ export default function PatientDetailsPage() {
           <Link to={`/patients/${patientId}/vitals`} className="btn btn-secondary">
             <Activity size={18} />
             Record Vitals
+          </Link>
+          <Link to={`/patients/${patientId}/procedure-review`} className="btn btn-secondary" title="Wound, pre-operative, post-operative or follow-up review for a plastic-surgery procedure">
+            <ClipboardList size={18} />
+            Procedure Review
           </Link>
           <Link to={`/patients/${patientId}/encounter`} className="btn btn-primary">
             <Stethoscope size={18} />

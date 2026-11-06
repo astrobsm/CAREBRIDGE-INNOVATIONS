@@ -82,6 +82,35 @@ export interface EncounterField {
   important?: boolean;
   /** Free text permitted alongside the choice, for the case that does not fit. */
   allowOther?: boolean;
+  /**
+   * For boolean fields: answering "yes" is itself the concerning answer.
+   *
+   * The declarative form of CONCERNING_BOOLEANS in the engine, so a template
+   * whose field ids are namespaced (procedure reviews) can carry its own
+   * yes-flags without editing the engine.
+   */
+  flagWhenTrue?: { level: 'red' | 'amber'; reason: string };
+  /**
+   * For number fields: a value beyond a published threshold raises a flag.
+   *
+   * Only standard thresholds belong here (WHO, NICE, CPOC…), and the reason
+   * should name the source, because a number on a form reads as authority.
+   */
+  numericFlags?: NumericFlag[];
+  /**
+   * Visibility that cannot be expressed as one field equalling a value — e.g.
+   * "the rest of the PHQ-9 once the PHQ-2 total is 3 or more". Applied in
+   * addition to `showWhen`. Must be a pure function of the answers.
+   */
+  visibleWhen?: (answers: EncounterAnswers) => boolean;
+}
+
+/** A threshold on a number field. `op` compares the answer against `value`. */
+export interface NumericFlag {
+  op: '<' | '<=' | '>' | '>=';
+  value: number;
+  level: 'red' | 'amber';
+  reason: string;
 }
 
 export interface EncounterSection {

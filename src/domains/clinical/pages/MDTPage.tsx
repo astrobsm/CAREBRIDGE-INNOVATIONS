@@ -68,6 +68,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { PatientSelector } from '../../../components/patient';
 import { useEncounterHospital } from '../../../components/hospital';
+import { encounterTypeColour, encounterTypeShortLabel } from '../data/encounterTypes';
 import {
   mdtNotificationService,
   initMDTNotificationService,
@@ -1684,12 +1685,7 @@ export default function MDTPage() {
                             <div key={enc.id} className="bg-white rounded-lg p-3 border border-slate-200">
                               <div className="flex justify-between items-start mb-2">
                                 <div className="flex items-center gap-2">
-                                  <span className={`px-2 py-0.5 rounded text-xs ${
-                                    enc.type === 'emergency' ? 'bg-red-100 text-red-700' :
-                                    enc.type === 'surgical' ? 'bg-purple-100 text-purple-700' :
-                                    enc.type === 'inpatient' ? 'bg-blue-100 text-blue-700' :
-                                    'bg-gray-100 text-gray-700'
-                                  }`}>{enc.type}</span>
+                                  <span className={`px-2 py-0.5 rounded text-xs ${encounterTypeColour(enc.type)}`}>{encounterTypeShortLabel(enc.type)}</span>
                                   <span className="text-xs text-gray-500">{format(new Date(enc.startedAt), 'PPP')}</span>
                                 </div>
                                 <span className={`px-2 py-0.5 rounded text-xs ${
