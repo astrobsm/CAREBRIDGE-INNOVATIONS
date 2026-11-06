@@ -556,3 +556,19 @@ describe('core: tetanus given today, METs direction, consent merging', () => {
     expect(burns.some(r => /may rarely require a blood transfusion/.test(r))).toBe(false);
   });
 });
+
+describe('core: pressure risk by age', () => {
+  it('asks adult Braden from 8 and a paediatric rating below', () => {
+    const baby = fields('cleft_lip_palate', 'pre_op', infant(10));
+    expect(baby.some(id => id.startsWith('core.braden_'))).toBe(false);
+    expect(baby).toContain('core.paed_pressure');
+    const grown = fields('skin_graft', 'pre_op', adult());
+    expect(grown.some(id => id.startsWith('core.braden_'))).toBe(true);
+    expect(grown).not.toContain('core.paed_pressure');
+  });
+
+  it('a child at high risk gets device-aware pressure care', () => {
+    const t = texts('cleft_lip_palate', 'post_op', { 'core.paed_pressure': 'high' }, infant(10));
+    expect(t.some(x => /oximeter probes/.test(x) && /pressure-redistributing/.test(x))).toBe(true);
+  });
+});

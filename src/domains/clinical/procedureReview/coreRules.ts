@@ -543,6 +543,14 @@ const pressureCare: PlanRule = ctx => {
       parts.push({ general: [G('Pressure care', L('Daily skin inspection of pressure areas; encourage mobility; reassess Braden if the condition changes', `${why} — at risk (Braden 15–18)`))] });
     }
   }
+  const paed = a['core.paed_pressure'];
+  if (paed === 'at_risk' || paed === 'high') {
+    parts.push({ general: [G('Pressure care', L(
+      'Skin checks every shift, including under splints, casts, tubes, oximeter probes and masks (re-site probes); reposition'
+        + (paed === 'high' ? '; pressure-redistributing surface sized for the child' : ''),
+      `Child ${paed === 'high' ? 'at high' : 'at'} risk on Braden Q / Glamorgan — devices cause most paediatric pressure injuries (NPIAP/EPUAP 2019)`,
+    ))] });
+  }
   const pi = a['core.existing_pi'];
   if (typeof pi === 'string' && pi !== 'none') {
     parts.push({ problems: [{ problem: `Pressure injury (${pi.replace(/_/g, ' ')})`, lines: {

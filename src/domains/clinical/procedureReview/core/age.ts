@@ -43,6 +43,11 @@ export const AGE_LIMITS = {
   pregnancy: 12,
   /** Smoking, alcohol and substance use asked from about 12. */
   substances: 12,
+  /**
+   * Braden: derived in adults. Under 8 the Braden Q (21 days to 8 years;
+   * Quigley & Curley 1996) or Glamorgan scale is the validated tool.
+   */
+  braden: 8,
 } as const;
 
 /** Age in whole months: ageMonths when known, else ageYears x 12 (a lower bound); null when unknown. */
@@ -77,7 +82,11 @@ export function coreFieldAgeGate(id: string): AgeGate | undefined {
   if (id.startsWith('core.apfel.')) return { minYears: AGE_LIMITS.apfel };
   // STOP-BANG (with neck circumference) is an adult OSA screen.
   if (id.startsWith('core.sb_') || id === 'core.neck_cm') return { minYears: AGE_LIMITS.adult };
+  // Adult Braden from 8; younger children are rated on the unit's paediatric scale.
+  if (id.startsWith('core.braden_')) return { minYears: AGE_LIMITS.braden };
   switch (id) {
+    case 'core.paed_pressure':
+      return { maxYears: AGE_LIMITS.braden };
     // Adult cardiac risk tools (RCRI, METs "climb two flights")
     case 'core.rcri':
     case 'core.mets':

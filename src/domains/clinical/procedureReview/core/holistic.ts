@@ -389,6 +389,18 @@ export const PRESSURE: EncounterSection = {
   fields: [
     ...bradenFields,
     {
+      id: 'core.paed_pressure',
+      label: 'Pressure risk (child under 8 — Braden Q or Glamorgan, per the paediatric protocol)',
+      help: 'Adult Braden is not validated under 8. Include device-related pressure: splints, casts, tubes, oximeter probes and masks.',
+      kind: 'select',
+      options: [
+        { value: 'low', label: 'Low risk' },
+        { value: 'at_risk', label: 'At risk', flag: 'amber', flagReason: 'Child at risk of pressure injury (Braden Q / Glamorgan): skin and device checks every shift.' },
+        { value: 'high', label: 'High risk', flag: 'amber', flagReason: 'Child at high risk of pressure injury (Braden Q / Glamorgan): pressure-redistributing surface and device checks.' },
+        { value: 'not_scored', label: 'Not scored yet' },
+      ],
+    },
+    {
       id: 'core.existing_pi', label: 'Existing pressure injury elsewhere', kind: 'select',
       options: [
         { value: 'none', label: 'None' },
