@@ -335,7 +335,9 @@ export interface ScoreResult {
  * would read a gap in the record as clinical improvement.
  */
 export function scoreScale(
-  scale: ScaleDefinition,
+  // Only what scoring needs, so other instruments built on ScaleItem (the
+  // procedure-review screening scores) are scored by this same function.
+  scale: Pick<ScaleDefinition, 'items' | 'requiresVerification' | 'verificationNote'>,
   responses: Record<string, number>,
 ): ScoreResult {
   if (scale.requiresVerification) {
