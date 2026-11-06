@@ -70,7 +70,9 @@ const glycaemia: PlanRule = ctx => {
     parts.push({ problem: { investigations: [L('Random or fasting glucose and HbA1c to screen for diabetes', 'Diabetes status not known')] } });
   }
   if (glu != null && glu < 4) {
-    parts.push({ problem: { treatment: [L('Treat hypoglycaemia now (15–20 g fast-acting carbohydrate, or IV glucose if unable to swallow) and recheck in 15 minutes', `Glucose ${glu} mmol/L (JBDS hypoglycaemia guideline)`, 'urgent')] } });
+    parts.push({ problem: { treatment: [child(ctx)
+      ? L('Treat hypoglycaemia now: fast-acting glucose 0.3 g/kg by mouth (or IV 10% glucose 2 mL/kg if unable to take it), recheck in 15 minutes and find the cause', `Glucose ${glu} mmol/L in a child (ISPAD 2022; BSPED)`, 'urgent')
+      : L('Treat hypoglycaemia now (15–20 g fast-acting carbohydrate, or IV glucose if unable to swallow) and recheck in 15 minutes', `Glucose ${glu} mmol/L (JBDS hypoglycaemia guideline)`, 'urgent')] } });
   } else if (glu != null && glu > 12) {
     parts.push({ problem: { treatment: [L('Treat the hyperglycaemia and look for its cause (infection, steroids, missed medication)', `Glucose ${glu} mmol/L — above the acceptable 4–12 mmol/L (JBDS-IP)`, 'urgent')] } });
   }
@@ -361,15 +363,28 @@ const analgesia: PlanRule = ctx => {
   const score = numOf(a, 'core.pain_score');
   const items: RuleLine[] = [];
   const parts: PlanContribution[] = [];
+  // Ibuprofen is not licensed under 3 months (BNFc); NSAIDs are avoided in
+  // pregnancy (fetal renal impairment and ductal closure — MHRA 2020).
+  // Age in months unknown: a child in their first year, or of unknown age in a
+  // paediatric module, is treated as possibly under 3 months.
+  const { ageMonths, ageYears } = ctx.patient;
+  const infant = (ageMonths != null ? ageMonths < 3
+    : ageYears === 0 || (ageYears == null && !!ctx.module.paediatric))
+    || (child(ctx) && (numOf(a, 'core.weight_kg') ?? 99) < 5);
+  const pregnant = isOneOf(a, 'core.pregnancy', 'pregnant', 'possible');
+  const moduleReason = ctx.module.avoidNsaids?.(ctx) ?? null;
   const nsaidUnsafe = isOneOf(a, 'core.renal', 'ckd_4_5', 'dialysis') || chosen(a, 'core.anticoagulant').length > 0
-    || ctx.scores.bleeding?.band?.level === 'high';
+    || ctx.scores.bleeding?.band?.level === 'high' || infant || pregnant || !!moduleReason;
+  const nsaidWhy = moduleReason ?? (infant ? 'Infant under 3 months or under 5 kg, or an infant whose age in months is not known — ibuprofen is not licensed (BNFc)'
+    : pregnant ? 'Pregnant or possibly pregnant — avoid NSAIDs (MHRA 2020)'
+      : 'Renal impairment, anticoagulation or high bleeding risk');
   if ((pain && pain !== 'none') || pre(ctx)) {
     const why = pain && pain !== 'none' ? `Pain: ${String(pain).replace(/_/g, ' ')}${score != null ? ` (${score}/10)` : ''}` : 'Peri-operative analgesia plan';
     items.push(L(
       'Multimodal analgesia: regular paracetamol; local or regional anaesthesia where possible; opioid only for breakthrough pain, at the lowest dose for the shortest time, with a stop date',
       `${why} (FPM Surgery and Opioids 2021)`));
     items.push(nsaidUnsafe
-      ? L('Avoid NSAIDs', 'Renal impairment, anticoagulation or high bleeding risk')
+      ? L('Avoid NSAIDs', nsaidWhy)
       : L('Add a regular NSAID unless contraindicated (peptic ulcer, renal impairment, asthma sensitivity, bleeding risk)', why));
   }
   if (score != null && score >= 7) items.push(L('Pain 7/10 or more: review analgesia today and look for a cause', `Pain score ${score}/10`, 'urgent'));
@@ -731,6 +746,10 @@ const postOperative: PlanRule = ctx => {
     parts.push({ problem: { monitoring: [L(news.band!.interpretation, `NEWS2 ${news.total} (RCP 2017)`, 'urgent')] } });
   } else if (news?.total != null) {
     parts.push({ problem: { monitoring: [L(news.band!.interpretation, `NEWS2 ${news.total} (RCP 2017)`)] } });
+  } else if (news?.flag) {
+    parts.push({ problem: { monitoring: [L(news.flag.reason, 'Incomplete observations with a NEWS2 3-point parameter (RCP 2017)', 'urgent')] } });
+  } else if (news && isUnder(ctx.patient, AGE_LIMITS.news2, ctx.module)) {
+    parts.push({ problem: { monitoring: [L(news.band!.interpretation, 'Child under 16 — NEWS2 does not apply (RCP 2017)')] } });
   }
   const temp = numOf(a, 'core.obs_temp');
   if (temp != null && temp >= 38) {

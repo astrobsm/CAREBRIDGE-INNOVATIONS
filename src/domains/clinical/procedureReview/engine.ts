@@ -32,7 +32,7 @@ import type {
   ReviewPhase, ReviewSection, ScoreBand, ScoreMap,
 } from './types';
 import { CORE_SECTIONS, defaultCoreFor } from './core';
-import { ageAllows, ageInMonths, coreFieldAgeGate, isChild } from './core/age';
+import { AGE_LIMITS, ageAllows, ageInMonths, coreFieldAgeGate, isChild, isUnder } from './core/age';
 import { answered, chosen, hasAny, isOneOf, isYes, numOf } from './core/answers';
 import { bradenFieldId, type BradenFieldKey } from './core/holistic';
 import { RCRI_KEYS, CAPRINI_ASKED } from './core/perioperative';
@@ -481,8 +481,18 @@ export function computeScores(
     });
   }
 
-  // NEWS2, soft-tissue-infection scoringService
-  if (has('core.obs_rr')) {
+  // NEWS2, soft-tissue-infection scoringService. Not for children under 16
+  // (RCP 2017): adult ranges would call a normal infant's heart rate an
+  // emergency and score an infant's bradycardia as normal.
+  if (has('core.obs_rr') && isUnder(patient, AGE_LIMITS.news2, module)) {
+    out.push({
+      id: 'news2', name: 'National Early Warning Score 2', abbreviation: 'NEWS2', total: null,
+      band: { label: 'Not used under 16 — use the paediatric early warning score', level: 'none',
+        interpretation: 'NEWS2 is not validated in children under 16: chart the observations against age-specific normal ranges on the hospital paediatric early warning score (PEWS) and escalate by its triggers.' },
+      incomplete: [],
+      source: 'Royal College of Physicians NEWS2 (2017) — not for use under 16',
+    });
+  } else if (has('core.obs_rr')) {
     const rr = numOf(a, 'core.obs_rr'), spo2 = numOf(a, 'core.obs_spo2'), temp = numOf(a, 'core.obs_temp'),
       sbp = numOf(a, 'core.obs_sbp'), hr = numOf(a, 'core.obs_hr');
     const avpu = a['core.obs_avpu'] as 'alert' | 'confused' | 'voice' | 'pain' | 'unresponsive' | undefined;
@@ -495,6 +505,20 @@ export function computeScores(
       band = { label: r.risk, level: r.score >= 7 ? 'very_high' : r.score >= 5 ? 'high' : r.score >= 3 ? 'moderate' : 'low', interpretation: r.action };
       if (r.score >= 7) flag = { level: 'red', reason: `NEWS2 ${r.score}: emergency response — continuous monitoring, urgent senior review, consider critical care (RCP 2017).` };
       else if (r.score >= 5) flag = { level: 'amber', reason: `NEWS2 ${r.score}: urgent clinical review within 30 minutes; at least hourly observations (RCP 2017).` };
+    } else {
+      // An incomplete set gives no total, but one parameter in the NEWS2
+      // 3-point range is itself a trigger (RCP 2017: urgent ward-based
+      // response) and must not be hidden by a missing value.
+      const red = [
+        rr != null && (rr <= 8 || rr >= 25) && `respiratory rate ${rr}/min`,
+        spo2 != null && spo2 <= 91 && `SpO2 ${spo2}%`,
+        temp != null && temp <= 35 && `temperature ${temp} C`,
+        sbp != null && (sbp <= 90 || sbp >= 220) && `systolic BP ${sbp} mmHg`,
+        hr != null && (hr <= 40 || hr >= 131) && `heart rate ${hr}/min`,
+      ].filter(Boolean) as string[];
+      if (red.length) {
+        flag = { level: 'red', reason: `${red.join(', ')}: scores 3 on NEWS2 on its own — urgent clinical review now, and complete the full set of observations (RCP 2017).` };
+      }
     }
     out.push({ id: 'news2', name: 'National Early Warning Score 2', abbreviation: 'NEWS2', total, max: 20, band, incomplete, flag,
       source: 'Royal College of Physicians NEWS2 (2017); scoringService.calculateNEWS2' });

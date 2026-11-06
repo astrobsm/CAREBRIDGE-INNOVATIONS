@@ -305,7 +305,10 @@ const goals: PlanRule = ctx => ({
 const preOp: PlanRule = ctx => {
   if (ctx.phase !== 'pre_op') return null;
   const a = ctx.answers;
-  const weeks = numOf(a, f('age_weeks'));
+  // Age in weeks as recorded, else from the date of birth (completed months x
+  // 4.33 — a lower bound, so the rule errs towards waiting).
+  const weeks = numOf(a, f('age_weeks'))
+    ?? (ctx.patient.ageMonths != null ? Math.floor(ctx.patient.ageMonths * 4.33) : null);
   const kg = numOf(a, 'core.weight_kg');
   const hb = numOf(a, 'core.hb');
   const assoc = chosen(a, f('associated'));
@@ -359,7 +362,7 @@ const postOp: PlanRule = ctx => {
     isOneOf(a, f('bleeding'), 'active') && { problem: { treatment: [L('Active bleeding: surgeon now; IV access, Hb, group and cross-match; pack (adrenaline) and return to theatre if it continues', 'Active bleeding after cleft repair', 'urgent')] } },
     isOneOf(a, f('bleeding'), 'ooze') && { problem: { monitoring: [L('Keep upright and calm, observe the ooze, check Hb', 'Persistent ooze')] } },
     isOneOf(a, f('feeding_post'), 'reduced', 'refusing') || isOneOf(a, f('hydration'), 'reduced')
-      ? { problem: { treatment: [L('IV maintenance fluids until feeding is adequate; regular paracetamol (± ibuprofen if the surgeon allows) before feeds; try the alternative feeding method', 'Poor feeding / dehydration after repair')] } }
+      ? { problem: { treatment: [L('IV maintenance fluids until feeding is adequate; regular paracetamol, dosed by weight (± ibuprofen from 3 months and 5 kg, if the surgeon allows) before feeds; try the alternative feeding method', 'Poor feeding / dehydration after repair')] } }
       : null,
     { general: [G('Nutrition', L('Resume milk feeds as soon as awake (breast or bottle unless the unit protocol says cup / spoon); clear water after feeds to rinse the repair; soft diet for older children', 'Early feeding after cleft repair (unit protocol)'))] },
     isOneOf(a, f('arm_splints'), 'problem') && { general: [G('Pressure care', L('Pad or refit the arm splints; check skin and circulation each shift', 'Arm splints rubbing'))] },

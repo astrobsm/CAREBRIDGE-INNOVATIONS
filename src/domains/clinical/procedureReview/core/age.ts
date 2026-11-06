@@ -35,6 +35,8 @@ export const AGE_LIMITS = {
   vte: 16,
   /** Clinical Frailty Scale: validated in people aged 65 and over (Rockwood 2005; CFS v2.0 2020). */
   cfs: 65,
+  /** NEWS2 is not for use in children under 16 (RCP NEWS2 2017): use a paediatric early warning score. */
+  news2: 16,
 } as const;
 
 /** Age in whole months: ageMonths when known, else ageYears x 12 (a lower bound); null when unknown. */
@@ -73,11 +75,14 @@ export function coreFieldAgeGate(id: string): AgeGate | undefined {
       return { minYears: AGE_LIMITS.adult };
     case 'core.paed_growth':
       return { maxYears: AGE_LIMITS.adult };
-    // Below the PHQ-9 age: a brief wellbeing and safeguarding prompt
+    // Below the PHQ-9 age: a brief wellbeing prompt
     case 'core.child_wellbeing':
     case 'core.caregiver_coping':
-    case 'core.child_safeguarding':
       return { maxYears: AGE_LIMITS.phq9 };
+    // Safeguarding: every child, i.e. under 18 (Child's Rights Act 2003;
+    // NICE CG89 covers under-18s) — adolescents are not screened by the PHQ.
+    case 'core.child_safeguarding':
+      return { maxYears: AGE_LIMITS.adult };
     case 'core.caprini':
       return { minYears: AGE_LIMITS.vte };
     default:
