@@ -73,6 +73,21 @@ describe.each(PROCEDURE_MODULES.map(m => [m.id, m] as const))('module %s', (_id,
     for (const p of Object.keys(m.sections)) expect(m.phases).toContain(p);
   });
 
+  it('excludes only real core fields, and conditions core fields only on fields in the template', () => {
+    const coreIds = new Set(CORE_SECTIONS.flatMap(c => c.section.fields.map(f => f.id)));
+    for (const [phase, ids] of Object.entries(m.excludeCoreFields ?? {})) {
+      expect(m.phases).toContain(phase);
+      for (const id of ids ?? []) expect(coreIds.has(id), `excludeCoreFields ${id} is not a core field`).toBe(true);
+    }
+    for (const [id, when] of Object.entries(m.coreShowWhen ?? {})) {
+      expect(coreIds.has(id), `coreShowWhen ${id} is not a core field`).toBe(true);
+      for (const phase of m.phases) {
+        const fields = composeTemplate(m, phase).sections.flatMap(s => s.fields.map(f => f.id));
+        if (fields.includes(id) && when) expect(fields, `${id} at ${phase} depends on ${when.field}, which is not in that template`).toContain(when.field);
+      }
+    }
+  });
+
   it('links only to existing catalogue entries', () => {
     for (const id of m.catalog.feeIds ?? []) expect(surgicalProcedures.some(p => p.id === id), `fee id ${id}`).toBe(true);
     if (m.catalog.educationId) {

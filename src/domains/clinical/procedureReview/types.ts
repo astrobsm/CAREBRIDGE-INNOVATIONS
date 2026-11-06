@@ -409,6 +409,20 @@ export interface ProcedureModule {
   /** Core sections to leave out for this module at a phase. */
   excludeCore?: Partial<Record<ReviewPhase, CoreSectionId[]>>;
   /**
+   * Single core fields to leave out at a phase because the module asks the
+   * same question more fully (e.g. burns asks the NICE CG89 alerting
+   * features, so the core safeguarding question is not asked twice). The
+   * module's own field must cover what the core field asked.
+   */
+  excludeCoreFields?: Partial<Record<ReviewPhase, string[]>>;
+  /**
+   * The reason NSAIDs are to be avoided for this procedure and patient, or
+   * null. The core analgesia rule then says "Avoid NSAIDs" with this reason
+   * instead of offering one (e.g. necrotising infection: masks progression,
+   * AKI is common).
+   */
+  avoidNsaids?: (ctx: PlanContext) => string | null;
+  /**
    * The patients are children (e.g. cleft lip and palate). When the record
    * has no date of birth, the core asks its paediatric questions instead of
    * the adult-only ones (core/age.ts). With a known age, age always decides.

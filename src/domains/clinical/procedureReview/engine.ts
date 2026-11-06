@@ -82,11 +82,13 @@ export function composeTemplate(
     throw new Error(`${module.name} is not reviewed at the ${phaseDefinition(phase).label.toLowerCase()} phase`);
   }
   const ids = new Set(coreIdsFor(module, phase));
+  const dropped = new Set(module.excludeCoreFields?.[phase] ?? []);
   const core = (slot: 'lead' | 'holistic' | 'close'): ReviewSection[] => CORE_SECTIONS
     .filter(c => c.slot === slot && ids.has(c.id))
     .map(c => ({
       ...c.section,
       fields: c.section.fields
+        .filter(f => !dropped.has(f.id))
         .filter(f => ageAllows(coreFieldAgeGate(f.id), patient, module))
         .map(f => (module.coreShowWhen?.[f.id] ? { ...f, showWhen: module.coreShowWhen[f.id] } : f)),
       origin: 'core' as const, coreId: c.id,
