@@ -5,5 +5,20 @@
  * folder and list it below — nothing else needs editing.
  */
 import type { ProcedureModule } from '../../types';
+import { diabeticFootDebridement } from './diabeticFootDebridement';
+import { lowerLimbAmputation } from './lowerLimbAmputation';
+import { tendonRepair } from './tendonRepair';
+import { nerveRepairHandTrauma } from './nerveRepairHandTrauma';
+import { burnsExcisionGrafting } from './burnsExcisionGrafting';
+import { necrotisingSoftTissueInfection } from './necrotisingSoftTissueInfection';
+import { npwt } from './npwt';
 
-export const LIMB_HAND_BURNS_MODULES: ProcedureModule[] = [];
+export const LIMB_HAND_BURNS_MODULES: ProcedureModule[] = [
+  diabeticFootDebridement,
+  lowerLimbAmputation,
+  tendonRepair,
+  nerveRepairHandTrauma,
+  burnsExcisionGrafting,
+  necrotisingSoftTissueInfection,
+  npwt,
+];
