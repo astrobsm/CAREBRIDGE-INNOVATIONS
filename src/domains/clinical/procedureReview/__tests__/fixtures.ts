@@ -13,7 +13,7 @@ export const adult = (over: Partial<ReviewPatient> = {}): ReviewPatient => ({
 /** The plan context for a module, phase and answers, read through the real engine. */
 export function contextFor(module: ProcedureModule, phase: ReviewPhase, answers: EncounterAnswers, patient = adult(), prior: PriorReview[] = []): PlanContext {
   const r = readReview({ module, phase, answers, patient, prior });
-  return { module, phase, answers, scores: r.scoreMap, flags: r.flags, patient: { ...patient, bmi: r.scoreMap.bmi?.total ?? patient.bmi }, prior };
+  return { module, phase, answers: r.planAnswers, scores: r.scoreMap, flags: r.flags, patient: { ...patient, bmi: r.scoreMap.bmi?.total ?? patient.bmi }, prior, carried: r.carried };
 }
 
 export const planFor = (module: ProcedureModule, phase: ReviewPhase, answers: EncounterAnswers, patient = adult(), prior: PriorReview[] = []) =>

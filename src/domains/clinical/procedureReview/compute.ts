@@ -47,8 +47,10 @@ export interface ComputedReview {
 export function computeReview(i: ComputeInput): ComputedReview {
   const reading = readReview({ module: i.module, phase: i.phase, answers: i.answers, otherText: i.otherText, patient: i.patient, prior: i.prior });
   const context: PlanContext = {
-    module: i.module, phase: i.phase, answers: i.answers, scores: reading.scoreMap, flags: reading.flags,
-    patient: { ...i.patient, bmi: reading.scoreMap.bmi?.total ?? i.patient.bmi }, prior: i.prior,
+    // The plan reads this review's answers plus the comorbidity facts carried
+    // from an earlier review when this phase does not ask them.
+    module: i.module, phase: i.phase, answers: reading.planAnswers, scores: reading.scoreMap, flags: reading.flags,
+    patient: { ...i.patient, bmi: reading.scoreMap.bmi?.total ?? i.patient.bmi }, prior: i.prior, carried: reading.carried,
   };
   const generated = buildReviewPlan(context);
   const plan = applyPlanEdits(generated.plan, i.planEdits, i.clinician.name);

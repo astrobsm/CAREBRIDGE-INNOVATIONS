@@ -751,9 +751,51 @@ export function narrativeFor(
   return { headline, sections, scores: scoreText, flags: flagText, barriers: barrierText, comparison: cmpText, text };
 }
 
+// ── Comorbidity state carried into later phases ─────────────────────────────
+
+/**
+ * Core facts the plan rules need at every phase but that are asked only where
+ * the comorbidity sections are (pre-op, wound review): kidney function,
+ * anticoagulants and why, pregnancy, diabetes and its control, and the
+ * Caprini factors (heparin-induced thrombocytopenia). Without them a post-op
+ * plan offered NSAIDs to a patient on warfarin or with CKD 4–5.
+ */
+export const CARRIED_COMORBIDITY_FIELDS = [
+  'core.renal', 'core.anticoagulant', 'core.anticoag_indication', 'core.pregnancy',
+  'core.diabetes', 'core.hba1c', 'core.caprini',
+] as const;
+
+/** A carried fact and the review it came from. */
+export interface CarriedFact { field: string; from: string }
+
+/**
+ * The answers the plan rules read: this review's answers, plus — for each
+ * carried comorbidity field that is NOT in this phase's form — the value from
+ * the newest earlier review of the patient that recorded it. A field that is
+ * in the form is the clinician's to answer now and is never filled in.
+ */
+export function planAnswers(
+  template: ComposedReview, answers: EncounterAnswers, prior: PriorReview[],
+): { answers: EncounterAnswers; carried: CarriedFact[] } {
+  const inForm = new Set(template.sections.flatMap(s => s.fields.map(f => f.id)));
+  const out: EncounterAnswers = { ...answers };
+  const carried: CarriedFact[] = [];
+  for (const id of CARRIED_COMORBIDITY_FIELDS) {
+    if (inForm.has(id) || answered(answers, id)) continue;
+    const src = prior.find(p => answered(p.answers, id));
+    if (!src) continue;
+    out[id] = src.answers[id];
+    carried.push({ field: id, from: src.at.slice(0, 10) });
+  }
+  return { answers: out, carried };
+}
+
 // ── Everything at once ──────────────────────────────────────────────────────
 
 export interface ReviewReading {
+  /** What the plan rules read: the answers plus carried comorbidity facts. */
+  planAnswers: EncounterAnswers;
+  carried: CarriedFact[];
   template: ComposedReview;
   scores: ComputedScore[];
   scoreMap: ScoreMap;
@@ -784,7 +826,9 @@ export function readReview(input: ReviewInput): ReviewReading {
   const flags = reviewFlags(template, input.answers, scores, patient);
   const barriers = healingBarriers(input.answers, patient, scoreMap);
   const comparison = input.phase === 'follow_up' || prior.length ? compareWithPrior(input.module.id, input.answers, scores, prior) : [];
+  const plan = planAnswers(template, input.answers, prior);
   return {
+    planAnswers: plan.answers, carried: plan.carried,
     template, scores, scoreMap, flags,
     completeness: templateCompleteness(template, input.answers),
     barriers, comparison,

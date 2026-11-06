@@ -170,6 +170,11 @@ export interface PlanContext {
   patient: ReviewPatient;
   /** Earlier reviews (any module), newest first — for follow-up comparison. */
   prior: PriorReview[];
+  /**
+   * Comorbidity facts not asked at this phase, filled into `answers` from an
+   * earlier review (engine.planAnswers), with the date they were recorded.
+   */
+  carried?: { field: string; from: string }[];
 }
 
 /**

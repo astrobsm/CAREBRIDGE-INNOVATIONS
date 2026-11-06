@@ -39,14 +39,38 @@ const belowVteAge = (ctx: PlanContext) => isUnder(ctx.patient, AGE_LIMITS.vte, c
 
 // ── Optimisation: glucose ───────────────────────────────────────────────────
 
+/**
+ * Facts in the patient record (registration comorbidities, medicines,
+ * allergies) that the plan must respect when this review has not asked them
+ * and no earlier review recorded them — e.g. a follow-up of a patient on
+ * warfarin whose pre-op review was done elsewhere.
+ */
+export function recordFacts(ctx: Pick<PlanContext, 'patient'>) {
+  const conds = ctx.patient.comorbidities.join(' | ');
+  const meds = ctx.patient.medications.join(' | ');
+  return {
+    diabetes: /diabet|\bdm\b|t[12]dm/.test(conds) || /insulin|metformin|gliclazide|glibenclamide|glimepiride|sitagliptin|empagliflozin|dapagliflozin/.test(meds),
+    advancedRenal: /dialysis|end.?stage (renal|kidney)|\besrd\b|\bckd\s*(stage\s*)?[45]\b|kidney failure|renal failure/.test(conds),
+    anticoagulant: /warfarin|rivaroxaban|apixaban|edoxaban|dabigatran|enoxaparin|heparin|clopidogrel|ticagrelor|prasugrel/.test(meds),
+    pregnant: /pregnan/.test(conds),
+  };
+}
+
+/** " — recorded at the review of <date>" when any of these facts was carried from an earlier review. */
+const carriedNote = (ctx: PlanContext, ...fields: string[]) => {
+  const c = (ctx.carried ?? []).find(x => fields.includes(x.field));
+  return c ? ` — recorded at the review of ${c.from}` : '';
+};
+
 const glycaemia: PlanRule = ctx => {
   const a = ctx.answers;
-  const dm = a['core.diabetes'];
+  // Diabetes in the record counts when this review (and earlier ones) did not ask.
+  const dm = a['core.diabetes'] ?? (recordFacts(ctx).diabetes ? 'record' : undefined);
   const hba1c = numOf(a, 'core.hba1c'), glu = numOf(a, 'core.glucose');
   const parts: PlanContribution[] = [];
-  if (dm === 'diet' || dm === 'oral' || dm === 'insulin') {
-    const type = optionLabel('core.diabetes', String(dm));
-    const why = `Diabetes (${type.toLowerCase()})`;
+  if (dm === 'diet' || dm === 'oral' || dm === 'insulin' || dm === 'record') {
+    const type = dm === 'record' ? 'in the patient record' : optionLabel('core.diabetes', String(dm)).toLowerCase();
+    const why = `Diabetes (${type})${carriedNote(ctx, 'core.diabetes')}`;
     if (hba1c != null && hba1c > 8.5 && pre(ctx)) {
       parts.push({ general: [G('Optimisation before surgery', L(
         'Defer elective surgery where it is safe to wait, and optimise glycaemic control with the diabetes team (target HbA1c 69 mmol/mol / 8.5% or below)',
@@ -307,7 +331,8 @@ const anaesthesia: PlanRule = ctx => {
  */
 const heparinBarred = (ctx: PlanContext) =>
   hasAny(ctx.answers, 'core.caprini', 'heparin_thrombocytopenia')
-  || ctx.patient.allergies.some(x => /heparin|enoxaparin|dalteparin|tinzaparin|lmwh/.test(x));
+  || ctx.patient.allergies.some(x => /heparin|enoxaparin|dalteparin|tinzaparin|lmwh/.test(x))
+  || ctx.patient.comorbidities.some(x => /heparin.induced|\bhitt?\b/.test(x));
 
 const vte: PlanRule = ctx => merge(vteLines(ctx), heparinBarred(ctx) && {
   cautions: ['Heparin-induced thrombocytopenia or heparin allergy recorded: no heparin of any kind — no LMWH, unfractionated heparin, heparin flushes or heparin-soaked pledgets; haematology advice on a non-heparin anticoagulant.'],
@@ -390,13 +415,16 @@ const analgesia: PlanRule = ctx => {
   const infant = (ageMonths != null ? ageMonths < 3
     : ageYears === 0 || (ageYears == null && !!ctx.module.paediatric))
     || (child(ctx) && (numOf(a, 'core.weight_kg') ?? 99) < 5);
-  const pregnant = isOneOf(a, 'core.pregnancy', 'pregnant', 'possible');
+  const rec = recordFacts(ctx);
+  const pregnant = isOneOf(a, 'core.pregnancy', 'pregnant', 'possible') || rec.pregnant;
   const moduleReason = ctx.module.avoidNsaids?.(ctx) ?? null;
-  const nsaidUnsafe = isOneOf(a, 'core.renal', 'ckd_4_5', 'dialysis') || chosen(a, 'core.anticoagulant').length > 0
+  const renalOrAnticoag = isOneOf(a, 'core.renal', 'ckd_4_5', 'dialysis') || chosen(a, 'core.anticoagulant').length > 0
+    || rec.advancedRenal || rec.anticoagulant;
+  const nsaidUnsafe = renalOrAnticoag
     || ctx.scores.bleeding?.band?.level === 'high' || infant || pregnant || !!moduleReason;
   const nsaidWhy = moduleReason ?? (infant ? 'Infant under 3 months or under 5 kg, or an infant whose age in months is not known — ibuprofen is not licensed (BNFc)'
-    : pregnant ? 'Pregnant or possibly pregnant — avoid NSAIDs (MHRA 2020)'
-      : 'Renal impairment, anticoagulation or high bleeding risk');
+    : pregnant ? `Pregnant or possibly pregnant — avoid NSAIDs (MHRA 2020)${carriedNote(ctx, 'core.pregnancy') || (rec.pregnant ? ' — from the patient record' : '')}`
+      : `Renal impairment, anticoagulation or high bleeding risk${carriedNote(ctx, 'core.renal', 'core.anticoagulant') || (rec.advancedRenal || rec.anticoagulant ? ' — from the patient record' : '')}`);
   if ((pain && pain !== 'none') || pre(ctx)) {
     const why = pain && pain !== 'none' ? `Pain: ${String(pain).replace(/_/g, ' ')}${score != null ? ` (${score}/10)` : ''}` : 'Peri-operative analgesia plan';
     items.push(L(

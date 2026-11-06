@@ -284,3 +284,35 @@ describe('H1: urgent lines cannot be removed silently', () => {
     expect(c.some(x => /^RED FLAG — .*PHQ-9/.test(x))).toBe(true);
   });
 });
+
+describe('H2: comorbidity state carried into post-op and follow-up', () => {
+  const preOp = (answers: EncounterAnswers): PriorReview[] =>
+    [{ encounterId: 'e1', at: '2026-10-20T09:00:00Z', moduleId: 'free_flap', phase: 'pre_op', answers, scores: [] }];
+  const post = (prior: PriorReview[], p: ReviewPatient = adult(), phase: ReviewPhase = 'post_op') =>
+    planLines(planFor(mod('free_flap'), phase, { 'core.pain_present': 'moderate' }, p, prior).plan).map(l => l.line);
+
+  it('does not offer NSAIDs post-op to a patient recorded pre-op on warfarin or with CKD 4–5', () => {
+    for (const a of [{ 'core.anticoagulant': ['warfarin'] }, { 'core.renal': 'ckd_4_5' }] as EncounterAnswers[]) {
+      const l = post(preOp(a));
+      expect(l.some(x => /Add a regular NSAID/.test(x.text))).toBe(false);
+      expect(l.find(x => x.text === 'Avoid NSAIDs')?.why).toMatch(/recorded at the review of 2026-10-20/);
+    }
+    expect(post([]).some(x => /Add a regular NSAID/.test(x.text))).toBe(true);
+  });
+
+  it('monitors glucose post-op for diabetes recorded pre-op, or in the record', () => {
+    expect(post(preOp({ 'core.diabetes': 'insulin' })).some(x => /Capillary glucose before meals/.test(x.text))).toBe(true);
+    expect(post([], adult({ comorbidities: ['type 2 diabetes'] })).some(x => /Capillary glucose before meals/.test(x.text))).toBe(true);
+  });
+
+  it('respects HIT and pregnancy recorded pre-op, and anticoagulants in the medicine list', () => {
+    expect(planFor(mod('free_flap'), 'post_op', {}, adult(), preOp({ 'core.caprini': ['heparin_thrombocytopenia'] })).plan.cautions.some(c => /no heparin of any kind/.test(c))).toBe(true);
+    expect(post(preOp({ 'core.pregnancy': 'pregnant' }), adult({ sex: 'female', ageYears: 30 }), 'follow_up').some(x => x.text === 'Avoid NSAIDs')).toBe(true);
+    expect(post([], adult({ medications: ['rivaroxaban 20 mg'] })).some(x => x.text === 'Avoid NSAIDs')).toBe(true);
+  });
+
+  it('never fills a field the current form asks', () => {
+    const r = readReview({ module: mod('free_flap'), phase: 'pre_op', answers: {}, patient: adult(), prior: preOp({ 'core.renal': 'dialysis' }) });
+    expect(r.planAnswers['core.renal']).toBeUndefined();
+  });
+});
