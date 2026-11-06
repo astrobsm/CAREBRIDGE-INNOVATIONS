@@ -23,6 +23,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { format } from 'date-fns';
 import type { NutritionAssessment } from '../../../types';
+import { storedSgaGrade } from '../engine/screening';
 import { generateNutritionPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { PatientSelector } from '../../../components/patient';
 
@@ -284,7 +285,8 @@ export default function NutritionPage() {
         height: data.height,
         bmi: Number(calculatedBmi.toFixed(1)),
         mustScore,
-        sgaGrade: mustScore === 0 ? 'A' : mustScore === 1 ? 'B' : 'C',
+        // No SGA grade: SGA is a clinician assessment made on the SGA form and
+        // is never derived from the MUST score (which this used to do).
         dietaryRestrictions: data.dietaryRestrictions,
         allergies: data.allergies ? data.allergies.split(',').map(a => a.trim()) : [],
         assessedBy: user.id,
@@ -428,13 +430,15 @@ export default function NutritionPage() {
                       </td>
                       <td className="px-6 py-4">{getMustBadge(assessment.mustScore)}</td>
                       <td className="px-6 py-4">
-                        <span className={`badge ${
-                          assessment.sgaGrade === 'A' ? 'badge-success' :
-                          assessment.sgaGrade === 'B' ? 'badge-warning' :
-                          'badge-danger'
-                        }`}>
-                          Grade {assessment.sgaGrade}
-                        </span>
+                        {(() => {
+                          const sga = storedSgaGrade(assessment);
+                          if (!sga) return <span className="text-gray-400 text-sm" title="SGA not assessed (older grades were derived from MUST and are not shown)">Not assessed</span>;
+                          return (
+                            <span className={`badge ${sga === 'A' ? 'badge-success' : sga === 'B' ? 'badge-warning' : 'badge-danger'}`}>
+                              Grade {sga}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {format(new Date(assessment.assessedAt), 'MMM d, yyyy')}

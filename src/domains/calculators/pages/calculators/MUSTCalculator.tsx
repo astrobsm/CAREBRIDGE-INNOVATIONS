@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { Scale, Calculator, AlertCircle, UtensilsCrossed } from 'lucide-react';
 import { PatientCalculatorInfo, MUSTResult } from '../../types';
+import { mustBmiScore, mustWeightLossScore, weightLossPercent as lossPercent } from '../../../nutrition/engine/screening';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -24,32 +25,26 @@ export default function MUSTCalculator({ patientInfo }: Props) {
     return weight / (heightM * heightM);
   };
 
-  const getBMIScore = (bmi: number): number => {
-    if (bmi > 20) return 0;
-    if (bmi >= 18.5) return 1;
-    return 2;
-  };
+  // MUST step scores come from the nutrition engine (single source of truth).
+  const getBMIScore = (bmi: number): number => mustBmiScore(bmi);
 
-  const getWeightLossPercentage = (current: number, previous: number): number => {
-    return ((previous - current) / previous) * 100;
-  };
-
-  const getWeightLossScore = (percentage: number): number => {
-    if (percentage < 5) return 0;
-    if (percentage < 10) return 1;
-    return 2;
-  };
+  /** Percent LOST: positive = loss, negative = gain. */
+  const getWeightLossPercentage = (current: number, previous: number): number =>
+    lossPercent(previous, current) ?? 0;
 
   const calculate = () => {
     const weight = parseFloat(currentWeight);
     const heightVal = parseFloat(height);
-    const prevWeight = parseFloat(previousWeight) || weight;
+    const hasPrevWeight = parseFloat(previousWeight) > 0;
+    const prevWeight = hasPrevWeight ? parseFloat(previousWeight) : weight;
     
     const bmi = calculateBMI(weight, heightVal);
     const bmiScore = getBMIScore(bmi);
     
+    // A weight GAIN is not unplanned weight loss and scores 0. (This used
+    // Math.abs(), so a 12% gain scored 2 as if it were a 12% loss.)
     const weightLossPercent = getWeightLossPercentage(weight, prevWeight);
-    const weightLossScore = getWeightLossScore(Math.abs(weightLossPercent));
+    const weightLossScore = mustWeightLossScore(weightLossPercent);
     
     // Acute disease effect score
     const acuteDiseaseScore = (acutelyIll && npoOrReduced) ? 2 : 0;
@@ -178,7 +173,11 @@ export default function MUSTCalculator({ patientInfo }: Props) {
       estimatedProtein,
       scoreBreakdown: {
         bmi: `BMI ${bmi.toFixed(1)} kg/m² → Score ${bmiScore}`,
-        weightLoss: prevWeight ? `Weight loss ${Math.abs(weightLossPercent).toFixed(1)}% over ${weightLossDuration} → Score ${weightLossScore}` : 'No previous weight recorded',
+        weightLoss: !hasPrevWeight
+          ? 'No previous weight recorded — weight-loss step not assessed'
+          : weightLossPercent < 0
+            ? `Weight GAIN ${Math.abs(weightLossPercent).toFixed(1)}% over ${weightLossDuration} → Score 0 (not unplanned loss)`
+            : `Weight loss ${weightLossPercent.toFixed(1)}% over ${weightLossDuration} → Score ${weightLossScore}`,
         acuteDisease: acutelyIll && npoOrReduced ? 'Acutely ill with reduced/no intake → Score 2' : 'No acute disease effect → Score 0',
       },
     };

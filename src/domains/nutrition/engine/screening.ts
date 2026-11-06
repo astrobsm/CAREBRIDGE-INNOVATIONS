@@ -276,6 +276,15 @@ export function evaluateSga(form: SgaForm, config: NutritionConfig = C): Estimat
   return computed(config, form.clinicianRating, { ...base, warnings });
 }
 
+/**
+ * The SGA grade a stored assessment may be displayed with: only one recorded
+ * from the SGA form. Legacy records were given a grade mapped from the MUST
+ * score (0→A, 1→B, ≥2→C), which is not an SGA, so they read as not assessed.
+ */
+export function storedSgaGrade(record: { sgaGrade?: SgaRating | null; sgaSource?: string | null }): SgaRating | null {
+  return record.sgaSource === 'sga_form' && record.sgaGrade ? record.sgaGrade : null;
+}
+
 // ───────────────────────────── GLIM ─────────────────────────────
 
 export interface GlimInput {

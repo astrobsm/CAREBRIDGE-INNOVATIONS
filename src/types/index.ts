@@ -938,7 +938,12 @@ export interface NutritionAssessment {
   height?: number;
   mustScore: MUSTScore | number;
   bmi?: number;
+  /**
+   * SGA grade. Only meaningful when sgaSource === 'sga_form'. Older records
+   * carry a grade derived from the MUST score, which is not an SGA.
+   */
   sgaGrade?: 'A' | 'B' | 'C';
+  sgaSource?: 'sga_form';
   anthropometrics?: {
     weight: number;
     height: number;
@@ -3287,6 +3292,9 @@ export interface LimbSalvageScore {
   
   // Limb Salvage Probability
   salvageProbability: 'excellent' | 'good' | 'fair' | 'poor' | 'very_poor';
+
+  /** Inputs that were not recorded and so contributed no points (e.g. albumin). */
+  missingInputs?: string[];
 }
 
 // Treatment Recommendations

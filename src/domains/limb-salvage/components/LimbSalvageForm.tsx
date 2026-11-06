@@ -158,7 +158,9 @@ const getInitialFormData = (): Partial<LimbSalvageAssessment> => ({
     previousAmputation: false,
     smoking: false,
   } as DiabeticFootComorbidities,
-  albumin: 4.0,
+  // Albumin is left unrecorded until entered: a default of 4.0 made a missing
+  // albumin score as normal.
+  albumin: undefined,
   prealbumin: 20,
   bmi: 25,
   mustScore: 0,
@@ -472,7 +474,7 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
             <ComorbiditiesStep
               renalStatus={formData.renalStatus!}
               comorbidities={formData.comorbidities!}
-              albumin={formData.albumin || 4.0}
+              albumin={formData.albumin}
               prealbumin={formData.prealbumin || 20}
               bmi={formData.bmi || 25}
               mustScore={formData.mustScore || 0}
