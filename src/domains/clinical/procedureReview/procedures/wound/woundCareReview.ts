@@ -105,7 +105,7 @@ const CAUSE: EncounterSection = {
         { value: 'compression', label: 'Compression' },
         { value: 'npwt', label: 'NPWT' },
         { value: 'graft', label: 'Skin graft' },
-        { value: 'traditional', label: 'Traditional treatment' },
+        // Traditional remedies are asked once, in the core (core.traditional_remedies).
       ],
     },
   ],
@@ -295,10 +295,12 @@ export const woundCareReview: ProcedureModule = {
     follow_up: [RESPONSE, CAUSE],
   },
   includeCore: { wound_review: ['tetanus'], follow_up: ['wound_assessment', 'wound_infection', 'tetanus', 'healing_barriers', 'wound_dressing'] },
-  // The core tetanus question, for traumatic and burn wounds only.
-  coreShowWhen: { 'core.tetanus': { field: 'core.wound_aetiology', equals: ['traumatic', 'burn'] } },
+  // The core tetanus question for every open wound: the Green Book counts a
+  // chronic wound with devitalised or necrotic tissue as tetanus-prone, and
+  // chronic ulcers are a recognised source of tetanus in low-income settings.
   carryForward: ['core.wound_aetiology', 'core.wound_site', f('abpi')],
   planRules: [goals, compressionGate, causeSpecific, response],
+  therapeuticAntibiotics: c => isOneOf(c.answers, f('contamination'), 'bite') ? 'Bite wound: antibiotic course (UKHSA 2020)' : null,
   consent: {
     procedureName: 'Wound debridement and dressing',
     phases: ['wound_review'],

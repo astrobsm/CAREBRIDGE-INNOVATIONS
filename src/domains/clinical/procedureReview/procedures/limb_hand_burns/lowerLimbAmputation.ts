@@ -502,10 +502,12 @@ export const lowerLimbAmputation: ProcedureModule = {
     follow_up: [DETAILS, STUMP_FU],
   },
   includeCore: { pre_op: ['tetanus'], post_op: ['psychology'] },
-  coreShowWhen: { 'core.tetanus': { field: f('indication'), equals: ['trauma', 'burn_electrical'] } },
+  // Tetanus for every indication with an open wound, gangrene or devitalised
+  // tissue (Green Book ch. 30) — not for tumour or an elective painful limb.
+  coreShowWhen: { 'core.tetanus': { field: f('indication'), equals: ['trauma', 'burn_electrical', 'diabetic_sepsis', 'infection', 'clti', 'acute_ischaemia'] } },
   carryForward: [f('indication'), f('side'), f('level'), f('staging')],
   scores: [abiScore(ID, f, a => isOneOf(a, f('indication'), 'clti', 'diabetic_sepsis')), tbiScore(ID, f)],
-  planRules: [goals, decision, preparation, postOp, followUpRule],
+  planRules: [goals, decision, preparation, postOp, followUpRule, () => ACUTE_LIMB_ISCHAEMIA_REDFLAG],
   consent: {
     procedureName: 'Amputation of the lower limb',
     phases: ['pre_op'],

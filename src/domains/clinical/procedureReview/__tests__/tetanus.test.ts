@@ -30,20 +30,21 @@ describe('core tetanus', () => {
     expect(ids.filter(x => x === 'core.tetanus')).toHaveLength(1);
   });
 
-  it('keeps the module conditions: traumatic amputation, traumatic / burn wound', () => {
+  it('keeps the module conditions: open-wound amputation; every wound in wound care', () => {
     const field = (id: string, phase: Parameters<typeof composeTemplate>[1]) =>
       composeTemplate(mod(id), phase).sections.flatMap(s => s.fields).find(f => f.id === 'core.tetanus')!;
     const amp = field('lower_limb_amputation', 'pre_op');
     expect(isVisible(amp, { 'lower_limb_amputation.indication': 'trauma' })).toBe(true);
-    expect(isVisible(amp, { 'lower_limb_amputation.indication': 'clti' })).toBe(false);
+    expect(isVisible(amp, { 'lower_limb_amputation.indication': 'clti' })).toBe(true);
+    expect(isVisible(amp, { 'lower_limb_amputation.indication': 'tumour' })).toBe(false);
     const w = field('wound_care_review', 'wound_review');
     expect(isVisible(w, { 'core.wound_aetiology': 'traumatic' })).toBe(true);
-    expect(isVisible(w, { 'core.wound_aetiology': 'venous' })).toBe(false);
+    expect(isVisible(w, { 'core.wound_aetiology': 'venous' })).toBe(true);
     expect(isVisible(field('tendon_repair', 'pre_op'), {})).toBe(true);
   });
 
   it('is not in reviews that did not opt in', () => {
-    const ids = composeTemplate(mod('skin_graft'), 'pre_op').sections.flatMap(s => s.fields.map(f => f.id));
+    const ids = composeTemplate(mod('free_flap'), 'pre_op').sections.flatMap(s => s.fields.map(f => f.id));
     expect(ids).not.toContain('core.tetanus');
   });
 

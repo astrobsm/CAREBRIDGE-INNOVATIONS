@@ -326,7 +326,9 @@ const postOp: PlanRule = ctx => {
   return merge(
     flapStateLines(a, ID, { free: true }),
     isOneOf(a, f('implantable_signal'), 'lost') && { problem: { treatment: [L('Lost implantable Doppler signal: examine the flap clinically and inform the microsurgeon now; return to theatre unless a probe fault is certain', 'Implantable Doppler signal lost', 'urgent')] } },
-    !state && { problem: { monitoring: [L(
+    // A flap that is already black (established necrosis) is not being salvaged:
+    // the necrosis line (flapStateLines) replaces routine observations.
+    !state && !isOneOf(a, f('flap_colour'), 'black') && { problem: { monitoring: [L(
       hrs == null || hrs < 24
         ? 'Flap observations hourly for the first 24 hours (unit protocol), recorded on the flap chart with the time and observer'
         : hrs < 72

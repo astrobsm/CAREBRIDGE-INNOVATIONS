@@ -19,6 +19,7 @@ import type { EncounterAnswers, EncounterField, EncounterSection } from '../../.
 import type { PlanContribution, PlanRule, ProcedureModule } from '../../types';
 import { chosen, hasAny, isOneOf, isYes, numOf } from '../../core/answers';
 import { isChild } from '../../core/age';
+import { ACUTE_LIMB_ISCHAEMIA_REDFLAG } from './shared';
 import { G, L, P, merge } from '../../ruleKit';
 
 const ID = 'npwt';
@@ -373,7 +374,10 @@ export const npwt: ProcedureModule = {
     post_op: [INDICATION, SETTINGS, MONITOR],
   },
   carryForward: [f('purpose'), f('device'), f('pressure_mmhg'), f('mode'), f('filler'), f('change_interval')],
-  planRules: [goals, safety, settings, monitoring],
+  // Safety-net for limb wounds (ischaemic or circumferential limb, or a leg / foot ulcer aetiology).
+  planRules: [goals, safety, settings, monitoring, ctx =>
+    hasAny(ctx.answers, f('precautions'), 'ischaemic', 'circumferential') || isOneOf(ctx.answers, 'core.pvd', 'suspected', 'confirmed')
+      || isOneOf(ctx.answers, 'core.wound_aetiology', 'arterial', 'venous', 'mixed', 'diabetic') ? ACUTE_LIMB_ISCHAEMIA_REDFLAG : null],
   consent: {
     procedureName: 'Negative-pressure wound therapy (application and dressing changes)',
     phases: ['wound_review', 'pre_op'],

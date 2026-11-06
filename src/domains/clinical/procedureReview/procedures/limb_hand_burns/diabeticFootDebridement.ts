@@ -26,7 +26,7 @@ import type { WagnerGrade } from '../../../../../types';
 import type { PlanContext, PlanContribution, PlanRule, ProcedureModule, ScoreRule } from '../../types';
 import { answered, chosen, hasAny, isOneOf, numOf } from '../../core/answers';
 import { G, L, P, merge } from '../../ruleKit';
-import { abiScore, perfusionFields, pressuresFrom, severeIschaemia, tbiScore } from './shared';
+import { ACUTE_LIMB_ISCHAEMIA_REDFLAG, abiScore, perfusionFields, pressuresFrom, severeIschaemia, tbiScore } from './shared';
 
 const ID = 'diabetic_foot_debridement';
 const f = (id: string) => `${ID}.${id}`;
@@ -620,7 +620,7 @@ const osteomyelitis: PlanRule = ctx => {
     !answered(a, f('esr')) && { problem: { investigations: [L('ESR and CRP (ESR above 70 mm/h supports osteomyelitis)', 'Possible osteomyelitis (IWGDF/IDSA 2023)')] } },
     isOneOf(a, f('mri'), 'not_needed') || !a[f('mri')]
       ? { problem: { investigations: [L('MRI when the diagnosis remains uncertain after probe-to-bone, X-ray and inflammatory markers (white-cell or PET imaging if MRI is contraindicated)', 'Osteomyelitis not yet confirmed (IWGDF/IDSA 2023)')] } } : null,
-    !coreAsks && !isOneOf(a, f('bone_sample'), 'sent', 'positive', 'negative') && { problem: { investigations: [L('Bone sample (percutaneous or at surgery) for culture and histology; where safe, after a 2-week antibiotic-free window', 'Diabetic foot osteomyelitis (IWGDF/IDSA 2023)')] } },
+    !coreAsks && !isOneOf(a, f('bone_sample'), 'sent', 'positive', 'negative') && { problem: { investigations: [L('Bone sample (percutaneous or at surgery) for culture and histology; where it is safe, after a short antibiotic-free period of a few days', 'Diabetic foot osteomyelitis (IWGDF/IDSA 2023)')] } },
     { problem: { treatment: [L('Osteomyelitis: resect the infected bone (then a short course if the margin is clear, about 3 weeks if a residual margin is positive), or treat a forefoot osteomyelitis without abscess or necrosis with antibiotics alone for 6 weeks', 'Diabetic foot osteomyelitis (IWGDF/IDSA 2023)')] } },
   );
 };
@@ -826,10 +826,12 @@ export const diabeticFootDebridement: ProcedureModule = {
     post_op: [CLASSIFY, OPERATIVE],
     follow_up: [CLASSIFY, OUTCOME],
   },
-  includeCore: { pre_op: ['wound_assessment'], follow_up: ['wound_assessment', 'healing_barriers'] },
+  // Tetanus: an ulcer with devitalised tissue or gangrene is tetanus-prone (Green Book ch. 30).
+  includeCore: { wound_review: ['tetanus'], pre_op: ['wound_assessment', 'tetanus'], follow_up: ['wound_assessment', 'healing_barriers'] },
   carryForward: [f('side'), f('region'), f('wagner'), f('gangrene'), f('monofilament'), f('contralateral')],
   scores: [wifiScore, sinbadScore, abiScore(ID, f, a => !!a[f('region')]), tbiScore(ID, f), iwgdfRiskScore],
-  planRules: [goals, classification, infection, osteomyelitis, perfusion, neuropathy, offloading, team, glycaemiaFoot, preOp, postOp, followUpRule],
+  planRules: [goals, classification, infection, osteomyelitis, perfusion, neuropathy, offloading, team, glycaemiaFoot, preOp, postOp, followUpRule, () => ACUTE_LIMB_ISCHAEMIA_REDFLAG],
+  therapeuticAntibiotics: c => isOneOf(c.answers, f('infection_grade'), '2', '3', '4') ? `Diabetic foot infection grade ${String(c.answers[f('infection_grade')])}: treatment-course antibiotics (IWGDF/IDSA 2023)` : null,
   consent: {
     procedureName: 'Debridement of diabetic foot (with drainage and removal of dead or infected tissue or bone; toe / ray amputation if needed)',
     phases: ['pre_op', 'wound_review'],

@@ -381,6 +381,9 @@ export const localRegionalFlap: ProcedureModule = {
     educationNote: 'procedureEducationDatabase has no local / regional flap record; the consent risks are given in this module.',
     patientEducationIds: ['recon-local-flaps', 'flap-surgery'],
   },
+  // Core tetanus for an open fracture / acute trauma or a burn (Green Book ch. 30).
+  includeCore: { pre_op: ['tetanus'] },
+  coreShowWhen: { 'core.tetanus': { field: f('indication'), equals: ['open_fracture', 'burn'] } },
   sections: {
     pre_op: [DETAILS, PLANNING],
     post_op: [DETAILS, MONITORING],

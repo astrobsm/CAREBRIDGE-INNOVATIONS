@@ -435,7 +435,9 @@ export const skinGraft: ProcedureModule = {
     post_op: [DETAILS, TAKE],
     follow_up: [DETAILS, MATURATION],
   },
-  includeCore: { follow_up: ['pressure'] },
+  // Core tetanus for a traumatic or burn wound (Green Book ch. 30).
+  includeCore: { pre_op: ['tetanus'], follow_up: ['pressure'] },
+  coreShowWhen: { 'core.tetanus': { field: f('indication'), equals: ['burn', 'trauma'] } },
   excludeCore: {},
   carryForward: [f('graft_type'), f('mesh_ratio'), f('region'), f('over_joint'), f('site'), f('grafted_area'), f('donor')],
   scores: [graftTakeScore],

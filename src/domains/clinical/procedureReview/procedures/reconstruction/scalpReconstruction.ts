@@ -335,6 +335,9 @@ export const scalpReconstruction: ProcedureModule = {
     educationNote: 'procedureEducationDatabase has no scalp reconstruction record; the consent risks are given in this module.',
     patientEducationIds: ['recon-local-flaps', 'recon-tissue-expansion', 'recon-skin-grafting'],
   },
+  // Core tetanus for a traumatic or burn defect (Green Book ch. 30).
+  includeCore: { pre_op: ['tetanus'] },
+  coreShowWhen: { 'core.tetanus': { field: f('cause'), equals: ['trauma', 'burn'] } },
   sections: {
     pre_op: [DETAILS, PLANNING],
     post_op: [DETAILS, POST],
