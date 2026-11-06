@@ -21,6 +21,7 @@ import type { EncounterField, EncounterSection } from '../../../data/encounterMo
 import { PRESSURE_ULCER_STAGES } from '../../../../pressure-sore/data/clinicalProtocol';
 import type { PlanRule, ProcedureModule } from '../../types';
 import { chosen, hasAny, isOneOf, isYes, numOf } from '../../core/answers';
+import { isChild } from '../../core/age';
 import { G, L, P, merge } from '../../ruleKit';
 import { FLAP_MONITORING_BASIS, flapCompromise, flapObservationFields, flapStateLines } from './flapShared';
 
@@ -68,11 +69,36 @@ const FLAP: EncounterField = {
   ],
 };
 
+// The neurological level and dysreflexia history are in DETAILS (every phase,
+// carried forward) because the post-operative dysreflexia watch reads them.
+const IMMOBILITY_CAUSE: EncounterField = {
+  id: f('immobility_cause'), label: 'Cause of immobility / sensory loss', kind: 'select', important: true,
+  options: [
+    { value: 'sci', label: 'Spinal cord injury' },
+    { value: 'neuro', label: 'Other neurological (spina bifida, MS, stroke, transverse myelitis)' },
+    { value: 'frailty', label: 'Frailty / acute illness / prolonged admission' },
+    { value: 'other', label: 'Other' },
+  ],
+};
+const SCI_LEVEL: EncounterField = {
+  id: f('sci_level'), label: 'Neurological level of injury', kind: 'select',
+  showWhen: { field: f('immobility_cause'), equals: ['sci', 'neuro'] },
+  options: [
+    { value: 't6_above', label: 'T6 or above (including cervical)', flag: 'amber', flagReason: 'Injury at T6 or above: risk of autonomic dysreflexia during and after surgery — anaesthetic plan and a written dysreflexia protocol (Consortium for Spinal Cord Medicine 2020).' },
+    { value: 'below_t6', label: 'Below T6' },
+  ],
+};
+const AD_HISTORY: EncounterField = {
+  id: f('ad_history'), label: 'Previous autonomic dysreflexia', kind: 'boolean',
+  flagWhenTrue: { level: 'amber', reason: 'Known autonomic dysreflexia: record the baseline blood pressure and the usual triggers; protocol and nifedipine / GTN available on the ward — no GTN within 24 h of sildenafil / vardenafil or 48 h of tadalafil (Consortium for Spinal Cord Medicine 2020).' },
+};
+const BASELINE_SBP: EncounterField = { id: f('baseline_sbp'), label: 'Usual (baseline) systolic blood pressure', kind: 'number', unit: 'mmHg', min: 60, max: 200, help: 'Often low after high spinal injury; dysreflexia is judged against it.' };
+
 const DETAILS: EncounterSection = {
   id: f('details'),
   title: 'The pressure injury and the flap',
   intent: 'Recorded once and carried forward.',
-  fields: [SITE, SIDE, STAGE, PREVIOUS_FLAP, FLAP],
+  fields: [SITE, SIDE, STAGE, PREVIOUS_FLAP, FLAP, IMMOBILITY_CAUSE, SCI_LEVEL, AD_HISTORY, BASELINE_SBP],
 };
 
 // ── Pre-operative ───────────────────────────────────────────────────────────
@@ -82,28 +108,6 @@ const CAUSES: EncounterSection = {
   title: 'Why the injury happened — and is it controlled?',
   intent: 'A flap only lasts if the causes are controlled first.',
   fields: [
-    {
-      id: f('immobility_cause'), label: 'Cause of immobility / sensory loss', kind: 'select', important: true,
-      options: [
-        { value: 'sci', label: 'Spinal cord injury' },
-        { value: 'neuro', label: 'Other neurological (spina bifida, MS, stroke, transverse myelitis)' },
-        { value: 'frailty', label: 'Frailty / acute illness / prolonged admission' },
-        { value: 'other', label: 'Other' },
-      ],
-    },
-    {
-      id: f('sci_level'), label: 'Neurological level of injury', kind: 'select',
-      showWhen: { field: f('immobility_cause'), equals: ['sci', 'neuro'] },
-      options: [
-        { value: 't6_above', label: 'T6 or above (including cervical)', flag: 'amber', flagReason: 'Injury at T6 or above: risk of autonomic dysreflexia during and after surgery — anaesthetic plan and a written dysreflexia protocol (Consortium for Spinal Cord Medicine 2020).' },
-        { value: 'below_t6', label: 'Below T6' },
-      ],
-    },
-    {
-      id: f('ad_history'), label: 'Previous autonomic dysreflexia', kind: 'boolean',
-      flagWhenTrue: { level: 'amber', reason: 'Known autonomic dysreflexia: record the baseline blood pressure and the usual triggers; protocol and nifedipine / GTN available on the ward (Consortium for Spinal Cord Medicine 2020).' },
-    },
-    { id: f('baseline_sbp'), label: 'Usual (baseline) systolic blood pressure', kind: 'number', unit: 'mmHg', min: 60, max: 200, help: 'Often low after high spinal injury; dysreflexia is judged against it.' },
     {
       id: f('spasticity'), label: 'Spasticity', kind: 'select', important: true,
       options: [
@@ -309,7 +313,9 @@ const preOp: PlanRule = ctx => {
     { problem: { treatment: [L('Excise the ulcer, bursa and scar, reduce the bony prominence, obliterate dead space with a well-vascularised flap, and close without tension with the suture line away from the pressure point; plan the flap so future flaps remain possible',
       'Principles of pressure-injury reconstruction (EPUAP / NPIAP 2019)')] } },
     // The core nutrition rule writes the same targets once MUST is 1 or more; here they apply to every pressure-injury flap.
-    (s.must?.total ?? 0) < 1 && { general: [G('Nutrition', L('Target about 30–35 kcal/kg/day and 1.25–1.5 g protein/kg/day before and after surgery, with the dietitian', 'Adults with a pressure injury who are malnourished or at risk (EPUAP / NPIAP 2019)'))] },
+    (s.must?.total ?? 0) < 1 && { general: [G('Nutrition', isChild(ctx.patient, ctx.module)
+      ? L('Paediatric dietitian: age-appropriate energy and protein targets for healing before and after surgery, with weight plotted on the growth chart', 'Child with a pressure injury — the adult per-kg targets do not apply (EPUAP / NPIAP 2019)')
+      : L('Target about 30–35 kcal/kg/day and 1.25–1.5 g protein/kg/day before and after surgery, with the dietitian', 'Adults with a pressure injury who are malnourished or at risk (EPUAP / NPIAP 2019)'))] },
     isOneOf(a, f('surface'), 'none', 'foam') && { general: [G('Pressure care', L('Secure an air-fluidised, low-air-loss or alternating-pressure surface for the post-operative period before booking theatre', `Surface available: ${String(a[f('surface')])} (EPUAP / NPIAP 2019)`, 'urgent'))] },
     (isOneOf(a, f('cushion'), 'standard') || isOneOf(a, f('pressure_mapping'), 'available')) && { problem: { referrals: [L('Seating assessment (with pressure mapping where available) and a pressure-redistributing cushion ready before the sitting programme', 'Cushion inadequate / mapping available')] } },
     isOneOf(a, f('weight_shifts'), 'unable', 'assisted') && { general: [G('Social and financial support', L('Carer training in turning, transfers and pressure relief; tilt-in-space or reclining chair if available', `Pressure relief: ${String(a[f('weight_shifts')])}`))] },
@@ -333,10 +339,10 @@ const postOp: PlanRule = ctx => {
     isOneOf(a, f('spasms_post'), 'uncontrolled') && { problem: { treatment: [L('Increase antispasticity treatment and treat triggers (pain, full bladder, constipation, the wound)', 'Spasms shearing the flap', 'urgent')] } },
     isOneOf(a, f('soiling_post'), 'soiled') && { problem: { treatment: [L('Cleanse and redress after every soiling; review the bowel programme and urinary containment', 'Wound soiled')] } },
     isYes(a, f('dysreflexia')) && { problem: { treatment: [L(
-      'Autonomic dysreflexia: sit the patient up and lower the legs (protecting the flap as far as possible), loosen clothing and dressings, check the catheter and bladder, then the bowel; if systolic BP stays high, treat (e.g. nifedipine or GTN per protocol) and monitor every 2–5 minutes',
+      'Autonomic dysreflexia: sit the patient up and lower the legs (protecting the flap as far as possible), loosen clothing and dressings, check the catheter and bladder, then the bowel; if systolic BP stays high, treat (e.g. nifedipine or GTN per protocol — no GTN within 24 hours of sildenafil / vardenafil or 48 hours of tadalafil) and monitor every 2–5 minutes',
       `Dysreflexia episode (${AD_GUIDE.split('.')[0]} 2020)`, 'urgent')] } },
-    highSci(a) && !isYes(a, f('dysreflexia')) && { problem: { monitoring: [L('Watch for dysreflexia at every turn, dressing change and catheter problem: a systolic rise of more than 20 mmHg above the patient\'s baseline with symptoms is dysreflexia until proven otherwise',
-      `Spinal injury at T6 or above (${AD_GUIDE.split('.')[0]} 2020)`)] } },
+    highSci(a) && !isYes(a, f('dysreflexia')) && { problem: { monitoring: [L(`Watch for dysreflexia at every turn, dressing change and catheter problem: a systolic rise of more than ${isChild(ctx.patient, ctx.module) ? '15' : '20'} mmHg above the patient's baseline${numOf(a, f('baseline_sbp')) != null ? ` (${numOf(a, f('baseline_sbp'))} mmHg)` : ''} with symptoms is dysreflexia until proven otherwise`,
+      `${isYes(a, f('ad_history')) ? 'Previous dysreflexia' : 'Spinal injury at T6 or above'} (${AD_GUIDE.split('.')[0]} 2020${isChild(ctx.patient, ctx.module) ? ': over 15 mmHg in children and adolescents' : ''})`)] } },
     isOneOf(a, f('sitting_stage'), 'bed_rest') && { general: [G('Rehabilitation (physiotherapy / OT)', L(
       'Start the progressive sitting protocol when the operating surgeon allows (commonly after 2–6 weeks of bed rest, unit protocol): short sessions on the prescribed cushion, increased stepwise, with the flap inspected after each session',
       'Pressure-sore flap — gradual loading (unit protocol)'))] },
@@ -398,7 +404,7 @@ export const pressureSoreFlap: ProcedureModule = {
     follow_up: [DETAILS, FU],
   },
   includeCore: { follow_up: ['pressure', 'social'] },
-  carryForward: [f('site'), f('side'), f('stage'), f('previous_flap'), f('flap')],
+  carryForward: [f('site'), f('side'), f('stage'), f('previous_flap'), f('flap'), f('immobility_cause'), f('sci_level'), f('ad_history'), f('baseline_sbp')],
   planRules: [goals, preOp, postOp, followUp],
   consent: {
     procedureName: 'Excision of pressure injury and flap reconstruction',
