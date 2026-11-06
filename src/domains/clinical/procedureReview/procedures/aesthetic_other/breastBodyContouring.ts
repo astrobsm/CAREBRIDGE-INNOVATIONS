@@ -204,7 +204,7 @@ const LIPO: EncounterSection = {
     },
     {
       id: f('lidocaine_mg_kg'), label: 'Planned lidocaine dose in the infiltrate', kind: 'number', unit: 'mg/kg', min: 0, max: 100, visibleWhen: lipo,
-      numericFlags: [{ op: '>', value: 35, level: 'amber', reason: 'Lidocaine over 35 mg/kg in tumescent fluid exceeds the dose the ASPS Practice Advisory (2004) recommends.' }],
+      numericFlags: [{ op: '>', value: 35, level: 'red', reason: 'Lidocaine over 35 mg/kg in tumescent fluid exceeds the dose the ASPS Practice Advisory (2004) recommends: risk of local anaesthetic systemic toxicity — reduce the dose or stage the procedure.' }],
     },
     {
       id: f('wetting'), label: 'Infiltration', kind: 'select', visibleWhen: lipo,
@@ -331,7 +331,19 @@ const preOp: PlanRule = ctx => {
   const aspirate = numOf(a, f('aspirate_ml'));
   const caprini = ctx.scores.caprini?.total ?? null;
   const highVte = abdo(a) || isYes(a, f('combined')) || (aspirate != null && aspirate > 5000);
+  const lido = numOf(a, f('lidocaine_mg_kg'));
   return merge(
+    // Elective cosmetic / contouring surgery is not done in pregnancy.
+    isOneOf(a, 'core.pregnancy', 'pregnant') && {
+      problem: { treatment: [L('Defer elective breast / body-contouring surgery until after the pregnancy (and breastfeeding, for breast surgery)', 'Pregnant — elective aesthetic surgery is deferred', 'urgent')] },
+      cautions: ['Pregnant: do not book elective breast or body-contouring surgery.'],
+    },
+    isOneOf(a, 'core.pregnancy', 'possible') && {
+      problem: { investigations: [L('Pregnancy test before booking; defer elective contouring if positive', 'Possibly pregnant', 'urgent')] },
+    },
+    lipo(a) && lido != null && lido > 35 && { general: [G('Anaesthesia and theatre', L(
+      `Planned lidocaine ${lido} mg/kg exceeds 35 mg/kg: reduce the dose (dilution, smaller infiltrated area) or stage the procedure; lipid emulsion and resuscitation equipment available`,
+      `Tumescent lidocaine above the recommended maximum (${ASPS_LIPO.split('.')[0]} 2004)`, 'urgent'))] },
     bmi != null && bmi >= 30 && { problem: { treatment: [L(
       `BMI ${Math.round(bmi * 10) / 10}: discuss weight reduction before surgery — wound, seroma and VTE complications rise with BMI; the consultant decides whether to proceed`,
       `BMI 30 or more (${NEAMAN_2007.split('.')[0]} 2007; ${ASPS_RM.split(';')[0]} 2012)`)] } },

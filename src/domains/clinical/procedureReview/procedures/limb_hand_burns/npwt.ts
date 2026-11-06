@@ -332,7 +332,7 @@ const monitoring: PlanRule = ctx => {
     parts.push({ general: [G('Wound care and dressings', L('Add a non-adherent contact layer or shorten the change interval; soak the foam with saline (or instil local anaesthetic) before removal', 'Granulation ingrowth into the foam'))] });
   }
   if (isOneOf(a, f('pain_change'), 'severe')) {
-    parts.push({ general: [G('Analgesia', L('Instil lidocaine into the foam 15–30 minutes before removal (within the maximum safe dose); lower pressure; contact layer', 'Severe pain at NPWT changes'))] });
+    parts.push({ general: [G('Analgesia', L('Instil lidocaine into the foam 15–30 minutes before removal — maximum 3 mg/kg plain lidocaine in total, including any other local anaesthetic given (check the local protocol); lower pressure; contact layer', 'Severe pain at NPWT changes'))] });
   }
   if (hasAny(a, f('periwound'), 'blisters', 'maceration')) {
     parts.push({ general: [G('Wound care and dressings', L('Protect the periwound: barrier film, frame with hydrocolloid or drape strips, cut the foam to the wound edge only', 'Periwound damage on NPWT'))] });
