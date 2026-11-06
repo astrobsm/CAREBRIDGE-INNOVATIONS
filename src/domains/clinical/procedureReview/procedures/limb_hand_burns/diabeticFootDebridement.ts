@@ -12,7 +12,7 @@
  *
  * Scores: WIfI by the vascular domain's computeWifi; ABI / TBI by its
  * perfusion calculators; SINBAD with limbSalvageService.calculateSINBADScore
- * (see sinbadScore for where the published item definitions are applied);
+ * (fed the published item definitions — see sinbadScore);
  * the IWGDF 2023 risk category for recurrence screening.
  *
  * Time-critical: severe infection, gas, abscess, necrotising infection, wet
@@ -22,7 +22,7 @@ import type { EncounterAnswers, EncounterField, EncounterSection } from '../../.
 import { computeWifi, wifiShorthand } from '../../../../vascular/services/wifiEngine';
 import type { FootInfectionSeverity, GangreneExtent, VascularWoundSnapshot } from '../../../../vascular/types';
 import { calculateSINBADScore, getWagnerDescription } from '../../../../../services/limbSalvageService';
-import type { LimbSalvageAssessment, WagnerGrade } from '../../../../../types';
+import type { WagnerGrade } from '../../../../../types';
 import type { PlanContext, PlanContribution, PlanRule, ProcedureModule, ScoreRule } from '../../types';
 import { answered, chosen, hasAny, isOneOf, numOf } from '../../core/answers';
 import { G, L, P, merge } from '../../ruleKit';
@@ -464,14 +464,12 @@ export const wifiScore: ScoreRule = ({ phase, answers: a }) => {
 };
 
 /**
- * SINBAD (Ince 2008), via limbSalvageService.calculateSINBADScore.
- *
- * The service derives ischaemia from the ABI alone and depth from a depth in
- * cm; the published items are "clinical evidence of reduced pedal blood
- * flow" and "ulcer reaching muscle, tendon or deeper". The service is
- * called with this review's answers, and those two items are then set from
- * the published definitions (pulses / Doppler / toe pressure; exposed deep
- * structure / probe-to-bone / Wagner 2 or more) where the review shows them.
+ * SINBAD (Ince 2008), via limbSalvageService.calculateSINBADScore, fed the
+ * published item definitions from this review's answers. Ischaemia: at least
+ * one palpable foot pulse is intact flow; with no palpable pulse it scores 1;
+ * when pulses cannot be felt for oedema the Doppler waveform, ABI and toe
+ * pressure decide. Depth: an exposed tendon / bone / joint, a positive
+ * probe-to-bone or Wagner 2 or more reaches muscle, tendon or deeper.
  */
 export const sinbadScore: ScoreRule = ({ phase, answers: a }) => {
   if (phase === 'post_op') return null;
@@ -481,41 +479,37 @@ export const sinbadScore: ScoreRule = ({ phase, answers: a }) => {
     const ankle = p?.ankleMmHg, arm = Math.max(p?.rightBrachialMmHg ?? 0, p?.leftBrachialMmHg ?? 0);
     return ankle && arm ? ankle / arm : undefined;
   })();
-  const infected = isOneOf(a, f('infection_grade'), '2', '3', '4');
-  const base = calculateSINBADScore({
-    woundLocation: String(a[f('region')]),
-    dopplerFindings: abi != null && abi <= 1.4 ? { arterial: { abi } } : undefined,
-    monofilamentTest: isOneOf(a, f('monofilament'), 'lost'),
-    sepsis: { sepsisSeverity: infected ? 'sirs' : 'none' },
-    woundSize: { area: areaOf(a) ?? 0, depth: numOf(a, 'core.wound_depth') ?? 0 },
-  } as unknown as Partial<LimbSalvageAssessment>);
-  const reducedFlow = isOneOf(a, f('pedal_pulses'), 'none', 'one') || isOneOf(a, f('waveform'), 'monophasic', 'absent')
-    || (numOf(a, f('toe_pressure')) ?? 999) < 30;
+  const toe = numOf(a, f('toe_pressure'));
+  const pulses = a[f('pedal_pulses')];
+  const reducedPedalFlow = pulses === 'both' || pulses === 'one' ? false
+    : pulses === 'none' ? true
+      : isOneOf(a, f('waveform'), 'monophasic', 'absent') || (toe != null && toe < 30) || (abi != null && abi < 0.9) ? true
+        : isOneOf(a, f('waveform'), 'triphasic', 'biphasic') ? false : undefined;
+  const grade = a[f('infection_grade')];
+  const mono = a[f('monofilament')];
   const deep = deepStructures(a).length > 0 || isOneOf(a, f('probe_to_bone'), 'positive') || isOneOf(a, f('wagner'), '2', '3', '4', '5');
-  const items = {
-    site: base.site,
-    ischemia: (reducedFlow ? 1 : base.ischemia) as 0 | 1,
-    neuropathy: base.neuropathy,
-    bacterialInfection: base.bacterialInfection,
-    area: base.area,
-    depth: (deep ? 1 : base.depth) as 0 | 1,
+  const r = calculateSINBADScore({
+    site: String(a[f('region')]),
+    reducedPedalFlow,
+    protectiveSensationLost: mono === 'lost' ? true : mono === 'intact' ? false : undefined,
+    infection: grade === '1' ? false : grade === '2' || grade === '3' || grade === '4' ? true : undefined,
+    areaCm2: areaOf(a),
+    deepToMuscleOrTendon: deep ? true : isOneOf(a, f('wagner'), '0', '1') ? false : undefined,
+  });
+  const LABEL: Record<string, string> = {
+    site: 'Ulcer site', ischemia: 'Foot pulses (or Doppler / toe pressure)', neuropathy: 'Protective sensation (monofilament)',
+    bacterialInfection: 'Infection grade', area: 'Ulcer area (wound assessment)', depth: 'Depth (Wagner grade or exposed structures)',
   };
-  const total = items.site + items.ischemia + items.neuropathy + items.bacterialInfection + items.area + items.depth;
-  const incomplete = [
-    !a[f('monofilament')] || isOneOf(a, f('monofilament'), 'not_tested') ? 'Protective sensation (monofilament)' : null,
-    !a[f('infection_grade')] ? 'Infection grade' : null,
-    areaOf(a) == null ? 'Ulcer area (wound assessment)' : null,
-    !a[f('pedal_pulses')] ? 'Foot pulses' : null,
-  ].filter((x): x is string => !!x);
   return {
-    id: `${ID}.sinbad`, name: 'SINBAD', abbreviation: 'SINBAD', total, max: 6,
+    id: `${ID}.sinbad`, name: 'SINBAD', abbreviation: 'SINBAD', total: r.total, max: 6,
     band: {
-      label: total >= 3 ? 'SINBAD 3 or more' : 'SINBAD under 3',
-      level: total >= 3 ? 'high' : 'low',
-      interpretation: `Site ${items.site}, Ischaemia ${items.ischemia}, Neuropathy ${items.neuropathy}, Bacterial infection ${items.bacterialInfection}, Area ${items.area}, Depth ${items.depth}. A score of 3 or more is associated with longer healing times (Ince 2008); IWGDF 2023 recommends SINBAD for communication between professionals and audit.`,
+      label: r.severe ? 'SINBAD 3 or more' : 'SINBAD under 3',
+      level: r.severe ? 'high' : 'low',
+      interpretation: `Site ${r.site}, Ischaemia ${r.ischemia}, Neuropathy ${r.neuropathy}, Bacterial infection ${r.bacterialInfection}, Area ${r.area}, Depth ${r.depth}. A score of 3 or more is associated with longer healing times (Ince 2008); IWGDF 2023 recommends SINBAD for communication between professionals and audit.`,
     },
-    incomplete,
-    source: 'limbSalvageService.calculateSINBADScore; ischaemia and depth items per the published definitions (Ince P et al. Diabetes Care 2008;31:964-7)',
+    incomplete: r.missing.map(m => LABEL[m]),
+    detail: r.missing.length ? ['Unassessed items score 0: the total is a minimum.'] : undefined,
+    source: 'limbSalvageService.calculateSINBADScore (Ince P et al. Diabetes Care 2008;31:964-7)',
   };
 };
 

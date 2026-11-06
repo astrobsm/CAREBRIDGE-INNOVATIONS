@@ -54,6 +54,18 @@ describe('diabetic foot debridement', () => {
     expect(c.scores['diabetic_foot_debridement.sinbad'].total).toBe(6);
   });
 
+  it('SINBAD: one palpable pulse is intact flow; unanswered infection is not counted as infected', () => {
+    const c = contextFor(dfu, 'wound_review', {
+      [D('region')]: 'forefoot', [D('pedal_pulses')]: 'one', [D('monofilament')]: 'intact', 'core.wound_area': 0.5, [D('wagner')]: '1',
+    });
+    const s = c.scores['diabetic_foot_debridement.sinbad'];
+    expect(s.total).toBe(0);
+    expect(s.incomplete).toEqual(['Infection grade']);
+    const unk = contextFor(dfu, 'wound_review', { [D('region')]: 'midfoot' }).scores['diabetic_foot_debridement.sinbad'];
+    expect(unk.total).toBe(1);
+    expect(unk.incomplete.length).toBe(5);
+  });
+
   it('severe infection is its own urgent problem; uninfected ulcers get no antibiotics', () => {
     const severe = planFor(dfu, 'wound_review', { [D('infection_grade')]: '4' });
     expect(severe.plan.problems.some(p => p.problem === 'Severe diabetic foot infection')).toBe(true);

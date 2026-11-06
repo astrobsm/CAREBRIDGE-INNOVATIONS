@@ -844,20 +844,98 @@ export function determineManagement(assessment: Partial<LimbSalvageAssessment>):
 // ============================================================
 
 /**
- * Calculate SINBAD Score from assessment data
+ * The six SINBAD findings, as Ince et al. define them (Diabetes Care
+ * 2008;31:964-7). Leave a finding undefined when it was not assessed: it then
+ * scores 0 and is listed in `missing`, never assumed to be abnormal.
  */
-export function calculateSINBADScore(assessment: Partial<LimbSalvageAssessment>): SINBADScore {
-  const woundLocation = (assessment.woundLocation || '').toLowerCase();
-  const isForefoot = woundLocation.includes('toe') || woundLocation.includes('metatarsal') || woundLocation.includes('forefoot');
-  
+export interface SINBADFindings {
+  /** Ulcer site: 'forefoot' (0) or 'midfoot' / 'hindfoot' (1); free text is matched (toe, metatarsal, heel…). */
+  site?: string;
+  /** Clinical evidence of reduced pedal blood flow (1); intact = at least one palpable pedal pulse (0). */
+  reducedPedalFlow?: boolean;
+  /** Protective sensation lost (1) or intact (0). */
+  protectiveSensationLost?: boolean;
+  /** Bacterial infection present (1) or none (0). */
+  infection?: boolean;
+  /** Ulcer area in cm2: under 1 scores 0, 1 or more scores 1. */
+  areaCm2?: number;
+  /** Ulcer reaches muscle, tendon or deeper (1), or is confined to skin and subcutaneous tissue (0). */
+  deepToMuscleOrTendon?: boolean;
+}
+
+export type SINBADItem = 'site' | 'ischemia' | 'neuropathy' | 'bacterialInfection' | 'area' | 'depth';
+
+export interface SINBADResult extends SINBADScore {
+  /** Items not assessed (scored 0 meanwhile): the total is then a minimum. */
+  missing: SINBADItem[];
+  /** Total 3 or more (Ince 2008: associated with longer healing). */
+  severe: boolean;
+}
+
+/** 0 forefoot, 1 midfoot / hindfoot, undefined when the text names neither. */
+export function sinbadSite(site: string | undefined): 0 | 1 | undefined {
+  const s = (site ?? '').toLowerCase();
+  if (!s.trim()) return undefined;
+  if (/\b(midfoot|mid-foot|hindfoot|hind-foot|heel|calcane\w*|tarsal|tarsus|instep|arch)\b/.test(s)) return 1;
+  if (/(forefoot|fore-foot|toe|hallux|metatarsal|digit|phalan)/.test(s)) return 0;
+  return undefined;
+}
+
+/**
+ * SINBAD score (Ince P et al. Diabetes Care 2008;31:964-7): Site, Ischaemia,
+ * Neuropathy, Bacterial infection, Area, Depth — one point each, total 0–6;
+ * 3 or more is severe. Unassessed items score 0 and are reported as missing.
+ */
+export function calculateSINBADScore(findings: SINBADFindings): SINBADResult {
+  const missing: SINBADItem[] = [];
+  const bit = (item: SINBADItem, v: boolean | undefined): 0 | 1 => {
+    if (v === undefined) { missing.push(item); return 0; }
+    return v ? 1 : 0;
+  };
+  const siteScore = sinbadSite(findings.site);
+  const area = findings.areaCm2 != null && Number.isFinite(findings.areaCm2) ? findings.areaCm2 >= 1 : undefined;
+  const items = {
+    site: bit('site', siteScore === undefined ? undefined : siteScore === 1),
+    ischemia: bit('ischemia', findings.reducedPedalFlow),
+    neuropathy: bit('neuropathy', findings.protectiveSensationLost),
+    bacterialInfection: bit('bacterialInfection', findings.infection),
+    area: bit('area', area),
+    depth: bit('depth', findings.deepToMuscleOrTendon),
+  };
+  const total = items.site + items.ischemia + items.neuropathy + items.bacterialInfection + items.area + items.depth;
+  return { ...items, total, missing, severe: total >= 3 };
+}
+
+/**
+ * SINBAD findings from a limb-salvage assessment, reading only what it
+ * actually recorded: reduced flow from occluded / stenosed pedal arteries, a
+ * monophasic or absent waveform, ABI below 0.9 or TBI below 0.7; infection
+ * from the sepsis assessment or osteomyelitis; depth from Wagner 2 or more or
+ * a positive probe-to-bone test.
+ */
+export function sinbadFindingsFromAssessment(a: Partial<LimbSalvageAssessment>): SINBADFindings {
+  const art = a.dopplerFindings?.arterial;
+  let reducedPedalFlow: boolean | undefined;
+  if (art) {
+    const pedal = [art.dorsalisPedisArtery, art.posteriorTibialArtery];
+    const reduced = pedal.some(x => x === 'occluded' || x === 'stenosis') || art.waveform === 'monophasic' || art.waveform === 'absent'
+      || (art.abi > 0 && art.abi < 0.9) || (art.tbi != null && art.tbi > 0 && art.tbi < 0.7);
+    const assessed = pedal.some(x => x && x !== 'not_assessed') || art.abi > 0 || !!art.waveform;
+    reducedPedalFlow = reduced ? true : assessed ? false : undefined;
+  }
+  const osteo = a.osteomyelitis?.suspected || a.osteomyelitis?.probeToBone;
+  const sev = a.sepsis?.sepsisSeverity;
+  const infection = sev == null ? (osteo ? true : undefined) : sev !== 'none' || !!osteo;
+  const wagner = a.wagnerGrade;
+  const deepToMuscleOrTendon = a.osteomyelitis?.probeToBone || (wagner != null && wagner >= 2) ? true
+    : wagner != null ? false : undefined;
   return {
-    site: isForefoot ? 0 : 1,
-    ischemia: (assessment.dopplerFindings?.arterial?.abi || 1) < 0.8 ? 1 : 0,
-    neuropathy: assessment.monofilamentTest ? 1 : 0,
-    bacterialInfection: assessment.sepsis?.sepsisSeverity !== 'none' ? 1 : 0,
-    area: (assessment.woundSize?.area || 0) >= 1 ? 1 : 0,
-    depth: (assessment.woundSize?.depth || 0) > 0.5 ? 1 : 0,
-    total: 0, // Will be calculated
+    site: a.woundLocation,
+    reducedPedalFlow,
+    protectiveSensationLost: a.monofilamentTest,
+    infection,
+    areaCm2: a.woundSize?.area && a.woundSize.area > 0 ? a.woundSize.area : undefined,
+    deepToMuscleOrTendon,
   };
 }
 
