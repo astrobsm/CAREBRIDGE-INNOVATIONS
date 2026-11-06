@@ -30,28 +30,17 @@ import { db } from '../../../database';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
 import { ClinicalOutcomesSummary } from '../components/clerking/StructuredEncounters';
 import ScribeSummaryPanel from '../components/scribe/ScribeSummaryPanel';
+import { ENCOUNTER_TYPES } from '../data/encounterTypes';
 
 interface EncounterExpanded {
   [key: string]: boolean;
 }
 
-const encounterTypeColors: Record<string, string> = {
-  outpatient: 'bg-blue-100 text-blue-800',
-  inpatient: 'bg-purple-100 text-purple-800',
-  emergency: 'bg-red-100 text-red-800',
-  surgical: 'bg-orange-100 text-orange-800',
-  follow_up: 'bg-green-100 text-green-800',
-  home_visit: 'bg-teal-100 text-teal-800',
-};
-
-const encounterTypeLabels: Record<string, string> = {
-  outpatient: 'Outpatient',
-  inpatient: 'Inpatient',
-  emergency: 'Emergency',
-  surgical: 'Surgical',
-  follow_up: 'Follow-up',
-  home_visit: 'Home Visit',
-};
+// Labels and colours come from the one encounter-type definition.
+const encounterTypeColors: Record<string, string> =
+  Object.fromEntries(ENCOUNTER_TYPES.map(t => [t.id, t.colour]));
+const encounterTypeLabels: Record<string, string> =
+  Object.fromEntries(ENCOUNTER_TYPES.map(t => [t.id, t.shortLabel]));
 
 export default function PatientClinicalSummaryPage() {
   const { patientId } = useParams<{ patientId: string }>();

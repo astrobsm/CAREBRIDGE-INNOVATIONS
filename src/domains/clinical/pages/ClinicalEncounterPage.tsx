@@ -50,6 +50,8 @@ import PreviousPlansReviewGuard, { type AckSummary } from '../../../components/c
 import { VoiceDictation, ExportOptionsModal } from '../../../components/common';
 import StructuredHistory, { type StructuredHistoryValue } from '../components/StructuredHistory';
 import StructuredEncountersPanel from '../components/clerking/StructuredEncounters';
+import { ENCOUNTER_TYPES, ENCOUNTER_TYPE_IDS } from '../data/encounterTypes';
+import { phaseForEncounterType } from '../procedureReview/phases';
 import { patientContext, patientIdentifiers, patientLabelOf } from '../services/clerkingService';
 import { TEMPLATE_VERSION } from '../services/templateEngine';
 import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
@@ -62,7 +64,7 @@ import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination, 
 import { createSafePDF } from '../../../utils/pdfTextSafe';
 
 const encounterSchema = z.object({
-  type: z.enum(['initial', 'outpatient', 'inpatient', 'emergency', 'surgical', 'follow_up', 'home_visit']),
+  type: z.enum(ENCOUNTER_TYPE_IDS),
   chiefComplaint: z.string().min(5, 'Chief complaint is required'),
   historyOfPresentIllness: z.string().optional(),
   pastMedicalHistory: z.string().optional(),
@@ -115,15 +117,9 @@ function parseEncounterHeuristic(text: string): Record<string, string> {
   return result;
 }
 
-const encounterTypes: { value: EncounterType; label: string }[] = [
-  { value: 'initial', label: 'Initial Encounter (New Patient)' },
-  { value: 'follow_up', label: 'Follow-up Visit' },
-  { value: 'outpatient', label: 'Outpatient Visit' },
-  { value: 'inpatient', label: 'Inpatient Admission' },
-  { value: 'emergency', label: 'Emergency' },
-  { value: 'surgical', label: 'Surgical Consultation' },
-  { value: 'home_visit', label: 'Home Visit' },
-];
+// The picker reads the one encounter-type definition (data/encounterTypes).
+const encounterTypes: { value: EncounterType; label: string }[] =
+  ENCOUNTER_TYPES.map(t => ({ value: t.id, label: t.label }));
 
 export default function ClinicalEncounterPage() {
   const { patientId } = useParams<{ patientId: string }>();
@@ -925,6 +921,15 @@ export default function ClinicalEncounterPage() {
                 <ClipboardList size={16} />
                 {encounterMode === 'initial' ? 'Structured clerking (recommended)' : 'Structured follow-up (tracked problems)'}
               </button>
+              <button
+                type="button"
+                onClick={() => navigate(`/patients/${patientId}/procedure-review`)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+                title="Wound, pre-operative, post-operative or follow-up review for a plastic-surgery procedure"
+              >
+                <ClipboardList size={16} />
+                Procedure review
+              </button>
               {encounterMode === 'follow_up' && (
                 <button
                   type="button"
@@ -1184,6 +1189,15 @@ export default function ClinicalEncounterPage() {
                     </option>
                   ))}
                 </select>
+                {phaseForEncounterType(watch('type')) && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/patients/${patientId}/procedure-review?phase=${phaseForEncounterType(watch('type'))}`)}
+                    className="mt-1.5 text-xs text-indigo-700 hover:underline"
+                  >
+                    Use the structured procedure-review template for this encounter type
+                  </button>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <VoiceDictation
