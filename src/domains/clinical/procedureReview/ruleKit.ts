@@ -15,6 +15,15 @@ export const G = (heading: PlanHeading, ...items: RuleLine[]) => ({ heading, ite
 export const P = (topic: string, text: string, why: string): CounsellingPoint => ({ topic, text, why });
 
 /**
+ * The exposure line every bite needs besides wound care: rabies is endemic in
+ * Nigeria and fatal once symptomatic; a human bite can transmit blood-borne
+ * viruses. One wording, used by every module that records a bite.
+ */
+export const biteExposureLine = (context: string): RuleLine => L(
+  'Bite exposure, today: for any mammal bite (dog, cat, monkey, bat) a rabies risk assessment — wash the wound with soap and running water for 15 minutes, start rabies vaccine now and add rabies immunoglobulin into and around the wound for a category III exposure (it may be stopped if a dog or cat stays healthy through 10 days of observation); for a human bite, a blood-borne-virus risk assessment (hepatitis B, HIV, hepatitis C) with post-exposure prophylaxis where indicated',
+  `${context} (WHO rabies position paper 2018; NCDC rabies guidance; UKHSA human and animal bites 2020)`, 'urgent');
+
+/**
  * Combine partial contributions into one (null when nothing was given).
  * Lets a rule build its answer in parts: `return merge(a && {...}, b && {...})`.
  */

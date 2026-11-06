@@ -20,7 +20,7 @@
 import type { EncounterField, EncounterSection } from '../../../data/encounterModel';
 import type { PlanContribution, PlanRule, ProcedureModule, ScoreRule } from '../../types';
 import { chosen, hasAny, isOneOf, isYes, numOf } from '../../core/answers';
-import { G, L, P, merge } from '../../ruleKit';
+import { G, L, P, biteExposureLine, merge } from '../../ruleKit';
 
 const ID = 'tendon_repair';
 const f = (id: string) => `${ID}.${id}`;
@@ -339,7 +339,10 @@ const preOp: PlanRule = ctx => {
     parts.push({ problem: { treatment: [L('Emergency theatre: explore and repair the digital arteries (vein graft if needed) before or with the tendon repair', 'Devascularised digit', 'urgent')] } });
   }
   if (isOneOf(a, f('mechanism'), 'bite')) {
-    parts.push({ problem: { treatment: [L('Formal exploration and washout in theatre; co-amoxiclav (or the local alternative in penicillin allergy); leave the skin open; repair the tendon once clean', `Bite${isOneOf(a, f('extensor_zone'), 'V') ? ' — zone V fight bite' : ''} (BSSH; IDSA 2014 SSTI)`, 'urgent')] } });
+    parts.push({ problem: { treatment: [
+      L('Formal exploration and washout in theatre; co-amoxiclav (or the local alternative in penicillin allergy); leave the skin open; repair the tendon once clean', `Bite${isOneOf(a, f('extensor_zone'), 'V') ? ' — zone V fight bite' : ''} (BSSH; IDSA 2014 SSTI)`, 'urgent'),
+      biteExposureLine('Human or animal bite'),
+    ] } });
   }
   if (isOneOf(a, f('contamination'), 'contaminated')) {
     parts.push({ problem: { treatment: [L('Debride and wash out; antibiotics; delay the tendon repair (days) if the wound cannot be made clean', 'Contaminated wound', 'urgent')] } });

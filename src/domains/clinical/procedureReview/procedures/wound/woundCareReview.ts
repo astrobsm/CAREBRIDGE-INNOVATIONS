@@ -12,7 +12,7 @@ import type { EncounterField, EncounterSection } from '../../../data/encounterMo
 import { PRESSURE_ULCER_STAGES } from '../../../../pressure-sore/data/clinicalProtocol';
 import type { PlanContribution, PlanRule, ProcedureModule, RuleLine } from '../../types';
 import { chosen, isOneOf, numOf, hasAny } from '../../core/answers';
-import { L, merge } from '../../ruleKit';
+import { L, biteExposureLine, merge } from '../../ruleKit';
 
 const ID = 'wound_care_review';
 const f = (id: string) => `${ID}.${id}`;
@@ -74,7 +74,8 @@ const CAUSE: EncounterSection = {
       showWhen: { field: 'core.wound_aetiology', equals: ['traumatic'] },
       options: [
         { value: 'clean', label: 'Clean' },
-        { value: 'contaminated', label: 'Contaminated (soil, road, bite)', flag: 'amber', flagReason: 'Contaminated wound: thorough irrigation and debridement; consider antibiotic prophylaxis (bites, open fractures).' },
+        { value: 'contaminated', label: 'Contaminated (soil, road)', flag: 'amber', flagReason: 'Contaminated wound: thorough irrigation and debridement; consider antibiotic prophylaxis (open fractures).' },
+        { value: 'bite', label: 'Bite (human or animal)', flag: 'red', flagReason: 'Bite: irrigation and debridement, antibiotic prophylaxis, and a rabies / blood-borne-virus risk assessment today.' },
         { value: 'heavy', label: 'Heavily contaminated / devitalised', flag: 'amber', flagReason: 'Heavy contamination: formal debridement in theatre; delayed closure.' },
       ],
     },
@@ -193,6 +194,12 @@ const causeSpecific: PlanRule = ctx => {
   }
   if (isOneOf(a, f('offloading'), 'none', 'partial') && !isOneOf(a, 'core.wound_aetiology', 'pressure', 'diabetic')) {
     lines.push({ problem: { treatment: [L('Offload the wound', 'Offloading inadequate')] } });
+  }
+  if (isOneOf(a, f('contamination'), 'bite')) {
+    lines.push({ problem: { treatment: [
+      L('Thorough irrigation and debridement; leave a bite wound open unless on the face; antibiotic prophylaxis (co-amoxiclav class, or the local alternative in penicillin allergy)', 'Bite wound (UKHSA 2020; IDSA 2014 SSTI)', 'urgent'),
+      biteExposureLine('Bite wound'),
+    ] } });
   }
   if (isOneOf(a, f('contamination'), 'contaminated', 'heavy')) {
     lines.push({ problem: { treatment: [L(isOneOf(a, f('contamination'), 'heavy')

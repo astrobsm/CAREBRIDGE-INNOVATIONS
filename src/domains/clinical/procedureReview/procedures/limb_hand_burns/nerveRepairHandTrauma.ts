@@ -19,7 +19,7 @@
 import type { EncounterField, EncounterSection } from '../../../data/encounterModel';
 import type { PlanContribution, PlanRule, ProcedureModule } from '../../types';
 import { chosen, hasAny, isOneOf, numOf } from '../../core/answers';
-import { G, L, P, merge } from '../../ruleKit';
+import { G, L, P, biteExposureLine, merge } from '../../ruleKit';
 
 const ID = 'nerve_repair_hand_trauma';
 const f = (id: string) => `${ID}.${id}`;
@@ -47,7 +47,8 @@ const MECHANISM: EncounterField = {
     { value: 'crush', label: 'Crush / avulsion' },
     { value: 'traction', label: 'Traction / stretch' },
     { value: 'gunshot_blast', label: 'Gunshot / blast' },
-    { value: 'bite', label: 'Bite' },
+    { value: 'bite', label: 'Human or animal bite', flag: 'red',
+      flagReason: 'Bite: high infection risk — formal washout in theatre and antibiotics; rabies / blood-borne-virus risk assessment today.' },
     { value: 'compression', label: 'Compression / closed injury' },
   ],
 };
@@ -305,6 +306,12 @@ const preOp: PlanRule = ctx => {
   const isch = numOf(a, f('ischaemia_h'));
   const muscle = level === 'hand_wrist';
   const parts: PlanContribution[] = [];
+  if (isOneOf(a, f('mechanism'), 'bite')) {
+    parts.push({ problem: { treatment: [
+      L('Formal exploration and washout in theatre; co-amoxiclav (or the local alternative in penicillin allergy); leave the skin open; repair the nerve once the wound is clean', 'Bite (BSSH; IDSA 2014 SSTI)', 'urgent'),
+      biteExposureLine('Human or animal bite'),
+    ] } });
+  }
   if (comp.includes('compartment')) {
     parts.push({ problem: { treatment: [L('Emergency fasciotomy of the hand (interossei, thenar, hypothenar, carpal tunnel) and / or forearm', 'Compartment syndrome — muscle dies within hours', 'urgent')] } });
   }
