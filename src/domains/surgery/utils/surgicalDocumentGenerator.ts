@@ -215,6 +215,50 @@ function dedupe(items: string[]): string[] {
   });
 }
 
+/**
+ * The kind of risk a line describes, from its name (the words before any ':'
+ * or '(' detail). Lines of the same kind are one risk on the form: "Infection
+ * and sepsis", "Wound infection" and the general "Infection of the wound…"
+ * are stated once. Donor site is checked first so "donor-site infection"
+ * stays with the donor site.
+ */
+const RISK_KINDS: [RegExp, string][] = [
+  [/donor/, 'donor site'],
+  [/ruptur/, 'rupture'],
+  [/stiff|adhesion/, 'stiffness'],
+  [/infect|sepsis/, 'infection'],
+  [/bleed|haemorrhag|hemorrhag|transfusion/, 'bleeding'],
+  [/clot|thrombo|\bdvt\b|embol/, 'blood clots'],
+  [/scar/, 'scarring'],
+  [/graft (loss|fail)|graft not|loss of (the )?graft/, 'graft loss'],
+];
+export function riskKey(r: string): string {
+  const name = r.toLowerCase().split(/:|\(/)[0].trim();
+  return RISK_KINDS.find(([re]) => re.test(name))?.[1] ?? name;
+}
+
+/**
+ * General risks then procedure risks, one line per kind of risk. A procedure-
+ * specific line replaces the general line of its kind (it is more specific and
+ * carries the frequency); further lines of the same kind are joined to it, so
+ * nothing is lost and nothing is said twice. When blood transfusion is likely,
+ * the general "may rarely require a transfusion" line is not used.
+ */
+export function mergeRisks(procedureRisks: string[], bloodProducts?: 'unlikely' | 'possible' | 'likely'): string[] {
+  const general = GENERAL_RISKS.map(r => (bloodProducts === 'likely' && riskKey(r) === 'bleeding'
+    ? 'Bleeding: a blood transfusion is likely to be needed' : r));
+  const groups = new Map<string, { main: string; also: string[]; general: boolean }>();
+  for (const r of general) groups.set(riskKey(r), { main: r, also: [], general: true });
+  for (const r of procedureRisks) {
+    const k = riskKey(r);
+    const g = groups.get(k);
+    if (!g) { groups.set(k, { main: r, also: [], general: false }); continue; }
+    if (g.general) { g.main = r; g.general = false; continue; }
+    if (g.main.toLowerCase() !== r.toLowerCase() && !g.also.some(x => x.toLowerCase() === r.toLowerCase())) g.also.push(r);
+  }
+  return [...groups.values()].map(g => (g.also.length ? `${g.main}; also — ${g.also.join('; ')}` : g.main));
+}
+
 /** Compose the document's sections from the case and the education library. */
 export function buildSurgicalDocument(input: SurgicalDocumentInput): DocumentSection[] {
   const edu = input.libraryEducation !== undefined ? input.libraryEducation : findEducationForProcedure(input.procedureName);
@@ -265,17 +309,7 @@ export function buildSurgicalDocument(input: SurgicalDocumentInput): DocumentSec
     ...toLines(edu?.expectedOutcomes?.possibleComplications, 8),
     ...toLines(edu?.overview?.complications, 6),
   ];
-  // Compared by the risk's name (the words before any ':' or '(' detail), so
-  // "Graft Failure: ... (about 5-20%)" from the education record and "Graft
-  // failure (moderate risk)" from the leaflet library are one risk, stated once.
-  const seen = new Set<string>();
-  const risks = [...GENERAL_RISKS, ...procedureRisks].filter(r => {
-    const k = r.toLowerCase().split(/:|\(/)[0].trim();
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-  sections.push({ title: 'Risks and possible complications', bullets: risks });
+  sections.push({ title: 'Risks and possible complications', bullets: mergeRisks(procedureRisks, input.consentMatters?.bloodProducts) });
 
   // Comorbidities raise specific risks the generic list does not cover.
   const comorbidityRisks = (input.comorbidities || [])
