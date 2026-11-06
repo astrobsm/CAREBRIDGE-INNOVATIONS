@@ -4,5 +4,7 @@
  * its own file in this folder and list it below — nothing else needs editing.
  */
 import type { ProcedureModule } from '../../types';
+import { cleftLipPalate } from './cleftLipPalate';
+import { breastBodyContouring } from './breastBodyContouring';
 
-export const AESTHETIC_OTHER_MODULES: ProcedureModule[] = [];
+export const AESTHETIC_OTHER_MODULES: ProcedureModule[] = [cleftLipPalate, breastBodyContouring];
