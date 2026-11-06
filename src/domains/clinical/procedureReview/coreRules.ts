@@ -787,6 +787,13 @@ const timers: PlanRule = ctx => {
 const tetanus: PlanRule = ctx => {
   const a = ctx.answers;
   const status = a['core.tetanus'];
+  if (status === 'given_today') {
+    const w = a['core.tetanus_wound'];
+    if (w !== 'prone' && w !== 'high_risk') return null;
+    return { problem: { treatment: [L(
+      'Vaccine given today — decide on immunoglobulin now: human tetanus immunoglobulin (250 IU IM; 500 IU if over 24 hours, heavy contamination or a burn) at a different site for a high-risk wound unless fully immunised, and for any tetanus-prone wound if the primary course was incomplete or unknown',
+      `Tetanus vaccine given today; ${String(w).replace('_', '-')} wound (UK Green Book ch. 30)`, 'urgent')] } };
+  }
   if (status !== 'due' && status !== 'primary_incomplete' && status !== 'unknown') return null;
   const wound = a['core.tetanus_wound'];
   const vaccine = child(ctx) && isUnder(ctx.patient, 10, ctx.module)

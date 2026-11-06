@@ -34,7 +34,9 @@ export const TETANUS: EncounterSection = {
     },
     {
       id: 'core.tetanus_wound', label: 'Tetanus risk of the wound', kind: 'select',
-      showWhen: { field: 'core.tetanus', equals: ['due', 'primary_incomplete', 'unknown'] },
+      // Also after a dose given today: the vaccine does not cover a tetanus-prone
+      // wound in someone not fully immunised — immunoglobulin may still be needed.
+      showWhen: { field: 'core.tetanus', equals: ['due', 'primary_incomplete', 'unknown', 'given_today'] },
       help: 'Green Book: tetanus-prone = puncture, devitalised tissue, contact with soil or manure, foreign body, compound fracture, burn, or surgery delayed over 6 hours; high-risk = heavy contamination with soil / manure or extensive devitalised tissue.',
       options: [
         { value: 'clean', label: 'Clean wound' },
