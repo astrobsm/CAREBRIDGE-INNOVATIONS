@@ -37,6 +37,12 @@ export const AGE_LIMITS = {
   cfs: 65,
   /** NEWS2 is not for use in children under 16 (RCP NEWS2 2017): use a paediatric early warning score. */
   news2: 16,
+  /** Apfel simplified PONV score: adults; not validated under 3 (Eberhart / POVOC in children). */
+  apfel: 3,
+  /** Pregnancy status asked of females from 12 (unit choice: NICE NG45 asks of anyone who could be pregnant). */
+  pregnancy: 12,
+  /** Smoking, alcohol and substance use asked from about 12. */
+  substances: 12,
 } as const;
 
 /** Age in whole months: ageMonths when known, else ageYears x 12 (a lower bound); null when unknown. */
@@ -67,7 +73,24 @@ export function coreFieldAgeGate(id: string): AgeGate | undefined {
   if (id.startsWith('core.phq.')) return { minYears: AGE_LIMITS.phq9 };
   if (id.startsWith('core.gad.')) return { minYears: AGE_LIMITS.gad7 };
   if (id.startsWith('core.cfs.')) return { minYears: AGE_LIMITS.cfs };
+  // Apfel is validated from 3 years (POVOC / Eberhart is the paediatric score).
+  if (id.startsWith('core.apfel.')) return { minYears: AGE_LIMITS.apfel };
+  // STOP-BANG (with neck circumference) is an adult OSA screen.
+  if (id.startsWith('core.sb_') || id === 'core.neck_cm') return { minYears: AGE_LIMITS.adult };
   switch (id) {
+    // Adult cardiac risk tools (RCRI, METs "climb two flights")
+    case 'core.rcri':
+    case 'core.mets':
+      return { minYears: AGE_LIMITS.adult };
+    // Pregnancy status from 12 (females only — engine.composeTemplate)
+    case 'core.pregnancy':
+      return { minYears: AGE_LIMITS.pregnancy };
+    // Smoking, alcohol and substance use from about 12 (adolescent wording in the plan)
+    case 'core.smoking':
+    case 'core.smoking_readiness':
+    case 'core.alcohol':
+    case 'core.substance':
+      return { minYears: AGE_LIMITS.substances };
     // MUST steps (adults); the paediatric growth question replaces them
     case 'core.muac_cm':
     case 'core.weight_loss':

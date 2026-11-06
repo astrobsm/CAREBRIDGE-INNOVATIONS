@@ -76,7 +76,7 @@ export function coreIdsFor(module: ProcedureModule, phase: ReviewPhase): CoreSec
  */
 export function composeTemplate(
   module: ProcedureModule, phase: ReviewPhase,
-  patient: Pick<ReviewPatient, 'ageYears' | 'ageMonths'> = { ageYears: null },
+  patient: Pick<ReviewPatient, 'ageYears' | 'ageMonths'> & { sex?: ReviewPatient['sex'] } = { ageYears: null },
 ): ComposedReview {
   if (!module.phases.includes(phase)) {
     throw new Error(`${module.name} is not reviewed at the ${phaseDefinition(phase).label.toLowerCase()} phase`);
@@ -89,6 +89,8 @@ export function composeTemplate(
       ...c.section,
       fields: c.section.fields
         .filter(f => !dropped.has(f.id))
+        // Pregnancy is not asked of a patient recorded as male.
+        .filter(f => !(f.id === 'core.pregnancy' && patient.sex === 'male'))
         .filter(f => ageAllows(coreFieldAgeGate(f.id), patient, module))
         .map(f => (module.coreShowWhen?.[f.id] ? { ...f, showWhen: module.coreShowWhen[f.id] } : f)),
       origin: 'core' as const, coreId: c.id,
@@ -428,6 +430,8 @@ export function computeScores(
     const r: Record<string, number> = { ...responsesFrom(APFEL, 'core.apfel', a, ['history', 'opioids']) };
     if (patient.sex) r.female = patient.sex === 'female' ? 1 : 0;
     if (answered(a, 'core.smoking')) r.non_smoker = isOneOf(a, 'core.smoking', 'current', 'vaping', 'smokeless') ? 0 : 1;
+    // Smoking is not asked under 12 (core/age.ts): a child counts as a non-smoker.
+    else if (!has('core.smoking')) r.non_smoker = 1;
     const res = scoreInstrument(APFEL, r);
     out.push({
       id: 'apfel', name: APFEL.name, abbreviation: 'Apfel', total: res.total, max: 4, band: res.band,

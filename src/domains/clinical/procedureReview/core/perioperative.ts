@@ -223,7 +223,7 @@ export const POST_OP_STATUS: EncounterSection = {
         { value: 'seroma', label: 'Seroma', flag: 'amber', flagReason: 'Seroma: aspirate if symptomatic or under a graft / flap.' },
         { value: 'ssi', label: 'Surgical-site infection', flag: 'amber', flagReason: 'Surgical-site infection: culture, drain collections, antibiotics for spreading infection (NICE NG125).' },
         { value: 'dehiscence', label: 'Wound dehiscence', flag: 'amber', flagReason: 'Dehiscence: assess and plan secondary closure or reconstruction.' },
-        { value: 'vte', label: 'Suspected DVT / PE', flag: 'red', flagReason: 'Suspected VTE: Wells score and imaging; treatment-dose anticoagulation unless contraindicated (NICE NG158).' },
+        { value: 'vte', label: 'Suspected DVT / PE', flag: 'red', flagReason: 'Suspected VTE: urgent imaging and senior review — in adults, Wells score and treatment-dose anticoagulation unless contraindicated (NICE NG158); in children, paediatric haematology advice.' },
         { value: 'ponv', label: 'Nausea and vomiting', flag: 'amber', flagReason: 'PONV: rescue antiemetic from a class not already given (Gan 2020).' },
         { value: 'chest', label: 'Chest infection / atelectasis', flag: 'amber', flagReason: 'Chest complication: physiotherapy, sit up, cultures, antibiotics if pneumonia.' },
         { value: 'delirium', label: 'Delirium', flag: 'amber', flagReason: 'Delirium: look for the cause (pain, retention, infection, drugs, hypoxia); 4AT in adults, a paediatric delirium tool (e.g. CAPD) in children.' },

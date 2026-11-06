@@ -120,13 +120,23 @@ const lifestyle: PlanRule = ctx => {
         why))],
       counselling: [P('Smoking', 'How smoking and nicotine starve the healing tissue of blood, and why stopping matters; agree a quit date and who will support it.', why)],
     });
+    if (child(ctx)) {
+      parts.push({ general: [G('Patient education', L(
+        'Young person who smokes or vapes: talk with them confidentially (and with the parent where appropriate); nicotine replacement can be used from 12 years; offer the local stop-smoking service',
+        `${what} under 18 (NICE NG209)`))] });
+    }
     if (isOneOf(a, 'core.smoking_readiness', 'not_ready') && pre(ctx)) {
       parts.push({ cautions: ['Patient not ready to stop smoking: document the discussion; the consultant decides whether elective reconstruction should wait.'] });
     }
   } else if (smoking === 'ex_under_4w') {
     parts.push({ counselling: [P('Smoking', 'Stay stopped: the benefit to healing builds from four weeks without nicotine.', 'Stopped smoking under 4 weeks ago (WHO 2020)')] });
   }
-  if (isOneOf(a, 'core.alcohol', 'dependent')) {
+  if (child(ctx) && isOneOf(a, 'core.alcohol', 'within', 'above', 'dependent')) {
+    // Under 18 there is no "low-risk" amount (UK CMO 2016: an alcohol-free childhood).
+    parts.push({ general: [G('Psychology and wellbeing', L(
+      'Alcohol use under 18: no amount is low-risk — confidential discussion with the young person; consider safeguarding and young-people\'s substance-misuse support; withdrawal assessment if heavy or daily',
+      `Alcohol ${String(a['core.alcohol'])} in a young person (UK CMO 2016)`, isOneOf(a, 'core.alcohol', 'dependent') ? 'urgent' : 'routine'))] });
+  } else if (isOneOf(a, 'core.alcohol', 'dependent')) {
     parts.push({ general: [G(pre(ctx) ? 'Optimisation before surgery' : 'Psychology and wellbeing',
       L('Alcohol dependence: assess withdrawal risk, give thiamine, and monitor for withdrawal after admission (CIWA-Ar); offer referral to alcohol services', 'Alcohol dependence recorded', 'urgent'))] });
   } else if (isOneOf(a, 'core.alcohol', 'above')) {
@@ -829,10 +839,13 @@ const postOperative: PlanRule = ctx => {
       treatment: [L('Open and drain any collection; antibiotics for cellulitis or systemic signs, rationalised to culture', 'Surgical-site infection (NICE NG125)', 'urgent')],
     } },
     dehiscence: { problem: { treatment: [L('Assess depth and cause (infection, haematoma, tension); plan healing by secondary intention, NPWT or re-closure', 'Wound dehiscence')] } },
-    vte: { problem: {
-      investigations: [L('Wells score; proximal leg-vein ultrasound (DVT) or CTPA (PE)', 'Suspected VTE (NICE NG158)', 'urgent')],
-      treatment: [L('Interim treatment-dose anticoagulation while waiting for imaging unless contraindicated', 'Suspected VTE (NICE NG158)', 'urgent')],
-    } },
+    // The Wells score and NG158 are adult tools; a child gets senior / paediatric review.
+    vte: belowVteAge(ctx)
+      ? { problem: { treatment: [L('Swollen painful limb or suspected clot in a child: senior and paediatric review now; Doppler ultrasound; anticoagulation only on paediatric haematology advice', 'Suspected VTE under 16 — Wells / NICE NG158 do not apply', 'urgent')] } }
+      : { problem: {
+        investigations: [L('Wells score; proximal leg-vein ultrasound (DVT) or CTPA (PE)', 'Suspected VTE (NICE NG158)', 'urgent')],
+        treatment: [L('Interim treatment-dose anticoagulation while waiting for imaging unless contraindicated', 'Suspected VTE (NICE NG158)', 'urgent')],
+      } },
     ponv: { general: [G('Analgesia', L('Rescue antiemetic from a class not used for prophylaxis', 'PONV (Gan 2020)'))] },
     chest: { general: [G('Rehabilitation (physiotherapy / OT)', child(ctx)
       ? L('Chest physiotherapy, sit up and move; age-appropriate breathing exercises (blowing games or bubbles for young children); antibiotics if pneumonia', 'Chest complication (child)')
@@ -936,7 +949,9 @@ const education: PlanRule = ctx => {
     L('Fever of 38 C or more, shivering, or feeling generally unwell', 'Safety-netting'),
     L('Increasing pain, redness, swelling, a bad smell or pus from the wound', 'Safety-netting'),
     L('Bleeding that does not stop after 10 minutes of firm pressure', 'Safety-netting'),
-    L('Calf pain or swelling, chest pain or breathlessness', 'Safety-netting: possible VTE'),
+    belowVteAge(ctx)
+      ? L('A swollen, painful arm or leg, or new breathlessness or chest pain', 'Safety-netting (child): rare clot or other complication — senior review')
+      : L('Calf pain or swelling, chest pain or breathlessness', 'Safety-netting: possible VTE'),
   ];
   if (woundPhase(ctx)) red.push(L('Red streaks spreading up the limb, or the skin around the wound turning dark', 'Safety-netting: spreading infection'));
   return {
