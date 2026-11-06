@@ -64,7 +64,8 @@ Read the JSDoc in `types.ts`; this is the summary.
   - `catalog`: `feeIds` (must exist in `surgicalProcedures`), `educationId` (`procedureId` in `procedureEducationDatabase`, or `null` **with** `educationNote`), `patientEducationIds` (EducationCondition ids).
   - `sections: Partial<Record<ReviewPhase, EncounterSection[]>>` — **procedure-specific questions only**; the engine adds the core.
   - `coreOnlyPhases` — phases with no module sections on purpose.
-  - `includeCore` / `excludeCore` — adjust the core sections per phase.
+  - `includeCore` / `excludeCore` — adjust the core sections per phase. The `tetanus` core section (immunisation status + wound risk, Green Book ch. 30 plan) is opt-in only: trauma, burn and open-wound modules add it here instead of asking their own tetanus question.
+  - `coreShowWhen` — condition a core field on one of the module's answers, e.g. `{ 'core.tetanus': { field: '<id>.indication', equals: ['trauma'] } }`.
   - `paediatric` — the patients are children (cleft): an unknown age is treated as a child, not an adult.
   - `carryForward` — field ids pre-filled from the newest earlier review of this module.
   - `scores: ScoreRule[]` — module scores; call existing calculators.

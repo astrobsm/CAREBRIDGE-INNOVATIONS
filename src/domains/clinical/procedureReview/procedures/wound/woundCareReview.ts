@@ -5,11 +5,10 @@
  * continuum, measurements, dressing goal, and the whole patient). This module
  * adds only what depends on the wound's CAUSE: the ABPI gate before
  * compression for leg ulcers, the pressure-injury category, offloading,
- * tetanus and contamination for traumatic wounds, and atypical / Buruli
+ * contamination for traumatic wounds (tetanus is the core's), and atypical / Buruli
  * features — then the cause-specific plan.
  */
 import type { EncounterField, EncounterSection } from '../../../data/encounterModel';
-import { TETANUS_FIELD } from '../../../data/encounterModel';
 import { PRESSURE_ULCER_STAGES } from '../../../../pressure-sore/data/clinicalProtocol';
 import type { PlanContribution, PlanRule, ProcedureModule, RuleLine } from '../../types';
 import { chosen, isOneOf, numOf, hasAny } from '../../core/answers';
@@ -70,7 +69,6 @@ const CAUSE: EncounterSection = {
         { value: 'none', label: 'None', flag: 'amber', flagReason: 'No offloading: the wound will not heal while load continues (IWGDF 2023; NPIAP/EPUAP 2019).' },
       ],
     },
-    { ...TETANUS_FIELD, id: f('tetanus'), showWhen: { field: 'core.wound_aetiology', equals: ['traumatic', 'burn'] } },
     {
       id: f('contamination'), label: 'Contamination', kind: 'select',
       showWhen: { field: 'core.wound_aetiology', equals: ['traumatic'] },
@@ -196,9 +194,6 @@ const causeSpecific: PlanRule = ctx => {
   if (isOneOf(a, f('offloading'), 'none', 'partial') && !isOneOf(a, 'core.wound_aetiology', 'pressure', 'diabetic')) {
     lines.push({ problem: { treatment: [L('Offload the wound', 'Offloading inadequate')] } });
   }
-  if (isOneOf(a, f('tetanus'), 'due', 'unknown')) {
-    lines.push({ problem: { treatment: [L('Tetanus prophylaxis: tetanus-diphtheria vaccine, plus tetanus immunoglobulin for a tetanus-prone wound with incomplete or unknown immunisation', `Tetanus status ${String(a[f('tetanus')])} (WHO; national immunisation schedule)`, 'urgent')] } });
-  }
   if (isOneOf(a, f('contamination'), 'contaminated', 'heavy')) {
     lines.push({ problem: { treatment: [L(isOneOf(a, f('contamination'), 'heavy')
       ? 'Formal debridement and irrigation in theatre; leave open for delayed closure'
@@ -274,7 +269,9 @@ export const woundCareReview: ProcedureModule = {
     wound_review: [CAUSE],
     follow_up: [RESPONSE, CAUSE],
   },
-  includeCore: { follow_up: ['wound_assessment', 'wound_infection', 'healing_barriers', 'wound_dressing'] },
+  includeCore: { wound_review: ['tetanus'], follow_up: ['wound_assessment', 'wound_infection', 'tetanus', 'healing_barriers', 'wound_dressing'] },
+  // The core tetanus question, for traumatic and burn wounds only.
+  coreShowWhen: { 'core.tetanus': { field: 'core.wound_aetiology', equals: ['traumatic', 'burn'] } },
   carryForward: ['core.wound_aetiology', 'core.wound_site', f('abpi')],
   planRules: [goals, compressionGate, causeSpecific, response],
   consent: {

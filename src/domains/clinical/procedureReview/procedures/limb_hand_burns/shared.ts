@@ -2,8 +2,7 @@
  * Fields, scores and rules shared by the limb, hand and burns modules.
  *
  * Several of these procedures need the same measurement — the diabetic foot
- * and the amputation both grade limb perfusion; every traumatic wound needs
- * its tetanus status. Each is written ONCE here as a factory that namespaces
+ * and the amputation both grade limb perfusion. Each is written ONCE here as a factory that namespaces
  * it to the calling module (`${moduleId}.<field>`), so the question is the
  * same everywhere and no module re-words it.
  *
@@ -13,28 +12,12 @@
  * caveat all come from there.
  */
 import type { EncounterAnswers, EncounterField } from '../../../data/encounterModel';
-import { TETANUS_FIELD } from '../../../data/encounterModel';
 import { calculateAbi, calculateTbi } from '../../../../vascular/services/perfusion';
 import type { PressureSet } from '../../../../vascular/types';
-import type { ComputedScore, PlanRule, ScoreRule } from '../../types';
+import type { ComputedScore, ScoreRule } from '../../types';
 import { isOneOf, numOf } from '../../core/answers';
-import { L } from '../../ruleKit';
 
 type Ns = (id: string) => string;
-
-// ── Tetanus ─────────────────────────────────────────────────────────────────
-
-/** The encounter model's tetanus question, namespaced to the module. */
-export const tetanusField = (f: Ns, showWhen?: EncounterField['showWhen']): EncounterField =>
-  ({ ...TETANUS_FIELD, id: f('tetanus'), ...(showWhen ? { showWhen } : {}) });
-
-/** Tetanus prophylaxis when the status is due or unknown. */
-export const tetanusRule = (f: Ns): PlanRule => ctx => {
-  if (!isOneOf(ctx.answers, f('tetanus'), 'due', 'unknown')) return null;
-  return { problem: { treatment: [L(
-    'Tetanus prophylaxis now: tetanus-diphtheria toxoid, plus human tetanus immunoglobulin for a tetanus-prone wound (burn, crush, devitalised or soil-contaminated tissue) when immunisation is incomplete or unknown',
-    `Tetanus status ${String(ctx.answers[f('tetanus')])} (WHO tetanus position paper 2017; national immunisation schedule)`, 'urgent')] } };
-};
 
 // ── Limb perfusion (IWGDF / ESVS / SVS 2023 PAD guideline) ──────────────────
 

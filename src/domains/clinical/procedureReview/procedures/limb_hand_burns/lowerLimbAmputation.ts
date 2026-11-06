@@ -23,7 +23,7 @@ import type { EncounterField, EncounterSection } from '../../../data/encounterMo
 import type { PlanContribution, PlanRule, ProcedureModule } from '../../types';
 import { chosen, hasAny, isOneOf, numOf } from '../../core/answers';
 import { G, L, P, merge } from '../../ruleKit';
-import { abiScore, perfusionFields, severeIschaemia, tbiScore, tetanusField, tetanusRule } from './shared';
+import { abiScore, perfusionFields, severeIschaemia, tbiScore } from './shared';
 
 const ID = 'lower_limb_amputation';
 const f = (id: string) => `${ID}.${id}`;
@@ -158,7 +158,6 @@ const DECISION: EncounterSection = {
         { value: 'amputated', label: 'Previously amputated (bilateral amputee)', flag: 'amber', flagReason: 'Second major amputation: very different rehabilitation goals — plan with the team and family.' },
       ],
     },
-    tetanusField(f, { field: f('indication'), equals: ['trauma', 'burn_electrical'] }),
   ],
 };
 
@@ -499,10 +498,11 @@ export const lowerLimbAmputation: ProcedureModule = {
     post_op: [DETAILS, STUMP_POST],
     follow_up: [DETAILS, STUMP_FU],
   },
-  includeCore: { post_op: ['psychology'] },
+  includeCore: { pre_op: ['tetanus'], post_op: ['psychology'] },
+  coreShowWhen: { 'core.tetanus': { field: f('indication'), equals: ['trauma', 'burn_electrical'] } },
   carryForward: [f('indication'), f('side'), f('level'), f('staging')],
   scores: [abiScore(ID, f, a => isOneOf(a, f('indication'), 'clti', 'diabetic_sepsis')), tbiScore(ID, f)],
-  planRules: [goals, decision, preparation, tetanusRule(f), postOp, followUpRule],
+  planRules: [goals, decision, preparation, postOp, followUpRule],
   consent: {
     procedureName: 'Amputation of the lower limb',
     phases: ['pre_op'],

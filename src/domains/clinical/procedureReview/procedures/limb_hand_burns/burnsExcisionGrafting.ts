@@ -28,7 +28,6 @@ import { checkBurnCenterCriteria } from '../../../../burns/services/burnScoringS
 import type { PlanContext, PlanContribution, PlanRule, ProcedureModule, ScoreRule } from '../../types';
 import { chosen, hasAny, isOneOf, numOf } from '../../core/answers';
 import { G, L, P, merge } from '../../ruleKit';
-import { tetanusField, tetanusRule } from './shared';
 
 const ID = 'burns_excision_grafting';
 const f = (id: string) => `${ID}.${id}`;
@@ -175,7 +174,6 @@ const ACUTE: EncounterSection = {
       numericFlags: [{ op: '<', value: 0.5, level: 'amber', reason: 'Urine output below 0.5 mL/kg/h: under-resuscitation — increase the infusion and reassess hourly (ISBI 2016; ABA).' }],
     },
     { id: f('fluid_24h_ml'), label: 'Crystalloid given in the first 24 hours', kind: 'number', unit: 'mL', min: 0, max: 60000 },
-    tetanusField(f),
     {
       id: f('healing_expected'), label: 'Expected healing of the deepest areas', kind: 'select', important: true,
       help: 'Burn depth evolves: reassess at 48–72 hours.',
@@ -680,9 +678,11 @@ export const burnsExcisionGrafting: ProcedureModule = {
     post_op: [DETAILS, POST],
     follow_up: [DETAILS, SCAR],
   },
+  // Tetanus is the core's question (a burn is tetanus-prone).
+  includeCore: { wound_review: ['tetanus'], pre_op: ['tetanus'] },
   carryForward: [f('burn_date'), f('mechanism'), f('tbsa'), f('ft_pct'), f('deep_pct'), f('special_areas'), f('inhalation')],
   scores: [bauxScore, parklandScore, abaSepsisScore],
-  planRules: [goals, acute, safeguarding, tetanusRule(f), preOp, postOp, followUpRule],
+  planRules: [goals, acute, safeguarding, preOp, postOp, followUpRule],
   consent: {
     procedureName: 'Excision of burn and skin grafting (with escharotomy / fasciotomy if needed)',
     phases: ['pre_op'],

@@ -12,6 +12,7 @@ import { HEALING_BARRIERS, NUTRITION, PAIN, PATIENT_FACTORS, PRESSURE, PSYCHOLOG
 import { ANAESTHETIC, POST_OP_STATUS, VTE } from './perioperative';
 import { WOUND_ASSESSMENT, WOUND_DRESSING, WOUND_INFECTION } from './wound';
 import { FOLLOW_UP_INTERVAL } from './followUp';
+import { TETANUS } from './tetanus';
 
 export interface CoreSectionDefinition {
   id: CoreSectionId;
@@ -25,6 +26,8 @@ export interface CoreSectionDefinition {
 export const CORE_SECTIONS: readonly CoreSectionDefinition[] = [
   { id: 'wound_assessment', slot: 'lead', section: WOUND_ASSESSMENT, phases: ['wound_review'] },
   { id: 'wound_infection', slot: 'lead', section: WOUND_INFECTION, phases: ['wound_review'] },
+  // Opt-in only (includeCore): trauma, burn and open-wound modules.
+  { id: 'tetanus', slot: 'lead', section: TETANUS, phases: [] },
   { id: 'post_op_status', slot: 'lead', section: POST_OP_STATUS, phases: ['post_op'] },
   { id: 'follow_up_interval', slot: 'lead', section: FOLLOW_UP_INTERVAL, phases: ['follow_up'] },
   { id: 'patient_factors', slot: 'holistic', section: PATIENT_FACTORS, phases: ['pre_op', 'wound_review'] },

@@ -17,7 +17,8 @@ describe('composeTemplate', () => {
     const order = t.sections.map(s => s.coreId ?? s.id);
     expect(order[0]).toBe('wound_assessment');
     expect(order[1]).toBe('wound_infection');
-    expect(order[2]).toBe('wound_care_review.cause');
+    expect(order[2]).toBe('tetanus');
+    expect(order[3]).toBe('wound_care_review.cause');
     expect(order[order.length - 1]).toBe('wound_dressing');
     expect(order).toContain('psychology');
     expect(order).not.toContain('anaesthetic');

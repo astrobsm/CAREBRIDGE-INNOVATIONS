@@ -21,7 +21,6 @@ import type { EncounterField, EncounterSection } from '../../../data/encounterMo
 import type { PlanContribution, PlanRule, ProcedureModule, ScoreRule } from '../../types';
 import { chosen, hasAny, isOneOf, isYes, numOf } from '../../core/answers';
 import { G, L, P, merge } from '../../ruleKit';
-import { tetanusField, tetanusRule } from './shared';
 
 const ID = 'tendon_repair';
 const f = (id: string) => `${ID}.${id}`;
@@ -143,7 +142,6 @@ const ASSESS: EncounterSection = {
         { value: 'contaminated', label: 'Contaminated (soil, farm, sewage)', flag: 'amber', flagReason: 'Contaminated wound: formal debridement and washout; antibiotics; delayed tendon repair if heavily contaminated.' },
       ],
     },
-    tetanusField(f),
     {
       id: f('therapy_access'), label: 'Hand therapy available after surgery', kind: 'select', important: true,
       options: [
@@ -454,9 +452,10 @@ export const tendonRepair: ProcedureModule = {
     post_op: [INJURY, REPAIR],
     follow_up: [INJURY, OUTCOME],
   },
+  includeCore: { pre_op: ['tetanus'] },
   carryForward: [f('type'), f('digits'), f('flexor_zone'), f('extensor_zone'), f('mechanism')],
   scores: [stricklandScore],
-  planRules: [goals, preOp, tetanusRule(f), postOp, followUpRule],
+  planRules: [goals, preOp, postOp, followUpRule],
   consent: {
     procedureName: 'Exploration and repair of tendon(s) of the hand / forearm',
     phases: ['pre_op'],

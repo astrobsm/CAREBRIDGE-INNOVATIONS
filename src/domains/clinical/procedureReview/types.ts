@@ -30,7 +30,7 @@
  * clinician to edit and a consultant to approve.
  */
 import type {
-  EncounterAnswers, EncounterSection,
+  EncounterAnswers, EncounterField, EncounterSection,
 } from '../data/encounterModel';
 import type { RaisedFlag } from '../services/templateEngine';
 import type { ScribePlan, ProblemPlan } from '../scribe/scribePlan';
@@ -58,6 +58,7 @@ export type ProcedureGroup =
 export type CoreSectionId =
   | 'wound_assessment'      // aetiology, TIMERS, measurements, surrounding skin
   | 'wound_infection'       // IWII 2022 continuum
+  | 'tetanus'               // immunisation status + wound risk (Green Book / WHO); opt-in
   | 'post_op_status'        // observations, wound, drain, complications
   | 'follow_up_interval'    // interval history, adherence, function, comparison
   | 'patient_factors'       // comorbidity risk
@@ -389,6 +390,13 @@ export interface ProcedureModule {
   coreOnlyPhases?: ReviewPhase[];
   /** Extra core sections for a phase that does not include them by default. */
   includeCore?: Partial<Record<ReviewPhase, CoreSectionId[]>>;
+  /**
+   * Show a core field only when one of this module's answers allows it, e.g.
+   * the core tetanus question only for a traumatic amputation:
+   * `{ 'core.tetanus': { field: '<id>.indication', equals: ['trauma'] } }`.
+   * The field must be in the same phase's template.
+   */
+  coreShowWhen?: Partial<Record<string, EncounterField['showWhen']>>;
   /** Core sections to leave out for this module at a phase. */
   excludeCore?: Partial<Record<ReviewPhase, CoreSectionId[]>>;
   /**

@@ -86,7 +86,9 @@ export function composeTemplate(
     .filter(c => c.slot === slot && ids.has(c.id))
     .map(c => ({
       ...c.section,
-      fields: c.section.fields.filter(f => ageAllows(coreFieldAgeGate(f.id), patient, module)),
+      fields: c.section.fields
+        .filter(f => ageAllows(coreFieldAgeGate(f.id), patient, module))
+        .map(f => (module.coreShowWhen?.[f.id] ? { ...f, showWhen: module.coreShowWhen[f.id] } : f)),
       origin: 'core' as const, coreId: c.id,
     }))
     .filter(s => s.fields.length > 0);

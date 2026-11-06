@@ -686,6 +686,40 @@ const timers: PlanRule = ctx => {
   return merge(...parts);
 };
 
+// ── Tetanus (Green Book ch. 30; WHO 2017) ───────────────────────────────────
+
+/**
+ * UK Green Book chapter 30, table "Immunisation recommendations for clean
+ * and tetanus-prone wounds": fully immunised, or primary course complete with
+ * boosters up to date — nothing now. Primary incomplete or boosters not up to
+ * date — a reinforcing dose of vaccine and further doses to complete the
+ * schedule, plus HTIG if the wound is high-risk. Not immunised or unknown —
+ * an immediate dose of vaccine and a full course, plus HTIG if the wound is
+ * tetanus-prone or high-risk.
+ */
+const tetanus: PlanRule = ctx => {
+  const a = ctx.answers;
+  const status = a['core.tetanus'];
+  if (status !== 'due' && status !== 'unknown') return null;
+  const wound = a['core.tetanus_wound'];
+  const vaccine = child(ctx) && isUnder(ctx.patient, 10, ctx.module)
+    ? 'the age-appropriate tetanus-containing vaccine of the national childhood schedule'
+    : 'tetanus-containing vaccine (Td or Td/IPV)';
+  const dose = status === 'unknown'
+    ? `An immediate dose of ${vaccine}, then a full course if the records confirm it is needed`
+    : `A reinforcing dose of ${vaccine}, then further doses to complete the schedule`;
+  const htig = 'human tetanus immunoglobulin (250 IU IM; 500 IU if over 24 hours since the injury, heavy contamination or a burn) at a different site';
+  const needsHtig = wound === 'high_risk' || (status === 'unknown' && wound === 'prone');
+  const why = `Tetanus status ${status === 'unknown' ? 'not immunised / unknown' : 'incomplete'}${wound ? `; ${String(wound).replace('_', '-')} wound` : ''} (UK Green Book ch. 30; WHO tetanus position paper 2017)`;
+  const text = !wound
+    ? `Tetanus prophylaxis now: ${dose.charAt(0).toLowerCase()}${dose.slice(1)}; plus ${htig} if the wound is ${status === 'unknown' ? 'tetanus-prone' : 'high-risk tetanus-prone'}`
+    : `Tetanus prophylaxis now: ${dose.charAt(0).toLowerCase()}${dose.slice(1)}${needsHtig ? `; plus ${htig}` : ''}`;
+  return { problem: { treatment: [
+    L(text, why, 'urgent'),
+    ...(wound === 'prone' || wound === 'high_risk' ? [L('Thorough cleaning and debridement of the wound — immunoglobulin does not replace it', 'Tetanus-prone wound (Green Book ch. 30)')] : []),
+  ] } };
+};
+
 // ── Post-operative ──────────────────────────────────────────────────────────
 
 const postOperative: PlanRule = ctx => {
@@ -830,6 +864,6 @@ const education: PlanRule = ctx => {
 /** Core rules, run before the module's rules in this order. */
 export const CORE_RULES: readonly PlanRule[] = [
   glycaemia, lifestyle, anaemia, anticoagulation, systems, anaesthesia, vte, antibiotics,
-  analgesia, nutrition, pressureCare, psychology, social, localBarriers, timers,
+  analgesia, nutrition, pressureCare, psychology, social, localBarriers, timers, tetanus,
   postOperative, followUp, comparison, education,
 ];

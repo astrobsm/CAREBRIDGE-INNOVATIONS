@@ -20,7 +20,6 @@ import type { EncounterField, EncounterSection } from '../../../data/encounterMo
 import type { PlanContribution, PlanRule, ProcedureModule } from '../../types';
 import { chosen, hasAny, isOneOf, numOf } from '../../core/answers';
 import { G, L, P, merge } from '../../ruleKit';
-import { tetanusField, tetanusRule } from './shared';
 
 const ID = 'nerve_repair_hand_trauma';
 const f = (id: string) => `${ID}.${id}`;
@@ -131,7 +130,6 @@ const PRE: EncounterSection = {
       ],
     },
     TWO_PD, SWM, MOTOR, MOTOR_MUSCLE,
-    tetanusField(f),
     {
       id: f('micro_capacity'), label: 'Microsurgery available', kind: 'select', important: true,
       options: [
@@ -431,8 +429,9 @@ export const nerveRepairHandTrauma: ProcedureModule = {
     post_op: [INJURY, POST],
     follow_up: [INJURY, RECOVERY],
   },
+  includeCore: { pre_op: ['tetanus'] },
   carryForward: [f('nerves'), f('nerve_detail'), f('mechanism'), f('components')],
-  planRules: [goals, preOp, tetanusRule(f), postOp, followUpRule],
+  planRules: [goals, preOp, postOp, followUpRule],
   consent: {
     procedureName: 'Exploration and repair of nerve(s) of the hand / forearm (with repair of associated injuries; replantation if indicated)',
     phases: ['pre_op'],
