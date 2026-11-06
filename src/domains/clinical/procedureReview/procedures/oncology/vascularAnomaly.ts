@@ -232,20 +232,34 @@ const haemangioma: PlanRule = ctx => {
   const highRisk = comp.some(c => ['ulceration', 'visual', 'airway', 'feeding', 'cardiac', 'disfigurement'].includes(c))
     || isOneOf(a, f('segmental'), 'facial', 'lumbosacral') || isOneOf(a, f('site'), 'periocular', 'beard_airway', 'central_face');
   const ecg = chosen(a, f('ecg_indication'));
-  const weeks = numOf(a, f('age_weeks'));
+  // Corrected age as recorded; else the age from the date of birth, which is
+  // never less than the corrected age — so under 8 weeks by it is certain.
+  const recordedWeeks = numOf(a, f('age_weeks'));
+  const weeks = recordedWeeks ?? (ctx.patient.ageMonths != null ? Math.floor(ctx.patient.ageMonths * 4.33) : null);
   const prop = isOneOf(a, f('intervention'), 'propranolol');
+  // AAP 2019 / Drolet 2013: an abnormal heart rate, BP or cardiac examination,
+  // bradycardia or an arrhythmia must be assessed before the first dose.
+  const cardiacHold = isOneOf(a, f('hr_bp_normal'), 'no') || ecg.includes('bradycardia') || ecg.includes('arrhythmia');
   return merge(
+    prop && cardiacHold && {
+      problem: { treatment: [L('Do not start propranolol until an ECG and paediatric cardiology review have excluded a contraindication (bradycardia, heart block beyond first degree, hypotension, heart failure)', `${isOneOf(a, f('hr_bp_normal'), 'no') ? 'Heart rate, BP or cardiac examination abnormal' : `ECG indication: ${ecg.join(', ').replace(/_/g, ' ')}`} (AAP 2019; Drolet 2013)`, 'urgent')] },
+      cautions: ['Propranolol on hold until cardiac assessment is complete.'],
+    },
+    prop && isOneOf(a, f('segmental'), 'facial') && !isYes(a, f('phace_arteriopathy')) && {
+      cautions: ['Segmental facial haemangioma: start propranolol only once the head and neck MRA and the echocardiogram have been reported (PHACE — Garzon 2016).'],
+    },
+    prop && recordedWeeks == null && (weeks == null || weeks >= 8) && { problem: { investigations: [L('Record the gestation-corrected age: an infant under 8 weeks corrected age starts propranolol under observation', 'Corrected age not recorded (Drolet 2013)')] } },
     highRisk && { problem: { treatment: [L('High-risk infantile haemangioma: start treatment now (oral propranolol first-line) rather than waiting for involution', 'AAP 2019 high-risk feature (life- or function-threatening, ulceration, structural association, disfigurement)', 'urgent')] } },
     (numOf(a, f('ih_count')) ?? 0) >= 5 && { problem: { investigations: [L('Abdominal ultrasound for hepatic haemangiomas (and TSH if hepatic lesions are diffuse)', 'Five or more cutaneous haemangiomas (AAP 2019)')] } },
     isOneOf(a, f('segmental'), 'facial') && { problem: { investigations: [L('PHACE work-up before propranolol: MRI / MRA of head and neck, echocardiogram, ophthalmology', 'Segmental facial haemangioma 5 cm or more (Garzon 2016; AAP 2019)', 'urgent')] } },
     isOneOf(a, f('segmental'), 'lumbosacral') && { problem: { investigations: [L('Spinal ultrasound (under about 3–6 months) or MRI for spinal dysraphism (LUMBAR)', 'Segmental lumbosacral haemangioma (AAP 2019)')] } },
     (isOneOf(a, f('site'), 'periocular') || comp.includes('visual')) && { problem: { referrals: [L('Ophthalmology within days', 'Periocular haemangioma — amblyopia risk (AAP 2019)', 'urgent')] } },
     (comp.includes('airway') || isOneOf(a, f('site'), 'beard_airway')) && { problem: { referrals: [L(comp.includes('airway') ? 'Urgent ENT airway endoscopy' : 'ENT review if any noisy breathing, hoarseness or stridor develops', 'Beard-distribution haemangioma (AAP 2019)', comp.includes('airway') ? 'urgent' : 'routine')] } },
-    prop && { problem: { treatment: [
+    prop && !cardiacHold && { problem: { treatment: [
       L('Propranolol 2–3 mg/kg/day in 2 divided doses, given with or after a feed, titrated up over 1–2 weeks; continue at least 6 months (often to 12 months of age); recalculate the dose for weight at each visit', 'Infantile haemangioma (AAP 2019 clinical practice guideline)'),
     ] } },
     prop && ecg.length > 0 && { problem: { investigations: [L('ECG before starting propranolol', `ECG indication: ${ecg.join(', ').replace(/_/g, ' ')} (AAP 2019)`)] } },
-    prop && ((weeks != null && weeks < 8) || isYes(a, f('wheeze')) || isYes(a, f('phace_arteriopathy'))) && { problem: { treatment: [L('Start propranolol under observation (heart rate and BP 1 and 2 hours after the first dose and after each increase), admitting if the infant is very young or has comorbidity', `${weeks != null && weeks < 8 ? `Corrected age ${weeks} weeks` : isYes(a, f('phace_arteriopathy')) ? 'PHACE arteriopathy' : 'Reactive airway disease'} (Drolet 2013 consensus; AAP 2019)`)] } },
+    prop && ((weeks != null && weeks < 8) || isYes(a, f('wheeze')) || isYes(a, f('phace_arteriopathy'))) && { problem: { treatment: [L('Start propranolol under observation (heart rate and BP 1 and 2 hours after the first dose and after each increase), admitting if the infant is very young or has comorbidity', `${weeks != null && weeks < 8 ? `${recordedWeeks != null ? 'Corrected age' : 'Age from the date of birth'} ${weeks} weeks` : isYes(a, f('phace_arteriopathy')) ? 'PHACE arteriopathy' : 'Reactive airway disease'} (Drolet 2013 consensus; AAP 2019)`)] } },
     prop && { counselling: [P('Propranolol', 'Give with feeds; do not give if the baby is not feeding or is vomiting (risk of low blood sugar); stop and seek help for wheeze, cold blue extremities, unusual drowsiness or a seizure.', 'AAP 2019 safety advice')] },
     comp.includes('ulceration') && { general: [G('Wound care and dressings', L('Ulcerated haemangioma: barrier cream / petrolatum and non-adherent dressings, analgesia (including topical options), treat infection; it heals faster once propranolol is started', 'Ulceration (AAP 2019)'))] },
     isOneOf(a, f('intervention'), 'timolol') && { problem: { treatment: [L('Topical timolol 0.5% gel, 1 drop twice daily, for small, thin, superficial haemangiomas only', 'Small superficial IH (AAP 2019)')] } },
@@ -393,7 +407,8 @@ export const vascularAnomaly: ProcedureModule = {
       { id: 'va_periocular', when: c => isOneOf(c.answers, f('site'), 'periocular'),
         text: 'Because the lesion is near the eye, treatment aims first to protect sight; eye specialists will be involved.',
         why: 'Periocular lesion' },
-      { id: 'va_infant_prop', when: c => isOneOf(c.answers, f('intervention'), 'propranolol') && (numOf(c.answers, f('age_weeks')) ?? 99) < 8,
+      { id: 'va_infant_prop', when: c => isOneOf(c.answers, f('intervention'), 'propranolol')
+          && (numOf(c.answers, f('age_weeks')) ?? (c.patient.ageMonths != null ? Math.floor(c.patient.ageMonths * 4.33) : 99)) < 8,
         text: 'Because your baby is very young, propranolol will be started under observation, with checks of heart rate and blood pressure.',
         why: 'Corrected age under 8 weeks (Drolet 2013)' },
     ],
