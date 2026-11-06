@@ -299,7 +299,21 @@ const anaesthesia: PlanRule = ctx => {
 
 // ── VTE prophylaxis ─────────────────────────────────────────────────────────
 
-const vte: PlanRule = ctx => {
+/**
+ * Heparin-induced thrombocytopenia or a heparin allergy: no heparin of any
+ * kind, including LMWH (BSH 2012; ASH 2018 HIT guideline). Raised as a
+ * caution at every phase so module lines that mention LMWH or heparin
+ * (free-flap antithrombotics, chemical leeching) are read against it.
+ */
+const heparinBarred = (ctx: PlanContext) =>
+  hasAny(ctx.answers, 'core.caprini', 'heparin_thrombocytopenia')
+  || ctx.patient.allergies.some(x => /heparin|enoxaparin|dalteparin|tinzaparin|lmwh/.test(x));
+
+const vte: PlanRule = ctx => merge(vteLines(ctx), heparinBarred(ctx) && {
+  cautions: ['Heparin-induced thrombocytopenia or heparin allergy recorded: no heparin of any kind — no LMWH, unfractionated heparin, heparin flushes or heparin-soaked pledgets; haematology advice on a non-heparin anticoagulant.'],
+});
+
+const vteLines: PlanRule = ctx => {
   const a = ctx.answers, s = ctx.scores;
   if (post(ctx)) {
     if (belowVteAge(ctx)) {
@@ -332,6 +346,11 @@ const vte: PlanRule = ctx => {
   if (bleedHigh) {
     return { general: [G('VTE prophylaxis',
       L(`${mech} now; start pharmacological prophylaxis once the bleeding risk has been reviewed`, `${why}; bleeding risk ${s.bleeding?.band?.label ?? 'high'} (NICE NG89)`, 'urgent'))] };
+  }
+  if (heparinBarred(ctx)) {
+    return { general: [G('VTE prophylaxis',
+      L(`${mech}; pharmacological prophylaxis only with a non-heparin agent (e.g. fondaparinux) on haematology advice — no LMWH or heparin`,
+        `${why} — pharmacological prophylaxis indicated, but heparin-induced thrombocytopenia or heparin allergy recorded (BSH 2012; ASH 2018)`, 'urgent'))] };
   }
   const renal = isOneOf(a, 'core.renal', 'ckd_4_5', 'dialysis');
   const bmi = ctx.patient.bmi;
