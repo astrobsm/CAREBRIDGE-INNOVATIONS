@@ -163,6 +163,16 @@ export function curreri(p: NutritionPatient, ctx: ClinicalContext, config: Nutri
     inputsUsed: { ...base.inputsUsed, tbsaUsedPercent: used }, warnings }), 'curreri');
 }
 
+/**
+ * Plain-number Curreri for callers that predate Estimates (burns services).
+ * Same config and TBSA cap as curreri(); null when weight or TBSA is missing.
+ */
+export function curreriKcal(weightKg: number | null | undefined, tbsaPercent: number | null | undefined,
+  config: NutritionConfig = C): number | null {
+  const e = curreri({ weightKg }, { burns: { tbsaPercent } }, config);
+  return typeof e.value === 'number' ? e.value : null;
+}
+
 /** ESPEN weight-based ICU target (non-obese): 20–25 kcal/kg early, rising to 25–30. */
 export function icuEspen(p: NutritionPatient, ctx: ClinicalContext, config: NutritionConfig = C): EnergyEstimate {
   const cfg = config.energy.icuEspen.value;

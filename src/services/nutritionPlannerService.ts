@@ -7,6 +7,13 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import {
+  calculateBMI as canonicalBMI, calculateIdealBodyWeight, adjustedBodyWeightFromIbw, calculateHarrisBenedictBMR,
+} from '../domains/calculators/engine/calculationEngine';
+import { scoreMust } from '../domains/clinician-assistant/services/riskCalculators';
+import { bmiClass } from '../domains/nutrition/engine/anthropometry';
+import { mustBmiScore, mustWeightLossScore } from '../domains/nutrition/engine/screening';
+import { ACTIVE_NUTRITION_CONFIG } from '../domains/nutrition/engine/config';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -950,40 +957,25 @@ export const mustScreeningCriteria = {
 // NUTRITION SERVICE CLASS
 // ============================================
 
+// The arithmetic below delegates to the canonical calculation engine and the
+// nutrition engine (src/domains/nutrition/engine); ranges come from the
+// nutrition config. Nothing here re-implements a formula.
 class NutritionPlannerService {
-  // Calculate BMI
+  // Calculate BMI (canonical calculateBMI; WHO class incl. underweight grades)
   calculateBMI(weightKg: number, heightCm: number): { bmi: number; category: string } {
-    const heightM = heightCm / 100;
-    const bmi = weightKg / (heightM * heightM);
-    
-    let category: string;
-    if (bmi < 16) category = 'Severe underweight';
-    else if (bmi < 17) category = 'Moderate underweight';
-    else if (bmi < 18.5) category = 'Mild underweight';
-    else if (bmi < 25) category = 'Normal';
-    else if (bmi < 30) category = 'Overweight';
-    else if (bmi < 35) category = 'Obese Class I';
-    else if (bmi < 40) category = 'Obese Class II';
-    else category = 'Obese Class III';
-    
-    return { bmi: Math.round(bmi * 10) / 10, category };
+    const bmi = canonicalBMI(weightKg, heightCm);
+    if (bmi === null) return { bmi: NaN, category: 'Not calculable' };
+    return { bmi, category: bmiClass(bmi) };
   }
 
-  // Calculate Ideal Body Weight (Devine formula)
+  // Calculate Ideal Body Weight (Devine, canonical)
   calculateIdealBodyWeight(heightCm: number, isMale: boolean): number {
-    const heightInches = heightCm / 2.54;
-    const baseHeight = 60; // 5 feet in inches
-    
-    if (isMale) {
-      return 50 + 2.3 * (heightInches - baseHeight);
-    } else {
-      return 45.5 + 2.3 * (heightInches - baseHeight);
-    }
+    return calculateIdealBodyWeight(heightCm, isMale ? 'male' : 'female') ?? NaN;
   }
 
-  // Calculate Adjusted Body Weight (for obese patients)
+  // Calculate Adjusted Body Weight (canonical: IBW + 0.4 × (ABW − IBW); ABW if ABW ≤ IBW)
   calculateAdjustedBodyWeight(actualWeight: number, idealWeight: number): number {
-    return idealWeight + 0.4 * (actualWeight - idealWeight);
+    return adjustedBodyWeightFromIbw(actualWeight, idealWeight) ?? NaN;
   }
 
   // Calculate MUST Score
@@ -993,20 +985,12 @@ class NutritionPlannerService {
     hasAcuteIllness: boolean,
     noIntakeExpected: boolean
   ): NutritionAssessment['mustScore'] {
-    // BMI Score
-    let bmiScore = 0;
-    if (bmi < 18.5) bmiScore = 2;
-    else if (bmi <= 20) bmiScore = 1;
-
-    // Weight Loss Score
-    let weightLossScore = 0;
-    if (weightLossPercent > 10) weightLossScore = 2;
-    else if (weightLossPercent >= 5) weightLossScore = 1;
-
-    // Acute Illness Score
+    // Step scores from the nutrition engine; total from canonical scoreMust.
+    const bmiScore = mustBmiScore(bmi);
+    const weightLossScore = mustWeightLossScore(weightLossPercent);
     const acuteIllnessScore = hasAcuteIllness && noIntakeExpected ? 2 : 0;
 
-    const totalScore = bmiScore + weightLossScore + acuteIllnessScore;
+    const totalScore = scoreMust({ bmi_score: bmiScore, weight_loss_score: weightLossScore, acute_disease_score: acuteIllnessScore });
     
     let risk: 'low' | 'medium' | 'high';
     if (totalScore === 0) risk = 'low';
@@ -1031,14 +1015,8 @@ class NutritionPlannerService {
     activityFactor: number = 1.2,
     stressFactor: number = 1.0
   ): number {
-    // Harris-Benedict BMR
-    let bmr: number;
-    if (isMale) {
-      bmr = 88.362 + (13.397 * weightKg) + (4.799 * heightCm) - (5.677 * ageYears);
-    } else {
-      bmr = 447.593 + (9.247 * weightKg) + (3.098 * heightCm) - (4.330 * ageYears);
-    }
-    
+    // Harris-Benedict (revised), canonical
+    const bmr = calculateHarrisBenedictBMR(isMale ? 'male' : 'female', weightKg, heightCm, ageYears);
     return Math.round(bmr * activityFactor * stressFactor);
   }
 
@@ -1047,14 +1025,16 @@ class NutritionPlannerService {
     weightKg: number,
     condition: 'normal' | 'wound_healing' | 'burns' | 'critical' | 'renal' = 'normal'
   ): { grams: number; gramsPerKg: number } {
+    // g/kg from the nutrition config ranges (see docs/NUTRITION_ENGINE.md).
+    const P = ACTIVE_NUTRITION_CONFIG.protein;
     const proteinFactors = {
-      normal: 0.8,
-      wound_healing: 1.5,
-      burns: 2.0,
-      critical: 1.5,
-      renal: 0.6,
+      normal: P.ward.value.low,
+      wound_healing: P.burnsAndLargeWounds.value.low,
+      burns: P.burnsAndLargeWounds.value.high,
+      critical: P.icu.value.minGPerKg,
+      renal: P.ckdNonDialysis.value.nonDiabetic.high,
     };
-    
+
     const gramsPerKg = proteinFactors[condition];
     return {
       grams: Math.round(weightKg * gramsPerKg),
@@ -1064,8 +1044,8 @@ class NutritionPlannerService {
 
   // Calculate fluid requirements
   calculateFluidRequirements(weightKg: number): number {
-    // Standard formula: 30-35 mL/kg/day
-    return Math.round(weightKg * 30);
+    // 30-35 mL/kg/day (config); the planner uses the lower bound
+    return Math.round(weightKg * ACTIVE_NUTRITION_CONFIG.fluid.value.mlPerKg.low);
   }
 
   // Create nutrition assessment
@@ -1129,8 +1109,8 @@ class NutritionPlannerService {
       bmi,
       bmiCategory: category,
       idealBodyWeight,
-      adjustedBodyWeight: data.weight > idealBodyWeight * 1.2 
-        ? this.calculateAdjustedBodyWeight(data.weight, idealBodyWeight) 
+      adjustedBodyWeight: data.weight > idealBodyWeight * (ACTIVE_NUTRITION_CONFIG.anthropometry.adjustedBodyWeight.value.indicatedAbovePercentIbw / 100)
+        ? this.calculateAdjustedBodyWeight(data.weight, idealBodyWeight)
         : undefined,
       mustScore,
       status,

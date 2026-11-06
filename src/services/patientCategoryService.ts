@@ -5,6 +5,7 @@
  */
 
 import { differenceInYears, differenceInMonths, differenceInDays } from 'date-fns';
+import { calculateIdealBodyWeight, adjustedBodyWeightFromIbw } from '../domains/calculators/engine/calculationEngine';
 
 // Age category definitions per WHO guidelines
 export type AgeCategory = 'neonate' | 'infant' | 'toddler' | 'preschool' | 'school_age' | 'adolescent' | 'adult' | 'geriatric';
@@ -721,25 +722,18 @@ export function calculateBSA(weightKg: number, heightCm: number): number {
 }
 
 /**
- * Calculate Ideal Body Weight (IBW)
+ * Ideal Body Weight (Devine) — the canonical calculationEngine function.
  */
 export function calculateIBW(heightCm: number, isMale: boolean): number {
-  const heightInches = heightCm / 2.54;
-  if (isMale) {
-    return 50 + 2.3 * (heightInches - 60);
-  } else {
-    return 45.5 + 2.3 * (heightInches - 60);
-  }
+  return calculateIdealBodyWeight(heightCm, isMale ? 'male' : 'female') ?? NaN;
 }
 
 /**
- * Calculate Adjusted Body Weight for obesity
+ * Adjusted Body Weight — canonical: IBW + 0.4 × (ABW − IBW), or ABW when
+ * ABW ≤ IBW. Whether to DOSE on it (> 130% IBW) is decided in getDosingWeight.
  */
 export function calculateAdjustedWeight(actualWeight: number, ibw: number): number {
-  if (actualWeight <= ibw * 1.3) {
-    return actualWeight; // Not obese, use actual
-  }
-  return ibw + 0.4 * (actualWeight - ibw);
+  return adjustedBodyWeightFromIbw(actualWeight, ibw) ?? actualWeight;
 }
 
 /**

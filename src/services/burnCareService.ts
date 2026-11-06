@@ -13,6 +13,8 @@
 
 import { db } from '../database';
 import type { BurnAssessment, BurnDepth } from '../types';
+import { curreriKcal } from '../domains/nutrition/engine/energy';
+import { ACTIVE_NUTRITION_CONFIG } from '../domains/nutrition/engine/config';
 
 // ==================== TYPES ====================
 
@@ -382,9 +384,10 @@ class BurnCareService {
     let formula: string;
 
     if (age >= 18) {
-      // Curreri adult: 25 kcal/kg + 40 kcal/% TBSA
-      caloriesPerDay = (25 * weight) + (40 * tbsa);
-      formula = 'Curreri Formula (Adult)';
+      // Curreri adult (nutrition engine): 25 kcal/kg + 40 kcal/%TBSA, TBSA capped at 50%
+      const cap = ACTIVE_NUTRITION_CONFIG.energy.curreri.value.tbsaCapPercent;
+      caloriesPerDay = curreriKcal(weight, tbsa) ?? 0;
+      formula = tbsa > cap ? `Curreri Formula (Adult, TBSA capped at ${cap}%)` : 'Curreri Formula (Adult)';
     } else if (age >= 4) {
       // Curreri pediatric: 60 kcal/kg + 35 kcal/% TBSA
       caloriesPerDay = (60 * weight) + (35 * tbsa);
@@ -397,8 +400,9 @@ class BurnCareService {
       formula = 'Galveston Formula (Infant)';
     }
 
-    // Protein: 1.5-2g/kg for burns >20% TBSA
-    const proteinPerDay = tbsa > 20 ? weight * 2 : weight * 1.5;
+    // Protein: 1.5-2 g/kg (config range); upper end for burns >20% TBSA
+    const proteinRange = ACTIVE_NUTRITION_CONFIG.protein.burnsAndLargeWounds.value;
+    const proteinPerDay = tbsa > 20 ? weight * proteinRange.high : weight * proteinRange.low;
 
     // Determine feeding route
     let feedingRoute: BurnNutrition['feedingRoute'] = 'oral';
