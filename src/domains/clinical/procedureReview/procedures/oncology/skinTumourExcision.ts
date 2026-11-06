@@ -20,7 +20,7 @@
 import type { EncounterAnswers, EncounterField, EncounterSection } from '../../../data/encounterModel';
 import { computeStage } from '../../../../tumour-board/services/oncology/stagingEngine';
 import type { PlanContext, PlanRule, ProcedureModule, ScoreRule } from '../../types';
-import { chosen, hasAny, isOneOf, isYes, numOf } from '../../core/answers';
+import { answered, chosen, hasAny, isOneOf, isYes, numOf } from '../../core/answers';
 import { G, L, P, merge } from '../../ruleKit';
 import { instrumentFields, responsesFrom, scoreInstrument, type ScreeningInstrument } from '../../scores/instrument';
 import { sunProtectionField } from './common';
@@ -517,12 +517,28 @@ const goals: PlanRule = () => ({
   },
 });
 
+/**
+ * A pigmented lesion that may be melanoma and has no histology yet. Whatever
+ * the 7-point score, it is not closed with a flap or graft before the
+ * diagnosis and Breslow thickness are known: a flap ruins re-excision and
+ * sentinel node mapping (NICE NG14; BAD melanoma guideline).
+ */
+const melanomaNotExcluded = (ctx: PlanContext) => {
+  const a = ctx.answers;
+  const histologyKnown = isOneOf(a, f('biopsy'), 'done') && answered(a, f('biopsy_result')) && !isOneOf(a, f('biopsy_result'), 'pending', 'melanoma');
+  return (isOneOf(a, f('diagnosis'), 'pigmented') || isOneOf(a, f('dermoscopy'), 'melanoma') || (ctx.scores[`${ID}.seven_point`]?.total ?? 0) >= 3)
+    && !histologyKnown && !isOneOf(a, f('biopsy_result'), 'melanoma');
+};
+
 const triage: PlanRule = ctx => {
   if (ctx.phase !== 'pre_op') return null;
   const a = ctx.answers;
   const sp = ctx.scores[`${ID}.seven_point`];
   const melanoma = (sp?.total ?? 0) >= 3 || isOneOf(a, f('dermoscopy'), 'melanoma') || isOneOf(a, f('biopsy_result'), 'melanoma');
   return merge(
+    !melanoma && melanomaNotExcluded(ctx) && { problem: { treatment: [L(
+      'Pigmented lesion that may be melanoma: unless melanoma is excluded clinically and on dermoscopy, excision biopsy with a 2 mm clinical margin and primary closure — no flap, graft or wide excision until the histology is known',
+      'Possible melanoma without a histological diagnosis (NICE NG14; BAD melanoma guideline)', 'urgent')] } },
     melanoma && { problem: { treatment: [L(
       isOneOf(a, f('biopsy_result'), 'melanoma')
         ? 'Biopsy shows melanoma: plan wide local excision ± sentinel node biopsy in the Melanoma WLE review, not this one'
@@ -591,7 +607,9 @@ const theatre: PlanRule = ctx => {
       L('Orientate the specimen (marking suture, e.g. long-superior / short-medial) with a diagram; send for histology with the clinical diagnosis, risk features and margins taken', 'Orientation lets an involved margin be re-excised precisely (RCPath skin cancer datasets)'),
       L('Photograph and mark the lesion and margin before infiltration; WHO site check including side', 'Small skin lesions are easily lost once infiltrated'),
     )] },
-    (closure === 'graft' || closure === 'local_flap' || closure === 'regional_flap') && { problem: { referrals: [L('Plan the closure in its own reconstruction procedure review (skin graft or flap): donor site, flap design and their consent', `Planned closure: ${String(closure).replace('_', ' ')}`)] } },
+    (closure === 'graft' || closure === 'local_flap' || closure === 'regional_flap') && (melanomaNotExcluded(ctx)
+      ? { cautions: [`Planned ${String(closure).replace('_', ' ')} closure over a lesion that may be melanoma: excision biopsy with primary closure first; reconstruct only after the histology (NICE NG14).`] }
+      : { problem: { referrals: [L('Plan the closure in its own reconstruction procedure review (skin graft or flap): donor site, flap design and their consent', `Planned closure: ${String(closure).replace('_', ' ')}`)] } }),
     closure === 'delayed' && { problem: { treatment: [L('Moist dressing to the open defect; book the reconstruction once histology confirms clear margins (usually 1–2 weeks)', 'Delayed reconstruction after margin clearance')] } },
     { problem: { monitoring: [L(oop
       ? 'Agree before surgery how the histology fee will be paid and who will take the specimen and collect the report; record the laboratory and the expected date'

@@ -339,15 +339,23 @@ export const stageOf = (a: EncounterAnswers): StageResult | null => {
 
 const HIGH_RISK_STAGES = ['IIB', 'IIC', 'III', 'IIIA', 'IIIB', 'IIIC', 'IIID', 'IV'];
 
-export const melanomaStageScore: ScoreRule = ({ answers }) => {
+export const melanomaStageScore: ScoreRule = ({ answers, phase }) => {
   const st = stageOf(answers);
+  // The nodal examination is asked where the STAGING section is (pre-op, follow-up).
+  const nodesAsked = phase === 'pre_op' || phase === 'follow_up';
   if (!st) return null;
   const level = st.stageGroup === 'IV' || st.stageGroup.startsWith('III') ? 'very_high'
     : ['IIB', 'IIC'].includes(st.stageGroup) ? 'high' : ['IIA', 'IB'].includes(st.stageGroup) ? 'moderate' : 'low';
   return {
     id: `${ID}.stage`, name: 'AJCC 8 melanoma stage', abbreviation: 'AJCC 8', total: null,
     band: { label: `${st.formatted}`, level, interpretation: `${st.stageDescription}${st.caveats.length ? ` ${st.caveats.join(' ')}` : ''}` },
-    incomplete: isOneOf(answers, f('invasion'), 'invasive') && numOf(answers, f('breslow_mm')) == null ? ['Breslow thickness'] : [],
+    // cN0 is only known once the basin has been examined, and a palpable node
+    // is unstaged until its FNA / core biopsy is reported.
+    incomplete: [
+      ...(isOneOf(answers, f('invasion'), 'invasive') && numOf(answers, f('breslow_mm')) == null ? ['Breslow thickness'] : []),
+      ...(nodesAsked && !isOneOf(answers, f('nodes'), 'normal', 'palpable') ? ['Nodal examination'] : []),
+      ...(nodesAsked && isOneOf(answers, f('nodes'), 'palpable') && !isOneOf(answers, f('node_fna'), 'positive', 'negative') ? ['FNA / core biopsy of the palpable node'] : []),
+    ],
     source: 'Tumour Board stagingEngine.computeStage (AJCC 8th edition, chapter 47)',
     detail: st.caveats,
   };
@@ -415,6 +423,11 @@ const sentinelNode: PlanRule = ctx => {
   const a = ctx.answers;
   const st = stageOf(a);
   if (!st || st.T === 'Tis' || st.T === 'TX' || st.M !== 'M0' || isOneOf(a, f('node_fna'), 'positive')) return null;
+  // SLNB is for clinically node-negative disease: a palpable node is sampled
+  // first (the FNA line), and SLNB is decided once it is negative (NCCN).
+  if (isOneOf(a, f('nodes'), 'palpable') && !isOneOf(a, f('node_fna'), 'negative')) {
+    return { cautions: ['Palpable node not yet sampled: decide on sentinel node biopsy only after the FNA / core biopsy is reported negative.'] };
+  }
   const mitoses = numOf(a, f('mitoses'));
   const age = ctx.patient.ageYears;
   const t1aAdverse = [mitoses != null && mitoses >= 2 && 'mitoses 2/mm2 or more', isYes(a, f('lvi')) && 'lymphovascular invasion', age != null && age < 40 && 'age under 40'].filter(Boolean) as string[];
@@ -612,7 +625,7 @@ export const melanomaWle: ProcedureModule = {
     modifiers: [
       { id: 'mel_thick', when: c => (breslowOf(c) ?? 0) > 2 || isOneOf(c.answers, f('ulceration'), 'yes'),
         text: 'Because the melanoma is thick or ulcerated, the chance of it having spread, or of it coming back, is higher, and further treatment is more likely to be recommended.',
-        why: 'Breslow over 2 mm or ulceration (AJCC 8 T2b and above)' },
+        why: 'Breslow over 2 mm (AJCC 8 T3 and above) or ulceration (T1b and above)' },
       { id: 'mel_groin', when: c => isOneOf(c.answers, f('site'), 'lower_limb', 'plantar') && isOneOf(c.answers, f('slnb'), 'planned'),
         text: 'Sentinel node biopsy in the groin has the highest risk of fluid collection, wound infection and leg swelling (lymphoedema).',
         why: 'Lower-limb primary with groin SLNB' },
