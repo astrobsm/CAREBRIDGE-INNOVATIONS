@@ -112,6 +112,15 @@ const PLANNING: EncounterSection = {
       numericFlags: [{ op: '>', value: 3, level: 'amber', reason: 'Open fracture: definitive soft-tissue cover should be achieved within 72 hours of injury when it is not done at the first debridement (BOAST Open Fractures 2017).' }],
     },
     {
+      id: f('fracture_antibiotics'), label: 'IV antibiotics for the open fracture', kind: 'select',
+      showWhen: { field: f('indication'), equals: ['open_fracture'] },
+      options: [
+        { value: 'within_1h', label: 'Given within 1 hour of injury, continuing' },
+        { value: 'late', label: 'Given, but later than 1 hour', flag: 'amber', flagReason: 'Open-fracture antibiotics should start within 1 hour of injury (BOAST 2017).' },
+        { value: 'not_given', label: 'Not given / not known', flag: 'red', flagReason: 'Open fracture without antibiotics: start IV antibiotics now (BOAST Open Fractures 2017).' },
+      ],
+    },
+    {
       id: f('skeleton'), label: 'Skeletal stability', kind: 'select',
       showWhen: { field: f('indication'), equals: ['open_fracture', 'exposed_hardware', 'chronic_wound'] },
       options: [
@@ -275,6 +284,10 @@ const preOp: PlanRule = ctx => {
     isOneOf(a, f('indication'), 'open_fracture') && { problem: { treatment: [L(
       'Joint orthoplastic plan: debridement, skeletal stabilisation and definitive soft-tissue cover — ideally at the same sitting, otherwise cover within 72 hours of injury',
       days != null ? `Open fracture, day ${days} since injury (BOAST Open Fractures 2017)` : 'Open fracture (BOAST Open Fractures 2017)', days != null && days > 3 ? 'urgent' : 'routine')] } },
+    isOneOf(a, f('indication'), 'open_fracture') && { general: [G('Antibiotic prophylaxis and infection', L(
+      'Open fracture: IV antibiotics within 1 hour of injury, continued until definitive soft-tissue cover, for no longer than 72 hours (agent per local policy)',
+      `Open fracture; antibiotics ${a[f('fracture_antibiotics')] ? String(a[f('fracture_antibiotics')]).replace(/_/g, ' ') : 'not recorded'} (BOAST Open Fractures 2017)`,
+      isOneOf(a, f('fracture_antibiotics'), 'within_1h') ? 'routine' : 'urgent'))] },
     isOneOf(a, f('skeleton'), 'unstable') && { problem: { referrals: [L('Orthopaedic stabilisation before (or at) flap cover', 'Skeleton not stabilised (BOAST 2017)', 'urgent')] } },
     isOneOf(a, f('indication'), 'chronic_wound', 'exposed_hardware') && { problem: { investigations: [L(
       'Exclude osteomyelitis before cover: X-ray (MRI where available), and deep tissue / bone samples for culture at the debridement',
@@ -375,6 +388,7 @@ export const localRegionalFlap: ProcedureModule = {
   },
   carryForward: [f('design'), f('named_flap'), f('region'), f('defect_size'), f('defect_base'), f('stages'), f('donor_closure')],
   planRules: [goals, preOp, postOp, followUp],
+  therapeuticAntibiotics: c => isOneOf(c.answers, f('indication'), 'open_fracture') ? 'Open fracture: antibiotics from injury until definitive soft-tissue cover, no longer than 72 hours (BOAST 4, 2017)' : null,
   consent: {
     procedureName: 'Local or regional flap reconstruction',
     phases: ['pre_op'],

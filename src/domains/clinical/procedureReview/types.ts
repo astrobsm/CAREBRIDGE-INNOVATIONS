@@ -428,6 +428,18 @@ export interface ProcedureModule {
    */
   avoidNsaids?: (ctx: PlanContext) => string | null;
   /**
+   * Why this is emergency surgery (e.g. necrotising infection), or null. With
+   * ASA "E" it makes the core use the emergency fasting wording (no 6-hour
+   * line; rapid-sequence induction per the anaesthetist).
+   */
+  emergencySurgery?: (ctx: PlanContext) => string | null;
+  /**
+   * Why therapeutic antibiotics are part of this patient's care (bite, open
+   * fracture, infected diabetic foot, NSTI), or null. The core then qualifies
+   * its single-dose / 24-hour prophylaxis line instead of contradicting them.
+   */
+  therapeuticAntibiotics?: (ctx: PlanContext) => string | null;
+  /**
    * The patients are children (e.g. cleft lip and palate). When the record
    * has no date of birth, the core asks its paediatric questions instead of
    * the adult-only ones (core/age.ts). With a known age, age always decides.

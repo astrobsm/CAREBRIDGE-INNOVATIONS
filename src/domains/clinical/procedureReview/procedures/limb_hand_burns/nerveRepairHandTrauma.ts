@@ -439,6 +439,7 @@ export const nerveRepairHandTrauma: ProcedureModule = {
   includeCore: { pre_op: ['tetanus'] },
   carryForward: [f('nerves'), f('nerve_detail'), f('mechanism'), f('components')],
   planRules: [goals, preOp, postOp, followUpRule],
+  therapeuticAntibiotics: c => isOneOf(c.answers, f('mechanism'), 'bite') ? 'Bite: treatment-course antibiotics (BSSH; IDSA 2014)' : null,
   consent: {
     procedureName: 'Exploration and repair of nerve(s) of the hand / forearm (with repair of associated injuries; replantation if indicated)',
     phases: ['pre_op'],

@@ -447,6 +447,8 @@ export const necrotisingSoftTissueInfection: ProcedureModule = {
   avoidNsaids: () => 'Necrotising infection: NSAIDs may mask its progression, and acute kidney injury is common (IDSA 2014)',
   scores: [lrinecScore],
   planRules: [goals, emergency, postOp, followUpRule],
+  emergencySurgery: () => 'Necrotising soft-tissue infection — immediate-category emergency',
+  therapeuticAntibiotics: () => 'Necrotising soft-tissue infection: therapeutic IV antibiotics (IDSA 2014)',
   consent: {
     procedureName: 'Emergency exploration and debridement of necrotising soft-tissue infection (with amputation if needed to save life)',
     phases: ['pre_op'],

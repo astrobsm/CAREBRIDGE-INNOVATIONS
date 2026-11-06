@@ -459,6 +459,7 @@ export const tendonRepair: ProcedureModule = {
   carryForward: [f('type'), f('digits'), f('flexor_zone'), f('extensor_zone'), f('mechanism')],
   scores: [stricklandScore],
   planRules: [goals, preOp, postOp, followUpRule],
+  therapeuticAntibiotics: c => isOneOf(c.answers, f('mechanism'), 'bite') ? 'Bite: treatment-course antibiotics (BSSH; IDSA 2014)' : null,
   consent: {
     procedureName: 'Exploration and repair of tendon(s) of the hand / forearm',
     phases: ['pre_op'],

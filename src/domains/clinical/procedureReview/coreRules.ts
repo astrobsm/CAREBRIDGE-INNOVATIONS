@@ -297,7 +297,14 @@ const anaesthesia: PlanRule = ctx => {
       : 'PONV prophylaxis with three or more antiemetics; consider total intravenous anaesthesia and opioid-sparing analgesia',
     `Apfel ${apfel} (${s.apfel!.band?.label}) — Fourth Consensus Guidelines (Gan 2020)`));
   }
-  if (isOneOf(a, 'core.anaesthesia_planned', 'local')) {
+  // Emergency surgery: the patient is not fasted and surgery is not delayed
+  // for fasting — rapid-sequence induction is the anaesthetist's decision.
+  const emergency = isYes(a, 'core.asa_emergency') ? 'ASA "E" — emergency procedure' : ctx.module.emergencySurgery?.(ctx) ?? null;
+  if (emergency) {
+    items.push(L(
+      'Emergency: not fasted — do not delay surgery to fast; rapid-sequence induction per the anaesthetist; nil by mouth from now, IV fluids, and an NG tube if vomiting or obstructed',
+      `${emergency} (AAGBI / RCoA emergency anaesthesia)`, 'urgent'));
+  } else if (isOneOf(a, 'core.anaesthesia_planned', 'local')) {
     items.push(L('Local anaesthetic: confirm the unit\'s fasting policy — fast as for general anaesthesia if sedation may be needed; calculate the maximum safe local anaesthetic dose', 'Local anaesthesia planned'));
   } else if (child(ctx)) {
     items.push(L(
@@ -390,9 +397,17 @@ const vteLines: PlanRule = ctx => {
 const antibiotics: PlanRule = ctx => {
   if (!pre(ctx)) return null;
   const penicillin = ctx.patient.allergies.some(x => /penicillin|amoxicillin|ampicillin|augmentin|beta.?lactam/.test(x));
+  // Therapeutic antibiotics (NSTI, bite, open fracture, infected wound) are not
+  // prophylaxis: the 24-hour rule must not be read as stopping them.
+  const a = ctx.answers;
+  const treating = ctx.module.therapeuticAntibiotics?.(ctx)
+    ?? (isYes(a, 'core.nsti_concern') ? 'Possible necrotising infection'
+      : (ctx.scores.iwii?.total ?? 0) >= 3 ? `${ctx.scores.iwii!.band!.label} (IWII 2022)` : null);
   return {
     general: [G('Antibiotic prophylaxis and infection',
-      L('Antibiotic prophylaxis only when indicated (clean-contaminated or contaminated surgery, implants, or the unit protocol for grafts / flaps): one IV dose within 60 minutes before incision, re-dosed for long operations or major blood loss, and not continued beyond 24 hours', 'Surgical-site infection prevention (WHO 2016; NICE NG125)'),
+      treating
+        ? L('Therapeutic antibiotics are part of this plan: continue the treatment course (re-dose at induction if a dose is due); the single-dose / 24-hour prophylaxis rule does not apply to them', treating)
+        : L('Antibiotic prophylaxis only when indicated (clean-contaminated or contaminated surgery, implants, or the unit protocol for grafts / flaps): one IV dose within 60 minutes before incision, re-dosed for long operations or major blood loss, and not continued beyond 24 hours', 'Surgical-site infection prevention (WHO 2016; NICE NG125)'),
       L('Shower on the day of (or day before) surgery; do not shave the site — clip hair if it must be removed; alcohol-based chlorhexidine skin preparation', 'WHO 2016 SSI guideline; NICE NG125'),
     )],
     cautions: penicillin ? ['Penicillin allergy recorded: use the local non-beta-lactam prophylaxis.'] : [],
