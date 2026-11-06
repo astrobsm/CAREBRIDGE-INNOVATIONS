@@ -60,6 +60,12 @@ describe('buildConsentDraft', () => {
     expect(alt.some(a => /secondary intention/.test(a))).toBe(true);
   });
 
+  it('lists each alternative once (module list replaces the education record list)', () => {
+    const alt = draft.sections.find(s => s.title === 'Alternatives to this operation')!.bullets!;
+    expect(alt.filter(a => /secondary intention/i.test(a))).toHaveLength(1);
+    expect(alt.filter(a => /negative[- ]pressure/i.test(a))).toHaveLength(1);
+  });
+
   it('asks about photography and blood products', () => {
     const other = draft.sections.find(s => s.title === 'Other matters you are asked to agree to')!.bullets!.join(' ');
     expect(other).toMatch(/photographs/);

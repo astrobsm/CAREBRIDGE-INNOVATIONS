@@ -330,10 +330,12 @@ export function buildSurgicalDocument(input: SurgicalDocumentInput): DocumentSec
   }
 
   // 5. Alternatives
-  const specificAlternatives = [
-    ...(input.alternatives || []),
-    ...(input.procedureEducation?.alternativeTreatments || []),
-  ];
+  // A caller's own list (the procedure-review modules) is curated for the
+  // procedure and replaces the education record's; joining the two printed
+  // the same alternative twice in different words.
+  const specificAlternatives = input.alternatives?.length
+    ? input.alternatives
+    : input.procedureEducation?.alternativeTreatments || [];
   sections.push({
     title: 'Alternatives to this operation',
     bullets: specificAlternatives.length
