@@ -32,6 +32,7 @@ import type {
   ReviewPhase, ReviewSection, ScoreBand, ScoreMap,
 } from './types';
 import { CORE_SECTIONS, defaultCoreFor } from './core';
+import { ageAllows, ageInMonths, coreFieldAgeGate, isChild } from './core/age';
 import { answered, chosen, hasAny, isOneOf, isYes, numOf } from './core/answers';
 import { bradenFieldId, type BradenFieldKey } from './core/holistic';
 import { RCRI_KEYS, CAPRINI_ASKED } from './core/perioperative';
@@ -66,15 +67,29 @@ export function coreIdsFor(module: ProcedureModule, phase: ReviewPhase): CoreSec
  * Core sections for the phase + the module's own sections, in the order a
  * clinician works: the reason for the review, the procedure, the patient, the
  * dressing plan.
+ *
+ * Core fields outside the validated age range for this patient are left out
+ * (core/age.ts) — so they are neither shown, scored nor counted towards
+ * completeness — and their paediatric replacements put in. Without a patient
+ * the age is unknown and treated as adult (or as a child in a paediatric
+ * module).
  */
-export function composeTemplate(module: ProcedureModule, phase: ReviewPhase): ComposedReview {
+export function composeTemplate(
+  module: ProcedureModule, phase: ReviewPhase,
+  patient: Pick<ReviewPatient, 'ageYears' | 'ageMonths'> = { ageYears: null },
+): ComposedReview {
   if (!module.phases.includes(phase)) {
     throw new Error(`${module.name} is not reviewed at the ${phaseDefinition(phase).label.toLowerCase()} phase`);
   }
   const ids = new Set(coreIdsFor(module, phase));
   const core = (slot: 'lead' | 'holistic' | 'close'): ReviewSection[] => CORE_SECTIONS
     .filter(c => c.slot === slot && ids.has(c.id))
-    .map(c => ({ ...c.section, origin: 'core' as const, coreId: c.id }));
+    .map(c => ({
+      ...c.section,
+      fields: c.section.fields.filter(f => ageAllows(coreFieldAgeGate(f.id), patient, module)),
+      origin: 'core' as const, coreId: c.id,
+    }))
+    .filter(s => s.fields.length > 0);
   const own: ReviewSection[] = (module.sections[phase] ?? []).map(s => ({ ...s, origin: 'module' as const }));
   return {
     id: `${module.id}:${phase}`,
@@ -94,14 +109,14 @@ export function composeTemplate(module: ProcedureModule, phase: ReviewPhase): Co
 
 // ── The patient ─────────────────────────────────────────────────────────────
 
-const ageOn = (dob: Date | string | undefined, now: Date): number | null => {
+/** Completed months between the date of birth and `now`, or null. */
+const monthsOn = (dob: Date | string | undefined, now: Date): number | null => {
   if (!dob) return null;
   const d = new Date(dob);
   if (Number.isNaN(d.getTime())) return null;
-  let age = now.getFullYear() - d.getFullYear();
-  const m = now.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
-  return age;
+  let months = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+  if (now.getDate() < d.getDate()) months--;
+  return months < 0 ? null : months;
 };
 
 /** The review's view of a registered patient. `now` is passed in to keep this pure. */
@@ -111,8 +126,10 @@ export function reviewPatientFrom(
   extra: { medications?: string[] } = {},
 ): ReviewPatient {
   const lower = (xs: (string | undefined)[] | undefined) => (xs ?? []).filter(Boolean).map(x => String(x).toLowerCase());
+  const months = monthsOn(p?.dateOfBirth, now);
   return {
-    ageYears: ageOn(p?.dateOfBirth, now),
+    ageYears: months == null ? null : Math.floor(months / 12),
+    ageMonths: months,
     sex: p?.gender === 'female' ? 'female' : p?.gender === 'male' ? 'male' : null,
     comorbidities: [...lower(p?.chronicConditions), ...lower(p?.comorbidities?.map(c => c.condition))],
     medications: [...lower(extra.medications), ...lower(p?.comorbidities?.flatMap(c => c.medications ?? []))],
@@ -175,8 +192,16 @@ export function computeScores(
   const out: ComputedScore[] = [];
   const bmi = effectiveBmi(a, patient);
 
-  // BMI (WHO), calculator engine
-  if (has('core.weight_kg')) {
+  // BMI (WHO), calculator engine. The adult cut-offs do not apply to children.
+  const child = isChild(patient, module);
+  if (has('core.weight_kg') && child) {
+    out.push({
+      id: 'bmi', name: 'Body mass index', abbreviation: 'BMI', total: bmi,
+      band: bmi != null ? { label: 'Use the BMI-for-age centile', level: 'none', interpretation: `BMI ${bmi} kg/m2. The adult WHO categories do not apply under 18: plot BMI-for-age on the growth chart.` } : null,
+      incomplete: bmi == null ? ['Weight and height'] : [],
+      source: 'WHO child growth standards (BMI-for-age); calculationEngine.calculateBMI',
+    });
+  } else if (has('core.weight_kg')) {
     out.push({
       id: 'bmi', name: 'Body mass index', abbreviation: 'BMI', total: bmi,
       band: bmi != null ? bmiBand(bmi) : null,
@@ -499,8 +524,23 @@ export function iwiiStage(a: EncounterAnswers): ComputedScore {
 
 // ── Flags ───────────────────────────────────────────────────────────────────
 
-/** WHO 2011 anaemia threshold for this patient (g/dL), or null when sex is unknown. */
+/**
+ * WHO 2011 anaemia threshold for this patient (g/dL), or null when it cannot
+ * be set (sex unknown from 15 years; under 6 months, or an infant whose age
+ * in months is unknown — WHO gives no threshold below 6 months).
+ * WHO. Haemoglobin concentrations for the diagnosis of anaemia (2011):
+ * 6–59 months 11.0; 5–11 years 11.5; 12–14 years 12.0; from 15 years,
+ * non-pregnant women 12.0, pregnant women 11.0, men 13.0.
+ */
 export function anaemiaThreshold(patient: ReviewPatient, a: EncounterAnswers): number | null {
+  const months = ageInMonths(patient);
+  if (months != null && months < 15 * 12) {
+    if (patient.ageMonths == null && months < 12) return null;
+    if (months < 6) return null;
+    if (months < 60) return 11;
+    if (months < 12 * 12) return 11.5;
+    return 12;
+  }
   if (patient.sex === 'male') return 13;
   if (patient.sex === 'female') return isOneOf(a, 'core.pregnancy', 'pregnant') ? 11 : 12;
   return null;
@@ -554,6 +594,7 @@ export function healingBarriers(a: EncounterAnswers, patient: ReviewPatient, sco
   if (isOneOf(a, 'core.haemoglobinopathy', 'ss_sc')) add('Sickle cell disease', 'HbSS / HbSC');
   const must = scores.must?.total;
   if (must != null && must >= 1) add('Malnutrition risk', `MUST ${must}`, 'amber');
+  if (isOneOf(a, 'core.paed_growth', 'faltering', 'below_2nd')) add('Faltering growth', isOneOf(a, 'core.paed_growth', 'faltering') ? 'Crossing centiles downwards' : 'Weight below the 2nd centile');
   const hb = numOf(a, 'core.hb'), limit = anaemiaThreshold(patient, a);
   if (hb != null && limit != null && hb < limit) add('Anaemia', `Hb ${hb} g/dL`, hb < 7 ? 'red' : 'amber');
   const alb = numOf(a, 'core.albumin');
@@ -697,7 +738,7 @@ export interface ReviewInput {
 }
 
 export function readReview(input: ReviewInput): ReviewReading {
-  const template = composeTemplate(input.module, input.phase);
+  const template = composeTemplate(input.module, input.phase, input.patient);
   const patient = { ...input.patient, bmi: effectiveBmi(input.answers, input.patient) };
   const prior = input.prior ?? [];
   const scores = computeScores(template, input.answers, patient, input.module, prior);

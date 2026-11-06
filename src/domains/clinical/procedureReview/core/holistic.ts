@@ -280,11 +280,27 @@ export const HEALING_BARRIERS: EncounterSection = {
 
 export const NUTRITION: EncounterSection = {
   id: 'core.nutrition',
-  title: 'Nutrition (MUST) and biochemistry',
-  intent: 'MUST screening (BAPEN; NICE CG32) and the results that bear on healing.',
+  title: 'Nutrition and biochemistry',
+  intent: 'MUST screening for adults (BAPEN; NICE CG32); weight-for-age on the growth chart for children (NICE NG75); the results that bear on healing.',
   fields: [
     { id: 'core.weight_kg', label: 'Weight', kind: 'number', unit: 'kg', min: 1, max: 350, important: true },
-    { id: 'core.height_cm', label: 'Height', kind: 'number', unit: 'cm', min: 40, max: 230, important: true },
+    { id: 'core.height_cm', label: 'Height (length in infants)', kind: 'number', unit: 'cm', min: 40, max: 230, important: true },
+    {
+      // Children only (core/age.ts). MUST is an adult tool; there is no
+      // paediatric screening score in the app, so this asks what NICE NG75
+      // asks rather than inventing one.
+      id: 'core.paed_growth', label: 'Weight-for-age on the growth chart', kind: 'select', important: true,
+      narrativeLabel: 'Growth (weight-for-age)',
+      help: 'Plot weight (and length / height) on the WHO or national growth chart at every visit.',
+      options: [
+        { value: 'following', label: 'Following a centile' },
+        { value: 'faltering', label: 'Crossing centiles downwards (faltering growth)', flag: 'amber',
+          flagReason: 'Faltering growth: feeding assessment and dietetic support; before elective surgery where it is safe to wait (NICE NG75).' },
+        { value: 'below_2nd', label: 'Weight below the 2nd centile', flag: 'amber',
+          flagReason: 'Weight below the 2nd centile for age: assess for faltering growth and undernutrition — paediatric dietitian (NICE NG75).' },
+        { value: 'not_plotted', label: 'Not plotted', flag: 'amber', flagReason: 'Plot weight on a WHO growth chart at every visit.' },
+      ],
+    },
     {
       id: 'core.muac_cm', label: 'Mid-upper arm circumference (if height cannot be measured)', kind: 'number', unit: 'cm', min: 5, max: 70,
       help: 'BAPEN: MUAC below 23.5 cm suggests BMI below 20 kg/m2.',
@@ -305,7 +321,7 @@ export const NUTRITION: EncounterSection = {
       help: 'MUST step 3 — scores 2.',
     },
     {
-      id: 'core.intake', label: 'Current oral intake', kind: 'select',
+      id: 'core.intake', label: 'Current oral intake (feeding, in infants)', kind: 'select',
       options: [
         { value: 'normal', label: 'Normal' },
         { value: 'reduced', label: 'Reduced (about half of meals)', flag: 'amber', flagReason: 'Reduced intake: food chart and dietetic advice.' },
@@ -314,7 +330,7 @@ export const NUTRITION: EncounterSection = {
     },
     {
       id: 'core.hb', label: 'Haemoglobin', kind: 'number', unit: 'g/dL', min: 2, max: 25,
-      help: 'WHO anaemia: below 13 g/dL in men, below 12 g/dL in non-pregnant women.',
+      help: 'WHO anaemia: below 13 g/dL in men, below 12 g/dL in non-pregnant women; 11–12 g/dL in children by age (WHO 2011).',
       numericFlags: [{ op: '<', value: 7, level: 'red', reason: 'Hb below 7 g/dL: the restrictive transfusion threshold (NICE NG24) — assess for transfusion now.' }],
     },
     {
@@ -418,8 +434,36 @@ const gad2Total = (a: Parameters<NonNullable<EncounterField['visibleWhen']>>[0])
 export const PSYCHOLOGY: EncounterSection = {
   id: 'core.psychology',
   title: 'Psychological status',
-  intent: 'PHQ-2 and GAD-2 for everyone, expanding to PHQ-9 / GAD-7 when positive; appearance concern, expectations, coping and capacity. Screens, not diagnoses.',
+  intent: 'PHQ-2 and GAD-2 from the ages they are validated for (13 and 12), expanding to PHQ-9 / GAD-7 when positive; for younger children, the child\'s wellbeing, the caregiver and safeguarding. Appearance concern, expectations, coping and capacity. Screens, not diagnoses.',
   fields: [
+    // Children below the PHQ-9 age only (core/age.ts)
+    {
+      id: 'core.child_wellbeing', label: 'Child\'s emotional wellbeing (from the child as far as they can say, and the caregiver)', kind: 'select', important: true,
+      narrativeLabel: 'Child\'s wellbeing',
+      options: [
+        { value: 'settled', label: 'Settled — no change in mood, sleep, feeding, play or behaviour' },
+        { value: 'concern', label: 'Some concern (withdrawn, anxious, regression, sleep or feeding change)', flag: 'amber',
+          flagReason: 'Concern about the child\'s wellbeing: explore with the child and caregiver; paediatric psychology / child mental-health referral if it persists or affects daily life.' },
+        { value: 'marked', label: 'Marked distress or a big change in behaviour', flag: 'amber',
+          flagReason: 'Marked distress in a child: paediatric psychology / child mental-health referral; look for a cause, including safeguarding.' },
+      ],
+    },
+    {
+      id: 'core.caregiver_coping', label: 'Caregiver coping', kind: 'select',
+      options: [
+        { value: 'coping', label: 'Coping' },
+        { value: 'struggling', label: 'Struggling', flag: 'amber', flagReason: 'Caregiver struggling: offer support (social work, peer / family support); the child\'s care depends on them.' },
+      ],
+    },
+    {
+      id: 'core.child_safeguarding', label: 'Any concern about the child\'s safety or care (safeguarding)?', kind: 'select', important: true,
+      help: 'NICE CG89 alerting features: an explanation that does not fit the injury or the child\'s development, unexplained delay in presenting, a disclosure, or neglect.',
+      options: [
+        { value: 'none', label: 'No concern' },
+        { value: 'concern', label: 'Concern', flag: 'red',
+          flagReason: 'Safeguarding concern: follow the child-protection procedure today — the hospital safeguarding lead and social work (NICE CG89).' },
+      ],
+    },
     ...instrumentFields(PHQ9, 'core.phq', { items: PHQ2_ITEMS, important: true }),
     ...instrumentFields(PHQ9, 'core.phq', {
       items: PHQ9.items.map(i => i.id).filter(id => !PHQ2_ITEMS.includes(id)),

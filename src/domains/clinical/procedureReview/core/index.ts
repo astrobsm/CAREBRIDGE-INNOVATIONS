@@ -46,3 +46,4 @@ export const defaultCoreFor = (phase: ReviewPhase): CoreSectionId[] =>
   CORE_SECTIONS.filter(c => c.phases.includes(phase)).map(c => c.id);
 
 export * from './answers';
+export * from './age';

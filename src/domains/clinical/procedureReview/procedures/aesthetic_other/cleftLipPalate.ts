@@ -12,8 +12,10 @@
  * grafting, and the family's and child's wellbeing.
  *
  * Weight and haemoglobin are the core's (core.weight_kg, core.hb); the rule
- * of 10s reads them rather than asking again. Age in weeks is asked here
- * because the record holds whole years only.
+ * of 10s reads them rather than asking again; growth on the chart is the
+ * core's paediatric nutrition question (core.paed_growth). Age in weeks is
+ * still asked here: the record gives whole months, and the rule of 10s and
+ * palate timing are set in weeks.
  */
 import type { EncounterField, EncounterSection } from '../../../data/encounterModel';
 import type { PlanRule, ProcedureModule } from '../../types';
@@ -71,7 +73,7 @@ const ASSOCIATED: EncounterField = {
 };
 const AGE_WEEKS: EncounterField = {
   id: f('age_weeks'), label: 'Age', kind: 'number', unit: 'weeks', min: 0, max: 1100, important: true,
-  help: 'The record holds whole years only; cleft timing is planned in weeks and months.',
+  help: 'The record gives whole months; the rule of 10s and cleft timing are planned in weeks.',
 };
 
 const DETAILS: EncounterSection = {
@@ -107,14 +109,6 @@ const READINESS: EncounterSection = {
         { value: 'cup_spoon', label: 'Cup / spoon / paladai' },
         { value: 'ng', label: 'Nasogastric tube', flag: 'amber', flagReason: 'Tube-fed: specialist feeding team; assess for an associated syndrome or airway problem.' },
         { value: 'struggling', label: 'Struggling — long feeds, nasal regurgitation, choking', flag: 'amber', flagReason: 'Feeding difficulty: cleft nurse / feeding specialist now; weigh weekly.' },
-      ],
-    },
-    {
-      id: f('growth'), label: 'Weight on the growth chart', kind: 'select', important: true,
-      options: [
-        { value: 'following', label: 'Following a centile' },
-        { value: 'faltering', label: 'Crossing centiles downwards (faltering growth)', flag: 'amber', flagReason: 'Faltering growth: feeding assessment and dietetic support before elective surgery (NICE NG75).' },
-        { value: 'not_plotted', label: 'Not plotted', flag: 'amber', flagReason: 'Plot weight on a WHO growth chart at every visit.' },
       ],
     },
     {
@@ -340,8 +334,8 @@ const preOp: PlanRule = ctx => {
     (assoc.includes('cardiac') || assoc.includes('del22q11')) && { problem: { investigations: [L('Echocardiogram and cardiology opinion before anaesthesia; calcium and FBC if 22q11.2 deletion suspected (and genetic testing where available)', 'Cardiac anomaly / suspected 22q11.2 deletion')] } },
     assoc.includes('stickler') && { problem: { referrals: [L('Ophthalmology for retinal assessment', 'Possible Stickler syndrome')] } },
     assoc.some(x => ['pierre_robin', 'del22q11', 'van_der_woude', 'stickler', 'other'].includes(x)) && { problem: { referrals: [L('Clinical genetics / paediatrics for syndrome assessment and family counselling', 'Associated anomaly')] } },
-    isOneOf(a, f('feeding'), 'struggling', 'ng') || isOneOf(a, f('growth'), 'faltering')
-      ? { general: [G('Nutrition', L('Cleft feeding support: squeezable bottle or cup / spoon technique taught with the cleft nurse, feeding plan and weekly weights until back on the centile', `${isOneOf(a, f('growth'), 'faltering') ? 'Faltering growth (NICE NG75)' : 'Feeding difficulty'}`))] }
+    isOneOf(a, f('feeding'), 'struggling', 'ng') || isOneOf(a, 'core.paed_growth', 'faltering', 'below_2nd')
+      ? { general: [G('Nutrition', L('Cleft feeding support: squeezable bottle or cup / spoon technique taught with the cleft nurse, feeding plan and weekly weights until back on the centile', `${isOneOf(a, 'core.paed_growth', 'faltering', 'below_2nd') ? 'Faltering growth (NICE NG75)' : 'Feeding difficulty'}`))] }
       : null,
     isOneOf(a, f('recent_infection'), 'recent') && { general: [G('Anaesthesia and theatre', L('Anaesthetist to decide on deferral: a respiratory infection in the last 2–4 weeks raises airway complications in infants', 'Recent respiratory infection'))] },
     isOneOf(a, f('hearing'), 'ome', 'not_screened') && palateOp(a) && { problem: { referrals: [L('ENT / audiology: hearing assessment and whether to insert grommets at the palate repair', 'Hearing not screened / glue ear')] } },
@@ -433,6 +427,7 @@ export const cleftLipPalate: ProcedureModule = {
     post_op: [DETAILS, POST],
     follow_up: [DETAILS, FU],
   },
+  paediatric: true,
   carryForward: [f('cleft'), f('side'), f('operation'), f('associated')],
   planRules: [goals, preOp, postOp, followUp],
   consent: {

@@ -23,6 +23,7 @@ import { DRESSING_SELECTION, SSKIN_BUNDLE } from '../../pressure-sore/data/clini
 import { educationConditionById } from '../../surgery/utils/surgicalDocumentGenerator';
 import { PATIENT_FACTORS, PSYCHOLOGY, SOCIAL } from './core/holistic';
 import { WOUND_ASSESSMENT } from './core/wound';
+import { AGE_LIMITS, isChild, isUnder } from './core/age';
 
 const field = (sectionFields: { id: string }[], id: string) => sectionFields.find(f => f.id === id) as Parameters<typeof labelOf>[0];
 const optionLabel = (id: string, v: string) =>
@@ -31,6 +32,10 @@ const optionLabel = (id: string, v: string) =>
 const pre = (ctx: PlanContext) => ctx.phase === 'pre_op';
 const post = (ctx: PlanContext) => ctx.phase === 'post_op';
 const woundPhase = (ctx: PlanContext) => ctx.phase === 'wound_review';
+/** Under 18: adult-only tools and wording (MUST, 4AT, incentive spirometry) do not apply. */
+const child = (ctx: PlanContext) => isChild(ctx.patient, ctx.module);
+/** Under 16: outside NICE NG89 and the adult Caprini / enoxaparin regimen. */
+const belowVteAge = (ctx: PlanContext) => isUnder(ctx.patient, AGE_LIMITS.vte, ctx.module);
 
 // ── Optimisation: glucose ───────────────────────────────────────────────────
 
@@ -268,6 +273,10 @@ const anaesthesia: PlanRule = ctx => {
   }
   if (isOneOf(a, 'core.anaesthesia_planned', 'local')) {
     items.push(L('Local anaesthetic: confirm the unit\'s fasting policy — fast as for general anaesthesia if sedation may be needed; calculate the maximum safe local anaesthetic dose', 'Local anaesthesia planned'));
+  } else if (child(ctx)) {
+    items.push(L(
+      'Fasting (child): solids, formula and cow\'s milk until 6 hours before; breast milk until 4 hours before; clear fluids encouraged until 1 hour before — avoid prolonged fasting',
+      'Paediatric fasting (APAGBI / ESPA / EPA consensus statement 2018; Thomas M et al. Paediatr Anaesth 2018;28:411-4)'));
   } else {
     items.push(L(
       `Fasting: no food or milk for ${fastingGuidelines.solids.hours} hours before; clear fluids until ${fastingGuidelines.clearFluids.hours} hours before (water, clear juice, black tea / coffee); usual medicines with a sip of water unless told otherwise`,
@@ -291,12 +300,20 @@ const anaesthesia: PlanRule = ctx => {
 const vte: PlanRule = ctx => {
   const a = ctx.answers, s = ctx.scores;
   if (post(ctx)) {
+    if (belowVteAge(ctx)) {
+      return { general: [G('VTE prophylaxis', L('Early mobilisation and good hydration; pharmacological prophylaxis only if the paediatric team has prescribed it', 'Child under 16 — outside NICE NG89 (which covers people aged 16 and over)'))] };
+    }
     return { general: [G('VTE prophylaxis', L('Continue the prescribed VTE prophylaxis until the patient is mobile, and reassess risk if their condition changes', 'Post-operative (NICE NG89)'))] };
   }
   if (!pre(ctx)) return null;
   const drugs = chosen(a, 'core.anticoagulant');
   if (drugs.some(d => ['warfarin', 'rivaroxaban', 'apixaban', 'dabigatran', 'enoxaparin'].includes(d))) {
     return { general: [G('VTE prophylaxis', L('Already anticoagulated: the stop / restart plan replaces routine prophylaxis; mechanical prophylaxis while anticoagulation is held', 'On anticoagulation'))] };
+  }
+  if (belowVteAge(ctx)) {
+    return { general: [G('VTE prophylaxis', L(
+      'No routine pharmacological VTE prophylaxis: early mobilisation and hydration. Discuss with the paediatric team if there are major risk factors (post-pubertal with prolonged immobility, central venous catheter, known thrombophilia or previous VTE, oestrogen therapy)',
+      'Child under 16 — Caprini was derived in adults and NICE NG89 covers people aged 16 and over'))] };
   }
   const c = s.caprini;
   if (!c || c.total == null) {
@@ -373,9 +390,19 @@ const analgesia: PlanRule = ctx => {
 
 const nutrition: PlanRule = ctx => {
   const a = ctx.answers, s = ctx.scores;
-  if (!s.must && !answered(a, 'core.weight_kg')) return null;
+  if (!s.must && !answered(a, 'core.weight_kg') && !answered(a, 'core.paed_growth')) return null;
   const items: RuleLine[] = [];
   const parts: PlanContribution[] = [];
+  if (child(ctx)) {
+    // MUST is not used under 18 (BAPEN): growth on the chart instead (NICE NG75).
+    const g = a['core.paed_growth'];
+    if (g === 'faltering' || g === 'below_2nd') {
+      items.push(L('Paediatric dietitian: feeding and dietary assessment, a nutrition plan, and weight (and length / height) plotted on the growth chart at every visit',
+        `${g === 'faltering' ? 'Faltering growth — crossing centiles downwards' : 'Weight below the 2nd centile for age'} (NICE NG75)`, 'urgent'));
+    } else if (g === 'not_plotted' || (!answered(a, 'core.paed_growth') && answered(a, 'core.weight_kg'))) {
+      items.push(L('Plot weight (and length / height) on the WHO or national growth chart', 'Growth not plotted (NICE NG75)'));
+    }
+  }
   const must = s.must?.total;
   const w = numOf(a, 'core.weight_kg');
   if (s.must && s.must.incomplete.length) items.push(L('Complete the MUST: weigh and measure height (or MUAC), and ask about weight loss', `MUST incomplete: ${s.must.incomplete.join(', ')}`));
@@ -468,6 +495,22 @@ const psychology: PlanRule = ctx => {
     items.push(ctx.module.group === 'aesthetic'
       ? L('Specialist mental-health assessment for possible body dysmorphic concern; do not proceed with elective aesthetic surgery until it is done', 'Appearance-concern screen positive (screen, not a diagnosis)', 'urgent')
       : L('Discuss appearance concerns openly; offer psychological support (and assessment for body dysmorphic concern if distress persists)', 'Appearance-concern screen positive (screen, not a diagnosis)'));
+  }
+  if (isOneOf(a, 'core.child_wellbeing', 'concern', 'marked')) {
+    const marked = isOneOf(a, 'core.child_wellbeing', 'marked');
+    items.push(L(marked
+      ? 'Refer to paediatric psychology / child mental-health services; explain the procedure to the child at their level (play specialist where available)'
+      : 'Talk with the child and caregiver about what is worrying them; play-based preparation for the procedure; refer to paediatric psychology if it persists',
+    `Child's wellbeing: ${marked ? 'marked distress' : 'some concern'}`));
+  }
+  if (isOneOf(a, 'core.caregiver_coping', 'struggling')) items.push(L('Support the caregiver: social work, peer / family support and a named contact for questions', 'Caregiver struggling'));
+  if (isOneOf(a, 'core.child_safeguarding', 'concern')) {
+    parts.push({
+      problems: [{ problem: 'Safeguarding concern', lines: {
+        referrals: [L('Follow the child-protection procedure today: inform the hospital safeguarding lead and social work, document what was seen and said, and do not discharge until the child is safe', 'Safeguarding concern recorded (NICE CG89)', 'urgent')],
+      } }],
+      cautions: ['Safeguarding concern: do not discharge the child until a safe plan is agreed with the safeguarding lead.'],
+    });
   }
   if (isOneOf(a, 'core.coping', 'struggling', 'not_coping')) items.push(L('Offer psychological support and peer / family support', `Coping: ${String(a['core.coping']).replace('_', ' ')}`));
   if (hasAny(a, 'core.psych_history', 'psychosis')) items.push(L('Liaise with the patient\'s psychiatric team; continue psychiatric medication through the admission', 'Psychosis / bipolar disorder'));
@@ -673,8 +716,12 @@ const postOperative: PlanRule = ctx => {
       treatment: [L('Interim treatment-dose anticoagulation while waiting for imaging unless contraindicated', 'Suspected VTE (NICE NG158)', 'urgent')],
     } },
     ponv: { general: [G('Analgesia', L('Rescue antiemetic from a class not used for prophylaxis', 'PONV (Gan 2020)'))] },
-    chest: { general: [G('Rehabilitation (physiotherapy / OT)', L('Chest physiotherapy, sit out, incentive spirometry; sputum culture and antibiotics if pneumonia', 'Chest complication'))] },
-    delirium: { problem: { treatment: [L('4AT; treat the cause (pain, retention, constipation, infection, hypoxia, drugs); avoid sedatives; reorientation and family presence', 'Delirium')] } },
+    chest: { general: [G('Rehabilitation (physiotherapy / OT)', child(ctx)
+      ? L('Chest physiotherapy, sit up and move; age-appropriate breathing exercises (blowing games or bubbles for young children); antibiotics if pneumonia', 'Chest complication (child)')
+      : L('Chest physiotherapy, sit out, incentive spirometry; sputum culture and antibiotics if pneumonia', 'Chest complication'))] },
+    delirium: { problem: { treatment: [child(ctx)
+      ? L('Screen with a paediatric delirium tool (e.g. Cornell Assessment of Pediatric Delirium); treat the cause (pain, retention, constipation, infection, hypoxia, drugs); avoid sedatives where possible; a parent or caregiver present, familiar objects and routine', 'Delirium (child) — the 4AT is validated in adults')
+      : L('4AT; treat the cause (pain, retention, constipation, infection, hypoxia, drugs); avoid sedatives; reorientation and family presence', 'Delirium')] } },
     retention: { problem: { treatment: [L('Bladder scan or catheter; review opioids and anticholinergic drugs', 'Urinary retention')] } },
   };
   for (const c of comp) if (map[c]) parts.push(map[c]);
@@ -687,9 +734,18 @@ const postOperative: PlanRule = ctx => {
   if (isOneOf(a, 'core.urine', 'low')) parts.push({ problem: { monitoring: [L('Fluid balance chart; assess for hypovolaemia and bleeding', 'Low urine output')] } });
   if (isOneOf(a, 'core.eating', 'nbm', 'limited')) parts.push({ general: [G('Nutrition', L('Resume eating and drinking as soon as it is safe', 'Early oral intake (ERAS)'))] });
   if (isOneOf(a, 'core.mobilising', 'no', 'limited')) {
-    parts.push({ general: [G('Rehabilitation (physiotherapy / OT)', L('Mobilise with physiotherapy today unless the operation requires rest; mechanical VTE prophylaxis meanwhile', 'Not yet mobilising (ERAS)'))] });
+    parts.push({ general: [G('Rehabilitation (physiotherapy / OT)', child(ctx)
+      ? L('Encourage age-appropriate activity out of bed today (sitting up and play; held or carried for infants) unless the operation requires rest', 'Not yet back to usual activity (child)')
+      : L('Mobilise with physiotherapy today unless the operation requires rest; mechanical VTE prophylaxis meanwhile', 'Not yet mobilising (ERAS)'))] });
   }
-  parts.push({ dischargeCriteria: [
+  parts.push({ dischargeCriteria: child(ctx) ? [
+    'Observations within the normal range for age, or at the child\'s agreed baseline',
+    'Pain controlled on oral analgesia',
+    'Feeding / eating and drinking, and passing urine (wet nappies in infants)',
+    'Back to usual activity for age, or a plan in place at home',
+    'Operative site checked; dressing plan and supplies arranged; caregiver confident with care',
+    'Follow-up booked; red flags explained to the caregiver; medicines (doses by weight) and written instructions given',
+  ] : [
     'NEWS2 low (0–4) with no single parameter scoring 3, or at the patient\'s agreed baseline',
     'Pain controlled on oral analgesia',
     'Eating, drinking and passing urine',

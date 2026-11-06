@@ -65,10 +65,12 @@ Read the JSDoc in `types.ts`; this is the summary.
   - `sections: Partial<Record<ReviewPhase, EncounterSection[]>>` — **procedure-specific questions only**; the engine adds the core.
   - `coreOnlyPhases` — phases with no module sections on purpose.
   - `includeCore` / `excludeCore` — adjust the core sections per phase.
+  - `paediatric` — the patients are children (cleft): an unknown age is treated as a child, not an adult.
   - `carryForward` — field ids pre-filled from the newest earlier review of this module.
   - `scores: ScoreRule[]` — module scores; call existing calculators.
   - `planRules: PlanRule[]`, `consent?: ConsentSpec`, `followUp` (per-phase visits), `handoffs` (routes to owning modules).
-- **`PlanRule`** = `(ctx: PlanContext) => PlanContribution | null`, pure. `PlanContext` = module, phase, answers, scores (by id), flags, patient (age, sex, comorbidities, meds, allergies, BMI), prior reviews (newest first).
+- **`PlanRule`** = `(ctx: PlanContext) => PlanContribution | null`, pure. `PlanContext` = module, phase, answers, scores (by id), flags, patient (age in years and, from the date of birth, `ageMonths`; sex, comorbidities, meds, allergies, BMI), prior reviews (newest first).
+- **Age gating (`core/age.ts`)**: core fields outside their validated age are left out of the composed review (not shown, scored or counted for completeness) — PHQ-2/9 under 13, GAD-2/7 under 12, MUST steps under 18 (replaced by `core.paed_growth`), Caprini under 16, CFS under 65; under 13, `core.child_wellbeing`, `core.caregiver_coping` and `core.child_safeguarding` are asked instead. Core rules switch to paediatric wording for VTE, fasting, chest care, delirium, mobilisation and discharge. In a module rule use `isChild` / `isUnder(ctx.patient, years, ctx.module)` rather than `ageYears` alone.
 - **`PlanContribution`**: `problem` (lines on the module's primary problem: goals / investigations / treatment / monitoring / referrals), `problems` (extra named problems), `comorbidities`, `general` (under the fixed `PLAN_HEADINGS`), `cautions`, `counselling`, `followUp`, `dischargeCriteria`.
 - **`RuleLine`** = `{ text, why, priority? }` — `why` is required and must name the answer or score and, where one exists, the guideline.
 - **`ConsentSpec`**: `intendedBenefits`, `risks` (only what the education record lacks; frequency only if published), `alternatives` (include non-operative), `riskOfNotTreating`, `anaesthesiaOptions`, `additionalProcedures`, `photography`, `bloodProducts`, `specimen`, `counsellingTopics`, `modifiers` (`RiskModifier`: patient-specific risks for THIS procedure), `phases` (default `['pre_op']`).

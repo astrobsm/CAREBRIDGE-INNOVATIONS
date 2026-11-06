@@ -75,7 +75,14 @@ export type CoreSectionId =
 
 /** What the review knows about the patient beyond its own answers. */
 export interface ReviewPatient {
+  /** Whole years, from the date of birth. */
   ageYears: number | null;
+  /**
+   * Whole months, from the date of birth when the record has one, so infants
+   * are not all "0 years". Optional: when absent, age-dependent rules use
+   * ageYears (see core/age.ts).
+   */
+  ageMonths?: number | null;
   sex: 'male' | 'female' | null;
   /** Lower-case free text from the registration (chronic conditions, comorbidities). */
   comorbidities: string[];
@@ -384,6 +391,12 @@ export interface ProcedureModule {
   includeCore?: Partial<Record<ReviewPhase, CoreSectionId[]>>;
   /** Core sections to leave out for this module at a phase. */
   excludeCore?: Partial<Record<ReviewPhase, CoreSectionId[]>>;
+  /**
+   * The patients are children (e.g. cleft lip and palate). When the record
+   * has no date of birth, the core asks its paediatric questions instead of
+   * the adult-only ones (core/age.ts). With a known age, age always decides.
+   */
+  paediatric?: boolean;
   /**
    * Field ids pre-filled from the newest earlier review of this module (e.g.
    * the graft type recorded pre-operatively, shown again post-operatively),
