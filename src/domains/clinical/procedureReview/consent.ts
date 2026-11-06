@@ -109,6 +109,14 @@ const dedupeBy = <T>(xs: T[], key: (x: T) => string) => {
   return xs.filter(x => { const k = key(x).trim().toLowerCase(); if (!k || seen.has(k)) return false; seen.add(k); return true; });
 };
 
+/** "about 5–20%", without doubling a qualifier the figure already has ("About 1 in 5"). */
+export const frequencyText = (f: string) => {
+  const t = f.trim();
+  return /^(about|around|approximately|up to|under|over|less than|more than|fewer than|<|>|~)/i.test(t)
+    ? t.charAt(0).toLowerCase() + t.slice(1)
+    : `about ${t}`;
+};
+
 /** The procedure's education record, by its exact id — never a guessed or generic one. */
 export function educationRecord(id: string | null | undefined): ProcedureEducation | undefined {
   return id ? procedureEducationDatabase.find(p => p.procedureId === id) : undefined;
@@ -139,7 +147,7 @@ export function buildConsentDraft(
   const known = new Set((edu?.specificComplications ?? []).map(c => c.name.toLowerCase()));
   const procedureRisks = spec.risks
     .filter(r => !known.has(r.name.toLowerCase()))
-    .map(r => `${r.name}: ${r.description}${r.frequency ? ` (about ${r.frequency})` : ''}`);
+    .map(r => `${r.name}: ${r.description}${r.frequency ? ` (${frequencyText(r.frequency)})` : ''}`);
   const risks = patientRisks(ctx);
   const planned = ctx.answers['core.anaesthesia_planned'];
   const anaesthesia = typeof planned === 'string'
@@ -156,6 +164,11 @@ export function buildConsentDraft(
     surgeonName: doc.surgeonName,
     hospitalName: doc.hospitalName,
     procedureEducation: edu,
+    // Never let the library guess a leaflet from the procedure's name: it
+    // matched "Skin tumour excision" to the skin-graft leaflet and "Keloid"
+    // to ingrown-toenail surgery. The module's own record (educationId) and
+    // its listed leaflets are the only education content used.
+    libraryEducation: null,
     intendedBenefits: spec.intendedBenefits,
     procedureRisks,
     patientSpecificRisks: risks.map(r => r.text),

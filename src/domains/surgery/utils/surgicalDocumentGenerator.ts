@@ -125,6 +125,12 @@ export interface SurgicalDocumentInput {
   // When absent, the document is exactly what it always was.
 
   /**
+   * The education-library leaflet to merge. When given — including null for
+   * "none" — it replaces the fuzzy match on the procedure name, which can
+   * attach another operation's leaflet to a consent form.
+   */
+  libraryEducation?: EducationCondition | null;
+  /**
    * The medico-legal education record for the procedure (src/data/
    * patientEducation), whose complications carry stated frequencies.
    */
@@ -211,7 +217,7 @@ function dedupe(items: string[]): string[] {
 
 /** Compose the document's sections from the case and the education library. */
 export function buildSurgicalDocument(input: SurgicalDocumentInput): DocumentSection[] {
-  const edu = findEducationForProcedure(input.procedureName);
+  const edu = input.libraryEducation !== undefined ? input.libraryEducation : findEducationForProcedure(input.procedureName);
   const sections: DocumentSection[] = [];
 
   // 1. What is proposed
