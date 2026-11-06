@@ -166,6 +166,17 @@ export function flapStateLines(a: EncounterAnswers, id: string, opts: { free: bo
           `${signs} point to arterial compromise (Chen KT et al. PRS 2007)`, 'urgent')]
       : [L('Arterial insufficiency: remove all compression, correct the position (kink, stretch, joint position), warm the patient and correct hypotension or hypovolaemia; senior review now and return to theatre for a correctable cause — leeches do not help arterial insufficiency',
           `${signs} point to arterial compromise`, 'urgent')] } },
+    // A changed Doppler signal is an early sign of pedicle trouble before the
+    // skin signs change: it must reach the plan, not only the flag list.
+    state === null && isOneOf(a, f('doppler'), 'weaker') && { problem: { treatment: [L(
+      'Doppler signal changed: re-examine every clinical sign now, increase the frequency of flap observations and get a senior / operating-surgeon review now',
+      'Doppler signal weaker or changed in character', 'urgent')] } },
+    isOneOf(a, f('flap_colour'), 'black') && { problem: { treatment: [L(
+      'Established flap necrosis: inform the operating surgeon; plan debridement and alternative cover (and look for the cause)',
+      'Flap black / dry throughout', 'urgent')] } },
+    isOneOf(a, f('flap_colour'), 'demarcating') && { problem: { treatment: [L(
+      'Partial flap necrosis: inform the operating surgeon; let it demarcate, then debride and cover the lost area; check the rest of the flap for compromise',
+      'Dark, demarcating area of the flap')] } },
     // The core post-operative rule already writes the haematoma line when it is recorded as a complication.
     threats.includes('haematoma') && !hasAny(a, 'core.complications', 'haematoma') && { problem: { treatment: [L('Evacuate the haematoma under the flap (bedside release of sutures or theatre) and find the bleeding point', 'Swelling suggesting haematoma under the flap', 'urgent')] } },
     threats.includes('kink') && { problem: { treatment: [L('Correct the kinked, twisted or stretched pedicle — reposition the joint or splint now; return to theatre if it does not resolve', 'Pedicle kinked / twisted / stretched', 'urgent')] } },
