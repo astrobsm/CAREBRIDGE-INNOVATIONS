@@ -521,6 +521,18 @@ export const iwgdfRiskScore: ScoreRule = ({ phase, answers: a }) => {
   if (!a[f('monofilament')] || isOneOf(a, f('monofilament'), 'not_tested')) return null;
   const lops = isOneOf(a, f('monofilament'), 'lost');
   const pad = isOneOf(a, 'core.pvd', 'suspected', 'confirmed', 'revascularised') || (numOf(a, f('toe_pressure')) ?? 999) < 30;
+  // Category 0 needs PAD to have been looked for: with intact sensation and no
+  // PAD assessment the category is unknown, not "very low risk".
+  const padAssessed = answered(a, 'core.pvd') || answered(a, f('toe_pressure'));
+  if (!lops && !pad && !padAssessed) {
+    return {
+      id: `${ID}.iwgdf_risk`, name: 'IWGDF risk category', abbreviation: 'IWGDF risk', total: null, max: 3,
+      band: null,
+      incomplete: ['Peripheral arterial disease status (pulses, ABI / toe pressure)'],
+      source: 'IWGDF 2023 Guidelines on the prevention of foot ulcers in persons with diabetes',
+      detail: ['Protective sensation is intact, but without a PAD assessment the risk category cannot be set — after a foot ulcer it is category 3 if PAD is present.'],
+    };
+  }
   const cat = lops || pad ? 3 : 0;
   const b = cat === 3
     ? { label: 'IWGDF 3 — high risk', level: 'high' as const, interval: 'every 1–3 months' }
@@ -648,13 +660,26 @@ const neuropathy: PlanRule = ctx => {
     isOneOf(a, f('monofilament'), 'not_tested') && { problem: { investigations: [L('10 g monofilament at 3 plantar sites per foot (and a 128 Hz tuning fork)', 'Protective sensation not tested (IWGDF 2023)')] } },
     hasAny(a, f('deformity'), 'charcot_active') && { problems: [{ problem: 'Possible active Charcot neuro-osteoarthropathy', lines: {
       investigations: [L('Weight-bearing foot and ankle X-ray; MRI if the X-ray is normal; compare skin temperature with the other foot', 'Warm, swollen neuropathic foot (IWGDF 2023 Charcot guideline)', 'urgent')],
-      treatment: [L('Immobilise and offload now in a non-removable knee-high device (TCC); distinguish from infection — the two can coexist', 'Active Charcot (IWGDF 2023 Charcot guideline)', 'urgent')],
+      treatment: [castUnsafe(ctx)
+        ? L('Immobilise and offload now in a removable knee-high device, non-weight-bearing where possible, until the infection or ischaemia is controlled — then a non-removable knee-high device (TCC); inspect the foot daily', `Active Charcot with ${castUnsafeWhy(ctx)}: a non-removable cast is contraindicated (IWGDF 2023 Charcot and offloading guidelines)`, 'urgent')
+        : L('Immobilise and offload now in a non-removable knee-high device (TCC); distinguish from infection — the two can coexist', 'Active Charcot (IWGDF 2023 Charcot guideline)', 'urgent')],
     } }] },
   );
 };
 
+/**
+ * A non-removable cast hides the foot: contraindicated with a moderate or
+ * severe infection or with moderate / severe ischaemia (IWGDF 2023
+ * offloading guideline) — use a removable knee-high device and inspect daily.
+ */
+const castUnsafe = (ctx: PlanContext) => isOneOf(ctx.answers, f('infection_grade'), '3', '4') || pad(ctx);
+const castUnsafeWhy = (ctx: PlanContext) => isOneOf(ctx.answers, f('infection_grade'), '3', '4')
+  ? `infection grade ${String(ctx.answers[f('infection_grade')])}` : 'significant ischaemia';
+
 const offloading: PlanRule = ctx => {
   const a = ctx.answers;
+  // A healed ulcer at follow-up needs footwear (followUpRule), not a cast.
+  if (ctx.phase === 'follow_up' && isOneOf(a, f('ulcer_status'), 'healed')) return null;
   const off = a[f('offloading')];
   const plantarFore = isOneOf(a, f('region'), 'forefoot', 'midfoot');
   const heel = isOneOf(a, f('region'), 'hindfoot');
@@ -663,12 +688,14 @@ const offloading: PlanRule = ctx => {
     parts.push({ problem: { treatment: [L(
       heel
         ? 'Offload the heel: knee-high device or heel-offloading boot, heel free in bed; non-weight-bearing where possible'
-        : 'Offload in a non-removable knee-high device (total contact cast or a walker made irremovable); removable knee-high walker if non-removable is contraindicated; ankle-high devices only if knee-high is impossible',
-      `${plantarFore ? 'Plantar fore- / midfoot' : heel ? 'Heel' : 'Diabetic foot'} ulcer; offloading ${off ? String(off).replace(/_/g, ' ') : 'not recorded'} (IWGDF 2023 offloading)`,
+        : castUnsafe(ctx)
+          ? 'Offload in a removable knee-high device (non-removable casts are contraindicated with a moderate or severe infection or significant ischaemia); inspect the foot daily; non-weight-bearing where possible'
+          : 'Offload in a non-removable knee-high device (total contact cast or a walker made irremovable); removable knee-high walker if non-removable is contraindicated; ankle-high devices only if knee-high is impossible',
+      `${plantarFore ? 'Plantar fore- / midfoot' : heel ? 'Heel' : 'Diabetic foot'} ulcer; offloading ${off ? String(off).replace(/_/g, ' ') : 'not recorded'}${castUnsafe(ctx) ? `; ${castUnsafeWhy(ctx)}` : ''} (IWGDF 2023 offloading)`,
       ctx.phase === 'pre_op' ? 'routine' : 'urgent')] } });
     parts.push({ general: [G('Wound care and dressings', L('Where a cast or walker cannot be bought: felted foam with an improvised irremovable dressing, crutches or a wheelchair, and a dated plan to obtain a device', 'Low-cost offloading (IWGDF 2023 offloading — when knee-high devices are unavailable)'))] });
   }
-  if (isOneOf(a, f('offloading'), 'non_removable') && isOneOf(a, f('infection_grade'), '3', '4')) {
+  if (isOneOf(a, f('offloading'), 'non_removable') && castUnsafe(ctx)) {
     parts.push({ cautions: ['Non-removable cast with a moderate or severe infection or uncontrolled ischaemia is contraindicated: use a removable device and inspect daily (IWGDF 2023 offloading).'] });
   }
   return merge(...parts);
@@ -762,6 +789,7 @@ const followUpRule: PlanRule = ctx => {
     } },
     st === 'healed' && { problem: { treatment: [L('Healed: therapeutic footwear with demonstrated plantar pressure relief, worn at all times; integrated foot care with podiatry', 'Healed plantar ulcer — recurrence prevention (IWGDF 2023 prevention)')] } },
     risk?.band && { problem: { monitoring: [L(`Foot screening ${risk.detail?.[0] ?? 'by risk category'} once healed, by a trained professional`, `${risk.band.label} (IWGDF 2023 prevention)`)] } },
+    risk && !risk.band && { problem: { investigations: [L('Assess for PAD (pedal pulses, ABI and toe pressure) to set the foot-screening interval', 'IWGDF risk category cannot be set without PAD status (IWGDF 2023 prevention)')] } },
     !prevention.includes('education') && { general: [G('Patient education', L('Daily foot inspection (use a mirror or a family member), wash and dry between the toes, moisturise but not between the toes, cut nails straight; never self-treat corns or callus; come within a day for any new wound, colour change or swelling', 'Foot self-care education (IWGDF 2023 prevention)'))] },
     isOneOf(a, f('antibiotics_done'), 'stopped_early') && { problem: { investigations: [L('CRP / ESR and re-examination for persistent infection or osteomyelitis', 'Antibiotic course stopped early')] } },
   );
@@ -770,7 +798,7 @@ const followUpRule: PlanRule = ctx => {
 // ── The module ──────────────────────────────────────────────────────────────
 
 const pad = (c: PlanContext) =>
-  !!severeIschaemia(c.answers, f, c.scores[`${ID}.abi`]?.total) || /I[23]/.test(c.scores[`${ID}.wifi`]?.band?.label ?? '');
+  !!severeIschaemia(c.answers, f, c.scores[`${ID}.abi`]?.total) || /\bI[23]\b/.test(c.scores[`${ID}.wifi`]?.band?.label ?? '');
 
 export const diabeticFootDebridement: ProcedureModule = {
   id: ID,
