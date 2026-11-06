@@ -21,6 +21,7 @@ import type { EncounterField, EncounterSection } from '../../../data/encounterMo
 import type { PlanContribution, PlanRule, ProcedureModule, ScoreRule } from '../../types';
 import { chosen, hasAny, isOneOf, isYes, numOf } from '../../core/answers';
 import { G, L, P, biteExposureLine, merge } from '../../ruleKit';
+import { HIGH_PRESSURE_LINE } from './shared';
 
 const ID = 'tendon_repair';
 const f = (id: string) => `${ID}.${id}`;
@@ -69,6 +70,7 @@ const EXTENSOR_ZONE: EncounterField = {
     { value: 'TIII_TV', label: 'Thumb TIII–TV — MCP joint to wrist' },
   ],
 };
+const HIGH_PRESSURE_FLAG = 'High-pressure injection injury: a surgical emergency — the small entry wound is deceptive; same-day exploration by a hand surgeon.';
 const MECHANISM: EncounterField = {
   id: f('mechanism'), label: 'Mechanism', kind: 'select', important: true,
   options: [
@@ -80,6 +82,8 @@ const MECHANISM: EncounterField = {
     { value: 'closed_avulsion', label: 'Closed avulsion (jersey finger / mallet)' },
     { value: 'attritional', label: 'Attritional / rheumatoid rupture' },
     { value: 'gunshot', label: 'Gunshot / blast', flag: 'amber', flagReason: 'Gunshot or blast: contamination and segmental loss — staged reconstruction is likely.' },
+    { value: 'high_pressure', label: 'High-pressure injection (paint gun, grease gun, hydraulic line)', flag: 'red',
+      flagReason: HIGH_PRESSURE_FLAG },
   ],
 };
 const INJURY: EncounterSection = {
@@ -337,6 +341,9 @@ const preOp: PlanRule = ctx => {
   const parts: PlanContribution[] = [];
   if (assoc.includes('devascularised')) {
     parts.push({ problem: { treatment: [L('Emergency theatre: explore and repair the digital arteries (vein graft if needed) before or with the tendon repair', 'Devascularised digit', 'urgent')] } });
+  }
+  if (isOneOf(a, f('mechanism'), 'high_pressure')) {
+    parts.push({ problem: { treatment: [HIGH_PRESSURE_LINE] } });
   }
   if (isOneOf(a, f('mechanism'), 'bite')) {
     parts.push({ problem: { treatment: [

@@ -16,6 +16,8 @@ import { calculateAbi, calculateTbi } from '../../../../vascular/services/perfus
 import type { PressureSet } from '../../../../vascular/types';
 import type { ComputedScore, ScoreRule } from '../../types';
 import { isOneOf, numOf } from '../../core/answers';
+import { G, L } from '../../ruleKit';
+import type { PlanContribution, RuleLine } from '../../types';
 
 type Ns = (id: string) => string;
 
@@ -143,3 +145,15 @@ export function severeIschaemia(a: EncounterAnswers, f: Ns, abi: number | null |
   if (isOneOf(a, f('waveform'), 'absent')) return 'Absent pedal Doppler signal';
   return null;
 }
+
+/** High-pressure injection injury of the hand: one wording for the tendon and nerve / hand-trauma modules. */
+export const HIGH_PRESSURE_LINE: RuleLine = L(
+  'High-pressure injection injury: same-day emergency surgical exploration and decompression / debridement by a hand surgeon; plain X-ray (paint, grease and air may show); the small entry wound is deceptive — the injected material tracks along tendon sheaths and fascial planes; no digital block with adrenaline and no ring block that compresses; elevate, analgesia, antibiotics and tetanus as indicated',
+  'High-pressure injection injury — delay raises the amputation rate (BSSH; Hogan CJ, Ruland RT. J Am Acad Orthop Surg 2006;14:437-44)', 'urgent');
+
+/** Safety-net line for the limb modules: acute limb ischaemia is time-critical. */
+export const ACUTE_LIMB_ISCHAEMIA_REDFLAG: PlanContribution = {
+  general: [G('Red flags — return immediately if', L(
+    'Sudden cold, pale, painful, numb or weak foot / leg — come immediately (acute limb ischaemia)',
+    'Safety-netting: acute limb ischaemia needs revascularisation within hours (ESVS 2020)'))],
+};

@@ -20,6 +20,7 @@ import type { EncounterField, EncounterSection } from '../../../data/encounterMo
 import type { PlanContribution, PlanRule, ProcedureModule } from '../../types';
 import { chosen, hasAny, isOneOf, numOf } from '../../core/answers';
 import { G, L, P, biteExposureLine, merge } from '../../ruleKit';
+import { HIGH_PRESSURE_LINE } from './shared';
 
 const ID = 'nerve_repair_hand_trauma';
 const f = (id: string) => `${ID}.${id}`;
@@ -49,6 +50,8 @@ const MECHANISM: EncounterField = {
     { value: 'gunshot_blast', label: 'Gunshot / blast' },
     { value: 'bite', label: 'Human or animal bite', flag: 'red',
       flagReason: 'Bite: high infection risk — formal washout in theatre and antibiotics; rabies / blood-borne-virus risk assessment today.' },
+    { value: 'high_pressure', label: 'High-pressure injection (paint gun, grease gun, hydraulic line)', flag: 'red',
+      flagReason: 'High-pressure injection injury: a surgical emergency — the small entry wound is deceptive; same-day exploration by a hand surgeon.' },
     { value: 'compression', label: 'Compression / closed injury' },
   ],
 };
@@ -306,6 +309,9 @@ const preOp: PlanRule = ctx => {
   const isch = numOf(a, f('ischaemia_h'));
   const muscle = level === 'hand_wrist';
   const parts: PlanContribution[] = [];
+  if (isOneOf(a, f('mechanism'), 'high_pressure')) {
+    parts.push({ problem: { treatment: [HIGH_PRESSURE_LINE] } });
+  }
   if (isOneOf(a, f('mechanism'), 'bite')) {
     parts.push({ problem: { treatment: [
       L('Formal exploration and washout in theatre; co-amoxiclav (or the local alternative in penicillin allergy); leave the skin open; repair the nerve once the wound is clean', 'Bite (BSSH; IDSA 2014 SSTI)', 'urgent'),
