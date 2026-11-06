@@ -302,8 +302,11 @@ export const stricklandScore: ScoreRule = ({ phase, answers: a }) => {
   if (!isOneOf(a, f('type'), 'flexor', 'both')) return null;
   const pip = numOf(a, f('pip_flex')), dip = numOf(a, f('dip_flex'));
   if (pip == null && dip == null) return null;
-  const lag = (numOf(a, f('pip_lag')) ?? 0) + (numOf(a, f('dip_lag')) ?? 0);
-  const incomplete = [pip == null ? 'Active PIP flexion' : null, dip == null ? 'Active DIP flexion' : null].filter((x): x is string => !!x);
+  // A missing extension deficit is not 0: counting it as 0 overstates motion.
+  const pipLag = numOf(a, f('pip_lag')), dipLag = numOf(a, f('dip_lag'));
+  const lag = (pipLag ?? 0) + (dipLag ?? 0);
+  const incomplete = [pip == null ? 'Active PIP flexion' : null, dip == null ? 'Active DIP flexion' : null,
+    pipLag == null ? 'PIP extension deficit' : null, dipLag == null ? 'DIP extension deficit' : null].filter((x): x is string => !!x);
   if (incomplete.length) {
     return { id: `${ID}.strickland`, name: 'Strickland total active motion', abbreviation: 'Strickland', total: null, max: 100, lowerIsWorse: true, band: null, incomplete,
       source: 'Strickland JW, Glogovac SV. J Hand Surg Am 1980;5:537-43' };
