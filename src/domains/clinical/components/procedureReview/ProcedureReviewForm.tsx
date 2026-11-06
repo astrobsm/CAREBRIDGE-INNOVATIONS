@@ -78,8 +78,12 @@ export const ProcedureReviewForm: React.FC<ProcedureReviewFormProps> = ({
   const actor = user ? actorOf(user) : null;
   const stored = existing?.procedureReview;
 
-  const [phase, setPhase] = useState<ReviewPhase | null>(stored?.phase ?? initialPhase ?? null);
-  const [moduleId, setModuleId] = useState<string | null>(stored?.moduleId ?? initialModuleId ?? null);
+  // From the URL (?module=…&phase=…): a module without a phase opens at its first phase;
+  // an unknown module, or a phase it does not have, falls back to the picker.
+  const linked = !stored && initialModuleId ? getModule(initialModuleId) : undefined;
+  const linkedPhase = linked && (!initialPhase || linked.phases.includes(initialPhase)) ? initialPhase ?? linked.phases[0] : undefined;
+  const [phase, setPhase] = useState<ReviewPhase | null>(stored?.phase ?? linkedPhase ?? initialPhase ?? null);
+  const [moduleId, setModuleId] = useState<string | null>(stored?.moduleId ?? (linkedPhase ? linked!.id : null));
   const [answers, setAnswers] = useState<EncounterAnswers>(stored?.answers ?? {});
   const [otherText, setOtherText] = useState<Record<string, string>>(stored?.otherText ?? {});
   const [excluded, setExcluded] = useState<Set<string>>(new Set(stored?.planEdits?.excluded ?? []));

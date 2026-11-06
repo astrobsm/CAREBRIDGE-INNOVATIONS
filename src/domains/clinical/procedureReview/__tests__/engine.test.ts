@@ -178,3 +178,17 @@ describe('comparison with the previous review', () => {
     expect(r.comparison.find(c => c.label === 'Pain score')?.trend).toBe('better');
   });
 });
+
+describe('handoffs to another procedure review', () => {
+  it('links by module and phase on the same patient page', async () => {
+    const { getModule } = await import('../registry');
+    const scalp = getModule('scalp_tumour_excision')!;
+    const links = composeTemplate(scalp, 'post_op').handoffs ?? [];
+    const recon = links.find(h => /Scalp reconstruction/.test(h.label));
+    expect(recon?.route).toBe('?module=scalp_reconstruction&phase=pre_op');
+    const burns = composeTemplate(getModule('burns_excision_grafting')!, 'follow_up').handoffs ?? [];
+    expect(burns.some(h => h.route === '?module=contracture_release&phase=pre_op')).toBe(true);
+    const skin = composeTemplate(getModule('skin_tumour_excision')!, 'pre_op').handoffs ?? [];
+    expect(skin.some(h => h.route === '?module=melanoma_wle&phase=pre_op')).toBe(true);
+  });
+});

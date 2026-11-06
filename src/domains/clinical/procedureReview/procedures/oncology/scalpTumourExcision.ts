@@ -477,6 +477,8 @@ export const scalpTumourExcision: ProcedureModule = {
     ],
   },
   handoffs: [
+    { label: 'Scalp reconstruction review', moduleId: 'scalp_reconstruction', targetPhase: 'pre_op', when: 'Plan the closure: defect size, pericranium / bone and timing agreed here' },
+    { label: 'Melanoma WLE / SLNB review', moduleId: 'melanoma_wle', targetPhase: 'pre_op', phases: ['pre_op', 'post_op'], when: 'Scalp melanoma: margins, staging and sentinel node biopsy' },
     { label: 'Tumour Board (MDT, staging, adjuvant therapy)', route: '/tumour-board', when: 'Bone or dural involvement, perineural spread, DFSP, angiosarcoma, nodes' },
     { label: 'Investigations (CT, MRI, histology)', route: '/investigations', phases: ['pre_op', 'post_op'] },
     { label: 'Referrals (neurosurgery, clinical oncology)', route: '/referrals', when: 'Calvarial / dural involvement or adjuvant radiotherapy' },

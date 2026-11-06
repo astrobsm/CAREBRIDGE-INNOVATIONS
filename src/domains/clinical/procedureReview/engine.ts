@@ -28,7 +28,7 @@ import { bmiCategory, calculateBMI } from '../../calculators/engine/calculationE
 import { calculateNEWS2 } from '../../soft-tissue-infection/services/scoringService';
 import type { Patient } from '../../../types';
 import type {
-  ComputedScore, CoreSectionId, PriorReview, ProcedureModule, ReviewFlag, ReviewPatient,
+  ComputedScore, CoreSectionId, PriorReview, ProcedureModule, ReviewFlag, ReviewHandoff, ReviewPatient,
   ReviewPhase, ReviewSection, ScoreBand, ScoreMap,
 } from './types';
 import { CORE_SECTIONS, defaultCoreFor } from './core';
@@ -105,8 +105,18 @@ export function composeTemplate(
     coreIds: [...ids],
     handoffs: (module.handoffs ?? [])
       .filter(h => !h.phases || h.phases.includes(phase))
-      .map(h => ({ label: h.label, route: h.route, when: h.when })),
+      .map(h => ({ label: h.label, route: handoffRoute(h, phase), when: h.when })),
   };
+}
+
+/**
+ * Where a handoff goes. A link to another procedure review is relative (a
+ * query string), so it opens on the current patient's procedure-review page
+ * (/patients/:id/procedure-review), which preselects the module and phase.
+ */
+export function handoffRoute(h: ReviewHandoff, phase: ReviewPhase): string {
+  if (h.moduleId) return `?${new URLSearchParams({ module: h.moduleId, phase: h.targetPhase ?? phase }).toString()}`;
+  return h.route ?? '';
 }
 
 // ── The patient ─────────────────────────────────────────────────────────────

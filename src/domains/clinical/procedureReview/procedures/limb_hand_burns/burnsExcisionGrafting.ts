@@ -767,6 +767,7 @@ export const burnsExcisionGrafting: ProcedureModule = {
     { label: 'Skin Graft Monitor', route: '/skin-graft', phases: ['post_op', 'follow_up'], when: 'Graft take and donor sites in detail' },
     { label: 'Scar Monitor (POSAS / VSS)', route: '/scar-monitor', phases: ['follow_up'], when: 'Hypertrophic scarring' },
     { label: 'Keloid Care', route: '/keloid-care', phases: ['follow_up'], when: 'Keloid in a burn scar' },
+    { label: 'Contracture release review', moduleId: 'contracture_release', targetPhase: 'pre_op', phases: ['follow_up'], when: 'Established burn contracture limiting function' },
     { label: 'Nutrition', route: '/nutrition', phases: ['wound_review', 'pre_op', 'post_op'], when: 'Burn energy and protein targets' },
     { label: 'Blood transfusion', route: '/blood-transfusion', phases: ['pre_op', 'post_op'], when: 'Cross-match for excision' },
     { label: 'Surgical cost estimate', route: '/billing/surgical-estimate', phases: ['pre_op'], when: 'Itemised estimate for staged surgery' },

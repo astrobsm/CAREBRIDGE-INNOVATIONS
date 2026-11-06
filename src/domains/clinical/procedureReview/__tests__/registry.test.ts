@@ -89,8 +89,15 @@ describe.each(PROCEDURE_MODULES.map(m => [m.id, m] as const))('module %s', (_id,
     const everyField = m.phases.flatMap(p => composeTemplate(m, p).sections.flatMap(s => s.fields.map(f => f.id)));
     for (const id of m.carryForward ?? []) expect(everyField).toContain(id);
     for (const h of m.handoffs ?? []) {
-      expect(h.route.startsWith('/')).toBe(true);
       for (const p of h.phases ?? []) expect(m.phases).toContain(p);
+      if (h.moduleId) {
+        const target = getModule(h.moduleId);
+        expect(target, `handoff to unknown module ${h.moduleId}`).toBeDefined();
+        expect(h.moduleId).not.toBe(m.id);
+        for (const p of h.phases ?? m.phases) expect(target!.phases, `${h.moduleId} has no ${h.targetPhase ?? p}`).toContain(h.targetPhase ?? p);
+      } else {
+        expect(h.route?.startsWith('/'), `${h.label} needs a route or a moduleId`).toBe(true);
+      }
     }
     if (m.consent) {
       expect(m.consent.alternatives.length).toBeGreaterThan(0);

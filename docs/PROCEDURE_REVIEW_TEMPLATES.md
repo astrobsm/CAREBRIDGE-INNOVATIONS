@@ -69,7 +69,7 @@ Read the JSDoc in `types.ts`; this is the summary.
   - `paediatric` — the patients are children (cleft): an unknown age is treated as a child, not an adult.
   - `carryForward` — field ids pre-filled from the newest earlier review of this module.
   - `scores: ScoreRule[]` — module scores; call existing calculators.
-  - `planRules: PlanRule[]`, `consent?: ConsentSpec`, `followUp` (per-phase visits), `handoffs` (routes to owning modules).
+  - `planRules: PlanRule[]`, `consent?: ConsentSpec`, `followUp` (per-phase visits), `handoffs` (routes to owning modules, or `moduleId` + `targetPhase` to link to another procedure review — opened as `/patients/:id/procedure-review?module=<id>&phase=<phase>`).
 - **`PlanRule`** = `(ctx: PlanContext) => PlanContribution | null`, pure. `PlanContext` = module, phase, answers, scores (by id), flags, patient (age in years and, from the date of birth, `ageMonths`; sex, comorbidities, meds, allergies, BMI), prior reviews (newest first).
 - **Age gating (`core/age.ts`)**: core fields outside their validated age are left out of the composed review (not shown, scored or counted for completeness) — PHQ-2/9 under 13, GAD-2/7 under 12, MUST steps under 18 (replaced by `core.paed_growth`), Caprini under 16, CFS under 65; under 13, `core.child_wellbeing`, `core.caregiver_coping` and `core.child_safeguarding` are asked instead. Core rules switch to paediatric wording for VTE, fasting, chest care, delirium, mobilisation and discharge. In a module rule use `isChild` / `isUnder(ctx.patient, years, ctx.module)` rather than `ageYears` alone.
 - **`PlanContribution`**: `problem` (lines on the module's primary problem: goals / investigations / treatment / monitoring / referrals), `problems` (extra named problems), `comorbidities`, `general` (under the fixed `PLAN_HEADINGS`), `cautions`, `counselling`, `followUp`, `dischargeCriteria`.
@@ -104,7 +104,7 @@ Module sections sit between lead and holistic.
    - `procedures/reconstruction/` — flaps (local / regional / free), pressure-sore flap, scalp flap, contracture release
    - `procedures/oncology/` — tumour excision, melanoma WLE, BCC/SCC, scalp tumour, lipoma, biopsy
    - `procedures/limb_hand_burns/` — diabetic foot debridement, ray / BKA amputation, tendon and nerve repair, burn excision and grafting, NPWT, fasciotomy
-   - `procedures/aesthetic_other/` — breast reduction, abdominoplasty, liposuction, keloid excision, cleft, scar revision
+   - `procedures/aesthetic_other/` — breast reduction, abdominoplasty, liposuction, cleft, scar revision (keloid is `oncology/keloidManagement.ts`)
    - `procedures/wound/` — wound-only reviews
 2. **Export the module** from that file and **add it to the folder's `index.ts` array**. Do not edit `registry.ts`.
 3. **Find the catalogue links**: fee ids in `src/data/surgicalFees.ts`; education `procedureId` in `src/data/patientEducation.ts`; leaflet ids in `src/domains/patient-education/data/*` (`id: '...'`).
@@ -114,7 +114,7 @@ Module sections sit between lead and holistic.
    - Validated scores: call the existing calculator in a `ScoreRule`. A *new* instrument goes in `scores/` as a `ScreeningInstrument` (ScaleItem model) with its citation, licence and a test against known totals.
 5. **Write the plan rules** with `ruleKit` (`L`, `G`, `P`, `merge`). One rule per concern; return `null` when it does not apply; every line has a `why`; put lines under the right `PLAN_HEADINGS`; use `problem` for the procedure's own goals / investigations / treatment / monitoring / referrals. Always give the primary problem **goals**. Do not restate core lines (VTE, analgesia, nutrition, smoking…) — the builder de-duplicates identical text, but near-duplicates in different words are your responsibility.
 6. **Consent**: fill `ConsentSpec`. Do not repeat risks the education record already lists (same name). Add `modifiers` only for risks that are specific to this procedure (core modifiers already cover smoking, diabetes, radiotherapy, obesity, steroids, malnutrition, anaemia, anticoagulants, sickle cell, perfusion, keloid history, frailty, OSA, ASA ≥ 3, alcohol).
-7. **Follow-up and handoffs**: per-phase visits with purpose; handoff routes must exist in `src/App.tsx`.
+7. **Follow-up and handoffs**: per-phase visits with purpose; handoff routes must exist in `src/App.tsx`; link to another procedure review with `moduleId` rather than naming it in plan text alone.
 8. **Cite** the guidelines in `basis` (e.g. BAPRAS, BSSH, NICE NG14 melanoma, AJCC 8, IWGDF 2023, ISBI 2016/2018, EPUAP/NPIAP 2019, NICE NG89, WHO SSC). Write content as an experienced plastic surgeon would, with Nigerian / LMIC practice in mind (cost, availability, NHIA vs out of pocket, delayed presentation, traditional remedies).
 9. **Run** `npx vitest run src/domains/clinical/procedureReview` — the registry test checks your module automatically (ids, namespaces, catalogue links, phases, every plan line has a why, no duplicate lines under both empty and "worst-case" answers). Add a module test file for your rules' key behaviours.
 

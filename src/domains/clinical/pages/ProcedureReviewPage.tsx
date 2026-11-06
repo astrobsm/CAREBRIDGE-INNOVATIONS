@@ -4,8 +4,12 @@
  * Query parameters (all optional): `phase` (wound_review | pre_op | post_op |
  * follow_up), `module` (a procedure module id), `encounter` (open a saved
  * review). Lists the patient's earlier reviews so one can be reopened.
+ *
+ * `?module=<id>&phase=<phase>` is also how one review links to another (a
+ * ReviewHandoff with a moduleId): following such a link opens a new review
+ * of that module at that phase.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
@@ -35,6 +39,16 @@ export default function ProcedureReviewPage() {
   const encounterId = params.get('encounter');
   const existing = useMemo(() => reviews?.find(r => r.id === encounterId), [reviews, encounterId]);
   const phase = params.get('phase');
+  const moduleParam = params.get('module');
+
+  // A link to another review (?module=…&phase=…) starts a fresh form for it.
+  const lastPick = useRef(`${moduleParam}|${phase}`);
+  useEffect(() => {
+    const pick = `${moduleParam}|${phase}`;
+    if (pick === lastPick.current) return;
+    lastPick.current = pick;
+    if (moduleParam && !encounterId) { setSavedHere(null); setFormKey(k => k + 1); }
+  }, [moduleParam, phase, encounterId]);
 
   if (!patientId) return null;
   if (patient === undefined || reviews === undefined) {
@@ -85,7 +99,7 @@ export default function ProcedureReviewPage() {
           reviews={reviews}
           existing={existing}
           initialPhase={isPhase(phase) ? phase : undefined}
-          initialModuleId={params.get('module') ?? undefined}
+          initialModuleId={moduleParam ?? undefined}
           hospitalId={user?.hospitalId}
           onSaved={enc => { setSavedHere(enc.id); if (!encounterId) setParams({ encounter: enc.id }, { replace: true }); }}
         />

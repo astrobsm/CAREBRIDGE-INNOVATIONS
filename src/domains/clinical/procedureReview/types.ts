@@ -344,10 +344,19 @@ export interface CounsellingRecord {
 
 // ── The module ──────────────────────────────────────────────────────────────
 
-/** A link to the module that owns a measurement or a decision. */
+/**
+ * A link to the module that owns a measurement or a decision: an app route,
+ * or another procedure review (`moduleId`), opened on this patient's
+ * procedure-review page with that module and phase preselected
+ * (`?module=<id>&phase=<phase>`). Give `route` or `moduleId`.
+ */
 export interface ReviewHandoff {
   label: string;
-  route: string;
+  route?: string;
+  /** Another procedure module, by id — reviewed for the same patient. */
+  moduleId?: string;
+  /** The phase to open it at. Default: the current review's phase. */
+  targetPhase?: ReviewPhase;
   /** Shown only in these phases (all when absent). */
   phases?: ReviewPhase[];
   /** One line saying when to go there. */

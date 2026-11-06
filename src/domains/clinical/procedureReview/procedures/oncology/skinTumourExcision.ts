@@ -804,6 +804,8 @@ export const skinTumourExcision: ProcedureModule = {
     ],
   },
   handoffs: [
+    { label: 'Melanoma WLE / SLNB review', moduleId: 'melanoma_wle', targetPhase: 'pre_op', when: 'Possible or confirmed melanoma: wide local excision ± sentinel node biopsy' },
+    { label: 'Scalp tumour review', moduleId: 'scalp_tumour_excision', targetPhase: 'pre_op', phases: ['pre_op'], when: 'Scalp tumours: scalp-specific planning' },
     { label: 'Tumour Board (MDT, AJCC staging, management plan)', route: '/tumour-board', when: 'High / very-high-risk tumour, involved margins, nodes, Merkel or Marjolin' },
     { label: 'Investigations (histology, imaging requests)', route: '/investigations', phases: ['pre_op', 'post_op'], when: 'Biopsy, imaging or histology tracking' },
     { label: 'Scar Monitor', route: '/scar-monitor', phases: ['follow_up'], when: 'Hypertrophic or keloid scar after excision' },
