@@ -135,8 +135,15 @@ describe('consultant edits', () => {
   it('unticked lines are left out and instructions are added', () => {
     const plan = buildScribePlan(buildClinicalFacts(comfort));
     const out = filterPlan(plan, new Set(['p0.treatment|0', 'carried|0']), 'Book gluteal rotation flap\n\n');
-    expect(out.problems[0].treatment.length).toBe(plan.problems[0].treatment.length - 1);
-    expect(out.carriedOver.length).toBe(plan.carriedOver.length - 1);
+    // An urgent line is never dropped: kept as is without a reason, kept declined with one.
+    const urgent = plan.problems[0].treatment[0].priority === 'urgent';
+    expect(out.problems[0].treatment.length).toBe(plan.problems[0].treatment.length - (urgent ? 0 : 1));
+    if (urgent) {
+      expect(out.problems[0].treatment[0].declined).toBeUndefined();
+      const withReason = filterPlan(plan, new Set(['p0.treatment|0']), '', { 'p0.treatment|0': 'Done in clinic today' });
+      expect(withReason.problems[0].treatment[0].declined?.reason).toBe('Done in clinic today');
+    }
+    expect(out.carriedOver.length).toBe(plan.carriedOver.length - (plan.carriedOver[0]?.priority === 'urgent' ? 0 : 1));
     const ci = out.general.find(g => g.heading === 'Consultant instructions')!;
     expect(ci.items.map(i => i.text)).toEqual(['Book gluteal rotation flap']);
   });

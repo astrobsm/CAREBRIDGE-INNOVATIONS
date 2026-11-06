@@ -20,22 +20,43 @@ import { ImplementationTracker } from './ImplementationTracker';
 
 type Excluded = Set<string>;
 
-function Lines({ k, items, excluded, toggle, editable }: {
+/** Why an urgent line was unticked, by key (filterPlan keeps urgent lines without one). */
+export type DeclineReasons = Record<string, string>;
+type Reasons = { reasons?: DeclineReasons; setReason?: (key: string, reason: string) => void };
+
+function Lines({ k, items, excluded, toggle, editable, reasons = {}, setReason }: {
   k: string; items: PlanLine[]; excluded: Excluded; toggle: (key: string) => void; editable: boolean;
-}) {
+} & Reasons) {
   if (!items.length) return null;
   return (
     <ul className="space-y-1">
       {items.map((it, i) => {
         const key = `${k}|${i}`;
         const off = excluded.has(key);
+        const urgent = it.priority === 'urgent';
+        const reason = (reasons[key] ?? '').trim();
+        // An urgent line is struck through only once a reason is given; it never disappears.
+        const struck = it.declined || (off && (!urgent || !!reason));
         return (
-          <li key={key} className={`flex items-start gap-2 text-sm ${off ? 'opacity-40 line-through' : ''}`}>
-            {editable && <input type="checkbox" checked={!off} onChange={() => toggle(key)} className="mt-1 rounded" aria-label="Include this item" />}
+          <li key={key} className={`flex items-start gap-2 text-sm ${struck ? 'opacity-60' : ''}`}>
+            {editable && !it.declined && <input type="checkbox" checked={!off} onChange={() => toggle(key)} className="mt-1 rounded" aria-label="Include this item" />}
             <span>
-              {it.priority === 'urgent' && <span className="mr-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 rounded px-1">URGENT</span>}
-              {it.text}
+              {urgent && <span className="mr-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 rounded px-1">URGENT</span>}
+              <span className={struck ? 'line-through' : ''}>{it.text}</span>
               {it.why && <span className="block text-[11px] text-gray-500">{it.why}</span>}
+              {it.declined && (
+                <span className="block text-xs text-red-800 font-medium">Declined — {it.declined.reason}{it.declined.by ? ` (${it.declined.by})` : ''}</span>
+              )}
+              {editable && off && urgent && !it.declined && (
+                <span className="block mt-1">
+                  <input
+                    value={reasons[key] ?? ''} onChange={e => setReason?.(key, e.target.value)}
+                    className="w-full border border-red-300 rounded px-2 py-1 text-xs" placeholder="Reason for not acting on this urgent item (required)"
+                    aria-label="Reason for declining this urgent item"
+                  />
+                  {!reason && <span className="block text-[11px] text-red-700">Without a reason this urgent item stays in the plan.</span>}
+                </span>
+              )}
             </span>
           </li>
         );
@@ -44,7 +65,8 @@ function Lines({ k, items, excluded, toggle, editable }: {
   );
 }
 
-export function PlanView({ plan, excluded, toggle, editable }: { plan: ScribePlan; excluded: Excluded; toggle: (k: string) => void; editable: boolean }) {
+export function PlanView({ plan, excluded, toggle, editable, reasons, setReason }: { plan: ScribePlan; excluded: Excluded; toggle: (k: string) => void; editable: boolean } & Reasons) {
+  const r = { reasons, setReason };
   return (
     <div className="space-y-4">
       {plan.problems.map((p, pi) => (
@@ -54,7 +76,7 @@ export function PlanView({ plan, excluded, toggle, editable }: { plan: ScribePla
             p[key].length ? (
               <div key={key} className="mt-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">{title}</p>
-                <Lines k={`p${pi}.${key}`} items={p[key]} excluded={excluded} toggle={toggle} editable={editable} />
+                <Lines k={`p${pi}.${key}`} items={p[key]} excluded={excluded} toggle={toggle} editable={editable} {...r} />
               </div>
             ) : null)}
         </div>
@@ -65,7 +87,7 @@ export function PlanView({ plan, excluded, toggle, editable }: { plan: ScribePla
           {plan.comorbidities.map((c, ci) => (
             <div key={ci} className="mb-2">
               <p className="text-sm font-medium text-gray-800">{c.condition}</p>
-              <Lines k={`c${ci}`} items={c.actions} excluded={excluded} toggle={toggle} editable={editable} />
+              <Lines k={`c${ci}`} items={c.actions} excluded={excluded} toggle={toggle} editable={editable} {...r} />
             </div>
           ))}
         </div>
@@ -74,14 +96,14 @@ export function PlanView({ plan, excluded, toggle, editable }: { plan: ScribePla
         {plan.general.map((g, gi) => (
           <div key={gi}>
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">{g.heading}</p>
-            <Lines k={`g${gi}`} items={g.items} excluded={excluded} toggle={toggle} editable={editable} />
+            <Lines k={`g${gi}`} items={g.items} excluded={excluded} toggle={toggle} editable={editable} {...r} />
           </div>
         ))}
       </div>
       {plan.carriedOver.length > 0 && (
         <div className="border rounded-lg p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Outstanding from the clerking plan</p>
-          <Lines k="carried" items={plan.carriedOver} excluded={excluded} toggle={toggle} editable={editable} />
+          <Lines k="carried" items={plan.carriedOver} excluded={excluded} toggle={toggle} editable={editable} {...r} />
         </div>
       )}
       <div className="grid gap-3 md:grid-cols-2 text-sm">
@@ -134,13 +156,16 @@ export function ScribeTreatmentPlanPanel({ patientId, hospitalId, draft, finding
   // What is shown: the plan awaiting approval (for the consultant), else the fresh draft.
   const shown: ScribePlan = pending?.plan || draft;
   const toggle = (k: string) => setExcluded(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
-  const reset = () => { setExcluded(new Set()); setAdditions(''); setNote(''); };
+  const [reasons, setReasons] = useState<DeclineReasons>({});
+  const r = { reasons, setReason: (k: string, v: string) => setReasons(prev => ({ ...prev, [k]: v })) };
+  const reset = () => { setExcluded(new Set()); setAdditions(''); setNote(''); setReasons({}); };
+  const by = user ? actorOf(user).name : undefined;
 
   const submit = async () => {
     if (!user) return;
     setBusy('submit');
     try {
-      await submitPlan(patientId, filterPlan(draft, excluded, additions), findings, user, hospitalId);
+      await submitPlan(patientId, filterPlan(draft, excluded, additions, reasons, by), findings, user, hospitalId);
       toast.success('Plan submitted for consultant approval');
       reset();
       setShowDraft(false);
@@ -151,7 +176,7 @@ export function ScribeTreatmentPlanPanel({ patientId, hospitalId, draft, finding
     if (!pending || !user) return;
     setBusy('approve');
     try {
-      const edited = excluded.size || additions.trim() ? filterPlan(pending.plan, excluded, additions) : undefined;
+      const edited = excluded.size || additions.trim() ? filterPlan(pending.plan, excluded, additions, reasons, by) : undefined;
       await approvePlan(pending.id, user, edited, note || undefined);
       toast.success('Plan approved — now the active treatment plan');
       reset();
@@ -213,7 +238,7 @@ export function ScribeTreatmentPlanPanel({ patientId, hospitalId, draft, finding
             {pending && !canApprove && (
               <p className="text-xs text-gray-600 flex items-center gap-1.5"><FileText className="w-4 h-4" /> Showing the version awaiting approval. Submitting again replaces it with today's draft.</p>
             )}
-            <PlanView plan={shown} excluded={excluded} toggle={toggle} editable={editable} />
+            <PlanView plan={shown} excluded={excluded} toggle={toggle} editable={editable} {...r} />
 
             {editable && (
               <label className="block">

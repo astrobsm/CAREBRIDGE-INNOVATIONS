@@ -76,9 +76,25 @@ export function assertCanLog(user: Actor, plan: ScribeTreatmentPlan | undefined,
 
 // ── The consultant's edits ─────────────────────────────────────────────────
 
-/** The plan without the lines that were unticked, plus any additions. */
-export function filterPlan(plan: ScribePlan, excluded: Set<string>, additions = ''): ScribePlan {
-  const keep = (key: string, xs: PlanLine[]) => xs.filter((_, i) => !excluded.has(`${key}|${i}`));
+/**
+ * The plan without the lines that were unticked, plus any additions.
+ *
+ * An URGENT line is never dropped. Unticked with a reason (`reasons[key]`),
+ * it stays in the plan marked declined — struck through with the reason — so
+ * the consultant sees it; unticked without a reason, the untick is ignored
+ * and the line stays as it was. Routine lines are removed as before.
+ */
+export function filterPlan(
+  plan: ScribePlan, excluded: Set<string>, additions = '',
+  reasons: Record<string, string> = {}, declinedBy?: string,
+): ScribePlan {
+  const keep = (key: string, xs: PlanLine[]) => xs.flatMap((l, i): PlanLine[] => {
+    const k = `${key}|${i}`;
+    if (!excluded.has(k)) return [l];
+    if (l.priority !== 'urgent') return [];
+    const reason = reasons[k]?.trim();
+    return reason ? [{ ...l, declined: { reason, by: declinedBy } }] : [l];
+  });
   const extra = additions.split('\n').map(s => s.trim()).filter(Boolean).map(text => ({ text, why: 'Consultant instruction' }));
   return {
     ...plan,
@@ -120,7 +136,16 @@ export function toTreatmentPlan(
   const order = (category: TreatmentPlan['orders'][number]['category'], text: string, priority: 'routine' | 'urgent' = 'routine') => ({
     id: `${ctx.id}-o${n++}`, category, order: text, frequency: 'as planned', duration: '', priority, status: 'active' as const, startDate: ctx.now,
   });
-  const lineOrders = (category: TreatmentPlan['orders'][number]['category'], xs: PlanLine[] | undefined) => (xs || []).map(l => order(category, l.text, l.priority === 'urgent' ? 'urgent' : 'routine'));
+  // A declined urgent line is a record of a decision, not an order.
+  const lineOrders = (category: TreatmentPlan['orders'][number]['category'], xs: PlanLine[] | undefined) => (xs || [])
+    .filter(l => !l.declined)
+    .map(l => order(category, l.text, l.priority === 'urgent' ? 'urgent' : 'routine'));
+  const declined = [
+    ...problems.flatMap(p => [...p.goals, ...p.investigations, ...p.treatment, ...p.monitoring, ...p.referrals]),
+    ...(plan?.comorbidities || []).flatMap(c => c.actions),
+    ...(plan?.general || []).flatMap(g => g.items),
+    ...(plan?.carriedOver || []),
+  ].filter(l => l?.declined);
   const medicationHeadings = /VTE|Analgesia/i;
   return {
     id: ctx.id,
@@ -134,6 +159,7 @@ export function toTreatmentPlan(
       ...(plan?.comorbidities || []).map(c => `• ${c.condition}: ${lines(c.actions).join('; ')}`),
       ...(lines(plan?.followUp).length ? [`Follow-up: ${lines(plan.followUp).join('; ')}`] : []),
       ...(lines(plan?.dischargeCriteria).length ? [`Discharge criteria: ${lines(plan.dischargeCriteria).join('; ')}`] : []),
+      ...declined.map(l => `• DECLINED (urgent): ${l.text} — reason: ${l.declined!.reason}${l.declined!.by ? ` (${l.declined!.by})` : ''}`),
     ].join('\n'),
     clinicalGoals: problems.flatMap(p => lines(p.goals)).map((g, i) => ({ id: `${ctx.id}-g${i}`, description: g, status: 'pending' as const })),
     orders: [

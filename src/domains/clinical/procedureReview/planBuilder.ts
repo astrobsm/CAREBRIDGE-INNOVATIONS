@@ -133,6 +133,9 @@ export function buildReviewPlan(ctx: PlanContext, rules = [...CORE_RULES, ...ctx
     const c = rule(ctx);
     if (c) acc.add(c);
   }
+  // Every red flag is also a caution: cautions cannot be unticked, so a red
+  // flag stays in front of the consultant whatever lines are edited out.
+  acc.add({ cautions: ctx.flags.filter(f => f.level === 'red').map(f => `RED FLAG — ${f.fieldLabel}: ${f.answerLabel}. ${f.reason}`) });
 
   const problems = [...acc.problems.values()].map(p => ({
     ...p,

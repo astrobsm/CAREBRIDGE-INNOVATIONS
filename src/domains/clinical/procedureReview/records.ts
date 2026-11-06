@@ -15,15 +15,24 @@ import type { ReviewReading } from './engine';
 import { phaseDefinition } from './phases';
 import { filterPlan } from '../scribe/approval';
 
-/** The plan after the clinician's edits: unticked lines removed, additions appended. */
+/**
+ * The plan after the clinician's edits: unticked routine lines removed,
+ * additions appended. An unticked URGENT line is kept, marked declined with
+ * its reason — or kept unchanged when no reason was given (filterPlan).
+ */
 export function applyPlanEdits(plan: ScribePlan, edits: PlanEdits | undefined, addedBy = 'clinician'): ScribePlan {
   if (!edits) return plan;
-  const filtered = filterPlan(plan, new Set(edits.excluded), '');
+  const filtered = filterPlan(plan, new Set(edits.excluded), '', edits.reasons ?? {}, addedBy);
   const added = edits.additions.map(s => s.trim()).filter(Boolean);
   return added.length
     ? { ...filtered, general: [...filtered.general, { heading: 'Added at review', items: added.map(text => ({ text, why: `Added by ${addedBy} at the review` })) }] }
     : filtered;
 }
+
+/** One plan line as text; a declined urgent line keeps its text, struck through, with the reason. */
+const lineAsText = (l: ScribePlan['general'][number]['items'][number]) => l.declined
+  ? `• [DECLINED — ${l.declined.reason}${l.declined.by ? `, ${l.declined.by}` : ''}] ${l.text.split('').map(ch => `${ch}̶`).join('')}`
+  : `• ${l.priority === 'urgent' ? '[URGENT] ' : ''}${l.text}`;
 
 /** The plan as plain lines, for the encounter's treatment-plan field. */
 export function planAsText(plan: ScribePlan): string {
@@ -31,11 +40,12 @@ export function planAsText(plan: ScribePlan): string {
   for (const p of plan.problems) {
     out.push(`${p.problem}:`);
     for (const k of ['goals', 'investigations', 'treatment', 'monitoring', 'referrals'] as const) {
-      for (const l of p[k]) out.push(`• ${l.priority === 'urgent' ? '[URGENT] ' : ''}${l.text}`);
+      for (const l of p[k]) out.push(lineAsText(l));
     }
   }
-  for (const c of plan.comorbidities) { out.push(`${c.condition}:`); for (const l of c.actions) out.push(`• ${l.text}`); }
-  for (const g of plan.general) { out.push(`${g.heading}:`); for (const l of g.items) out.push(`• ${l.priority === 'urgent' ? '[URGENT] ' : ''}${l.text}`); }
+  for (const c of plan.comorbidities) { out.push(`${c.condition}:`); for (const l of c.actions) out.push(lineAsText(l)); }
+  for (const g of plan.general) { out.push(`${g.heading}:`); for (const l of g.items) out.push(lineAsText(l)); }
+  if (plan.cautions.length) out.push(`Cautions: ${plan.cautions.join(' ')}`);
   if (plan.followUp.length) out.push(`Follow-up: ${plan.followUp.join('; ')}`);
   if (plan.dischargeCriteria.length) out.push(`Discharge criteria: ${plan.dischargeCriteria.join('; ')}`);
   return out.join('\n');

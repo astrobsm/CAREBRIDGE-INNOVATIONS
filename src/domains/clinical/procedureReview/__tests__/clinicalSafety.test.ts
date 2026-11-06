@@ -8,8 +8,11 @@ import { planLines } from '../planBuilder';
 import { buildConsentDraft } from '../consent';
 import { getModule } from '../registry';
 import { adult, contextFor, planFor } from './fixtures';
+import { applyPlanEdits, planAsText } from '../records';
+import { filterPlan, toTreatmentPlan } from '../../scribe/approval';
 import type { EncounterAnswers } from '../../data/encounterModel';
-import type { ReviewPatient, ReviewPhase } from '../types';
+import type { PriorReview, ReviewPatient, ReviewPhase } from '../types';
+import { isVisible } from '../../services/templateEngine';
 
 const mod = (id: string) => getModule(id)!;
 const lines = (id: string, phase: ReviewPhase, a: EncounterAnswers, p: ReviewPatient = adult()) =>
@@ -233,5 +236,51 @@ describe('reconstruction', () => {
     const t = texts('pressure_sore_flap', 'pre_op', {}, adult({ ageYears: 8 }));
     expect(t.some(x => /30–35 kcal\/kg/.test(x))).toBe(false);
     expect(t.some(x => /Paediatric dietitian/.test(x))).toBe(true);
+  });
+});
+
+describe('H1: urgent lines cannot be removed silently', () => {
+  // PHQ-9 item 9 positive: an urgent risk-assessment line under Psychology and wellbeing.
+  const a = { 'core.phq.q1': 3, 'core.phq.q2': 3, 'core.phq.q9': 2 };
+  const plan = () => planFor(mod('skin_graft'), 'pre_op', a).plan;
+  const keyOf = (p: ReturnType<typeof plan>, re: RegExp) => {
+    for (const [gi, g] of p.general.entries()) for (const [i, l] of g.items.entries()) if (re.test(l.text)) return { key: `g${gi}|${i}`, line: l };
+    throw new Error(`no line ${re}`);
+  };
+  const SUICIDE = /^Same-day risk assessment/;
+
+  it('keeps an unticked urgent line unchanged when no reason is given', () => {
+    const p = plan();
+    const { key } = keyOf(p, SUICIDE);
+    const edited = applyPlanEdits(p, { excluded: [key], additions: [] });
+    const kept = keyOf(edited, SUICIDE).line;
+    expect(kept.declined).toBeUndefined();
+    expect(kept.priority).toBe('urgent');
+  });
+
+  it('keeps it struck through with the reason when one is given, in the plan, the text and the submission', () => {
+    const p = plan();
+    const { key } = keyOf(p, SUICIDE);
+    const edited = applyPlanEdits(p, { excluded: [key], additions: [], reasons: { [key]: 'Assessed by psychiatry this morning' } }, 'Dr A');
+    const l = keyOf(edited, SUICIDE).line;
+    expect(l.declined).toEqual({ reason: 'Assessed by psychiatry this morning', by: 'Dr A' });
+    expect(planAsText(edited)).toMatch(/\[DECLINED — Assessed by psychiatry this morning, Dr A\]/);
+    const submitted = filterPlan(p, new Set([key]), '', { [key]: 'Assessed by psychiatry this morning' }, 'Dr A');
+    expect(keyOf(submitted, SUICIDE).line.declined?.reason).toBe('Assessed by psychiatry this morning');
+    const tp = toTreatmentPlan(submitted, { id: 't', patientId: 'p', scribePlanId: 's', version: 1, createdBy: 'u', now: new Date('2026-11-06') });
+    expect(tp.orders.some(o => SUICIDE.test(o.order))).toBe(false);
+    expect(tp.description).toMatch(/DECLINED \(urgent\)/);
+  });
+
+  it('still removes an unticked routine line', () => {
+    const p = plan();
+    const { key, line } = keyOf(p, /./);
+    if (line.priority === 'urgent') return;
+    expect(planLines(applyPlanEdits(p, { excluded: [key], additions: [] })).some(x => x.line.text === line.text)).toBe(false);
+  });
+
+  it('copies every red flag into the cautions', () => {
+    const c = cautions('skin_graft', 'pre_op', a);
+    expect(c.some(x => /^RED FLAG — .*PHQ-9/.test(x))).toBe(true);
   });
 });

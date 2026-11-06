@@ -58,8 +58,10 @@ export interface ReviewDocumentInput {
   date: Date;
 }
 
-const lineText = (l: { text: string; why?: string; priority?: string }) =>
-  `${l.priority === 'urgent' ? 'URGENT: ' : ''}${l.text}${l.why ? ` (why: ${l.why})` : ''}`;
+const lineText = (l: { text: string; why?: string; priority?: string; declined?: { reason: string; by?: string } }) =>
+  l.declined
+    ? `DECLINED (urgent, not to be acted on) — reason: ${l.declined.reason}${l.declined.by ? ` (${l.declined.by})` : ''}. Was: ${l.text}${l.why ? ` (why: ${l.why})` : ''}`
+    : `${l.priority === 'urgent' ? 'URGENT: ' : ''}${l.text}${l.why ? ` (why: ${l.why})` : ''}`;
 
 function planSections(plan: ScribePlan): ReviewDocSection[] {
   const out: ReviewDocSection[] = [];

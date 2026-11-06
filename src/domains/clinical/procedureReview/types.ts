@@ -465,6 +465,11 @@ export interface PlanEdits {
   excluded: string[];
   /** Lines the clinician added, one per entry. */
   additions: string[];
+  /**
+   * Why an URGENT line was unticked, by key. Required: an urgent line without
+   * a reason is never removed, and with one it stays struck through.
+   */
+  reasons?: Record<string, string>;
 }
 
 /** The review as stored on ClinicalEncounter.procedureReview. */

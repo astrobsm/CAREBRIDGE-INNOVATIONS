@@ -12,7 +12,17 @@
  */
 import { type ClinicalFacts, type Problem, has } from './clinicalFacts';
 
-export interface PlanLine { text: string; why?: string; priority?: 'urgent' | 'routine' }
+export interface PlanLine {
+  text: string;
+  why?: string;
+  priority?: 'urgent' | 'routine';
+  /**
+   * An urgent line the clinician has decided not to act on. It is never
+   * removed: it stays in the plan, struck through, with the reason, so the
+   * consultant sees what was declined and why. Not turned into an order.
+   */
+  declined?: { reason: string; by?: string };
+}
 export interface ProblemPlan {
   problem: string;
   code?: string;

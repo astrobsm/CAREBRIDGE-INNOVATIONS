@@ -88,6 +88,8 @@ export const ProcedureReviewForm: React.FC<ProcedureReviewFormProps> = ({
   const [otherText, setOtherText] = useState<Record<string, string>>(stored?.otherText ?? {});
   const [excluded, setExcluded] = useState<Set<string>>(new Set(stored?.planEdits?.excluded ?? []));
   const [additions, setAdditions] = useState((stored?.planEdits?.additions ?? []).join('\n'));
+  // Why each unticked URGENT line was declined (required; kept struck through in the plan).
+  const [reasons, setReasons] = useState<Record<string, string>>(stored?.planEdits?.reasons ?? {});
   const [counselling, setCounselling] = useState<CounsellingRecord>(stored?.counselling ?? emptyCounselling());
   const [step, setStep] = useState<Step>('assessment');
   const [enc, setEnc] = useState<ReviewedEncounter | undefined>(existing);
@@ -116,11 +118,11 @@ export const ProcedureReviewForm: React.FC<ProcedureReviewFormProps> = ({
     if (!module || !phase || !module.phases.includes(phase)) return null;
     return computeReview({
       module, phase, answers, otherText, patient: reviewPatient, prior,
-      planEdits: { excluded: [...excluded], additions: additions.split('\n').map(s => s.trim()).filter(Boolean) },
+      planEdits: { excluded: [...excluded], additions: additions.split('\n').map(s => s.trim()).filter(Boolean), reasons },
       counselling, pdfPatient, clinician: { id: actor?.id ?? '', name: actor?.name, role: actor?.role as string | undefined },
       hospitalName, now: new Date().toISOString(),
     });
-  }, [module, phase, answers, otherText, reviewPatient, prior, excluded, additions, counselling, pdfPatient, actor?.id, actor?.name, actor?.role, hospitalName]);
+  }, [module, phase, answers, otherText, reviewPatient, prior, excluded, additions, reasons, counselling, pdfPatient, actor?.id, actor?.name, actor?.role, hospitalName]);
 
   // Offer the latest WoundProgress Monitor measurement when the review asks about a wound.
   const asksWound = !!computed?.reading.template.sections.some(s => s.coreId === 'wound_assessment');
@@ -152,7 +154,7 @@ export const ProcedureReviewForm: React.FC<ProcedureReviewFormProps> = ({
       const saved = await saveReview({
         id: enc?.id, version: enc?.procedureReview.version, patientId: patient.id, hospitalId,
         moduleId: module.id, phase, answers, otherText,
-        planEdits: { excluded: [...excluded], additions: additions.split('\n').map(s => s.trim()).filter(Boolean) },
+        planEdits: { excluded: [...excluded], additions: additions.split('\n').map(s => s.trim()).filter(Boolean), reasons },
         counselling, pdfPatient, hospitalName, linkedWoundId,
       }, user);
       setEnc(saved);
@@ -384,7 +386,8 @@ export const ProcedureReviewForm: React.FC<ProcedureReviewFormProps> = ({
           <p className="text-sm border rounded-lg p-2.5 bg-amber-50 border-amber-200 text-amber-900">
             Draft — untick anything that does not apply and add your own lines. Nothing is an order until a consultant approves it.
           </p>
-          <PlanView plan={computed.generated.plan} excluded={excluded} toggle={toggle} editable={!locked} />
+          <PlanView plan={computed.generated.plan} excluded={excluded} toggle={toggle} editable={!locked}
+            reasons={reasons} setReason={(k, v) => setReasons(prev => ({ ...prev, [k]: v }))} />
           {!locked && (
             <label className="block">
               <span className="block text-xs font-semibold text-gray-600 mb-1">Additional items (one per line)</span>
