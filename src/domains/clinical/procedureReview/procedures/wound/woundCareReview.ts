@@ -151,8 +151,26 @@ const goals: PlanRule = ctx => ({
 
 const compressionGate: PlanRule = ctx => {
   const a = ctx.answers;
-  if (!isOneOf(a, 'core.wound_aetiology', 'venous', 'mixed', 'arterial')) return null;
   const abpi = numOf(a, f('abpi'));
+  // A diabetic foot ulcer: the ABPI decides vascular referral, not compression;
+  // calcified vessels make a normal ABPI unreliable (IWGDF 2023 PAD).
+  if (isOneOf(a, 'core.wound_aetiology', 'diabetic')) {
+    if (abpi == null) return null;
+    return { problem: abpi < 0.5
+      ? { referrals: [L('Urgent vascular imaging and a revascularisation decision with the vascular team', `ABPI ${abpi} — below 0.5 in a diabetic foot ulcer (IWGDF 2023 PAD)`, 'urgent')] }
+      : abpi < 0.9
+        ? { referrals: [L('Vascular referral; toe pressure / TBI and pedal Doppler waveforms', `ABPI ${abpi} — PAD in a diabetic foot ulcer (IWGDF 2023 PAD: ABI below 0.9)`)] }
+        : { investigations: [L('Toe pressure / TBI and pedal Doppler waveforms: a normal or high ABPI does not exclude PAD in diabetes', `ABPI ${abpi} in diabetes (IWGDF 2023 PAD)`)] } };
+  }
+  // An arterial ulcer is tissue loss with PAD — chronic limb-threatening
+  // ischaemia whatever the ABPI: urgent vascular referral, never compression.
+  if (isOneOf(a, 'core.wound_aetiology', 'arterial')) {
+    return { problem: {
+      referrals: [L('Urgent vascular referral for imaging and revascularisation; no compression', `Arterial ulcer${abpi != null ? `, ABPI ${abpi}` : ''} — chronic limb-threatening ischaemia (Global Vascular Guidelines 2019)`, 'urgent')],
+      ...(abpi == null ? { investigations: [L('ABPI and toe pressures (hand-held Doppler)', 'Arterial ulcer — baseline perfusion (GVG 2019)')] } : {}),
+    } };
+  }
+  if (!isOneOf(a, 'core.wound_aetiology', 'venous', 'mixed')) return null;
   const out: PlanContribution = { problem: {} };
   if (abpi == null) {
     out.problem!.investigations = [L('Measure ABPI before any compression (hand-held Doppler)', 'Leg ulcer — compression is unsafe in arterial disease (NICE CKS; SIGN 120)', 'urgent')];
