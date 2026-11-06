@@ -251,7 +251,10 @@ export const sarcomaFlagScore: ScoreRule = ({ phase, answers }) => {
     id: `${ID}.sarcoma_flags`, name: 'Sarcoma red flags', abbreviation: 'Sarcoma flags', total: flags.length, max: 5,
     band: flags.length
       ? { label: `${flags.length} red flag${flags.length > 1 ? 's' : ''}`, level: flags.length >= 2 ? 'high' : 'moderate', interpretation: `${flags.join('; ')}: image before excision; core biopsy / sarcoma referral if imaging is not clearly benign.` }
-      : { label: 'No red flag', level: 'none', interpretation: 'No published sarcoma red flag recorded. Excision with histology is reasonable.' },
+      : known.length
+        // Not reassurance: size, depth or growth has not been recorded.
+        ? { label: 'Incomplete — record size, depth and growth', level: 'none', interpretation: `No red flag among the answers given, but ${known.length === 3 ? 'size, depth and growth are' : 'some of size, depth and growth are'} not recorded: the lesion cannot be called low-risk yet.` }
+        : { label: 'No red flag', level: 'none', interpretation: 'No published sarcoma red flag recorded. Excision with histology is reasonable.' },
     incomplete: known.map(id => id === f('size_cm') ? 'Size' : id === f('depth') ? 'Depth' : 'Growth'),
     source: 'Red flags: size over 5 cm, deep to fascia, increasing size, pain, recurrence (British Sarcoma Group 2016; NICE NG12; ESMO-EURACAN-GENTURIS 2021). A count, not a validated score.',
     flag: flags.length ? { level: flags.length >= 2 ? 'red' : 'amber', reason: `Sarcoma red flags: ${flags.join('; ')}.` } : undefined,
@@ -281,6 +284,11 @@ const sarcomaPathway: PlanRule = ctx => {
     flags.length > 0 && !usDone && !deepOrLarge && { problem: { investigations: [L(
       child ? 'Very urgent ultrasound (within 48 hours) of the lump' : 'Urgent ultrasound (within 2 weeks) of the lump',
       `Sarcoma red flag: ${flags.join('; ')} (NICE NG12 — ${child ? 'children and young people' : 'adults'})`, 'urgent')] } },
+    // Uncertain depth or a hard / fixed lump is not a counted red flag, but it
+    // is not a lump to excise blind either (the fields' own flags say so).
+    flags.length === 0 && !usDone && !deepOrLarge && (isOneOf(a, f('depth'), 'unsure') || isOneOf(a, f('consistency'), 'hard_fixed')) && { problem: { investigations: [L(
+      'Ultrasound of the lump before excision',
+      `${isOneOf(a, f('depth'), 'unsure') ? 'Depth uncertain on examination' : 'Hard or fixed lump'} (British Sarcoma Group 2016)`)] } },
     deepOrLarge && !isOneOf(a, f('mri'), 'simple_lipoma') && { problem: {
       investigations: [L('MRI with contrast, then image-guided core biopsy (several cores, along the line of the future incision) — at or with the sarcoma centre', `${isOneOf(a, f('depth'), 'deep') ? 'Deep to the fascia' : 'Larger than 5 cm'} (ESMO-EURACAN-GENTURIS 2021; British Sarcoma Group)`, 'urgent')],
     } },
