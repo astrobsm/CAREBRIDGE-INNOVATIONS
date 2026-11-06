@@ -367,7 +367,8 @@ export function computeScores(
     const mets = numOf(a, 'core.mets')!;
     const cap = preoperativeService.assessFunctionalCapacity(mets);
     out.push({
-      id: 'mets', name: 'Functional capacity', abbreviation: 'METs', total: mets,
+      // Higher METs is better: lowerIsWorse makes the follow-up comparison read a rise as "better".
+      id: 'mets', name: 'Functional capacity', abbreviation: 'METs', total: mets, lowerIsWorse: true,
       band: { label: cap, level: cap === 'poor' ? 'high' : cap === 'moderate' ? 'low' : 'none', interpretation: `Functional capacity ${cap} (${mets < 4 ? 'under 4' : `about ${mets}`} METs).` },
       incomplete: [], source: 'ESC/ESA 2022; preoperativeService.assessFunctionalCapacity',
     });
