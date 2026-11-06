@@ -136,6 +136,8 @@ const ACUTE: EncounterSection = {
         { value: 'contact_pattern', label: 'Patterned contact burn (iron, cigarette) or in a protected area', flag: 'red', flagReason: 'Patterned or unusually sited contact burn: suspect maltreatment (NICE CG89).' },
         { value: 'other_injuries', label: 'Other injuries / previous unexplained injuries', flag: 'red', flagReason: 'Other or previous unexplained injuries: suspect maltreatment (NICE CG89).' },
         { value: 'neglect', label: 'Lack of supervision / neglect', flag: 'amber', flagReason: 'Supervision concern: consider neglect (NICE CG89).' },
+        // Covers what the core child-safeguarding question asked (excluded in this module).
+        { value: 'other_concern', label: 'Any other concern about safety or care (e.g. a disclosure)', flag: 'red', flagReason: 'Safeguarding concern: follow the safeguarding procedure today — the hospital safeguarding lead and social work (NICE CG89).' },
       ],
     },
     {
@@ -680,6 +682,11 @@ export const burnsExcisionGrafting: ProcedureModule = {
   },
   // Tetanus is the core's question (a burn is tetanus-prone).
   includeCore: { wound_review: ['tetanus'], pre_op: ['tetanus'] },
+  // The ACUTE section's safeguarding question (NICE CG89 alerting features,
+  // every age) is asked in these phases, so the core one is not asked twice.
+  // At follow-up the core question (a new concern) stays beside safeguarding_fu
+  // (the plan for an existing one).
+  excludeCoreFields: { wound_review: ['core.child_safeguarding'], pre_op: ['core.child_safeguarding'] },
   carryForward: [f('burn_date'), f('mechanism'), f('tbsa'), f('ft_pct'), f('deep_pct'), f('special_areas'), f('inhalation')],
   scores: [bauxScore, parklandScore, abaSepsisScore],
   planRules: [goals, acute, safeguarding, preOp, postOp, followUpRule],
