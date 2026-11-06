@@ -57,7 +57,7 @@ export default function ProcedureReviewPage() {
   if (!patient) return <p className="p-6 text-gray-600">Patient not found.</p>;
 
   return (
-    <div className="max-w-3xl mx-auto p-3 sm:p-6 space-y-4">
+    <div className="w-full min-w-0 max-w-3xl mx-auto p-3 sm:p-6 space-y-4">
       <button onClick={() => navigate(`/patients/${patientId}`)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 text-sm">
         <ArrowLeft size={16} /> Back to patient
       </button>
