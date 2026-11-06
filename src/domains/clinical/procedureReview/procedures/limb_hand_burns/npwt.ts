@@ -18,6 +18,7 @@
 import type { EncounterAnswers, EncounterField, EncounterSection } from '../../../data/encounterModel';
 import type { PlanContribution, PlanRule, ProcedureModule } from '../../types';
 import { chosen, hasAny, isOneOf, isYes, numOf } from '../../core/answers';
+import { isChild } from '../../core/age';
 import { G, L, P, merge } from '../../ruleKit';
 
 const ID = 'npwt';
@@ -189,8 +190,19 @@ const MONITOR: EncounterSection = {
 
 // ── Rules ───────────────────────────────────────────────────────────────────
 
-const contraindicated = (a: EncounterAnswers) =>
-  chosen(a, f('contraindications')).filter(x => x !== 'adhesive_allergy');
+/**
+ * Contraindications ticked here, plus the ones the core answers in this same
+ * review already show — an exposed vessel recorded in the wound assessment is
+ * a contraindication whether or not it is ticked again here (FDA 2011).
+ */
+const contraindicated = (a: EncounterAnswers) => {
+  const out = chosen(a, f('contraindications')).filter(x => x !== 'adhesive_allergy');
+  if (hasAny(a, 'core.wound_exposed', 'vessels')) out.push('exposed_vessels');
+  if (isOneOf(a, 'core.wound_aetiology', 'malignant') || isOneOf(a, 'core.wound_biopsy', 'malignant')) out.push('malignancy');
+  if (hasAny(a, 'core.wound_tissue', 'eschar', 'necrotic') || isOneOf(a, 'core.wound_nonviable', 'gt50')) out.push('necrotic_eschar');
+  if (isOneOf(a, 'core.op_wound', 'soaked') || isOneOf(a, 'core.drain', 'frank_blood')) out.push('active_bleeding');
+  return [...new Set(out)];
+};
 
 const goals: PlanRule = ctx => {
   const purpose = ctx.answers[f('purpose')];
@@ -203,11 +215,22 @@ const goals: PlanRule = ctx => {
 };
 
 const safety: PlanRule = ctx => {
-  if (ctx.phase === 'post_op' && !ctx.answers[f('contraindications')]) return null;
   const a = ctx.answers;
   const contra = contraindicated(a);
   const prec = chosen(a, f('precautions'));
+  if (isChild(ctx.patient, ctx.module) && !prec.includes('child')) prec.push('child');
   const parts: PlanContribution[] = [];
+  if (!a[f('contraindications')] && !contra.length) {
+    parts.push({ problem: { treatment: [L(
+      'Check and record the NPWT contraindications before applying or re-applying it: malignancy in the wound, untreated osteomyelitis, unexplored fistula, necrotic tissue / eschar, exposed vessels / anastomoses / organs, bleeding',
+      'Contraindications not recorded (FDA 2011; manufacturer instructions)', ctx.phase === 'post_op' ? 'routine' : 'urgent')] } });
+  }
+  if (hasAny(a, 'core.wound_exposed', 'bone') && !contra.includes('osteomyelitis')) {
+    parts.push({ cautions: ['Exposed or probe-able bone: exclude or treat osteomyelitis before NPWT (untreated osteomyelitis is a contraindication).'] });
+  }
+  if (isOneOf(a, 'core.wound_edge', 'raised_irregular') && !contra.includes('malignancy')) {
+    parts.push({ cautions: ['Raised, everted or irregular wound edge: biopsy to exclude malignancy before NPWT.'] });
+  }
   if (contra.length) {
     parts.push({ problem: { treatment: [L(
       contra.includes('necrotic_eschar') && contra.length === 1
@@ -247,13 +270,15 @@ const settings: PlanRule = ctx => {
   const p = numOf(a, f('pressure_mmhg'));
   const purpose = a[f('purpose')];
   const parts: PlanContribution[] = [];
-  if (p == null) {
+  // No settings advice while NPWT is contraindicated: the safety rule says
+  // not to apply it.
+  if (p == null && !contraindicated(a).length) {
     parts.push({ general: [G('Wound care and dressings', L(
       purpose === 'graft_fixation' ? 'Graft fixation: about −75 to −125 mmHg continuous for 5–7 days over a non-adherent layer, then remove and inspect'
         : purpose === 'incisional' ? 'Closed-incision NPWT: device-set pressure (usually −80 to −125 mmHg) for up to 7 days'
           : 'Open wound: −125 mmHg continuous as standard (lower for pain, ischaemia, children or near vessels); change every 48–72 hours',
       `Purpose: ${String(purpose ?? 'not recorded').replace(/_/g, ' ')} (Morykwas 1997; international expert panel, Krug 2011)`))] });
-  } else if (p > 150) {
+  } else if (p != null && p > 150) {
     parts.push({ cautions: [`Pressure −${p} mmHg is above the usual therapeutic range (−50 to −150 mmHg): confirm with the operating surgeon; higher pressure reduces perfusion at the wound edge.`] });
   }
   if (isOneOf(a, f('device'), 'improvised_wall', 'improvised_portable')) {
