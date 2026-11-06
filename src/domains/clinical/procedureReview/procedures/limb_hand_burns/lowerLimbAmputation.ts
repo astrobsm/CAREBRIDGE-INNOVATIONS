@@ -23,7 +23,8 @@ import type { EncounterField, EncounterSection } from '../../../data/encounterMo
 import type { PlanContribution, PlanRule, ProcedureModule } from '../../types';
 import { chosen, hasAny, isOneOf, numOf } from '../../core/answers';
 import { G, L, P, merge } from '../../ruleKit';
-import { abiScore, perfusionFields, severeIschaemia, tbiScore } from './shared';
+import { ACUTE_LIMB_ISCHAEMIA_REDFLAG, abiScore, perfusionFields, severeIschaemia, tbiScore } from './shared';
+import { isChild } from '../../core/age';
 
 const ID = 'lower_limb_amputation';
 const f = (id: string) => `${ID}.${id}`;
@@ -437,7 +438,9 @@ const postOp: PlanRule = ctx => {
     isOneOf(a, f('flap'), 'dusky_edge') && { problem: { monitoring: [L('Review the flap daily: loosen bandaging, exclude haematoma, keep warm and well hydrated', 'Dusky flap edge')] } },
     isOneOf(a, f('stump_oedema'), 'marked') && { general: [G('Wound care and dressings', L('Control stump oedema: elevate on a stump board, rigid removable dressing or careful compression once the wound allows', 'Marked stump oedema'))] },
     isOneOf(a, f('position'), 'flexed') && { general: [G('Rehabilitation (physiotherapy / OT)', L('Prevent contracture: stump board in the wheelchair, no pillow under the knee, limit long sitting, prone lying 20–30 minutes several times a day for a transfemoral stump', 'Resting in flexion'))] },
-    isOneOf(a, f('phantom'), 'pain') && { general: [G('Analgesia', L('Phantom pain: amitriptyline, duloxetine, gabapentin or pregabalin as first-line neuropathic agents; mirror therapy and desensitisation; continue the regional catheter if in place', 'Phantom limb pain (NICE CG173 neuropathic pain)'))] },
+    isOneOf(a, f('phantom'), 'pain') && { general: [G('Analgesia', isChild(ctx.patient, ctx.module)
+      ? L('Phantom pain in a child: refer to the paediatric pain team for a neuropathic agent and dose by weight; mirror therapy, desensitisation and play-based distraction; continue the regional catheter if in place', 'Phantom limb pain in a child — NICE CG173 covers adults only')
+      : L('Phantom pain: amitriptyline, duloxetine, gabapentin or pregabalin as first-line neuropathic agents; mirror therapy and desensitisation; continue the regional catheter if in place', 'Phantom limb pain in an adult (NICE CG173 neuropathic pain)'))] },
     isOneOf(a, f('other_heel'), 'red', 'broken') && { problem: { treatment: [L('Offload the remaining heel completely; daily inspection; treat as a pressure injury', 'Pressure damage on the remaining heel', isOneOf(a, f('other_heel'), 'broken') ? 'urgent' : 'routine')] } },
     (rehab.length === 0 || rehab.includes('none')) && { general: [G('Rehabilitation (physiotherapy / OT)', L('Physiotherapy from day 1: bed mobility, transfers, sitting balance, upper-limb and remaining-leg strength; wheelchair with a stump board', 'Rehabilitation not yet started (BACPAR)'))] },
     isOneOf(a, f('staging'), 'guillotine', 'open_delayed') && { problem: { treatment: [L('Definitive amputation and closure once sepsis is controlled and the stump is clean; book it', 'Staged (open) amputation')] } },

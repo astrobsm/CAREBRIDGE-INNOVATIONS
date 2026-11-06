@@ -364,7 +364,8 @@ const postOp: PlanRule = ctx => {
     isOneOf(a, f('feeding_post'), 'reduced', 'refusing') || isOneOf(a, f('hydration'), 'reduced')
       ? { problem: { treatment: [L('IV maintenance fluids until feeding is adequate; regular paracetamol, dosed by weight (± ibuprofen from 3 months and 5 kg, if the surgeon allows) before feeds; try the alternative feeding method', 'Poor feeding / dehydration after repair')] } }
       : null,
-    { general: [G('Nutrition', L('Resume milk feeds as soon as awake (breast or bottle unless the unit protocol says cup / spoon); clear water after feeds to rinse the repair; soft diet for older children', 'Early feeding after cleft repair (unit protocol)'))] },
+    // Water is not given under 6 months (WHO: exclusive milk feeding); unknown age → no water advice.
+    { general: [G('Nutrition', L(`Resume milk feeds as soon as awake (breast or bottle unless the unit protocol says cup / spoon)${ctx.patient.ageMonths != null && ctx.patient.ageMonths >= 6 ? '; clear water after feeds to rinse the repair' : ''}; soft diet for older children`, 'Early feeding after cleft repair (unit protocol)'))] },
     isOneOf(a, f('arm_splints'), 'problem') && { general: [G('Pressure care', L('Pad or refit the arm splints; check skin and circulation each shift', 'Arm splints rubbing'))] },
     isOneOf(a, f('arm_splints'), 'in_place') && { general: [G('Patient education', L('Arm splints for the period the surgeon sets (often 2–3 weeks), removed one at a time several times a day for movement and skin care under supervision', 'Prevent fingers and objects reaching the repair (unit protocol)'))] },
     lipOp(a) && { general: [G('Wound care and dressings', L('Clean the lip with cooled boiled water or saline to keep crusts off; a thin layer of the prescribed ointment; nasal conformer care if used', 'Lip wound care'))] },

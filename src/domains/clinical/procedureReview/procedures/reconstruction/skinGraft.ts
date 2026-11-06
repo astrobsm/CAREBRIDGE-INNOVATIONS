@@ -17,6 +17,7 @@ import { estimateGraftTake } from '../../../../skin-graft/services/graftAnalysis
 import type { PlanRule, ProcedureModule, ScoreRule } from '../../types';
 import { chosen, hasAny, isOneOf, isYes, numOf } from '../../core/answers';
 import { G, L, P, merge } from '../../ruleKit';
+import { isChild, isUnder } from '../../core/age';
 
 const ID = 'skin_graft';
 const f = (id: string) => `${ID}.${id}`;
@@ -396,7 +397,11 @@ const followUp: PlanRule = ctx => {
       L('Protect the graft and donor site from sun for at least 12 months (clothing, SPF 30+ sunscreen)', 'Grafts and donor sites pigment in the sun (procedure education record)'),
       L('Moisturise twice daily and massage once healed — grafts have no sweat or oil glands', 'Graft dryness'),
     )] },
-    (isOneOf(a, f('itch'), 'troublesome')) && { general: [G('Analgesia', L('Itch: emollients, a sedating antihistamine at night; consider a gabapentinoid for persistent post-burn itch', 'Troublesome itch (ISBI 2018)'))] },
+    (isOneOf(a, f('itch'), 'troublesome')) && { general: [G('Analgesia', isUnder(ctx.patient, 2, ctx.module)
+      ? L('Itch: emollients, cool cotton clothing and nails kept short; no sedating antihistamine under 2 years — paediatric advice if it persists', 'Troublesome itch in a child under 2 (ISBI 2018; BNFc — sedating antihistamines contraindicated under 2)')
+      : isChild(ctx.patient, ctx.module)
+        ? L('Itch: emollients and an age-appropriate antihistamine at night (dosed by weight); gabapentinoids are not used in children without paediatric pain advice', 'Troublesome itch in a child (ISBI 2018; BNFc)')
+        : L('Itch: emollients, a sedating antihistamine at night; consider a gabapentinoid for persistent post-burn itch', 'Troublesome itch (ISBI 2018)'))] },
     isYes(a, f('fragile')) && { problem: { treatment: [L('Protect the graft from friction; non-adherent dressing until the breakdown has healed', 'Fragile graft')] } },
     isOneOf(a, f('donor_long_term'), 'unhealed') && { problem: { treatment: [L('Manage the unhealed donor site as a wound', 'Donor site not healed')] } },
     hasAny(a, f('donor_long_term'), 'hypertrophic') && { problem: { treatment: [L('Donor-site hypertrophic scar: silicone and massage', 'Hypertrophic donor-site scar')] } },
