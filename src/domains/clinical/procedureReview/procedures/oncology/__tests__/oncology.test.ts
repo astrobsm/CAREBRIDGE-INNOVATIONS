@@ -197,7 +197,7 @@ describe('vascular_anomaly', () => {
     const a = { [v('issva')]: 'ih', [v('segmental')]: 'facial', [v('intervention')]: 'propranolol', [v('ih_count')]: 6 };
     const lines = texts(vascularAnomaly, 'pre_op', a, adult({ ageYears: 0 }));
     expect(has(lines, /PHACE work-up before propranolol/)).toBe(true);
-    expect(has(lines, /Propranolol 2–3 mg\/kg\/day/)).toBe(true);
+    expect(has(lines, /Propranolol: start 1 mg\/kg\/day/)).toBe(true);
     expect(has(lines, /Abdominal ultrasound for hepatic haemangiomas/)).toBe(true);
   });
 

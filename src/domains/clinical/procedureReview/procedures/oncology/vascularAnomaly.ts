@@ -44,6 +44,7 @@ const SITE: EncounterField = {
   options: [
     { value: 'periocular', label: 'Periocular / eyelid', flag: 'amber', flagReason: 'Periocular lesion: ophthalmology assessment within days — risk of amblyopia (AAP 2019).' },
     { value: 'beard_airway', label: 'Beard area / neck (possible airway involvement)', flag: 'amber', flagReason: 'Beard-distribution haemangioma: risk of airway haemangioma — ENT assessment if any stridor or noisy breathing (AAP 2019).' },
+    { value: 'oral_floor', label: 'Tongue, floor of mouth or oropharynx', flag: 'amber', flagReason: 'Oral / floor-of-mouth lesion: any treatment can swell into the airway — airway plan with anaesthesia and ENT.' },
     { value: 'central_face', label: 'Nose, lip, ear or central face' },
     { value: 'scalp_face_other', label: 'Scalp / other face' },
     { value: 'lumbosacral', label: 'Lumbosacral / perineal' },
@@ -77,6 +78,24 @@ const INTERVENTION: EncounterField = {
     { value: 'sirolimus', label: 'Sirolimus (complex malformations, KHE)' },
   ],
 };
+
+/** The sclerosant — it changes the risks (ethanol, bleomycin) and the consent. */
+const SCLEROSANT: EncounterField = {
+  id: f('sclerosant'), label: 'Sclerosant', kind: 'multiselect',
+  showWhen: { field: f('intervention'), equals: ['sclerotherapy'] },
+  options: [
+    { value: 'ethanol', label: 'Absolute ethanol', flag: 'amber', flagReason: 'Ethanol sclerotherapy: risk of cardiopulmonary collapse (pulmonary vasospasm), nerve injury and skin necrosis — general anaesthesia with monitoring; dose limited by weight.' },
+    { value: 'bleomycin', label: 'Bleomycin', flag: 'amber', flagReason: 'Bleomycin: record the cumulative dose across sessions (pulmonary toxicity); flagellate hyperpigmentation.' },
+    { value: 'sts_polidocanol', label: 'Sodium tetradecyl sulfate / polidocanol (foam)' },
+    { value: 'doxycycline', label: 'Doxycycline' },
+    { value: 'ok432', label: 'OK-432 (picibanil)' },
+    { value: 'other', label: 'Other' },
+  ],
+};
+const sclero = (a: EncounterAnswers) => chosen(a, f('sclerosant'));
+/** Head and neck sites where swelling after treatment can obstruct the airway. */
+const AIRWAY_SITES = ['beard_airway', 'oral_floor', 'central_face', 'periocular'];
+const airwayRisk = (a: EncounterAnswers) => isOneOf(a, f('intervention'), 'sclerotherapy', 'embolisation_excision') && isOneOf(a, f('site'), ...AIRWAY_SITES);
 
 const ASSESS: EncounterSection = {
   id: f('assess'),
@@ -128,10 +147,11 @@ const ASSESS: EncounterSection = {
       ],
     },
     INTERVENTION,
+    SCLEROSANT,
   ],
 };
 
-const PROP = { field: f('intervention'), equals: ['propranolol'] };
+const PROP ={ field: f('intervention'), equals: ['propranolol'] };
 const PROPRANOLOL_CHECKS: EncounterSection = {
   id: f('propranolol_checks'),
   title: 'Propranolol pre-treatment checks (AAP 2019)',
@@ -148,6 +168,17 @@ const PROPRANOLOL_CHECKS: EncounterSection = {
       ] },
     { id: f('wheeze'), label: 'Wheeze / reactive airway disease', kind: 'boolean', showWhen: PROP,
       flagWhenTrue: { level: 'amber', reason: 'Wheeze: propranolol can cause bronchospasm — discuss with paediatrics; hold during wheezy illness.' } },
+    { id: f('prop_contra'), label: 'Contraindications and cautions to propranolol', kind: 'multiselect', important: true, showWhen: PROP,
+      help: 'AAP 2019 / Drolet 2013. Asked before every start.',
+      options: [
+        { value: 'none', label: 'None' },
+        { value: 'heart_block', label: 'Heart block beyond first degree', flag: 'red', flagReason: 'Second- or third-degree heart block: propranolol is contraindicated — paediatric cardiology.' },
+        { value: 'hypotension', label: 'Hypotension or heart failure', flag: 'red', flagReason: 'Hypotension / heart failure: propranolol is contraindicated until cardiology has assessed it.' },
+        { value: 'asthma', label: 'Asthma / bronchospasm (diagnosed)', flag: 'red', flagReason: 'Asthma or bronchospasm: propranolol (non-selective beta-blocker) can cause severe bronchospasm — paediatric respiratory / specialist decision.' },
+        { value: 'weight_under_2kg', label: 'Weight under 2 kg', flag: 'red', flagReason: 'Under 2 kg: propranolol only in a neonatal unit under specialist care.' },
+        { value: 'hypoglycaemia_risk', label: 'Hypoglycaemia risk (poor feeding, previous hypoglycaemia, illness)', flag: 'amber', flagReason: 'Hypoglycaemia risk: start under observation, feeding plan, hold during poor feeding or vomiting (AAP 2019).' },
+        { value: 'premature', label: 'Born preterm (dose and observation by corrected age)', flag: 'amber', flagReason: 'Preterm infant: use the gestation-corrected age; under 8 weeks corrected age the first dose is given under observation (Drolet 2013).' },
+      ] },
     { id: f('phace_arteriopathy'), label: 'PHACE with cerebral arteriopathy on MRA', kind: 'boolean', showWhen: PROP,
       flagWhenTrue: { level: 'red', reason: 'PHACE arteriopathy: propranolol may raise stroke risk — neurology input, lowest effective dose, slow titration (Garzon 2016).' } },
     { id: f('dose_mg_kg'), label: 'Planned propranolol dose', kind: 'number', unit: 'mg/kg/day', min: 0, max: 5, showWhen: PROP,
@@ -170,6 +201,14 @@ const AFTER: EncounterSection = {
         { value: 'compartment', label: 'Tense limb / pain on passive stretch', flag: 'red', flagReason: 'Possible compartment syndrome after sclerotherapy: urgent surgical review; fasciotomy if confirmed.' },
         { value: 'haemoglobinuria', label: 'Dark urine (haemoglobinuria)', flag: 'amber', flagReason: 'Haemoglobinuria after sclerotherapy: IV fluids and monitor renal function.' },
         { value: 'ischaemia', label: 'Distal ischaemia after embolisation', flag: 'red', flagReason: 'Non-target embolisation / ischaemia: urgent interventional radiology and vascular review.' },
+      ] },
+    { id: f('airway_post'), label: 'Airway after treatment (head and neck)', kind: 'select', important: true,
+      showWhen: { field: f('intervention'), equals: ['sclerotherapy', 'embolisation_excision'] },
+      options: [
+        { value: 'normal', label: 'Breathing, voice and swallowing normal' },
+        { value: 'not_applicable', label: 'Not a head and neck treatment' },
+        { value: 'swelling', label: 'Rapidly increasing swelling of the face, tongue, floor of mouth or neck', flag: 'red', flagReason: 'Rapidly increasing swelling after head and neck sclerotherapy: impending airway obstruction — senior anaesthetist and ENT now.' },
+        { value: 'stridor', label: 'Stridor, noisy breathing, drooling, inability to swallow or falling SpO2', flag: 'red', flagReason: 'Airway compromise after head and neck treatment: emergency — senior anaesthetist and ENT now, secure the airway.' },
       ] },
     { id: f('histology'), label: 'Histology (excision)', kind: 'select', showWhen: { field: f('intervention'), equals: ['excision', 'embolisation_excision'] },
       options: [
@@ -240,7 +279,23 @@ const haemangioma: PlanRule = ctx => {
   // AAP 2019 / Drolet 2013: an abnormal heart rate, BP or cardiac examination,
   // bradycardia or an arrhythmia must be assessed before the first dose.
   const cardiacHold = isOneOf(a, f('hr_bp_normal'), 'no') || ecg.includes('bradycardia') || ecg.includes('arrhythmia');
+  // Absolute contraindications (AAP 2019; Drolet 2013): do not start without a specialist.
+  const contra = chosen(a, f('prop_contra'));
+  const kg = numOf(a, 'core.weight_kg');
+  const absolute = [
+    contra.includes('heart_block') && 'heart block beyond first degree',
+    contra.includes('hypotension') && 'hypotension / heart failure',
+    contra.includes('asthma') && 'asthma / bronchospasm',
+    (contra.includes('weight_under_2kg') || (kg != null && kg < 2)) && `weight under 2 kg${kg != null ? ` (${kg} kg)` : ''}`,
+  ].filter(Boolean) as string[];
+  const hold = cardiacHold || absolute.length > 0;
   return merge(
+    prop && absolute.length > 0 && {
+      problem: { treatment: [L(`Do not start propranolol: ${absolute.join(', ')} — specialist decision (paediatric cardiology, respiratory or neonatology) on whether and how to treat, or an alternative`, 'Contraindication to propranolol (AAP 2019; Drolet 2013)', 'urgent')] },
+      cautions: [`Propranolol contraindicated as recorded (${absolute.join(', ')}).`],
+    },
+    prop && contra.includes('hypoglycaemia_risk') && { problem: { treatment: [L('Hypoglycaemia risk: start under observation with capillary glucose checks; give every dose with or after a feed; a written plan to hold it during poor feeding, vomiting or illness', 'Hypoglycaemia risk on propranolol (AAP 2019)', 'urgent')] } },
+    prop && contra.includes('premature') && recordedWeeks == null && { problem: { investigations: [L('Record the gestation-corrected age before starting: dosing, observation and the 8-week threshold use corrected age in a preterm infant', 'Born preterm (Drolet 2013)', 'urgent')] } },
     prop && cardiacHold && {
       problem: { treatment: [L('Do not start propranolol until an ECG and paediatric cardiology review have excluded a contraindication (bradycardia, heart block beyond first degree, hypotension, heart failure)', `${isOneOf(a, f('hr_bp_normal'), 'no') ? 'Heart rate, BP or cardiac examination abnormal' : `ECG indication: ${ecg.join(', ').replace(/_/g, ' ')}`} (AAP 2019; Drolet 2013)`, 'urgent')] },
       cautions: ['Propranolol on hold until cardiac assessment is complete.'],
@@ -255,11 +310,11 @@ const haemangioma: PlanRule = ctx => {
     isOneOf(a, f('segmental'), 'lumbosacral') && { problem: { investigations: [L('Spinal ultrasound (under about 3–6 months) or MRI for spinal dysraphism (LUMBAR)', 'Segmental lumbosacral haemangioma (AAP 2019)')] } },
     (isOneOf(a, f('site'), 'periocular') || comp.includes('visual')) && { problem: { referrals: [L('Ophthalmology within days', 'Periocular haemangioma — amblyopia risk (AAP 2019)', 'urgent')] } },
     (comp.includes('airway') || isOneOf(a, f('site'), 'beard_airway')) && { problem: { referrals: [L(comp.includes('airway') ? 'Urgent ENT airway endoscopy' : 'ENT review if any noisy breathing, hoarseness or stridor develops', 'Beard-distribution haemangioma (AAP 2019)', comp.includes('airway') ? 'urgent' : 'routine')] } },
-    prop && !cardiacHold && { problem: { treatment: [
-      L('Propranolol 2–3 mg/kg/day in 2 divided doses, given with or after a feed, titrated up over 1–2 weeks; continue at least 6 months (often to 12 months of age); recalculate the dose for weight at each visit', 'Infantile haemangioma (AAP 2019 clinical practice guideline)'),
+    prop && !hold && { problem: { treatment: [
+      L('Propranolol: start 1 mg/kg/day in 2 divided doses, given with or after a feed; increase to the target 2 mg/kg/day over 1–2 weeks (maximum 3 mg/kg/day); continue at least 6 months (often to 12 months of age); recalculate the dose for weight at each visit', 'Infantile haemangioma (AAP 2019 clinical practice guideline: target 2–3 mg/kg/day)'),
     ] } },
     prop && ecg.length > 0 && { problem: { investigations: [L('ECG before starting propranolol', `ECG indication: ${ecg.join(', ').replace(/_/g, ' ')} (AAP 2019)`)] } },
-    prop && ((weeks != null && weeks < 8) || isYes(a, f('wheeze')) || isYes(a, f('phace_arteriopathy'))) && { problem: { treatment: [L('Start propranolol under observation (heart rate and BP 1 and 2 hours after the first dose and after each increase), admitting if the infant is very young or has comorbidity', `${weeks != null && weeks < 8 ? `${recordedWeeks != null ? 'Corrected age' : 'Age from the date of birth'} ${weeks} weeks` : isYes(a, f('phace_arteriopathy')) ? 'PHACE arteriopathy' : 'Reactive airway disease'} (Drolet 2013 consensus; AAP 2019)`)] } },
+    prop && !hold && ((weeks != null && weeks < 8) || isYes(a, f('wheeze')) || isYes(a, f('phace_arteriopathy'))) && { problem: { treatment: [L('Start propranolol under observation (heart rate and BP 1 and 2 hours after the first dose and after each increase), admitting if the infant is very young or has comorbidity', `${weeks != null && weeks < 8 ? `${recordedWeeks != null ? 'Corrected age' : 'Age from the date of birth'} ${weeks} weeks` : isYes(a, f('phace_arteriopathy')) ? 'PHACE arteriopathy' : 'Reactive airway disease'} (Drolet 2013 consensus; AAP 2019)`)] } },
     prop && { counselling: [P('Propranolol', 'Give with feeds; do not give if the baby is not feeding or is vomiting (risk of low blood sugar); stop and seek help for wheeze, cold blue extremities, unusual drowsiness or a seizure.', 'AAP 2019 safety advice')] },
     comp.includes('ulceration') && { general: [G('Wound care and dressings', L('Ulcerated haemangioma: barrier cream / petrolatum and non-adherent dressings, analgesia (including topical options), treat infection; it heals faster once propranolol is started', 'Ulceration (AAP 2019)'))] },
     isOneOf(a, f('intervention'), 'timolol') && { problem: { treatment: [L('Topical timolol 0.5% gel, 1 drop twice daily, for small, thin, superficial haemangiomas only', 'Small superficial IH (AAP 2019)')] } },
@@ -285,15 +340,26 @@ const otherAnomalies: PlanRule = ctx => {
     d === 'cm' && { problem: { treatment: [L('Pulsed-dye laser for port-wine stain; V1 (forehead / upper eyelid) involvement: ophthalmology (glaucoma) and neurology (Sturge-Weber)', 'Capillary malformation')] } },
     (iv === 'sclerotherapy' || iv === 'embolisation_excision' || d === 'avm' || d === 'combined' || d === 'khe') && { problem: { referrals: [L('Vascular-anomalies MDT (plastic surgery, interventional radiology, haematology, dermatology, paediatrics)', `${dxLabel(a)} — multimodal treatment (ISSVA)`)] } },
     (iv === 'excision' || iv === 'embolisation_excision') && (d === 'vm' || d === 'avm' || d === 'combined') && { general: [G('Anaesthesia and theatre', L('Group and crossmatch; tourniquet for limb lesions where possible; cell salvage and haemostatic agents available', 'Excision of a vascular malformation — high bleeding risk'))] },
+    iv === 'sirolimus' && { problem: { monitoring: [SIROLIMUS_MONITORING] } },
+    airwayRisk(a) && { general: [G('Anaesthesia and theatre', L('Airway plan before treating a head and neck lesion: anaesthetist and ENT aware; post-procedure observation of the airway planned — HDU / high-dependency bed for the tongue, floor of mouth or neck', `Head and neck ${String(iv).replace('_', ' ')} — post-treatment swelling peaks at 24–72 hours`, isOneOf(a, f('site'), 'beard_airway', 'oral_floor') ? 'urgent' : 'routine'))] },
+    hasAny(a, f('sclerosant'), 'ethanol') && { general: [G('Anaesthesia and theatre', L('Ethanol sclerotherapy: general anaesthesia with invasive / continuous cardiovascular monitoring; weight-based ethanol dose limit per the interventional radiology protocol; be ready for pulmonary hypertension and cardiovascular collapse', 'Absolute ethanol (cardiopulmonary collapse is a recognised complication)', 'urgent'))] },
+    hasAny(a, f('sclerosant'), 'bleomycin') && { problem: { monitoring: [L('Record the bleomycin dose given at each session and the cumulative lifetime dose against the protocol limit; respiratory history and examination before each session', 'Bleomycin sclerotherapy — pulmonary toxicity is dose-related')] } },
     d === 'congenital_h' && { problem: { monitoring: [L('Congenital haemangioma: RICH involutes in the first year — observe; NICH persists and can be excised electively; propranolol is not effective', 'Congenital haemangioma (ISSVA)')] } },
   );
 };
+
+const SIROLIMUS_MONITORING = L(
+  'Sirolimus (specialist-led): trough levels to the target set by the prescribing team; FBC, lipids, liver and renal function at baseline and regularly; PJP prophylaxis per the team; no live vaccines while on it; watch for infection and mouth ulcers, and hold during a febrile illness per protocol',
+  'Sirolimus for a complex vascular anomaly (Adams DM et al. Pediatrics 2016; ISSVA MDT practice)');
 
 const after: PlanRule = ctx => {
   if (ctx.phase !== 'post_op') return null;
   const a = ctx.answers;
   const e = chosen(a, f('post_effects'));
+  const compromised = isOneOf(a, f('airway_post'), 'swelling', 'stridor');
   return merge(
+    compromised && { problem: { treatment: [L('Airway emergency: senior anaesthetist and ENT now; sit up, high-flow oxygen; prepare to secure the airway (difficult-airway equipment); steroid (e.g. dexamethasone) per the team; transfer to HDU / ICU', `${isOneOf(a, f('airway_post'), 'stridor') ? 'Stridor / airway compromise' : 'Rapidly increasing swelling'} after head and neck treatment`, 'urgent')] } },
+    airwayRisk(a) && !compromised && { problem: { monitoring: [L('Airway observation for 24–72 hours: continuous SpO2, respiratory rate, stridor, voice and swallowing, and the swelling; HDU for the tongue, floor of mouth or neck; senior anaesthetist and ENT called at the first sign of obstruction', 'Head and neck sclerotherapy / embolisation — swelling peaks at 24–72 hours and can obstruct the airway', 'urgent')] } },
     e.includes('compartment') && { problem: { treatment: [L('Measure compartment pressures / examine now; fasciotomy if compartment syndrome', 'Tense limb after sclerotherapy', 'urgent')] } },
     e.includes('ischaemia') && { problem: { referrals: [L('Interventional radiology and vascular surgery now', 'Distal ischaemia after embolisation', 'urgent')] } },
     e.includes('haemoglobinuria') && { problem: { treatment: [L('IV fluids to maintain urine output; U&E', 'Haemoglobinuria after sclerotherapy')] } },
@@ -311,6 +377,7 @@ const followUp: PlanRule = ctx => {
   return merge(
     pe.includes('hypoglycaemia') && { problem: { treatment: [L('Hold propranolol, treat hypoglycaemia, restart only with feeding advice and paediatric review', 'Hypoglycaemia on propranolol (AAP 2019)', 'urgent')] } },
     (pe.includes('wheeze') || pe.includes('bradycardia')) && { problem: { treatment: [L('Reduce or hold propranolol and review with paediatrics', `Propranolol effect: ${pe.filter(x => x === 'wheeze' || x === 'bradycardia').join(', ')}`)] } },
+    isOneOf(a, f('intervention'), 'sirolimus') && { problem: { monitoring: [SIROLIMUS_MONITORING] } },
     isOneOf(a, f('intervention'), 'propranolol') && { problem: { monitoring: [L('Weigh the child and recalculate the dose; review every 4–8 weeks; plan to stop at around 12 months of age (taper is optional)', 'Propranolol for IH (AAP 2019)')] } },
     isOneOf(a, f('course'), 'rebound') && { problem: { treatment: [L('Restart propranolol for a further course', 'Rebound after stopping (AAP 2019)')] } },
     isOneOf(a, f('course'), 'growing') && { problem: { investigations: [L('Re-image (Doppler / MRI) and reconsider the diagnosis; biopsy if atypical', 'Growing despite treatment')] } },
@@ -357,10 +424,10 @@ export const vascularAnomaly: ProcedureModule = {
   },
   sections: {
     pre_op: [DETAILS, ASSESS, PROPRANOLOL_CHECKS],
-    post_op: [DETAILS, { ...AFTER, fields: [INTERVENTION, ...AFTER.fields] }],
-    follow_up: [DETAILS, { ...RESPONSE, fields: [INTERVENTION, ...RESPONSE.fields] }],
+    post_op: [DETAILS, { ...AFTER, fields: [INTERVENTION, SCLEROSANT, ...AFTER.fields] }],
+    follow_up: [DETAILS, { ...RESPONSE, fields: [INTERVENTION, SCLEROSANT, ...RESPONSE.fields] }],
   },
-  carryForward: [f('issva'), f('site'), f('size_cm'), f('intervention')],
+  carryForward: [f('issva'), f('site'), f('size_cm'), f('intervention'), f('sclerosant')],
   scores: [],
   planRules: [goals, haemangioma, otherAnomalies, after, followUp, education],
   consent: {
@@ -411,6 +478,18 @@ export const vascularAnomaly: ProcedureModule = {
           && (numOf(c.answers, f('age_weeks')) ?? (c.patient.ageMonths != null ? Math.floor(c.patient.ageMonths * 4.33) : 99)) < 8,
         text: 'Because your baby is very young, propranolol will be started under observation, with checks of heart rate and blood pressure.',
         why: 'Corrected age under 8 weeks (Drolet 2013)' },
+      { id: 'va_ethanol', when: c => hasAny(c.answers, f('sclerosant'), 'ethanol'),
+        text: 'Ethanol (alcohol) sclerotherapy works well but carries specific risks: a rare sudden collapse of the heart and lungs during the procedure, nerve injury causing numbness or weakness, and skin breakdown over the treated area.',
+        why: 'Absolute ethanol sclerotherapy' },
+      { id: 'va_bleomycin', when: c => hasAny(c.answers, f('sclerosant'), 'bleomycin'),
+        text: 'Bleomycin can, rarely, damage the lungs; the risk rises with the total dose over all sessions, so the dose is recorded each time and limited. It can also leave streaky dark marks on the skin.',
+        why: 'Bleomycin sclerotherapy — cumulative-dose pulmonary toxicity; flagellate hyperpigmentation' },
+      { id: 'va_airway', when: c => airwayRisk(c.answers),
+        text: 'Because the treatment is in the face, mouth or neck, the swelling afterwards can affect breathing or swallowing; you will be watched closely, sometimes in a high-dependency bed, for the first 1–3 days.',
+        why: 'Head and neck sclerotherapy / embolisation' },
+      { id: 'va_sirolimus', when: c => isOneOf(c.answers, f('intervention'), 'sirolimus'),
+        text: 'Sirolimus lowers immunity: infections, mouth ulcers, raised cholesterol and low blood counts can occur, so regular blood tests are needed and live vaccines must be avoided while taking it.',
+        why: 'Sirolimus' },
     ],
   },
   followUp: {
