@@ -313,7 +313,10 @@ const emergency: PlanRule = ctx => {
   const hypo = isOneOf(a, f('haemodynamics'), 'fluid_responsive') || shock;
   const organs = chosen(a, f('organ_dysfunction'));
   const parts: PlanContribution[] = [];
-  const suspected = hard.length > 0 || soft.length > 0 || (lrinec?.total ?? 0) >= 6 || isOneOf(a, f('imaging'), 'gas');
+  // Sepsis itself (hypotension, raised lactate, organ dysfunction) starts the
+  // hour-1 bundle even before hard or soft signs are ticked (SSC 2021).
+  const suspected = hard.length > 0 || soft.length > 0 || (lrinec?.total ?? 0) >= 6 || isOneOf(a, f('imaging'), 'gas')
+    || hypo || (lactate ?? 0) >= 2 || organs.length > 0;
   if (hard.length || isOneOf(a, f('imaging'), 'gas') || (lrinec?.total ?? 0) >= 6) {
     parts.push({ problem: { treatment: [L('Emergency theatre now: wide exploration and radical debridement of all necrotic skin, fat, fascia and muscle back to bleeding tissue; do not wait for imaging or further tests; resuscitate in parallel', `${hard.length ? `Hard signs: ${hard.join(', ').replace(/_/g, ' ')}` : isOneOf(a, f('imaging'), 'gas') ? 'Gas on imaging' : `LRINEC ${lrinec?.total}`} (IDSA 2014; WSES 2018) — delay to surgery increases mortality (Nawijn 2016)`, 'urgent')] } });
   } else if (soft.length) {
@@ -437,6 +440,11 @@ export const necrotisingSoftTissueInfection: ProcedureModule = {
     follow_up: [DETAILS, RECON],
   },
   carryForward: [f('site'), f('source'), f('onset_date')],
+  // An NSTI wound is devitalised tissue — tetanus-prone by definition
+  // (Green Book ch. 30); sources here include minor trauma, injections and
+  // scarification. Asked once, at the first (pre-operative) review.
+  includeCore: { pre_op: ['tetanus'] },
+  avoidNsaids: () => 'Necrotising infection: NSAIDs may mask its progression, and acute kidney injury is common (IDSA 2014)',
   scores: [lrinecScore],
   planRules: [goals, emergency, postOp, followUpRule],
   consent: {
