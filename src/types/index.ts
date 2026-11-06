@@ -261,6 +261,14 @@ export interface ClinicalEncounter {
    */
   clerking?: import('../domains/clinical/clerking/records').StructuredClerking;
 
+  /**
+   * A procedure-specific plastic-surgery review (wound review, pre-operative,
+   * post-operative or follow-up), when the encounter was recorded with one.
+   * Like `clerking`, stored beside the prose and never instead of it: the
+   * review writes its narrative into the free-text fields above.
+   */
+  procedureReview?: import('../domains/clinical/procedureReview/types').StoredProcedureReview;
+
   // Follow-up encounter specific
   intervalHistory?: string;          // Changes since last visit
   complianceAssessment?: string;     // Medication/treatment compliance
@@ -364,7 +372,12 @@ export type EncounterType =
   | 'inpatient'
   | 'emergency'
   | 'surgical'
-  | 'home_visit';
+  | 'home_visit'
+  // Procedure reviews (clinical/procedureReview). Labels, colours and
+  // descriptions for every type live in clinical/data/encounterTypes.ts.
+  | 'pre_operative'
+  | 'post_operative'
+  | 'wound_review';
 
 // Encounter Category for UI grouping
 export type EncounterCategory = 'initial' | 'follow_up';
