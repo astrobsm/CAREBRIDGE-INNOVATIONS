@@ -391,18 +391,36 @@ export const parklandScore: ScoreRule = ({ phase, answers: a, patient }) => {
   if (tbsa < (child ? 10 : 20)) return null;
   const hrs = numOf(a, f('hours_since'));
   if (hrs != null && hrs >= 48) return null;
+  // A pre-operative review days after the burn is past the resuscitation window.
+  const days = numOf(a, f('days_since'));
+  if (days != null && days >= 2) return null;
   const r = wt != null ? calculateParkland(wt, tbsa) : null;
-  if (!r) {
+  if (!r || wt == null) {
     return { id: `${ID}.fluids`, name: 'Burn resuscitation volume (first 24 hours)', abbreviation: 'Fluids', total: null, band: null, incomplete: ['Weight'],
       source: 'calculators/engine/calculationEngine.calculateParkland (ABA 2 mL/kg/%TBSA starting; Parkland 4 mL/kg/%TBSA)' };
   }
-  const left8 = hrs != null && hrs < 8 ? 8 - hrs : null;
+  // ABLS 2018 starting volumes: adults 2, children 3, high-voltage electrical
+  // injury 4 mL/kg/%TBSA (calculateParkland gives 2; scaled from it).
+  const highVoltage = isOneOf(a, f('mechanism'), 'electrical_high');
+  const mlPerKg = highVoltage ? 4 : child ? 3 : 2;
+  const scale = (n: number) => Math.round(n * mlPerKg / 2);
+  const total = scale(r.totalFluid24h), first8 = scale(r.first8Hours), next16 = scale(r.next16Hours);
+  // Children under 30 kg also need dextrose-containing maintenance (ABLS 2018), by Holliday–Segar 4-2-1.
+  const maint = child && wt < 30 ? Math.round(wt <= 10 ? 4 * wt : wt <= 20 ? 40 + 2 * (wt - 10) : 60 + (wt - 20)) : null;
+  // The first 8 hours run from the time of the burn, not of arrival.
+  const timing = hrs == null
+    ? `${first8} mL in the first 8 hours FROM THE TIME OF THE BURN (${Math.round(first8 / 8)} mL/h if started at the time of injury — record the time of the burn), then ${next16} mL over the next 16 hours (${Math.round(next16 / 16)} mL/h)`
+    : hrs < 8
+      ? `${first8} mL is due in the first 8 hours from the burn, of which ${Math.round((8 - hrs) * 10) / 10} h remain: give what is still owed of it (${first8} mL minus fluid already given) over those hours — ${Math.round(first8 / (8 - hrs))} mL/h if none has been given — then ${next16} mL over the next 16 hours (${Math.round(next16 / 16)} mL/h)`
+      : hrs < 24
+        ? `the first-8-hour window has passed (${hrs} h since the burn): give the rest of the 24-hour volume (${total} mL minus fluid already given) over the remaining ${Math.round((24 - hrs) * 10) / 10} h`
+        : `beyond the first 24 hours (${hrs} h since the burn): the formula no longer applies — maintenance plus evaporative losses, with colloid per the unit protocol`;
   return {
-    id: `${ID}.fluids`, name: 'Burn resuscitation volume (first 24 hours)', abbreviation: 'Fluids', total: r.totalFluid24h,
-    band: { label: `${r.totalFluid24h} mL starting estimate (Parkland upper reference ${r.parklandUpperBound24h} mL)`, level: 'moderate',
-      interpretation: `Lactated Ringer's / Hartmann's: ${r.first8Hours} mL in the first 8 hours FROM THE TIME OF THE BURN (${r.hourlyFirst8} mL/h)${left8 != null ? `, ${left8} h of that window remain` : ''}, then ${r.next16Hours} mL over 16 hours (${r.hourlyNext16} mL/h). A starting estimate only: titrate hourly to urine output.${child ? ' Children: 3 mL/kg/%TBSA plus maintenance fluid with dextrose (ABLS).' : ''}${isOneOf(a, f('mechanism'), 'electrical_high') ? ' High-voltage injury: 4 mL/kg/%TBSA and a higher urine target while pigmenturia persists (ABLS).' : ''}` },
-    incomplete: [],
-    source: 'calculators/engine/calculationEngine.calculateParkland (ABA / ABLS 2018: 2 mL/kg/%TBSA starting volume; classic Parkland 4 mL/kg/%TBSA shown as the upper reference)',
+    id: `${ID}.fluids`, name: 'Burn resuscitation volume (first 24 hours)', abbreviation: 'Fluids', total,
+    band: { label: `${total} mL starting estimate at ${mlPerKg} mL/kg/%TBSA${highVoltage ? ' (high-voltage injury)' : child ? ' (child)' : ''}; Parkland reference ${r.parklandUpperBound24h} mL`, level: 'moderate',
+      interpretation: `Lactated Ringer's / Hartmann's: ${timing}.${maint != null ? ` Plus maintenance with dextrose (e.g. 5% dextrose in Hartmann's or 0.45% saline) at about ${maint} mL/h (Holliday–Segar), monitoring glucose.` : ''} A starting estimate only: titrate hourly to urine output.` },
+    incomplete: hrs == null ? ['Hours since the burn'] : [],
+    source: 'calculators/engine/calculationEngine.calculateParkland, scaled per ABLS 2018 (2 mL/kg/%TBSA adults, 3 children, 4 high-voltage electrical); classic Parkland 4 mL/kg/%TBSA shown as the reference',
   };
 };
 
@@ -459,14 +477,16 @@ const acute: PlanRule = ctx => {
   }
   if (fluids?.total != null) {
     parts.push({ problems: [{ problem: 'Burn shock — fluid resuscitation', lines: {
-      treatment: [L(`IV crystalloid: ${fluids.band!.label}; ${fluids.band!.interpretation.split('. A starting')[0]}`, `${tbsa}% TBSA${wt != null ? `, ${wt} kg` : ''} (ABLS 2018; ISBI 2016)`, 'urgent')],
+      treatment: [L(`IV crystalloid: ${fluids.band!.label}. ${fluids.band!.interpretation}`, `${tbsa}% TBSA${wt != null ? `, ${wt} kg` : ''} (ABLS 2018; ISBI 2016)`, 'urgent')],
       monitoring: [
         L(`Urinary catheter; hourly urine output — target ${isChild(ctx) && (wt ?? 99) < 30 ? 'about 1 mL/kg/h' : '0.5–1 mL/kg/h'}${hasAny(a, f('electrical'), 'myoglobinuria') ? ', higher (about 1–1.5 mL/kg/h) until the urine is clear of pigment' : ''}; adjust the rate by 20–30% each hour off target`, 'Resuscitation is titrated to urine output, not the formula (ISBI 2016; ABLS)', 'urgent'),
       ],
     } }] });
   }
-  if (uo != null && uo < 0.5) {
-    parts.push({ problem: { treatment: [L('Increase the infusion rate (about a quarter) and reassess in an hour; check the catheter; look for bleeding or other injury', `Urine output ${uo} mL/kg/h`, 'urgent')] } });
+  // Targets: adults 0.5, children under 30 kg about 1 mL/kg/h (ABLS 2018; the field's own help text).
+  const uoFloor = isChild(ctx) && (wt ?? 99) < 30 ? 1 : 0.5;
+  if (uo != null && uo < uoFloor) {
+    parts.push({ problem: { treatment: [L('Increase the infusion rate (about a quarter) and reassess in an hour; check the catheter; look for bleeding or other injury', `Urine output ${uo} mL/kg/h — below the ${uoFloor} mL/kg/h target${uoFloor === 1 ? ' for a child under 30 kg' : ''}`, 'urgent')] } });
   }
   if (given != null && wt != null && given / wt > 250) {
     parts.push({ problem: { monitoring: [L('Fluid creep: measure intra-abdominal (bladder) pressure, watch for abdominal and limb compartment syndromes and pulmonary oedema; consider colloid (albumin) rescue', `${Math.round(given / wt)} mL/kg in 24 hours exceeds the Ivy index of 250 mL/kg (Ivy 2000; WSACS)`, 'urgent')] } });
@@ -475,9 +495,16 @@ const acute: PlanRule = ctx => {
     const ecgBad = hasAny(a, f('electrical'), 'ecg_abnormal');
     parts.push({ problem: {
       investigations: [L('Electrical-injury work-up: ECG on arrival, CK, potassium, creatinine and urine for myoglobin', 'Electrical injury', isOneOf(a, f('mechanism'), 'electrical_high') ? 'urgent' : 'routine')],
-      monitoring: [L(ecgBad || isOneOf(a, f('mechanism'), 'electrical_high') ? 'Continuous cardiac monitoring for at least 24 hours; hourly compartment checks' : 'Low-voltage injury with a normal ECG and no loss of consciousness: cardiac monitoring is not needed', ecgBad ? 'Abnormal ECG / loss of consciousness' : `Electrical injury (${String(a[f('mechanism')]).replace('_', ' ')})`, ecgBad ? 'urgent' : 'routine')],
+      monitoring: [L(ecgBad || isOneOf(a, f('mechanism'), 'electrical_high') ? 'Continuous cardiac monitoring for at least 24 hours; hourly compartment checks'
+        : hasAny(a, f('electrical'), 'ecg_normal') ? 'Low-voltage injury with a normal ECG and no loss of consciousness: cardiac monitoring is not needed'
+          : 'ECG now: monitor if it is abnormal or there was loss of consciousness; no monitoring is needed only once the ECG is normal', ecgBad ? 'Abnormal ECG / loss of consciousness' : `Electrical injury (${String(a[f('mechanism')]).replace('_', ' ')})`, ecgBad ? 'urgent' : 'routine')],
     } });
     if (hasAny(a, f('electrical'), 'compartment')) parts.push({ problem: { treatment: [L('Fasciotomy now; debride dead muscle; second look in 24–48 hours', 'Compartment syndrome after electrical injury', 'urgent')] } });
+    // Small skin wounds can hide deep muscle damage: pigmenturia needs fluids
+    // whatever the %TBSA (ABLS 2018).
+    if (hasAny(a, f('electrical'), 'myoglobinuria') && fluids?.total == null) {
+      parts.push({ problem: { treatment: [L('IV crystalloid titrated to a urine output of about 1–1.5 mL/kg/h (adults about 75–100 mL/h) until the urine is clear of pigment; urinary catheter; CK, potassium and creatinine; hourly compartment checks', 'Myoglobinuria after electrical injury — fluids are needed whatever the burn size (ABLS 2018)', 'urgent')] } });
+    }
   }
   if (isOneOf(a, f('mechanism'), 'chemical')) {
     parts.push({ problem: { treatment: [L('Irrigate with copious water (at least 30–60 minutes; longer for alkali) until skin pH is neutral; identify the agent; calcium gluconate gel / infiltration for hydrofluoric acid with calcium and ECG monitoring', 'Chemical burn (ISBI 2016)', 'urgent')] } });
