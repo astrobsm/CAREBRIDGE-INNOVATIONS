@@ -185,6 +185,15 @@ const PLAN: EncounterSection = {
       ],
     },
     {
+      id: f('blue_dye_allergy'), label: 'Previous reaction to blue dye (patent blue, isosulfan or methylene blue)', kind: 'select',
+      showWhen: { field: f('slnb'), equals: ['planned'] },
+      options: [
+        { value: 'no', label: 'No known reaction' },
+        { value: 'yes', label: 'Previous reaction / allergy', flag: 'red', flagReason: 'Blue-dye allergy: no blue dye — map with the radiocolloid alone; anaesthetist aware (anaphylaxis risk).' },
+        { value: 'not_asked', label: 'Not asked', flag: 'amber', flagReason: 'Ask about previous reactions to blue dye before SLNB (anaphylaxis about 0.1–1%).' },
+      ],
+    },
+    {
       id: f('digit_level'), label: 'Nail-unit melanoma — planned operation', kind: 'select', showWhen: { field: f('site'), equals: ['subungual'] },
       options: [
         { value: 'nail_unit', label: 'Nail-unit (en bloc nail apparatus) excision and graft — in situ / very thin' },
@@ -453,6 +462,21 @@ const sentinelNode: PlanRule = ctx => {
   );
 };
 
+/** Blue dye for SLNB: not in pregnancy, not after a previous reaction — radiocolloid alone. */
+const blueDye: PlanRule = ctx => {
+  if (ctx.phase !== 'pre_op' || !isOneOf(ctx.answers, f('slnb'), 'planned')) return null;
+  const a = ctx.answers;
+  const pregnant = isOneOf(a, 'core.pregnancy', 'pregnant', 'possible');
+  const allergic = isOneOf(a, f('blue_dye_allergy'), 'yes');
+  if (!pregnant && !allergic) return null;
+  return {
+    problem: { treatment: [L(
+      'Sentinel node mapping with the radiocolloid (technetium-99m lymphoscintigraphy) only — no blue dye (patent blue, isosulfan or methylene blue)',
+      `${pregnant ? 'Pregnant or possibly pregnant: blue dyes risk maternal anaphylaxis and methylene blue is teratogenic; low-dose radiocolloid is considered safe' : 'Previous reaction to blue dye'} (NCCN; Gentilini 2010)`, 'urgent')] },
+    cautions: [pregnant ? 'Pregnancy and SLNB: radiocolloid only, no blue dye; obstetric input on timing.' : 'Blue-dye allergy: no blue dye in theatre; tell the anaesthetist.'],
+  };
+};
+
 const stagingAndOncology: PlanRule = ctx => {
   if (ctx.phase === 'post_op') return null;
   const a = ctx.answers;
@@ -579,7 +603,7 @@ export const melanomaWle: ProcedureModule = {
     f('residual'), f('wle_margin'), f('slnb_result'), f('positive_nodes'), f('slnb'),
   ],
   scores: [melanomaStageScore],
-  planRules: [goals, diagnosis, margins, sentinelNode, stagingAndOncology, acral, postOp, followUp, education],
+  planRules: [goals, diagnosis, margins, sentinelNode, blueDye, stagingAndOncology, acral, postOp, followUp, education],
   consent: {
     procedureName: 'Wide local excision of melanoma ± sentinel lymph node biopsy',
     phases: ['pre_op'],
@@ -591,7 +615,10 @@ export const melanomaWle: ProcedureModule = {
     risks: [
       { name: 'Sentinel node biopsy complications', description: 'Fluid collection (seroma), infection or wound breakdown in the groin, armpit or neck', frequency: 'about 10% overall (MSLT-I, Morton 2005)' },
       { name: 'False-negative sentinel node', description: 'A negative sentinel node does not rule out spread to the glands completely', frequency: 'about 12% of node recurrences follow a negative SLNB (Valsecchi 2011)' },
-      { name: 'Blue dye and tracer effects', description: 'Blue staining of the skin for months and blue-green urine; allergic reaction to the dye is rare' },
+      { name: 'Seroma after sentinel node biopsy', description: 'A collection of fluid under the sentinel node wound, which may need draining with a needle', frequency: 'about 2–6% (Wrightson 2003; Morton 2005)' },
+      { name: 'Lymphoedema after sentinel node biopsy', description: 'Lasting swelling of the arm or leg on the side of the biopsy', frequency: 'under 1% overall; about 1.5–5% after groin sentinel node biopsy (Wrightson 2003; Morton 2005)' },
+      { name: 'Blue dye and tracer effects', description: 'Blue staining of the skin for months and blue-green urine' },
+      { name: 'Allergic reaction to the blue dye', description: 'A reaction to the dye, from a rash to anaphylaxis (a severe reaction treated immediately in theatre)', frequency: 'about 0.1–1% (Montgomery 2002; Bézu 2011)' },
       { name: 'Spread despite surgery', description: 'Melanoma can spread to the glands or elsewhere even after complete removal; the chance depends on the stage, which the team will explain' },
       { name: 'Loss of part of a finger or toe', description: 'For melanoma under the nail, amputation of the tip of the digit is usually needed' },
       { name: 'Weight-bearing wound problems', description: 'After surgery on the sole, the graft or flap may break down and walking may be affected for some months' },

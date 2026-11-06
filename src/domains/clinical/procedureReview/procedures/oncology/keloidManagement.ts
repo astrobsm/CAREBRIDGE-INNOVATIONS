@@ -287,7 +287,7 @@ const preOp: PlanRule = ctx => {
     sym.includes('discharge') && { problem: { treatment: [L('Drain abscesses, lay open sinuses and treat infection (culture-guided antibiotics if cellulitis) before steroid or surgery', 'Infected keloid / sinus')] } },
     plan === 'excision_alone' && { problem: { treatment: [L('Add an adjuvant: intralesional triamcinolone at closure and every 4–6 weeks, or radiotherapy within 72 hours; plus pressure / silicone', 'Excision alone planned — 45–100% recurrence (Monstrey 2014; Gold 2014)', 'urgent')] } },
     (plan === 'steroid' || plan === 'cryo_steroid' || plan === 'excision_steroid') && { problem: { treatment: [L(
-      'Intralesional triamcinolone 10–40 mg/mL into the keloid (not the surrounding skin), every 4–6 weeks, keeping within the unit\'s maximum dose per session; 5-fluorouracil may be combined for resistant keloids',
+      'Intralesional triamcinolone 10–40 mg/mL into the keloid (not the surrounding skin), every 4–6 weeks; maximum per session commonly up to 40 mg in adults and weight-based in children (e.g. about 1 mg/kg, not over 40 mg) — check the local protocol; 5-fluorouracil may be combined for resistant keloids',
       'Intralesional corticosteroid — first-line for keloids (Monstrey 2014; Gold 2014; JSW 2018)')] } },
     plan === 'excision_steroid' && { problem: { treatment: [L('Inject triamcinolone into the wound edges at closure, then continue the series after healing', 'Excision with steroid adjuvant (Monstrey 2014; series length is a local-protocol choice)')] } },
     plan === 'excision_rt' && { problem: {

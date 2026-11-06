@@ -19,7 +19,7 @@
  */
 import type { EncounterAnswers, EncounterField, EncounterSection } from '../../../data/encounterModel';
 import { computeStage } from '../../../../tumour-board/services/oncology/stagingEngine';
-import type { PlanContext, PlanRule, ProcedureModule, ScoreRule } from '../../types';
+import type { PlanContext, PlanRule, PriorReview, ProcedureModule, ScoreRule } from '../../types';
 import { answered, chosen, hasAny, isOneOf, isYes, numOf } from '../../core/answers';
 import { G, L, P, merge } from '../../ruleKit';
 import { instrumentFields, responsesFrom, scoreInstrument, type ScreeningInstrument } from '../../scores/instrument';
@@ -65,7 +65,7 @@ const DIAGNOSIS: EncounterField = {
 const SIZE: EncounterField = {
   id: f('size_mm'), label: 'Clinical diameter', kind: 'number', unit: 'mm', min: 0, max: 400, important: true,
   numericFlags: [
-    { op: '>', value: 40, level: 'red', reason: 'Over 40 mm: very-high-risk cSCC (BAD 2020); image for deep invasion and discuss at MDT before excision.' },
+    { op: '>', value: 40, level: 'red', reason: 'Over 40 mm: very high risk for a cSCC (BAD 2020) and high risk for a BCC (NCCN; BAD 2021); image for deep invasion and discuss at MDT before excision.' },
     { op: '>=', value: 20, level: 'amber', reason: '20 mm or more: high-risk BCC / cSCC (NCCN; BAD 2020).' },
   ],
 };
@@ -400,10 +400,29 @@ const tumourOf = (a: EncounterAnswers): Tumour => {
 const immunosuppressed = (a: EncounterAnswers) => hasAny(a, 'core.immune', 'transplant', 'immunosuppressant', 'chemo', 'hiv');
 const histoOf = (a: EncounterAnswers) => (a[f('histology')] as string | undefined) ?? (a[f('biopsy_result')] as string | undefined);
 
+/**
+ * Risk-tier inputs asked only pre-operatively (the core immunosuppression and
+ * radiotherapy questions, perineural symptoms, clinical features). After the
+ * operation they come from the newest earlier review of this module, so a
+ * transplant recipient's cSCC stays high risk at post-op and follow-up.
+ */
+const PRE_OP_RISK_INPUTS = ['core.immune', 'core.radiotherapy_site', f('neuro'), f('clinical')];
+export function withPreOpRiskInputs(a: EncounterAnswers, prior: PriorReview[] = []): { answers: EncounterAnswers; from?: string } {
+  const last = prior.find(p => p.moduleId === ID && PRE_OP_RISK_INPUTS.some(k => answered(p.answers, k)));
+  if (!last) return { answers: a };
+  const out: EncounterAnswers = { ...a };
+  let used = false;
+  for (const k of PRE_OP_RISK_INPUTS) {
+    if (!answered(a, k) && answered(last.answers, k)) { out[k] = last.answers[k]; used = true; }
+  }
+  return used ? { answers: out, from: last.at.slice(0, 10) } : { answers: a };
+}
+
 export interface SkinTumourRisk { tumour: Tumour; tier: 'low' | 'high' | 'very_high' | null; features: string[]; veryHigh: string[] }
 
-/** The tier and the features that put the tumour in it. */
-export function skinTumourRisk(a: EncounterAnswers): SkinTumourRisk {
+/** The tier and the features that put the tumour in it (`prior`: earlier reviews, for the pre-op inputs). */
+export function skinTumourRisk(answers: EncounterAnswers, prior: PriorReview[] = []): SkinTumourRisk {
+  const a = withPreOpRiskInputs(answers, prior).answers;
   const tumour = tumourOf(a);
   if (tumour !== 'bcc' && tumour !== 'scc') return { tumour, tier: null, features: [], veryHigh: [] };
   const features: string[] = [];
@@ -449,8 +468,9 @@ const marginFor = (r: SkinTumourRisk): string | null => {
   return null;
 };
 
-export const riskTierScore: ScoreRule = ({ answers }) => {
-  const r = skinTumourRisk(answers);
+export const riskTierScore: ScoreRule = ({ answers, prior }) => {
+  const r = skinTumourRisk(answers, prior);
+  const carried = withPreOpRiskInputs(answers, prior).from;
   if (!r.tier) return null;
   const all = [...r.veryHigh, ...r.features];
   const level = r.tier === 'low' ? 'low' : r.tier === 'high' ? 'high' : 'very_high';
@@ -461,6 +481,7 @@ export const riskTierScore: ScoreRule = ({ answers }) => {
       interpretation: `${TIER_LABEL[r.tier]} ${r.tumour === 'bcc' ? 'BCC (NCCN; BAD 2021)' : 'cSCC (BAD 2020; NCCN)'}${all.length ? `: ${all.join('; ')}` : ': no high-risk feature recorded'}. Suggested peripheral margin ${marginFor(r)}.`,
     },
     incomplete: [], source: r.tumour === 'bcc' ? 'NCCN Basal Cell Skin Cancer risk table; BAD BCC guideline 2021' : 'BAD cSCC guideline 2020 (Keohane et al.); NCCN Squamous Cell Skin Cancer',
+    detail: carried ? [`Pre-operative risk features (immunosuppression, radiotherapy, perineural symptoms, clinical features) carried from the review of ${carried}.`] : undefined,
     flag: r.tier === 'very_high' ? { level: 'red', reason: `Very-high-risk cSCC (${r.veryHigh.join('; ')}): MDT, 10 mm margins or margin control, and adjuvant radiotherapy discussion (BAD 2020).` } : undefined,
   };
 };
@@ -570,7 +591,7 @@ const stagingWorkup: PlanRule = ctx => {
 const marginPlan: PlanRule = ctx => {
   if (ctx.phase !== 'pre_op') return null;
   const a = ctx.answers;
-  const r = skinTumourRisk(a);
+  const r = skinTumourRisk(a, ctx.prior);
   const why = `${TIER_LABEL[r.tier ?? 'low']} ${r.tumour === 'bcc' ? 'BCC' : 'cSCC'}${[...r.veryHigh, ...r.features].length ? `: ${[...r.veryHigh, ...r.features].join('; ')}` : ''}`;
   const marjolin = hasAny(a, f('predisposition'), 'marjolin');
   const planned = numOf(a, f('margin_mm'));
@@ -646,7 +667,7 @@ const postOp: PlanRule = ctx => {
   if (ctx.phase !== 'post_op' && ctx.phase !== 'follow_up') return null;
   const a = ctx.answers;
   const h = a[f('histology')];
-  const r = skinTumourRisk(a);
+  const r = skinTumourRisk(a, ctx.prior);
   const ms = a[f('margin_status')];
   const tumourName = r.tumour === 'bcc' ? 'BCC' : 'cSCC';
   return merge(
@@ -683,7 +704,7 @@ const earlyRecovery: PlanRule = ctx => {
 const surveillance: PlanRule = ctx => {
   if (ctx.phase !== 'follow_up') return null;
   const a = ctx.answers;
-  const r = skinTumourRisk(a);
+  const r = skinTumourRisk(a, ctx.prior);
   return merge(
     isOneOf(a, f('local'), 'suspicious') && { problem: { investigations: [L('Biopsy the scar lesion; MDT if recurrence is confirmed', 'Possible local recurrence', 'urgent')] } },
     isOneOf(a, f('new_lesions'), 'suspicious') && { problem: { investigations: [L('Biopsy or excise the new suspicious lesion', 'New suspicious lesion on full skin examination')] } },
@@ -706,7 +727,7 @@ const education: PlanRule = () => ({
 
 // ── The module ──────────────────────────────────────────────────────────────
 
-const riskFor = (c: PlanContext) => skinTumourRisk(c.answers);
+const riskFor = (c: PlanContext) => skinTumourRisk(c.answers, c.prior);
 
 export const skinTumourExcision: ProcedureModule = {
   id: ID,
@@ -754,7 +775,7 @@ export const skinTumourExcision: ProcedureModule = {
     risks: [
       { name: 'Incomplete excision', description: 'The laboratory may find cancer at the edge of the removed skin, so a second operation or radiotherapy is needed' },
       { name: 'Recurrence', description: 'The cancer can come back at the scar even after complete removal; the risk is higher for recurrent or high-risk tumours', frequency: 'about 10% at 5 years for BCC after standard excision; lower with clear margins (Rowe 1989)' },
-      { name: 'Further skin cancers', description: 'Another skin cancer elsewhere is common after the first, so skin checks continue', frequency: 'about 44% develop another BCC within 3 years (Marcil & Stern 2000)' },
+      { name: 'Further skin cancers', description: 'Another skin cancer elsewhere is common after the first, so skin checks continue', frequency: 'within 3 years, about 44% after a BCC develop another BCC, and about 18% after a cSCC develop another cSCC (Marcil & Stern 2000)' },
       { name: 'Scar and distortion', description: 'A scar longer than the lesion (about three times its length); on the face, possible pulling of the eyelid, lip or nostril' },
       { name: 'Nerve injury', description: 'Numbness around the scar is common; injury to a branch of the facial nerve (brow or lip weakness) is rare' },
       { name: 'Wound problems', description: 'Bleeding, infection or wound opening; a graft or flap may partly fail' },
