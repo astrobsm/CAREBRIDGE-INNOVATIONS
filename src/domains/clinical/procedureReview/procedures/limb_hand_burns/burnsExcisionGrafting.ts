@@ -151,7 +151,9 @@ const ACUTE: EncounterSection = {
       ],
     },
     { id: f('cohb'), label: 'Carboxyhaemoglobin', kind: 'number', unit: '%', min: 0, max: 80,
-      showWhen: { field: f('inhalation'), equals: ['suspected', 'confirmed'] } },
+      showWhen: { field: f('inhalation'), equals: ['suspected', 'confirmed'] },
+      help: 'Any level with symptoms (headache, confusion, reduced consciousness) is significant; pulse oximetry reads falsely normal.',
+      numericFlags: [{ op: '>', value: 10, level: 'red', reason: 'Carbon monoxide poisoning (COHb above 10%): 100% oxygen by non-rebreather, senior / critical-care review; consider cyanide in an enclosed-space fire (ISBI 2016).' }] },
     {
       id: f('escharotomy'), label: 'Escharotomy', kind: 'select',
       options: [
@@ -368,6 +370,8 @@ export const bauxScore: ScoreRule = ({ phase, answers: a, patient }) => {
   if (tbsa == null) return null;
   const age = patient.ageYears;
   const inh = isOneOf(a, f('inhalation'), 'suspected', 'confirmed');
+  // Revised Baux was derived in adults; it is not used under 16.
+  if (age != null && age < 16) return null;
   if (age == null) {
     return { id: `${ID}.baux`, name: 'Revised Baux score', abbreviation: 'rBaux', total: null, band: null, incomplete: ['Age (from the patient record)'],
       source: 'calculators/engine/calculationEngine.calculateBaux (Osler T et al. J Trauma 2010;68:690-7)' };
@@ -389,6 +393,10 @@ export const parklandScore: ScoreRule = ({ phase, answers: a, patient }) => {
   if (tbsa == null || tbsa <= 0) return null;
   const child = patient.ageYears != null && patient.ageYears < 16;
   if (tbsa < (child ? 10 : 20)) return null;
+  // The TBSA field's own flag is at 20%; a child is a major burn from 10% (ISBI 2016).
+  const childFlag = child && tbsa < 20
+    ? { level: 'amber' as const, reason: `${tbsa}% TBSA in a child: major burn (10% or more in children) — formal fluid resuscitation and burns-unit care (ISBI 2016).` }
+    : undefined;
   const hrs = numOf(a, f('hours_since'));
   if (hrs != null && hrs >= 48) return null;
   // A pre-operative review days after the burn is past the resuscitation window.
@@ -396,7 +404,7 @@ export const parklandScore: ScoreRule = ({ phase, answers: a, patient }) => {
   if (days != null && days >= 2) return null;
   const r = wt != null ? calculateParkland(wt, tbsa) : null;
   if (!r || wt == null) {
-    return { id: `${ID}.fluids`, name: 'Burn resuscitation volume (first 24 hours)', abbreviation: 'Fluids', total: null, band: null, incomplete: ['Weight'],
+    return { id: `${ID}.fluids`, name: 'Burn resuscitation volume (first 24 hours)', abbreviation: 'Fluids', total: null, band: null, incomplete: ['Weight'], flag: childFlag,
       source: 'calculators/engine/calculationEngine.calculateParkland (ABA 2 mL/kg/%TBSA starting; Parkland 4 mL/kg/%TBSA)' };
   }
   // ABLS 2018 starting volumes: adults 2, children 3, high-voltage electrical
@@ -420,6 +428,7 @@ export const parklandScore: ScoreRule = ({ phase, answers: a, patient }) => {
     band: { label: `${total} mL starting estimate at ${mlPerKg} mL/kg/%TBSA${highVoltage ? ' (high-voltage injury)' : child ? ' (child)' : ''}; Parkland reference ${r.parklandUpperBound24h} mL`, level: 'moderate',
       interpretation: `Lactated Ringer's / Hartmann's: ${timing}.${maint != null ? ` Plus maintenance with dextrose (e.g. 5% dextrose in Hartmann's or 0.45% saline) at about ${maint} mL/h (Holliday–Segar), monitoring glucose.` : ''} A starting estimate only: titrate hourly to urine output.` },
     incomplete: hrs == null ? ['Hours since the burn'] : [],
+    flag: childFlag,
     source: 'calculators/engine/calculationEngine.calculateParkland, scaled per ABLS 2018 (2 mL/kg/%TBSA adults, 3 children, 4 high-voltage electrical); classic Parkland 4 mL/kg/%TBSA shown as the reference',
   };
 };
@@ -523,6 +532,21 @@ const acute: PlanRule = ctx => {
   ) : null;
   if (crit?.meetsCriteria) {
     parts.push({ problem: { referrals: [L('Manage in the burns unit under a burns consultant (or refer to the nearest burns centre)', `ABA burn-centre criteria: ${crit.reasons.join('; ')}`)] } });
+  }
+  // Unknown age: the criteria cannot be checked, so refer on the features that
+  // need a burns centre at any age — never silence.
+  const ageFree = [inh && 'inhalation injury', isOneOf(a, f('mechanism'), 'chemical') && 'chemical burn',
+    isOneOf(a, f('mechanism'), 'electrical_low', 'electrical_high') && 'electrical injury', special.length > 0 && 'special area',
+    tbsa >= 10 && `${tbsa}% TBSA`].filter(Boolean) as string[];
+  if (ctx.patient.ageYears == null && ageFree.length) {
+    parts.push({ problem: { referrals: [L('Discuss with the burns unit / nearest burns centre now; record the age — a child or older adult meets the referral criteria at a smaller burn', `${ageFree.join(', ')}; age not recorded — refer if child or elderly (ABA burn-centre criteria)`, 'urgent')] } });
+  }
+  if (isChild(ctx) && tbsa >= 10 && tbsa < 20) {
+    parts.push({ cautions: [`${tbsa}% TBSA in a child: a major burn (10% or more in children) — formal fluid resuscitation and burns-unit care (ISBI 2016).`] });
+  }
+  const cohb = numOf(a, f('cohb'));
+  if (cohb != null && cohb > 10) {
+    parts.push({ problem: { treatment: [L('100% oxygen by non-rebreather (or via the tube) until COHb is normal; senior / critical-care review; consider cyanide poisoning (lactate, enclosed-space fire) and hydroxocobalamin', `COHb ${cohb}% (ISBI 2016)`, 'urgent')] } });
   }
   if (isOneOf(a, f('healing_expected'), 'over_3w')) {
     parts.push({ problem: { treatment: [L('Plan early excision and autografting of the deep areas once resuscitated — within the first week', 'Deep burn not expected to heal within 3 weeks (ISBI 2016; Ong 2006; Deitch 1983)')] } });
