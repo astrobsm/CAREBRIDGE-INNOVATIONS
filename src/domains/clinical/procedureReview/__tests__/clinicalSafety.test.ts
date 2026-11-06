@@ -13,6 +13,7 @@ import { filterPlan, toTreatmentPlan } from '../../scribe/approval';
 import type { EncounterAnswers } from '../../data/encounterModel';
 import type { PriorReview, ReviewPatient, ReviewPhase } from '../types';
 import { isVisible } from '../../services/templateEngine';
+import { riskKey } from '../../../surgery/utils/surgicalDocumentGenerator';
 
 const mod = (id: string) => getModule(id)!;
 const lines = (id: string, phase: ReviewPhase, a: EncounterAnswers, p: ReviewPatient = adult()) =>
@@ -314,5 +315,244 @@ describe('H2: comorbidity state carried into post-op and follow-up', () => {
   it('never fills a field the current form asks', () => {
     const r = readReview({ module: mod('free_flap'), phase: 'pre_op', answers: {}, patient: adult(), prior: preOp({ 'core.renal': 'dialysis' }) });
     expect(r.planAnswers['core.renal']).toBeUndefined();
+  });
+});
+
+describe('H3: emergency fasting and therapeutic antibiotics', () => {
+  it('uses emergency (RSI) wording, not the 6-hour line, for ASA E or an emergency module', () => {
+    for (const [id, a] of [['skin_graft', { 'core.asa_emergency': true }], ['necrotising_soft_tissue_infection', {}]] as const) {
+      const t = texts(id, 'pre_op', a);
+      expect(t.some(x => /^Emergency: not fasted/.test(x)), id).toBe(true);
+      expect(t.some(x => /^Fasting: no food or milk for 6 hours/.test(x)), id).toBe(false);
+    }
+    expect(texts('skin_graft', 'pre_op', {}).some(x => /^Fasting: no food or milk/.test(x))).toBe(true);
+  });
+
+  it('does not tell a patient on therapeutic antibiotics to stop at 24 hours', () => {
+    for (const [id, a] of [
+      ['necrotising_soft_tissue_infection', {}],
+      ['tendon_repair', { 'tendon_repair.mechanism': 'bite' }],
+      ['diabetic_foot_debridement', { 'diabetic_foot_debridement.infection_grade': '3' }],
+      ['local_regional_flap', { 'local_regional_flap.indication': 'open_fracture' }],
+    ] as const) {
+      const t = texts(id, 'pre_op', a);
+      expect(t.some(x => /not continued beyond 24 hours/.test(x)), id).toBe(false);
+      expect(t.some(x => /^Therapeutic antibiotics are part of this plan/.test(x)), id).toBe(true);
+    }
+    expect(texts('skin_graft', 'pre_op', {}).some(x => /not continued beyond 24 hours/.test(x))).toBe(true);
+  });
+});
+
+describe('oncology: follow-up fixes', () => {
+  const consentText = (id: string, a: EncounterAnswers, p: ReviewPatient = adult()) =>
+    JSON.stringify(buildConsentDraft(contextFor(mod(id), 'pre_op', a, p), [], { patient: { name: 'Test', hospitalNumber: '1' } as never })!);
+
+  it('watches the airway after head and neck sclerotherapy, and escalates stridor', () => {
+    const base = { 'vascular_anomaly.issva': 'lm', 'vascular_anomaly.site': 'beard_airway', 'vascular_anomaly.intervention': 'sclerotherapy' };
+    expect(lines('vascular_anomaly', 'post_op', base).some(l => /Airway observation for 24–72 hours/.test(l.text) && l.priority === 'urgent')).toBe(true);
+    expect(fields('vascular_anomaly', 'post_op')).toContain('vascular_anomaly.airway_post');
+    const em = lines('vascular_anomaly', 'post_op', { ...base, 'vascular_anomaly.airway_post': 'stridor' });
+    expect(em.some(l => /^Airway emergency/.test(l.text) && l.priority === 'urgent')).toBe(true);
+    expect(lines('vascular_anomaly', 'post_op', { ...base, 'vascular_anomaly.site': 'limb' }).some(l => /Airway observation/.test(l.text))).toBe(false);
+  });
+
+  it('adds ethanol and bleomycin consent risks when chosen', () => {
+    const a = { 'vascular_anomaly.issva': 'vm', 'vascular_anomaly.intervention': 'sclerotherapy', 'vascular_anomaly.sclerosant': ['ethanol', 'bleomycin'] };
+    const t = consentText('vascular_anomaly', a);
+    expect(t).toMatch(/collapse of the heart and lungs/);
+    expect(t).toMatch(/damage the lungs/);
+    expect(consentText('vascular_anomaly', { ...a, 'vascular_anomaly.sclerosant': ['sts_polidocanol'] })).not.toMatch(/damage the lungs/);
+  });
+
+  it('does not start propranolol with an absolute contraindication, and starts at 1 mg/kg/day otherwise', () => {
+    const base = { 'vascular_anomaly.issva': 'ih', 'vascular_anomaly.intervention': 'propranolol' };
+    for (const c of ['heart_block', 'asthma', 'hypotension', 'weight_under_2kg']) {
+      const t = texts('vascular_anomaly', 'pre_op', { ...base, 'vascular_anomaly.prop_contra': [c] }, infant(3));
+      expect(t.some(x => /^Do not start propranolol/.test(x)), c).toBe(true);
+      expect(t.some(x => /^Propranolol: start 1 mg\/kg\/day/.test(x)), c).toBe(false);
+    }
+    expect(texts('vascular_anomaly', 'pre_op', { ...base, 'core.weight_kg': 1.8 }, infant(3)).some(x => /^Do not start propranolol/.test(x))).toBe(true);
+    expect(texts('vascular_anomaly', 'pre_op', { ...base, 'vascular_anomaly.prop_contra': ['none'] }, infant(3)).some(x => /^Propranolol: start 1 mg\/kg\/day.*2 mg\/kg\/day/.test(x))).toBe(true);
+  });
+
+  it('monitors sirolimus', () => {
+    expect(texts('vascular_anomaly', 'pre_op', { 'vascular_anomaly.issva': 'khe', 'vascular_anomaly.intervention': 'sirolimus' }).some(x => /trough levels/.test(x))).toBe(true);
+    expect(texts('vascular_anomaly', 'follow_up', { 'vascular_anomaly.issva': 'khe', 'vascular_anomaly.intervention': 'sirolimus' }).some(x => /no live vaccines/.test(x))).toBe(true);
+  });
+
+  it('uses radiocolloid only for SLNB in pregnancy or blue-dye allergy, and consents for dye anaphylaxis, seroma and lymphoedema', () => {
+    const a = { 'melanoma_wle.invasion': 'invasive', 'melanoma_wle.breslow_mm': 2, 'melanoma_wle.nodes': 'normal', 'melanoma_wle.slnb': 'planned' };
+    const preg = adult({ sex: 'female', ageYears: 30 });
+    expect(texts('melanoma_wle', 'pre_op', { ...a, 'core.pregnancy': 'pregnant' }, preg).some(x => /radiocolloid .* only — no blue dye/.test(x))).toBe(true);
+    expect(cautions('melanoma_wle', 'pre_op', { ...a, 'melanoma_wle.blue_dye_allergy': 'yes' }).some(c => /no blue dye/.test(c))).toBe(true);
+    expect(texts('melanoma_wle', 'pre_op', a).some(x => /no blue dye/.test(x))).toBe(false);
+    const t = consentText('melanoma_wle', a);
+    expect(t).toMatch(/anaphylaxis/);
+    expect(t).toMatch(/0\.1–1%/);
+    expect(t).toMatch(/Lymphoedema after sentinel node biopsy/);
+    expect(t).toMatch(/Seroma after sentinel node biopsy/);
+  });
+
+  it('keeps a transplant recipient cSCC high risk after the operation', () => {
+    const pre = { 'skin_tumour_excision.diagnosis': 'scc', 'skin_tumour_excision.site': 'trunk', 'skin_tumour_excision.size_mm': 8, 'core.immune': ['transplant'] };
+    const prior: PriorReview[] = [{ encounterId: 'e1', at: '2026-10-01T09:00:00Z', moduleId: 'skin_tumour_excision', phase: 'pre_op', answers: pre, scores: [] }];
+    const fu = { 'skin_tumour_excision.diagnosis': 'scc', 'skin_tumour_excision.site': 'trunk', 'skin_tumour_excision.size_mm': 8, 'skin_tumour_excision.histology': 'scc_well', 'skin_tumour_excision.margin_status': 'clear' };
+    const r = readReview({ module: mod('skin_tumour_excision'), phase: 'follow_up', answers: fu, patient: adult(), prior });
+    expect(r.scoreMap['skin_tumour_excision.risk'].band?.label).toBe('High risk');
+    expect(readReview({ module: mod('skin_tumour_excision'), phase: 'follow_up', answers: fu, patient: adult() }).scoreMap['skin_tumour_excision.risk'].band?.label).toBe('Low risk');
+    const t = planLines(planFor(mod('skin_tumour_excision'), 'follow_up', fu, adult(), prior).plan).map(l => l.line.text);
+    expect(t.some(x => /^Low-risk cSCC/.test(x))).toBe(false);
+  });
+
+  it('gives the right second-cancer figure and a tumour-neutral 40 mm flag', () => {
+    expect(consentText('skin_tumour_excision', { 'skin_tumour_excision.diagnosis': 'scc' })).toMatch(/about 18% after a cSCC/);
+    const r = readReview({ module: mod('skin_tumour_excision'), phase: 'pre_op', answers: { 'skin_tumour_excision.diagnosis': 'bcc', 'skin_tumour_excision.size_mm': 45 }, patient: adult() });
+    expect(r.flags.find(fl => /Over 40 mm/.test(fl.reason))?.reason).toMatch(/high risk for a BCC/);
+  });
+
+  it('states the triamcinolone per-session ceiling', () => {
+    expect(texts('keloid_management', 'pre_op', { 'keloid_management.plan': 'steroid' }).some(x => /up to 40 mg in adults .* check the local protocol/.test(x))).toBe(true);
+  });
+});
+
+describe('module fixes (round 2)', () => {
+  it('treats a high-pressure injection injury as a same-day emergency', () => {
+    for (const id of ['tendon_repair', 'nerve_repair_hand_trauma'] as const) {
+      const a = { [`${id}.mechanism`]: 'high_pressure' };
+      const r = readReview({ module: mod(id), phase: 'pre_op', answers: a, patient: adult() });
+      expect(r.flags.some(f => f.level === 'red' && /High-pressure/.test(f.reason)), id).toBe(true);
+      expect(lines(id, 'pre_op', a).some(l => /same-day emergency surgical exploration/.test(l.text) && /no digital block with adrenaline/.test(l.text) && l.priority === 'urgent'), id).toBe(true);
+    }
+  });
+
+  it('gives the BOAST open-fracture antibiotic line, urgent unless given within 1 hour', () => {
+    const l = (x?: string) => lines('local_regional_flap', 'pre_op', { 'local_regional_flap.indication': 'open_fracture', ...(x ? { 'local_regional_flap.fracture_antibiotics': x } : {}) })
+      .find(y => /within 1 hour of injury, continued until definitive soft-tissue cover/.test(y.text));
+    expect(l()?.priority).toBe('urgent');
+    expect(l('within_1h')?.priority).toBe('routine');
+  });
+
+  it('does not count a missing extension deficit as 0 in the Strickland score', () => {
+    const r = readReview({ module: mod('tendon_repair'), phase: 'follow_up', answers: { 'tendon_repair.type': 'flexor', 'tendon_repair.pip_flex': 90, 'tendon_repair.dip_flex': 60 }, patient: adult() });
+    const s = r.scoreMap['tendon_repair.strickland'];
+    expect(s.total).toBeNull();
+    expect(s.incomplete).toContain('PIP extension deficit');
+  });
+
+  it('burns: refers when age is unknown, flags a child at 10%, CoHb, and no Baux under 16', () => {
+    const unknown = adult({ ageYears: null, ageMonths: null });
+    expect(lines('burns_excision_grafting', 'wound_review', { 'burns_excision_grafting.tbsa': 12, 'burns_excision_grafting.inhalation': 'suspected' }, unknown)
+      .some(l => /age not recorded/.test(l.why ?? '') && l.priority === 'urgent')).toBe(true);
+    const child = readReview({ module: mod('burns_excision_grafting'), phase: 'wound_review', answers: { 'burns_excision_grafting.tbsa': 12, 'core.weight_kg': 20 }, patient: adult({ ageYears: 6 }) });
+    expect(child.flags.some(f => /major burn \(10% or more in children\)/.test(f.reason))).toBe(true);
+    expect(child.scoreMap['burns_excision_grafting.baux']).toBeUndefined();
+    const co = { 'burns_excision_grafting.tbsa': 5, 'burns_excision_grafting.inhalation': 'suspected', 'burns_excision_grafting.cohb': 15 };
+    expect(readReview({ module: mod('burns_excision_grafting'), phase: 'wound_review', answers: co, patient: adult() }).flags.some(f => f.level === 'red' && /COHb/.test(f.reason))).toBe(true);
+    expect(texts('burns_excision_grafting', 'wound_review', co).some(x => /100% oxygen.*cyanide/.test(x))).toBe(true);
+  });
+
+  it('breast / body contouring: lidocaine over 35 mg/kg is red and urgent; pregnancy defers surgery', () => {
+    const a = { 'breast_and_body_contouring.procedures': ['liposuction'], 'breast_and_body_contouring.lidocaine_mg_kg': 50 };
+    const f = adult({ sex: 'female', ageYears: 35 });
+    const r = readReview({ module: mod('breast_and_body_contouring'), phase: 'pre_op', answers: a, patient: f });
+    expect(r.flags.some(x => x.level === 'red' && /Lidocaine over 35/.test(x.reason))).toBe(true);
+    expect(lines('breast_and_body_contouring', 'pre_op', a, f).some(l => /Planned lidocaine 50 mg\/kg/.test(l.text) && l.priority === 'urgent')).toBe(true);
+    expect(cautions('breast_and_body_contouring', 'pre_op', { 'core.pregnancy': 'pregnant' }, f).some(c => /do not book elective/.test(c))).toBe(true);
+  });
+
+  it('asks the core tetanus question where clinically indicated', () => {
+    expect(fields('diabetic_foot_debridement', 'wound_review')).toContain('core.tetanus');
+    expect(fields('diabetic_foot_debridement', 'pre_op')).toContain('core.tetanus');
+    const tet = (id: string, a: EncounterAnswers) =>
+      isVisible(composeTemplate(mod(id), 'pre_op').sections.flatMap(s => s.fields).find(x => x.id === 'core.tetanus')!, a);
+    expect(tet('lower_limb_amputation', { 'lower_limb_amputation.indication': 'diabetic_sepsis' })).toBe(true);
+    expect(tet('lower_limb_amputation', { 'lower_limb_amputation.indication': 'tumour' })).toBe(false);
+    expect(tet('skin_graft', { 'skin_graft.indication': 'burn' })).toBe(true);
+    expect(tet('skin_graft', { 'skin_graft.indication': 'post_excision' })).toBe(false);
+    expect(tet('local_regional_flap', { 'local_regional_flap.indication': 'open_fracture' })).toBe(true);
+    expect(tet('scalp_reconstruction', { 'scalp_reconstruction.cause': 'trauma' })).toBe(true);
+    const w = composeTemplate(mod('wound_care_review'), 'wound_review').sections.flatMap(s => s.fields).find(x => x.id === 'core.tetanus')!;
+    expect(isVisible(w, { 'core.wound_aetiology': 'venous' })).toBe(true);
+  });
+
+  it('keeps adult itch, water and phantom-pain advice away from infants and children', () => {
+    expect(texts('skin_graft', 'follow_up', { 'skin_graft.itch': 'troublesome' }, infant(12)).some(x => /sedating antihistamine at night|gabapentinoid for persistent/.test(x))).toBe(false);
+    expect(texts('skin_graft', 'follow_up', { 'skin_graft.itch': 'troublesome' }, adult({ ageYears: 8 })).some(x => /consider a gabapentinoid/.test(x))).toBe(false);
+    expect(texts('cleft_lip_palate', 'post_op', {}, infant(4)).some(x => /clear water after feeds/.test(x))).toBe(false);
+    expect(texts('cleft_lip_palate', 'post_op', {}, infant(10)).some(x => /clear water after feeds/.test(x))).toBe(true);
+    const ph = texts('lower_limb_amputation', 'post_op', { 'lower_limb_amputation.phantom': 'pain' }, adult({ ageYears: 7 }));
+    expect(ph.some(x => /amitriptyline/.test(x))).toBe(false);
+    expect(ph.some(x => /paediatric pain team/.test(x))).toBe(true);
+  });
+
+  it('free flap: black flap drops routine monitoring; limb modules carry the acute-ischaemia safety net; NPWT lidocaine ceiling', () => {
+    expect(texts('free_flap', 'post_op', { 'free_flap.flap_colour': 'black' }).some(x => /^Flap observations hourly/.test(x))).toBe(false);
+    for (const [id, phase] of [['diabetic_foot_debridement', 'wound_review'], ['lower_limb_amputation', 'pre_op']] as const) {
+      expect(texts(id, phase, {}).some(x => /acute limb ischaemia/.test(x)), id).toBe(true);
+    }
+    expect(texts('npwt', 'wound_review', { 'npwt.precautions': ['ischaemic'] }).some(x => /acute limb ischaemia/.test(x))).toBe(true);
+    expect(texts('npwt', 'wound_review', { 'npwt.pain_change': 'severe' }).some(x => /maximum 3 mg\/kg plain lidocaine/.test(x))).toBe(true);
+  });
+});
+
+describe('core: age gates (round 2)', () => {
+  it('asks pregnancy of females from 12 only, and adult anaesthetic tools of adults only', () => {
+    const girl = (y: number) => adult({ sex: 'female', ageYears: y });
+    expect(fields('skin_graft', 'pre_op', girl(10))).not.toContain('core.pregnancy');
+    expect(fields('skin_graft', 'pre_op', girl(13))).toContain('core.pregnancy');
+    expect(fields('skin_graft', 'pre_op', adult({ sex: 'male' }))).not.toContain('core.pregnancy');
+    const kid = fields('skin_graft', 'pre_op', adult({ ageYears: 8 }));
+    for (const id of ['core.sb_snoring', 'core.neck_cm', 'core.rcri', 'core.mets', 'core.smoking', 'core.alcohol']) expect(kid, id).not.toContain(id);
+    expect(kid).toContain('core.apfel.history');
+    expect(fields('cleft_lip_palate', 'pre_op', infant(10))).not.toContain('core.apfel.history');
+    expect(fields('skin_graft', 'pre_op', adult())).toContain('core.sb_snoring');
+  });
+
+  it('scores Apfel in a child without asking about smoking', () => {
+    const r = readReview({ module: mod('skin_graft'), phase: 'pre_op', answers: { 'core.apfel.history': 1, 'core.apfel.opioids': 1 }, patient: adult({ ageYears: 8, sex: 'female' }) });
+    expect(r.scoreMap.apfel.total).toBe(4);
+  });
+
+  it('uses adolescent wording for alcohol and smoking', () => {
+    const teen = adult({ ageYears: 15 });
+    const t = texts('skin_graft', 'pre_op', { 'core.alcohol': 'within', 'core.smoking': 'current' }, teen);
+    expect(t.some(x => /^Alcohol use under 18: no amount is low-risk/.test(x))).toBe(true);
+    expect(t.some(x => /nicotine replacement can be used from 12 years/.test(x))).toBe(true);
+  });
+
+  it('has no Wells / calf-pain VTE wording under 16, but keeps a swollen-limb prompt', () => {
+    const child = adult({ ageYears: 8 });
+    const t = texts('skin_graft', 'post_op', { 'core.complications': ['vte'] }, child);
+    expect(t.some(x => /Wells/.test(x) || /^Calf pain/.test(x))).toBe(false);
+    expect(t.some(x => /swollen painful limb or suspected clot in a child/i.test(x))).toBe(true);
+    expect(t.some(x => /A swollen, painful arm or leg/.test(x))).toBe(true);
+    expect(texts('skin_graft', 'post_op', { 'core.complications': ['vte'] }).some(x => /Wells score/.test(x))).toBe(true);
+  });
+});
+
+describe('core: tetanus given today, METs direction, consent merging', () => {
+  it('still asks the wound risk after a dose given today, and prompts immunoglobulin', () => {
+    const f = composeTemplate(mod('tendon_repair'), 'pre_op').sections.flatMap(s => s.fields).find(x => x.id === 'core.tetanus_wound')!;
+    expect(isVisible(f, { 'core.tetanus': 'given_today' })).toBe(true);
+    expect(lines('tendon_repair', 'pre_op', { 'core.tetanus': 'given_today', 'core.tetanus_wound': 'high_risk' }).some(l => /^Vaccine given today — decide on immunoglobulin/.test(l.text) && l.priority === 'urgent')).toBe(true);
+    expect(texts('tendon_repair', 'pre_op', { 'core.tetanus': 'given_today', 'core.tetanus_wound': 'clean' }).some(x => /Vaccine given today/.test(x))).toBe(false);
+  });
+
+  it('reads a rise in METs as better', () => {
+    const prior: PriorReview[] = [{ encounterId: 'e1', at: '2026-10-01T09:00:00Z', moduleId: 'skin_graft', phase: 'pre_op', answers: {}, scores: [{ id: 'mets', name: 'Functional capacity', abbreviation: 'METs', total: 3, band: null, incomplete: [], source: '' }] }];
+    const r = readReview({ module: mod('skin_graft'), phase: 'pre_op', answers: { 'core.mets': '8' }, patient: adult(), prior });
+    expect(r.comparison.find(c => c.label === 'METs')?.trend).toBe('better');
+  });
+
+  it('states each kind of risk once on the consent form', () => {
+    const risks = (id: string) => buildConsentDraft(contextFor(mod(id), 'pre_op', {}), [], { patient: { name: 'Test', hospitalNumber: '1' } as never })!
+      .sections.find(s => s.title === 'Risks and possible complications')!.bullets!;
+    const kinds = (id: string) => risks(id).map(r => riskKey(r));
+    for (const id of ['burns_excision_grafting', 'tendon_repair', 'skin_graft', 'free_flap']) {
+      const k = kinds(id);
+      expect(new Set(k).size, `${id}: ${k.join(' | ')}`).toBe(k.length);
+    }
+    const burns = risks('burns_excision_grafting');
+    expect(burns.some(r => /may rarely require a blood transfusion/.test(r))).toBe(false);
   });
 });
