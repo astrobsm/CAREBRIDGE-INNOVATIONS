@@ -65,6 +65,7 @@ export const UNIT_RULES: Record<string, UnitRule> = {
   phosphate: { canonical: 'mmol/L', convert: { 'mmol/l': 1, 'mg/dl': 0.3229 } },
   albumin: { canonical: 'g/L', convert: { 'g/l': 1, 'g/dl': 10 } },
   totalProtein: { canonical: 'g/L', convert: { 'g/l': 1, 'g/dl': 10 } },
+  prealbumin: { canonical: 'mg/L', convert: { 'mg/l': 1, 'mg/dl': 10, 'g/l': 1000 } },
   fibrinogen: { canonical: 'g/L', convert: { 'g/l': 1, 'mg/dl': 0.01 } },
   ddimer: { canonical: 'mg/L FEU', convert: { 'mg/lfeu': 1, 'mg/l': 1, 'ug/ml': 1, 'ng/ml': 0.001, 'ug/mlfeu': 1, 'ng/mlfeu': 0.001, 'ug/l': 0.001 } },
   crp: { canonical: 'mg/L', convert: { 'mg/l': 1, 'mg/dl': 10 } },
