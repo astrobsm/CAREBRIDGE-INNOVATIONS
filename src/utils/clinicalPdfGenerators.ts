@@ -1688,6 +1688,7 @@ export function generateAdmissionSummaryPDF(options: AdmissionSummaryPDFOptions)
 // These helpers convert database entities directly to PDF without needing complex options
 
 import type { Wound, BurnAssessment, NutritionAssessment, Admission, ClinicalEncounter, Patient, Diagnosis } from '../types';
+import { mustTotal } from '../domains/nutrition/types';
 
 const DEFAULT_HOSPITAL = 'AstroHEALTH Innovations in Healthcare';
 
@@ -1801,24 +1802,20 @@ export function generateNutritionPDFFromEntity(assessment: NutritionAssessment, 
       };
 
   // Determine MUST risk level
+  // Older rows may still hold the MUST breakdown object in mustScore (moved to
+  // mustBreakdown by Dexie v93); mustTotal() reads either shape.
   const getMustRisk = (): 'low' | 'medium' | 'high' => {
-    const mustScore = assessment.mustScore;
-    if (typeof mustScore === 'object' && mustScore !== null && 'riskLevel' in mustScore) {
-      return mustScore.riskLevel;
-    }
-    const score = typeof mustScore === 'number' ? mustScore : 0;
+    const legacy = assessment.mustScore as unknown;
+    const breakdown = assessment.mustBreakdown
+      ?? (typeof legacy === 'object' && legacy !== null && 'riskLevel' in legacy ? legacy as { riskLevel: 'low' | 'medium' | 'high' } : null);
+    if (breakdown) return breakdown.riskLevel;
+    const score = mustTotal(assessment) ?? 0;
     if (score === 0) return 'low';
     if (score === 1) return 'medium';
     return 'high';
   };
 
-  const getMustScoreNumber = (): number => {
-    const mustScore = assessment.mustScore;
-    if (typeof mustScore === 'object' && mustScore !== null && 'totalScore' in mustScore) {
-      return mustScore.totalScore;
-    }
-    return typeof mustScore === 'number' ? mustScore : 0;
-  };
+  const getMustScoreNumber = (): number => mustTotal(assessment) ?? 0;
 
   // Calculate caloric needs (Harris-Benedict approximate)
   const weight = assessment.weight || 70;
