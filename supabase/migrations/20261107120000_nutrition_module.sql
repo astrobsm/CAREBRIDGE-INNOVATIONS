@@ -307,4 +307,32 @@ DROP POLICY IF EXISTS app_nutrition_approvals_no_delete ON public.nutrition_appr
 CREATE POLICY app_nutrition_approvals_no_delete ON public.nutrition_approvals AS RESTRICTIVE FOR DELETE TO authenticated
   USING (false);
 
+-- An approval is recorded by the signed-in person, under their own role, and
+-- only a dietician or a doctor may record one: no one can approve "as"
+-- somebody else or as a role they do not hold.
+CREATE OR REPLACE FUNCTION public.app_is_own_nutrition_decision(p_decided_by TEXT, p_role TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.users u
+     WHERE u.auth_user_id = auth.uid()
+       AND u.is_active IS TRUE
+       AND u.id::text = p_decided_by
+       AND u.role = p_role
+       AND u.role IN ('dietician', 'dietitian', 'consultant', 'senior_registrar', 'registrar',
+                      'medical_officer', 'doctor', 'surgeon', 'plastic_surgeon',
+                      'hospital_admin', 'super_admin')
+  )
+$$;
+REVOKE ALL ON FUNCTION public.app_is_own_nutrition_decision(TEXT, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.app_is_own_nutrition_decision(TEXT, TEXT) TO authenticated, service_role;
+
+DROP POLICY IF EXISTS app_nutrition_approvals_own_insert ON public.nutrition_approvals;
+CREATE POLICY app_nutrition_approvals_own_insert ON public.nutrition_approvals AS RESTRICTIVE FOR INSERT TO authenticated
+  WITH CHECK (public.app_is_own_nutrition_decision(decided_by, role));
+
 NOTIFY pgrst, 'reload schema';
