@@ -60,6 +60,9 @@ export const UNIT_RULES: Record<string, UnitRule> = {
   lactate: { canonical: 'mmol/L', convert: { 'mmol/l': 1, 'mg/dl': 0.111 } },
   bilirubinTotal: { canonical: 'umol/L', convert: { 'umol/l': 1, 'mg/dl': 17.1 } },
   bilirubinDirect: { canonical: 'umol/L', convert: { 'umol/l': 1, 'mg/dl': 17.1 } },
+  // Singly charged ions (Na, K, Cl, HCO3) and base excess: 1 mEq/L is 1 mmol/L.
+  monovalent: { canonical: 'mmol/L', convert: { 'mmol/l': 1, 'meq/l': 1 } },
+  // Calcium is divalent: 1 mEq/L is 0.5 mmol/L.
   calcium: { canonical: 'mmol/L', convert: { 'mmol/l': 1, 'mg/dl': 0.25, 'meq/l': 0.5 } },
   magnesium: { canonical: 'mmol/L', convert: { 'mmol/l': 1, 'mg/dl': 0.4114, 'meq/l': 0.5 } },
   phosphate: { canonical: 'mmol/L', convert: { 'mmol/l': 1, 'mg/dl': 0.3229 } },
