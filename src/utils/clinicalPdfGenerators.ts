@@ -1302,14 +1302,15 @@ export interface NutritionAssessmentPDFOptions {
   hospitalPhone?: string;
   hospitalEmail?: string;
   assessedBy: string;
-  height: number;
-  weight: number;
-  bmi: number;
-  mustScore: number;
-  mustRisk: 'low' | 'medium' | 'high';
-  caloricNeeds: number;
-  proteinNeeds: number;
-  fluidNeeds: number;
+  /** null when not recorded: printed as "Not recorded", never a stand-in value. */
+  height: number | null;
+  weight: number | null;
+  bmi: number | null;
+  mustScore: number | null;
+  mustRisk: 'low' | 'medium' | 'high' | 'not_assessed';
+  caloricNeeds: number | null;
+  proteinNeeds: number | null;
+  fluidNeeds: number | null;
   dietaryRestrictions?: string[];
   mealPlan?: { meal: string; items: string[]; calories: number }[];
   supplements?: string[];
@@ -1362,6 +1363,7 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
     low: PDF_COLORS.success,
     medium: PDF_COLORS.warning,
     high: PDF_COLORS.danger,
+    not_assessed: PDF_COLORS.gray,
   };
 
   doc.setFillColor(...(riskColors[mustRisk] || PDF_COLORS.gray));
@@ -1369,7 +1371,7 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
   doc.setFont(PDF_FONTS.primary, 'bold');
-  doc.text(`${mustRisk.toUpperCase()} RISK`, pageWidth - 32.5, yPos + 2, { align: 'center' });
+  doc.text(mustRisk === 'not_assessed' ? 'NOT ASSESSED' : `${mustRisk.toUpperCase()} RISK`, pageWidth - 32.5, yPos + 2, { align: 'center' });
 
   yPos += 5;
   yPos = addPatientInfoBox(doc, yPos, patient);
@@ -1392,10 +1394,11 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
   
   doc.setFontSize(12);
   doc.setTextColor(...PDF_COLORS.primary);
-  doc.text(`${height} cm`, anthropX[0], yPos + 14, { align: 'center' });
-  doc.text(`${weight} kg`, anthropX[1], yPos + 14, { align: 'center' });
-  doc.text(`${bmi.toFixed(1)}`, anthropX[2], yPos + 14, { align: 'center' });
-  doc.text(`${mustScore}`, anthropX[3], yPos + 14, { align: 'center' });
+  const nr = 'Not recorded';
+  doc.text(height != null ? `${height} cm` : nr, anthropX[0], yPos + 14, { align: 'center' });
+  doc.text(weight != null ? `${weight} kg` : nr, anthropX[1], yPos + 14, { align: 'center' });
+  doc.text(bmi != null ? `${bmi.toFixed(1)}` : nr, anthropX[2], yPos + 14, { align: 'center' });
+  doc.text(mustScore != null ? `${mustScore}` : 'Not assessed', anthropX[3], yPos + 14, { align: 'center' });
 
   yPos += 28;
 
@@ -1407,9 +1410,10 @@ export function generateNutritionAssessmentPDF(options: NutritionAssessmentPDFOp
   doc.setFontSize(9);
   doc.setFont(PDF_FONTS.primary, 'bold');
   doc.setTextColor(...PDF_COLORS.dark);
-  doc.text(`Calories: ${caloricNeeds} kcal`, 25, yPos + 9);
-  doc.text(`Protein: ${proteinNeeds}g`, pageWidth / 2 - 20, yPos + 9);
-  doc.text(`Fluids: ${fluidNeeds} mL`, pageWidth - 50, yPos + 9);
+  const need = (v: number | null, unit: string) => (v != null ? `${Math.round(v)} ${unit}` : 'needs weight');
+  doc.text(`Calories: ${need(caloricNeeds, 'kcal')}`, 25, yPos + 9);
+  doc.text(`Protein: ${need(proteinNeeds, 'g')}`, pageWidth / 2 - 20, yPos + 9);
+  doc.text(`Fluids: ${need(fluidNeeds, 'mL')}`, pageWidth - 50, yPos + 9);
 
   yPos += 22;
 
@@ -1804,26 +1808,29 @@ export function generateNutritionPDFFromEntity(assessment: NutritionAssessment, 
   // Determine MUST risk level
   // Older rows may still hold the MUST breakdown object in mustScore (moved to
   // mustBreakdown by Dexie v93); mustTotal() reads either shape.
-  const getMustRisk = (): 'low' | 'medium' | 'high' => {
+  const getMustRisk = (): 'low' | 'medium' | 'high' | 'not_assessed' => {
     const legacy = assessment.mustScore as unknown;
     const breakdown = assessment.mustBreakdown
       ?? (typeof legacy === 'object' && legacy !== null && 'riskLevel' in legacy ? legacy as { riskLevel: 'low' | 'medium' | 'high' } : null);
     if (breakdown) return breakdown.riskLevel;
-    const score = mustTotal(assessment) ?? 0;
+    const score = mustTotal(assessment);
+    // A missing MUST is "not assessed", never "low risk".
+    if (score == null) return 'not_assessed';
     if (score === 0) return 'low';
     if (score === 1) return 'medium';
     return 'high';
   };
 
-  const getMustScoreNumber = (): number => mustTotal(assessment) ?? 0;
+  const getMustScoreNumber = (): number | null => mustTotal(assessment) ?? null;
 
-  // Calculate caloric needs (Harris-Benedict approximate)
-  const weight = assessment.weight || 70;
-  const height = assessment.height || 170;
-  const bmi = assessment.bmi || (weight / ((height / 100) ** 2));
-  const caloricNeeds = weight * 30; // Simple estimate: 30 kcal/kg
-  const proteinNeeds = weight * 1.2; // 1.2 g/kg for hospitalized patients
-  const fluidNeeds = weight * 35; // 35 mL/kg
+  // Nothing is assumed: a missing weight or height prints as "Not recorded"
+  // (this used to stand in 70 kg / 170 cm and print needs worked from them).
+  const weight = assessment.weight || null;
+  const height = assessment.height || null;
+  const bmi = assessment.bmi || (weight && height ? weight / ((height / 100) ** 2) : null);
+  const caloricNeeds = weight ? weight * 30 : null; // Simple estimate: 30 kcal/kg
+  const proteinNeeds = weight ? weight * 1.2 : null; // 1.2 g/kg for hospitalized patients
+  const fluidNeeds = weight ? weight * 35 : null; // 35 mL/kg
 
   generateNutritionAssessmentPDF({
     assessmentId: assessment.id,
