@@ -247,24 +247,24 @@ export const ANALYTES: AnalyteDef[] = [
 
   // ─────────────────────────── ELECTROLYTES ───────────────────────────
   D({
-    key: 'na', label: 'Sodium', module: 'electrolytes', unitRule: 'calcium', unit: 'mmol/L',
+    key: 'na', label: 'Sodium', module: 'electrolytes', unitRule: 'monovalent', unit: 'mmol/L',
     synonyms: ['serum sodium', 'sodium (na)', 'sodium', 'na+', 'na'],
     ref: { low: 135, high: 145 }, crit: { low: 125, high: 155 }, lifeThreat: { low: 120, high: 160 },
     decimals: 0, plausible: { low: 90, high: 200 },
   }),
   D({
-    key: 'k', label: 'Potassium', module: 'electrolytes', unitRule: 'calcium', unit: 'mmol/L',
+    key: 'k', label: 'Potassium', module: 'electrolytes', unitRule: 'monovalent', unit: 'mmol/L',
     synonyms: ['serum potassium', 'potassium (k)', 'potassium', 'k+', 'k'],
     ref: { low: 3.5, high: 5.0 }, crit: { low: 2.5, high: 6.0 }, lifeThreat: { low: 2.0, high: 6.5 },
     decimals: 1, plausible: { low: 1, high: 12 },
   }),
   D({
-    key: 'cl', label: 'Chloride', module: 'electrolytes', unitRule: 'calcium', unit: 'mmol/L',
+    key: 'cl', label: 'Chloride', module: 'electrolytes', unitRule: 'monovalent', unit: 'mmol/L',
     synonyms: ['serum chloride', 'chloride (cl)', 'chloride', 'cl-', 'cl'],
     ref: { low: 98, high: 107 }, decimals: 0, plausible: { low: 50, high: 160 },
   }),
   D({
-    key: 'hco3', label: 'Bicarbonate', module: 'electrolytes', unitRule: 'calcium', unit: 'mmol/L',
+    key: 'hco3', label: 'Bicarbonate', module: 'electrolytes', unitRule: 'monovalent', unit: 'mmol/L',
     synonyms: ['bicarbonate', 'total co2', 'tco2', 'hco3-', 'hco3'],
     ref: { low: 22, high: 29 }, crit: { low: 10, high: 40 }, decimals: 1, plausible: { low: 2, high: 60 },
   }),
@@ -366,7 +366,7 @@ export const ANALYTES: AnalyteDef[] = [
     decimals: 1, plausible: { low: 1, high: 90 },
   }),
   D({
-    key: 'baseExcess', label: 'Base Excess', module: 'abg', unitRule: 'calcium', unit: 'mmol/L',
+    key: 'baseExcess', label: 'Base Excess', module: 'abg', unitRule: 'monovalent', unit: 'mmol/L',
     synonyms: ['base excess', 'standard base excess', 'abe', 'sbe', 'be'],
     ref: { low: -2, high: 2 }, crit: { low: -10, high: 10 }, decimals: 1,
     plausible: { low: -40, high: 40 },
