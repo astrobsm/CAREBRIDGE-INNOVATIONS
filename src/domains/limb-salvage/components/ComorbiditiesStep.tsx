@@ -2,11 +2,13 @@
 import { Heart, Pill, AlertCircle, Calculator } from 'lucide-react';
 import type { RenalStatus, DiabeticFootComorbidities } from '../../../types';
 import { calculateEGFR } from '../../../services/investigationRequestService';
+import { normaliseAlbumin } from '../../nutrition/engine/labs';
 
 interface ComorbiditiesStepProps {
   renalStatus: RenalStatus;
   comorbidities: DiabeticFootComorbidities;
-  albumin: number;
+  /** g/L or g/dL; undefined = not recorded. */
+  albumin?: number;
   prealbumin: number;
   bmi: number;
   mustScore: number;
@@ -15,7 +17,7 @@ interface ComorbiditiesStepProps {
   onUpdate: (data: Partial<{
     renalStatus: RenalStatus;
     comorbidities: DiabeticFootComorbidities;
-    albumin: number;
+    albumin: number | undefined;
     prealbumin: number;
     bmi: number;
     mustScore: number;
@@ -101,11 +103,15 @@ export default function ComorbiditiesStep({
   };
 
   // Get albumin interpretation
-  const getAlbuminStatus = (albumin: number): { text: string; color: string } => {
-    if (albumin >= 3.5) return { text: 'Normal', color: 'text-green-600' };
-    if (albumin >= 3.0) return { text: 'Mildly low', color: 'text-yellow-600' };
-    if (albumin >= 2.5) return { text: 'Moderately low', color: 'text-orange-600' };
-    return { text: 'Severely low', color: 'text-red-600' };
+  // Read in g/L via the nutrition engine, so 28 (g/L) is not mistaken for a
+  // normal g/dL value and an empty field is "not recorded", not normal.
+  const getAlbuminStatus = (albumin: number | undefined): { text: string; color: string } => {
+    const { gPerL } = normaliseAlbumin(albumin);
+    if (gPerL === null) return { text: albumin ? 'Check value/unit' : 'Not recorded', color: 'text-gray-500' };
+    if (gPerL >= 35) return { text: `Normal (${gPerL} g/L)`, color: 'text-green-600' };
+    if (gPerL >= 30) return { text: `Mildly low (${gPerL} g/L)`, color: 'text-yellow-600' };
+    if (gPerL >= 25) return { text: `Moderately low (${gPerL} g/L)`, color: 'text-orange-600' };
+    return { text: `Severely low (${gPerL} g/L)`, color: 'text-red-600' };
   };
 
   const albuminStatus = getAlbuminStatus(albumin);
@@ -449,12 +455,15 @@ export default function ComorbiditiesStep({
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Albumin (g/dL)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Albumin (g/L or g/dL)</label>
             <input
               type="number"
               step="0.1"
-              value={albumin}
-              onChange={(e) => onUpdate({ albumin: parseFloat(e.target.value) || 0 })}
+              value={albumin ?? ''}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                onUpdate({ albumin: Number.isFinite(v) && v > 0 ? v : undefined });
+              }}
               className="w-full px-3 py-2 border rounded-lg"
             />
             <p className={`text-xs mt-1 ${albuminStatus.color}`}>{albuminStatus.text}</p>

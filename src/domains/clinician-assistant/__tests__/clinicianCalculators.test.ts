@@ -13,11 +13,13 @@ import {
  */
 
 describe('energy requirement', () => {
-  it('applies the sex-specific Harris-Benedict equation', () => {
-    // Male: 66 + 13.7(70) + 5(175) - 6.8(40) = 66 + 959 + 875 - 272
-    expect(basalMetabolicRate(70, 175, 40, 'male')).toBeCloseTo(1628, 0);
-    // Female: 655 + 9.6(60) + 1.8(165) - 4.7(40) = 655 + 576 + 297 - 188
-    expect(basalMetabolicRate(60, 165, 40, 'female')).toBeCloseTo(1340, 0);
+  it('applies the sex-specific (revised, canonical) Harris-Benedict equation', () => {
+    // Consolidated onto calculationEngine's revised equation (Roza & Shizgal 1984).
+    // Male: 88.362 + 13.397(70) + 4.799(175) - 5.677(40) = 88.362 + 937.79 + 839.825 - 227.08 = 1638.9
+    //   (the original-1919 rounded form used here before gave 1628)
+    expect(basalMetabolicRate(70, 175, 40, 'male')).toBeCloseTo(1638.9, 0);
+    // Female: 447.593 + 9.247(60) + 3.098(165) - 4.33(40) = 447.593 + 554.82 + 511.17 - 173.2 = 1340.4
+    expect(basalMetabolicRate(60, 165, 40, 'female')).toBeCloseTo(1340.4, 0);
   });
 
   it('returns zero rather than a nonsense figure on missing measurements', () => {

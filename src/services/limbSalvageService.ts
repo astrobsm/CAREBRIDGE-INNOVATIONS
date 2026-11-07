@@ -13,6 +13,7 @@ import type {
   AnkleJointIntegrity,
   LimbSalvageCarePlanOption,
 } from '../types';
+import { normaliseAlbumin } from '../domains/nutrition/engine/labs';
 
 // ============================================================
 // SCORING ALGORITHMS
@@ -29,7 +30,8 @@ export function calculateLimbSalvageScore(assessment: Partial<LimbSalvageAssessm
   const renalScore = calculateRenalScore(assessment.renalStatus);
   const comorbidityScore = calculateComorbidityScore(assessment.comorbidities);
   const ageScore = calculateAgeScore(assessment.patientAge || 0);
-  const nutritionalScore = calculateNutritionalScore(assessment);
+  const nutrition = assessNutritionalComponent(assessment);
+  const nutritionalScore = nutrition.score;
   const ankleJointScore = calculateAnkleJointScore(assessment.ankleJointIntegrity);
 
   const totalScore = woundScore + ischemiaScore + infectionScore + renalScore + comorbidityScore + ageScore + nutritionalScore + ankleJointScore;
@@ -50,6 +52,7 @@ export function calculateLimbSalvageScore(assessment: Partial<LimbSalvageAssessm
     percentage,
     riskCategory: getRiskCategory(percentage),
     salvageProbability: getSalvageProbability(percentage),
+    missingInputs: nutrition.missing,
   };
 }
 
@@ -332,23 +335,39 @@ function calculateAgeScore(age: number): number {
 }
 
 /**
- * Calculate Nutritional Score (0-5 points)
+ * Nutritional component (0-5 points).
+ *
+ * Albumin is normalised to g/L through the nutrition engine (shared unit
+ * converter): it was read as g/dL and defaulted to 4 when missing, so a g/L
+ * value such as 28 read as normal and a missing value read as normal. A
+ * missing albumin or MUST now contributes no points AND is listed in
+ * `missing`, so the total is visibly incomplete rather than silently normal.
  */
-function calculateNutritionalScore(assessment: Partial<LimbSalvageAssessment>): number {
+export function assessNutritionalComponent(assessment: Partial<LimbSalvageAssessment>): {
+  score: number;
+  albuminGPerL: number | null;
+  missing: string[];
+  notes: string[];
+} {
   let score = 0;
+  const missing: string[] = [];
+  const notes: string[] = [];
 
-  // Albumin (0-3 points)
-  const albumin = assessment.albumin || 4;
-  if (albumin < 2.5) score += 3;
-  else if (albumin < 3.0) score += 2;
-  else if (albumin < 3.5) score += 1;
+  // Albumin (0-3 points), thresholds in g/L: < 25, < 30, < 35
+  const alb = normaliseAlbumin(assessment.albumin);
+  notes.push(alb.note);
+  if (alb.gPerL === null) missing.push(alb.unitBasis === 'implausible' ? 'albumin (implausible value)' : 'albumin');
+  else if (alb.gPerL < 25) score += 3;
+  else if (alb.gPerL < 30) score += 2;
+  else if (alb.gPerL < 35) score += 1;
 
   // MUST score (0-2 points)
-  const must = assessment.mustScore || 0;
-  if (must >= 2) score += 2;
+  const must = assessment.mustScore;
+  if (typeof must !== 'number' || !Number.isFinite(must)) missing.push('mustScore');
+  else if (must >= 2) score += 2;
   else if (must === 1) score += 1;
 
-  return Math.min(score, 5);
+  return { score: Math.min(score, 5), albuminGPerL: alb.gPerL, missing, notes };
 }
 
 /**
@@ -598,12 +617,13 @@ function generateShortTermRecommendations(assessment: Partial<LimbSalvageAssessm
   });
 
   // Nutritional support
-  if (assessment.albumin && assessment.albumin < 3.5) {
+  const albuminGPerL = normaliseAlbumin(assessment.albumin).gPerL;
+  if (albuminGPerL !== null && albuminGPerL < 35) {
     recommendations.push({
       category: 'short_term',
       priority: 'medium',
       recommendation: 'Nutritional supplementation - high protein diet',
-      rationale: `Low albumin (${assessment.albumin} g/dL) impairs wound healing`,
+      rationale: `Low albumin (${albuminGPerL} g/L) impairs wound healing`,
       timeframe: 'Start immediately',
     });
   }

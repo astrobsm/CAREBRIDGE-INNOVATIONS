@@ -296,6 +296,11 @@ export default function ScoreSummaryStep({
             </div>
           ))}
         </div>
+        {limbSalvageScore.missingInputs && limbSalvageScore.missingInputs.length > 0 && (
+          <p className="text-xs text-amber-700 mt-3">
+            Not recorded (scored 0, not normal): {limbSalvageScore.missingInputs.join(', ')}. The total is incomplete.
+          </p>
+        )}
       </div>
 
       {/* Recommended Management */}

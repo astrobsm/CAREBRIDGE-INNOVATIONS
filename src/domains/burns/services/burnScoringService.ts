@@ -19,6 +19,8 @@ import type {
   LabValues,
   UrineOutput,
 } from '../types';
+import { curreriKcal } from '../../nutrition/engine/energy';
+import { ACTIVE_NUTRITION_CONFIG } from '../../nutrition/engine/config';
 
 // ==========================================
 // TBSA CALCULATION
@@ -576,11 +578,11 @@ export function calculateBurnNutrition(
   zinc: number;
   selenium: number;
 } {
-  // Curreri formula for burns
-  const caloricTarget = Math.round((25 * weight) + (40 * tbsa));
-  
-  // Protein: 1.5-2.0 g/kg/day for major burns
-  const proteinTarget = Math.round(weight * 2);
+  // Curreri formula (nutrition engine; TBSA capped at 50%, known to overestimate)
+  const caloricTarget = curreriKcal(weight, tbsa) ?? 0;
+
+  // Protein: 1.5-2.0 g/kg/day for major burns (config range, upper end)
+  const proteinTarget = Math.round(weight * ACTIVE_NUTRITION_CONFIG.protein.burnsAndLargeWounds.value.high);
   
   // Macronutrient distribution
   // Protein calories = proteinTarget * 4

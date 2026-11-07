@@ -63,9 +63,19 @@ export function calculateAdjustedBodyWeight(
   sex: Sex
 ): number | null {
   const ibw = calculateIdealBodyWeight(heightCm, sex);
-  if (ibw === null || !actualWeightKg) return null;
-  if (actualWeightKg <= ibw) return round(actualWeightKg, 1);
-  return round(ibw + 0.4 * (actualWeightKg - ibw), 1);
+  if (ibw === null) return null;
+  return adjustedBodyWeightFromIbw(actualWeightKg, ibw);
+}
+
+/**
+ * Adjusted body weight from an IBW the caller already has:
+ * IBW + 0.4 × (ABW − IBW), or ABW when ABW ≤ IBW. Whether AdjBW is
+ * *indicated* (e.g. ABW > 120% or 130% IBW) is the caller's policy.
+ */
+export function adjustedBodyWeightFromIbw(actualWeightKg: number, ibwKg: number): number | null {
+  if (!actualWeightKg || !ibwKg) return null;
+  if (actualWeightKg <= ibwKg) return round(actualWeightKg, 1);
+  return round(ibwKg + 0.4 * (actualWeightKg - ibwKg), 1);
 }
 
 // ===========================================================================

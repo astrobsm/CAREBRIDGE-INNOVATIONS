@@ -14,6 +14,9 @@
  * All functions are pure and unit-testable without a DB or a browser.
  */
 
+import { curreriKcal } from '../../nutrition/engine/energy';
+import { ACTIVE_NUTRITION_CONFIG } from '../../nutrition/engine/config';
+
 export type BurnMechanism = 'flame' | 'scald' | 'contact' | 'electrical' | 'chemical' | 'radiation';
 
 export interface ResuscitationPlan {
@@ -135,12 +138,18 @@ export const burnCareService = {
     return age + tbsa + (inhalationInjury ? 17 : 0);
   },
 
-  /** Curreri formula for burn hypermetabolism. */
+  /**
+   * Curreri formula for burn hypermetabolism, from the nutrition engine
+   * (TBSA capped at 50%; Curreri overestimates — prefer Toronto/calorimetry).
+   */
   calculateNutritionTargets(weightKg: number, tbsa: number): NutritionTargets {
+    const cap = ACTIVE_NUTRITION_CONFIG.energy.curreri.value.tbsaCapPercent;
+    const usedTbsa = Math.min(tbsa, cap);
+    const proteinGPerKg = ACTIVE_NUTRITION_CONFIG.protein.burnsAndLargeWounds.value.low; // range 1.5-2.0 g/kg/day
     return {
-      caloriesPerDay: round(25 * weightKg + 40 * tbsa),
-      proteinPerDay: Math.round(1.5 * weightKg * 10) / 10, // 1.5-2.0 g/kg/day
-      formula: `Curreri: 25x${weightKg}kg + 40x${tbsa}%TBSA`,
+      caloriesPerDay: round(curreriKcal(weightKg, tbsa) ?? 0),
+      proteinPerDay: Math.round(proteinGPerKg * weightKg * 10) / 10,
+      formula: `Curreri: 25x${weightKg}kg + 40x${usedTbsa}%TBSA${tbsa > cap ? ` (TBSA capped at ${cap}%)` : ''}`,
     };
   },
 

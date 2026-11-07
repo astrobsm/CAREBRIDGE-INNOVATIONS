@@ -15,6 +15,9 @@
  * numbers here are what matter and they are now verifiable.
  */
 
+import { calculateHarrisBenedictBMR } from '../../calculators/engine/calculationEngine';
+import { ACTIVE_NUTRITION_CONFIG } from '../../nutrition/engine/config';
+
 export type Sex = 'male' | 'female' | 'unspecified';
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very-active';
 
@@ -31,16 +34,18 @@ const ACTIVITY_MULTIPLIER: Record<ActivityLevel, number> = {
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Basal metabolic rate, Harris-Benedict (original 1919 equations, as used by
- * the source calculator). Sex-specific; an unspecified sex uses the male
- * equation, which is the more conservative of the two for a deficit plan.
+ * Basal metabolic rate: the canonical revised Harris-Benedict (Roza & Shizgal
+ * 1984) from the shared calculation engine. This used the original 1919
+ * equations with rounded coefficients; consolidated onto the canonical one.
+ * An unspecified sex uses the male equation, the more conservative of the two
+ * for a deficit plan.
  */
 export function basalMetabolicRate(weightKg: number, heightCm: number, ageYears: number, sex: Sex): number {
   if (!(weightKg > 0) || !(heightCm > 0) || !(ageYears > 0)) return 0;
-  return sex === 'female'
-    ? 655 + 9.6 * weightKg + 1.8 * heightCm - 4.7 * ageYears
-    : 66 + 13.7 * weightKg + 5 * heightCm - 6.8 * ageYears;
+  return calculateHarrisBenedictBMR(sex === 'female' ? 'female' : 'male', weightKg, heightCm, ageYears);
 }
+
+const GOALS = ACTIVE_NUTRITION_CONFIG.weightGoals;
 
 /** Total daily energy expenditure = BMR × activity factor. */
 export function totalDailyEnergy(bmr: number, activity: ActivityLevel): number {
@@ -76,7 +81,8 @@ export interface WeightPlanInput {
 export function weightGainPlan(input: WeightPlanInput): MacroTargets {
   const bmr = basalMetabolicRate(input.weightKg, input.heightCm, input.ageYears, input.sex);
   const tdee = totalDailyEnergy(bmr, input.activity);
-  const targetCalories = Math.round(tdee + 500);
+  const surplus = GOALS.gainSurplusKcal.value.high;
+  const targetCalories = Math.round(tdee + surplus);
   const proteinG = Math.round(input.weightKg * 2.0);
   const fatG = Math.round((targetCalories * 0.25) / 9);
   const carbG = Math.round((targetCalories - proteinG * 4 - fatG * 9) / 4);
@@ -91,7 +97,7 @@ export function weightGainPlan(input: WeightPlanInput): MacroTargets {
   }
   if (carbG < 0) notes.push('Protein and fat targets alone exceed the calorie target; reduce protein or raise calories.');
 
-  return { bmr: Math.round(bmr), tdee, targetCalories, proteinG, fatG, carbG, calorieDelta: 500, notes };
+  return { bmr: Math.round(bmr), tdee, targetCalories, proteinG, fatG, carbG, calorieDelta: surplus, notes };
 }
 
 /**
@@ -105,8 +111,9 @@ export function weightReductionPlan(input: WeightPlanInput): MacroTargets {
   // The floor matters clinically: below it a diet cannot reliably meet
   // micronutrient requirements and needs supervision, so the deficit is capped
   // rather than the intake driven arbitrarily low.
-  const floor = input.sex === 'female' ? 1200 : 1500;
-  const uncapped = Math.round(tdee - 500);
+  const floor = GOALS.floorsKcal.value[input.sex === 'female' ? 'female' : 'male'];
+  const deficit = GOALS.lossDeficitKcal.value.low;
+  const uncapped = Math.round(tdee - deficit);
   const targetCalories = Math.max(uncapped, floor);
 
   const proteinG = Math.round(input.weightKg * 1.6);
@@ -115,7 +122,7 @@ export function weightReductionPlan(input: WeightPlanInput): MacroTargets {
 
   const notes: string[] = [];
   if (targetCalories > uncapped) {
-    notes.push(`Intake floored at ${floor} kcal/day; a full 500 kcal deficit would fall below the level at which micronutrient requirements can be met unsupervised.`);
+    notes.push(`Intake floored at ${floor} kcal/day; a full ${deficit} kcal deficit would fall below the level at which micronutrient requirements can be met unsupervised.`);
   }
   if (input.targetChangeKg && input.weeks && input.weeks > 0) {
     const weekly = input.targetChangeKg / input.weeks;
