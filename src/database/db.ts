@@ -114,6 +114,10 @@ import type {
   TumourBoardSurveillanceItem,
 } from '../domains/tumour-board/tumourBoardTypes';
 import type { NPWTSession, NPWTNotification } from '../domains/npwt/types';
+import type {
+  NutritionMeasurement, NutritionIntake, Food, Recipe, HouseholdMeasure, NutritionApproval,
+} from '../domains/nutrition/types';
+import { normaliseLegacyMust } from '../domains/nutrition/services/assessmentRecord';
 import type { LymphedemaAssessment, LymphedemaMonitoringRecord, PostOpLymphedemaMonitoring } from '../domains/lymphedema/types';
 import type {
   FinanceBucket,
@@ -288,6 +292,15 @@ export class AstroHEALTHDatabase extends Dexie {
   tumourBoardSurveillance!: Table<TumourBoardSurveillanceItem, string>;
   // Clinician Assistant — saved diagnostic engine analyses
   clinicianAnalyses!: Table<ClinicianAnalysis, string>;
+  // Adult clinical nutrition (stage 2): anthropometry series, daily intake,
+  // plan approvals (patient data) and food / recipe / household-measure
+  // reference data (shared by every hospital; written by dietitians).
+  nutritionMeasurements!: Table<NutritionMeasurement, string>;
+  nutritionIntake!: Table<NutritionIntake, string>;
+  nutritionApprovals!: Table<NutritionApproval, string>;
+  foods!: Table<Food, string>;
+  recipes!: Table<Recipe, string>;
+  householdMeasures!: Table<HouseholdMeasure, string>;
 
   constructor() {
     super('AstroHEALTHDB');
@@ -503,6 +516,28 @@ export class AstroHEALTHDatabase extends Dexie {
       tx.table('users').toCollection().modify((u: { password?: unknown; passwordHash?: unknown }) => {
         if ('password' in u) delete u.password;
         if ('passwordHash' in u) delete u.passwordHash;
+      })
+    );
+
+    // v93: adult clinical nutrition, stage 2. New tables for the
+    // anthropometry series, daily intake, plan approvals and the food /
+    // recipe / household-measure reference data. The reference rows that
+    // ship with the app (WAFCT 2019, seed recipes) are seeded on first use
+    // WITHOUT updatedAt, so the sync never pushes them; only rows a
+    // dietitian adds or edits carry updatedAt and sync.
+    // The upgrade moves an old MUST breakdown object out of mustScore (the
+    // cloud column is INTEGER) into mustBreakdown, keeping the total in
+    // mustScore. updatedAt is left alone, as in v91/v92.
+    this.version(93).stores({
+      nutritionMeasurements: 'id, patientId, kind, measuredAt, [patientId+kind], updatedAt',
+      nutritionIntake: 'id, patientId, date, [patientId+date], updatedAt',
+      nutritionApprovals: 'id, patientId, planId, [planId+planVersion], decidedAt, updatedAt',
+      foods: 'id, code, groupCode, name, updatedAt',
+      recipes: 'id, name, category, verificationStatus, updatedAt',
+      householdMeasures: 'id, appliesTo, updatedAt',
+    }).upgrade(tx =>
+      tx.table('nutritionAssessments').toCollection().modify((a: Record<string, unknown>) => {
+        normaliseLegacyMust(a);
       })
     );
   }

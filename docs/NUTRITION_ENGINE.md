@@ -363,3 +363,80 @@ The canonical engine gains `adjustedBodyWeightFromIbw`, which
   engine handles potassium units itself; the shared rule should be corrected.
 - `LimbSalvageForm` still pre-fills `bmi: 25`, `mustScore: 0` and
   `prealbumin: 20`. An unentered MUST therefore reads as 0, not missing.
+
+## Stage 2: food data
+
+Status: **every recipe `pending_dietitian_verification`; every household
+measure `to_be_verified_by_local_weighing`.**
+
+### Source: WAFCT 2019
+
+| | |
+|---|---|
+| Table | FAO/INFOODS Food Composition Table for Western Africa (2019) |
+| URL | https://www.fao.org/fileadmin/user_upload/faoweb/2020/WAFCT_2019.xlsx |
+| File | `WAFCT_2019.xlsx`, 3,060,230 bytes, retrieved 2026-11-07 |
+| SHA-256 | `bca8e44f7a41fdd538998d9e31849ed26af4703ddb5a451803d73a2d9532cc85` |
+| Sheets used | `05 NV_sum_57 (per 100g EP)`, `07 Yield factors, sing_ing`, `08 Retention factors` |
+| Licence | FAO: non-commercial use with acknowledgement; commercial use needs an FAO licence (copyright@fao.org) |
+
+The workbook is not committed. Put it in `data/source/wafct2019/` (its own
+folder; `.gitignore` excludes it) and run `node scripts/import-wafct.mjs`.
+The importer checks the SHA-256 recorded in
+`data/source/wafct2019.provenance.json` and writes:
+
+- `src/domains/nutrition/data/foods/wafct2019.generated.json`: all foods,
+  loaded lazily (its own chunk);
+- `.../wafct2019.core.generated.json`: only the foods that recipes and
+  adapters name (found by scanning `src/domains/nutrition/data/**/*.ts` for
+  codes), bundled so recipe maths is synchronous.
+
+Conventions: `[x]` means estimated, imputed or the alternative definition in
+the header (fat by continuous extraction, crude fibre); it is kept and flagged
+`bracketed`. `tr` is stored as 0 and flagged `trace`. A blank is `null`, never 0.
+Folate is dietary folate equivalents (FOLDFE); vitamin A is RAE.
+
+Secondary source: Nigerian Food Composition Table, slot only (no openly
+licensed file found).
+
+### Model
+
+Types: `src/domains/nutrition/types.ts` (the one set; old names re-exported
+from `src/types` and `services/nutritionPlannerService`).
+
+| Dexie (v93) | Cloud | Class |
+|---|---|---|
+| `nutritionMeasurements` | `nutrition_measurements` | patient |
+| `nutritionIntake` | `nutrition_intake` | patient |
+| `nutritionApprovals` | `nutrition_approvals` | patient (append-only trigger) |
+| `foods` | `nutrition_foods` | members read; dietitian/admin write |
+| `recipes` | `nutrition_recipes` | members read; dietitian/admin write |
+| `householdMeasures` | `nutrition_household_measures` | members read; dietitian/admin write |
+
+Nutrients per 100 g are embedded in each food (`per100g`), so there is no
+separate food-nutrients table. Reference rows that ship with the app are seeded
+into Dexie on first use (`ensureReferenceDataSeeded`) without `updatedAt`,
+so the sync never pushes them; only dietitian edits sync.
+
+### Calculation
+
+- Recipe = WAFCT codes + raw grams per portion. Nutrients = Σ grams ×
+  per-100 g × WAFCT retention factor (vitamins and minerals only; energy and
+  macronutrients unadjusted). Recipe yield factors are `null` until the kitchen
+  weighs the recipes, so a recipe served by weight is not convertible;
+  record portions instead.
+- An ingredient missing from WAFCT is either a stated substitute
+  (`substituteFor`) or `unresolved`; with one, totals are lower bounds and say so.
+- Intake: food grams or household measures, recipe portions, ONS and enteral
+  feeds from label values, × fraction eaten (0, ¼, ½, ¾, 1).
+
+### What the dietitian must verify
+
+1. Ingredient grams for every seed recipe (`data/recipes.ts`), against the
+   hospital kitchen; then weigh each cooked recipe and enter its yield factor.
+2. Substitutes: pumpkin leaves (Cucurbita) for ugu; "fish, whole, dried" for
+   stockfish; fortified wheat flour for semovita; dried beef for kilishi.
+3. Unresolved ingredients: oha leaves, ogiri, uziza/utazi, ugba (not in WAFCT).
+4. Household measures (`data/householdMeasures.ts`), by local weighing.
+5. The legacy list mappings (`data/legacyFoodSpecs.ts`), including the diet
+   flags carried over from the old planner list.

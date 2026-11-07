@@ -923,6 +923,13 @@ async function pullAllFromCloud(): Promise<void> {
   // Nutrition
   await pullTable(TABLES.nutritionAssessments, 'nutritionAssessments');
   await pullTable(TABLES.nutritionPlans, 'nutritionPlans');
+  // Adult clinical nutrition (stage 2): reference data, then patient data
+  await pullTable(TABLES.foods, 'foods');
+  await pullTable(TABLES.recipes, 'recipes');
+  await pullTable(TABLES.householdMeasures, 'householdMeasures');
+  await pullTable(TABLES.nutritionMeasurements, 'nutritionMeasurements');
+  await pullTable(TABLES.nutritionIntake, 'nutritionIntake');
+  await pullTable(TABLES.nutritionApprovals, 'nutritionApprovals');
   
   // Billing
   await pullTable(TABLES.invoices, 'invoices');
@@ -1131,6 +1138,15 @@ async function pushAllToCloud(): Promise<void> {
   // Nutrition
   await pushTable('nutritionAssessments', TABLES.nutritionAssessments);
   await pushTable('nutritionPlans', TABLES.nutritionPlans);
+  // Adult clinical nutrition (stage 2). Reference rows a dietitian edited
+  // (seeded rows have no updatedAt and are never pushed); approvals after
+  // the plans they sign off.
+  await pushTable('foods', TABLES.foods);
+  await pushTable('recipes', TABLES.recipes);
+  await pushTable('householdMeasures', TABLES.householdMeasures);
+  await pushTable('nutritionMeasurements', TABLES.nutritionMeasurements);
+  await pushTable('nutritionIntake', TABLES.nutritionIntake);
+  await pushTable('nutritionApprovals', TABLES.nutritionApprovals);
   
   // Billing
   await pushTable('invoices', TABLES.invoices);
