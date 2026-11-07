@@ -26,76 +26,12 @@ import type { NutritionAssessment } from '../../../types';
 import { storedSgaGrade } from '../engine/screening';
 import { generateNutritionPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { PatientSelector } from '../../../components/patient';
+import { nutritionPageFoods } from '../services/legacyFoodAdapters';
+import { mustTotal } from '../types';
 
-// African Food Composition Table (Nigerian foods)
-const africanFoodDatabase = {
-  grains: [
-    { name: 'Jollof Rice', calories: 350, protein: 8, carbs: 55, fat: 12, fiber: 2, portion: '1 plate (250g)' },
-    { name: 'Fried Rice', calories: 380, protein: 10, carbs: 52, fat: 15, fiber: 3, portion: '1 plate (250g)' },
-    { name: 'White Rice', calories: 230, protein: 4, carbs: 50, fat: 0.5, fiber: 1, portion: '1 cup (200g)' },
-    { name: 'Tuwo Shinkafa', calories: 200, protein: 4, carbs: 44, fat: 0.5, fiber: 1, portion: '1 ball (150g)' },
-    { name: 'Semovita', calories: 250, protein: 6, carbs: 54, fat: 1, fiber: 2, portion: '1 wrap (200g)' },
-    { name: 'Garri (Eba)', calories: 360, protein: 1, carbs: 85, fat: 0.5, fiber: 2, portion: '1 wrap (150g)' },
-    { name: 'Pounded Yam', calories: 340, protein: 4, carbs: 80, fat: 0.5, fiber: 3, portion: '1 wrap (200g)' },
-    { name: 'Amala', calories: 260, protein: 3, carbs: 62, fat: 0.5, fiber: 4, portion: '1 wrap (200g)' },
-    { name: 'Fufu', calories: 280, protein: 2, carbs: 68, fat: 0.5, fiber: 2, portion: '1 wrap (200g)' },
-    { name: 'Wheat Meal (Swallow)', calories: 270, protein: 8, carbs: 58, fat: 1.5, fiber: 6, portion: '1 wrap (200g)' },
-    { name: 'Oat Meal', calories: 150, protein: 5, carbs: 27, fat: 3, fiber: 4, portion: '1 cup (200g)' },
-  ],
-  soups: [
-    { name: 'Egusi Soup', calories: 280, protein: 15, carbs: 8, fat: 22, fiber: 3, portion: '1 bowl (200ml)' },
-    { name: 'Efo Riro', calories: 180, protein: 12, carbs: 8, fat: 12, fiber: 5, portion: '1 bowl (200ml)' },
-    { name: 'Ogbono Soup', calories: 250, protein: 14, carbs: 10, fat: 18, fiber: 4, portion: '1 bowl (200ml)' },
-    { name: 'Okro Soup', calories: 120, protein: 8, carbs: 12, fat: 6, fiber: 4, portion: '1 bowl (200ml)' },
-    { name: 'Bitterleaf Soup', calories: 200, protein: 12, carbs: 8, fat: 14, fiber: 6, portion: '1 bowl (200ml)' },
-    { name: 'Afang Soup', calories: 220, protein: 14, carbs: 10, fat: 15, fiber: 5, portion: '1 bowl (200ml)' },
-    { name: 'Edikang Ikong', calories: 190, protein: 16, carbs: 6, fat: 12, fiber: 5, portion: '1 bowl (200ml)' },
-    { name: 'Vegetable Soup', calories: 150, protein: 10, carbs: 12, fat: 8, fiber: 6, portion: '1 bowl (200ml)' },
-    { name: 'Pepper Soup', calories: 180, protein: 20, carbs: 4, fat: 10, fiber: 2, portion: '1 bowl (300ml)' },
-    { name: 'Groundnut Soup', calories: 320, protein: 18, carbs: 12, fat: 24, fiber: 4, portion: '1 bowl (200ml)' },
-  ],
-  proteins: [
-    { name: 'Fried Fish', calories: 200, protein: 30, carbs: 5, fat: 8, fiber: 0, portion: '1 piece (150g)' },
-    { name: 'Grilled Fish', calories: 150, protein: 32, carbs: 0, fat: 4, fiber: 0, portion: '1 piece (150g)' },
-    { name: 'Stockfish', calories: 120, protein: 28, carbs: 0, fat: 1, fiber: 0, portion: '1 piece (100g)' },
-    { name: 'Beef (Stewed)', calories: 250, protein: 26, carbs: 2, fat: 15, fiber: 0, portion: '3 pieces (150g)' },
-    { name: 'Goat Meat', calories: 280, protein: 28, carbs: 0, fat: 18, fiber: 0, portion: '3 pieces (150g)' },
-    { name: 'Chicken (Fried)', calories: 240, protein: 28, carbs: 4, fat: 12, fiber: 0, portion: '1 piece (150g)' },
-    { name: 'Chicken (Grilled)', calories: 180, protein: 30, carbs: 0, fat: 6, fiber: 0, portion: '1 piece (150g)' },
-    { name: 'Egg (Boiled)', calories: 80, protein: 6, carbs: 0.5, fat: 5, fiber: 0, portion: '1 large egg' },
-    { name: 'Egg (Fried)', calories: 110, protein: 6, carbs: 1, fat: 9, fiber: 0, portion: '1 large egg' },
-    { name: 'Suya', calories: 300, protein: 35, carbs: 5, fat: 16, fiber: 1, portion: '5 sticks (150g)' },
-    { name: 'Kilishi', calories: 280, protein: 40, carbs: 8, fat: 10, fiber: 1, portion: '50g' },
-    { name: 'Moi Moi', calories: 180, protein: 12, carbs: 20, fat: 8, fiber: 4, portion: '1 wrap (150g)' },
-    { name: 'Akara', calories: 220, protein: 10, carbs: 22, fat: 12, fiber: 3, portion: '5 balls (100g)' },
-  ],
-  vegetables: [
-    { name: 'Garden Salad', calories: 50, protein: 2, carbs: 10, fat: 0.5, fiber: 4, portion: '1 bowl (150g)' },
-    { name: 'Coleslaw', calories: 120, protein: 2, carbs: 12, fat: 8, fiber: 3, portion: '1 serving (100g)' },
-    { name: 'Plantain (Fried)', calories: 250, protein: 1.5, carbs: 45, fat: 10, fiber: 3, portion: '1 plantain (150g)' },
-    { name: 'Plantain (Boiled)', calories: 180, protein: 1.5, carbs: 45, fat: 0.5, fiber: 3, portion: '1 plantain (150g)' },
-    { name: 'Beans (Stewed)', calories: 200, protein: 14, carbs: 32, fat: 4, fiber: 8, portion: '1 cup (200g)' },
-    { name: 'Beans Porridge', calories: 280, protein: 12, carbs: 42, fat: 8, fiber: 10, portion: '1 plate (250g)' },
-  ],
-  snacks: [
-    { name: 'Puff Puff', calories: 150, protein: 3, carbs: 22, fat: 6, fiber: 1, portion: '5 balls (80g)' },
-    { name: 'Chin Chin', calories: 180, protein: 3, carbs: 25, fat: 8, fiber: 1, portion: '50g' },
-    { name: 'Meat Pie', calories: 350, protein: 10, carbs: 35, fat: 18, fiber: 2, portion: '1 pie (150g)' },
-    { name: 'Sausage Roll', calories: 280, protein: 8, carbs: 28, fat: 15, fiber: 1, portion: '1 roll (100g)' },
-    { name: 'Buns', calories: 200, protein: 4, carbs: 32, fat: 7, fiber: 1, portion: '2 buns (100g)' },
-    { name: 'Groundnuts (Roasted)', calories: 280, protein: 12, carbs: 8, fat: 24, fiber: 4, portion: '50g' },
-    { name: 'Cashew Nuts', calories: 280, protein: 9, carbs: 15, fat: 22, fiber: 2, portion: '50g' },
-  ],
-  beverages: [
-    { name: 'Zobo (Hibiscus)', calories: 40, protein: 0.5, carbs: 10, fat: 0, fiber: 1, portion: '1 glass (300ml)' },
-    { name: 'Kunu', calories: 80, protein: 2, carbs: 18, fat: 0.5, fiber: 1, portion: '1 glass (300ml)' },
-    { name: 'Tiger Nut Milk (Kunun Aya)', calories: 120, protein: 3, carbs: 18, fat: 5, fiber: 2, portion: '1 glass (300ml)' },
-    { name: 'Palm Wine', calories: 90, protein: 0.5, carbs: 15, fat: 0, fiber: 0, portion: '1 glass (200ml)' },
-    { name: 'Fura da Nono', calories: 150, protein: 6, carbs: 22, fat: 4, fiber: 2, portion: '1 cup (300ml)' },
-    { name: 'Pap (Ogi)', calories: 100, protein: 2, carbs: 22, fat: 0.5, fiber: 1, portion: '1 cup (250ml)' },
-    { name: 'Fruit Juice (Fresh)', calories: 60, protein: 0.5, carbs: 14, fat: 0, fiber: 0.5, portion: '1 glass (250ml)' },
-  ],
-};
+// Foods for the meal planner: calculated from WAFCT 2019 and the seed recipes
+// (src/domains/nutrition/data/legacyFoodSpecs.ts, NUTRITION_PAGE_SPEC).
+const africanFoodDatabase = nutritionPageFoods();
 
 // MUST Score calculation
 const mustScoreQuestions = {
@@ -341,8 +277,8 @@ export default function NutritionPage() {
     };
   };
 
-  const getMustBadge = (score: number | { totalScore: number }) => {
-    const numScore = typeof score === 'number' ? score : score.totalScore;
+  const getMustBadge = (numScore: number | null) => {
+    if (numScore === null) return <span className="badge">Not scored</span>;
     if (numScore === 0) return <span className="badge badge-success">Low Risk</span>;
     if (numScore === 1) return <span className="badge badge-warning">Medium Risk</span>;
     return <span className="badge badge-danger">High Risk</span>;
@@ -428,7 +364,7 @@ export default function NutritionPage() {
                         </span>
                         <span className="text-gray-500 text-sm ml-1">kg/m²</span>
                       </td>
-                      <td className="px-6 py-4">{getMustBadge(assessment.mustScore)}</td>
+                      <td className="px-6 py-4">{getMustBadge(mustTotal(assessment))}</td>
                       <td className="px-6 py-4">
                         {(() => {
                           const sga = storedSgaGrade(assessment);

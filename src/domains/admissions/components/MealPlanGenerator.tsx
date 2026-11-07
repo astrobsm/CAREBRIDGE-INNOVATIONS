@@ -27,6 +27,7 @@ import {
 import { format, addDays } from 'date-fns';
 import jsPDF from 'jspdf';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
+import { mealGeneratorFoods } from '../../nutrition/services/legacyFoodAdapters';
 
 // ============================================
 // AFRICAN FOOD DATABASE (Subset for meal planning)
@@ -48,62 +49,9 @@ export interface FoodItem {
   costCategory: 'low' | 'medium' | 'high';
 }
 
-// Nigerian Food Database
-const africanFoods: FoodItem[] = [
-  // BREAKFAST OPTIONS
-  { id: 'pap', name: 'Pap (Ogi/Akamu)', localName: 'Ogi', category: 'cereals', mealTypes: ['breakfast'], servingSize: '1 bowl', calories: 150, protein: 3, carbohydrates: 32, fat: 1, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'low' },
-  { id: 'akara', name: 'Akara (Bean Cakes)', localName: 'Kosai', category: 'legumes', mealTypes: ['breakfast', 'snack'], servingSize: '4 pieces', calories: 220, protein: 10, carbohydrates: 15, fat: 14, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'low' },
-  { id: 'moi-moi', name: 'Moi Moi (Steamed Beans)', localName: 'Moi Moi', category: 'legumes', mealTypes: ['breakfast', 'lunch'], servingSize: '2 wraps', calories: 280, protein: 16, carbohydrates: 24, fat: 12, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'low' },
-  { id: 'bread-egg', name: 'Bread with Fried Eggs', category: 'cereals', mealTypes: ['breakfast'], servingSize: '2 slices + 2 eggs', calories: 350, protein: 16, carbohydrates: 30, fat: 18, isHighProtein: true, isDiabeticFriendly: false, costCategory: 'low' },
-  { id: 'yam-egg', name: 'Boiled Yam with Egg Sauce', localName: 'Ji', category: 'cereals', mealTypes: ['breakfast', 'lunch'], servingSize: '3 slices + sauce', calories: 380, protein: 14, carbohydrates: 55, fat: 12, isHighProtein: true, isDiabeticFriendly: false, costCategory: 'low' },
-  
-  // LUNCH/DINNER - SWALLOWS
-  { id: 'eba', name: 'Eba (Garri Swallow)', localName: 'Eba', category: 'cereals', mealTypes: ['lunch', 'dinner'], servingSize: '1 serving', calories: 330, protein: 1, carbohydrates: 80, fat: 0.5, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'low' },
-  { id: 'pounded-yam', name: 'Pounded Yam', localName: 'Iyan', category: 'cereals', mealTypes: ['lunch', 'dinner'], servingSize: '1 serving', calories: 280, protein: 3, carbohydrates: 65, fat: 0.5, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'medium' },
-  { id: 'amala', name: 'Amala (Yam Flour)', localName: 'Amala', category: 'cereals', mealTypes: ['lunch', 'dinner'], servingSize: '1 serving', calories: 260, protein: 2.5, carbohydrates: 60, fat: 0.5, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'low' },
-  { id: 'semovita', name: 'Semovita/Semolina', category: 'cereals', mealTypes: ['lunch', 'dinner'], servingSize: '1 serving', calories: 300, protein: 8, carbohydrates: 62, fat: 1, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'low' },
-  { id: 'wheat', name: 'Wheat Meal', category: 'cereals', mealTypes: ['lunch', 'dinner'], servingSize: '1 serving', calories: 290, protein: 10, carbohydrates: 58, fat: 2, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'low' },
-  { id: 'tuwo', name: 'Tuwo Shinkafa', localName: 'Tuwo', category: 'cereals', mealTypes: ['lunch', 'dinner'], servingSize: '1 serving', calories: 260, protein: 5, carbohydrates: 58, fat: 0.5, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'low' },
-  
-  // SOUPS
-  { id: 'egusi', name: 'Egusi Soup', localName: 'Egusi', category: 'traditional', mealTypes: ['lunch', 'dinner'], servingSize: '1 bowl', calories: 280, protein: 12, carbohydrates: 10, fat: 22, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'medium' },
-  { id: 'ogbono', name: 'Ogbono Soup', localName: 'Ogbono', category: 'traditional', mealTypes: ['lunch', 'dinner'], servingSize: '1 bowl', calories: 240, protein: 8, carbohydrates: 15, fat: 18, isHighProtein: false, isDiabeticFriendly: true, costCategory: 'medium' },
-  { id: 'okra', name: 'Okra Soup', localName: 'Ila', category: 'traditional', mealTypes: ['lunch', 'dinner'], servingSize: '1 bowl', calories: 180, protein: 10, carbohydrates: 12, fat: 10, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'low' },
-  { id: 'efo-riro', name: 'Efo Riro (Spinach Stew)', localName: 'Efo Riro', category: 'vegetables', mealTypes: ['lunch', 'dinner'], servingSize: '1 bowl', calories: 200, protein: 12, carbohydrates: 8, fat: 14, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'medium' },
-  { id: 'edikang', name: 'Edikang Ikong Soup', category: 'vegetables', mealTypes: ['lunch', 'dinner'], servingSize: '1 bowl', calories: 220, protein: 14, carbohydrates: 8, fat: 16, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'high' },
-  { id: 'bitter-leaf', name: 'Bitter Leaf Soup', localName: 'Ofe Onugbu', category: 'traditional', mealTypes: ['lunch', 'dinner'], servingSize: '1 bowl', calories: 200, protein: 10, carbohydrates: 10, fat: 14, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'medium' },
-  { id: 'banga', name: 'Banga Soup (Palm Nut)', category: 'traditional', mealTypes: ['lunch', 'dinner'], servingSize: '1 bowl', calories: 350, protein: 10, carbohydrates: 12, fat: 30, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'medium' },
-  { id: 'miyan-kuka', name: 'Miyan Kuka', category: 'traditional', mealTypes: ['lunch', 'dinner'], servingSize: '1 bowl', calories: 180, protein: 8, carbohydrates: 18, fat: 8, isHighProtein: false, isDiabeticFriendly: true, costCategory: 'low' },
-  
-  // RICE DISHES
-  { id: 'jollof', name: 'Jollof Rice', category: 'cereals', mealTypes: ['lunch', 'dinner'], servingSize: '1 plate', calories: 400, protein: 8, carbohydrates: 65, fat: 12, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'medium' },
-  { id: 'fried-rice', name: 'Nigerian Fried Rice', category: 'cereals', mealTypes: ['lunch', 'dinner'], servingSize: '1 plate', calories: 420, protein: 10, carbohydrates: 60, fat: 16, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'medium' },
-  { id: 'rice-stew', name: 'White Rice with Stew', category: 'cereals', mealTypes: ['lunch', 'dinner'], servingSize: '1 plate', calories: 380, protein: 6, carbohydrates: 62, fat: 12, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'low' },
-  { id: 'ofada', name: 'Ofada Rice with Ayamase', category: 'cereals', mealTypes: ['lunch', 'dinner'], servingSize: '1 plate', calories: 450, protein: 12, carbohydrates: 55, fat: 20, isHighProtein: true, isDiabeticFriendly: false, costCategory: 'medium' },
-  
-  // PROTEINS
-  { id: 'chicken', name: 'Grilled Chicken', category: 'meat', mealTypes: ['lunch', 'dinner'], servingSize: '1 piece', calories: 200, protein: 35, carbohydrates: 0, fat: 8, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'medium' },
-  { id: 'fish-grilled', name: 'Grilled Fish (Tilapia)', category: 'fish', mealTypes: ['lunch', 'dinner'], servingSize: '1 medium', calories: 180, protein: 32, carbohydrates: 0, fat: 5, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'medium' },
-  { id: 'catfish', name: 'Catfish Pepper Soup', localName: 'Point and Kill', category: 'fish', mealTypes: ['lunch', 'dinner'], servingSize: '1 bowl', calories: 250, protein: 30, carbohydrates: 5, fat: 12, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'high' },
-  { id: 'goat-meat', name: 'Goat Meat Stew', localName: 'Asun', category: 'meat', mealTypes: ['lunch', 'dinner'], servingSize: '100g', calories: 220, protein: 28, carbohydrates: 2, fat: 12, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'high' },
-  { id: 'beef', name: 'Beef Stew', category: 'meat', mealTypes: ['lunch', 'dinner'], servingSize: '100g', calories: 250, protein: 26, carbohydrates: 2, fat: 16, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'medium' },
-  { id: 'eggs', name: 'Boiled/Fried Eggs', category: 'meat', mealTypes: ['breakfast', 'lunch', 'snack'], servingSize: '2 eggs', calories: 180, protein: 14, carbohydrates: 1, fat: 12, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'low' },
-  
-  // BEANS DISHES
-  { id: 'beans-stew', name: 'Beans and Plantain', localName: 'Ewa Riro', category: 'legumes', mealTypes: ['lunch', 'dinner'], servingSize: '1 plate', calories: 420, protein: 18, carbohydrates: 65, fat: 10, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'low' },
-  { id: 'gbegiri', name: 'Gbegiri (Beans Soup)', category: 'legumes', mealTypes: ['lunch', 'dinner'], servingSize: '1 bowl', calories: 200, protein: 12, carbohydrates: 25, fat: 6, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'low' },
-  
-  // SNACKS
-  { id: 'groundnut', name: 'Roasted Groundnuts', localName: 'Gyada', category: 'legumes', mealTypes: ['snack'], servingSize: '1/2 cup', calories: 280, protein: 12, carbohydrates: 10, fat: 24, isHighProtein: true, isDiabeticFriendly: true, costCategory: 'low' },
-  { id: 'dodo', name: 'Fried Plantain (Dodo)', localName: 'Dodo', category: 'fruits', mealTypes: ['snack', 'breakfast', 'lunch'], servingSize: '1 medium', calories: 250, protein: 2, carbohydrates: 48, fat: 8, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'low' },
-  { id: 'fruits', name: 'Fresh Fruits (Orange, Pawpaw)', category: 'fruits', mealTypes: ['snack', 'breakfast'], servingSize: '1 portion', calories: 80, protein: 1, carbohydrates: 20, fat: 0.5, isHighProtein: false, isDiabeticFriendly: true, costCategory: 'low' },
-  { id: 'chin-chin', name: 'Chin Chin', category: 'cereals', mealTypes: ['snack'], servingSize: '1/2 cup', calories: 200, protein: 3, carbohydrates: 28, fat: 10, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'low' },
-  { id: 'puff-puff', name: 'Puff Puff', category: 'cereals', mealTypes: ['snack', 'breakfast'], servingSize: '4 pieces', calories: 220, protein: 4, carbohydrates: 35, fat: 8, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'low' },
-  
-  // BEVERAGES
-  { id: 'zobo', name: 'Zobo Drink', localName: 'Zobo', category: 'beverages', mealTypes: ['snack'], servingSize: '1 glass', calories: 40, protein: 0, carbohydrates: 10, fat: 0, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'low' },
-  { id: 'kunu', name: 'Kunu (Millet Drink)', localName: 'Kunu', category: 'beverages', mealTypes: ['breakfast', 'snack'], servingSize: '1 glass', calories: 120, protein: 2, carbohydrates: 26, fat: 1, isHighProtein: false, isDiabeticFriendly: false, costCategory: 'low' },
-];
+// Nigerian foods: calculated from WAFCT 2019 and the seed recipes
+// (src/domains/nutrition/data/legacyFoodSpecs.ts, MEAL_GENERATOR_SPEC).
+const africanFoods: FoodItem[] = mealGeneratorFoods();
 
 // ============================================
 // TYPES
