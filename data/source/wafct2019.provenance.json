@@ -1,0 +1,21 @@
+{
+  "table": "FAO/INFOODS Food Composition Table for Western Africa (2019) — WAFCT 2019",
+  "url": "https://www.fao.org/fileadmin/user_upload/faoweb/2020/WAFCT_2019.xlsx",
+  "landingPages": [
+    "https://www.fao.org/infoods/infoods/tables-and-databases/faoinfoods-databases/en/",
+    "https://openknowledge.fao.org/handle/20.500.14283/ca7779b"
+  ],
+  "fileName": "WAFCT_2019.xlsx",
+  "bytes": 3060230,
+  "sha256": "bca8e44f7a41fdd538998d9e31849ed26af4703ddb5a451803d73a2d9532cc85",
+  "retrievedAt": "2026-11-07",
+  "storedAt": "data/source/wafct2019/WAFCT_2019.xlsx (not committed: .gitignore)",
+  "licence": "FAO: copying permitted for private study, research, teaching and non-commercial products or services with acknowledgement of FAO; commercial use, resale and adaptation rights require an FAO licence (www.fao.org/contact-us/licence-request, copyright@fao.org).",
+  "citation": "Vincent A, Grande F, Compaoré E, Amponsah Annor G, Addy PA, Aburime LC, et al. 2020. FAO/INFOODS Food Composition Table for Western Africa (2019) User Guide & Condensed Food Composition Table. Rome, FAO.",
+  "secondarySources": {
+    "nigerianFoodCompositionTable": {
+      "status": "slot_only",
+      "note": "Nigerian Food Composition Table (e.g. the 2017 NFCT, Sanusi et al., University of Ibadan / FAO-supported). No openly licensed machine-readable file was found; no values are included. Add as a secondary source only after its licence and file are confirmed."
+    }
+  }
+}
