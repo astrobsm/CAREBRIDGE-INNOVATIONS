@@ -37,6 +37,19 @@ export const SEED_HOUSEHOLD_MEASURES: HouseholdMeasure[] = [
   m('mudu-rice', 'Mudu of raw rice', '01_036', 1300, 1100, 1600, 'Mudu: the larger market bowl measure (raw grain); sizes vary by market.', 'Mudu'),
   m('mudu-beans', 'Mudu of raw beans', '03_027', 1200, 1000, 1500, 'Mudu of dry cowpea.', 'Mudu'),
   m('mudu-gari', 'Mudu of gari', '02_039', 1000, 850, 1200, 'Mudu of dry gari.', 'Mudu'),
+  // Restored dishes (data/recipes.ts, RESTORED_RECIPES): grams as served.
+  m('piece-meat-pie', 'Meat pie (one)', 'meat-pie', 130, 100, 170, 'One bakery or canteen meat pie, as sold.'),
+  m('piece-sausage-roll', 'Sausage roll (one)', 'sausage-roll', 70, 55, 90, 'One sausage roll, as sold (packaged rolls are often about 65 g).'),
+  m('wrap-suya', 'Wrap of suya', 'suya', 100, 70, 150, 'One paper wrap (about 5 sticks) of grilled beef with yaji, onion, tomato and cabbage.'),
+  m('piece-fried-chicken', 'Piece of fried chicken', 'fried-chicken', 100, 70, 150, 'One thigh or drumstick, cooked, bone included.'),
+  m('piece-fried-fish', 'Piece of fried fish', 'fried-fish', 90, 60, 130, 'One cross-section piece of fried mackerel (Titus), bone included.'),
+  m('ball-puff-puff', 'Puff puff (one ball)', 'puff-puff', 16, 12, 25, 'One ball; size varies a lot by seller.'),
+  m('bun', 'Bun (one)', 'buns', 50, 40, 70, 'One fried bun.'),
+  m('pack-chin-chin', 'Small pack of chin chin', 'chin-chin', 50, 30, 70, 'One small nylon pack, as sold by hawkers.'),
+  m('cup-zobo', 'Cup (250 mL) of zobo', 'zobo', 255, 250, 265, 'Sweetened zobo is slightly denser than water.'),
+  m('bottle-zobo', 'Bottle of zobo (35 cL)', 'zobo', 360, 350, 370, 'The 35 cL plastic bottle zobo is commonly sold in.'),
+  m('cup-kunu', 'Cup (250 mL) of kunu', 'kunu', 260, 250, 270, 'Kunun zaki; slightly denser than water.'),
+  m('cup-tiger-nut-milk', 'Cup (250 mL) of tiger nut milk', 'tiger-nut-milk', 255, 250, 265, 'Kunun aya, strained.'),
 ];
 
 export const MEASURES_BY_ID: ReadonlyMap<string, HouseholdMeasure> = new Map(SEED_HOUSEHOLD_MEASURES.map(x => [x.id, x]));

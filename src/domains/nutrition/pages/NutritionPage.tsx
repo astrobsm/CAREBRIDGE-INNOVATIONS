@@ -27,6 +27,7 @@ import { storedSgaGrade } from '../engine/screening';
 import { generateNutritionPDFFromEntity } from '../../../utils/clinicalPdfGenerators';
 import { PatientSelector } from '../../../components/patient';
 import { nutritionPageFoods } from '../services/legacyFoodAdapters';
+import { FOOD_COMPOSITION_ACKNOWLEDGEMENT } from '../data/foodSourceAcknowledgement';
 import { mustTotal } from '../types';
 
 // Foods for the meal planner: calculated from WAFCT 2019 and the seed recipes
@@ -684,6 +685,7 @@ export default function NutritionPage() {
                         </button>
                       ))}
                     </div>
+                    <p className="text-[11px] text-gray-500 italic mt-2">{FOOD_COMPOSITION_ACKNOWLEDGEMENT}</p>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4 space-y-2">
                     {africanFoodDatabase[activeFoodCategory as keyof typeof africanFoodDatabase]?.map((food) => (

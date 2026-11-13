@@ -42,7 +42,7 @@ describe('nigerianFoods.ts', () => {
 });
 
 describe('nutritionPlannerService.africanFoodDatabase', () => {
-  it('keeps the FoodItem shape and every id the planner used (except the retired ones)', () => {
+  it('keeps the FoodItem shape and every id the planner used', () => {
     expect(africanFoodDatabase.map(f => f.id)).toEqual(PLANNER_FOODS_SPEC.map(s => s.id));
     for (const f of africanFoodDatabase) {
       for (const k of ['calories', 'protein', 'carbohydrates', 'fat', 'fiber', 'servingGrams'] as const) expect(isNum(f[k]), `${f.id}.${k}`).toBe(true);
@@ -51,8 +51,9 @@ describe('nutritionPlannerService.africanFoodDatabase', () => {
       expect(f.source?.datasetVersion).toMatch(/^wafct2019-/);
     }
     expect(nutritionPlannerService.searchFoods('egusi').map(f => f.id)).toContain('egusi-soup');
-    expect(africanFoodDatabase.map(f => f.id)).not.toContain('zobo');
-    expect(RETIRED_WITHOUT_SOURCE.nutritionPlannerService.length).toBe(2);
+    // zobo and kunu were dropped as unsourced and are back as recipes.
+    expect(africanFoodDatabase.map(f => f.id)).toEqual(expect.arrayContaining(['zobo', 'kunu']));
+    expect(RETIRED_WITHOUT_SOURCE.nutritionPlannerService).toEqual([]);
   });
 });
 
