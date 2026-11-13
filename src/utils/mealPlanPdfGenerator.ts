@@ -13,6 +13,7 @@ import {
 } from './pdfUtils';
 import { PDF_FONTS } from './pdfConfig';
 import { createSafePDF } from './pdfTextSafe';
+import { FOOD_COMPOSITION_ACKNOWLEDGEMENT } from '../domains/nutrition/data/foodSourceAcknowledgement';
 
 // ==================== TYPES ====================
 
@@ -82,6 +83,18 @@ export interface MealPlanPDFOptions {
 }
 
 // ==================== PDF GENERATOR ====================
+
+/** Prints the WAFCT 2019 acknowledgement at `y`, on a new page if there is no room. Returns the y after it. */
+export function addFoodSourceLine(doc: jsPDF, y: number, x = 15): number {
+  const lines: string[] = doc.splitTextToSize(FOOD_COMPOSITION_ACKNOWLEDGEMENT, doc.internal.pageSize.getWidth() - x * 2);
+  y = checkNewPage(doc, y, 4 + lines.length * 4);
+  doc.setFont(PDF_FONTS.primary, 'italic');
+  doc.setFontSize(7);
+  doc.setTextColor(...PDF_COLORS.gray);
+  doc.text(lines, x, y + 3);
+  doc.setFont(PDF_FONTS.primary, 'normal');
+  return y + 4 + lines.length * 4;
+}
 
 export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
   const doc = createSafePDF('p', 'mm', 'a4');
@@ -429,7 +442,11 @@ export function generateMealPlanPDF(options: MealPlanPDFOptions): jsPDF {
     options.warnings.forEach((warning, i) => {
       doc.text(`• ${warning}`, 20, y + 12 + (i * 5));
     });
+    y += warningsHeight + 5;
   }
+
+  // Food composition source (FAO requires acknowledgement of WAFCT 2019)
+  addFoodSourceLine(doc, y);
 
   // Add footer
   addBrandedFooter(doc, 1, 1, 'AstroHEALTH Innovations in Healthcare - Nutrition Department');

@@ -43,6 +43,7 @@ import {
   type FoodCategory,
   type MealType,
 } from '../../../services/nutritionPlannerService';
+import { FOOD_COMPOSITION_ACKNOWLEDGEMENT } from '../data/foodSourceAcknowledgement';
 
 type TabType = 'assessment' | 'foods' | 'meal-plans' | 'calculator';
 
@@ -383,7 +384,10 @@ export default function NutritionPlannerPage() {
         return (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">African Food Database</h3>
+              <div>
+                <h3 className="text-lg font-semibold">African Food Database</h3>
+                <p className="text-xs text-gray-500 italic">{FOOD_COMPOSITION_ACKNOWLEDGEMENT}</p>
+              </div>
               <div className="flex gap-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />

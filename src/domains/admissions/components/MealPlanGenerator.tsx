@@ -28,6 +28,7 @@ import { format, addDays } from 'date-fns';
 import jsPDF from 'jspdf';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
 import { mealGeneratorFoods } from '../../nutrition/services/legacyFoodAdapters';
+import { FOOD_COMPOSITION_ACKNOWLEDGEMENT } from '../../nutrition/data/foodSourceAcknowledgement';
 
 // ============================================
 // AFRICAN FOOD DATABASE (Subset for meal planning)
@@ -364,6 +365,16 @@ export default function MealPlanGenerator({
       yPos += 8;
     });
 
+    // Food composition source (FAO requires acknowledgement of WAFCT 2019)
+    if (yPos > 275) {
+      doc.addPage();
+      yPos = 20;
+    }
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(100, 100, 100);
+    doc.text(doc.splitTextToSize(FOOD_COMPOSITION_ACKNOWLEDGEMENT, pageWidth - 30), 15, yPos);
+
     // Footer
     const totalPages = doc.internal.pages.length - 1;
     for (let i = 1; i <= totalPages; i++) {
@@ -630,6 +641,7 @@ export default function MealPlanGenerator({
               </AnimatePresence>
             </div>
           ))}
+          <p className="text-xs text-gray-500 italic">{FOOD_COMPOSITION_ACKNOWLEDGEMENT}</p>
         </div>
       )}
 
@@ -645,6 +657,7 @@ export default function MealPlanGenerator({
                 including Eba, Pounded Yam, Egusi, Jollof Rice, and more. Adjust based on patient 
                 preferences and availability.
               </p>
+              <p className="text-xs mt-1 italic">{FOOD_COMPOSITION_ACKNOWLEDGEMENT}</p>
             </div>
           </div>
         </div>

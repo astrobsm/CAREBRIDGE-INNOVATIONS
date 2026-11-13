@@ -21,6 +21,7 @@ import {
 } from '../services/clinicalCalculators';
 import type { Sex } from '../services/calculators';
 import { generateMealPlan, type DayPlan } from '../../../data/nigerianFoods';
+import { FOOD_COMPOSITION_ACKNOWLEDGEMENT } from '../../nutrition/data/foodSourceAcknowledgement';
 import { burnCareService } from '../services/burnCalculators';
 import { riskAssessmentService } from '../services/riskCalculators';
 
@@ -775,6 +776,7 @@ function MealPlanDays({ days }: { days: DayPlan[] }) {
           Day total: {d.totalKcal} kcal · {d.totalProtein} g protein
         </div>
       </div>
+      <p className="text-xs text-gray-500 italic mt-2">{FOOD_COMPOSITION_ACKNOWLEDGEMENT}</p>
     </div>
   );
 }
