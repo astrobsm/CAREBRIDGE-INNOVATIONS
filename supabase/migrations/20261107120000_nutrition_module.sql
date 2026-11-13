@@ -258,11 +258,17 @@ CREATE POLICY app_nutrition_ref_delete ON public.nutrition_household_measures AS
 DO $$
 DECLARE
   t TEXT;
-  scoped BOOLEAN := to_regclass('app_private.access_policy_state') IS NOT NULL
-    AND to_regprocedure('public.app_can_access_patient(text,text)') IS NOT NULL
-    AND EXISTS (SELECT 1 FROM app_private.access_policy_state WHERE hospital_scoped IS TRUE);
+  scoped BOOLEAN := false;
   expr TEXT := 'public.app_can_access_patient(patient_id::text, hospital_id::text)';
 BEGIN
+  -- The scoping state table only exists once hospital scoping is installed.
+  -- Postgres resolves every table a statement names before running it, so it
+  -- is read through EXECUTE, and only when it is there.
+  IF to_regclass('app_private.access_policy_state') IS NOT NULL
+     AND to_regprocedure('public.app_can_access_patient(text,text)') IS NOT NULL THEN
+    EXECUTE 'SELECT EXISTS (SELECT 1 FROM app_private.access_policy_state WHERE hospital_scoped IS TRUE)'
+      INTO scoped;
+  END IF;
   FOREACH t IN ARRAY ARRAY['nutrition_measurements', 'nutrition_intake', 'nutrition_approvals'] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS app_members_all ON public.%I', t);
