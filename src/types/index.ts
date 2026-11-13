@@ -928,63 +928,12 @@ export type MedicationRoute =
   | 'nerve block'
   | 'dental infiltration';
 
-// Nutrition
-export interface NutritionAssessment {
-  id: string;
-  patientId: string;
-  encounterId?: string;
-  hospitalId?: string;
-  weight?: number;
-  height?: number;
-  mustScore: MUSTScore | number;
-  bmi?: number;
-  /**
-   * SGA grade. Only meaningful when sgaSource === 'sga_form'. Older records
-   * carry a grade derived from the MUST score, which is not an SGA.
-   */
-  sgaGrade?: 'A' | 'B' | 'C';
-  sgaSource?: 'sga_form';
-  anthropometrics?: {
-    weight: number;
-    height: number;
-    bmi: number;
-    waistCircumference?: number;
-    midArmCircumference?: number;
-  };
-  dietaryHistory?: string;
-  dietaryRestrictions?: string[];
-  foodAllergies?: string[];
-  allergies?: string[];
-  nutritionalDiagnosis?: string;
-  mealPlan?: MealPlan;
-  supplementation?: string[];
-  notes?: string;
-  assessedBy: string;
-  assessedAt: Date;
-}
-
-export interface MUSTScore {
-  bmiScore: 0 | 1 | 2;
-  weightLossScore: 0 | 1 | 2;
-  acuteIllnessScore: 0 | 2;
-  totalScore: number;
-  riskLevel: 'low' | 'medium' | 'high';
-}
-
-export interface MealPlan {
-  id: string;
-  targetCalories: number;
-  proteinRequirement: number; // g/day
-  meals: Meal[];
-  specialInstructions?: string;
-}
-
-export interface Meal {
-  type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
-  foods: string[];
-  calories: number;
-  notes?: string;
-}
+// Nutrition — the one set of nutrition domain types is src/domains/nutrition/types.ts.
+// NutritionAssessment is the stored record; MealPlan/Meal are its embedded meal plan.
+export type {
+  NutritionAssessmentRecord as NutritionAssessment, MUSTScore,
+  AssessmentMealPlan as MealPlan, AssessmentMeal as Meal,
+} from '../domains/nutrition/types';
 
 // Billing
 export interface Invoice {
@@ -2987,120 +2936,11 @@ export interface MDTTreatmentOption {
 }
 
 // ==========================================
-// NUTRITION PLAN MODULE
+// NUTRITION PLAN MODULE — types live in src/domains/nutrition/types.ts
 // ==========================================
-
-export interface NutritionPlan {
-  id: string;
-  patientId: string;
-  encounterId?: string;
-  admissionId?: string;
-  hospitalId?: string;
-  
-  // Patient Metrics
-  weight: number;
-  height: number;
-  bmi: number;
-  activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
-  clinicalCondition?: string;
-  stressFactor?: number;
-  
-  // Calculated Requirements
-  bmr: number;
-  tdee: number;
-  calorieTarget: number;
-  proteinTarget: number;
-  carbsTarget: number;
-  fatTarget: number;
-  fiberTarget: number;
-  fluidTarget: number;
-  
-  // Plan Details
-  mealFrequency: number;
-  snacksPerDay: number;
-  dietaryRestrictions?: string[];
-  foodAllergies?: string[];
-  foodPreferences?: string[];
-  
-  // Meal Plans
-  mealPlans?: NutritionMealPlan[];
-  weeklyMenu?: WeeklyMenu;
-  
-  // Special Considerations
-  enteralFeeding?: boolean;
-  enteralFormula?: string;
-  enteralRate?: number;
-  parenteralNutrition?: boolean;
-  parenteralDetails?: {
-    type: string;
-    volume: number;
-    rate: number;
-    composition: string;
-  };
-  
-  // Supplements
-  supplements?: NutritionSupplement[];
-  
-  // Monitoring
-  monitoringParameters?: string[];
-  weightGoals?: {
-    targetWeight: number;
-    weeklyChange: number;
-    targetDate: Date;
-  };
-  
-  // Metadata
-  planType: 'standard' | 'weight_loss' | 'weight_gain' | 'renal' | 'diabetic' | 'cardiac' | 'oncology' | 'pediatric' | 'geriatric' | 'custom';
-  status: 'active' | 'completed' | 'on_hold' | 'discontinued';
-  startDate: Date;
-  endDate?: Date;
-  createdBy: string;
-  reviewedBy?: string;
-  reviewedAt?: Date;
-  notes?: string;
-  
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface NutritionMealPlan {
-  dayOfWeek: number;
-  meals: NutritionMeal[];
-  totalCalories: number;
-  totalProtein: number;
-  totalCarbs: number;
-  totalFat: number;
-}
-
-export interface NutritionMeal {
-  type: 'breakfast' | 'morning_snack' | 'lunch' | 'afternoon_snack' | 'dinner' | 'evening_snack';
-  time: string;
-  foods: NutritionFoodItem[];
-  totalCalories: number;
-  notes?: string;
-}
-
-export interface NutritionFoodItem {
-  name: string;
-  portion: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  fiber?: number;
-}
-
-export interface WeeklyMenu {
-  [key: string]: NutritionMealPlan; // 'monday', 'tuesday', etc.
-}
-
-export interface NutritionSupplement {
-  name: string;
-  dosage: string;
-  frequency: string;
-  purpose: string;
-  duration?: string;
-}
+export type {
+  NutritionPlan, NutritionMealPlan, NutritionMeal, NutritionFoodItem, WeeklyMenu, NutritionSupplement,
+} from '../domains/nutrition/types';
 
 // ============================================================
 // LIMB SALVAGE MODULE - Diabetic Foot Assessment

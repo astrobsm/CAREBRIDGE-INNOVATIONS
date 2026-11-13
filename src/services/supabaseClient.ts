@@ -62,6 +62,12 @@ export const TABLES = {
   // Nutrition
   nutritionAssessments: 'nutrition_assessments',
   nutritionPlans: 'nutrition_plans',
+  nutritionMeasurements: 'nutrition_measurements',
+  nutritionIntake: 'nutrition_intake',
+  nutritionApprovals: 'nutrition_approvals',
+  foods: 'nutrition_foods',
+  recipes: 'nutrition_recipes',
+  householdMeasures: 'nutrition_household_measures',
   
   // Billing
   invoices: 'invoices',
@@ -257,6 +263,12 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   prescriptions: 'prescriptions',
   nutritionAssessments: 'nutrition_assessments',
   nutritionPlans: 'nutrition_plans',
+  nutritionMeasurements: 'nutrition_measurements',
+  nutritionIntake: 'nutrition_intake',
+  nutritionApprovals: 'nutrition_approvals',
+  foods: 'nutrition_foods',
+  recipes: 'nutrition_recipes',
+  householdMeasures: 'nutrition_household_measures',
   invoices: 'invoices',
   admissions: 'admissions',
   admissionNotes: 'admission_notes',
