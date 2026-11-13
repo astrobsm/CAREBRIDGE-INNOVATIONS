@@ -50,6 +50,17 @@ export const SEED_HOUSEHOLD_MEASURES: HouseholdMeasure[] = [
   m('bottle-zobo', 'Bottle of zobo (35 cL)', 'zobo', 360, 350, 370, 'The 35 cL plastic bottle zobo is commonly sold in.'),
   m('cup-kunu', 'Cup (250 mL) of kunu', 'kunu', 260, 250, 270, 'Kunun zaki; slightly denser than water.'),
   m('cup-tiger-nut-milk', 'Cup (250 mL) of tiger nut milk', 'tiger-nut-milk', 255, 250, 265, 'Kunun aya, strained.'),
+  // Stage 3 meal-plan optimiser: the units its plans are rounded to.
+  m('egg', 'Egg (one, boiled)', '08_002', 50, 45, 60, 'One medium chicken egg, shell removed.'),
+  m('slice-bread', 'Slice of bread', '01_046', 30, 25, 40, 'One slice from a sliced loaf.'),
+  m('piece-chicken', 'Piece of chicken (cooked, edible part)', 'chicken', 80, 60, 120, 'One thigh, drumstick or breast portion, bone excluded.'),
+  m('handful-groundnut', 'Handful of groundnuts', '06_010', 30, 20, 40, 'Shelled roasted groundnuts, one cupped handful.'),
+  m('orange-fruit', 'Orange (one, peeled)', '05_016', 130, 100, 160, 'Edible part of one medium orange.'),
+  m('banana-fruit', 'Banana (one, peeled)', '05_028', 100, 80, 130, 'Edible part of one medium banana.'),
+  m('cup-cut-fruit', 'Cup (250 mL) of cut fruit', 'fruit', 150, 130, 170, 'Pawpaw or watermelon cubes, loosely packed.'),
+  m('serving-spoon-veg', 'Serving spoon of cooked vegetables', 'vegetable', 50, 40, 70, 'Cooked leafy vegetables, drained.'),
+  m('handful-salad', 'Handful of raw salad vegetables', 'salad', 40, 30, 60, 'Sliced cabbage, cucumber, tomato or carrot.'),
+  m('teaspoon-oil', 'Teaspoon of oil (palm or vegetable)', 'oil', 5, 4, 5, '5 mL; oil about 0.9 g per mL.'),
 ];
 
 export const MEASURES_BY_ID: ReadonlyMap<string, HouseholdMeasure> = new Map(SEED_HOUSEHOLD_MEASURES.map(x => [x.id, x]));
