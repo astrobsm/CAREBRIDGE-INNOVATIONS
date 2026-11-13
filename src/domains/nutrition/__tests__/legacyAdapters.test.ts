@@ -30,14 +30,18 @@ describe('nigerianFoods.ts', () => {
     }
   });
 
-  it('has a portion for every item the meal pools use, calculated (not typed in)', () => {
+  it('still exposes a calculated portion for every NIGERIAN_FOODS_SPEC item (not typed in)', () => {
     const portions = nigerianFoodPortions();
     expect(keysOf(portions)).toEqual(keysOf(NIGERIAN_FOODS_SPEC));
-    const src = read('src/data/nigerianFoods.ts');
-    expect(src).not.toMatch(/qty: '[^']*', kcal: \d/);
-    expect(src).toContain('const F = nigerianFoodPortions();');
     // e.g. pap = 300 g ogi (01_100)
     expect(portions.pap.kcal).toBe(Math.round(3 * getCoreFood('01_100')!.per100g.energyKcal!));
+  });
+
+  it('is an adapter over the stage 3 optimiser: no meal pools or greedy top-up loop of its own', () => {
+    const src = read('src/data/nigerianFoods.ts');
+    expect(src).toContain("from '../domains/nutrition/planner/plan'");
+    expect(src).not.toMatch(/PROTEIN_BOOSTS|BREAKFASTS|while \(/);
+    expect(src).not.toMatch(/qty: '[^']*', kcal: \d/);
   });
 });
 
