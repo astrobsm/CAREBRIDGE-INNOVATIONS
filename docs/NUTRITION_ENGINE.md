@@ -380,6 +380,34 @@ measure `to_be_verified_by_local_weighing`.**
 | Sheets used | `05 NV_sum_57 (per 100g EP)`, `07 Yield factors, sing_ing`, `08 Retention factors` |
 | Licence | FAO: non-commercial use with acknowledgement; commercial use needs an FAO licence (copyright@fao.org) |
 
+#### Licence and acknowledgement (decision)
+
+- **Decision (2026-11-13):** the project owner has confirmed that AstroHEALTH's
+  use of WAFCT 2019 is **non-commercial**, so the FAO terms are met by
+  acknowledgement and no FAO licence is needed. If the app is ever sold,
+  licensed or bundled in a paid product, this must be revisited and an FAO
+  licence sought (copyright@fao.org) first.
+- **The acknowledgement** is one constant,
+  `FOOD_COMPOSITION_ACKNOWLEDGEMENT` in
+  `src/domains/nutrition/data/foodSourceAcknowledgement.ts`:
+  "Food composition: FAO/INFOODS West African Food Composition Table (2019).
+  Values pending local dietitian verification." Do not copy the wording;
+  import the constant.
+- **Where it appears** (everywhere WAFCT-derived values are shown or printed):
+  - meal-plan PDF, `src/utils/mealPlanPdfGenerator.ts` (`addFoodSourceLine`,
+    after the last section, used by the nutrition, weight-gain, weight-loss
+    and wound meal-plan calculators);
+  - 7-day meal plan generator, `src/domains/admissions/components/MealPlanGenerator.tsx`
+    (under the generated plan, in the info box, and at the end of its own PDF);
+  - nutrition page food database, `src/domains/nutrition/pages/NutritionPage.tsx`;
+  - nutrition planner food database, `src/domains/nutrition/pages/NutritionPlannerPage.tsx`;
+  - the seven-day meal plans of the bedside and clinician-assistant
+    calculators (`MealPlanDays` in
+    `src/domains/clinician-assistant/components/CalculatorPanels.tsx`).
+- A test (`__tests__/restoredRecipes.test.ts`) checks the PDF prints it and that
+  these files use the constant rather than their own copy. A new screen or
+  PDF showing food values must add it too.
+
 The workbook is not committed. Put it in `data/source/wafct2019/` (its own
 folder; `.gitignore` excludes it) and run `node scripts/import-wafct.mjs`.
 The importer checks the SHA-256 recorded in
@@ -440,3 +468,66 @@ so the sync never pushes them; only dietitian edits sync.
 4. Household measures (`data/householdMeasures.ts`), by local weighing.
 5. The legacy list mappings (`data/legacyFoodSpecs.ts`), including the diet
    flags carried over from the old planner list.
+6. The restored dishes below: their grams, the oil-absorption estimates, and
+   the substitutes and unresolved ingredients they list.
+
+### Restored dishes (stage 2 follow-up)
+
+Eighteen commonly eaten foods were dropped from the retired lists because no
+source covered them as dishes. They are back as standard recipes
+(`RESTORED_RECIPES` in `data/recipes.ts`), built and calculated exactly like
+the seed recipes, all `pending_dietitian_verification`, and offered again by
+the legacy adapters (`RESTORED_FROM_RETIRED` in `data/legacyFoodSpecs.ts`
+lists which list each came from). `RETIRED_WITHOUT_SOURCE` is now empty.
+
+WAFCT 2019 was searched first for each as a composite food. None is in it:
+there is no fried fish, chin chin, puff puff, zobo, kunu or tiger nut milk
+entry. The nearest composites are Burkina Faso dishes (14_008 groundnut sauce
+with fish, 14_020 dried baobab leaf sauce) with different ingredients and
+proportions, so they were not used for groundnut soup or miyan kuka.
+
+Values per portion (calculated; energy and protein as of this change):
+
+| Recipe | Portion | kcal | Protein g | Substitutes / lower bound |
+|---|---|---|---|---|
+| fried-rice | 1 plate | 503 | 11.1 | lower bound: green peas, sweetcorn not in WAFCT |
+| ofada-ayamase | 1 plate | 750 | 24.5 | ofada → red native hulled rice; bleached palm oil → refined decoloured palm oil; lower bound: ponmo |
+| groundnut-soup | 1 serving | 445 | 27.2 | ugu → pumpkin leaves; stockfish → dried fish |
+| efo-riro | 1 serving | 441 | 25.8 | stockfish → dried fish |
+| gbegiri | 1 bowl | 251 | 12.4 | — |
+| miyan-kuka | 1 bowl | 259 | 15.9 | — |
+| fried-fish | 1 piece (120 g raw) | 200 | 23.7 | — |
+| fried-chicken | 1 piece (120 g raw) | 343 | 20.6 | — |
+| suya | 1 wrap | 235 | 28.1 | kuli-kuli → partially defatted groundnut flour |
+| coleslaw | 100 g | 173 | 1.5 | mayonnaise → vegetable oil + egg + vinegar |
+| puff-puff | 5 balls | 329 | 5.8 | — |
+| chin-chin | 50 g | 223 | 3.9 | — |
+| buns | 2 buns | 375 | 7.3 | baking powder → baking soda |
+| meat-pie | 1 pie | 414 | 11.9 | — |
+| sausage-roll | 1 roll | 245 | 7.9 | sausage meat → minced beef |
+| zobo | 250 mL | 82 | 0.1 | lower bound: roselle calyx not in WAFCT |
+| kunu | 250 mL | 155 | 2.4 | upper bound (strained) |
+| tiger-nut-milk | 250 mL | 199 | 1.9 | upper bound (strained) |
+
+Assumptions to verify:
+
+- **Frying.** Oil is always an ingredient. Stir-fried fried rice counts all the
+  oil used (15 g). Deep-fried foods count the oil absorbed: fish and chicken
+  about 5 % of raw weight (6 g per 120 g); puff puff about 15 % of fried
+  weight (12 g per 5 balls); chin chin about 12 % (6 g per 50 g); buns about
+  10 % (10 g per 2 buns). Weigh the oil before and after frying a batch.
+- **Retention.** WAFCT has no frying set for meat, poultry, fish or offal; the
+  dry-heat (broiled/grilled) set is used. A deep-fried wheat dough uses
+  `pasta|fried_in_oil`. Baked pastry gets none (no baking set for grains).
+- **Strained drinks.** Kunu and tiger nut milk count the whole grain or nut
+  blended, though the pulp is strained off, so energy and fibre are
+  overstated (an upper bound, the opposite of the unresolved case). Zobo
+  counts the sugar; the calyx itself is unresolved.
+- **Diet flags.** Fried and sugar-sweetened items are not diabetic-friendly.
+  Zobo is no longer labelled low-potassium or renal-friendly, since the
+  calyx's potassium is unknown. Efo riro now has its own recipe (amaranth in
+  a pepper base), and the three lists that mapped it to vegetable soup point
+  at it.
+- **Household measures** for meat pie, sausage roll, suya, fried chicken and
+  fish, puff puff, buns, chin chin, and cups of zobo, kunu and tiger nut milk
+  are marked to be verified by local weighing.
