@@ -11,7 +11,10 @@
  *   4. MealPlanGenerator.tsx inline list          → MEAL_GENERATOR_SPEC
  *
  * Items with no basis in WAFCT 2019 or the seed recipes are listed in
- * RETIRED_WITHOUT_SOURCE and no longer offered (no unsourced numbers).
+ * RETIRED_WITHOUT_SOURCE and not offered (no unsourced numbers). The items
+ * first dropped for that reason (fried rice, suya, zobo, ...) are offered
+ * again as standard recipes (data/recipes.ts, RESTORED_RECIPES); see
+ * RESTORED_FROM_RETIRED.
  */
 
 export type Part = { food: string; g: number } | { recipe: string; portions: number };
@@ -54,7 +57,7 @@ export const NIGERIAN_FOODS_SPEC = {
   fufu:       { name: 'Akpu / fufu', qty: '1 wrap', parts: [r('akpu')] },
   egusi:      { name: 'Egusi soup', qty: '1 serving', parts: [r('egusi-soup')] },
   ogbono:     { name: 'Ogbono soup', qty: '1 serving', parts: [r('ogbono-soup')] },
-  eforiro:    { name: 'Vegetable soup', qty: '1 serving', parts: [r('vegetable-soup')] },
+  eforiro:    { name: 'Efo riro', qty: '1 serving', parts: [r('efo-riro')] },
   okro:       { name: 'Okro soup', qty: '1 serving', parts: [r('okra-soup')] },
   vegSoup:    { name: 'Edikang ikong (veg)', qty: '1 serving', parts: [r('vegetable-soup')] },
   pepperSoup: { name: 'Catfish pepper soup', qty: '1 bowl', parts: [r('catfish-pepper-soup')] },
@@ -102,7 +105,7 @@ export const PLANNER_FOODS_SPEC: PlannerFoodSpec[] = [
   pf('catfish', 'Catfish (grilled)', 'Eja Aro', 'fish', '100 g', [f('09_081', 100)], [true, true, false, true, false], 'medium'),
   pf('tilapia', 'Tilapia Fish (boiled)', 'Eja Cichlid', 'fish', '100 g', [f('09_089', 100)], [true, true, false, true, false], 'medium'),
   pf('eggs-boiled', 'Eggs (boiled)', undefined, 'meat', '2 eggs (100 g)', [f('08_002', 100)], [true, true, true, true, true], 'low'),
-  pf('efo-riro', 'Vegetable soup (Efo / ugu)', 'Efo Riro', 'vegetables', '1 serving', [r('vegetable-soup')], [true, false, false, true, false], 'medium'),
+  pf('efo-riro', 'Efo Riro (Spinach Stew)', 'Efo Riro', 'vegetables', '1 serving', [r('efo-riro')], [true, false, false, true, false], 'medium'),
   pf('egusi-soup', 'Egusi Soup', 'Egusi', 'traditional', '1 serving', [r('egusi-soup')], [true, false, false, true, false], 'medium'),
   pf('okra-soup', 'Okra Soup', 'Ila', 'traditional', '1 serving', [r('okra-soup')], [false, false, false, true, false], 'low'),
   pf('ogbono-soup', 'Ogbono Soup', 'Ogbono', 'traditional', '1 serving', [r('ogbono-soup')], [false, false, false, true, false], 'medium'),
@@ -115,6 +118,11 @@ export const PLANNER_FOODS_SPEC: PlannerFoodSpec[] = [
   pf('pawpaw', 'Pawpaw (Papaya)', undefined, 'fruits', '1 cup (145 g)', [f('05_017', 145)], [false, true, false, true, false], 'low'),
   pf('watermelon', 'Watermelon', undefined, 'fruits', '2 cups (280 g)', [f('05_022', 280)], [false, true, true, false, true], 'low'),
   pf('palm-wine', 'Palm Wine', 'Emu', 'beverages', '1 cup (240 g)', [f('12_006', 240)], [false, true, false, false, false], 'low'),
+  // Restored. Zobo's potassium is not known (WAFCT has no roselle calyx), so
+  // it is no longer labelled low-potassium or renal-friendly; both drinks are
+  // sweetened, so neither is diabetic-friendly.
+  pf('zobo', 'Zobo (Hibiscus drink)', 'Zobo', 'beverages', '1 cup (250 mL)', [r('zobo')], [false, true, false, false, false], 'low'),
+  pf('kunu', 'Kunu (Millet drink)', 'Kunu', 'beverages', '1 cup (250 mL)', [r('kunu')], [false, true, true, false, true], 'low'),
 ];
 
 // ── 3. NutritionPage.tsx inline list ──────────────────────────────────────
@@ -124,6 +132,7 @@ const pg = (name: string, portion: string, parts: Part[]): PageFoodSpec => ({ na
 export const NUTRITION_PAGE_SPEC: Record<'grains' | 'soups' | 'proteins' | 'vegetables' | 'snacks' | 'beverages', PageFoodSpec[]> = {
   grains: [
     pg('Jollof Rice', '1 plate', [r('jollof-rice')]),
+    pg('Fried Rice', '1 plate', [r('fried-rice')]),
     pg('White Rice', '1 cup (200g)', [f('01_135', 200)]),
     pg('Tuwo Shinkafa', '1 ball (150g)', [f('01_135', 150)]),
     pg('Semovita', '1 wrap', [r('semovita')]),
@@ -145,6 +154,8 @@ export const NUTRITION_PAGE_SPEC: Record<'grains' | 'soups' | 'proteins' | 'vege
     pg('Edikang Ikong / Vegetable Soup', '1 serving', [r('vegetable-soup')]),
     pg('Pepper Soup (catfish)', '1 bowl', [r('catfish-pepper-soup')]),
     pg('Ofe Akwu (Banga)', '1 serving', [r('ofe-akwu')]),
+    pg('Efo Riro', '1 serving', [r('efo-riro')]),
+    pg('Groundnut Soup', '1 serving', [r('groundnut-soup')]),
   ],
   proteins: [
     pg('Grilled Fish', '1 piece (150g)', [f('09_043', 150)]),
@@ -155,6 +166,9 @@ export const NUTRITION_PAGE_SPEC: Record<'grains' | 'soups' | 'proteins' | 'vege
     pg('Egg (Boiled)', '1 large egg (50g)', [f('08_002', 50)]),
     pg('Egg (Fried)', '1 large egg (50g)', [f('08_003', 50)]),
     pg('Kilishi (dried beef)', '50g', [f('07_017', 50)]),
+    pg('Fried Fish', '1 piece (120g raw)', [r('fried-fish')]),
+    pg('Chicken (Fried)', '1 piece (120g raw)', [r('fried-chicken')]),
+    pg('Suya', '1 wrap (5 sticks)', [r('suya')]),
     pg('Moi Moi', '1 wrap', [r('moi-moi')]),
     pg('Akara', '5 balls', [r('akara', 5 / 3)]),
   ],
@@ -165,10 +179,16 @@ export const NUTRITION_PAGE_SPEC: Record<'grains' | 'soups' | 'proteins' | 'vege
     pg('Beans (Stewed)', '1 cup (200g)', [f('03_096', 200)]),
     pg('Beans Porridge', '1 plate', [r('beans-porridge')]),
     pg('Abacha (African Salad)', '1 plate', [r('abacha')]),
+    pg('Coleslaw', '1 serving (100g)', [r('coleslaw')]),
   ],
   snacks: [
     pg('Groundnuts', '50g', [f('06_010', 50)]),
     pg('Cashew Nuts', '50g', [f('06_001', 50)]),
+    pg('Puff Puff', '5 balls', [r('puff-puff')]),
+    pg('Chin Chin', '50g', [r('chin-chin')]),
+    pg('Meat Pie', '1 pie', [r('meat-pie')]),
+    pg('Sausage Roll', '1 roll', [r('sausage-roll')]),
+    pg('Buns', '2 buns', [r('buns')]),
   ],
   beverages: [
     pg('Palm Wine', '1 glass (200ml)', [f('12_006', 200)]),
@@ -176,6 +196,9 @@ export const NUTRITION_PAGE_SPEC: Record<'grains' | 'soups' | 'proteins' | 'vege
     pg('Pap (Ogi)', '1 cup (250ml)', [f('01_100', 250)]),
     pg('Akamu with Milk & Groundnut', '1 large bowl', [r('akamu-fortified')]),
     pg('Orange Juice (Fresh)', '1 glass (250ml)', [f('12_011', 250)]),
+    pg('Zobo (Hibiscus)', '1 glass (300ml)', [r('zobo', 300 / 250)]),
+    pg('Kunu', '1 glass (300ml)', [r('kunu', 300 / 250)]),
+    pg('Tiger Nut Milk (Kunun Aya)', '1 glass (300ml)', [r('tiger-nut-milk', 300 / 250)]),
   ],
 };
 
@@ -209,14 +232,18 @@ export const MEAL_GENERATOR_SPEC: GeneratorFoodSpec[] = [
   g('egusi', 'Egusi Soup', 'Egusi', 'traditional', LD, '1 serving', [r('egusi-soup')], true, true, 'medium'),
   g('ogbono', 'Ogbono Soup', 'Ogbono', 'traditional', LD, '1 serving', [r('ogbono-soup')], false, true, 'medium'),
   g('okra', 'Okra Soup', 'Ila', 'traditional', LD, '1 serving', [r('okra-soup')], true, true, 'low'),
-  g('efo-riro', 'Vegetable Soup (Efo)', 'Efo Riro', 'vegetables', LD, '1 serving', [r('vegetable-soup')], true, true, 'medium'),
+  g('efo-riro', 'Efo Riro (Spinach Stew)', 'Efo Riro', 'vegetables', LD, '1 serving', [r('efo-riro')], true, true, 'medium'),
   g('edikang', 'Edikang Ikong Soup', undefined, 'vegetables', LD, '1 serving', [r('vegetable-soup')], true, true, 'high'),
   g('bitter-leaf', 'Bitter Leaf Soup', 'Ofe Onugbu', 'traditional', LD, '1 serving', [r('ofe-onugbu')], true, true, 'medium'),
   g('banga', 'Banga Soup (Palm Nut)', 'Ofe Akwu', 'traditional', LD, '1 serving', [r('ofe-akwu')], true, true, 'medium'),
   g('afang', 'Afang Soup', 'Afang', 'vegetables', LD, '1 serving', [r('afang-soup')], true, true, 'high'),
   g('nsala', 'Nsala (White) Soup', 'Ofe Nsala', 'traditional', LD, '1 serving', [r('nsala-soup')], true, true, 'high'),
+  g('miyan-kuka', 'Miyan Kuka', 'Miyan Kuka', 'traditional', LD, '1 bowl', [r('miyan-kuka')], false, true, 'low'),
+  g('gbegiri', 'Gbegiri (Beans Soup)', 'Gbegiri', 'legumes', LD, '1 bowl', [r('gbegiri')], true, true, 'low'),
   g('jollof', 'Jollof Rice', undefined, 'cereals', LD, '1 plate', [r('jollof-rice')], false, false, 'medium'),
   g('rice-stew', 'White Rice with Stew', undefined, 'cereals', LD, '1 plate', [r('white-rice-stew')], false, false, 'low'),
+  g('fried-rice', 'Nigerian Fried Rice', undefined, 'cereals', LD, '1 plate', [r('fried-rice')], false, false, 'medium'),
+  g('ofada', 'Ofada Rice with Ayamase', 'Ofada', 'cereals', LD, '1 plate', [r('ofada-ayamase')], true, false, 'medium'),
   g('chicken', 'Grilled Chicken', undefined, 'meat', LD, '1 piece (120 g)', [f('07_038', 120)], true, true, 'medium'),
   g('fish-grilled', 'Grilled Fish (Tilapia)', undefined, 'fish', LD, '1 medium (150 g)', [f('09_043', 150)], true, true, 'medium'),
   g('catfish', 'Catfish Pepper Soup', 'Point and Kill', 'fish', LD, '1 bowl', [r('catfish-pepper-soup')], true, true, 'high'),
@@ -228,13 +255,32 @@ export const MEAL_GENERATOR_SPEC: GeneratorFoodSpec[] = [
   g('groundnut', 'Groundnuts', 'Gyada', 'legumes', ['snack'], '1/2 cup (70 g)', [f('06_010', 70)], true, true, 'low'),
   g('dodo', 'Fried Plantain (Dodo)', 'Dodo', 'fruits', ['snack', 'breakfast', 'lunch'], '1 serving (150 g)', [f('02_084', 150)], false, false, 'low'),
   g('fruits', 'Fresh Fruits (Orange, Pawpaw)', undefined, 'fruits', ['snack', 'breakfast'], '1 orange + 1 small cup pawpaw', [f('05_016', 130), f('05_017', 100)], false, true, 'low'),
+  // Restored. Fried and sugar-sweetened items are not diabetic-friendly.
+  g('chin-chin', 'Chin Chin', undefined, 'cereals', ['snack'], '1/2 cup (50 g)', [r('chin-chin')], false, false, 'low'),
+  g('puff-puff', 'Puff Puff', undefined, 'cereals', ['snack', 'breakfast'], '4 pieces', [r('puff-puff', 4 / 5)], false, false, 'low'),
+  g('zobo', 'Zobo Drink', 'Zobo', 'beverages', ['snack'], '1 glass (250 mL)', [r('zobo')], false, false, 'low'),
+  g('kunu', 'Kunu (Millet Drink)', 'Kunu', 'beverages', ['breakfast', 'snack'], '1 glass (250 mL)', [r('kunu')], false, false, 'low'),
 ];
 
-/** Items of the retired lists dropped because neither WAFCT 2019 nor a seed recipe covers them. */
+/** Items of the retired lists dropped because neither WAFCT 2019 nor a seed recipe covers them. None at present. */
 export const RETIRED_WITHOUT_SOURCE = {
-  nutritionPlannerService: ['zobo (Zobo hibiscus drink)', 'kunu (Kunu millet drink)'],
-  nutritionPage: ['Fried Rice', 'Groundnut Soup', 'Fried Fish', 'Chicken (Fried)', 'Suya', 'Coleslaw', 'Puff Puff', 'Chin Chin',
-    'Meat Pie', 'Sausage Roll', 'Buns', 'Zobo (Hibiscus)', 'Kunu', 'Tiger Nut Milk (Kunun Aya)', 'Efo Riro (merged into Vegetable Soup)'],
-  mealPlanGenerator: ['miyan-kuka', 'fried-rice', 'ofada (Ofada Rice with Ayamase)', 'gbegiri', 'chin-chin', 'puff-puff', 'zobo', 'kunu'],
+  nutritionPlannerService: [] as string[],
+  nutritionPage: [] as string[],
+  mealPlanGenerator: [] as string[],
   nigerianFoods: [] as string[],
 };
+
+/** Items first dropped as unsourced and now offered again, with the recipe each one is (data/recipes.ts, RESTORED_RECIPES). */
+export const RESTORED_FROM_RETIRED = {
+  nutritionPlannerService: { zobo: 'zobo', kunu: 'kunu' },
+  nutritionPage: {
+    'Fried Rice': 'fried-rice', 'Groundnut Soup': 'groundnut-soup', 'Fried Fish': 'fried-fish', 'Chicken (Fried)': 'fried-chicken',
+    Suya: 'suya', Coleslaw: 'coleslaw', 'Puff Puff': 'puff-puff', 'Chin Chin': 'chin-chin', 'Meat Pie': 'meat-pie',
+    'Sausage Roll': 'sausage-roll', Buns: 'buns', 'Zobo (Hibiscus)': 'zobo', Kunu: 'kunu', 'Tiger Nut Milk (Kunun Aya)': 'tiger-nut-milk',
+    'Efo Riro': 'efo-riro',
+  },
+  mealPlanGenerator: {
+    'miyan-kuka': 'miyan-kuka', 'fried-rice': 'fried-rice', ofada: 'ofada-ayamase', gbegiri: 'gbegiri',
+    'chin-chin': 'chin-chin', 'puff-puff': 'puff-puff', zobo: 'zobo', kunu: 'kunu',
+  },
+} as const;
