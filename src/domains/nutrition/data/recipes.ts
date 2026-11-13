@@ -1,14 +1,16 @@
 /**
- * Seed standard recipes for Enugu / South-East Nigeria, built from WAFCT 2019
- * food codes. Nutrients are never stored here: services/foodRepository
- * calculates them from the ingredients (raw grams × WAFCT composition ×
- * WAFCT retention factor).
+ * Seed standard recipes for Enugu / South-East Nigeria, plus commonly eaten
+ * Nigerian dishes restored from the retired food lists (RESTORED_RECIPES),
+ * built from WAFCT 2019 food codes. Nutrients are never stored here:
+ * services/foodRepository calculates them from the ingredients (raw grams ×
+ * WAFCT composition × WAFCT retention factor).
  *
  * EVERY recipe is pending dietitian verification. Ingredient grams are
  * typical-recipe estimates per ONE portion, not weighed recipes from the
  * hospital kitchen. Cooking water is not listed (it carries no nutrients
- * here); the cooked weight of a portion therefore needs a measured yield
- * factor, which is null until the kitchen weighs the recipe.
+ * here), except in drinks, where it makes up the cup; the cooked weight of a
+ * portion therefore needs a measured yield factor, which is null until the
+ * kitchen weighs the recipe.
  *
  * Ingredients absent from WAFCT 2019 are either
  *   - stood in for by a similar WAFCT food (`substituteFor` says so), or
@@ -36,6 +38,19 @@ export const RET = {
   riceWithLiquid: 'rice_and_other_grain_polished|boiled_with_cooking_liquid_consumed',
   grainStewed: 'grain_and_grain_product|stewed',
   eggBoiled: 'egg_and_egg_product|cooked_with_moist_heat_boiled',
+  riceWholeBoiled: 'rice_and_other_grain_whole|boiled',
+  grainBoiled: 'grain_and_grain_product|boiled_steamed',
+  bulbSauteed: 'root_tuber_and_bulb_vegetables|sauteed_stir_fried',
+  fruitVegSauteed: 'stem_flower_fruit_corn_seed|sauteed_stir_fried',
+  meatSauce: 'meat_and_meat_product_with_sauce|stewed_braised',
+  beefGrilled: 'beef|broiled_or_grilled',
+  // WAFCT 2019 has no frying retention set for meat, poultry, fish or offal;
+  // the dry-heat (broiled/grilled) set is the nearest and is used for frying.
+  poultryDryHeat: 'poultry|broiled_or_grilled',
+  fattyFishDryHeat: 'fatty_fish|broiled_or_grilled',
+  offalDryHeat: 'offal|broiled_or_grilled',
+  // Nearest WAFCT set for a deep-fried wheat dough (puff puff, buns, chin chin).
+  grainFried: 'pasta|fried_in_oil',
 } as const;
 
 const ESTIMATE = 'Typical-recipe estimate for one portion (South-East Nigeria), not a weighed recipe. Ingredient grams to be verified by the dietitian against the hospital kitchen and local practice.';
@@ -68,7 +83,7 @@ function recipe(r: Omit<Recipe, 'verificationStatus' | 'estimateNote' | 'yieldFa
   };
 }
 
-export const SEED_RECIPES: Recipe[] = [
+const STAGE2_RECIPES: Recipe[] = [
   // ── Soups (one portion = the soup served with one wrap of swallow) ──────
   recipe({ id: 'ofe-onugbu', name: 'Bitterleaf soup', localNames: ['Ofe onugbu'], category: 'soup', portionLabel: '1 serving (with 1 piece of meat)',
     ingredients: [i('04_022', 20, RET.leavesStewed, { note: 'washed bitterleaf' }), i('02_005', 40, RET.rootStewed, { note: 'cocoyam thickener' }),
@@ -168,5 +183,135 @@ export const SEED_RECIPES: Recipe[] = [
       i('09_057', 5), UGU(20), i('13_015', 1), i('13_008', 2)],
     costTier: 'medium', availability: ['home', 'hospital_kitchen'], seasonality: 'new yam from August' }),
 ];
+
+// ── Restored dishes ────────────────────────────────────────────────────────
+// Commonly eaten foods dropped from the retired hard-coded lists because no
+// source covered them as dishes. WAFCT 2019 was searched first for each as a
+// composite food; none is in it (the nearest composites are Burkina Faso
+// recipes, e.g. 14_008 groundnut sauce and 14_020 dried baobab leaf sauce,
+// with different ingredients and proportions), so each is a standard recipe.
+//
+// Frying: the oil the food takes up is an ingredient of its own, never
+// assumed away. Stir-fried dishes count all the oil used; deep-fried foods
+// count the oil ABSORBED, an estimate stated on the oil line (the oil left in
+// the pan is not eaten). The kitchen should check it by weighing oil before
+// and after frying a batch.
+
+const RESTORED_ESTIMATE = 'Typical-recipe estimate for one portion (common Nigerian home, canteen or street recipe), not a weighed recipe. Ingredient grams, and the oil absorbed in frying, to be verified by the dietitian against the hospital kitchen and local practice.';
+const restored = (r: Parameters<typeof recipe>[0]): Recipe => ({ ...recipe(r), estimateNote: RESTORED_ESTIMATE });
+
+const FLOUR = (g: number, ret: string | null = null) => i('01_089', g, ret, { note: 'wheat flour (Nigerian flour is fortified)' });
+const IRU = (g: number) => i('03_042', g, null, { note: 'iru / dawadawa (fermented African locust bean)' });
+const CUBE = (g = 2) => i('13_008', g);
+const SALT = (g = 1) => i('13_015', g);
+const DEEP_FRY_OIL = (g: number, assumption: string) => i('11_031', g, null, { note: `oil absorbed in deep frying: ${assumption}` });
+const STRAINED = 'strained after soaking/infusing: the discarded pulp is counted here, so energy and fibre are overstated until the strained drink is analysed or an extraction yield is measured';
+
+export const RESTORED_RECIPES: Recipe[] = [
+  // ── Rice dishes ────────────────────────────────────────────────────────
+  restored({ id: 'fried-rice', name: 'Nigerian fried rice', localNames: ['Fried rice'], category: 'main', portionLabel: '1 plate', region: 'Nationwide',
+    ingredients: [i('01_036', 90, RET.riceWithLiquid, { note: 'raw rice, parboiled in stock that it absorbs' }),
+      i('11_031', 15, null, { note: 'stir-frying oil: all of it is eaten with the rice' }),
+      i('07_001', 20, RET.offalDryHeat, { note: 'beef liver, diced and fried' }), i('04_006', 20, RET.bulbSauteed), i('04_003', 15, RET.fruitVegSauteed, { note: 'green beans' }),
+      i(UNRESOLVED, 10, null, { note: 'Green peas: not in WAFCT 2019' }), i(UNRESOLVED, 10, null, { note: 'Sweetcorn: not in WAFCT 2019' }),
+      i('04_018', 15, RET.bulbSauteed), i('13_022', 1, null, { note: 'curry powder' }), i('04_083', 0.5, null, { note: 'dried thyme' }), CUBE(), SALT()],
+    costTier: 'medium', availability: ['home', 'hospital_kitchen', 'market'], seasonality: 'all year' }),
+  restored({ id: 'ofada-ayamase', name: 'Ofada rice with ayamase (green pepper stew)', localNames: ['Ofada and ayamase', 'Designer stew'], category: 'main',
+    portionLabel: '1 plate (rice, ayamase and assorted meat)', region: 'South-West Nigeria',
+    ingredients: [i('01_065', 90, RET.riceWholeBoiled, { substituteFor: { intended: 'Ofada rice (local unpolished Nigerian rice)', reason: 'not named in WAFCT 2019; "Rice, red native, hulled" used' } }),
+      i('04_049', 40, RET.fruitVegStewed, { note: 'green bell pepper (tatashe)' }), i('04_046', 10, RET.fruitVegStewed, { note: 'green scotch bonnet' }), i('04_018', 20, RET.bulbStewed),
+      i('11_007', 25, null, { substituteFor: { intended: 'Bleached palm oil (heat-clarified red palm oil)', reason: 'not in WAFCT 2019; refined decoloured palm oil used (bleaching destroys the carotenoids, as refining does)' } }),
+      IRU(5), i('09_057', 3), BEEF(40), i('07_021', 20, RET.meatSauce, { note: 'tripe (shaki)' }),
+      i(UNRESOLVED, 15, null, { note: 'Cow skin (ponmo): not in WAFCT 2019' }), i('08_001', 25, RET.eggBoiled, { note: 'half a boiled egg' }), CUBE(), SALT()],
+    costTier: 'medium', availability: ['home', 'market'], seasonality: 'all year' }),
+
+  // ── Soups ──────────────────────────────────────────────────────────────
+  restored({ id: 'groundnut-soup', name: 'Groundnut soup', localNames: ['Ofe ahu', 'Miyan gyada', 'Peanut soup'], category: 'soup', portionLabel: '1 serving (with 1 piece of meat)', region: 'Nationwide',
+    ingredients: [i('06_026', 30, null, { note: 'groundnut paste (or roasted groundnut, ground)' }), i('11_004', 8), i('04_021', 40, RET.fruitVegStewed), i('04_018', 15, RET.bulbStewed),
+      i('04_046', 3), BEEF(), STOCKFISH(10), i('09_057', 5), UGU(15), CUBE(), SALT()],
+    costTier: 'medium', availability: ['home'], seasonality: 'all year' }),
+  restored({ id: 'efo-riro', name: 'Efo riro (stewed spinach in pepper sauce)', localNames: ['Efo riro', 'Efo tete'], category: 'soup', portionLabel: '1 serving (with 1 piece of meat)', region: 'South-West Nigeria',
+    // Not the same dish as vegetable-soup (ugu and waterleaf, no pepper base):
+    // amaranth leaves stewed in a blended pepper base with more palm oil and iru.
+    ingredients: [i('04_023', 100, RET.leavesStewed, { note: 'amaranth leaves (efo tete)' }), i('04_047', 40, RET.fruitVegStewed, { note: 'red bell pepper (tatashe)' }),
+      i('04_021', 20, RET.fruitVegStewed), i('04_046', 5, RET.fruitVegStewed, { note: 'scotch bonnet (ata rodo)' }), i('04_018', 15, RET.bulbStewed),
+      i('11_004', 20), IRU(5), i('09_057', 5), BEEF(), STOCKFISH(10), CUBE(), SALT()],
+    costTier: 'medium', availability: ['home', 'hospital_kitchen'], seasonality: 'all year' }),
+  restored({ id: 'gbegiri', name: 'Gbegiri (bean soup)', localNames: ['Gbegiri'], category: 'soup', portionLabel: '1 bowl', region: 'South-West Nigeria',
+    ingredients: [i('03_045', 40, RET.pulsesSoakedStewed, { note: 'peeled (dehulled) cowpea, cooked and mashed' }), i('11_004', 10), IRU(3), i('09_057', 3),
+      i('04_018', 10, RET.bulbStewed), i('04_046', 3), CUBE(1), SALT()],
+    costTier: 'low', availability: ['home', 'market'], seasonality: 'all year' }),
+  restored({ id: 'miyan-kuka', name: 'Miyan kuka (baobab leaf soup)', localNames: ['Miyan kuka'], category: 'soup', portionLabel: '1 bowl (with 1 piece of meat)', region: 'Northern Nigeria',
+    ingredients: [i('04_002', 15, RET.leavesStewed, { note: 'dried baobab leaf powder (kuka)' }), IRU(5), i('11_022', 10, null, { note: 'groundnut oil (vitamin A fortified, as sold in Nigeria)' }),
+      i('09_053', 10, RET.fishSauce, { note: 'dried fish' }), BEEF(30), i('04_018', 15, RET.bulbStewed), i('04_046', 3), CUBE(), SALT()],
+    costTier: 'low', availability: ['home'], seasonality: 'all year' }),
+
+  // ── Fried and grilled proteins ─────────────────────────────────────────
+  restored({ id: 'fried-fish', name: 'Fried fish (mackerel)', localNames: ['Fried Titus', 'Eja dindin'], category: 'side', portionLabel: '1 piece (about 120 g raw fish, edible part)', region: 'Nationwide',
+    ingredients: [i('09_003', 120, RET.fattyFishDryHeat, { note: 'mackerel (Titus), raw edible portion; frying retention: dry-heat set (WAFCT has no frying set for fish)' }),
+      SALT(), CUBE(1), DEEP_FRY_OIL(6, 'about 5% of the raw fish weight')],
+    costTier: 'medium', availability: ['home', 'hospital_kitchen', 'market'], seasonality: 'all year' }),
+  restored({ id: 'fried-chicken', name: 'Fried chicken', localNames: ['Fried chicken'], category: 'side', portionLabel: '1 piece (about 120 g raw, edible part with skin)', region: 'Nationwide',
+    ingredients: [i('07_030', 120, RET.poultryDryHeat, { note: 'chicken thigh/drumstick with skin, raw edible portion; seasoned, parboiled then fried; retention: dry-heat set (WAFCT has no frying set for poultry)' }),
+      i('04_018', 10, RET.bulbStewed), i('13_022', 0.5), i('04_083', 0.5), CUBE(), SALT(), DEEP_FRY_OIL(6, 'about 5% of the raw chicken weight')],
+    costTier: 'high', availability: ['home', 'market'], seasonality: 'all year' }),
+  restored({ id: 'suya', name: 'Suya (spiced grilled beef)', localNames: ['Suya', 'Tsire'], category: 'side', portionLabel: '1 wrap (about 5 sticks, 100 g raw beef)', region: 'Northern Nigeria (eaten nationwide)',
+    ingredients: [i('07_009', 100, RET.beefGrilled, { note: 'lean beef, thin slices' }),
+      i('06_028', 10, null, { substituteFor: { intended: 'Kuli-kuli (groundnut cake) in yaji spice', reason: 'not in WAFCT 2019; partially defatted groundnut flour used (kuli-kuli is pressed, defatted groundnut)' } }),
+      i('13_006', 2, null, { note: 'dried chilli (yaji)' }), i('13_011', 1, null, { note: 'dried ginger (yaji)' }), CUBE(), SALT(),
+      i('11_022', 4, null, { note: 'groundnut oil brushed on while grilling' }), i('04_018', 20, null, { note: 'raw onion served with it' }),
+      i('04_021', 20, null, { note: 'raw tomato served with it' }), i('04_005', 15, null, { note: 'raw cabbage served with it' })],
+    costTier: 'medium', availability: ['market'], seasonality: 'all year' }),
+
+  // ── Side salad ─────────────────────────────────────────────────────────
+  restored({ id: 'coleslaw', name: 'Coleslaw', localNames: ['Coleslaw'], category: 'side', portionLabel: '1 serving (about 100 g)', region: 'Nationwide',
+    ingredients: [i('04_005', 60, null, { note: 'raw white cabbage' }), i('04_006', 15, null, { note: 'raw carrot' }),
+      i('11_031', 15, null, { substituteFor: { intended: 'Mayonnaise (20 g)', reason: 'not in WAFCT 2019; built from its main parts: 15 g vegetable oil + 3 g egg + 2 g vinegar' } }),
+      i('08_001', 3, null, { note: 'egg: part of the mayonnaise stand-in' }), i('13_003', 2, null, { note: 'vinegar: part of the mayonnaise stand-in' }), i('13_002', 3)],
+    costTier: 'low', availability: ['home', 'market'], seasonality: 'all year' }),
+
+  // ── Pastries and fried snacks ──────────────────────────────────────────
+  restored({ id: 'puff-puff', name: 'Puff puff', localNames: ['Puff puff', 'Bofrot'], category: 'snack', portionLabel: '5 balls (about 80 g)', region: 'Nationwide',
+    ingredients: [FLOUR(50, RET.grainFried), i('13_002', 10), i('13_017', 1.5, null, { note: 'dried yeast' }), SALT(0.5),
+      DEEP_FRY_OIL(12, 'about 15% of the fried weight')],
+    costTier: 'low', availability: ['home', 'market'], seasonality: 'all year' }),
+  restored({ id: 'chin-chin', name: 'Chin chin', localNames: ['Chin chin'], category: 'snack', portionLabel: '50 g (a small pack)', region: 'Nationwide',
+    ingredients: [FLOUR(30, RET.grainFried), i('13_002', 6), i('11_029', 4, null, { note: 'margarine rubbed into the flour' }), i('08_001', 4), i('10_016', 3, null, { note: 'evaporated milk' }),
+      SALT(0.3), DEEP_FRY_OIL(6, 'about 12% of the fried weight')],
+    costTier: 'low', availability: ['home', 'market'], seasonality: 'all year (more at festive seasons)' }),
+  restored({ id: 'buns', name: 'Buns (Nigerian fried dough)', localNames: ['Buns'], category: 'snack', portionLabel: '2 buns (about 100 g)', region: 'Nationwide',
+    ingredients: [FLOUR(50, RET.grainFried), i('13_002', 12), i('11_029', 4), i('08_001', 8), i('10_002', 4, null, { note: 'milk powder' }),
+      i('13_019', 1, null, { substituteFor: { intended: 'Baking powder', reason: 'not in WAFCT 2019; baking soda used (carries the sodium; no energy)' } }), SALT(0.5),
+      DEEP_FRY_OIL(10, 'about 10% of the fried weight')],
+    costTier: 'low', availability: ['home', 'market'], seasonality: 'all year' }),
+  restored({ id: 'meat-pie', name: 'Meat pie', localNames: ['Meat pie'], category: 'snack', portionLabel: '1 pie (about 130 g)', region: 'Nationwide',
+    // Baked: WAFCT 2019 has no baking retention set for grain products, so
+    // none is applied to the pastry.
+    ingredients: [FLOUR(52, null), i('11_029', 22, null, { note: 'margarine in the shortcrust' }), i('08_001', 6, null, { note: 'egg in the pastry and egg wash' }),
+      i('07_023', 25, RET.meatSauce, { note: 'minced beef filling' }), i('02_009', 15, RET.rootStewed, { note: 'diced Irish potato' }), i('04_006', 8, RET.bulbStewed),
+      i('04_018', 5, RET.bulbStewed), CUBE(1), SALT(0.5)],
+    costTier: 'medium', availability: ['market', 'home'], seasonality: 'all year' }),
+  restored({ id: 'sausage-roll', name: 'Sausage roll', localNames: ['Sausage roll', 'Gala'], category: 'snack', portionLabel: '1 roll (about 70 g)', region: 'Nationwide',
+    ingredients: [FLOUR(28, null), i('11_029', 14, null, { note: 'margarine in the pastry' }), i('08_001', 3, null, { note: 'egg wash' }),
+      i('07_023', 22, RET.meatSauce, { substituteFor: { intended: 'Seasoned beef sausage meat', reason: 'no raw sausage meat in WAFCT 2019; minced beef (ca. 10% fat) used, the rusk/binder is not counted' } }),
+      i('04_018', 3), CUBE(0.5), SALT(0.3)],
+    costTier: 'low', availability: ['market'], seasonality: 'all year' }),
+
+  // ── Drinks (one portion = one 250 mL cup; water listed so the cup weighs right) ─
+  restored({ id: 'zobo', name: 'Zobo (hibiscus drink, sweetened)', localNames: ['Zobo', 'Zoborodo', 'Sobolo'], category: 'beverage', portionLabel: '1 cup (250 mL)', region: 'Nationwide',
+    ingredients: [i(UNRESOLVED, 4, null, { note: 'Dried roselle calyces (Hibiscus sabdariffa): not in WAFCT 2019 (only the leaves are), infused and strained' }),
+      i('13_002', 20, null, { note: 'added sugar (commercial and home zobo is usually sweetened)' }), i('04_082', 3, null, { note: `fresh ginger, ${STRAINED}` }), i('12_019', 230)],
+    costTier: 'low', availability: ['home', 'market'], seasonality: 'all year' }),
+  restored({ id: 'kunu', name: 'Kunu (kunun zaki, millet drink, sweetened)', localNames: ['Kunu', 'Kunun zaki'], category: 'beverage', portionLabel: '1 cup (250 mL)', region: 'Northern Nigeria (eaten nationwide)',
+    ingredients: [i('01_017', 25, RET.grainBoiled, { note: `pearl millet grain, steeped, ground and part-cooked with hot water; ${STRAINED}` }),
+      i('13_011', 1, null, { note: 'dried ginger' }), i('13_002', 15, null, { note: 'added sugar' }), i('12_019', 210)],
+    costTier: 'low', availability: ['home', 'market'], seasonality: 'all year' }),
+  restored({ id: 'tiger-nut-milk', name: 'Tiger nut milk (kunun aya)', localNames: ['Kunun aya', 'Ofio', 'Tiger nut drink'], category: 'beverage', portionLabel: '1 cup (250 mL)', region: 'Northern Nigeria (eaten nationwide)',
+    ingredients: [i('02_026', 30, null, { note: `dried tiger nuts, soaked and blended; ${STRAINED}` }), i('06_002', 10, null, { note: 'fresh coconut, blended with the nuts and strained' }),
+      i('05_030', 10, null, { note: 'dates, blended in as the sweetener (no added sugar)' }), i('12_019', 200)],
+    costTier: 'low', availability: ['home', 'market'], seasonality: 'tiger nuts most available in the dry season' }),
+];
+
+export const SEED_RECIPES: Recipe[] = [...STAGE2_RECIPES, ...RESTORED_RECIPES];
 
 export const RECIPES_BY_ID: ReadonlyMap<string, Recipe> = new Map(SEED_RECIPES.map(r => [r.id, r]));
