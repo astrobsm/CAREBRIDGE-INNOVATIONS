@@ -14,6 +14,7 @@ import { scoreMust } from '../domains/clinician-assistant/services/riskCalculato
 import { bmiClass } from '../domains/nutrition/engine/anthropometry';
 import { mustBmiScore, mustWeightLossScore } from '../domains/nutrition/engine/screening';
 import { ACTIVE_NUTRITION_CONFIG } from '../domains/nutrition/engine/config';
+import { ACTIVE_PLANNER_CONFIG } from '../domains/nutrition/planner/config';
 import { plannerFoodItems } from '../domains/nutrition/services/legacyFoodAdapters';
 import type {
   NutritionStatus, FeedingRoute, DietType, PlannerFoodCategory as FoodCategory, PlannerMealType as MealType,
@@ -288,47 +289,49 @@ class NutritionPlannerService {
     const validUntil = new Date();
     validUntil.setDate(validUntil.getDate() + (data.durationDays || 7));
 
-    // Default meal distribution
+    // Energy split: the meal-plan optimiser's configured default (stage 3),
+    // the snacks' share divided between the two snacks.
+    const split = ACTIVE_PLANNER_CONFIG.defaultEnergySplit.value;
     const meals: DailyMeal[] = [
       {
         id: uuidv4(),
         mealType: 'breakfast',
         time: '07:00',
         items: [],
-        totalCalories: Math.round(data.targetCalories * 0.25),
-        totalProtein: Math.round(data.targetProtein * 0.25),
+        totalCalories: Math.round(data.targetCalories * split.breakfast),
+        totalProtein: Math.round(data.targetProtein * split.breakfast),
       },
       {
         id: uuidv4(),
         mealType: 'mid_morning',
         time: '10:00',
         items: [],
-        totalCalories: Math.round(data.targetCalories * 0.10),
-        totalProtein: Math.round(data.targetProtein * 0.10),
+        totalCalories: Math.round(data.targetCalories * split.snacks / 2),
+        totalProtein: Math.round(data.targetProtein * split.snacks / 2),
       },
       {
         id: uuidv4(),
         mealType: 'lunch',
         time: '13:00',
         items: [],
-        totalCalories: Math.round(data.targetCalories * 0.30),
-        totalProtein: Math.round(data.targetProtein * 0.30),
+        totalCalories: Math.round(data.targetCalories * split.lunch),
+        totalProtein: Math.round(data.targetProtein * split.lunch),
       },
       {
         id: uuidv4(),
         mealType: 'afternoon',
         time: '16:00',
         items: [],
-        totalCalories: Math.round(data.targetCalories * 0.10),
-        totalProtein: Math.round(data.targetProtein * 0.10),
+        totalCalories: Math.round(data.targetCalories * split.snacks / 2),
+        totalProtein: Math.round(data.targetProtein * split.snacks / 2),
       },
       {
         id: uuidv4(),
         mealType: 'dinner',
         time: '19:00',
         items: [],
-        totalCalories: Math.round(data.targetCalories * 0.25),
-        totalProtein: Math.round(data.targetProtein * 0.25),
+        totalCalories: Math.round(data.targetCalories * split.dinner),
+        totalProtein: Math.round(data.targetProtein * split.dinner),
       },
     ];
 

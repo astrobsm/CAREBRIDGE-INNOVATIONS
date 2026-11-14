@@ -8,6 +8,7 @@
  *   acid-base            → engine/modules/abg.ts   interpretAcidBase()
  *   potassium, sodium    → engine/replacement.ts   correctionPlan()
  *   meal plans           → data/nigerianFoods.ts   generateMealPlan()
+ *                          (the nutrition stage 3 meal-plan optimiser)
  *
  * The alternative — writing a second acid-base interpreter for a calculator
  * screen — is how two parts of one app come to disagree at the bedside. What is
@@ -303,7 +304,9 @@ export function woundHealingMealPlan(input: WoundMealPlanInput | number, legacy?
     proteinPerKg,
     kcalPerKg,
     fluidMl: Math.round(weightKg * fluidPerKg),
-    days: generateMealPlan(targetKcal, targetProtein),
+    // The plan itself honours the diabetic and CKD modifications listed here:
+    // no sugar-sweetened items and a carbohydrate cap; potassium/phosphate limits.
+    days: generateMealPlan(targetKcal, targetProtein, { restrictions: { diabetes: !!diabetes, ckd: ckd ? {} : null } }),
     modifications,
     cautions,
     rationale: [
@@ -325,7 +328,7 @@ export function weightLossMealPlan(targetKcal: number, weightKg: number): MealPl
   return {
     targetKcal,
     targetProtein,
-    days: generateMealPlan(targetKcal, targetProtein),
+    days: generateMealPlan(targetKcal, targetProtein, { goal: 'loss' }),
     rationale: [
       `${targetKcal} kcal/day with ${targetProtein} g protein.`,
       'Protein held at 1.6 g/kg so the deficit comes off fat rather than muscle.',
