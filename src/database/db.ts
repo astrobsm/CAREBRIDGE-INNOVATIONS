@@ -774,18 +774,34 @@ export async function importData(data: Record<string, unknown[]>): Promise<void>
   });
 }
 
-// Initialize with demo data if empty
+/** The practice itself: the one hospital record a fresh install starts with. */
+export const PRACTICE_HOSPITAL = {
+  name: 'AstroHEALTH Services',
+  address: 'Enugu, Nigeria',
+  city: 'Enugu',
+  state: 'Enugu',
+} as const;
+
+/** The name the seed used before the practice was renamed (2026-11). */
+export const FORMER_PRACTICE_NAME = 'AstroHEALTH General Hospital';
+
+// Initialize with the practice hospital if empty
 export async function initializeDemoData(): Promise<void> {
   const hospitalCount = await db.hospitals.count();
-  
+
+  // A device seeded before the rename still holds the old name and the
+  // placeholder Lagos address. Rename it once; the new updatedAt lets the
+  // change sync. (The cloud row is renamed by migration 20261126120000.)
+  const former = await db.hospitals.where('name').equals(FORMER_PRACTICE_NAME).toArray().catch(() => []);
+  for (const h of former) {
+    await db.hospitals.update(h.id, { ...PRACTICE_HOSPITAL, updatedAt: new Date() });
+  }
+
   if (hospitalCount === 0) {
-    // Add demo hospital
+    // Add the practice hospital
     await db.hospitals.add({
       id: 'hospital-1',
-      name: 'AstroHEALTH General Hospital',
-      address: '123 Healthcare Avenue',
-      city: 'Lagos',
-      state: 'Lagos',
+      ...PRACTICE_HOSPITAL,
       phone: '+234 902 872 4839',
       email: 'info.astrohealth@gmail.com',
       type: 'tertiary',
