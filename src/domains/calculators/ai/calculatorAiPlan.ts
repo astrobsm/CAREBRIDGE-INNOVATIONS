@@ -117,10 +117,11 @@ export function buildAiPlanPrompt(report: CalculatorReport): string {
 
 // ── Validation ──────────────────────────────────────────────────────────────
 
-const str = (v: unknown, max = 600): string | null =>
+/** Shared with the clerking plan's Claude drafts (clinical/clerkingPlan/aiPlan.ts). */
+export const str = (v: unknown, max = 600): string | null =>
   typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null;
 
-function strArray(v: unknown, key: string, errors: string[], { required = false, max = 20 } = {}): string[] {
+export function strArray(v: unknown, key: string, errors: string[], { required = false, max = 20 } = {}): string[] {
   if (!Array.isArray(v)) { errors.push(`${key} is not a list`); return []; }
   const out = v.map(x => str(x)).filter((x): x is string => x !== null).slice(0, max);
   if (out.length !== v.filter(x => x !== null && x !== undefined && x !== '').length) errors.push(`${key} contains non-text items`);
@@ -128,7 +129,7 @@ function strArray(v: unknown, key: string, errors: string[], { required = false,
   return out;
 }
 
-function objArray<T>(v: unknown, key: string, errors: string[], map: (o: Record<string, unknown>) => T | null, { required = false, max = 20 } = {}): T[] {
+export function objArray<T>(v: unknown, key: string, errors: string[], map: (o: Record<string, unknown>) => T | null, { required = false, max = 20 } = {}): T[] {
   if (!Array.isArray(v)) { errors.push(`${key} is not a list`); return []; }
   const out: T[] = [];
   for (const x of v.slice(0, max)) {
@@ -185,7 +186,7 @@ export function validateAiPlan(raw: unknown): AiPlanValidation {
   return errors.length ? { ok: false, errors } : { ok: true, plan };
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/[‐-―-]/g, '-').replace(/\s+/g, ' ').trim();
+export const norm = (s: string) => s.toLowerCase().replace(/[‐-―-]/g, '-').replace(/\s+/g, ' ').trim();
 
 /** Engine hard limits the model did not restate verbatim. */
 export function unquotedHardLimits(plan: AiPlan, hardLimits: string[]): string[] {
