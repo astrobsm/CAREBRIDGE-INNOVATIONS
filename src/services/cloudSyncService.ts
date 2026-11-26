@@ -1007,6 +1007,9 @@ async function pullAllFromCloud(): Promise<void> {
   
   // Post-Operative Notes
   await pullTable(TABLES.postOperativeNotes, 'postOperativeNotes');
+  await pullTable(TABLES.postOpCarePlans, 'postOpCarePlans');
+  await pullTable(TABLES.postOpObservations, 'postOpObservations');
+  await pullTable(TABLES.surgicalOutcomes, 'surgicalOutcomes');
   
   // Preoperative Assessments
   await pullTable(TABLES.preoperativeAssessments, 'preoperativeAssessments');
@@ -1224,6 +1227,9 @@ async function pushAllToCloud(): Promise<void> {
   
   // Post-Operative Notes
   await pushTable('postOperativeNotes', TABLES.postOperativeNotes);
+  await pushTable('postOpCarePlans', TABLES.postOpCarePlans);
+  await pushTable('postOpObservations', TABLES.postOpObservations);
+  await pushTable('surgicalOutcomes', TABLES.surgicalOutcomes);
   
   // Preoperative Assessments
   await pushTable('preoperativeAssessments', TABLES.preoperativeAssessments);
