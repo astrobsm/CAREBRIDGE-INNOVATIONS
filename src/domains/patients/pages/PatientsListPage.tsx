@@ -8,13 +8,16 @@ import {
   Filter,
   Eye,
   Edit,
-  Trash2,
+  Archive,
+  ArchiveRestore,
   Stethoscope,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { format } from 'date-fns';
+import { archivePatient, restorePatient, isArchivedPatient, listablePatients } from '../services/patientArchive';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -24,15 +27,16 @@ export default function PatientsListPage() {
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedGender, setSelectedGender] = useState<string>('all');
+  const [showArchived, setShowArchived] = useState(false);
 
   const patients = useLiveQuery(() => db.patients.orderBy('createdAt').reverse().toArray(), []);
 
   const filteredPatients = useMemo(() => {
     if (!patients) return [];
 
-    return patients.filter((patient) => {
-      // A registration merged into another is kept only for the audit trail.
-      if (patient.mergedInto) return false;
+    // A registration merged into another is kept only for the audit trail;
+    // archived patients are hidden unless asked for.
+    return listablePatients(patients, showArchived).filter((patient) => {
       const matchesSearch = searchQuery === '' ||
         (patient.firstName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (patient.lastName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -43,7 +47,7 @@ export default function PatientsListPage() {
 
       return matchesSearch && matchesGender;
     });
-  }, [patients, searchQuery, selectedGender]);
+  }, [patients, searchQuery, selectedGender, showArchived]);
 
   const paginatedPatients = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -52,9 +56,26 @@ export default function PatientsListPage() {
 
   const totalPages = Math.ceil(filteredPatients.length / ITEMS_PER_PAGE);
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this patient?')) {
-      await db.patients.delete(id);
+  // Patients are archived, never deleted: a device-only delete came straight
+  // back on the next cloud pull and orphaned the patient's clinical records.
+  const handleArchive = async (id: string) => {
+    if (!window.confirm('Archive this patient? They will be hidden from the patient list on every device. Their records are kept and they can be restored from "Show archived".')) return;
+    try {
+      await archivePatient(id);
+      toast.success('Patient archived');
+    } catch (err) {
+      console.error('Archive failed:', err);
+      toast.error('Could not archive the patient');
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    try {
+      await restorePatient(id);
+      toast.success('Patient restored');
+    } catch (err) {
+      console.error('Restore failed:', err);
+      toast.error('Could not restore the patient');
     }
   };
 
@@ -109,6 +130,17 @@ export default function PatientsListPage() {
               <option value="female">Female</option>
             </select>
           </div>
+          <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => {
+                setShowArchived(e.target.checked);
+                setCurrentPage(1);
+              }}
+            />
+            Show archived
+          </label>
         </div>
       </div>
 
@@ -156,6 +188,9 @@ export default function PatientsListPage() {
                         <div className="min-w-0">
                           <p className="font-medium text-gray-900 truncate">
                             {patient.firstName} {patient.lastName}
+                            {isArchivedPatient(patient) && (
+                              <span className="ml-2 badge badge-warning">Archived</span>
+                            )}
                           </p>
                           <p className="text-sm text-gray-500">
                             {patient.dateOfBirth ? calculateAge(new Date(patient.dateOfBirth)) : 'N/A'}
@@ -207,13 +242,23 @@ export default function PatientsListPage() {
                         >
                           <Edit size={18} />
                         </Link>
-                        <button
-                          onClick={() => handleDelete(patient.id)}
-                          className="btn-icon text-gray-400 hover:text-red-600 hover:bg-red-50 hidden md:flex"
-                          title="Delete"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        {isArchivedPatient(patient) ? (
+                          <button
+                            onClick={() => handleRestore(patient.id)}
+                            className="btn-icon text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 hidden md:flex"
+                            title="Restore"
+                          >
+                            <ArchiveRestore size={18} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleArchive(patient.id)}
+                            className="btn-icon text-gray-400 hover:text-red-600 hover:bg-red-50 hidden md:flex"
+                            title="Archive"
+                          >
+                            <Archive size={18} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </motion.tr>
@@ -295,6 +340,9 @@ export default function PatientsListPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 truncate">
                       {patient.firstName} {patient.lastName}
+                      {isArchivedPatient(patient) && (
+                        <span className="ml-2 badge badge-warning">Archived</span>
+                      )}
                     </p>
                     <p className="text-sm text-gray-500 font-mono">{patient.hospitalNumber}</p>
                     <div className="flex items-center gap-2 mt-1">
