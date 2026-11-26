@@ -23,6 +23,7 @@ import {
   isEligibleForEarnings 
 } from '../../../services/staffEarningsService';
 import { formatCurrency } from '../../../services/activityBillingService';
+import { isArchivedPatient } from '../../patients/services/patientArchiveRules';
 
 
 export default function DoctorDashboard() {
@@ -49,6 +50,14 @@ export default function DoctorDashboard() {
       .filter(a => a.status === 'active')
       .toArray();
   }, [user?.id]);
+
+  // Registered patients still active (not discharged-and-archived, not
+  // merged away). "My Patients" used to count admissions only, which read 0
+  // in a clinic where nobody is admitted.
+  const activePatients = useLiveQuery(
+    () => db.patients.filter(p => !isArchivedPatient(p) && !p.mergedInto).count(),
+    [],
+  );
 
   // Today's encounters
   const todaysEncounters = useLiveQuery(async () => {
@@ -100,8 +109,8 @@ export default function DoctorDashboard() {
 
   const dashboardStats = [
     {
-      name: 'My Patients',
-      value: myAdmittedPatients?.length ?? 0,
+      name: 'Active Patients',
+      value: activePatients ?? 0,
       icon: <Users className="w-5 h-5" />,
       color: 'bg-sky-500',
       link: '/patients',

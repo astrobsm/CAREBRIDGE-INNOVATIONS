@@ -24,6 +24,7 @@ import ComorbiditiesStep from './ComorbiditiesStep';
 import ScoreSummaryStep from './ScoreSummaryStep';
 
 import { db } from '../../../database';
+import { ageInYears } from '../../../utils/safeDate';
 import { useAuth } from '../../../contexts/AuthContext';
 import { calculateLimbSalvageScore, generateRecommendations, recommendAmputationLevel, determineManagement, generateConsentOptions } from '../../../services/limbSalvageService';
 import { syncRecord } from '../../../services/cloudSyncService';
@@ -48,6 +49,8 @@ interface LimbSalvageFormProps {
   onClose: () => void;
   onSave: () => void;
   existingAssessment?: LimbSalvageAssessment;
+  /** Start a new assessment with this patient selected (ignored when editing). */
+  initialPatientId?: string | null;
 }
 
 // Initial state for form
@@ -196,7 +199,7 @@ const steps = [
   { id: 6, name: 'Results', icon: FileText },
 ];
 
-export default function LimbSalvageForm({ onClose, onSave, existingAssessment }: LimbSalvageFormProps) {
+export default function LimbSalvageForm({ onClose, onSave, existingAssessment, initialPatientId }: LimbSalvageFormProps) {
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<Partial<LimbSalvageAssessment>>(
@@ -208,6 +211,22 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment }:
   const updateFormData = (data: Partial<LimbSalvageAssessment>) => {
     setFormData(prev => ({ ...prev, ...data }));
   };
+
+  // Opened for one patient: select them, with age and sex, unless a patient
+  // is already chosen.
+  useEffect(() => {
+    if (existingAssessment || !initialPatientId) return;
+    void db.patients.get(initialPatientId).then(p => {
+      if (!p) return;
+      const age = ageInYears(p.dateOfBirth);
+      setFormData(prev => prev.patientId ? prev : {
+        ...prev,
+        patientId: p.id,
+        ...(age != null ? { patientAge: age } : {}),
+        patientGender: p.gender,
+      });
+    });
+  }, [existingAssessment, initialPatientId]);
 
   // Calculate scores when moving to results step
   useEffect(() => {

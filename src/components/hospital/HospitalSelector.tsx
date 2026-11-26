@@ -22,9 +22,10 @@ import {
 import { toast } from 'react-hot-toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../database/db';
-import { fullSync } from '../../services/cloudSyncService';
+import { syncRecord } from '../../services/cloudSyncService';
 import type { Hospital } from '../../types';
 import { searchHospitals } from './hospitalSearch';
+import { quickAddHospital, hospitalPlace } from './quickAddHospital';
 
 // ============================================================
 // TYPES
@@ -68,10 +69,12 @@ function QuickAddHospitalForm({
   onSave,
   onCancel,
   initialName,
+  existing,
 }: {
   onSave: (hospital: Hospital) => void;
   onCancel: () => void;
   initialName?: string;
+  existing?: Hospital[];
 }) {
   const [formData, setFormData] = useState<QuickAddHospitalFormData>({
     name: initialName || '',
@@ -82,165 +85,117 @@ function QuickAddHospitalForm({
     type: 'secondary',
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.name.trim()) {
-      toast.error('Hospital name is required');
-      return;
-    }
-
-    if (!formData.address.trim()) {
-      toast.error('Hospital address is required');
-      return;
-    }
-
+  // Not a <form>: this panel sits inside the patient registration form, and a
+  // nested form's submit bubbled up and submitted the registration too.
+  const save = async () => {
+    if (saving) return;
     setSaving(true);
-    try {
-      const newHospital: Hospital = {
-        id: crypto.randomUUID(),
-        name: formData.name.trim(),
-        address: formData.address.trim(),
-        city: formData.city.trim() || 'Not specified',
-        state: formData.state.trim() || 'Not specified',
-        phone: formData.phone.trim() || '',
-        email: '',
-        type: formData.type,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+    setError(null);
+    const result = await quickAddHospital(formData, {
+      newId: () => crypto.randomUUID(),
+      save: (h) => db.hospitals.add(h),
+      sync: (h) => syncRecord('hospitals', h as unknown as Record<string, unknown>),
+      select: onSave,
+      existing,
+    });
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.error);
+      toast.error(result.error);
+      return;
+    }
+    toast.success(result.reused
+      ? `"${result.hospital.name}" already exists and is now selected`
+      : `Hospital "${result.hospital.name}" added and selected`);
+  };
 
-      // Save to local IndexedDB
-      await db.hospitals.add(newHospital);
-
-      // Trigger cloud sync
-      fullSync().catch(err => console.warn('Sync failed:', err));
-
-      toast.success(`Hospital "${newHospital.name}" added successfully`);
-      onSave(newHospital);
-    } catch (error) {
-      console.error('Failed to add hospital:', error);
-      toast.error('Failed to add hospital');
-    } finally {
-      setSaving(false);
+  // Enter in a field saves the hospital and must not submit the outer form.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') {
+      e.preventDefault();
+      e.stopPropagation();
+      void save();
+    }
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      onCancel();
     }
   };
 
+  const field = 'w-full px-3 py-2.5 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500';
+
   return (
-    <motion.div
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: 'auto' }}
-      exit={{ opacity: 0, height: 0 }}
-      className="border-t border-gray-200"
-    >
-      <form onSubmit={handleSubmit} className="p-4 space-y-3 bg-emerald-50/50">
-        <div className="flex items-center gap-2 mb-3">
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="quick-add-hospital-title"
+        className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90dvh] flex flex-col"
+        onKeyDown={onKeyDown}
+      >
+        <div className="flex items-center gap-2 px-4 pt-4 pb-2">
           <Building2 size={18} className="text-emerald-600" />
-          <span className="font-medium text-gray-900">Quick Add Hospital</span>
+          <span id="quick-add-hospital-title" className="font-semibold text-gray-900 flex-1">Quick Add Hospital</span>
+          <button type="button" onClick={onCancel} className="p-2 -mr-2 rounded-full hover:bg-gray-100" aria-label="Close">
+            <X size={18} />
+          </button>
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Hospital Name *</label>
-          <input
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            placeholder="Hospital name"
-            autoFocus
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Address *</label>
-          <input
-            type="text"
-            value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            placeholder="Full address"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="px-4 pb-2 space-y-3 overflow-y-auto">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">City</label>
-            <input
-              type="text"
-              value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              placeholder="City"
-            />
+            <label htmlFor="qah-name" className="block text-xs font-medium text-gray-700 mb-1">Hospital Name *</label>
+            <input id="qah-name" type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className={field} placeholder="Hospital or clinic name" autoFocus />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">State</label>
-            <input
-              type="text"
-              value={formData.state}
-              onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              placeholder="State"
-            />
+            <label htmlFor="qah-address" className="block text-xs font-medium text-gray-700 mb-1">Address</label>
+            <input id="qah-address" type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className={field} placeholder="Street address" />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="qah-city" className="block text-xs font-medium text-gray-700 mb-1">City</label>
+              <input id="qah-city" type="text" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} className={field} placeholder="City" />
+            </div>
+            <div>
+              <label htmlFor="qah-state" className="block text-xs font-medium text-gray-700 mb-1">State</label>
+              <input id="qah-state" type="text" value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })} className={field} placeholder="State" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="qah-phone" className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+              <input id="qah-phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className={field} placeholder="Phone" />
+            </div>
+            <div>
+              <label htmlFor="qah-type" className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+              <select id="qah-type" value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as 'primary' | 'secondary' | 'tertiary' })} className={field}>
+                <option value="primary">Primary</option>
+                <option value="secondary">Secondary</option>
+                <option value="tertiary">Tertiary</option>
+              </select>
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+          <p className="text-xs text-gray-500">Only the name is needed. Full details can be added later under Hospitals.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              placeholder="Phone number"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
-            <select
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as 'primary' | 'secondary' | 'tertiary' })}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              title="Select hospital type"
-            >
-              <option value="primary">Primary</option>
-              <option value="secondary">Secondary</option>
-              <option value="tertiary">Tertiary</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
+        {/* Always visible, never scrolled out of reach. */}
+        <div className="flex gap-2 px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-gray-100">
+          <button type="button" onClick={onCancel} className="flex-1 px-3 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
             <ArrowLeft size={14} className="inline mr-1" />
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex-1 px-3 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-          >
-            {saving ? (
-              <Loader2 size={14} className="inline mr-1 animate-spin" />
-            ) : (
-              <Save size={14} className="inline mr-1" />
-            )}
+          <button type="button" onClick={() => void save()} disabled={saving} className="flex-1 px-3 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+            {saving ? <Loader2 size={14} className="inline mr-1 animate-spin" /> : <Save size={14} className="inline mr-1" />}
             Save Hospital
           </button>
         </div>
-
-        <p className="text-xs text-gray-500 text-center">
-          Full details can be added later from Hospital Settings
-        </p>
-      </form>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -287,7 +242,6 @@ export function HospitalSelector({
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
         setSearchQuery('');
-        setShowQuickAdd(false);
       }
     };
 
@@ -301,6 +255,14 @@ export function HospitalSelector({
     setSearchQuery('');
     setShowQuickAdd(false);
   }, [onChange]);
+
+  // Remember what was typed: the sheet starts with it as the name.
+  const [quickAddName, setQuickAddName] = useState('');
+  const openQuickAdd = useCallback(() => {
+    setQuickAddName(searchQuery);
+    setShowQuickAdd(true);
+    setIsOpen(false);
+  }, [searchQuery]);
 
   const handleClear = useCallback(() => {
     onChange(undefined, undefined);
@@ -356,7 +318,7 @@ export function HospitalSelector({
                 {selectedHospital.name}
               </p>
               <p className="text-xs text-gray-500 truncate">
-                {selectedHospital.city}, {selectedHospital.state}
+                {hospitalPlace(selectedHospital) || selectedHospital.address}
               </p>
             </div>
           </div>
@@ -440,7 +402,7 @@ export function HospitalSelector({
                         </div>
                         <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
                           <MapPin size={10} />
-                          <span className="truncate">{hospital.address}, {hospital.city}</span>
+                          <span className="truncate">{[hospital.address, hospitalPlace(hospital)].filter(Boolean).join(', ')}</span>
                         </div>
                         {hospital.phone && (
                           <div className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
@@ -458,7 +420,7 @@ export function HospitalSelector({
                   <li className="border-t border-gray-100">
                     <button
                       type="button"
-                      onClick={() => setShowQuickAdd(true)}
+                      onClick={openQuickAdd}
                       className="w-full px-4 py-3 flex items-center gap-3 hover:bg-emerald-50 transition-colors text-left text-emerald-700"
                     >
                       <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 flex-shrink-0">
@@ -479,7 +441,7 @@ export function HospitalSelector({
                 {showAddNew && !showQuickAdd && (
                   <button
                     type="button"
-                    onClick={() => setShowQuickAdd(true)}
+                    onClick={openQuickAdd}
                     className="inline-flex items-center gap-1 mt-3 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium transition-colors"
                   >
                     <Plus size={16} />
@@ -495,7 +457,7 @@ export function HospitalSelector({
                 {showAddNew && (
                   <button
                     type="button"
-                    onClick={() => setShowQuickAdd(true)}
+                    onClick={openQuickAdd}
                     className="w-full flex items-center gap-3 p-3 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-700"
                   >
                     <Plus size={20} />
@@ -508,20 +470,22 @@ export function HospitalSelector({
               </div>
             ) : null}
 
-            {/* Quick Add Form */}
-            <AnimatePresence>
-              {showQuickAdd && (
-                <QuickAddHospitalForm
-                  initialName={searchQuery}
-                  onSave={(hospital) => {
-                    setShowQuickAdd(false);
-                    handleSelect(hospital);
-                  }}
-                  onCancel={() => setShowQuickAdd(false)}
-                />
-              )}
-            </AnimatePresence>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Quick Add: a sheet over the page, so nothing clips it and Save stays in reach. */}
+      <AnimatePresence>
+        {showQuickAdd && (
+          <QuickAddHospitalForm
+            initialName={quickAddName}
+            existing={hospitals}
+            onSave={(hospital) => {
+              setShowQuickAdd(false);
+              handleSelect(hospital);
+            }}
+            onCancel={() => setShowQuickAdd(false)}
+          />
         )}
       </AnimatePresence>
 

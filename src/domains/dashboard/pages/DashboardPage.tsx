@@ -21,7 +21,7 @@ import NurseDashboard from '../components/NurseDashboard';
 import LabScientistDashboard from '../components/LabScientistDashboard';
 import AccountantDashboard from '../components/AccountantDashboard';
 import PharmacistDashboard from '../components/PharmacistDashboard';
-import AdminDashboard from '../components/AdminDashboard';
+import TodayDashboard from '../components/TodayDashboard';
 import NotificationPermissionCard from '../../../components/notifications/NotificationPermissionCard';
 
 export default function DashboardPage() {
@@ -33,12 +33,15 @@ export default function DashboardPage() {
     if (!user?.role) return null;
     
     switch (user.role) {
+      // The practice owner and clinicians land on the clinic "Today" view.
+      // The hospital/user-count admin dashboard is /practice-admin
+      // (Settings > Practice, and the menu's Settings group).
       case 'super_admin':
       case 'hospital_admin':
-        return <AdminDashboard />;
       case 'surgeon':
       case 'doctor':
       case 'plastic_surgeon':
+        return <TodayDashboard />;
       case 'anaesthetist':
         return <DoctorDashboard />;
       case 'nurse':

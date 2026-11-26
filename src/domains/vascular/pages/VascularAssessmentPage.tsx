@@ -15,6 +15,7 @@ import {
   Activity, AlertOctagon, AlertTriangle, ArrowLeft, ChevronDown, Footprints,
   Info, Plus, RefreshCw, Stethoscope, Syringe,
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../database';
 import type { Patient } from '../../../types';
@@ -38,6 +39,14 @@ import PerfusionWoundChart from '../components/PerfusionWoundChart';
 
 export default function VascularAssessmentPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
+  // Opened for one patient (?patientId=): select them. Only fills an empty
+  // selection, so it never overrides a patient the clinician picked.
+  const [searchParams] = useSearchParams();
+  const linkedPatientId = searchParams.get('patientId');
+  useEffect(() => {
+    if (!linkedPatientId) return;
+    void db.patients.get(linkedPatientId).then(p => { if (p) setPatient(cur => cur ?? p); });
+  }, [linkedPatientId]);
   // Defaults to the patient’s registered hospital; overridden when this visit
   // happens somewhere else, and reset whenever the patient changes.
   const encounterHospital = useEncounterHospital(patient);

@@ -27,6 +27,7 @@ import type { Patient, BloodGroup, Genotype, Hospital, DVTRiskAssessment, Pressu
 import { HospitalNumberField, numberCheckBlocks, type NumberCheck } from '../components/HospitalNumberField';
 import { registerPatient, isDuplicateHospitalNumberError } from '../services/patientDedupeService';
 import { registrationScopeProblem } from '../services/registrationScope';
+import { registrationHospital } from '../registration';
 
 // Hospital options will be fetched from database
 
@@ -103,15 +104,17 @@ const commonComorbidities = [
 ];
 
 const patientSchema = z.object({
-  firstName: z.string().min(2, 'First name must be at least 2 characters'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+  // The name is the only thing a registration needs.
+  firstName: z.string().trim().min(1, 'First name is required'),
+  lastName: z.string().trim().min(1, 'Last name is required'),
   middleName: z.string().optional(),
   folderNumber: z.string().optional(), // Auto-generated if left empty
   dateOfBirth: z.string().optional(), // Made optional
-  gender: z.enum(['male', 'female']).optional(),
+  // '' is the select's "not chosen" option; plain .optional() rejected it.
+  gender: z.enum(['', 'male', 'female']).optional(),
   bloodGroup: z.string().optional(),
   genotype: z.string().optional(),
-  maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed']).optional(),
+  maritalStatus: z.enum(['', 'single', 'married', 'divorced', 'widowed']).optional(),
   phone: z.string().optional(), // Made optional
   alternatePhone: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
@@ -132,7 +135,8 @@ const patientSchema = z.object({
   // The hospital this patient is being registered at. Until now this was never
   // asked: registeredHospitalId was forced to the logged-in user's hospital, so
   // a patient could only ever be registered where the person typing works.
-  hospitalId: z.string().min(1, 'Select the hospital this patient is registered at'),
+  // Optional: defaults to the practice hospital; none is stored as none.
+  hospitalId: z.string().optional(),
   otherHospitalName: z.string().optional(),
   ward: z.string().optional(),
 });
@@ -211,8 +215,9 @@ export default function NewPatientPage() {
   } = useForm<PatientFormData>({
     resolver: zodResolver(patientSchema),
     defaultValues: {
-      maritalStatus: 'single',
-      gender: 'male',
+      // Not guessed: a blank DOB used to be saved as today and a blank sex as male.
+      maritalStatus: '',
+      gender: '',
       careType: 'hospital',
       // Almost always right, and changeable — not forced, as it was before.
       hospitalId: user?.hospitalId,
@@ -220,6 +225,13 @@ export default function NewPatientPage() {
   });
 
   const careType = watch('careType');
+
+  // A one-hospital practice registers there unless another is chosen.
+  useEffect(() => {
+    if (_loadingHospitals) return;
+    const choice = registrationHospital(hospitals, user?.hospitalId);
+    if (!choice.showPicker && !watch('hospitalId')) setValue('hospitalId', choice.defaultId);
+  }, [_loadingHospitals, hospitals, user?.hospitalId, setValue, watch]);
   const hospitalId = watch('hospitalId');
   const dateOfBirth = watch('dateOfBirth');
   const gender = watch('gender');
@@ -388,14 +400,15 @@ export default function NewPatientPage() {
         id: uuidv4(),
         // Blank: registerPatient issues an auto-number (CB + YY + 5 digits).
         hospitalNumber: data.folderNumber?.trim() || '',
-        firstName: data.firstName,
-        lastName: data.lastName,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
         middleName: data.middleName,
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : new Date(),
-        gender: data.gender || 'male',
+        // Not recorded stays not recorded (it used to become today, a newborn).
+        dateOfBirth: (data.dateOfBirth ? new Date(data.dateOfBirth) : undefined) as Date,
+        gender: (data.gender || undefined) as Patient['gender'],
         bloodGroup: data.bloodGroup as BloodGroup | undefined,
         genotype: data.genotype as Genotype | undefined,
-        maritalStatus: data.maritalStatus || 'single',
+        maritalStatus: (data.maritalStatus || undefined) as Patient['maritalStatus'],
         phone: data.phone || '',
         alternatePhone: data.alternatePhone,
         email: data.email || undefined,
@@ -420,12 +433,12 @@ export default function NewPatientPage() {
         // Care Setting fields
         careType: data.careType || 'hospital',
         // Current place of care — only meaningful for hospital care.
-        hospitalId: data.careType === 'hospital' ? data.hospitalId : undefined,
+        hospitalId: data.careType === 'hospital' ? (data.hospitalId || undefined) : undefined,
         hospitalName: data.careType === 'hospital' ? hospitalName : undefined,
         ward: data.careType === 'hospital' ? data.ward : undefined,
         // Registration, which a home-care patient has too: they are on some
         // hospital's or service's list even though they are seen at home.
-        registeredHospitalId: data.hospitalId,
+        registeredHospitalId: (data.hospitalId || undefined) as string,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -645,8 +658,7 @@ export default function NewPatientPage() {
                       label={careType === 'homecare' ? 'Registering hospital / service' : 'Hospital'}
                       value={field.value}
                       onChange={(id) => field.onChange(id)}
-                      placeholder="Search or select hospital"
-                      required
+                      placeholder="Search or select hospital (optional)"
                       error={errors.hospitalId?.message}
                       showAddNew
                     />
