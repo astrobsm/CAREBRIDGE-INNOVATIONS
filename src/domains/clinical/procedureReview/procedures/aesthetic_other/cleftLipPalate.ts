@@ -495,14 +495,14 @@ export const cleftLipPalate: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Admission', purpose: 'Rule of 10s / fitness check on the day; feeding plan taught' }],
     post_op: [
-      { when: 'Day 5–7', purpose: 'Lip wound check; sutures (non-absorbable) out' },
-      { when: '2–3 weeks', purpose: 'Splints off; feeding and weight' },
-      { when: '6 weeks', purpose: 'Repair healed; next stage planned with the cleft team' },
+      { when: 'Day 5–7', schedule: { kind: 'once', startDay: 5, from: 'operation' }, purpose: 'Lip wound check; sutures (non-absorbable) out' },
+      { when: '2–3 weeks', schedule: { kind: 'once', startDay: 14, from: 'operation' }, purpose: 'Splints off; feeding and weight' },
+      { when: '6 weeks', schedule: { kind: 'once', startDay: 42, from: 'operation' }, purpose: 'Repair healed; next stage planned with the cleft team' },
     ],
     follow_up: [
-      { when: 'Every 6–12 months (cleft team)', purpose: 'Growth, hearing, speech, teeth, wellbeing' },
-      { when: 'Age about 3 and 5 years', purpose: 'Speech assessments (unit protocol)' },
-      { when: 'Age 8–11 years', purpose: 'Alveolar bone graft planning with orthodontics' },
+      { when: 'Every 6–12 months (cleft team)', schedule: { kind: 'next', startDay: 180, everyDays: 180, from: 'operation' }, purpose: 'Growth, hearing, speech, teeth, wellbeing' },
+      { when: 'Age about 3 and 5 years', schedule: { kind: 'recall', from: 'operation' }, purpose: 'Speech assessments (unit protocol)' },
+      { when: 'Age 8–11 years', schedule: { kind: 'recall', from: 'operation' }, purpose: 'Alveolar bone graft planning with orthodontics' },
     ],
   },
   handoffs: [

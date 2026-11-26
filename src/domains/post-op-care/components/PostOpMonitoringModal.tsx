@@ -139,6 +139,7 @@ export default function PostOpMonitoringModal({
       const saved = await db.postOpObservations.get(observation.id);
       if (!saved) throw new Error('Observation was not written');
       if (vitals) syncRecord('vitalSigns', vitals as unknown as Record<string, unknown>).catch(console.error);
+      syncRecord('postOpObservations', saved as unknown as Record<string, unknown>).catch(console.error);
 
       toast.success(vitals ? 'Observation and vitals saved' : 'Observation saved (no vitals entered)');
       onClose();

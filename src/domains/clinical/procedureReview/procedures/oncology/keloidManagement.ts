@@ -426,12 +426,12 @@ export const keloidManagement: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Before excision', purpose: 'Radiotherapy slot within 72 hours confirmed (if planned); pressure device ordered' }],
     post_op: [
-      { when: '1–3 days', purpose: 'Radiotherapy fractions (if planned)' },
-      { when: '7–14 days', purpose: 'Suture removal; start / continue steroid; fit pressure device' },
+      { when: '1–3 days', schedule: { kind: 'recall', dueDay: 1, from: 'operation' }, purpose: 'Radiotherapy fractions (if planned)' },
+      { when: '7–14 days', schedule: { kind: 'once', startDay: 7, from: 'operation' }, purpose: 'Suture removal; start / continue steroid; fit pressure device' },
     ],
     follow_up: [
-      { when: 'Every 4–6 weeks', purpose: 'Intralesional steroid while the scar is active' },
-      { when: 'Every 3 months for at least 12–24 months', purpose: 'Recurrence check with VSS / POSAS and photographs (most recurrences within 1–2 years)' },
+      { when: 'Every 4–6 weeks', schedule: { kind: 'next', startDay: 28, everyDays: 28, from: 'operation' }, purpose: 'Intralesional steroid while the scar is active' },
+      { when: 'Every 3 months for at least 12–24 months', schedule: { kind: 'next', startDay: 90, everyDays: 90, from: 'operation' }, purpose: 'Recurrence check with VSS / POSAS and photographs (most recurrences within 1–2 years)' },
     ],
   },
   handoffs: [

@@ -833,13 +833,13 @@ export const skinTumourExcision: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Before listing', purpose: 'Biopsy / imaging results reviewed; risk group and margin agreed' }],
     post_op: [
-      { when: 'Day 5–14', purpose: 'Wound check and suture removal (5–7 days face; 10–14 days trunk and limbs)' },
-      { when: '2–4 weeks', purpose: 'Histology results visit: margins, risk group, MDT and the surveillance plan' },
+      { when: 'Day 5–14', schedule: { kind: 'once', startDay: 5, from: 'operation' }, purpose: 'Wound check and suture removal (5–7 days face; 10–14 days trunk and limbs)' },
+      { when: '2–4 weeks', schedule: { kind: 'once', startDay: 14, from: 'operation' }, purpose: 'Histology results visit: margins, risk group, MDT and the surveillance plan' },
     ],
     follow_up: [
-      { when: 'BCC', purpose: 'Low risk: discharge after one review with self-examination; high risk / recurrent: every 6–12 months for 5 years (BAD 2021; NCCN)' },
-      { when: 'cSCC', purpose: 'Every 3–12 months for 2 years by risk, every 6–12 months to year 5, then annually (NCCN; BAD 2020)' },
-      { when: 'Albinism or transplant recipients', purpose: 'Lifelong skin checks every 3–6 months (local-programme interval)' },
+      { when: 'BCC', schedule: { kind: 'recall', dueDay: 28, from: 'operation' }, purpose: 'Low risk: discharge after one review with self-examination; high risk / recurrent: every 6–12 months for 5 years (BAD 2021; NCCN)' },
+      { when: 'cSCC', schedule: { kind: 'recall', dueDay: 28, from: 'operation' }, purpose: 'Every 3–12 months for 2 years by risk, every 6–12 months to year 5, then annually (NCCN; BAD 2020)' },
+      { when: 'Albinism or transplant recipients', schedule: { kind: 'recall', dueDay: 28, from: 'operation' }, purpose: 'Lifelong skin checks every 3–6 months (local-programme interval)' },
     ],
   },
   handoffs: [

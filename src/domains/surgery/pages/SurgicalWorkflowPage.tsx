@@ -72,6 +72,22 @@ import {
   missingAttachments, isImageDataUrl, imageToPdfDataUrl, type SurgeryAttachmentKind,
 } from '../services/surgeryAttachments';
 import { syncRecord } from '../../../services/cloudSyncService';
+import ReadinessPanel from '../components/ReadinessPanel';
+import { useSurgeryReadiness, loadReadiness } from '../journey/readinessData';
+import WhoChecklistPanel from '../components/WhoChecklistPanel';
+import { startSurgeryDecision, overrideRecord, MIN_OVERRIDE_REASON } from '../journey/theatreGate';
+import { theatreStepBlockers } from '../journey/whoChecklist';
+import { actorName } from '../journey/surgeryWrite';
+import {
+  savePreAnaestheticReview as savePreAnaestheticReviewRecord, saveIntraOpRecord, upsertPostOpNote,
+} from '../journey/operationRecord';
+import ComplicationsEditor from '../components/ComplicationsEditor';
+import FollowUpPlanner from '../components/FollowUpPlanner';
+import PatientPackPanel from '../../patient-pack/components/PatientPackPanel';
+import { defaultFastingLines } from '../../patient-pack/beforeSurgery';
+import { patientText } from '../../patient-pack/locale/en';
+import { complicationText } from '../journey/clavienDindo';
+import type { GradedComplication, IntraOperativeRecord } from '../../../types';
 
 // Suppress unused-import warnings for types used as type annotations only
 void (undefined as unknown as ConsumableBOM);
@@ -510,9 +526,12 @@ export default function SurgicalWorkflowPage() {
   const { user } = useAuth();
 
   // Current section
-  const [activeSection, setActiveSection] = useState<SectionId>(
-    searchParams.get('tab') === 'team' ? 'estimates' : 'planning',
-  );
+  // ?tab=<section id> opens that section (readiness links); ?tab=team is the estimates.
+  const [activeSection, setActiveSection] = useState<SectionId>(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'team') return 'estimates';
+    return SECTIONS.some(s => s.id === tab) ? tab as SectionId : 'planning';
+  });
   const [sectionCompletion, setSectionCompletion] = useState<Record<SectionId, boolean>>({ ...EMPTY_SECTION_COMPLETION });
 
   // ---- Live queries ----
@@ -526,6 +545,15 @@ export default function SurgicalWorkflowPage() {
   // ---- Current surgery state ----
   const [currentSurgeryId, setCurrentSurgeryId] = useState<string>(requestedSurgeryId);
   const currentSurgery = surgeries?.find(s => s.id === currentSurgeryId);
+  // One readiness answer from the records (journey/readiness.ts): the
+  // booking gate reads the 'booking' stage, Start Surgery the full one.
+  const bookingReadiness = useSurgeryReadiness(currentSurgeryId || undefined, 'booking');
+  const theatreReadiness = useSurgeryReadiness(currentSurgeryId || undefined, 'theatre');
+  const [redFlagNote, setRedFlagNote] = useState('');
+  const [gradedComplications, setGradedComplications] = useState<GradedComplication[]>([]);
+  const [showFollowUpPlanner, setShowFollowUpPlanner] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [showOverride, setShowOverride] = useState(false);
 
   // Follow the URL: a different patient or a different ?edit= is a different
   // case, never the one still in state.
@@ -674,6 +702,21 @@ export default function SurgicalWorkflowPage() {
     }
   }, [currentSurgery]);
 
+  // The stored pre-anaesthetic review (db.preoperativeAssessments) for this case.
+  const storedPreAnaesthetic = useLiveQuery(
+    async () => (currentSurgeryId && patientId
+      ? (await db.preoperativeAssessments.where('patientId').equals(patientId).toArray()).find(a => a.surgeryId === currentSurgeryId) ?? null
+      : null),
+    [currentSurgeryId, patientId],
+  );
+  useEffect(() => {
+    if (!storedPreAnaesthetic) return;
+    setAirwayAssessment(prev => prev || storedPreAnaesthetic.airwayNotes || '');
+    setPreAnaestheticNotes(prev => prev || storedPreAnaesthetic.preAnaestheticNotes || '');
+    if (storedPreAnaesthetic.fitnessGrade) setFitnessGrade(storedPreAnaesthetic.fitnessGrade);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storedPreAnaesthetic?.id]);
+
   // ---- localStorage: persist workflow draft ----
   // One draft per surgery, plus a new-case draft per patient until the first
   // save (see services/workflowDraft). It used to be one per patient, so a
@@ -692,27 +735,31 @@ export default function SurgicalWorkflowPage() {
     } catch { /* storage unavailable */ }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d: any = readDraft(localStorage, STORAGE_KEY) ?? {};
+    // Reopened on another device (no draft): fill from the stored record.
+    const rec = currentSurgery?.intraOpRecord;
     setInvResults(d.invResults ?? { ...EMPTY_INV_RESULTS });
     setClinicalDetails(d.clinicalDetails ?? '');
     setSelectedInvestigations(d.selectedInvestigations ?? []);
     setRiskNotes(d.riskNotes ?? '');
-    setPreopInfoNotes(d.preopInfoNotes ?? '');
+    setPreopInfoNotes(d.preopInfoNotes ?? currentSurgery?.preopInfoNotes ?? '');
     setPostopInstructions(d.postopInstructions ?? currentSurgery?.postOperativeInstructions ?? '');
     setConsentDetails(d.consentDetails ?? '');
     setPreAnaestheticNotes(d.preAnaestheticNotes ?? '');
     setAirwayAssessment(d.airwayAssessment ?? '');
     setConferenceNotes(d.conferenceNotes ?? '');
-    setPreOpDiagnosis(d.preOpDiagnosis ?? '');
-    setPostOpDiagnosis(d.postOpDiagnosis ?? '');
-    setOperativeFindings(d.operativeFindings ?? '');
-    setProcedurePerformed(d.procedurePerformed ?? '');
+    setPreOpDiagnosis(d.preOpDiagnosis ?? rec?.preOperativeDiagnosis ?? '');
+    setPostOpDiagnosis(d.postOpDiagnosis ?? rec?.postOperativeDiagnosis ?? '');
+    setOperativeFindings(d.operativeFindings ?? rec?.findings ?? '');
+    setProcedurePerformed(d.procedurePerformed ?? rec?.procedurePerformed ?? '');
     setComplications(d.complications ?? '');
     setPostOpMeds(d.postOpMeds ?? []);
-    setAnaesthesiaLog(d.anaesthesiaLog ?? []);
-    setVitalSignsLog(d.vitalSignsLog ?? []);
-    setSpecimens(d.specimens ?? []);
-    setBloodLoss(d.bloodLoss ?? 0);
-    setFluidInput(d.fluidInput ?? '');
+    setAnaesthesiaLog(d.anaesthesiaLog ?? rec?.anaesthesiaLog ?? []);
+    setVitalSignsLog(d.vitalSignsLog ?? rec?.vitalSignsLog ?? []);
+    setSpecimens(d.specimens ?? rec?.specimens ?? []);
+    setBloodLoss(d.bloodLoss ?? rec?.bloodLoss ?? currentSurgery?.bloodLoss ?? 0);
+    setFluidInput(d.fluidInput ?? rec?.fluids ?? '');
+    // Graded complications live on the surgery record, not in the draft.
+    setGradedComplications((currentSurgery?.complicationEntries ?? []).filter(c => c.source === 'operation'));
     const booked = !!currentSurgery && ['scheduled', 'in-progress', 'completed'].includes(currentSurgery.status);
     setSectionCompletion(d.sectionCompletion ?? { ...EMPTY_SECTION_COMPLETION, planning: booked, booking: booked });
     setComorbidities(Array.isArray(d.comorbidities) ? d.comorbidities : []);
@@ -1088,9 +1135,11 @@ export default function SurgicalWorkflowPage() {
       return;
     }
     try {
+      // preopInfoNotes has its own field: it used to go into operativeNotes,
+      // which the operation note then overwrote.
       await SurgeryOps.update(currentSurgeryId, {
         postOperativeInstructions: postopInstructions,
-        operativeNotes: preopInfoNotes,
+        preopInfoNotes,
       });
       setSectionCompletion(prev => ({ ...prev, documents: true }));
       toast.success('Surgical documents saved');
@@ -1173,24 +1222,19 @@ export default function SurgicalWorkflowPage() {
       toast.error('Save planning section first');
       return;
     }
-    // Check all prerequisites
-    const missing: string[] = [];
-    if (!sectionCompletion.planning) missing.push('Preop Planning');
-    if (!sectionCompletion.investigations) missing.push('Investigations');
-    if (!sectionCompletion.estimates) missing.push('Surgical Estimates');
-    if (!sectionCompletion.documents) missing.push('Surgical Documents');
-    // The stored attachments, read fresh from the database: not React state.
-    const storedDocs = await db.scannedDocuments.where('encounterId').equals(currentSurgeryId).toArray();
-    missing.push(...missingAttachments(storedDocs, currentSurgeryId));
-
-    if (missing.length > 0) {
-      toast.error(`Complete these first: ${missing.join(', ')}`);
+    // The readiness model, read fresh from the records (procedure review and
+    // counselling, red flags, results, stored consent and payment, estimate):
+    // not the localStorage section ticks.
+    const readiness = await loadReadiness(currentSurgeryId, 'booking');
+    if (!readiness || !readiness.ready) {
+      toast.error(`Complete these first: ${(readiness?.missing ?? ['the surgery record']).join(', ')}`);
       return;
     }
 
     try {
       await SurgeryOps.update(currentSurgeryId, {
         status: 'scheduled',
+        bookingApproval: { at: new Date(), by: user?.id || '', byName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() },
         preOperativeAssessment: {
           ...currentSurgery?.preOperativeAssessment!,
           consentSigned: true,
@@ -1206,11 +1250,13 @@ export default function SurgicalWorkflowPage() {
   };
 
   const savePreAnaestheticReview = async () => {
-    if (!currentSurgeryId) return;
+    if (!currentSurgeryId || !currentSurgery || !patient || !user) return;
     try {
-      await SurgeryOps.update(currentSurgeryId, {
-        status: fitnessGrade === 'fit' ? 'scheduled' : 'incomplete_preparation',
-      });
+      // Stored in db.preoperativeAssessments (airway, notes, ASA, fitness),
+      // linked to this surgery. "Fit" no longer books an unapproved case.
+      await savePreAnaestheticReviewRecord(currentSurgery, patient, {
+        asaClass, mallampati: mallampatiScore, airwayNotes: airwayAssessment, notes: preAnaestheticNotes, fitness: fitnessGrade,
+      }, { id: user.id });
       setSectionCompletion(prev => ({ ...prev, preanaesthetic: true }));
       toast.success('Pre-anaesthetic review saved');
     } catch (err) {
@@ -1219,16 +1265,42 @@ export default function SurgicalWorkflowPage() {
   };
 
   const saveConference = async () => {
+    if (currentSurgeryId) await SurgeryOps.update(currentSurgeryId, { conferenceCompletedAt: new Date() });
     setSectionCompletion(prev => ({ ...prev, conference: true }));
     toast.success('Conference notes saved');
   };
 
+  /** The clinician reviewed the review's red flags: who, when, why it is safe. */
+  const recordRedFlagReview = async (flags: string[]) => {
+    if (!currentSurgeryId || !redFlagNote.trim()) { toast.error('Write why it is safe to proceed'); return; }
+    await SurgeryOps.update(currentSurgeryId, {
+      redFlagReview: {
+        at: new Date(), by: user?.id || '', byName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
+        note: redFlagNote.trim(), flags: [...(currentSurgery?.redFlagReview?.flags ?? []), ...flags],
+      },
+    });
+    setRedFlagNote('');
+    toast.success('Red-flag review recorded');
+  };
+
   const startSurgery = async () => {
     if (!currentSurgeryId) return;
+    // Gate: readiness (or a recorded emergency override) and the WHO Sign in.
+    const fresh = await loadReadiness(currentSurgeryId, 'theatre');
+    const latest = await db.surgeries.get(currentSurgeryId);
+    const decision = startSurgeryDecision(fresh, latest?.whoChecklist, overrideReason);
+    if (!decision.allowed) {
+      if (decision.checklistMissing.length) toast.error(`Complete first: ${decision.checklistMissing.join(', ')}`);
+      else { setShowOverride(true); toast.error(`Not ready: ${decision.readinessMissing.join(', ')}`); }
+      return;
+    }
     try {
       await SurgeryOps.update(currentSurgeryId, {
         status: 'in-progress',
         actualStartTime: new Date(),
+        ...(decision.overridden ? {
+          readinessOverride: overrideRecord(decision, overrideReason, { id: user?.id || '', name: actorName(user) }, new Date()),
+        } : {}),
       });
       setSurgeryStartTime(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
       toast.success('Surgery started');
@@ -1239,11 +1311,15 @@ export default function SurgicalWorkflowPage() {
 
   const endSurgery = async () => {
     if (!currentSurgeryId) return;
+    const latest = await db.surgeries.get(currentSurgeryId);
+    const blockers = theatreStepBlockers('end', latest?.whoChecklist, latest?.woundClass);
+    if (blockers.length) { toast.error(`Complete first: ${blockers.join(', ')}`); return; }
     try {
       await SurgeryOps.update(currentSurgeryId, {
         actualEndTime: new Date(),
         bloodLoss,
       });
+      await saveIntraOp(false);
       setSurgeryEndTime(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
       setSectionCompletion(prev => ({ ...prev, surgery: true }));
       toast.success('Surgery ended');
@@ -1252,18 +1328,39 @@ export default function SurgicalWorkflowPage() {
     }
   };
 
+  /** The intra-operative record, stored on the surgery (not only in the draft). */
+  const intraOpRecordNow = (): IntraOperativeRecord => ({
+    anaesthesiaLog, vitalSignsLog, fluids: fluidInput, bloodLoss, specimens,
+    findings: operativeFindings, procedurePerformed: procedurePerformed || selectedProcedure,
+    preOperativeDiagnosis: preOpDiagnosis, postOperativeDiagnosis: postOpDiagnosis,
+    startTime: surgeryStartTime ? new Date(surgeryStartTime) : currentSurgery?.actualStartTime,
+    endTime: surgeryEndTime ? new Date(surgeryEndTime) : currentSurgery?.actualEndTime,
+    recordedBy: user?.id, recordedAt: new Date(),
+  });
+  const saveIntraOp = async (announce = true) => {
+    if (!currentSurgeryId) return;
+    await saveIntraOpRecord(currentSurgeryId, intraOpRecordNow());
+    if (announce) toast.success('Intra-operative record saved');
+  };
+
   const savePostOpNotes = async () => {
-    if (!currentSurgeryId || !patientId) return;
+    if (!currentSurgeryId || !patientId || !currentSurgery || !patient || !user) return;
     try {
-      await SurgeryOps.update(currentSurgeryId, {
-        status: 'completed',
-        operativeNotes: operativeFindings,
-        complications,
-        bloodLoss,
-      });
+      await saveIntraOp(false);
+      // The SAME db.postOperativeNotes record the full post-op note form
+      // writes (one per surgery); also marks the operation done.
+      const fresh = (await db.surgeries.get(currentSurgeryId)) ?? currentSurgery;
+      await upsertPostOpNote(fresh, patient, {
+        preOperativeDiagnosis: preOpDiagnosis, postOperativeDiagnosis: postOpDiagnosis,
+        procedurePerformed: procedurePerformed || selectedProcedure, findings: operativeFindings,
+        complications: gradedComplications, bloodLoss, specimens,
+      }, user.id);
+      setComplications(gradedComplications.map(complicationText).join('; '));
       setSectionCompletion(prev => ({ ...prev, postop: true }));
-      toast.success('Post-operative notes saved');
+      toast.success('Post-operative note saved');
+      setShowFollowUpPlanner(true);
     } catch (err) {
+      console.error(err);
       toast.error('Failed to save post-op notes');
     }
   };
@@ -1321,17 +1418,11 @@ export default function SurgicalWorkflowPage() {
           ['Scheduled Date', scheduledDate],
         ],
       },
+      // This leaflet goes to the patient: no ASA, Mallampati, Caprini or RCRI
+      // scores (they stay in the clinician record and the conference slides).
       {
-        heading: 'Risk Assessment',
-        rows: [
-          ['ASA Class', `${asaClass}`],
-          ['Mallampati Score', `${mallampatiScore}`],
-          ['Caprini VTE Score', `${capriniScore} (${capriniRisk})`],
-          ['RCRI Cardiac Risk', `${rcriScore} (${rcriRisk} MACE risk)`],
-          ['Risk Factors', CAPRINI_FACTORS.filter((_, i) => capriniFactors[i]).map(f => f.label).join('; ') || 'None'],
-          ['NPO Status', npoStatus ? 'Confirmed NPO' : 'Not confirmed'],
-          ['Notes', riskNotes],
-        ],
+        heading: 'Getting Ready',
+        rows: defaultFastingLines(anaesthesiaType, patientAge || null).map((line, i) => [i === 0 ? 'Eating and drinking' : '', line] as [string, string]),
       },
       {
         heading: 'Preoperative Information',
@@ -1387,7 +1478,8 @@ export default function SurgicalWorkflowPage() {
         heading: 'Postoperative Instructions',
         rows: [
           ['Procedure', selectedProcedure],
-          ['Instructions', postopInstructions || 'Standard postoperative care instructions apply'],
+          ['Instructions', postopInstructions || patientText.pack.afterGeneric.join(' ')],
+          ['Get help straight away if', patientText.pack.warningGeneric.join(' ')],
         ],
       },
     ]);
@@ -1470,7 +1562,7 @@ export default function SurgicalWorkflowPage() {
           ['Post-op Diagnosis', postOpDiagnosis],
           ['Procedure Performed', procedurePerformed || selectedProcedure],
           ['Findings', operativeFindings],
-          ['Complications', complications || 'None'],
+          ['Complications', gradedComplications.map(complicationText).join('; ') || complications || 'None'],
           ['Blood Loss (mL)', `${bloodLoss}`],
           ['Surgery Start', surgeryStartTime ? format(new Date(surgeryStartTime), 'dd/MM/yyyy HH:mm') : 'N/A'],
           ['Surgery End', surgeryEndTime ? format(new Date(surgeryEndTime), 'dd/MM/yyyy HH:mm') : 'N/A'],
@@ -1584,6 +1676,18 @@ export default function SurgicalWorkflowPage() {
           </div>
         </div>
       </div>
+
+      {/* Readiness: one answer from the records, each gap linked to its section */}
+      {currentSurgeryId && currentSurgery?.status !== 'completed' && (
+        <div className="px-3 pt-3 lg:max-w-7xl lg:mx-auto">
+          <ReadinessPanel
+            readiness={theatreReadiness}
+            title={currentSurgery?.bookingApproval ? 'Readiness for theatre' : 'Readiness'}
+            onSection={s => setActiveSection(s as SectionId)}
+            defaultOpen={false}
+          />
+        </div>
+      )}
 
       {/* Section Navigation - Horizontal scroll on mobile, hidden on lg (sidebar takes over) */}
       <div className="bg-white border-b overflow-x-auto lg:hidden">
@@ -2692,6 +2796,10 @@ export default function SurgicalWorkflowPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Surgical Documents</h2>
 
+              {/* One pack with everything, in plain English, by WhatsApp or download */}
+              {currentSurgeryId ? <div className="mb-6"><PatientPackPanel surgeryId={currentSurgeryId} /></div>
+                : <p className="mb-6 text-xs text-gray-500">Save the planning section to send the patient pack.</p>}
+
               {/* Preoperative workup — generated, nothing to type */}
               <div className="mb-6">
                 <h3 className="text-sm font-bold text-gray-800 mb-1">Preoperative Workup</h3>
@@ -2903,26 +3011,47 @@ export default function SurgicalWorkflowPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Approve Surgery Booking</h2>
 
-              {/* Checklist */}
-              <div className="space-y-3 mb-6">
-                {[
-                  { label: 'Preoperative Planning & Risk Assessment', done: sectionCompletion.planning },
-                  { label: 'Investigations Requested', done: sectionCompletion.investigations },
-                  { label: 'Consumables BOM Prepared', done: sectionCompletion.consumables },
-                  { label: 'Surgical Estimates Completed', done: sectionCompletion.estimates },
-                  { label: 'Surgical Documents Generated', done: sectionCompletion.documents },
-                  { label: 'Signed Consent Uploaded', done: !!consentUpload },
-                  { label: 'Clinical Photographs Uploaded', done: clinicalPhotos.length > 0 },
-                  { label: 'Payment Evidence Uploaded', done: !!paymentEvidence },
-                ].map((item, i) => (
-                  <div key={i} className={`flex items-center gap-3 p-3 rounded-lg ${item.done ? 'bg-green-50' : 'bg-red-50'}`}>
-                    {item.done ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Circle className="w-5 h-5 text-red-400" />}
-                    <span className={`text-sm font-medium ${item.done ? 'text-green-800' : 'text-red-800'}`}>{item.label}</span>
-                  </div>
+              {/* Checklist: the readiness model's booking stage, from the records */}
+              <div className="space-y-2 mb-4">
+                {(bookingReadiness?.items ?? []).map(item => (
+                  <button key={item.id} type="button"
+                    onClick={() => item.section ? setActiveSection(item.section as SectionId) : item.link && navigate(item.link)}
+                    className={`w-full text-left flex items-start gap-3 p-3 rounded-lg ${item.status === 'done' ? 'bg-green-50' : item.status === 'warning' ? 'bg-amber-50' : 'bg-red-50'}`}>
+                    {item.status === 'done' ? <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                      : item.status === 'warning' ? <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                      : <Circle className="w-5 h-5 text-red-400 flex-shrink-0" />}
+                    <span className="min-w-0">
+                      <span className={`block text-sm font-medium ${item.status === 'done' ? 'text-green-800' : item.status === 'warning' ? 'text-amber-800' : 'text-red-800'}`}>{item.label}</span>
+                      {item.detail && <span className="block text-xs text-gray-600 break-words">{item.detail}</span>}
+                    </span>
+                  </button>
                 ))}
+                {!currentSurgeryId && <p className="text-sm text-gray-500">Save the planning section first.</p>}
               </div>
 
-              {bookingApproved || currentSurgery?.status === 'scheduled' ? (
+              {/* Red flags from the pre-op review: record why it is safe to proceed */}
+              {(() => {
+                const rf = bookingReadiness?.items.find(i => i.id === 'red_flags' && i.status === 'missing');
+                if (!rf) return null;
+                return (
+                  <div className="mb-4 border border-red-200 rounded-lg p-3 bg-white">
+                    <p className="text-sm font-semibold text-red-800 mb-1">Red flags to review</p>
+                    <ul className="list-disc ml-5 text-sm text-gray-700 mb-2">{(rf.values ?? []).map(f => <li key={f}>{f}</li>)}</ul>
+                    <textarea value={redFlagNote} onChange={e => setRedFlagNote(e.target.value)} rows={2}
+                      className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="What was done and why it is safe to proceed" />
+                    <button type="button" onClick={() => recordRedFlagReview(rf.values ?? [])}
+                      className="mt-2 text-sm bg-red-600 text-white px-4 py-2 rounded-lg">Record red-flag review</button>
+                  </div>
+                );
+              })()}
+
+              <label className="flex items-center gap-2 text-sm text-gray-700 mb-4">
+                <input type="checkbox" checked={!!currentSurgery?.needsConference} disabled={!currentSurgeryId}
+                  onChange={e => currentSurgeryId && SurgeryOps.update(currentSurgeryId, { needsConference: e.target.checked })} />
+                This case needs a pre-surgical conference before theatre
+              </label>
+
+              {currentSurgery?.bookingApproval || bookingApproved ? (
                 <div className="bg-green-100 border border-green-300 rounded-lg p-4 text-center">
                   <CheckCircle className="w-10 h-10 text-green-600 mx-auto mb-2" />
                   <p className="font-bold text-green-800">Surgery Booking Approved</p>
@@ -3129,6 +3258,40 @@ export default function SurgicalWorkflowPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Surgery & Anaesthesia Monitoring</h2>
 
+              {currentSurgery && (
+                <>
+                  {!surgeryStartTime && <div className="mb-4"><ReadinessPanel readiness={theatreReadiness} onSection={s => setActiveSection(s as SectionId)} /></div>}
+                  <WhoChecklistPanel surgery={currentSurgery} allergies={patient.allergies} />
+                </>
+              )}
+
+              {/* Emergency override: start without full readiness, with the reason recorded */}
+              {!surgeryStartTime && theatreReadiness && !theatreReadiness.ready && (
+                <div className="mb-4">
+                  {!showOverride ? (
+                    <button type="button" onClick={() => setShowOverride(true)} className="text-xs text-red-700 underline">
+                      Emergency: start without full readiness
+                    </button>
+                  ) : (
+                    <div className="border border-red-300 bg-red-50 rounded-lg p-3">
+                      <p className="text-sm font-semibold text-red-800">Emergency override</p>
+                      <p className="text-xs text-red-700 mb-2">
+                        Missing: {theatreReadiness.missing.join(', ')}. Your name, the time, this reason and the missing items are stored on the surgery.
+                        The WHO Sign in is still required.
+                      </p>
+                      <textarea value={overrideReason} onChange={e => setOverrideReason(e.target.value)} rows={2}
+                        className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Why the operation cannot wait" />
+                      {overrideReason.trim().length < MIN_OVERRIDE_REASON && <p className="text-xs text-gray-500">At least {MIN_OVERRIDE_REASON} characters.</p>}
+                    </div>
+                  )}
+                </div>
+              )}
+              {currentSurgery?.readinessOverride && (
+                <p className="mb-4 text-xs text-red-700">
+                  Started under emergency override by {currentSurgery.readinessOverride.byName || 'clinician'}: {currentSurgery.readinessOverride.reason}
+                </p>
+              )}
+
               {/* Surgery Controls */}
               <div className="flex flex-wrap gap-3 mb-6">
                 {!surgeryStartTime ? (
@@ -3230,9 +3393,15 @@ export default function SurgicalWorkflowPage() {
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-y-2">
-                <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
-                  <ChevronLeft className="w-4 h-4" /> Previous
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={goPrev} className="text-gray-600 hover:text-gray-800 flex items-center gap-1">
+                    <ChevronLeft className="w-4 h-4" /> Previous
+                  </button>
+                  <button onClick={() => saveIntraOp()} disabled={!currentSurgeryId}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50">
+                    <Save className="w-4 h-4" /> Save intra-op record
+                  </button>
+                </div>
                 <button onClick={goNext} className="text-blue-600 hover:text-blue-800 flex items-center gap-1">
                   Next: Post-Op Notes <ChevronRight className="w-4 h-4" />
                 </button>
@@ -3274,9 +3443,8 @@ export default function SurgicalWorkflowPage() {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Complications</label>
-                <textarea value={complications} onChange={e => setComplications(e.target.value)} rows={2}
-                  className="w-full border rounded-lg px-3 py-2" placeholder="None / List complications..." />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Complications (Clavien–Dindo)</label>
+                <ComplicationsEditor value={gradedComplications} onChange={setGradedComplications} source="operation" />
               </div>
 
               {/* Specimens */}
@@ -3328,6 +3496,11 @@ export default function SurgicalWorkflowPage() {
                   <button onClick={savePostOpNotes} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2">
                     <Save className="w-4 h-4" /> Save Post-Op Notes
                   </button>
+                  {currentSurgery?.status === 'completed' && (
+                    <button type="button" onClick={() => setShowFollowUpPlanner(true)} className="border border-green-600 text-green-700 px-4 py-2 rounded-lg flex items-center gap-2">
+                      <Clock className="w-4 h-4" /> Follow-up visits
+                    </button>
+                  )}
                   <button onClick={downloadPostOpNotesPDF} className="border border-blue-600 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 flex items-center gap-2">
                     <Download className="w-4 h-4" /> Download PDF
                   </button>
@@ -3457,6 +3630,19 @@ export default function SurgicalWorkflowPage() {
         </div>
       </div>
       </div>
+
+      {/* Follow-up confirmation list, shown when the operation is done */}
+      {showFollowUpPlanner && currentSurgeryId && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center" role="dialog" aria-label="Follow-up visits">
+          <div className="bg-white w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-gray-900">Follow-up visits</h2>
+              <button type="button" onClick={() => setShowFollowUpPlanner(false)} aria-label="Close"><X className="w-5 h-5" /></button>
+            </div>
+            <FollowUpPlanner surgeryId={currentSurgeryId} onDone={() => setShowFollowUpPlanner(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

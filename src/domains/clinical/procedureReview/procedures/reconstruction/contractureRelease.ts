@@ -472,12 +472,12 @@ export const contractureRelease: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Before surgery', purpose: 'Therapy assessment and splint planning' }],
     post_op: [
-      { when: 'Day 5–7', purpose: 'Graft / flap check and splint review' },
-      { when: 'Weeks 2–3', purpose: 'Start therapy; night splint; scar care once healed' },
+      { when: 'Day 5–7', schedule: { kind: 'once', startDay: 5, from: 'operation' }, purpose: 'Graft / flap check and splint review' },
+      { when: 'Weeks 2–3', schedule: { kind: 'once', startDay: 14, from: 'operation' }, purpose: 'Start therapy; night splint; scar care once healed' },
     ],
     follow_up: [
-      { when: '6 weeks and 3 months', purpose: 'Range of movement against baseline; splint and garment adherence; VSS' },
-      { when: '6 and 12 months (yearly in children until growth ends)', purpose: 'Recurrence, scar maturation, need for revision' },
+      { when: '6 weeks and 3 months', schedule: { kind: 'multi', days: [42, 90], from: 'operation' }, purpose: 'Range of movement against baseline; splint and garment adherence; VSS' },
+      { when: '6 and 12 months (yearly in children until growth ends)', schedule: { kind: 'multi', days: [180, 360], from: 'operation' }, purpose: 'Recurrence, scar maturation, need for revision' },
     ],
   },
   handoffs: [

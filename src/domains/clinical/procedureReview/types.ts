@@ -218,11 +218,45 @@ export interface CounsellingPoint {
   why: string;
 }
 
+/**
+ * When a visit is booked, as data — the follow-up booking never parses the
+ * `when` text at run time. Every number is a count of DAYS from `from`
+ * (the operation, or the discharge: day cases are discharged the same day).
+ * Conversions used when the schedules were written from the template text:
+ * weeks x7, months x30, years x365 — so "6 months" is day 180, not a
+ * calendar month. A window ("Day 10–14", "6–12 months") is booked at its
+ * START (owner decision): the lower bound.
+ *
+ *   once    one visit on startDay                         ("Day 10–14" -> 10)
+ *   multi   one visit on each day                         ("3, 6 and 12 months" -> 90, 180, 360)
+ *   next    a recurring visit: book only the first, on startDay; the next one
+ *           (everyDays later) is offered when that visit is completed
+ *           ("every 2 weeks until healed")
+ *   recall  conditional or branching (tumour type, stage, age, "if planned"):
+ *           never auto-booked; listed for the clinician to confirm, with the
+ *           template text, due on dueDay when the template gives a time
+ *   ward    an inpatient frequency ("Daily", "Every 48–72 hours"): not a
+ *           clinic appointment, never booked
+ */
+export type FollowUpFrom = 'operation' | 'discharge';
+export type FollowUpSchedule =
+  | { kind: 'once'; startDay: number; from: FollowUpFrom }
+  | { kind: 'multi'; days: number[]; from: FollowUpFrom }
+  | { kind: 'next'; startDay: number; everyDays: number; from: FollowUpFrom }
+  | { kind: 'recall'; dueDay?: number; from: FollowUpFrom }
+  | { kind: 'ward' };
+
 /** A follow-up visit: when, and what it is for. */
 export interface FollowUpVisit {
   when: string;
   purpose: string;
   why?: string;
+  /**
+   * How the visit is booked after the operation. Required on every module
+   * post_op / follow_up visit (registry test); optional elsewhere (pre-op
+   * templates and rule-generated lines are shown, never booked).
+   */
+  schedule?: FollowUpSchedule;
 }
 
 /**

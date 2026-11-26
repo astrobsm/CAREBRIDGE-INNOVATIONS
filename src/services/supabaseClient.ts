@@ -149,6 +149,10 @@ export const TABLES = {
   
   // Post-Operative Notes
   postOperativeNotes: 'post_operative_notes',
+  // Post-operative care and the outcome registry (20261126140000)
+  postOpCarePlans: 'post_op_care_plans',
+  postOpObservations: 'post_op_observations',
+  surgicalOutcomes: 'surgical_outcomes',
   
   // Preoperative Assessments
   preoperativeAssessments: 'preoperative_assessments',
@@ -321,6 +325,10 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   payslips: 'payslips',
   // Post-Operative Notes
   postOperativeNotes: 'post_operative_notes',
+  // Post-operative care and the outcome registry (20261126140000)
+  postOpCarePlans: 'post_op_care_plans',
+  postOpObservations: 'post_op_observations',
+  surgicalOutcomes: 'surgical_outcomes',
   // Preoperative Assessments
   preoperativeAssessments: 'preoperative_assessments',
   // External Reviews (Admin only)

@@ -573,12 +573,12 @@ export const lowerLimbAmputation: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Day 3–5 after surgery', purpose: 'First stump inspection unless concerns earlier' }],
     post_op: [
-      { when: 'Daily on the ward', purpose: 'Stump, position, heel, phantom pain, rehabilitation' },
-      { when: '2–3 weeks', purpose: 'Remove sutures / clips once healed; shrinker; limb-fitting referral' },
+      { when: 'Daily on the ward', schedule: { kind: 'ward' }, purpose: 'Stump, position, heel, phantom pain, rehabilitation' },
+      { when: '2–3 weeks', schedule: { kind: 'once', startDay: 14, from: 'operation' }, purpose: 'Remove sutures / clips once healed; shrinker; limb-fitting referral' },
     ],
     follow_up: [
-      { when: '6 weeks', purpose: 'Stump maturation, casting readiness, mood' },
-      { when: '3 and 6 months, then yearly', purpose: 'Prosthetic use, K-level, stump skin, the other foot' },
+      { when: '6 weeks', schedule: { kind: 'once', startDay: 42, from: 'operation' }, purpose: 'Stump maturation, casting readiness, mood' },
+      { when: '3 and 6 months, then yearly', schedule: { kind: 'multi', days: [90, 180], from: 'operation' }, purpose: 'Prosthetic use, K-level, stump skin, the other foot' },
     ],
   },
   handoffs: [

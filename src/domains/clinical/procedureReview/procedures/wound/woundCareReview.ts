@@ -331,7 +331,7 @@ export const woundCareReview: ProcedureModule = {
       { when: '1–2 weeks', purpose: 'Wound review with calibrated measurement and photograph (WoundProgress Monitor)' },
       { when: '4 weeks', purpose: 'Healing trajectory: if the area is not about 40% smaller, re-evaluate the diagnosis and plan' },
     ],
-    follow_up: [{ when: '2 weeks (or as agreed)', purpose: 'Wound review with measurement until healed' }],
+    follow_up: [{ when: '2 weeks (or as agreed)', schedule: { kind: 'next', startDay: 14, everyDays: 14, from: 'operation' }, purpose: 'Wound review with measurement until healed' }],
   },
   handoffs: [
     { label: 'Measure on the WoundProgress Monitor', route: '/wound-monitor', when: 'Calibrated area, tissue and photograph — pulled into this review' },

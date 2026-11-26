@@ -455,13 +455,13 @@ export const localRegionalFlap: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Immediately after surgery', purpose: 'Flap observations at the frequency set by the operating surgeon' }],
     post_op: [
-      { when: 'Day 5–7', purpose: 'Flap and donor-site review; start dangling for leg flaps if stable' },
-      { when: 'Day 10–14', purpose: 'Remove sutures; donor-site graft check' },
-      { when: 'About 3 weeks', purpose: 'Pedicle division for two-stage flaps' },
+      { when: 'Day 5–7', schedule: { kind: 'once', startDay: 5, from: 'operation' }, purpose: 'Flap and donor-site review; start dangling for leg flaps if stable' },
+      { when: 'Day 10–14', schedule: { kind: 'once', startDay: 10, from: 'operation' }, purpose: 'Remove sutures; donor-site graft check' },
+      { when: 'About 3 weeks', schedule: { kind: 'recall', dueDay: 21, from: 'operation' }, purpose: 'Pedicle division for two-stage flaps' },
     ],
     follow_up: [
-      { when: '6 weeks', purpose: 'Stable cover, mobilisation, weight bearing (with orthopaedics for fractures)' },
-      { when: '3–6 months', purpose: 'Contour, donor morbidity, need for revision' },
+      { when: '6 weeks', schedule: { kind: 'once', startDay: 42, from: 'operation' }, purpose: 'Stable cover, mobilisation, weight bearing (with orthopaedics for fractures)' },
+      { when: '3–6 months', schedule: { kind: 'once', startDay: 90, from: 'operation' }, purpose: 'Contour, donor morbidity, need for revision' },
     ],
   },
   handoffs: [

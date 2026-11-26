@@ -145,10 +145,14 @@ describe('SurgicalWorkflowPage wiring', () => {
     expect(src).toMatch(/draftKeyFor\(patientId, currentSurgeryId/);
   });
 
-  it('approval checks the stored attachments, not React state', () => {
+  it('approval checks the stored records through the readiness model, not React state', () => {
     const approve = src.slice(src.indexOf('const approveBooking'), src.indexOf('const approveBooking') + 1500);
-    expect(approve).toMatch(/db\.scannedDocuments\.where\('encounterId'\)\.equals\(currentSurgeryId\)/);
-    expect(approve).toMatch(/missingAttachments\(/);
+    // loadReadiness reads the stored attachments (scannedDocuments by surgery),
+    // the review, results and estimate fresh from the database.
+    expect(approve).toMatch(/await loadReadiness\(currentSurgeryId, 'booking'\)/);
+    expect(approve).not.toMatch(/sectionCompletion\./);
     expect(src).not.toMatch(/useState<\{ name: string; data: string \} \| null>\(null\)/);
+    const loader = readFileSync(join(process.cwd(), 'src/domains/surgery/journey/readinessData.ts'), 'utf8');
+    expect(loader).toMatch(/db\.scannedDocuments\.where\('encounterId'\)/);
   });
 });

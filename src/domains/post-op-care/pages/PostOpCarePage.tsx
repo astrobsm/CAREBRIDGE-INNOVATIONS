@@ -36,11 +36,15 @@ import PostOpDayCounter from '../components/PostOpDayCounter';
 import PostOpMonitoringModal from '../components/PostOpMonitoringModal';
 import PostOpCarePlanModal from '../components/PostOpCarePlanModal';
 import { latestActivePlan } from '../services/postOpObservation';
+import { selectPostOpList } from '../../surgery/journey/dayCase';
+import DayCaseDischargeModal from '../../surgery/components/DayCaseDischargeModal';
 import type { Surgery, Patient, PostOperativeNote, Admission } from '../../../types';
 
 interface PostOpPatient {
   patient: Patient;
-  admission: Admission;
+  /** Absent for a day case: completed operation, patient not admitted. */
+  admission?: Admission;
+  dayCase: boolean;
   surgeries: (Surgery & { 
     dayPostOp: number; 
     hoursPostOp: number;
@@ -81,6 +85,7 @@ export default function PostOpCarePage() {
   const [selectedSurgery, setSelectedSurgery] = useState<Surgery | null>(null);
   const [_viewMode, _setViewMode] = useState<'grid' | 'list'>('grid'); // Reserved for future use
   const [filterDays, setFilterDays] = useState<'all' | '3' | '7' | '14' | '30'>('all');
+  const [dayCaseDischarge, setDayCaseDischarge] = useState<{ patient: Patient; surgery: Surgery } | null>(null);
 
   // Fetch data
   const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive === true).toArray(), []);
@@ -111,62 +116,29 @@ export default function PostOpCarePage() {
     const now = new Date();
     const result: PostOpPatient[] = [];
 
-    // Get admitted patients with completed surgeries
-    admissions.forEach(admission => {
-      const patient = patients.find(p => p.id === admission.patientId);
-      if (!patient) return;
+    // Admitted patients with completed operations, and day cases (completed,
+    // not admitted) for the day-case window: selectPostOpList.
+    for (const entry of selectPostOpList({ patients, activeAdmissions: admissions, surgeries, postOpNotes: postOpNotes ?? [], now })) {
+      const { patient, admission } = entry;
+      const patientVitals = vitalSigns?.filter(v => v.patientId === patient.id)?.[0];
+      const latest = patientVitals ? {
+        bloodPressure: `${patientVitals.bloodPressureSystolic || 0}/${patientVitals.bloodPressureDiastolic || 0}`,
+        heartRate: patientVitals.pulse || 0,
+        temperature: patientVitals.temperature || 0,
+        oxygenSaturation: patientVitals.oxygenSaturation || 0,
+      } : undefined;
+      const patientSurgeries = entry.surgeries.map(s => ({ ...s, latestVitals: latest }));
 
-      // Get surgeries for this patient that are completed
-      const patientSurgeries = surgeries
-        .filter(s => s.patientId === patient.id && s.status === 'completed')
-        .map(s => {
-          const surgeryDate = new Date(s.scheduledDate);
-          const dayPostOp = differenceInDays(now, surgeryDate);
-          const hoursPostOp = differenceInHours(now, surgeryDate);
-          const postOpNote = postOpNotes?.find((n: PostOperativeNote) => n.surgeryId === s.id);
-          
-          // Get latest vitals for this patient
-          const patientVitals = vitalSigns?.filter(v => v.patientId === patient.id)?.[0];
-          
-          return {
-            ...s,
-            dayPostOp,
-            hoursPostOp,
-            postOpNote,
-            latestVitals: patientVitals ? {
-              bloodPressure: `${patientVitals.bloodPressureSystolic || 0}/${patientVitals.bloodPressureDiastolic || 0}`,
-              heartRate: patientVitals.pulse || 0,
-              temperature: patientVitals.temperature || 0,
-              oxygenSaturation: patientVitals.oxygenSaturation || 0,
-            } : undefined,
-          };
-        })
-        .filter(s => s.dayPostOp >= 0 && s.dayPostOp <= 30) // Only show surgeries within last 30 days
-        .sort((a, b) => b.dayPostOp - a.dayPostOp);
-
-      if (patientSurgeries.length === 0) return;
-
-      // Determine overall status based on latest vitals and days post-op
       let overallStatus: PostOpPatient['overallStatus'] = 'stable';
-      const latestVitals = patientSurgeries[0].latestVitals;
-      if (latestVitals) {
-        if (latestVitals.oxygenSaturation < 90 || latestVitals.heartRate > 120 || latestVitals.temperature > 38.5) {
-          overallStatus = 'critical';
-        } else if (latestVitals.oxygenSaturation < 94 || latestVitals.heartRate > 100 || latestVitals.temperature > 38) {
-          overallStatus = 'concerning';
-        }
+      if (latest) {
+        if (latest.oxygenSaturation < 90 || latest.heartRate > 120 || latest.temperature > 38.5) overallStatus = 'critical';
+        else if (latest.oxygenSaturation < 94 || latest.heartRate > 100 || latest.temperature > 38) overallStatus = 'concerning';
       }
-
-      const daysAdmitted = differenceInDays(now, new Date(admission.admissionDate));
-
       result.push({
-        patient,
-        admission,
-        surgeries: patientSurgeries,
-        overallStatus,
-        daysAdmitted,
+        patient, admission, dayCase: entry.dayCase, surgeries: patientSurgeries, overallStatus,
+        daysAdmitted: admission ? differenceInDays(now, new Date(admission.admissionDate)) : 0,
       });
-    });
+    }
 
     return result.sort((a, b) => {
       // Sort by status priority then by most recent surgery
@@ -183,7 +155,7 @@ export default function PostOpCarePage() {
 
     // Hospital filter
     if (selectedHospital !== 'all') {
-      filtered = filtered.filter(p => p.admission.hospitalId === selectedHospital);
+      filtered = filtered.filter(p => (p.admission?.hospitalId ?? p.surgeries[0]?.hospitalId) === selectedHospital);
     }
 
     // Days filter
@@ -402,7 +374,7 @@ export default function PostOpCarePage() {
                 <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
                   <span className="flex items-center gap-1">
                     <Calendar size={12} />
-                    Day {postOpPatient.daysAdmitted} admitted
+                    {postOpPatient.dayCase ? 'Day case (not admitted)' : `Day ${postOpPatient.daysAdmitted} admitted`}
                   </span>
                   <span className="flex items-center gap-1">
                     <Stethoscope size={12} />
@@ -428,6 +400,12 @@ export default function PostOpCarePage() {
                         dayPostOp={surgery.dayPostOp} 
                         hoursPostOp={surgery.hoursPostOp}
                       />
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 text-xs mt-1">
+                      {surgery.dischargedAt && <span className="text-green-700">Discharged {format(new Date(surgery.dischargedAt), 'MMM d')}</span>}
+                      <button type="button" className="text-blue-600 underline" onClick={() => navigate(`/surgery/follow-ups/${surgery.id}`)}>Follow-up</button>
+                      <button type="button" className="text-blue-600 underline" onClick={() => navigate(`/surgery/outcome/${surgery.id}`)}>30-day outcome</button>
                     </div>
 
                     {/* Latest Vitals */}
@@ -472,6 +450,14 @@ export default function PostOpCarePage() {
                         <BarChart3 size={14} />
                         Charts
                       </button>
+                      {postOpPatient.dayCase && !surgery.dischargedAt && (
+                        <button
+                          onClick={() => setDayCaseDischarge({ patient: postOpPatient.patient, surgery })}
+                          className="btn btn-sm btn-secondary"
+                        >
+                          Discharge
+                        </button>
+                      )}
                       <button
                         onClick={() => openCarePlan(postOpPatient, surgery)}
                         className="btn btn-sm btn-secondary"
@@ -505,12 +491,15 @@ export default function PostOpCarePage() {
           <p className="text-gray-500">
             {searchQuery || selectedHospital !== 'all' || filterDays !== 'all'
               ? 'Try adjusting your filters'
-              : 'Post-operative patients will appear here after surgery completion'}
+              : 'Admitted patients and day cases appear here once the operation is completed'}
           </p>
         </div>
       )}
 
       {/* Modals */}
+      {dayCaseDischarge && (
+        <DayCaseDischargeModal surgery={dayCaseDischarge.surgery} patient={dayCaseDischarge.patient} onClose={() => setDayCaseDischarge(null)} />
+      )}
       <AnimatePresence>
         {showMonitoringModal && selectedPatient && selectedSurgery && (
           <PostOpMonitoringModal

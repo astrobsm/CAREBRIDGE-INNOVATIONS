@@ -46,6 +46,8 @@ import type { CounsellingRecord, ReviewPhase } from '../../procedureReview/types
 import { getWoundTimeline, listWounds } from '../../../wounds/services/woundMonitorService';
 import type { WoundAssessment } from '../../../wounds/monitorTypes';
 import { sharePDFOnWhatsApp } from '../../../../utils/whatsappShareUtils';
+import PatientPackPanel from '../../../patient-pack/components/PatientPackPanel';
+import { surgeryForPatientPack } from '../../../patient-pack/patientPackService';
 
 type Step = 'assessment' | 'scores' | 'plan' | 'consent' | 'review';
 const STEPS: { id: Step; label: string }[] = [
@@ -218,6 +220,15 @@ export const ProcedureReviewForm: React.FC<ProcedureReviewFormProps> = ({
   // Export downloads the full clinician PDF. WhatsApp goes to the patient's
   // phone, so it sends the patient copy: no flags, scores or safeguarding.
   const exportPdf = () => { const i = pdfInput(); if (i) generateProcedureReviewPDF(i); };
+  // The patient's booked (or latest) operation: the full patient pack can be
+  // sent from the review as well as from the surgery.
+  const [packSurgeryId, setPackSurgeryId] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    surgeryForPatientPack(patient.id).then(s => { if (live) setPackSurgeryId(s?.id ?? null); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [patient.id]);
+
   const sharePdf = async () => {
     const i = pdfInput();
     if (!i) return;
@@ -513,6 +524,7 @@ export const ProcedureReviewForm: React.FC<ProcedureReviewFormProps> = ({
             )}
           </div>
           {locked && <p className="text-xs text-gray-500">This review is {review?.status.replace(/_/g, ' ')}. Record changes in a new follow-up review.</p>}
+          {packSurgeryId && <PatientPackPanel surgeryId={packSurgeryId} compact />}
         </div>
       )}
 

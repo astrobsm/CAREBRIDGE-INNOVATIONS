@@ -899,12 +899,12 @@ export const diabeticFootDebridement: ProcedureModule = {
     ],
     pre_op: [{ when: '24–48 hours after surgery', purpose: 'Wound inspection and decision on a re-look' }],
     post_op: [
-      { when: '24–48 hours', purpose: 'Re-look or dressing change; review cultures and rationalise antibiotics' },
-      { when: '1–2 weeks after discharge', purpose: 'Foot clinic: wound, offloading, glucose, bone result' },
+      { when: '24–48 hours', schedule: { kind: 'ward' }, purpose: 'Re-look or dressing change; review cultures and rationalise antibiotics' },
+      { when: '1–2 weeks after discharge', schedule: { kind: 'once', startDay: 7, from: 'discharge' }, purpose: 'Foot clinic: wound, offloading, glucose, bone result' },
     ],
     follow_up: [
-      { when: 'Every 1–2 weeks until healed', purpose: 'Wound measurement, offloading, infection' },
-      { when: 'After healing, by IWGDF risk category', purpose: 'Foot screening (every 1–3 months for category 3)' },
+      { when: 'Every 1–2 weeks until healed', schedule: { kind: 'next', startDay: 7, everyDays: 7, from: 'discharge' }, purpose: 'Wound measurement, offloading, infection' },
+      { when: 'After healing, by IWGDF risk category', schedule: { kind: 'recall', dueDay: 42, from: 'operation' }, purpose: 'Foot screening (every 1–3 months for category 3)' },
     ],
   },
   handoffs: [

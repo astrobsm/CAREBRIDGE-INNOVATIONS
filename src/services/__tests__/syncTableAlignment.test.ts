@@ -26,11 +26,6 @@ const syncSrc = read('src/services/cloudSyncService.ts');
 /** Dexie stores that are deliberately device-local and must never sync. */
 const LOCAL_ONLY_STORES = new Set([
   'syncStatus', // bookkeeping for the sync engine itself
-  // Post-op care (Dexie v94). No Supabase table exists yet; local-only until
-  // a migration adds post_op_care_plans / post_op_observations. Remove these
-  // two lines when it does, and this test will demand the sync wiring.
-  'postOpCarePlans',
-  'postOpObservations',
 ]);
 
 // ── parse the sources ──────────────────────────────────────────────────────

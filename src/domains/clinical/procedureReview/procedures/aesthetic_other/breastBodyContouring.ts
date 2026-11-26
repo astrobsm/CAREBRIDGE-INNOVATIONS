@@ -523,13 +523,13 @@ export const breastBodyContouring: ProcedureModule = {
   followUp: {
     pre_op: [{ when: '2 weeks before surgery', purpose: 'Confirm nicotine abstinence, weight, imaging and bloods' }],
     post_op: [
-      { when: 'Day 5–7', purpose: 'Wounds, nipple / flap, drains, seroma check' },
-      { when: 'Week 2–3', purpose: 'Sutures; seroma aspiration if needed; histology (reduction)' },
-      { when: '6 weeks', purpose: 'Garment off, return to full activity' },
+      { when: 'Day 5–7', schedule: { kind: 'once', startDay: 5, from: 'operation' }, purpose: 'Wounds, nipple / flap, drains, seroma check' },
+      { when: 'Week 2–3', schedule: { kind: 'once', startDay: 14, from: 'operation' }, purpose: 'Sutures; seroma aspiration if needed; histology (reduction)' },
+      { when: '6 weeks', schedule: { kind: 'once', startDay: 42, from: 'operation' }, purpose: 'Garment off, return to full activity' },
     ],
     follow_up: [
-      { when: '3 months', purpose: 'Scars, seroma, symptom relief' },
-      { when: '6–12 months', purpose: 'Final result, revision discussion, clinical photographs' },
+      { when: '3 months', schedule: { kind: 'once', startDay: 90, from: 'operation' }, purpose: 'Scars, seroma, symptom relief' },
+      { when: '6–12 months', schedule: { kind: 'once', startDay: 180, from: 'operation' }, purpose: 'Final result, revision discussion, clinical photographs' },
     ],
   },
   handoffs: [

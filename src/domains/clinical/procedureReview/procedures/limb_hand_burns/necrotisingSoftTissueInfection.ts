@@ -508,12 +508,12 @@ export const necrotisingSoftTissueInfection: ProcedureModule = {
   followUp: {
     pre_op: [{ when: '24–36 hours after surgery', purpose: 'Re-look in theatre' }],
     post_op: [
-      { when: 'Every 24–36 hours', purpose: 'Re-look debridement until no necrosis' },
-      { when: 'Daily', purpose: 'Sepsis trend, antibiotics vs cultures, nutrition' },
+      { when: 'Every 24–36 hours', schedule: { kind: 'ward' }, purpose: 'Re-look debridement until no necrosis' },
+      { when: 'Daily', schedule: { kind: 'ward' }, purpose: 'Sepsis trend, antibiotics vs cultures, nutrition' },
     ],
     follow_up: [
-      { when: '1–2 weeks after discharge', purpose: 'Wound, graft / flap, function' },
-      { when: '3 and 6 months', purpose: 'Contracture, lymphoedema, stoma reversal, psychological recovery' },
+      { when: '1–2 weeks after discharge', schedule: { kind: 'once', startDay: 7, from: 'discharge' }, purpose: 'Wound, graft / flap, function' },
+      { when: '3 and 6 months', schedule: { kind: 'multi', days: [90, 180], from: 'operation' }, purpose: 'Contracture, lymphoedema, stoma reversal, psychological recovery' },
     ],
   },
   handoffs: [

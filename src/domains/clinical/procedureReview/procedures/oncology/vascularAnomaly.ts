@@ -495,12 +495,12 @@ export const vascularAnomaly: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Before treatment', purpose: 'Imaging, coagulation and (propranolol) cardiac checks reviewed' }],
     post_op: [
-      { when: '24–72 hours', purpose: 'Swelling, skin and nerve check after sclerotherapy / embolisation' },
-      { when: '2 weeks', purpose: 'Wound review; histology' },
+      { when: '24–72 hours', schedule: { kind: 'once', startDay: 1, from: 'operation' }, purpose: 'Swelling, skin and nerve check after sclerotherapy / embolisation' },
+      { when: '2 weeks', schedule: { kind: 'once', startDay: 14, from: 'operation' }, purpose: 'Wound review; histology' },
     ],
     follow_up: [
-      { when: 'Every 4–8 weeks (propranolol)', purpose: 'Response, weight-based dose, side effects; stop at about 12 months of age' },
-      { when: '6–8 weeks after each sclerotherapy session', purpose: 'Response and need for a further session' },
+      { when: 'Every 4–8 weeks (propranolol)', schedule: { kind: 'recall', dueDay: 28, from: 'operation' }, purpose: 'Response, weight-based dose, side effects; stop at about 12 months of age' },
+      { when: '6–8 weeks after each sclerotherapy session', schedule: { kind: 'recall', dueDay: 42, from: 'operation' }, purpose: 'Response and need for a further session' },
     ],
   },
   handoffs: [

@@ -130,8 +130,17 @@ function patientPlanSections(plan: ScribePlan): ReviewDocSection[] {
   return aims.length ? [{ kind: 'plan', title: 'The aims of your treatment', bullets: [...new Set(aims)] }] : [];
 }
 
-/** The patient copy's section model. Pure. See ReviewAudience. */
-function buildPatientDocument(input: ReviewDocumentInput): ReviewDocument {
+/**
+ * The patient copy's section model. Pure. See ReviewAudience. It never reads
+ * the engine reading (assessment, scores, flags), so it needs only the
+ * stored review: exported for the surgery patient pack, which puts these
+ * sections in front of the fasting, cost and follow-up pages.
+ */
+export function buildPatientCopyDocument(input: Omit<ReviewDocumentInput, 'reading' | 'audience'>): ReviewDocument {
+  return buildPatientDocument(input);
+}
+
+function buildPatientDocument(input: Omit<ReviewDocumentInput, 'reading' | 'audience'>): ReviewDocument {
   const { module, phase, review } = input;
   const phaseLabel = phaseDefinition(phase).label;
   const sections: ReviewDocSection[] = [];

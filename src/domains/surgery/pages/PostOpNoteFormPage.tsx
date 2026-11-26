@@ -26,6 +26,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { createPostOperativeNote } from '../../../services/postOperativeNoteService';
+import { upsertPostOpNote, noteChecklistFlags } from '../journey/operationRecord';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation } from '../../../components/common';
 import ScanToText from '../../../components/common/ScanToText';
@@ -266,7 +267,7 @@ export default function PostOpNoteFormPage() {
     setIsSubmitting(true);
 
     try {
-      const postOpNote = await createPostOperativeNote(
+      const noteArgs: Parameters<typeof createPostOperativeNote> = [
         surgery,
         patient,
         {
@@ -313,18 +314,27 @@ export default function PostOpNoteFormPage() {
           warningSigns: data.warningSigns,
           whenToSeekHelp: data.whenToSeekHelp,
         },
-        {
-          signInCompleted: true,
-          timeOutCompleted: true,
-          signOutCompleted: true,
-        },
+        // From the surgery's WHO checklist; it used to be hard-coded true.
+        noteChecklistFlags(surgery),
         user.id,
-        surgery.hospitalId
-      );
+        surgery.hospitalId,
+      ];
 
-      // Save to database
-      await db.postOperativeNotes.add(postOpNote);
-      await syncRecord('postOperativeNotes', postOpNote as unknown as Record<string, unknown>);
+      // ONE post-op note per surgery, shared with the Surgical Workflow's
+      // post-op tab (journey/operationRecord). It used to be added twice here
+      // (createPostOperativeNote already adds it), so every save failed with
+      // a duplicate key. Also marks the operation done.
+      await upsertPostOpNote(surgery, patient, {
+        preOperativeDiagnosis: data.preOperativeDiagnosis,
+        postOperativeDiagnosis: data.postOperativeDiagnosis,
+        indication: data.indication,
+        procedurePerformed: data.procedurePerformed,
+        findings: data.findings,
+        complicationLines: data.complications,
+        bloodLoss: data.bloodLoss,
+        durationMinutes: data.duration,
+        specimens: data.specimens.map((spec: any) => ({ type: spec.type || '', site: spec.site || '', notes: spec.description || spec.notes || '' })),
+      }, user.id, noteArgs);
 
       // Harmonize medications with existing chart
       if (data.medications.length > 0) {
@@ -332,7 +342,8 @@ export default function PostOpNoteFormPage() {
       }
 
       toast.success('Post-operative note created successfully');
-      navigate(`/surgery/post-op-note/${surgery.id}`);
+      // Book the template's follow-up visits (confirmation list), then the note.
+      navigate(`/surgery/follow-ups/${surgery.id}?next=${encodeURIComponent(`/surgery/post-op-note/${surgery.id}`)}`);
     } catch (error) {
       console.error('Error creating post-op note:', error);
       toast.error('Failed to create post-operative note');

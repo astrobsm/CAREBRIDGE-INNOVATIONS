@@ -531,14 +531,14 @@ export const tendonRepair: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Within the first week after surgery', purpose: 'Hand therapy: splint and start of the protocol' }],
     post_op: [
-      { when: 'Days 3–5', purpose: 'Hand therapy: splint, wound, start the protocol' },
-      { when: 'Day 10–14', purpose: 'Wound check, suture removal' },
-      { when: 'Weekly to 6 weeks', purpose: 'Therapy progression within the protocol' },
+      { when: 'Days 3–5', schedule: { kind: 'once', startDay: 3, from: 'operation' }, purpose: 'Hand therapy: splint, wound, start the protocol' },
+      { when: 'Day 10–14', schedule: { kind: 'once', startDay: 10, from: 'operation' }, purpose: 'Wound check, suture removal' },
+      { when: 'Weekly to 6 weeks', schedule: { kind: 'recall', dueDay: 7, from: 'operation' }, purpose: 'Therapy progression within the protocol' },
     ],
     follow_up: [
-      { when: '6 weeks', purpose: 'Splint weaning, active range' },
-      { when: '12 weeks', purpose: 'Strickland score, grip, strengthening and return to work' },
-      { when: '6 months', purpose: 'Final range; decision on tenolysis or reconstruction' },
+      { when: '6 weeks', schedule: { kind: 'once', startDay: 42, from: 'operation' }, purpose: 'Splint weaning, active range' },
+      { when: '12 weeks', schedule: { kind: 'once', startDay: 84, from: 'operation' }, purpose: 'Strickland score, grip, strengthening and return to work' },
+      { when: '6 months', schedule: { kind: 'once', startDay: 180, from: 'operation' }, purpose: 'Final range; decision on tenolysis or reconstruction' },
     ],
   },
   handoffs: [

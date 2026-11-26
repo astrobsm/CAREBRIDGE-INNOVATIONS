@@ -467,13 +467,13 @@ export const scalpTumourExcision: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Before listing', purpose: 'CT / MRI and biopsy reviewed; neurosurgery and reconstruction planned together where needed' }],
     post_op: [
-      { when: '2–7 days (staged excision)', purpose: 'Margin report; next stage or reconstruction' },
-      { when: '10–14 days', purpose: 'Wound review and suture / staple removal' },
+      { when: '2–7 days (staged excision)', schedule: { kind: 'recall', dueDay: 2, from: 'operation' }, purpose: 'Margin report; next stage or reconstruction' },
+      { when: '10–14 days', schedule: { kind: 'once', startDay: 10, from: 'operation' }, purpose: 'Wound review and suture / staple removal' },
     ],
     follow_up: [
-      { when: 'cSCC / BCC', purpose: 'Every 3–12 months by risk for 2 years, then 6–12-monthly to 5 years (NCCN)' },
-      { when: 'DFSP', purpose: 'Every 6–12 months for at least 5 years (NCCN DFSP)' },
-      { when: 'Angiosarcoma', purpose: 'Every 3 months for 2–3 years with CT chest (ESMO-EURACAN-GENTURIS)' },
+      { when: 'cSCC / BCC', schedule: { kind: 'recall', dueDay: 28, from: 'operation' }, purpose: 'Every 3–12 months by risk for 2 years, then 6–12-monthly to 5 years (NCCN)' },
+      { when: 'DFSP', schedule: { kind: 'recall', dueDay: 28, from: 'operation' }, purpose: 'Every 6–12 months for at least 5 years (NCCN DFSP)' },
+      { when: 'Angiosarcoma', schedule: { kind: 'recall', dueDay: 28, from: 'operation' }, purpose: 'Every 3 months for 2–3 years with CT chest (ESMO-EURACAN-GENTURIS)' },
     ],
   },
   handoffs: [

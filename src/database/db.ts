@@ -120,6 +120,7 @@ import type {
 import { normaliseLegacyMust } from '../domains/nutrition/services/assessmentRecord';
 import type { LymphedemaAssessment, LymphedemaMonitoringRecord, PostOpLymphedemaMonitoring } from '../domains/lymphedema/types';
 import type { PostOpCarePlan, PostOpObservation } from '../domains/post-op-care/types';
+import type { SurgicalOutcome } from '../types';
 import type {
   FinanceBucket,
   FinanceIncome,
@@ -302,10 +303,12 @@ export class AstroHEALTHDatabase extends Dexie {
   foods!: Table<Food, string>;
   recipes!: Table<Recipe, string>;
   householdMeasures!: Table<HouseholdMeasure, string>;
-  // Post-operative care plans and the full monitoring observations. Device-
-  // local: there is no Supabase table for either yet.
+  // Post-operative care plans and the full monitoring observations
+  // (cloud: post_op_care_plans / post_op_observations, 20261126140000).
   postOpCarePlans!: Table<PostOpCarePlan, string>;
   postOpObservations!: Table<PostOpObservation, string>;
+  // The 30-day (90 with an implant) outcome of each operation.
+  surgicalOutcomes!: Table<SurgicalOutcome, string>;
 
   constructor() {
     super('AstroHEALTHDB');
@@ -553,6 +556,14 @@ export class AstroHEALTHDatabase extends Dexie {
     this.version(94).stores({
       postOpCarePlans: 'id, patientId, surgeryId, hospitalId, status, createdAt, updatedAt',
       postOpObservations: 'id, patientId, surgeryId, carePlanId, recordedAt, createdAt, updatedAt',
+    });
+
+    // v95: surgical journey. The outcome registry (one row per operation),
+    // and appointments indexed by their surgery so follow-up booking can find
+    // what it already booked.
+    this.version(95).stores({
+      surgicalOutcomes: 'id, surgeryId, patientId, hospitalId, operationDate, createdAt, updatedAt',
+      appointments: 'id, appointmentNumber, patientId, hospitalId, appointmentDate, type, status, priority, clinicianId, bookedBy, createdAt, relatedSurgeryId',
     });
   }
 }
