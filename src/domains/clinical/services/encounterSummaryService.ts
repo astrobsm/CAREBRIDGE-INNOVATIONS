@@ -302,9 +302,7 @@ export async function generateEncounterSummary(patientId: string): Promise<Encou
     const prompt = buildAIPrompt(data);
     const response = await proxyChat({
       prompt,
-      system: 'You are a clinical documentation specialist. Provide accurate, professional medical summaries.',
-      model: 'gpt-4o',
-      temperature: 0.3,
+      system: 'You are a clinical documentation specialist. Provide accurate, professional medical summaries.',
       maxTokens: 2000,
       responseFormat: { type: 'json_object' },
     });

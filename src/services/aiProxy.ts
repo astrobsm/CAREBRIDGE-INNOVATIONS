@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
 // Client helper for the server-side AI proxy (/api/ai-chat, /api/ai-vision).
-// Keeps API keys off the client — the serverless functions hold the secrets.
+// Every AI feature in AstroHEALTH is answered by Claude (Anthropic); the model
+// and the key live on the server (api/_lib/claude.js), never in the browser.
 // Every call carries the signed-in person's Supabase access token, which the
 // functions verify before spending anything (see api/_lib/requireUser.js).
 // ---------------------------------------------------------------------------
@@ -10,10 +11,9 @@ import { withAuthHeaders } from './authToken';
 export interface ProxyChatArgs {
   prompt: string;
   system?: string;
-  provider?: 'openai' | 'anthropic';
-  model?: string;
-  temperature?: number;
+  /** Upper bound on the reply; the server keeps it inside its own limits. */
   maxTokens?: number;
+  /** Ask for a single JSON object back (the server extracts and validates it). */
   responseFormat?: { type: 'json_object' };
 }
 
@@ -27,18 +27,15 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
   return `${fallback} (${res.status})`;
 }
 
-/** Send a chat completion through the server proxy. Returns the text content. */
+/** Send a text request to Claude through the server proxy. Returns the text content. */
 export async function proxyChat(args: ProxyChatArgs): Promise<string> {
   const res = await fetch('/api/ai-chat', {
     method: 'POST',
     headers: await withAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
-      provider: args.provider ?? 'openai',
-      model: args.model,
       system: args.system ?? '',
       prompt: args.prompt,
-      temperature: args.temperature ?? 0.3,
-      max_tokens: args.maxTokens ?? 1500,
+      max_tokens: args.maxTokens,
       response_format: args.responseFormat,
     }),
   });
@@ -47,16 +44,46 @@ export async function proxyChat(args: ProxyChatArgs): Promise<string> {
   return (data.content || '').trim();
 }
 
-/** Run vision OCR through the server proxy. Returns extracted text ('' if none). */
-export async function proxyVision(
-  imageDataUrl: string,
-  provider: 'openai' | 'google' = 'openai',
-  medicalContext = true
-): Promise<string> {
+/**
+ * Claude reads images at up to about 1568 px on the long edge and refuses
+ * anything over 5 MB, so a phone photo is resized and re-encoded as JPEG
+ * before upload. That also makes the upload far quicker on mobile data.
+ * Outside a browser (tests) the data URL is returned unchanged.
+ */
+export const AI_IMAGE_MAX_EDGE = 1568;
+
+export async function prepareImageForAI(dataUrl: string, maxEdge = AI_IMAGE_MAX_EDGE): Promise<string> {
+  if (typeof document === 'undefined' || typeof Image === 'undefined') return dataUrl;
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = dataUrl;
+    });
+    const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+    // Already small and already JPEG: send as is.
+    if (scale === 1 && /^data:image\/jpe?g;/i.test(dataUrl) && dataUrl.length < 4_000_000) return dataUrl;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return dataUrl;
+    ctx.fillStyle = '#fff'; // transparent PNG regions become white, not black
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.9);
+  } catch {
+    return dataUrl; // the server still validates type and size
+  }
+}
+
+/** Read the text in an image (handwritten or printed) with Claude vision. Returns '' if none. */
+export async function proxyVision(imageDataUrl: string, medicalContext = true): Promise<string> {
   const res = await fetch('/api/ai-vision', {
     method: 'POST',
     headers: await withAuthHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ provider, imageDataUrl, medicalContext }),
+    body: JSON.stringify({ imageDataUrl: await prepareImageForAI(imageDataUrl), medicalContext }),
   });
   if (!res.ok) throw new Error(await errorMessage(res, 'Vision request failed'));
   const data = await res.json();
@@ -67,8 +94,8 @@ export async function proxyVision(
  * Ask a structured question about an image and get parsed JSON back.
  *
  * Unlike `proxyVision` (which is OCR — "what text is in this image"), this
- * sends a caller-supplied system prompt and asks the model for a JSON document.
- * Used by the WoundProgress Monitor to enrich an on-device measurement with a
+ * sends a caller-supplied system prompt and asks Claude for a JSON document.
+ * Used by the Wound Progress Monitor to enrich an on-device measurement with a
  * qualitative wound-bed assessment.
  *
  * Throws on transport/HTTP failure or unparseable output, so callers can decide
@@ -84,7 +111,7 @@ export async function proxyVisionJson<T = unknown>(
   const res = await fetch('/api/ai-vision', {
     method: 'POST',
     headers: await withAuthHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ provider: 'openai', imageDataUrl, system, userText, jsonMode: true }),
+    body: JSON.stringify({ imageDataUrl: await prepareImageForAI(imageDataUrl), system, userText, jsonMode: true }),
     signal: opts.signal,
   });
   if (!res.ok) throw new Error(await errorMessage(res, 'Vision analysis failed'));
