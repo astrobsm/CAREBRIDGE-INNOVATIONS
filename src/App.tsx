@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import MainLayout from './components/layouts/MainLayout';
 import AuthLayout from './components/layouts/AuthLayout';
@@ -139,6 +139,16 @@ function RedirectToWorkflow() {
   return <Navigate to={patientId ? `/surgery/workflow/${patientId}` : '/surgery/workflow'} replace />;
 }
 
+/**
+ * PatientsListPage reads ?search= once, into its initial state. Keying it on
+ * the param remounts it when the header search runs again while already on
+ * /patients, so a new search is applied instead of ignored.
+ */
+function PatientsListRoute() {
+  const [searchParams] = useSearchParams();
+  return <PatientsListPage key={searchParams.get('search') ?? ''} />;
+}
+
 function App() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -191,7 +201,7 @@ function App() {
         
         {/* Patient Routes */}
         <Route path="patients">
-          <Route index element={<PatientsListPage />} />
+          <Route index element={<PatientsListRoute />} />
           <Route path="new" element={<SlimNewPatientPage />} />
           <Route path="new-comprehensive" element={<NewPatientPage />} />
           {/* Merging double registrations: administrators only. */}
