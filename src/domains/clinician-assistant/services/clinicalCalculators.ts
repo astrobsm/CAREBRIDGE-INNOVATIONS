@@ -21,7 +21,7 @@
 import { interpretAcidBase } from './engine/modules/abg';
 import { correctionPlan, type CorrectionPlan } from './engine/replacement';
 import { generateMealPlan, type DayPlan } from '../../../data/nigerianFoods';
-import { emptyPatient, type PatientContext, type Sex } from './engine/types';
+import { emptyPatient, type PatientContext, type Severity, type Sex } from './engine/types';
 
 // ── Acid-base ────────────────────────────────────────────────────────────
 
@@ -117,6 +117,11 @@ export interface ElectrolyteInput {
   severity?: 'mild' | 'moderate' | 'severe' | 'critical';
 }
 
+/** The bedside severity choices, in the engine's own severity vocabulary. */
+const SEVERITY_TO_ENGINE: Record<NonNullable<ElectrolyteInput['severity']>, Severity> = {
+  mild: 'minor', moderate: 'moderate', severe: 'significant', critical: 'critical',
+};
+
 /**
  * Ask the engine for its correction plan. The engine already knows the safe
  * infusion rates, the peripheral-versus-central limits and the monitoring each
@@ -133,7 +138,7 @@ export function electrolyteCorrection(input: ElectrolyteInput): CorrectionPlan |
   return correctionPlan(input.finding, {
     patient,
     value: (key: string) => input.values[key] ?? null,
-    severity: (input.severity ?? 'moderate') as any,
+    severity: SEVERITY_TO_ENGINE[input.severity ?? 'moderate'],
   });
 }
 

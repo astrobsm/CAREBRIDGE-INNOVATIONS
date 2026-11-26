@@ -24,6 +24,8 @@ import { generateMealPlan, type DayPlan } from '../../../data/nigerianFoods';
 import { FOOD_COMPOSITION_ACKNOWLEDGEMENT } from '../../nutrition/data/foodSourceAcknowledgement';
 import { burnCareService } from '../services/burnCalculators';
 import { riskAssessmentService } from '../services/riskCalculators';
+import DeterministicPlanView from '../../calculators/report/components/DeterministicPlanView';
+import { correctionPlanToReportPlan } from '../../calculators/report/format';
 
 // ── shared bits ───────────────────────────────────────────────────────────
 
@@ -172,7 +174,7 @@ export function ElectrolytePanel({
           <input type="number" step="0.1" value={value} onChange={e => setValue(e.target.value)} className="input" />
         </Field>
         <Field label="Clinical severity" hint="Symptoms, not the number alone">
-          <select value={severity} onChange={e => setSeverity(e.target.value as any)} className="input">
+          <select value={severity} onChange={e => setSeverity(e.target.value as typeof severity)} className="input">
             <option value="mild">Mild — asymptomatic</option>
             <option value="moderate">Moderate</option>
             <option value="severe">Severe — symptomatic</option>
@@ -204,49 +206,13 @@ export function ElectrolytePanel({
             </div>
           )}
 
-          {plan.prerequisites && plan.prerequisites.length > 0 && (
-            <Note tone="warn">
-              <span className="font-medium">Correct first:</span>
-              <ul className="list-disc pl-5 mt-1 space-y-0.5">
-                {plan.prerequisites.map((p, i) => <li key={i}>{p}</li>)}
-              </ul>
-            </Note>
-          )}
-
-          <div>
-            <p className="font-semibold text-sm text-gray-900 mb-1">Plan</p>
-            <ol className="list-decimal pl-5 text-sm text-gray-700 space-y-1">
-              {plan.steps.map((s: any, i: number) => (
-                <li key={i}>
-                  {typeof s === 'string' ? s : (
-                    <>
-                      <span className="font-medium">{s.title ?? s.label ?? ''}</span>
-                      {s.detail && <span> — {s.detail}</span>}
-                      {s.text && <span>{s.text}</span>}
-                    </>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          {plan.hardLimits.length > 0 && (
-            <Note tone="danger">
-              <span className="font-medium">Hard limits — do not exceed whatever the deficit suggests:</span>
-              <ul className="list-disc pl-5 mt-1 space-y-0.5">
-                {plan.hardLimits.map((h, i) => <li key={i}>{h}</li>)}
-              </ul>
-            </Note>
-          )}
-
-          {plan.monitoring.length > 0 && (
-            <div>
-              <p className="font-semibold text-sm text-gray-900 mb-1">Monitoring</p>
-              <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
-                {plan.monitoring.map((m, i) => <li key={i}>{m}</li>)}
-              </ul>
-            </div>
-          )}
+          {/* Steps are engine CorrectionSteps (indication, route, preparation,
+              dose, administration, access, cautions). They are rendered
+              through formatCorrectionStep, the same function the PDF and the
+              AI prompt use, so no field can be shown in one and lost in
+              another. The title/target are shown above, the deficit in its
+              own box. */}
+          <DeterministicPlanView plan={{ ...correctionPlanToReportPlan(plan), title: undefined, target: undefined, sections: [] }} />
         </div>
       )}
 
