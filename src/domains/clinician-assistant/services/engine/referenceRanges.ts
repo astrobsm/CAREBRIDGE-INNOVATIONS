@@ -302,6 +302,23 @@ export const ANALYTES: AnalyteDef[] = [
     ref: { low: 3.9, high: 7.8 }, crit: { low: 3.0, high: 20 }, lifeThreat: { low: 2.2, high: 30 },
     decimals: 1, plausible: { low: 0.3, high: 80 },
   }),
+  // Wound clinic baseline panel (stage 5). Module 'other': no engine module
+  // interprets them; the wound protocol thresholds do (clerkingPlan/results).
+  // Reference intervals are the protocol's action points.
+  D({
+    key: 'hba1c', label: 'HbA1c', module: 'other', unitRule: 'hba1c', unit: '%',
+    synonyms: ['glycated haemoglobin', 'glycated hemoglobin', 'haemoglobin a1c', 'hemoglobin a1c', 'hba1c', 'hb a1c'],
+    ref: { high: 7 }, decimals: 1, plausible: { low: 3, high: 20 },
+  }),
+  D({
+    key: 'zinc', label: 'Serum zinc', module: 'other', unitRule: 'zinc', unit: 'mcg/dL',
+    synonyms: ['serum zinc', 'plasma zinc', 'zinc'], ref: { low: 70 }, decimals: 0, plausible: { low: 10, high: 400 },
+  }),
+  D({
+    key: 'vitaminD', label: '25-OH vitamin D', module: 'other', unitRule: 'vitaminD', unit: 'ng/mL',
+    synonyms: ['25-hydroxyvitamin d', '25-oh vitamin d', '25 oh vitamin d', '25(oh)d', 'vitamin d3', 'vitamin d'], ref: { low: 20 },
+    decimals: 0, plausible: { low: 1, high: 250 },
+  }),
 
   // ─────────────────────────── LIVER ───────────────────────────
   D({
