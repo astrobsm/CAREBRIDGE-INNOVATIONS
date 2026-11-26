@@ -71,6 +71,10 @@ import ShoppingChecklistPage from './domains/shopping-checklist/pages/ShoppingCh
 import SubstanceUseAssessmentPage from './domains/substance-use/pages/SubstanceUseAssessmentPage';
 import KeloidCarePlanningPage from './domains/keloid/pages/KeloidCarePlanningPage';
 import SurgicalWorkflowPage from './domains/surgery/pages/SurgicalWorkflowPage';
+import SurgeryFollowUpsPage from './domains/surgery/pages/SurgeryFollowUpsPage';
+import RecallListPage from './domains/surgery/pages/RecallListPage';
+import SurgicalOutcomePage from './domains/surgery/pages/SurgicalOutcomePage';
+import OutcomesSummaryPage from './domains/surgery/pages/OutcomesSummaryPage';
 import STIProtocolPage from './domains/soft-tissue-infection/pages/STIProtocolPage';
 import LymphedemaAssessmentPage from './domains/lymphedema/pages/LymphedemaAssessmentPage';
 import PreSurgicalConferencePage from './domains/pre-surgical-conference/pages/PreSurgicalConferencePage';
@@ -238,6 +242,10 @@ function App() {
           <Route path="workflow/:patientId" element={<SurgicalWorkflowPage />} />
           {/* Reopen an existing case (also ?edit=<surgeryId> on the routes above). */}
           <Route path="workflow/:patientId/:surgeryId" element={<SurgicalWorkflowPage />} />
+          {/* Surgical journey: follow-up confirmation, 30-day outcome, outcomes audit. */}
+          <Route path="follow-ups/:surgeryId" element={<SurgeryFollowUpsPage />} />
+          <Route path="outcome/:surgeryId" element={<SurgicalOutcomePage />} />
+          <Route path="outcomes" element={<OutcomesSummaryPage />} />
         </Route>
 
         {/* Clinical Modules */}
@@ -252,6 +260,7 @@ function App() {
         <Route path="discharge" element={<DischargePage />} />
         <Route path="ward-rounds" element={<WardRoundsPage />} />
         <Route path="post-op-care" element={<PostOpCarePage />} />
+        <Route path="follow-ups/recall" element={<RecallListPage />} />
         <Route path="post-op-care/charts/:patientId/:surgeryId" element={<PostOpMonitoringChartsPage />} />
         {/* Merged into the Surgical Workflow (section 1: Preop Planning & Risk).
             Its WHO-aligned protocol library lives on and now drives that section. */}
