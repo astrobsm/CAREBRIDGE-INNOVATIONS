@@ -202,7 +202,7 @@ export default function PostOpCarePlanModal({
       };
 
       // Save to database
-      // Synced to post_op_care_plans (migration 20261126120000).
+      // Synced to post_op_care_plans (migration 20261126140000).
       await db.postOpCarePlans.put(carePlan);
       syncRecord('postOpCarePlans', carePlan as unknown as Record<string, unknown>).catch(console.error);
 

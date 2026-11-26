@@ -69,6 +69,15 @@ describe('surgicalReadiness', () => {
     expect(item(r, 'investigations')!.status).toBe('warning');
   });
 
+  it('a case booked under the old flow warns, not blocks, on the missing approval record', () => {
+    for (const status of ['scheduled', 'in-progress'] as const) {
+      const r = surgicalReadiness(complete({ surgery: surgery({ status }) }));
+      expect(item(r, 'booking')!.status).toBe('warning');
+      expect(r.missing).not.toContain('Booking approved');
+    }
+    expect(item(surgicalReadiness(complete({ surgery: surgery({ status: 'incomplete_preparation' }) })), 'booking')!.status).toBe('missing');
+  });
+
   it('blocks on counselling gaps and a missing decision', () => {
     const r = surgicalReadiness(complete({ review: { encounterId: 'e1', review: review({ counselling: { ...emptyCounselling() } }) } }));
     expect(item(r, 'consent_decision')!.status).toBe('missing');

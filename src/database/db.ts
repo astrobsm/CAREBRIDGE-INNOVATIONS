@@ -304,7 +304,7 @@ export class AstroHEALTHDatabase extends Dexie {
   recipes!: Table<Recipe, string>;
   householdMeasures!: Table<HouseholdMeasure, string>;
   // Post-operative care plans and the full monitoring observations
-  // (cloud: post_op_care_plans / post_op_observations, 20261126120000).
+  // (cloud: post_op_care_plans / post_op_observations, 20261126140000).
   postOpCarePlans!: Table<PostOpCarePlan, string>;
   postOpObservations!: Table<PostOpObservation, string>;
   // The 30-day (90 with an implant) outcome of each operation.

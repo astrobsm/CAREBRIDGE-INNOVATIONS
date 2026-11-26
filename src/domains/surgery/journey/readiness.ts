@@ -56,6 +56,8 @@ export interface ReadinessInput {
 }
 
 const DAY = 86_400_000;
+/** Statuses the old flow set only after a booking was approved. */
+const LEGACY_BOOKED_STATUSES: Surgery['status'][] = ['scheduled', 'in-progress', 'completed'];
 const time = (d: unknown) => { const t = new Date(d as string).getTime(); return Number.isNaN(t) ? 0 : t; };
 
 /** Investigations that belong to this operation: requested from 90 days before the case was opened. */
@@ -150,10 +152,16 @@ export function surgicalReadiness(input: ReadinessInput): Readiness {
 
   // ── Theatre-only items ───────────────────────────────────────────────────
   if (stage === 'theatre') {
+    // A case booked before the approval record existed was approved under the
+    // old flow (status went to 'scheduled'). Don't block it; ask for the
+    // approval to be recorded again.
+    const legacyBooked = !surgery.bookingApproval && LEGACY_BOOKED_STATUSES.includes(surgery.status);
     add({
       id: 'booking', label: 'Booking approved', section: 'booking',
-      status: surgery.bookingApproval ? 'done' : 'missing',
-      detail: surgery.bookingApproval ? `Approved${surgery.bookingApproval.byName ? ` by ${surgery.bookingApproval.byName}` : ''}` : undefined,
+      status: surgery.bookingApproval ? 'done' : legacyBooked ? 'warning' : 'missing',
+      detail: surgery.bookingApproval
+        ? `Approved${surgery.bookingApproval.byName ? ` by ${surgery.bookingApproval.byName}` : ''}`
+        : legacyBooked ? 'Booked before approvals were recorded: approve again to record who approved it' : undefined,
     });
     const pa = [...input.preAnaesthetic].filter(a => a.surgeryId === surgery.id)
       .sort((a, b) => time(b.updatedAt ?? b.createdAt) - time(a.updatedAt ?? a.createdAt))[0];
