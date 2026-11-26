@@ -43,6 +43,11 @@ export function consultationOptions(patientId: string, hasInitialClerking: boole
           hint: 'Interval history, examination and plan. (No structured clerking yet.)',
           href: `${base}/follow-up`,
         },
+      {
+        id: 'wound_clinic', label: 'Wound clinic visit',
+        hint: 'Clerking with the wound clinic protocol plan: baseline tests, micronutrients, monitoring.',
+        href: `${base}?tab=visits&clerk=initial&condition=chronic_ulcer`,
+      },
     ],
     procedureReview: [
       { id: 'pre_op', label: 'Pre-op', href: `${base}/procedure-review?phase=pre_op` },

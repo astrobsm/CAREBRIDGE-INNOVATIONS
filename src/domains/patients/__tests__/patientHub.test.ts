@@ -32,7 +32,8 @@ describe('Start consultation chooser', () => {
   it('lists each way to document a visit once', () => {
     const o = consultationOptions('P', true);
     const all = [...o.primary, ...o.procedureReview, o.quickNote];
-    expect(all.map(x => x.id)).toEqual(['initial', 'follow_up', 'pre_op', 'post_op', 'pr_follow_up', 'wound_review', 'quick_note']);
+    expect(all.map(x => x.id)).toEqual(['initial', 'follow_up', 'wound_clinic', 'pre_op', 'post_op', 'pr_follow_up', 'wound_review', 'quick_note']);
+    expect(o.primary[2].href).toBe('/patients/P?tab=visits&clerk=initial&condition=chronic_ulcer');
     expect(new Set(all.map(x => x.href)).size).toBe(all.length);
     expect(o.primary[0].href).toBe('/patients/P?tab=visits&clerk=initial');
     expect(o.primary[1].href).toBe('/patients/P?tab=visits&clerk=follow_up');

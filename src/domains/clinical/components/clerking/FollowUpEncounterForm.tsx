@@ -19,6 +19,7 @@ import { localDraft, saveClerking, submitClerking, type ClerkedEncounter } from 
 import { ComplaintsEditor, ExamEditor, VitalsEditor } from './sections';
 import { SuggestionReview } from './SuggestionReview';
 import { Section } from './fields';
+import { ClerkingPlanPanel } from '../../clerkingPlan/components/ClerkingPlanPanel';
 
 const PROBLEM_OPTIONS: Array<[string, string, string]> = [
   ['improved', 'Improved', 'bg-green-600'], ['unchanged', 'Unchanged', 'bg-gray-600'], ['worse', 'Worse', 'bg-red-600'],
@@ -94,6 +95,16 @@ export const FollowUpEncounterForm: React.FC<Props> = ({ patientId, patientLabel
       return [...mergeSuggestions(prev.filter(isRule), ruleSuggestions(pseudo, ctx)), ...prev.filter(s => !isRule(s))];
     });
   }, [pseudo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The plan reads the whole picture: the initial clerking's complaints and
+  // history, today's vitals and examination over it, and any new complaints.
+  const planData: ClerkingData = useMemo(() => ({
+    ...pseudo,
+    complaints: [...(initialData?.complaints || []), ...data.newComplaints],
+    vitals: { ...(initialData?.vitals || {}), ...data.vitals },
+    exam: { ...(initialData?.exam || {}), ...data.exam },
+  }), [pseudo, initialData, data.newComplaints, data.vitals, data.exam]);
+  const [planId, setPlanId] = useState<string | null>(null);
 
   const examIds = useMemo(() => {
     const fromInitial = (initialData?.complaints || []).flatMap(c => COMPLAINT_BY_ID[c.complaintId]?.exams || []);
@@ -249,6 +260,10 @@ export const FollowUpEncounterForm: React.FC<Props> = ({ patientId, patientLabel
             </Section>
           )}
 
+          <Section title="Treatment plan (live)" subtitle="Updates as you document; Claude only when you ask; nothing is shared until approved" defaultOpen={false}>
+            <ClerkingPlanPanel patientId={patientId} hospitalId={hospitalId} encounterId={encounter?.id} source="follow_up"
+              data={planData} ctx={ctx} identifiers={identifiers} planId={planId} onPlanId={setPlanId} />
+          </Section>
           <Section title="Impression and plan">
             <textarea rows={3} className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm" value={data.impression || ''}
               onChange={e => setData(d => ({ ...d, impression: e.target.value || undefined }))} />

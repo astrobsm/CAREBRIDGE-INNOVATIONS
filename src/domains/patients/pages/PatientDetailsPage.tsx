@@ -549,11 +549,13 @@ export default function PatientDetailsPage() {
   const tab: HubTab = isTab(tabParam) ? tabParam : 'timeline';
   const clerk = searchParams.get('clerk');
   const autoOpen = clerk === 'initial' || clerk === 'follow_up' ? clerk : undefined;
+  const initialCondition = searchParams.get('condition') || undefined;
 
   const setTab = (t: HubTab) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', t);
     next.delete('clerk');
+    next.delete('condition');
     setSearchParams(next, { replace: true });
   };
 
@@ -591,7 +593,7 @@ export default function PatientDetailsPage() {
     const [
       encounters, surgeries, postOpNotes, investigations, labRequests, woundAssessments, monitoredWounds,
       treatmentPlans, appointments, admissions, dischargeSummaries, prescriptions, scannedDocuments,
-      educationRecords, vitals,
+      educationRecords, vitals, clerkingPlans,
     ] = await Promise.all([
       db.clinicalEncounters.where('patientId').equals(pid).toArray(),
       db.surgeries.where('patientId').equals(pid).toArray(),
@@ -608,11 +610,12 @@ export default function PatientDetailsPage() {
       db.scannedDocuments.where('patientId').equals(pid).toArray(),
       db.patientEducationRecords.where('patientId').equals(pid).toArray(),
       db.vitalSigns.where('patientId').equals(pid).toArray(),
+      db.clerkingPlans.where('patientId').equals(pid).toArray(),
     ]);
     return {
       encounters, surgeries, postOpNotes, investigations, labRequests, woundAssessments, monitoredWounds,
       treatmentPlans, appointments, admissions, dischargeSummaries, prescriptions, scannedDocuments,
-      educationRecords, vitals,
+      educationRecords, vitals, clerkingPlans,
     };
   }, [patientId]);
 
@@ -903,6 +906,7 @@ export default function PatientDetailsPage() {
                   <StructuredEncountersPanel
                     key={autoOpen ?? 'panel'}
                     autoOpen={autoOpen}
+                    initialComplaintId={initialCondition}
                     patientId={patient.id}
                     patientLabel={patientLabelOf(patient)}
                     ctx={patientContext(patient)}

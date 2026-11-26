@@ -31,6 +31,10 @@ import { ComplaintsEditor, ExamEditor, VitalsEditor } from './sections';
 import { HistoryEditor } from './HistoryEditor';
 import { SuggestionReview } from './SuggestionReview';
 import { Section } from './fields';
+import { ClerkingPlanPanel } from '../../clerkingPlan/components/ClerkingPlanPanel';
+import { updatePlan as updateClerkingPlan } from '../../clerkingPlan/service';
+import { db } from '../../../../database';
+import { COMPLAINT_BY_ID as COMPLAINTS_BY_ID } from '../../clerking/complaints';
 
 const STEPS = ['Complaints & HPC', 'History', 'Examination', 'Assessment & plan'];
 
@@ -44,6 +48,8 @@ interface Props {
   identifiers?: string[];
   hospitalId?: string;
   existing?: ClerkedEncounter | null;
+  /** Start with this complaint (e.g. "Wound clinic visit" from the consultation chooser). */
+  initialComplaintId?: string;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -54,14 +60,33 @@ function refreshRules(previous: Suggestion[], data: ClerkingData, ctx: PatientCo
   return [...mergeSuggestions(previous.filter(isRule), ruleSuggestions(data, ctx)), ...previous.filter(s => !isRule(s))];
 }
 
-export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel, ctx, userName, canSign, identifiers = [], hospitalId, existing, onClose, onSaved }) => {
+export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel, ctx, userName, canSign, identifiers = [], hospitalId, existing, initialComplaintId, onClose, onSaved }) => {
   const { user } = useAuth();
   const draftType = existing ? `initial-${existing.id}` : 'initial';
-  const restored = useMemo(() => localDraft.load<{ data: ClerkingData; suggestions: Suggestion[]; savedAt: string; version?: number }>(patientId, draftType), [patientId, draftType]);
+  const restored = useMemo(() => localDraft.load<{ data: ClerkingData; suggestions: Suggestion[]; savedAt: string; version?: number; planId?: string | null }>(patientId, draftType), [patientId, draftType]);
   const useRestored = !!restored && (!existing || (restored.version ?? 0) >= existing.clerking.version);
   const existingData = existing?.clerking.data as ClerkingData | undefined;
 
-  const [data, setData] = useState<ClerkingData>(() => (useRestored ? restored!.data : existingData?.version ? existingData : emptyClerking()));
+  const [data, setData] = useState<ClerkingData>(() => {
+    if (useRestored) return restored!.data;
+    if (existingData?.version) return existingData;
+    const d = emptyClerking();
+    const c = initialComplaintId ? COMPLAINTS_BY_ID[initialComplaintId] : undefined;
+    if (c) d.complaints = [{ uid: `${Date.now().toString(36)}c`, complaintId: c.id, label: c.label, duration: { value: null, unit: 'days' }, answers: {} }];
+    return d;
+  });
+  // The live treatment plan for this clerking (clerkingPlan/): its record id, kept with the device draft.
+  const [planId, setPlanId] = useState<string | null>(() => (useRestored ? restored!.planId ?? null : null));
+  const [planOpen, setPlanOpen] = useState(false);
+  useEffect(() => {
+    if (planId || !existing) return;
+    db.clerkingPlans.where('encounterId').equals(existing.id).first().then(r => { if (r) setPlanId(r.id); }).catch(() => undefined);
+  }, [existing?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const addCondition = useCallback((complaintId: string, label: string) => {
+    setData(d => (d.complaints.some(c => c.complaintId === complaintId) ? d : { ...d, complaints: [...d.complaints, { uid: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, complaintId, label, duration: { value: null, unit: 'days' }, answers: {} }] }));
+    setStep(0);
+    toast.success(`${label}: condition fields added to the history and examination`);
+  }, []);
   const [suggestions, setSuggestions] = useState<Suggestion[]>(() => (useRestored ? restored!.suggestions : existing?.clerking.suggestions || []));
   const [encounter, setEncounter] = useState<ClerkedEncounter | null>(existing || null);
   const [step, setStep] = useState(0);
@@ -73,14 +98,14 @@ export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel,
   const topRef = useRef<HTMLDivElement>(null);
 
   const gyn = showGynaecology(ctx) || gynOverride;
-  const effCtx: PatientContext = gynOverride ? { ...ctx, ageYears: ctx.ageYears != null ? Math.min(Math.max(ctx.ageYears, 10), 55) : null, sex: ctx.sex || 'Female' } : ctx;
+  const effCtx: PatientContext = useMemo(() => (gynOverride ? { ...ctx, ageYears: ctx.ageYears != null ? Math.min(Math.max(ctx.ageYears, 10), 55) : null, sex: ctx.sex || 'Female' } : ctx), [gynOverride, ctx]);
 
   // Continuous autosave on this device.
   useEffect(() => {
     const key = encounter ? `initial-${encounter.id}` : 'initial';
-    const t = setTimeout(() => localDraft.save(patientId, key, { data, suggestions, version: encounter?.clerking.version ?? 0 }), 600);
+    const t = setTimeout(() => localDraft.save(patientId, key, { data, suggestions, version: encounter?.clerking.version ?? 0, planId }), 600);
     return () => clearTimeout(t);
-  }, [data, suggestions, patientId, encounter?.id, encounter?.clerking.version]);
+  }, [data, suggestions, patientId, encounter?.id, encounter?.clerking.version, planId]);
 
   useEffect(() => { topRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); }, [step]);
 
@@ -145,9 +170,10 @@ export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel,
         data, suggestions, summary: summary(), narrative,
       }, user);
       setEncounter(saved);
+      if (planId) await updateClerkingPlan(planId, { encounterId: saved.id }).catch(() => undefined);
       // From now on the device copy lives under this encounter's own key.
       localDraft.clear(patientId, 'initial');
-      localDraft.save(patientId, `initial-${saved.id}`, { data, suggestions, version: saved.clerking.version });
+      localDraft.save(patientId, `initial-${saved.id}`, { data, suggestions, version: saved.clerking.version, planId });
       return saved;
     } catch (e) {
       toast.error(messageOf(e, 'Could not save'));
@@ -185,7 +211,7 @@ export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel,
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-stretch sm:items-center justify-center sm:p-4" role="dialog" aria-modal="true" aria-label="Initial patient encounter">
-      <div className="bg-gray-50 w-full sm:max-w-5xl sm:rounded-2xl shadow-xl flex flex-col max-h-screen sm:max-h-[95vh]">
+      <div className="bg-gray-50 w-full sm:max-w-5xl lg:max-w-7xl sm:rounded-2xl shadow-xl flex flex-col max-h-screen sm:max-h-[95vh]">
         <div className="bg-white border-b px-4 py-3 sm:rounded-t-2xl">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -211,13 +237,14 @@ export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel,
           </nav>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 sm:px-5 py-4 space-y-4">
+        <div className="flex-1 min-h-0 flex">
+        <div className="flex-1 min-w-0 overflow-y-auto px-3 sm:px-5 py-4 space-y-4">
           <div ref={topRef} />
           {readOnly && <p className="text-sm bg-gray-100 rounded-lg p-2">This encounter is {status?.replace(/_/g, ' ')} and can no longer be edited. Record changes in a follow-up encounter.</p>}
           <fieldset disabled={readOnly} className="space-y-4 min-w-0">
             {step === 0 && (
               <Section title="Presenting complaints" subtitle="A patient may have several — add each one, with its duration">
-                <ComplaintsEditor complaints={data.complaints} onChange={complaints => setData(d => ({ ...d, complaints }))} />
+                <ComplaintsEditor complaints={data.complaints} onChange={complaints => setData(d => ({ ...d, complaints }))} aiDraft={{ ctx: effCtx, identifiers, userName }} />
               </Section>
             )}
             {step === 1 && <HistoryEditor data={data} onChange={setData} showGyn={gyn} onToggleGyn={(ctx.sex || '').toLowerCase().startsWith('f') || !ctx.sex ? () => setGynOverride(true) : undefined} />}
@@ -287,6 +314,16 @@ export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel,
             )}
           </fieldset>
         </div>
+        {/* The live plan: beside the form on a wide screen, a bottom sheet on a phone. */}
+        <aside className={`${planOpen ? 'fixed inset-x-0 bottom-0 top-16 z-[60] rounded-t-2xl shadow-2xl' : 'hidden'} lg:static lg:block lg:z-auto lg:rounded-none lg:shadow-none lg:w-[27rem] lg:shrink-0 bg-white border-l overflow-y-auto px-3 py-3`} aria-label="Treatment plan">
+          <div className="lg:hidden flex justify-end mb-1"><button type="button" onClick={() => setPlanOpen(false)} className="px-3 py-1 text-xs rounded-lg border">Close plan</button></div>
+          <ClerkingPlanPanel patientId={patientId} hospitalId={hospitalId} encounterId={encounter?.id} source={initialComplaintId === 'chronic_ulcer' ? 'wound_review' : 'initial'}
+            data={data} ctx={effCtx} identifiers={identifiers} planId={planId} onPlanId={setPlanId} onAddCondition={readOnly ? undefined : addCondition} />
+        </aside>
+        </div>
+        <button type="button" onClick={() => setPlanOpen(true)} className="lg:hidden fixed right-3 bottom-20 z-[55] px-4 py-2.5 rounded-full bg-indigo-700 text-white text-sm font-semibold shadow-lg" data-testid="open-plan">
+          Plan ▲
+        </button>
 
         <div className="bg-white border-t px-4 py-3 flex flex-wrap items-center justify-between gap-2 sm:rounded-b-2xl">
           <div className="flex gap-2">

@@ -9,6 +9,8 @@ import { COMPLAINT_BY_ID } from '../../clerking/complaints';
 import { EXAM_SECTIONS, VITALS, VITALS_CONTEXT } from '../../clerking/examination';
 import { questionsForComplaint } from '../../clerking/engine';
 import { ComplaintPicker, DurationInput, QuestionField, QuestionGrid, Section } from './fields';
+import type { PatientContext } from '../../clerking/engine';
+import { AiFieldsDrafter } from '../../clerkingPlan/components/AiFieldsDrafter';
 
 const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
@@ -16,7 +18,9 @@ export const ComplaintsEditor: React.FC<{
   complaints: ComplaintEntry[];
   onChange: (next: ComplaintEntry[]) => void;
   pickerPlaceholder?: string;
-}> = ({ complaints, onChange, pickerPlaceholder }) => {
+  /** Offer "Draft clerking fields with Claude" on free-text complaints. */
+  aiDraft?: { ctx: PatientContext; identifiers: string[]; userName: string };
+}> = ({ complaints, onChange, pickerPlaceholder, aiDraft }) => {
   const [openUid, setOpenUid] = useState<string | null>(complaints[0]?.uid ?? null);
   const setEntry = (u: string, patch: Partial<ComplaintEntry>) => onChange(complaints.map(c => (c.uid === u ? { ...c, ...patch } : c)));
   const move = (i: number, d: number) => {
@@ -61,9 +65,12 @@ export const ComplaintsEditor: React.FC<{
             </div>
             {open && (
               <div className="border-t border-gray-100 p-3 space-y-4">
+                {aiDraft && c.complaintId === 'other' && (
+                  <AiFieldsDrafter entry={c} ctx={aiDraft.ctx} identifiers={aiDraft.identifiers} userName={aiDraft.userName} onChange={aiFields => setEntry(c.uid, { aiFields })} />
+                )}
                 {modules.map(m => (
-                  <div key={m.title}>
-                    <h5 className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">{m.title}</h5>
+                  <div key={m.title} className={m.aiDrafted ? 'rounded-lg border border-purple-300 bg-purple-50 p-2' : undefined}>
+                    <h5 className={`text-xs font-semibold uppercase tracking-wide mb-2 ${m.aiDrafted ? 'text-purple-800' : 'text-green-700'}`}>{m.title}</h5>
                     <QuestionGrid questions={m.questions} answers={c.answers}
                       onChange={(id, v) => setEntry(c.uid, { answers: { ...c.answers, [id]: v } })} />
                   </div>
