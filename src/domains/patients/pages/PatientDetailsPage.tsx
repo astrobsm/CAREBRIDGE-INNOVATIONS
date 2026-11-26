@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,21 +11,27 @@ import {
   Scissors,
   FileText,
   Phone,
-  Mail,
-  MapPin,
   Calendar,
-  User,
-  Heart,
   AlertTriangle,
-  Droplet,
   BedDouble,
   X,
   Save,
+  ClipboardList,
+  FileScan,
+  Sparkles,
+  TestTube2,
+  CircleDot,
+  ListChecks,
+  Pill,
+  BookOpen,
+  ChevronRight,
+  MessageCircle,
+  MoreHorizontal,
+  Camera,
 } from 'lucide-react';
-import { ClipboardList, FileScan, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
-import { format, differenceInYears } from 'date-fns';
+import { format } from 'date-fns';
 import ScannedDocumentsPanel from '../../document-scanner/components/ScannedDocumentsPanel';
 import StructuredEncountersPanel from '../../clinical/components/clerking/StructuredEncounters';
 import { patientContext, patientIdentifiers, patientLabelOf } from '../../clinical/services/clerkingService';
@@ -35,6 +42,15 @@ import { EntryTrackingBadge } from '../../../components/common';
 import { syncRecord } from '../../../services/cloudSyncService';
 import type { EntryTrackingInfo } from '../../../components/common';
 import type { User as UserType, VitalSigns, ClinicalEncounter, Patient, BloodGroup, Genotype } from '../../../types';
+import { ageInYears } from '../../../utils/safeDate';
+import { formatDate, formatDateTime } from '../../../utils/formatDate';
+import { isArchivedPatient } from '../services/patientArchiveRules';
+import {
+  buildPatientTimeline, joinAddress, whatsappNumber, TAB_OF_KIND,
+  type HubTab, type TimelineItem, type TimelineKind,
+} from '../patientTimeline';
+import { hubQuickActions, hubModuleLinks } from '../patientHubLinks';
+import StartConsultationSheet from '../components/StartConsultationSheet';
 
 // Blood groups and genotypes for select options
 const bloodGroups: BloodGroup[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -95,10 +111,13 @@ function EditPatientModal({ patient, onClose, onSave }: EditPatientModalProps) {
         lastName: formData.lastName,
         middleName: formData.middleName || undefined,
         dateOfBirth: new Date(formData.dateOfBirth),
+        // An age-only registration stores an estimated DOB; entering a date
+        // here replaces the estimate with a real date of birth.
+        dobEstimated: formData.dateOfBirth === getDateString(patient.dateOfBirth) ? patient.dobEstimated : false,
         gender: formData.gender as 'male' | 'female',
         bloodGroup: formData.bloodGroup as BloodGroup || undefined,
         genotype: formData.genotype as Genotype || undefined,
-        maritalStatus: formData.maritalStatus as 'single' | 'married' | 'divorced' | 'widowed',
+        maritalStatus: (formData.maritalStatus || undefined) as 'single' | 'married' | 'divorced' | 'widowed',
         phone: formData.phone,
         alternatePhone: formData.alternatePhone || undefined,
         email: formData.email || undefined,
@@ -206,14 +225,14 @@ function EditPatientModal({ patient, onClose, onSave }: EditPatientModalProps) {
                 </select>
               </div>
               <div>
-                <label className="label">Marital Status *</label>
+                <label className="label">Marital Status</label>
                 <select
-                  value={formData.maritalStatus}
+                  value={formData.maritalStatus || ''}
                   onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value as 'single' | 'married' | 'divorced' | 'widowed' })}
                   className="input"
-                  required
                   title="Select marital status"
                 >
+                  <option value="">Not recorded</option>
                   <option value="single">Single</option>
                   <option value="married">Married</option>
                   <option value="divorced">Divorced</option>
@@ -449,12 +468,94 @@ function EditPatientModal({ patient, onClose, onSave }: EditPatientModalProps) {
   );
 }
 
+const HUB_TABS: { id: HubTab; label: string }[] = [
+  { id: 'timeline', label: 'Timeline' },
+  { id: 'visits', label: 'Visits' },
+  { id: 'surgery', label: 'Surgery' },
+  { id: 'wounds', label: 'Wounds & photos' },
+  { id: 'results', label: 'Results' },
+  { id: 'plans', label: 'Plans' },
+  { id: 'appointments', label: 'Appointments' },
+  { id: 'documents', label: 'Documents' },
+];
+
+const KIND_ICON: Record<TimelineKind, ReactNode> = {
+  visit: <Stethoscope size={16} className="text-sky-600" />,
+  clerking: <ClipboardList size={16} className="text-emerald-600" />,
+  procedure_review: <ClipboardList size={16} className="text-indigo-600" />,
+  surgery: <Scissors size={16} className="text-purple-600" />,
+  post_op_note: <FileText size={16} className="text-purple-500" />,
+  investigation: <TestTube2 size={16} className="text-violet-600" />,
+  lab_request: <TestTube2 size={16} className="text-violet-500" />,
+  wound_assessment: <CircleDot size={16} className="text-rose-600" />,
+  treatment_plan: <ListChecks size={16} className="text-teal-600" />,
+  appointment: <Calendar size={16} className="text-emerald-600" />,
+  admission: <BedDouble size={16} className="text-amber-600" />,
+  discharge: <BedDouble size={16} className="text-gray-500" />,
+  prescription: <Pill size={16} className="text-pink-600" />,
+  document: <FileScan size={16} className="text-indigo-500" />,
+  education: <BookOpen size={16} className="text-sky-500" />,
+};
+
+const isTab = (t: string | null): t is HubTab => !!t && HUB_TABS.some(x => x.id === t);
+const statusLabel = (s?: string) => (s || '').replace(/[_-]+/g, ' ');
+
+function TimelineList({ items, empty }: { items: TimelineItem[]; empty: string }) {
+  if (items.length === 0) return <p className="px-4 py-6 text-sm text-gray-500 text-center">{empty}</p>;
+  return (
+    <ol className="divide-y divide-gray-100">
+      {items.map(i => (
+        <li key={`${i.kind}-${i.id}`}>
+          <Link to={i.href} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none">
+            <span className="mt-0.5 p-1.5 rounded-lg bg-gray-50 flex-shrink-0" aria-hidden="true">{KIND_ICON[i.kind]}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-medium text-gray-900">{i.title}</span>
+              {i.detail && <span className="block text-sm text-gray-600 truncate">{i.detail}</span>}
+              <span className="block text-xs text-gray-500 mt-0.5">
+                {formatDateTime(i.at)}
+                {i.upcoming && <span className="ml-2 text-emerald-700 font-medium">Upcoming</span>}
+                {i.status && <span className="ml-2 capitalize">· {statusLabel(i.status)}</span>}
+              </span>
+            </span>
+            <ChevronRight size={16} className="text-gray-300 mt-1 flex-shrink-0" aria-hidden="true" />
+          </Link>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Card({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="card card-compact" aria-label={title}>
+      <div className="card-header flex items-center justify-between gap-2">
+        <h2 className="font-semibold text-gray-900">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export default function PatientDetailsPage() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showConsult, setShowConsult] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab: HubTab = isTab(tabParam) ? tabParam : 'timeline';
+  const clerk = searchParams.get('clerk');
+  const autoOpen = clerk === 'initial' || clerk === 'follow_up' ? clerk : undefined;
+
+  const setTab = (t: HubTab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', t);
+    next.delete('clerk');
+    setSearchParams(next, { replace: true });
+  };
 
   const patient = useLiveQuery(
     () => patientId ? db.patients.get(patientId) : undefined,
@@ -473,37 +574,81 @@ export default function PatientDetailsPage() {
     }
   }, [patient, searchParams, setSearchParams]);
 
-  const vitals = useLiveQuery(
-    async () => {
-      if (!patientId) return [];
-      const allVitals = await db.vitalSigns.where('patientId').equals(patientId).toArray();
-      // Sort by recordedAt descending (newest first) and limit to 5
-      return allVitals
-        .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())
-        .slice(0, 5);
-    },
-    [patientId]
-  );
+  // ?consult=1 (the link back from the encounter form) opens the chooser.
+  useEffect(() => {
+    if (patient && searchParams.get('consult') === '1') {
+      setShowConsult(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('consult');
+      setSearchParams(next, { replace: true });
+    }
+  }, [patient, searchParams, setSearchParams]);
 
-  const encounters = useLiveQuery(
-    () => patientId
-      ? db.clinicalEncounters.where('patientId').equals(patientId).reverse().limit(5).toArray()
-      : [],
-    [patientId]
-  );
+  // Everything recorded about this patient, read live from each table.
+  const records = useLiveQuery(async () => {
+    if (!patientId) return undefined;
+    const pid = patientId;
+    const [
+      encounters, surgeries, postOpNotes, investigations, labRequests, woundAssessments, monitoredWounds,
+      treatmentPlans, appointments, admissions, dischargeSummaries, prescriptions, scannedDocuments,
+      educationRecords, vitals,
+    ] = await Promise.all([
+      db.clinicalEncounters.where('patientId').equals(pid).toArray(),
+      db.surgeries.where('patientId').equals(pid).toArray(),
+      db.postOperativeNotes.where('patientId').equals(pid).toArray(),
+      db.investigations.where('patientId').equals(pid).toArray(),
+      db.labRequests.where('patientId').equals(pid).toArray(),
+      db.woundAssessments.where('patientId').equals(pid).toArray(),
+      db.monitoredWounds.where('patientId').equals(pid).toArray(),
+      db.treatmentPlans.where('patientId').equals(pid).toArray(),
+      db.appointments.where('patientId').equals(pid).toArray(),
+      db.admissions.where('patientId').equals(pid).toArray(),
+      db.dischargeSummaries.where('patientId').equals(pid).toArray(),
+      db.prescriptions.where('patientId').equals(pid).toArray(),
+      db.scannedDocuments.where('patientId').equals(pid).toArray(),
+      db.patientEducationRecords.where('patientId').equals(pid).toArray(),
+      db.vitalSigns.where('patientId').equals(pid).toArray(),
+    ]);
+    return {
+      encounters, surgeries, postOpNotes, investigations, labRequests, woundAssessments, monitoredWounds,
+      treatmentPlans, appointments, admissions, dischargeSummaries, prescriptions, scannedDocuments,
+      educationRecords, vitals,
+    };
+  }, [patientId]);
 
-  // Check if patient is currently admitted
-  const activeAdmission = useLiveQuery(
-    () => patientId
-      ? db.admissions.where('patientId').equals(patientId).filter(a => a.status === 'active').first()
-      : undefined,
-    [patientId]
+  const timeline = useMemo(
+    () => (patientId && records ? buildPatientTimeline({ patientId, ...records }) : []),
+    [patientId, records],
+  );
+  const byTab = useMemo(() => {
+    const m = new Map<HubTab, TimelineItem[]>();
+    for (const i of timeline) {
+      const t = TAB_OF_KIND[i.kind];
+      m.set(t, [...(m.get(t) ?? []), i]);
+    }
+    return m;
+  }, [timeline]);
+
+  const activeAdmission = records?.admissions.find(a => a.status === 'active');
+  const vitals = useMemo(
+    () => [...(records?.vitals ?? [])]
+      .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())
+      .slice(0, 5),
+    [records?.vitals],
+  );
+  const visitNotes = useMemo(
+    () => (records?.encounters ?? [])
+      .filter(e => !e.clerking && !e.procedureReview)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10),
+    [records?.encounters],
+  );
+  const hasInitialClerking = (records?.encounters ?? []).some(
+    e => e.clerking?.kind === 'initial' && !['entered_in_error', 'draft'].includes(e.clerking.status),
   );
 
   // Fetch users for entry tracking display
   const users = useLiveQuery(() => db.users.toArray(), []);
-  
-  // Create a map for quick user lookup
   const usersMap = useMemo(() => {
     const map = new Map<string, UserType>();
     if (users) {
@@ -512,7 +657,6 @@ export default function PatientDetailsPage() {
     return map;
   }, [users]);
 
-  // Helper to get entry tracking info for a vital sign
   const getVitalTracking = (vital: VitalSigns): EntryTrackingInfo | undefined => {
     const recordedByUser = usersMap.get(vital.recordedBy);
     if (recordedByUser) {
@@ -526,7 +670,6 @@ export default function PatientDetailsPage() {
     return undefined;
   };
 
-  // Helper to get entry tracking info for an encounter
   const getEncounterTracking = (encounter: ClinicalEncounter): EntryTrackingInfo | undefined => {
     const clinicianUser = usersMap.get(encounter.attendingClinician);
     if (clinicianUser) {
@@ -548,47 +691,58 @@ export default function PatientDetailsPage() {
     );
   }
 
-  // Null when the date of birth has not been recorded yet — see getDateString.
-  const dob = patient.dateOfBirth ? new Date(patient.dateOfBirth) : null;
-  const dobValid = dob !== null && !Number.isNaN(dob.getTime());
-  const age = dobValid ? differenceInYears(new Date(), dob) : null;
+  const age = ageInYears(patient.dateOfBirth);
+  const ageText = age === null
+    ? 'Age not recorded'
+    : patient.dobEstimated ? `~${age} y (estimated)` : `${age} y`;
+  const sexText = patient.gender ? patient.gender[0].toUpperCase() + patient.gender.slice(1) : '';
+  const fullName = [patient.firstName, patient.middleName, patient.lastName].filter(Boolean).join(' ');
+  const archived = isArchivedPatient(patient);
+  const wa = whatsappNumber(patient.phone);
+  const allergies = (patient.allergies ?? []).filter(Boolean);
+  const conditions = (patient.chronicConditions ?? []).filter(Boolean);
+  const address = joinAddress(patient.address, patient.city, patient.state);
+  const nok = patient.nextOfKin;
+  const quick = hubQuickActions(patient.id);
+  const modules = hubModuleLinks(patient.id);
+  const count = (t: HubTab) => (t === 'timeline' ? timeline.length : byTab.get(t)?.length ?? 0);
+  const upcoming = timeline.filter(i => i.upcoming).reverse();
+  const tabItems = (t: HubTab) => byTab.get(t) ?? [];
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <button
-            onClick={() => navigate('/patients')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeft size={18} />
-            Back to Patients
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAIAssistant(true)}
-            className="btn btn-secondary"
-            title="AI Clinical Assistant (draft support)"
-          >
-            <Sparkles size={18} />
-            AI Assistant
-          </button>
-          <Link to={`/patients/${patientId}/vitals`} className="btn btn-secondary">
-            <Activity size={18} />
-            Record Vitals
+  const quickActionsCard = (
+    <Card title="Quick actions">
+      <div className="p-3 grid grid-cols-2 gap-2">
+        {quick.map(a => (
+          <Link key={a.id} to={a.href} className="px-3 py-2.5 text-sm font-medium rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-800">
+            {a.label}
           </Link>
-          <Link to={`/patients/${patientId}/procedure-review`} className="btn btn-secondary" title="Wound, pre-operative, post-operative or follow-up review for a plastic-surgery procedure">
-            <ClipboardList size={18} />
-            Procedure Review
-          </Link>
-          <Link to={`/patients/${patientId}/encounter`} className="btn btn-primary">
-            <Stethoscope size={18} />
-            Start Encounter
-          </Link>
+        ))}
+        <button type="button" onClick={() => setShowEditModal(true)} className="px-3 py-2.5 text-sm font-medium rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-800 text-left">
+          Edit patient
+        </button>
+      </div>
+      <div className="px-3 pb-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 px-1 mb-2">Open with this patient</p>
+        <div className="flex flex-wrap gap-2">
+          {modules.map(m => (
+            <Link key={m.id} to={m.href} className="px-3 py-1.5 text-sm rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50">
+              {m.label}
+            </Link>
+          ))}
         </div>
       </div>
+    </Card>
+  );
+
+  return (
+    <div className="space-y-4 pb-24 sm:pb-0">
+      <button
+        onClick={() => navigate('/patients')}
+        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 text-sm"
+      >
+        <ArrowLeft size={18} />
+        Patients
+      </button>
 
       {/* A registration retired by a duplicate merge: everything moved to the kept record. */}
       {patient.mergedInto && (
@@ -598,485 +752,363 @@ export default function PatientDetailsPage() {
         </div>
       )}
 
-      {/* Patient Header Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="card"
-      >
-        <div className="p-6">
-          <div className="flex flex-col md:flex-row md:items-start gap-6">
-            {/* Avatar */}
-            <div className="w-24 h-24 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-2xl flex items-center justify-center text-white text-3xl font-bold">
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card">
+        <div className="p-4 sm:p-6">
+          <div className="flex items-start gap-3 sm:gap-5">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-xl flex items-center justify-center text-white text-lg sm:text-2xl font-bold flex-shrink-0">
               {(patient.firstName || '?')[0]}{(patient.lastName || '?')[0]}
             </div>
-
-            {/* Info */}
-            <div className="flex-1">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                <h1 className="text-2xl font-bold text-gray-900">
-                  {patient.firstName} {patient.middleName || ''} {patient.lastName}
-                </h1>
-                <span className={`badge ${patient.gender === 'male' ? 'badge-info' : 'badge-primary'}`}>
-                  {patient.gender}
-                </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">{fullName}</h1>
+                {archived && <span className="badge badge-warning">Archived</span>}
+                {activeAdmission && <span className="badge badge-success">Admitted</span>}
               </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <FileText size={16} className="text-gray-400" />
-                  <span className="font-mono">{patient.hospitalNumber}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Calendar size={16} className="text-gray-400" />
-                  <span>
-                    {dobValid
-                      ? `${age} years (${format(dob!, 'MMM d, yyyy')})`
-                      : 'Date of birth not recorded'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Phone size={16} className="text-gray-400" />
-                  <span>{patient.phone}</span>
-                </div>
-                {patient.email && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Mail size={16} className="text-gray-400" />
-                    <span>{patient.email}</span>
-                  </div>
+              <p className="text-sm text-gray-600 mt-0.5">
+                {[ageText, sexText].filter(Boolean).join(' · ')}
+                {patient.dateOfBirth && age !== null && (
+                  <span className="text-gray-400"> · born {formatDate(patient.dateOfBirth)}</span>
                 )}
-              </div>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="flex flex-col gap-4">
-              {/* Admission Status Badge */}
-              {activeAdmission && (
-                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <BedDouble className="w-5 h-5 text-emerald-600" />
-                    <span className="text-sm font-medium text-emerald-700">Currently Admitted</span>
-                  </div>
-                  <p className="text-xs text-emerald-600 mb-2">
-                    {activeAdmission.wardName} • Bed {activeAdmission.bedNumber}
-                  </p>
-                  <AdmissionDurationBadge admissionDate={activeAdmission.admissionDate} />
-                </div>
-              )}
-              
-              <div className="flex gap-4">
-                {patient.bloodGroup && (
-                  <div className="text-center p-3 bg-red-50 rounded-xl">
-                    <Droplet className="w-6 h-6 text-red-500 mx-auto mb-1" />
-                    <p className="text-lg font-bold text-red-700">{patient.bloodGroup}</p>
-                    <p className="text-xs text-red-500">Blood</p>
-                  </div>
-                )}
-                {patient.genotype && (
-                  <div className="text-center p-3 bg-purple-50 rounded-xl">
-                    <Heart className="w-6 h-6 text-purple-500 mx-auto mb-1" />
-                    <p className="text-lg font-bold text-purple-700">{patient.genotype}</p>
-                    <p className="text-xs text-purple-500">Genotype</p>
-                  </div>
-                )}
-              </div>
+              </p>
+              <p className="text-sm text-gray-600 font-mono mt-0.5">{patient.hospitalNumber}</p>
             </div>
           </div>
+
+          {patient.phone && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <a href={`tel:${patient.phone.replace(/[^\d+]/g, '')}`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-50 text-sky-800 text-sm font-medium hover:bg-sky-100">
+                <Phone size={16} aria-hidden="true" /> {patient.phone}
+              </a>
+              {wa && (
+                <a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-sm font-medium hover:bg-emerald-100">
+                  <MessageCircle size={16} aria-hidden="true" /> WhatsApp
+                </a>
+              )}
+            </div>
+          )}
+
+          {(allergies.length > 0 || conditions.length > 0) && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5" aria-label="Medical alerts">
+              {allergies.length > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700">
+                  <AlertTriangle size={14} aria-hidden="true" /> Allergies:
+                </span>
+              )}
+              {allergies.map((a, i) => <span key={`a${i}`} className="badge badge-danger">{a}</span>)}
+              {conditions.map((c, i) => <span key={`c${i}`} className="badge badge-warning">{c}</span>)}
+            </div>
+          )}
+
+          {/* Actions: wrap on narrow screens; the phone uses the bottom bar. */}
+          <div className="hidden sm:flex flex-wrap gap-2 mt-4">
+            <button type="button" onClick={() => setShowConsult(true)} className="btn btn-primary">
+              <Stethoscope size={18} /> Start consultation
+            </button>
+            <Link to={quick[0].href} className="btn btn-secondary"><Calendar size={18} /> Book appointment</Link>
+            <Link to={`/patients/${patient.id}/vitals`} className="btn btn-secondary"><Activity size={18} /> Record vitals</Link>
+            <button type="button" onClick={() => setShowEditModal(true)} className="btn btn-secondary"><Edit size={18} /> Edit</button>
+            <button type="button" onClick={() => setShowAIAssistant(true)} className="btn btn-secondary" title="AI Clinical Assistant (draft support)">
+              <Sparkles size={18} /> AI assistant
+            </button>
+          </div>
+
+          <details className="mt-3 group">
+            <summary className="cursor-pointer text-sm text-sky-700 select-none">Contact and next of kin</summary>
+            <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              <div><dt className="text-xs text-gray-500">Address</dt><dd className="text-gray-900">{address || 'Not recorded'}</dd></div>
+              {patient.email && <div><dt className="text-xs text-gray-500">Email</dt><dd className="text-gray-900 break-all">{patient.email}</dd></div>}
+              {patient.alternatePhone && <div><dt className="text-xs text-gray-500">Other phone</dt><dd><a className="text-sky-700" href={`tel:${patient.alternatePhone}`}>{patient.alternatePhone}</a></dd></div>}
+              {patient.maritalStatus && <div><dt className="text-xs text-gray-500">Marital status</dt><dd className="text-gray-900 capitalize">{patient.maritalStatus}</dd></div>}
+              {patient.occupation && <div><dt className="text-xs text-gray-500">Occupation</dt><dd className="text-gray-900">{patient.occupation}</dd></div>}
+              {(patient.bloodGroup || patient.genotype) && (
+                <div><dt className="text-xs text-gray-500">Blood group / genotype</dt><dd className="text-gray-900">{[patient.bloodGroup, patient.genotype].filter(Boolean).join(' · ')}</dd></div>
+              )}
+              <div>
+                <dt className="text-xs text-gray-500">Next of kin</dt>
+                <dd className="text-gray-900">
+                  {nok?.name ? [nok.name, nok.relationship].filter(Boolean).join(' · ') : 'Not recorded'}
+                  {nok?.phone && <> · <a className="text-sky-700" href={`tel:${nok.phone}`}>{nok.phone}</a></>}
+                </dd>
+              </div>
+            </dl>
+          </details>
         </div>
       </motion.div>
 
-      {/* Active Admission Section with Full Duration Clock */}
-      {activeAdmission && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="card bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200"
-        >
-          <div className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center gap-6">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-emerald-100 rounded-lg">
-                    <BedDouble className="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <div>
-                    <h2 className="font-semibold text-gray-900">Currently Admitted</h2>
-                    <p className="text-sm text-gray-600">Admission #{activeAdmission.admissionNumber}</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">Ward:</span>
-                    <p className="font-medium">{activeAdmission.wardName}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Bed:</span>
-                    <p className="font-medium">{activeAdmission.bedNumber}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Diagnosis:</span>
-                    <p className="font-medium truncate">{activeAdmission.admissionDiagnosis}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Severity:</span>
-                    <p className={`font-medium capitalize ${
-                      activeAdmission.severity === 'critical' ? 'text-red-600' :
-                      activeAdmission.severity === 'severe' ? 'text-orange-600' :
-                      activeAdmission.severity === 'moderate' ? 'text-yellow-600' :
-                      'text-green-600'
-                    }`}>{activeAdmission.severity}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="md:w-72">
-                <AdmissionDurationClock
-                  admissionDate={activeAdmission.admissionDate}
-                  estimatedStayDays={activeAdmission.estimatedStayDays}
-                  size="md"
-                />
-              </div>
-            </div>
-            
-            <div className="mt-4 pt-4 border-t border-emerald-200 flex flex-wrap gap-3">
-              <Link
-                to={`/admissions`}
-                className="btn btn-secondary text-sm"
-              >
-                View Admission Details
-              </Link>
-              {activeAdmission.treatmentPlanId && (
-                <Link
-                  to={`/treatment-planning/${activeAdmission.treatmentPlanId}`}
-                  className="btn btn-primary text-sm"
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="lg:col-span-2 space-y-4 min-w-0">
+          {/* Tabs */}
+          <div className="card card-compact">
+            <div role="tablist" aria-label="Patient record" className="flex overflow-x-auto scrollbar-thin border-b border-gray-200">
+              {HUB_TABS.map(t => (
+                <button
+                  key={t.id}
+                  role="tab"
+                  type="button"
+                  aria-selected={tab === t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`flex-shrink-0 px-3 sm:px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap ${
+                    tab === t.id ? 'border-sky-600 text-sky-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+                  }`}
                 >
-                  View Treatment Plan
-                </Link>
+                  {t.label}
+                  {count(t.id) > 0 && <span className="ml-1.5 text-xs text-gray-400">{count(t.id)}</span>}
+                </button>
+              ))}
+            </div>
+
+            <div role="tabpanel">
+              {tab === 'timeline' && (
+                <>
+                  {upcoming.length > 0 && (
+                    <div className="border-b border-gray-100">
+                      <p className="px-4 pt-3 text-xs font-semibold uppercase tracking-wider text-emerald-700">Coming up</p>
+                      <TimelineList items={upcoming} empty="" />
+                    </div>
+                  )}
+                  <TimelineList items={timeline.filter(i => !i.upcoming)} empty="Nothing recorded yet. Start a consultation to begin the record." />
+                </>
+              )}
+
+              {tab === 'visits' && (
+                <div className="space-y-4 p-3 sm:p-4">
+                  {activeAdmission && (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-emerald-800">
+                          Admitted · {activeAdmission.wardName} · Bed {activeAdmission.bedNumber}
+                        </p>
+                        <AdmissionDurationBadge admissionDate={activeAdmission.admissionDate} />
+                      </div>
+                      <p className="text-sm text-emerald-700 mt-1">{activeAdmission.admissionDiagnosis}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Link to="/admissions" className="btn btn-secondary text-sm">View admission</Link>
+                        {activeAdmission.treatmentPlanId && (
+                          <Link to={`/treatment-planning/${activeAdmission.treatmentPlanId}`} className="btn btn-primary text-sm">
+                            View Treatment Plan
+                          </Link>
+                        )}
+                      </div>
+                      <div className="mt-3 max-w-xs">
+                        <AdmissionDurationClock admissionDate={activeAdmission.admissionDate} estimatedStayDays={activeAdmission.estimatedStayDays} size="sm" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Structured clerking: initial encounter, follow-ups, problem list and plan */}
+                  <StructuredEncountersPanel
+                    key={autoOpen ?? 'panel'}
+                    autoOpen={autoOpen}
+                    patientId={patient.id}
+                    patientLabel={patientLabelOf(patient)}
+                    ctx={patientContext(patient)}
+                    identifiers={patientIdentifiers(patient)}
+                    hospitalId={patient.hospitalId || patient.registeredHospitalId}
+                  />
+
+                  {visitNotes.length > 0 && (
+                    <div className="rounded-xl border border-gray-200">
+                      <p className="px-4 pt-3 text-sm font-semibold text-gray-900">Visit notes (quick note form)</p>
+                      <ul className="divide-y divide-gray-100">
+                        {visitNotes.map(encounter => (
+                          <li key={encounter.id} className="px-4 py-3 flex items-start gap-3">
+                            <Link to={`/patients/${patient.id}/clinical-summary`} className="flex-1 min-w-0">
+                              <span className="block text-sm font-medium text-gray-900 capitalize">{statusLabel(encounter.type)} visit</span>
+                              {encounter.chiefComplaint && <span className="block text-sm text-gray-600 truncate">{encounter.chiefComplaint}</span>}
+                              <span className="block text-xs text-gray-500">{formatDateTime(encounter.createdAt)}</span>
+                              {getEncounterTracking(encounter) && (
+                                <span className="block mt-1">
+                                  <EntryTrackingBadge tracking={getEncounterTracking(encounter)!} mode="compact" showTimestamp={false} />
+                                </span>
+                              )}
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => generateEncounterPDFFromEntity(encounter, patient)}
+                              className="p-2 text-sky-600 hover:bg-sky-50 rounded-lg"
+                              aria-label="Export visit note as PDF"
+                              title="Export as PDF"
+                            >
+                              <FileText size={16} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="rounded-xl border border-gray-200">
+                    <p className="px-4 pt-3 text-sm font-semibold text-gray-900">All visits, reviews and prescriptions</p>
+                    <TimelineList items={tabItems('visits')} empty="No visits recorded yet." />
+                  </div>
+                </div>
+              )}
+
+              {tab === 'surgery' && (
+                <>
+                  <div className="px-4 pt-3 flex flex-wrap gap-2">
+                    <Link to={`/surgery/workflow/${patient.id}`} className="btn btn-primary text-sm"><Scissors size={16} /> Schedule surgery</Link>
+                    <Link to={`/patients/${patient.id}/procedure-review?phase=pre_op`} className="btn btn-secondary text-sm">Pre-op review</Link>
+                    <Link to={`/patients/${patient.id}/procedure-review?phase=post_op`} className="btn btn-secondary text-sm">Post-op review</Link>
+                  </div>
+                  <TimelineList items={tabItems('surgery')} empty="No operations recorded." />
+                </>
+              )}
+
+              {tab === 'wounds' && (
+                <div className="p-3 sm:p-4 space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    <Link to={`/wound-monitor?patientId=${encodeURIComponent(patient.id)}`} className="btn btn-primary text-sm"><Camera size={16} /> Wound monitor</Link>
+                    <Link to={`/patients/${patient.id}/procedure-review?phase=wound_review`} className="btn btn-secondary text-sm">Wound review</Link>
+                  </div>
+                  {(records?.monitoredWounds.length ?? 0) > 0 && (
+                    <ul className="flex flex-wrap gap-2" aria-label="Monitored wounds">
+                      {records!.monitoredWounds.map(wound => (
+                        <li key={wound.id} className="text-sm px-3 py-1.5 rounded-full bg-rose-50 text-rose-800">
+                          {wound.label || wound.anatomicalLocation || wound.woundType || 'Wound'}{wound.status ? ` · ${statusLabel(wound.status)}` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="rounded-xl border border-gray-200">
+                    <TimelineList items={tabItems('wounds')} empty="No wound assessments yet." />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {modules.filter(m => ['burns', 'npwt', 'skin-graft', 'scar', 'keloid', 'limb-salvage', 'vascular', 'lymphoedema'].includes(m.id)).map(m => (
+                      <Link key={m.id} to={m.href} className="px-3 py-1.5 text-sm rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50">{m.label}</Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {tab === 'results' && (
+                <>
+                  <div className="px-4 pt-3 flex flex-wrap gap-2">
+                    <Link to={`/patients/${patient.id}/investigations/request`} className="btn btn-primary text-sm"><TestTube2 size={16} /> Request investigations</Link>
+                    <Link to={`/patients/${patient.id}/vitals`} className="btn btn-secondary text-sm"><Activity size={16} /> Vitals</Link>
+                  </div>
+                  <TimelineList items={tabItems('results')} empty="No investigations requested." />
+                  <div className="border-t border-gray-100">
+                    <p className="px-4 pt-3 text-sm font-semibold text-gray-900">Recent vital signs</p>
+                    {vitals.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="text-xs text-gray-500">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-medium">Date</th>
+                              <th className="px-3 py-2 text-left font-medium">Temp</th>
+                              <th className="px-3 py-2 text-left font-medium">BP</th>
+                              <th className="px-3 py-2 text-left font-medium">Pulse</th>
+                              <th className="px-3 py-2 text-left font-medium">SpO2</th>
+                              <th className="px-3 py-2 text-left font-medium">By</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {vitals.map(vital => (
+                              <tr key={vital.id}>
+                                <td className="px-4 py-2 whitespace-nowrap">{formatDateTime(vital.recordedAt)}</td>
+                                <td className="px-3 py-2">{vital.temperature}°C</td>
+                                <td className="px-3 py-2 whitespace-nowrap">{vital.bloodPressureSystolic}/{vital.bloodPressureDiastolic}</td>
+                                <td className="px-3 py-2">{vital.pulse}</td>
+                                <td className="px-3 py-2">{vital.oxygenSaturation}%</td>
+                                <td className="px-3 py-2">
+                                  {getVitalTracking(vital)
+                                    ? <EntryTrackingBadge tracking={getVitalTracking(vital)!} mode="compact" showTimestamp={false} />
+                                    : <span className="text-gray-400 text-xs">-</span>}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="px-4 py-4 text-sm text-gray-500">No vital signs recorded yet.</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {tab === 'plans' && (
+                <>
+                  <div className="px-4 pt-3 flex flex-wrap gap-2">
+                    <Link to={`/treatment-planning/new?patientId=${encodeURIComponent(patient.id)}`} className="btn btn-primary text-sm"><ListChecks size={16} /> New treatment plan</Link>
+                    <Link to={`/nutrition?patientId=${encodeURIComponent(patient.id)}`} className="btn btn-secondary text-sm">Nutrition plan</Link>
+                  </div>
+                  <TimelineList items={tabItems('plans')} empty="No treatment plans yet." />
+                </>
+              )}
+
+              {tab === 'appointments' && (
+                <>
+                  <div className="px-4 pt-3">
+                    <Link to={quick[0].href} className="btn btn-primary text-sm"><Calendar size={16} /> Book appointment</Link>
+                  </div>
+                  <TimelineList items={tabItems('appointments')} empty="No appointments booked." />
+                </>
+              )}
+
+              {tab === 'documents' && (
+                <div className="p-3 sm:p-4 space-y-4">
+                  <ScannedDocumentsPanel patientId={patient.id} />
+                  <div className="rounded-xl border border-gray-200">
+                    <div className="px-4 pt-3 flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-gray-900">Documents and education given</p>
+                      <Link to={quick[1].href} className="text-sm text-sky-700">Patient education</Link>
+                    </div>
+                    <TimelineList items={tabItems('documents')} empty="No documents or education recorded." />
+                  </div>
+                </div>
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
+
+        <div className="space-y-4">{quickActionsCard}</div>
+      </div>
+
+      {/* Phone: the primary action stays in reach. */}
+      <div className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex gap-2">
+        <button type="button" onClick={() => setShowConsult(true)} className="btn btn-primary flex-1 justify-center">
+          <Stethoscope size={18} /> Start consultation
+        </button>
+        <button type="button" onClick={() => setShowMore(true)} className="btn btn-secondary" aria-haspopup="dialog">
+          <MoreHorizontal size={18} /> More
+        </button>
+      </div>
+
+      {showMore && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50" onClick={() => setShowMore(false)}>
+          <div role="dialog" aria-modal="true" aria-label="More actions" className="bg-white w-full rounded-t-2xl max-h-[85vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 pt-4 pb-1">
+              <h2 className="text-lg font-semibold text-gray-900">More</h2>
+              <button type="button" onClick={() => setShowMore(false)} className="p-2 -mr-2 rounded-full hover:bg-gray-100" aria-label="Close"><X size={20} /></button>
+            </div>
+            <div className="p-3 grid grid-cols-2 gap-2">
+              {quick.map(a => (
+                <Link key={a.id} to={a.href} onClick={() => setShowMore(false)} className="px-3 py-3 text-sm font-medium rounded-lg bg-gray-50 text-gray-800">{a.label}</Link>
+              ))}
+              <button type="button" onClick={() => { setShowMore(false); setShowEditModal(true); }} className="px-3 py-3 text-sm font-medium rounded-lg bg-gray-50 text-gray-800 text-left">Edit patient</button>
+              <button type="button" onClick={() => { setShowMore(false); setShowAIAssistant(true); }} className="px-3 py-3 text-sm font-medium rounded-lg bg-gray-50 text-gray-800 text-left">AI assistant</button>
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 px-4 mb-2">Open with this patient</p>
+            <div className="px-3 pb-4 flex flex-wrap gap-2">
+              {modules.map(m => (
+                <Link key={m.id} to={m.href} onClick={() => setShowMore(false)} className="px-3 py-2 text-sm rounded-full border border-gray-200 text-gray-700">{m.label}</Link>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Allergies & Conditions */}
-          {(patient.allergies.length > 0 || patient.chronicConditions.length > 0) && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="card"
-            >
-              <div className="card-header flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-amber-500" />
-                <h2 className="font-semibold text-gray-900">Medical Alerts</h2>
-              </div>
-              <div className="card-body space-y-4">
-                {patient.allergies.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">Allergies</p>
-                    <div className="flex flex-wrap gap-2">
-                      {patient.allergies.map((allergy, index) => (
-                        <span key={index} className="badge badge-danger">
-                          {allergy}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {patient.chronicConditions.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">Chronic Conditions</p>
-                    <div className="flex flex-wrap gap-2">
-                      {patient.chronicConditions.map((condition, index) => (
-                        <span key={index} className="badge badge-warning">
-                          {condition}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Recent Vitals */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="card"
-          >
-            <div className="card-header flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Activity className="w-5 h-5 text-emerald-500" />
-                <h2 className="font-semibold text-gray-900">Recent Vital Signs</h2>
-              </div>
-              <Link to={`/patients/${patientId}/vitals`} className="text-sm text-sky-600 hover:text-sky-700">
-                View all
-              </Link>
-            </div>
-            <div className="overflow-x-auto">
-              {vitals && vitals.length > 0 ? (
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-y border-gray-200">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Temp</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">BP</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Pulse</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">SpO2</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Recorded By</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {vitals.map((vital) => (
-                      <tr key={vital.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {format(new Date(vital.recordedAt), 'MMM d, h:mm a')}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{vital.temperature}°C</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {vital.bloodPressureSystolic}/{vital.bloodPressureDiastolic}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{vital.pulse} bpm</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{vital.oxygenSaturation}%</td>
-                        <td className="px-4 py-3 text-sm">
-                          {getVitalTracking(vital) ? (
-                            <EntryTrackingBadge 
-                              tracking={getVitalTracking(vital)!} 
-                              mode="compact" 
-                              showTimestamp={false}
-                            />
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="p-8 text-center text-gray-500">
-                  <Activity className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p>No vital signs recorded yet</p>
-                  <Link to={`/patients/${patientId}/vitals`} className="text-sky-600 text-sm hover:underline mt-1 inline-block">
-                    Record first vitals
-                  </Link>
-                </div>
-              )}
-            </div>
-          </motion.div>
-
-          {/* Structured clerking: initial encounter, follow-ups, problem list and plan */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-            <StructuredEncountersPanel
-              patientId={patient.id}
-              patientLabel={patientLabelOf(patient)}
-              ctx={patientContext(patient)}
-              identifiers={patientIdentifiers(patient)}
-              hospitalId={patient.hospitalId || patient.registeredHospitalId}
-            />
-          </motion.div>
-
-          {/* Recent Encounters */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="card"
-          >
-            <div className="card-header flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Stethoscope className="w-5 h-5 text-sky-500" />
-                <h2 className="font-semibold text-gray-900">Recent Encounters</h2>
-              </div>
-            </div>
-            <div className="divide-y divide-gray-200">
-              {encounters && encounters.length > 0 ? (
-                encounters.map((encounter) => (
-                  <div key={encounter.id} className="p-4 hover:bg-gray-50">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900 capitalize">
-                          {encounter.type.replace('_', ' ')} Visit
-                        </p>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {encounter.chiefComplaint}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {format(new Date(encounter.createdAt), 'MMM d, yyyy h:mm a')}
-                        </p>
-                        {/* Entry Tracking Badge */}
-                        {getEncounterTracking(encounter) && (
-                          <div className="mt-2">
-                            <EntryTrackingBadge 
-                              tracking={getEncounterTracking(encounter)!} 
-                              mode="compact"
-                              showTimestamp={false}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => generateEncounterPDFFromEntity(encounter, patient)}
-                          className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
-                          title="Export as PDF"
-                        >
-                          <FileText size={16} />
-                        </button>
-                        <span className={`badge ${
-                          encounter.status === 'completed' ? 'badge-success' :
-                          encounter.status === 'in-progress' ? 'badge-warning' : 'badge-danger'
-                        }`}>
-                          {encounter.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-8 text-center text-gray-500">
-                  <Stethoscope className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p>No encounters recorded yet</p>
-                  <Link to={`/patients/${patientId}/encounter`} className="text-sky-600 text-sm hover:underline mt-1 inline-block">
-                    Start first encounter
-                  </Link>
-                </div>
-              )}
-            </div>
-          </motion.div>
-
-          {/* Scanned Documents */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="card"
-          >
-            <div className="card-header flex items-center gap-3">
-              <FileScan className="w-5 h-5 text-indigo-500" />
-              <h2 className="font-semibold text-gray-900">Scanned Documents</h2>
-            </div>
-            <div className="card-body">
-              <ScannedDocumentsPanel patientId={patientId} />
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Contact Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="card"
-          >
-            <div className="card-header flex items-center gap-3">
-              <User className="w-5 h-5 text-sky-500" />
-              <h2 className="font-semibold text-gray-900">Personal Details</h2>
-            </div>
-            <div className="card-body space-y-4">
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider">Address</p>
-                <div className="flex items-start gap-2 mt-1">
-                  <MapPin size={16} className="text-gray-400 mt-0.5" />
-                  <p className="text-sm text-gray-900">
-                    {patient.address}, {patient.city}, {patient.state}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">Marital Status</p>
-                  <p className="text-sm text-gray-900 mt-1 capitalize">{patient.maritalStatus}</p>
-                </div>
-                {patient.occupation && (
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Occupation</p>
-                    <p className="text-sm text-gray-900 mt-1">{patient.occupation}</p>
-                  </div>
-                )}
-                {patient.religion && (
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Religion</p>
-                    <p className="text-sm text-gray-900 mt-1">{patient.religion}</p>
-                  </div>
-                )}
-                {patient.tribe && (
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Tribe</p>
-                    <p className="text-sm text-gray-900 mt-1">{patient.tribe}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Next of Kin */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="card"
-          >
-            <div className="card-header flex items-center gap-3">
-              <Heart className="w-5 h-5 text-red-500" />
-              <h2 className="font-semibold text-gray-900">Next of Kin</h2>
-            </div>
-            <div className="card-body space-y-3">
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider">Name</p>
-                <p className="text-sm text-gray-900 mt-1">{patient.nextOfKin.name}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider">Relationship</p>
-                <p className="text-sm text-gray-900 mt-1">{patient.nextOfKin.relationship}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider">Phone</p>
-                <p className="text-sm text-gray-900 mt-1">{patient.nextOfKin.phone}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider">Address</p>
-                <p className="text-sm text-gray-900 mt-1">{patient.nextOfKin.address}</p>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Quick Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="card p-4"
-          >
-            <h2 className="font-semibold text-gray-900 mb-3">Quick Actions</h2>
-            <div className="space-y-2">
-              <Link
-                to={`/surgery/workflow/${patientId}`}
-                className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
-              >
-                <Scissors className="w-5 h-5 text-purple-600" />
-                <span className="text-sm font-medium text-purple-700">Schedule Surgery</span>
-              </Link>
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="w-full flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <Edit className="w-5 h-5 text-gray-600" />
-                <span className="text-sm font-medium text-gray-700">Edit Patient</span>
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      </div>
+      {showConsult && (
+        <StartConsultationSheet
+          patientId={patient.id}
+          patientName={fullName}
+          hasInitialClerking={hasInitialClerking}
+          onClose={() => setShowConsult(false)}
+        />
+      )}
 
       {/* Edit Patient Modal */}
       <AnimatePresence>
