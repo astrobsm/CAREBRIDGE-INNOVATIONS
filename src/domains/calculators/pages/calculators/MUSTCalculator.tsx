@@ -1,10 +1,13 @@
 // MUST Calculator - Malnutrition Universal Screening Tool
 // WHO-Adapted Nutritional Screening
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Scale, Calculator, AlertCircle, UtensilsCrossed } from 'lucide-react';
-import { PatientCalculatorInfo, MUSTResult } from '../../types';
-import { mustBmiScore, mustWeightLossScore, weightLossPercent as lossPercent } from '../../../nutrition/engine/screening';
+import { PatientCalculatorInfo } from '../../types';
+import { calculateBMI, bmiCategory } from '../../engine/calculationEngine';
+import { weightLossPercent } from '../../../nutrition/engine/screening';
+import { computeMust, mustReport, type MustComputed, type MustInput } from '../../engine/hub/must';
+import CalculatorReportActions from '../../report/components/CalculatorReportActions';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -17,184 +20,35 @@ export default function MUSTCalculator({ patientInfo }: Props) {
   const [weightLossDuration, setWeightLossDuration] = useState<string>('3-6 months');
   const [acutelyIll, setAcutelyIll] = useState(false);
   const [npoOrReduced, setNpoOrReduced] = useState(false);
-  
-  const [result, setResult] = useState<MUSTResult | null>(null);
 
-  const calculateBMI = (weight: number, heightCm: number): number => {
-    const heightM = heightCm / 100;
-    return weight / (heightM * heightM);
-  };
+  const [result, setResult] = useState<MustComputed | null>(null);
+  const [calcInput, setCalcInput] = useState<MustInput | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
 
-  // MUST step scores come from the nutrition engine (single source of truth).
-  const getBMIScore = (bmi: number): number => mustBmiScore(bmi);
-
-  /** Percent LOST: positive = loss, negative = gain. */
-  const getWeightLossPercentage = (current: number, previous: number): number =>
-    lossPercent(previous, current) ?? 0;
+  // Live preview: only when both values make a real BMI (no Infinity/NaN).
+  const previewBmi = calculateBMI(parseFloat(currentWeight), parseFloat(height));
+  const previewLoss = weightLossPercent(parseFloat(previousWeight), parseFloat(currentWeight));
 
   const calculate = () => {
-    const weight = parseFloat(currentWeight);
-    const heightVal = parseFloat(height);
-    const hasPrevWeight = parseFloat(previousWeight) > 0;
-    const prevWeight = hasPrevWeight ? parseFloat(previousWeight) : weight;
-    
-    const bmi = calculateBMI(weight, heightVal);
-    const bmiScore = getBMIScore(bmi);
-    
-    // A weight GAIN is not unplanned weight loss and scores 0. (This used
-    // Math.abs(), so a 12% gain scored 2 as if it were a 12% loss.)
-    const weightLossPercent = getWeightLossPercentage(weight, prevWeight);
-    const weightLossScore = mustWeightLossScore(weightLossPercent);
-    
-    // Acute disease effect score
-    const acuteDiseaseScore = (acutelyIll && npoOrReduced) ? 2 : 0;
-    
-    const totalScore = bmiScore + weightLossScore + acuteDiseaseScore;
-    
-    // Risk category
-    let riskCategory: 'Low' | 'Medium' | 'High';
-    let managementPlan: string[] = [];
-    let monitoringFrequency: string;
-    let dietaryRecommendations: string[] = [];
-    let supplementRecommendations: string[] = [];
-    
-    if (totalScore === 0) {
-      riskCategory = 'Low';
-      monitoringFrequency = 'Weekly in hospital, Monthly in community, Annually if outpatient';
-      managementPlan = [
-        'Routine clinical care',
-        'Repeat screening: Weekly (hospital), Monthly (care homes), Annually (outpatients)',
-        'Encourage healthy, balanced diet',
-        'Document nutritional status in notes',
-      ];
-      dietaryRecommendations = [
-        'Maintain regular meal patterns (3 meals + 2-3 snacks)',
-        'Include protein with each meal',
-        'Encourage fruits and vegetables',
-        'Adequate fluid intake (2-3L daily)',
-      ];
-    } else if (totalScore === 1) {
-      riskCategory = 'Medium';
-      monitoringFrequency = 'Weekly in all settings';
-      managementPlan = [
-        'Observe and document dietary intake for 3 days',
-        'If intake adequate: Repeat screening weekly (hospital), monthly (community)',
-        'If intake inadequate: Follow High Risk protocol',
-        'Consider food fortification strategies',
-        'Set achievable goals for improvement',
-      ];
-      dietaryRecommendations = [
-        'Fortify foods (add butter, cream, cheese to meals)',
-        'High-protein, high-energy snacks between meals',
-        'Nourishing drinks (milky drinks, smoothies)',
-        'Smaller, more frequent meals if appetite poor',
-        'Consider local high-energy foods: Groundnuts, palm oil-enriched dishes',
-      ];
-      supplementRecommendations = [
-        'Consider oral nutritional supplements if dietary measures insufficient',
-        'Multivitamin supplementation',
-      ];
-    } else {
-      riskCategory = 'High';
-      monitoringFrequency = 'Every 2-3 days initially, then weekly';
-      managementPlan = [
-        '⚠️ REFER TO DIETITIAN/NUTRITION TEAM',
-        'Implement high-energy, high-protein diet immediately',
-        'Oral nutritional supplements (ONS) - 2-3 per day',
-        'Consider nasogastric feeding if oral intake <50% requirements',
-        'Address underlying causes (pain, infection, swallowing difficulties)',
-        'Weekly weight monitoring',
-        'Document comprehensive nutritional care plan',
-        'Review and update care plan every 2-3 days',
-      ];
-      dietaryRecommendations = [
-        '⚡ High-energy, high-protein diet essential',
-        'Food fortification (add oils, butter, milk powder to foods)',
-        'Protein supplements: 1.2-1.5g protein/kg body weight daily',
-        'Small, frequent meals (6-8 times daily)',
-        'Nourishing fluids instead of tea/water',
-        'Consider locally available energy-dense foods:',
-        '  - Groundnut soup, palm oil dishes',
-        '  - Beans and plantain combinations',
-        '  - Ogi enriched with soybeans',
-        '  - Eggs, fish, meat when available',
-      ];
-      supplementRecommendations = [
-        '1st Line: Oral Nutritional Supplements (ONS) 2-3 per day',
-        'Plumpy\'nut or therapeutic foods if available',
-        'Multivitamin + Zinc supplementation',
-        'Iron if anaemic',
-        'Consider NG tube feeding if oral intake <50% for >5 days',
-        'Vitamin D 800-1000 IU daily',
-      ];
-    }
-    
-    // Additional considerations
-    const additionalConsiderations: string[] = [];
-    
-    if (patientInfo.comorbidities.includes('Diabetes')) {
-      additionalConsiderations.push('Diabetes present: Monitor glucose with nutritional supplements. May need diabetes-specific ONS.');
-    }
-    if (patientInfo.comorbidities.includes('Chronic Kidney Disease')) {
-      additionalConsiderations.push('CKD present: Protein restriction may be needed (0.6-0.8g/kg in pre-dialysis). Consult renal dietitian.');
-    }
-    if (patientInfo.comorbidities.includes('Heart Failure')) {
-      additionalConsiderations.push('Heart failure present: Fluid restriction may apply. Monitor sodium intake.');
-    }
-    if (acutelyIll) {
-      additionalConsiderations.push('Acute illness: Increased metabolic demands. May need 25-35 kcal/kg/day.');
-    }
-    
-    // Calculate estimated needs
-    const estimatedCalories = riskCategory === 'High' 
-      ? Math.round(35 * weight)  // High risk: 35 kcal/kg
-      : Math.round(30 * weight); // Normal: 30 kcal/kg
-    
-    const estimatedProtein = riskCategory === 'High'
-      ? Math.round(1.5 * weight) // High risk: 1.5g/kg
-      : Math.round(1.0 * weight); // Normal: 1g/kg
-    
-    const calculationResult: MUSTResult = {
-      bmiScore,
-      weightLossScore,
-      acuteIllnessScore: acuteDiseaseScore,
-      totalScore,
-      riskLevel: riskCategory === 'High' ? 'high' : riskCategory === 'Medium' ? 'medium' : 'low',
-      riskCategory,
-      recommendations: managementPlan,
-      referralNeeded: riskCategory === 'High',
-      nutritionalPlan: dietaryRecommendations,
-      managementPlan,
-      monitoringFrequency,
-      dietaryRecommendations,
-      supplementRecommendations,
-      additionalConsiderations,
-      estimatedCalories,
-      estimatedProtein,
-      scoreBreakdown: {
-        bmi: `BMI ${bmi.toFixed(1)} kg/m² → Score ${bmiScore}`,
-        weightLoss: !hasPrevWeight
-          ? 'No previous weight recorded — weight-loss step not assessed'
-          : weightLossPercent < 0
-            ? `Weight GAIN ${Math.abs(weightLossPercent).toFixed(1)}% over ${weightLossDuration} → Score 0 (not unplanned loss)`
-            : `Weight loss ${weightLossPercent.toFixed(1)}% over ${weightLossDuration} → Score ${weightLossScore}`,
-        acuteDisease: acutelyIll && npoOrReduced ? 'Acutely ill with reduced/no intake → Score 2' : 'No acute disease effect → Score 0',
-      },
+    const input: MustInput = {
+      weightKg: currentWeight, heightCm: height, previousWeightKg: previousWeight,
+      weightLossDuration, acutelyIll, npoOrReduced, comorbidities: patientInfo.comorbidities,
     };
-    
-    setResult(calculationResult);
+    const out = computeMust(input);
+    if ('errors' in out) {
+      setErrors(out.errors);
+      setResult(null);
+      return;
+    }
+    setErrors([]);
+    setCalcInput(input);
+    setResult(out.result);
   };
 
-  const getBMICategory = (bmi: number): string => {
-    if (bmi < 16) return 'Severe underweight';
-    if (bmi < 17) return 'Moderate underweight';
-    if (bmi < 18.5) return 'Mild underweight';
-    if (bmi < 25) return 'Normal weight';
-    if (bmi < 30) return 'Overweight';
-    if (bmi < 35) return 'Obese Class I';
-    if (bmi < 40) return 'Obese Class II';
-    return 'Obese Class III';
-  };
+  const report = useMemo(
+    () => (result && calcInput ? mustReport(result, calcInput, patientInfo) : null),
+    [result, calcInput, patientInfo]
+  );
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
@@ -248,11 +102,10 @@ export default function MUSTCalculator({ patientInfo }: Props) {
               />
             </div>
           </div>
-          {currentWeight && height && (
+          {previewBmi !== null && previewBmi > 5 && previewBmi < 100 && (
             <div className="mt-2 sm:mt-3 p-2 bg-amber-100 rounded">
               <p className="text-xs sm:text-sm">
-                <strong>BMI:</strong> {calculateBMI(parseFloat(currentWeight), parseFloat(height)).toFixed(1)} kg/m² 
-                ({getBMICategory(calculateBMI(parseFloat(currentWeight), parseFloat(height)))})
+                <strong>BMI:</strong> {previewBmi.toFixed(1)} kg/m² ({bmiCategory(previewBmi)})
               </p>
             </div>
           )}
@@ -300,11 +153,11 @@ export default function MUSTCalculator({ patientInfo }: Props) {
               </select>
             </div>
           </div>
-          {currentWeight && previousWeight && (
+          {previewLoss !== null && (
             <div className="mt-3 p-2 bg-amber-100 rounded">
               <p className="text-sm">
-                <strong>Weight Change:</strong> {(parseFloat(previousWeight) - parseFloat(currentWeight)).toFixed(1)} kg 
-                ({getWeightLossPercentage(parseFloat(currentWeight), parseFloat(previousWeight)).toFixed(1)}%)
+                <strong>Weight Change:</strong> {(parseFloat(previousWeight) - parseFloat(currentWeight)).toFixed(1)} kg lost
+                ({previewLoss.toFixed(1)}%{previewLoss < 0 ? ' — a gain' : ''})
               </p>
             </div>
           )}
@@ -363,6 +216,12 @@ export default function MUSTCalculator({ patientInfo }: Props) {
         Calculate MUST Score
       </button>
 
+      {errors.length > 0 && (
+        <div className="mt-4 bg-red-50 border border-red-300 rounded-lg p-3 text-sm text-red-800" role="alert">
+          <ul className="list-disc ml-5 space-y-0.5">{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+        </div>
+      )}
+
       {/* Results */}
       {result && (
         <div className="mt-8 space-y-6">
@@ -385,9 +244,9 @@ export default function MUSTCalculator({ patientInfo }: Props) {
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <h4 className="font-semibold mb-2">Score Breakdown:</h4>
               <ul className="text-sm space-y-1">
-                <li><strong>Step 1 (BMI):</strong> {result.scoreBreakdown?.bmi ?? 0}</li>
-                <li><strong>Step 2 (Weight Loss):</strong> {result.scoreBreakdown?.weightLoss ?? 0}</li>
-                <li><strong>Step 3 (Acute Disease):</strong> {result.scoreBreakdown?.acuteDisease ?? 0}</li>
+                <li><strong>Step 1 (BMI):</strong> {result.scoreBreakdown?.bmi ?? '—'}</li>
+                <li><strong>Step 2 (Weight Loss):</strong> {result.scoreBreakdown?.weightLoss ?? '—'}</li>
+                <li><strong>Step 3 (Acute Disease):</strong> {result.scoreBreakdown?.acuteDisease ?? '—'}</li>
               </ul>
             </div>
 
@@ -417,7 +276,7 @@ export default function MUSTCalculator({ patientInfo }: Props) {
               <h4 className="font-bold text-blue-800 mb-2">Estimated Daily Requirements:</h4>
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div className="bg-white rounded p-3">
-                  <p className="text-2xl font-bold text-blue-600">{result.estimatedCalories?.toLocaleString() ?? 0}</p>
+                  <p className="text-2xl font-bold text-blue-600">{result.estimatedCalories?.toLocaleString() ?? '—'}</p>
                   <p className="text-gray-600">kcal/day</p>
                 </div>
                 <div className="bg-white rounded p-3">
@@ -461,6 +320,8 @@ export default function MUSTCalculator({ patientInfo }: Props) {
               </div>
             )}
           </div>
+
+          <CalculatorReportActions report={report} />
         </div>
       )}
     </div>

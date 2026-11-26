@@ -188,6 +188,22 @@ export default function ClinicianAssistantPage() {
     return MODULE_HANDOFFS.filter(h => h.match.test(text));
   }, [result]);
 
+  // Memoised: BedsideCalculators re-seeds its fields whenever this object
+  // changes, so a fresh literal on every render would overwrite edits.
+  const calcPrefill = useMemo(() => {
+    const p = result?.analysis.patient;
+    return {
+      weightKg: p?.weightKg ?? null,
+      heightCm: p?.heightCm ?? null,
+      ageYears: p?.age ?? null,
+      sex: p?.sex,
+      name: `${selected?.first_name || ''} ${selected?.last_name || ''}`.trim() || undefined,
+      hospitalNumber: selected?.hospital_number || undefined,
+      diagnosis: p?.diagnosis || undefined,
+      comorbidities: p?.knownCKD ? ['Chronic kidney disease'] : undefined,
+    };
+  }, [result, selected]);
+
   // ── Patient picker ─────────────────────────────────────────────────────
   // The calculators without a patient. Acid-base, Braden and BNF dosing need
   // no record, and requiring one before a clinician can reach them puts a
@@ -438,14 +454,7 @@ export default function ClinicianAssistantPage() {
       </div>
 
       {tab === 'calculators' && (
-        <BedsideCalculators
-          prefill={{
-            weightKg: result?.analysis.patient.weightKg ?? null,
-            heightCm: result?.analysis.patient.heightCm ?? null,
-            ageYears: result?.analysis.patient.age ?? null,
-            sex: result?.analysis.patient.sex,
-          }}
-        />
+        <BedsideCalculators prefill={calcPrefill} />
       )}
 
       {tab === 'analysis' && running && (

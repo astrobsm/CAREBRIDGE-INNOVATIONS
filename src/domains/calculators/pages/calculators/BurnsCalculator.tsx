@@ -1,68 +1,47 @@
 // Burns Calculator
 // TBSA, Parkland Formula, ABSI Score, and WHO-Adapted Burns Management
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Flame, Calculator, AlertTriangle, Droplets, Activity } from 'lucide-react';
 import { PatientCalculatorInfo, BurnsResult } from '../../types';
+import { toSex } from '../../engine/calculationEngine';
 import {
-  calculateParkland as engineParkland,
-  calculateABSI as engineABSI,
-  toSex,
-} from '../../engine/calculationEngine';
+  ADULT_RULE_OF_NINES, CHILD_RULE_OF_NINES, EMPTY_BODY_PARTS, burnsReport, clampBodyParts, computeBurns,
+  isChildAge, tbsaOf, type BodyParts, type BurnsExtras,
+} from '../../engine/hub/burns';
+import CalculatorReportActions from '../../report/components/CalculatorReportActions';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
 }
 
-// Body part percentages for Rule of Nines
-const ADULT_RULE_OF_NINES = {
-  head: { name: 'Head & Neck', percentage: 9 },
-  chestAbdomen: { name: 'Anterior Trunk (Chest & Abdomen)', percentage: 18 },
-  back: { name: 'Posterior Trunk (Back)', percentage: 18 },
-  rightArm: { name: 'Right Arm', percentage: 9 },
-  leftArm: { name: 'Left Arm', percentage: 9 },
-  genitalia: { name: 'Genitalia/Perineum', percentage: 1 },
-  rightLeg: { name: 'Right Leg', percentage: 18 },
-  leftLeg: { name: 'Left Leg', percentage: 18 },
-};
-
-const CHILD_RULE_OF_NINES = {
-  head: { name: 'Head & Neck', percentage: 18 },
-  chestAbdomen: { name: 'Anterior Trunk', percentage: 18 },
-  back: { name: 'Posterior Trunk', percentage: 18 },
-  rightArm: { name: 'Right Arm', percentage: 9 },
-  leftArm: { name: 'Left Arm', percentage: 9 },
-  genitalia: { name: 'Genitalia/Perineum', percentage: 1 },
-  rightLeg: { name: 'Right Leg', percentage: 13.5 },
-  leftLeg: { name: 'Left Leg', percentage: 13.5 },
-};
-
 export default function BurnsCalculator({ patientInfo }: Props) {
   const [weight, setWeight] = useState(patientInfo.weight || '');
   const [age, setAge] = useState(patientInfo.age || '');
-  const [isChild, setIsChild] = useState(false);
+  // The paediatric chart follows the age, including a prefilled one.
+  const [isChild, setIsChild] = useState(() => isChildAge(patientInfo.age));
   const [timeSinceBurn, setTimeSinceBurn] = useState('');
   
   // Body part burn percentages
-  const [bodyParts, setBodyParts] = useState({
-    head: 0,
-    chestAbdomen: 0,
-    back: 0,
-    rightArm: 0,
-    leftArm: 0,
-    genitalia: 0,
-    rightLeg: 0,
-    leftLeg: 0,
-  });
+  const [bodyParts, setBodyParts] = useState<BodyParts>(EMPTY_BODY_PARTS);
   
   // Burn depth
   const [burnDepth, setBurnDepth] = useState<'superficial' | 'partial' | 'full'>('partial');
   
   // ABSI factors
   const [inhalationInjury, setInhalationInjury] = useState(false);
-  const [gender, setGender] = useState<'male' | 'female'>((patientInfo.gender || 'male') as 'male' | 'female');
+  // elderly-male / elderly-female fold to male / female (they used to fall
+  // through as an unmatched option, and elderly men were scored as female).
+  const [gender, setGender] = useState<'male' | 'female'>(toSex(patientInfo.gender));
   
   const [result, setResult] = useState<BurnsResult | null>(null);
+  const [extras, setExtras] = useState<BurnsExtras | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [reportInputs, setReportInputs] = useState<Parameters<typeof burnsReport>[2] | null>(null);
+  const report = useMemo(
+    () => (result && extras && reportInputs ? burnsReport(result, extras, reportInputs, patientInfo) : null),
+    [result, extras, reportInputs, patientInfo]
+  );
 
   const ruleOfNines = isChild ? CHILD_RULE_OF_NINES : ADULT_RULE_OF_NINES;
 
@@ -74,178 +53,28 @@ export default function BurnsCalculator({ patientInfo }: Props) {
     }));
   };
 
-  const calculateTBSA = () => {
-    return Object.values(bodyParts).reduce((sum, val) => sum + val, 0);
-  };
+  const calculateTBSA = () => tbsaOf(bodyParts);
 
-  const calculateParkland = (tbsa: number, weightKg: number) => {
-    // Parkland / ABA fluid math comes from the shared calculation engine.
-    const r = engineParkland(weightKg, tbsa);
-    return (
-      r ?? {
-        totalFluid24h: 0,
-        parklandUpperBound24h: 0,
-        first8Hours: 0,
-        next16Hours: 0,
-        hourlyFirst8: 0,
-        hourlyNext16: 0,
-      }
-    );
-  };
-
-  const calculateABSI = (tbsa: number, ageValue: number) => {
-    // ABSI score comes from the shared engine; survival/prognosis mapping below.
-    const score = engineABSI(
-      tbsa,
-      ageValue,
-      toSex(gender),
-      burnDepth === 'full',
-      inhalationInjury
-    ).score;
-
-    // Survival probability
-    let survivalProbability: string;
-    let prognosis: string;
-    if (score <= 2) {
-      survivalProbability = '>99%';
-      prognosis = 'Excellent';
-    } else if (score <= 3) {
-      survivalProbability = '98%';
-      prognosis = 'Very Good';
-    } else if (score <= 4) {
-      survivalProbability = '80-90%';
-      prognosis = 'Good';
-    } else if (score <= 5) {
-      survivalProbability = '50-70%';
-      prognosis = 'Moderate';
-    } else if (score <= 6) {
-      survivalProbability = '20-40%';
-      prognosis = 'Guarded';
-    } else if (score <= 7) {
-      survivalProbability = '10%';
-      prognosis = 'Poor';
-    } else {
-      survivalProbability = '<1%';
-      prognosis = 'Very Poor';
-    }
-    
-    return { score, survivalProbability, prognosis };
+  const changeAge = (value: string) => {
+    setAge(value);
+    const child = isChildAge(value);
+    setIsChild(child);
+    // Switching chart re-clamps every region to the new chart's maximum.
+    setBodyParts(prev => clampBodyParts(prev, child));
   };
 
   const calculate = () => {
-    const tbsa = calculateTBSA();
-    const weightKg = parseFloat(weight);
-    const ageValue = parseInt(age);
-    const timeSince = parseFloat(timeSinceBurn) || 0;
-    
-    const parkland = calculateParkland(tbsa, weightKg);
-    const absi = calculateABSI(tbsa, ageValue);
-    
-    // Severity classification
-    let severity: 'Minor' | 'Moderate' | 'Major' | 'Critical';
-    if (tbsa < 10 && burnDepth !== 'full' && !inhalationInjury) {
-      severity = 'Minor';
-    } else if (tbsa < 20 && burnDepth !== 'full') {
-      severity = 'Moderate';
-    } else if (tbsa < 40) {
-      severity = 'Major';
-    } else {
-      severity = 'Critical';
-    }
-    
-    // Referral criteria
-    const referralCriteria: string[] = [];
-    if (tbsa >= 10) referralCriteria.push('TBSA ≥10%');
-    if (burnDepth === 'full') referralCriteria.push('Full-thickness burns present');
-    if (inhalationInjury) referralCriteria.push('Inhalation injury suspected');
-    if (bodyParts.genitalia > 0) referralCriteria.push('Perineal/genital burns');
-    if (ageValue < 5 || ageValue > 55) referralCriteria.push('Age extremes (<5 or >55 years)');
-    
-    // Adjusted fluid for delay
-    let adjustedFirst8 = parkland.first8Hours;
-    let adjustmentNote = '';
-    if (timeSince > 0 && timeSince < 8) {
-      const remainingTime = 8 - timeSince;
-      const alreadyGiven = parkland.hourlyFirst8 * timeSince;
-      adjustedFirst8 = parkland.first8Hours - alreadyGiven;
-      adjustmentNote = `Time since burn: ${timeSince}h. Give ${Math.round(adjustedFirst8)}mL over remaining ${remainingTime}h (${Math.round(adjustedFirst8 / remainingTime)}mL/h)`;
-    }
-    
-    // Pain management
-    const painManagement = burnDepth === 'superficial' 
-      ? ['Paracetamol 1g PO q6h', 'Ibuprofen 400mg PO q8h if no contraindications']
-      : ['IV Morphine 0.1mg/kg titrated to pain control', 'OR Tramadol 50-100mg IV/IM q6h', 'Consider Ketamine 0.5-1mg/kg IV for dressing changes'];
-    
-    // Nutrition
-    const caloricNeeds = Math.round(25 * weightKg + 40 * tbsa);
-    const proteinNeeds = Math.round(1.5 * weightKg + 3 * tbsa);
-    
-    // Wound care
-    const woundCare = burnDepth === 'superficial' 
-      ? ['Clean with normal saline', 'Apply Silver sulfadiazine 1% cream', 'Cover with non-adherent dressing', 'Change dressing daily']
-      : burnDepth === 'partial'
-        ? ['Debride loose skin', 'Clean with chlorhexidine 0.5%', 'Apply Silver sulfadiazine 1% or MEBO', 'Apply petrolatum gauze + absorbent layer', 'Change dressing every 2-3 days', 'Consider honey-based dressings if available']
-        : ['Early surgical referral required', 'Escharotomy if circumferential', 'Tangential excision and grafting needed', 'Temporary coverage with biological dressings'];
-    
-    // Monitoring parameters
-    // Paediatric maintenance: 4-2-1 rule (4 mL/kg/h first 10 kg, 2 mL/kg/h next 10 kg, 1 mL/kg/h thereafter) ADDED to resuscitation fluid for children <30 kg
-    // Electrical injury / rhabdomyolysis: target UO 1-1.5 mL/kg/h until myoglobinuria clears
-    const isPaediatric = isChild || ageValue < 14;
-    const monitoring = [
-      `Urine output target: ${isPaediatric ? '1-2 mL/kg/h (paediatric)' : '0.5-1 mL/kg/h (adult)'} — titrate fluids to this endpoint`,
-      'For HIGH-VOLTAGE ELECTRICAL injury or rhabdomyolysis (CK >5000): target UO 1-1.5 mL/kg/h; consider sodium bicarbonate to alkalinise urine pH >6.5',
-      isPaediatric ? `Paediatric maintenance fluid (4-2-1 rule) IN ADDITION to resuscitation: ~${(weightKg <= 10 ? 4 * weightKg : weightKg <= 20 ? 40 + 2 * (weightKg - 10) : 60 + (weightKg - 20)).toFixed(0)} mL/h` : 'No additional maintenance for adults during first 24 h',
-      'Vital signs (HR, BP, RR, SpO2, temp) every 1 h; arterial line if TBSA >20%',
-      'Daily weights and strict fluid balance; monitor lactate q4h — falling lactate indicates adequate resuscitation',
-      'FBC, U&E, creatinine, CK (if electrical), ABG, lactate every 6-12 h initially',
-      'Capillary glucose 4-hourly in burns >20% TBSA (insulin resistance & hypermetabolic state)',
-      `Calculated UO target range: ${Math.round((isPaediatric ? 1 : 0.5) * weightKg)}-${Math.round((isPaediatric ? 2 : 1) * weightKg)} mL/h`,
-      'AVOID over-resuscitation (“fluid creep”): reduce hourly rate by 25% if UO consistently >1.5 mL/kg/h (adult) or >2 mL/kg/h (paeds)',
-    ];
-    
-    // Tetanus
-    const tetanus = tbsa > 5 || burnDepth !== 'superficial' 
-      ? 'Tetanus toxoid 0.5mL IM if not vaccinated in past 5 years. Give TIG 250-500 units if unknown vaccination status.'
-      : 'Update tetanus vaccination if >5 years since last dose';
-    
-    // Antibiotics
-    const antibiotics = tbsa > 30 || burnDepth === 'full'
-      ? 'Consider prophylactic antibiotics: Amoxicillin-clavulanate OR Ceftriaxone if signs of sepsis'
-      : 'Prophylactic antibiotics not routinely recommended. Monitor for infection signs.';
-    
-    const calculationResult: BurnsResult = {
-      tbsa,
-      severity,
-      // Required fields
-      parklandTotal: parkland.totalFluid24h,
-      parklandFirst8Hours: parkland.first8Hours,
-      parklandNext16Hours: parkland.next16Hours,
-      hourlyRateFirst8: parkland.hourlyFirst8,
-      hourlyRateNext16: parkland.hourlyNext16,
-      absiScore: absi.score,
-      absiMortality: absi.survivalProbability,
-      recommendations: referralCriteria.length > 0 ? referralCriteria : ['Continue standard burn care'],
-      resuscitationEndpoints: monitoring,
-      // Optional fields
-      parklandFluid: parkland,
-      absiSurvival: absi.survivalProbability,
-      absiPrognosis: absi.prognosis,
-      referralCriteria,
-      fluidAdjustment: adjustmentNote,
-      painManagement,
-      woundCare,
-      monitoring,
-      tetanusRecommendation: tetanus,
-      antibioticGuidance: antibiotics,
-      nutritionNeeds: {
-        calories: caloricNeeds,
-        protein: proteinNeeds,
-      },
-      burnDepth,
-      inhalationInjury,
-    };
-    
-    setResult(calculationResult);
+    const r = computeBurns({
+      weight, age, isChild, timeSinceBurn, bodyParts, burnDepth, inhalationInjury, gender,
+    });
+    if ('errors' in r) { setErrors(r.errors); setResult(null); setExtras(null); return; }
+    setErrors([]);
+    setResult(r.result);
+    setExtras(r.extras);
+    setReportInputs({
+      weightKg: Number(weight), ageYears: Number(age), timeSinceBurn: Number(timeSinceBurn) || 0,
+      bodyParts: clampBodyParts(bodyParts, isChild), isChild, gender,
+    });
   };
 
   return (
@@ -286,10 +115,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
           <input
             type="number"
             value={age}
-            onChange={(e) => {
-              setAge(e.target.value);
-              setIsChild(parseInt(e.target.value) < 10);
-            }}
+            onChange={(e) => changeAge(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900"
             placeholder="e.g., 35"
           />
@@ -434,7 +260,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
                 <li>Secure airway IMMEDIATELY - early intubation recommended</li>
                 <li>High-flow oxygen therapy</li>
                 <li>Prepare for emergency tracheostomy</li>
-                <li>Increase fluid resuscitation by 30-50%</li>
+                <li>Expect higher fluid needs than calculated — titrate up on urine output (the volumes shown are not pre-increased)</li>
               </ul>
             </div>
           )}
@@ -443,12 +269,17 @@ export default function BurnsCalculator({ patientInfo }: Props) {
 
       <button
         onClick={calculate}
-        disabled={!weight || !age}
         className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400"
       >
         <Calculator className="w-5 h-5" />
         Calculate Burns Management Plan
       </button>
+
+      {errors.length > 0 && (
+        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          {errors.map((e, i) => <p key={i}>{e}</p>)}
+        </div>
+      )}
 
       {/* Results */}
       {result && (
@@ -481,15 +312,16 @@ export default function BurnsCalculator({ patientInfo }: Props) {
               }`}>
                 <p className="text-4xl font-bold">{result.absiScore}</p>
                 <p className="font-semibold">ABSI Score</p>
-                <p className="text-sm">{result.absiPrognosis}</p>
-                <p className="text-xs text-gray-600">Survival: {result.absiSurvival}</p>
+                <p className="text-sm">{result.absiSurvival}</p>
+                <p className="text-sm font-medium mt-1">Revised Baux: {extras?.revisedBaux ?? '—'}</p>
+                <p className="text-xs text-red-700 mt-1">Check: {extras?.absiCaveat}</p>
               </div>
 
               {/* Fluid Requirement */}
               <div className="bg-blue-100 rounded-lg p-4 text-center">
                 <Droplets className="w-6 h-6 mx-auto text-blue-600 mb-1" />
                 <p className="text-2xl font-bold">
-                  {result.parklandFluid?.totalFluid24h?.toLocaleString() || 0}–{result.parklandFluid?.parklandUpperBound24h?.toLocaleString() || 0} mL
+                  {result.parklandFluid?.totalFluid24h?.toLocaleString() ?? '—'}–{result.parklandFluid?.parklandUpperBound24h?.toLocaleString() ?? '—'} mL
                 </p>
                 <p className="font-semibold text-sm">24-h Fluid Range (ABA → Parkland)</p>
                 <p className="text-xs text-gray-600">Lactated Ringer’s — titrate to UO</p>
@@ -505,16 +337,16 @@ export default function BurnsCalculator({ patientInfo }: Props) {
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="font-semibold">First 8 hours:</p>
-                  <p>{result.parklandFluid?.first8Hours?.toLocaleString() || 0} mL total</p>
+                  <p>{result.parklandFluid?.first8Hours?.toLocaleString() ?? '—'} mL total</p>
                   <p className="text-blue-700 font-medium">
-                    Rate: {result.parklandFluid?.hourlyFirst8 || 0} mL/hour
+                    Rate: {result.parklandFluid?.hourlyFirst8 ?? '—'} mL/hour
                   </p>
                 </div>
                 <div>
                   <p className="font-semibold">Next 16 hours:</p>
-                  <p>{result.parklandFluid?.next16Hours?.toLocaleString() || 0} mL total</p>
+                  <p>{result.parklandFluid?.next16Hours?.toLocaleString() ?? '—'} mL total</p>
                   <p className="text-blue-700 font-medium">
-                    Rate: {result.parklandFluid?.hourlyNext16 || 0} mL/hour
+                    Rate: {result.parklandFluid?.hourlyNext16 ?? '—'} mL/hour
                   </p>
                 </div>
               </div>
@@ -524,7 +356,7 @@ export default function BurnsCalculator({ patientInfo }: Props) {
                 </p>
               )}
               <p className="mt-2 text-xs text-gray-700">
-                <strong>Starting dose shown is ABA-recommended 2 mL/kg/%TBSA</strong> (ISBI 2016, ABA 2016) to mitigate “fluid creep”. Classic Parkland upper bound is {result.parklandFluid?.parklandUpperBound24h?.toLocaleString() || 0} mL/24 h. Titrate hourly rate to maintain urine output 0.5–1 mL/kg/h (adults) or 1–2 mL/kg/h (children &lt;30 kg). For high-voltage electrical injury or rhabdomyolysis: target UO 1–1.5 mL/kg/h.
+                <strong>Starting dose shown is ABA-recommended 2 mL/kg/%TBSA</strong> (ISBI 2016, ABA 2016) to mitigate “fluid creep”. Classic Parkland upper bound is {result.parklandFluid?.parklandUpperBound24h?.toLocaleString() ?? '—'} mL/24 h. Titrate hourly rate to maintain urine output 0.5–1 mL/kg/h (adults) or 1–2 mL/kg/h (children &lt;30 kg). For high-voltage electrical injury or rhabdomyolysis: target UO 1–1.5 mL/kg/h.
               </p>
             </div>
 
@@ -564,10 +396,10 @@ export default function BurnsCalculator({ patientInfo }: Props) {
             <div className="bg-amber-50 border-l-4 border-amber-600 p-4 mb-4 rounded-r-lg">
               <h4 className="font-bold text-amber-800 mb-2">Nutritional Requirements:</h4>
               <div className="text-sm text-gray-700">
-                <p><strong>Daily Caloric Needs:</strong> {result.nutritionNeeds?.calories?.toLocaleString() || 0} kcal/day</p>
-                <p><strong>Daily Protein Needs:</strong> {result.nutritionNeeds?.protein || 0} g/day</p>
+                <p><strong>Daily Caloric Needs:</strong> {result.nutritionNeeds?.calories?.toLocaleString() ?? '—'} kcal/day</p>
+                <p><strong>Daily Protein Needs:</strong> {result.nutritionNeeds?.protein ?? '—'} g/day</p>
                 <p className="mt-2 text-xs">
-                  Formula: 25 kcal/kg + 40 kcal/%TBSA (calories) | 1.5 g/kg + 3 g/%TBSA (protein)
+                  {extras?.nutritionFormula}; protein from the nutrition engine's burns range (low end). The same figures as the Bedside Burns tab.
                 </p>
               </div>
             </div>
@@ -594,6 +426,8 @@ export default function BurnsCalculator({ patientInfo }: Props) {
               </ul>
             </div>
           </div>
+
+          <CalculatorReportActions report={report} />
         </div>
       )}
     </div>

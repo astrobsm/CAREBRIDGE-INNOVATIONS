@@ -1,12 +1,13 @@
 // DVT Risk Calculator - Caprini Score
 // WHO-Adapted VTE Risk Assessment and Prophylaxis
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Calculator, AlertCircle, Heart, Shield } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { PatientCalculatorInfo, DVTRiskResult } from '../../types';
 import { getDVTRiskPDFDoc } from '../../utils/pdfGenerator';
-import { calculateCapriniScore } from '../../engine/calculationEngine';
+import { computeDvt, dvtReport } from '../../engine/hub/dvt';
+import CalculatorReportActions from '../../report/components/CalculatorReportActions';
 import { ExportButtonWithModal } from '../../../../components/common/ExportOptionsModal';
 import { createSimpleThermalPDF } from '../../../../utils/thermalPdfGenerator';
 
@@ -59,261 +60,18 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
   const [chemotherapy, setChemotherapy] = useState(false);
   
   const [result, setResult] = useState<DVTRiskResult | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+  const ageNum = age === '' ? null : Number(age);
+  const report = useMemo(
+    () => (result ? dvtReport(result, ageNum !== null && Number.isFinite(ageNum) ? ageNum : null, patientInfo) : null),
+    [result, ageNum, patientInfo]
+  );
 
   const calculateRisk = () => {
-    const scoreBreakdown: DVTRiskResult['scoreBreakdown'] = {
-      '5-point': [],
-      '3-point': [],
-      '2-point': [],
-      '1-point': [],
-    };
-
-    const ageValue = parseInt(age);
-
-    // Total score comes from the shared calculation engine (single source of truth).
-    const score = calculateCapriniScore({
-      age: isNaN(ageValue) ? 0 : ageValue,
-      minorSurgery,
-      bmiOver30: bmi30Plus,
-      swollenLegs,
-      varicoseVeins,
-      pregnancy,
-      postpartum,
-      ocpOrHrt: ocp,
-      bedRestMedical: bedrest,
-      plasterCast,
-      sepsis,
-      lungDisease,
-      acuteMI: mi,
-      chf,
-      inflammatoryBowelDisease: inflammatory,
-      arthroscopicSurgery: arthroscopic,
-      majorSurgeryOver45min: majorSurgery,
-      laparoscopicOver45min: laparoscopic,
-      centralVenousAccess: centralLine,
-      bedriddenOver72h: bedridden,
-      paralysis,
-      cancer,
-      onChemotherapy: chemotherapy,
-      previousDVTorPE: previousDVT,
-      familyHistoryThrombosis: familyHistory,
-      thrombophilia,
-      elevatedHomocysteine,
-      heparinInducedThrombocytopenia: heparinThrombocytopenia,
-      stroke,
-      electiveArthroplasty: elective,
-      hipPelvisLegFracture: hipPelvisFracture,
-      acuteSpinalCordInjury: acuteSpinal,
-    }).score;
-
-    // Labelled breakdown for display (point value implied by its category).
-    if (ageValue >= 41 && ageValue <= 60) scoreBreakdown['1-point'].push('Age 41-60 years');
-    else if (ageValue >= 61 && ageValue <= 74) scoreBreakdown['2-point'].push('Age 61-74 years');
-    else if (ageValue >= 75) scoreBreakdown['3-point'].push('Age ≥75 years');
-
-    // 1 Point factors
-    if (minorSurgery) scoreBreakdown['1-point'].push('Minor surgery planned');
-    if (bmi30Plus) scoreBreakdown['1-point'].push('BMI > 30 kg/m²');
-    if (swollenLegs) scoreBreakdown['1-point'].push('Swollen legs (current)');
-    if (varicoseVeins) scoreBreakdown['1-point'].push('Varicose veins');
-    if (pregnancy) scoreBreakdown['1-point'].push('Pregnancy or postpartum');
-    if (postpartum) scoreBreakdown['1-point'].push('Postpartum (<1 month)');
-    if (ocp) scoreBreakdown['1-point'].push('Oral contraceptives/HRT');
-    if (bedrest) scoreBreakdown['1-point'].push('Medical patient on bed rest');
-    if (plasterCast) scoreBreakdown['1-point'].push('Plaster cast/brace');
-    if (sepsis) scoreBreakdown['1-point'].push('Sepsis (<1 month)');
-    if (lungDisease) scoreBreakdown['1-point'].push('Serious lung disease');
-    if (mi) scoreBreakdown['1-point'].push('Acute MI');
-    if (chf) scoreBreakdown['1-point'].push('CHF (<1 month)');
-    if (inflammatory) scoreBreakdown['1-point'].push('Inflammatory bowel disease');
-
-    // 2 Point factors
-    if (arthroscopic) scoreBreakdown['2-point'].push('Arthroscopic surgery');
-    if (majorSurgery) scoreBreakdown['2-point'].push('Major surgery >45 min');
-    if (laparoscopic) scoreBreakdown['2-point'].push('Laparoscopic surgery >45 min');
-    if (centralLine) scoreBreakdown['2-point'].push('Central venous access');
-    if (bedridden) scoreBreakdown['2-point'].push('Confined to bed >72 hours');
-    if (paralysis) scoreBreakdown['2-point'].push('Paralysis/paresis');
-
-    // 3 Point factors
-    if (previousDVT) scoreBreakdown['3-point'].push('History of DVT/PE');
-    if (familyHistory) scoreBreakdown['3-point'].push('Family history of thrombosis');
-    if (thrombophilia) scoreBreakdown['3-point'].push('Known thrombophilia');
-    if (elevatedHomocysteine) scoreBreakdown['3-point'].push('Elevated homocysteine');
-    if (heparinThrombocytopenia) scoreBreakdown['3-point'].push('Heparin-induced thrombocytopenia');
-
-    // 5 Point factors
-    if (stroke) scoreBreakdown['5-point'].push('Stroke (<1 month)');
-    if (elective) scoreBreakdown['5-point'].push('Elective lower extremity arthroplasty');
-    if (hipPelvisFracture) scoreBreakdown['5-point'].push('Hip/pelvis/leg fracture');
-    if (acuteSpinal) scoreBreakdown['5-point'].push('Acute spinal cord injury');
-
-    // Cancer
-    if (cancer) {
-      scoreBreakdown['2-point'].push('Cancer (current or within 6 months)');
-      if (chemotherapy) {
-        scoreBreakdown['1-point'].push('Currently on chemotherapy');
-      }
-    }
-
-    // Determine risk level
-    let riskLevel: string;
-    let riskPercentage: string;
-    let recommendations: string[] = [];
-    let prophylaxis: string[] = [];
-    let specificProtocols: string[] = [];
-    let additionalRecommendations: string[] = [];
-
-    if (score === 0) {
-      riskLevel = 'Very Low Risk';
-      riskPercentage = '<0.5% VTE risk';
-      recommendations = [
-        'Early ambulation encouraged',
-        'No pharmacological prophylaxis needed',
-        'Adequate hydration',
-      ];
-      prophylaxis = [
-        'Early ambulation only',
-        'No anticoagulation required',
-      ];
-    } else if (score <= 2) {
-      riskLevel = 'Low Risk';
-      riskPercentage = '~1.5% VTE risk';
-      recommendations = [
-        'Early and frequent ambulation',
-        'Graduated compression stockings (GCS) optional',
-        'Intermittent pneumatic compression (IPC) if immobile',
-      ];
-      prophylaxis = [
-        'Mechanical prophylaxis recommended',
-        'GCS (18-21 mmHg) or IPC',
-        'Consider pharmacological if additional risk factors',
-      ];
-    } else if (score <= 4) {
-      riskLevel = 'Moderate Risk';
-      riskPercentage = '~3% VTE risk';
-      recommendations = [
-        'Pharmacological prophylaxis recommended',
-        'Plus mechanical prophylaxis',
-        'Early ambulation when possible',
-        'Assess bleeding risk before anticoagulation',
-      ];
-      prophylaxis = [
-        'Enoxaparin 40mg SC daily (preferred)',
-        'OR Heparin 5000 units SC q8-12h',
-        'PLUS graduated compression stockings',
-        'Duration: Until fully mobile or discharge',
-      ];
-      specificProtocols = [
-        'Renal impairment (CrCl <30): Use UFH instead of LMWH',
-        'Obesity (BMI >40): Consider enoxaparin 40mg SC q12h',
-      ];
-    } else if (score <= 8) {
-      riskLevel = 'High Risk';
-      riskPercentage = '~6% VTE risk';
-      recommendations = [
-        'Pharmacological prophylaxis essential',
-        'Combination mechanical + pharmacological',
-        'Extended prophylaxis for high-risk surgery',
-        'Close monitoring for signs of DVT/PE',
-      ];
-      prophylaxis = [
-        'Enoxaparin 40mg SC daily (or 30mg SC q12h)',
-        'OR Fondaparinux 2.5mg SC daily',
-        'OR Rivaroxaban 10mg PO daily (post-surgery)',
-        'PLUS IPC devices',
-        'PLUS graduated compression stockings',
-        'Duration: 7-10 days or until ambulatory',
-        'Consider extended prophylaxis (28-35 days) for major orthopedic/cancer surgery',
-      ];
-      specificProtocols = [
-        'Orthopedic surgery: Extend prophylaxis to 35 days',
-        'Cancer surgery: Extend prophylaxis to 28 days',
-        'Spinal anesthesia: Wait 12h after LMWH before catheter removal',
-      ];
-    } else {
-      riskLevel = 'Very High Risk';
-      riskPercentage = '>6% VTE risk';
-      recommendations = [
-        '⚠️ Maximum prophylaxis required',
-        'Pharmacological + mechanical combination mandatory',
-        'Extended prophylaxis after discharge',
-        'Consider IVC filter if anticoagulation contraindicated',
-        'Vigilant monitoring for VTE symptoms',
-      ];
-      prophylaxis = [
-        'Enoxaparin 40mg SC q12h (higher dose for very high risk)',
-        'OR Fondaparinux 2.5mg SC daily',
-        'IPC devices continuously when in bed',
-        'Graduated compression stockings',
-        'Extended prophylaxis: 4-6 weeks post-discharge',
-        'Daily lower limb assessment',
-      ];
-      specificProtocols = [
-        'Cancer + surgery: LMWH preferred over warfarin',
-        'Hip/knee replacement: Extended prophylaxis 35 days',
-        'Major trauma: IPC until ambulatory, then add LMWH',
-        'If bleeding risk: IPC alone until bleeding risk acceptable',
-      ];
-      additionalRecommendations = [
-        'Screen for occult DVT if high clinical suspicion',
-        'Serial lower limb Doppler ultrasound may be warranted',
-        'Consider retrievable IVC filter if cannot anticoagulate',
-      ];
-    }
-
-    // Additional considerations based on comorbidities
-    if (patientInfo.comorbidities.includes('Chronic Kidney Disease')) {
-      additionalRecommendations.push('CKD present: Prefer unfractionated heparin over LMWH if CrCl <30');
-    }
-    if (patientInfo.comorbidities.includes('Liver Cirrhosis')) {
-      additionalRecommendations.push('Liver disease: Bleeding risk increased - consider mechanical only or reduced dose');
-    }
-
-    const availableMedications = [
-      'Enoxaparin (Clexane) 40mg/0.4mL - Most common in Nigeria',
-      'Enoxaparin (Clexane) 60mg/0.6mL',
-      'Unfractionated Heparin 5000 IU/mL',
-      'Fondaparinux (Arixtra) 2.5mg - May not be readily available',
-      'Rivaroxaban (Xarelto) 10mg - For post-op, DOACs increasing availability',
-      'Graduated Compression Stockings (18-21 mmHg)',
-    ];
-
-    const warningSigns = [
-      '🦵 Unilateral leg swelling, pain, warmth, redness',
-      '💨 Sudden shortness of breath',
-      '💔 Chest pain (especially pleuritic)',
-      '🫀 Rapid heart rate with no other cause',
-      '😵 Syncope or presyncope',
-      '🩸 Coughing blood (hemoptysis)',
-      '',
-      '⚠️ IF ANY OF THESE OCCUR: Emergency evaluation for PE/DVT needed',
-    ];
-
-    const educationPoints = [
-      'Stay well hydrated (2-3L water daily unless fluid restricted)',
-      'Early mobilization - walk as soon as medically safe',
-      'Ankle pumping exercises when in bed',
-      'Avoid crossing legs for prolonged periods',
-      'Report any leg swelling or breathing difficulty immediately',
-      'Continue prophylaxis medications as prescribed',
-    ];
-
-    const calculationResult: DVTRiskResult = {
-      score,
-      riskLevel,
-      riskPercentage,
-      scoreBreakdown,
-      recommendations,
-      prophylaxis,
-      specificProtocols,
-      additionalRecommendations,
-      availableMedications,
-      warningSigns,
-      educationPoints,
-    };
-
-    setResult(calculationResult);
+    const r = computeDvt({ age, flags: { minorSurgery, bmi30Plus, swollenLegs, varicoseVeins, pregnancy, postpartum, ocp, bedrest, plasterCast, sepsis, lungDisease, mi, chf, inflammatory, arthroscopic, majorSurgery, laparoscopic, centralLine, bedridden, paralysis, previousDVT, familyHistory, thrombophilia, elevatedHomocysteine, heparinThrombocytopenia, stroke, elective, hipPelvisFracture, acuteSpinal, cancer, chemotherapy }, comorbidities: patientInfo.comorbidities });
+    if ('errors' in r) { setErrors(r.errors); setResult(null); return; }
+    setErrors([]);
+    setResult(r.result);
   };
 
   // Generate A4 PDF
@@ -395,8 +153,8 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
               { state: bmi30Plus, setter: setBmi30Plus, label: 'BMI > 30 kg/m²' },
               { state: swollenLegs, setter: setSwollenLegs, label: 'Swollen legs (current)' },
               { state: varicoseVeins, setter: setVaricoseVeins, label: 'Varicose veins' },
-              { state: pregnancy, setter: setPregnancy, label: 'Pregnancy' },
-              { state: postpartum, setter: setPostpartum, label: 'Postpartum (<1 month)' },
+              { state: pregnancy, setter: (v: boolean) => { setPregnancy(v); if (v) setPostpartum(false); }, label: 'Pregnancy' },
+              { state: postpartum, setter: (v: boolean) => { setPostpartum(v); if (v) setPregnancy(false); }, label: 'Postpartum (<1 month)' },
               { state: ocp, setter: setOcp, label: 'OCP / HRT use' },
               { state: bedrest, setter: setBedrest, label: 'Medical patient on bed rest' },
               { state: plasterCast, setter: setPlasterCast, label: 'Plaster cast/brace' },
@@ -536,6 +294,12 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
         Calculate DVT Risk Score
       </button>
 
+      {errors.length > 0 && (
+        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          {errors.map((e, i) => <p key={i}>{e}</p>)}
+        </div>
+      )}
+
       {/* Results */}
       {result && (
         <div className="mt-8 space-y-6">
@@ -613,17 +377,37 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
               </div>
             )}
 
+            {/* Additional considerations (comorbidities, very high risk) — computed before, never shown */}
+            {(result.additionalRecommendations?.length ?? 0) > 0 && (
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4 rounded-r-lg">
+                <p className="font-semibold text-gray-800 mb-2">Additional considerations:</p>
+                <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
+                  {result.additionalRecommendations?.map((item, index) => <li key={index}>{item}</li>)}
+                </ul>
+              </div>
+            )}
+
             {/* Warning Signs */}
             <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded-r-lg">
               <p className="font-semibold text-red-800 mb-2">Warning Signs - Seek Emergency Care:</p>
               <ul className="space-y-1 text-sm text-gray-700">
-                {result.warningSigns.map((sign, index) => (
+                {result.warningSigns.filter(Boolean).map((sign, index) => (
                   <li key={index} className={sign.includes('⚠️') ? 'font-semibold text-red-600' : ''}>
                     {sign}
                   </li>
                 ))}
               </ul>
             </div>
+
+            {/* Patient education — computed before, never shown */}
+            {(result.educationPoints?.length ?? 0) > 0 && (
+              <div className="bg-teal-50 border-l-4 border-teal-600 p-4 mb-4 rounded-r-lg">
+                <p className="font-semibold text-gray-800 mb-2">Patient education:</p>
+                <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
+                  {result.educationPoints?.map((item, index) => <li key={index}>{item}</li>)}
+                </ul>
+              </div>
+            )}
 
             {/* Available Medications */}
             <div className="bg-indigo-50 border-l-4 border-indigo-600 p-4 rounded-r-lg">
@@ -644,6 +428,8 @@ export default function DVTRiskCalculator({ patientInfo }: Props) {
             buttonClassName="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
             modalTitle="Export DVT Risk Assessment"
           />
+
+          <CalculatorReportActions report={report} />
         </div>
       )}
     </div>
