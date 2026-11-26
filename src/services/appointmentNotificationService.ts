@@ -53,10 +53,8 @@ export async function showLocalNotification(
 ): Promise<void> {
   if (!isPushSupported()) return;
   
-  if (Notification.permission !== 'granted') {
-    const permission = await requestNotificationPermission();
-    if (permission !== 'granted') return;
-  }
+  // Never prompt from here (no user gesture): permission is asked from a tap.
+  if (Notification.permission !== 'granted') return;
 
   // Use service worker if registered, otherwise show directly
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
