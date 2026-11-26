@@ -50,6 +50,7 @@ import PreviousPlansReviewGuard, { type AckSummary } from '../../../components/c
 import { VoiceDictation, ExportOptionsModal } from '../../../components/common';
 import StructuredHistory, { type StructuredHistoryValue } from '../components/StructuredHistory';
 import { consultationChooserHref } from '../../patients/patientHubLinks';
+import { formatDate } from '../../../utils/formatDate';
 import { ENCOUNTER_TYPES, ENCOUNTER_TYPE_IDS } from '../data/encounterTypes';
 import { phaseForEncounterType } from '../procedureReview/phases';
 import { TEMPLATE_VERSION } from '../services/templateEngine';
@@ -982,7 +983,7 @@ export default function ClinicalEncounterPage() {
             }`}>
               {encounterMode === 'initial' 
                 ? 'This is the first clinical encounter for this patient. Complete a comprehensive evaluation including full history and examination.'
-                : `This patient has ${previousEncounters?.length || 0} previous encounter(s). Last visit: ${previousEncounters?.[0] ? format(new Date(previousEncounters[0].createdAt), 'PPP') : 'N/A'}`
+                : `This patient has ${previousEncounters?.length || 0} previous encounter(s). Last visit: ${previousEncounters?.[0] ? formatDate(previousEncounters[0].createdAt, 'N/A') : 'N/A'}`
               }
             </p>
             

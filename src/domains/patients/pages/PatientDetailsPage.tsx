@@ -788,14 +788,17 @@ export default function PatientDetailsPage() {
             </div>
           )}
 
-          {(allergies.length > 0 || conditions.length > 0) && (
-            <div className="mt-3 flex flex-wrap items-center gap-1.5" aria-label="Medical alerts">
-              {allergies.length > 0 && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700">
-                  <AlertTriangle size={14} aria-hidden="true" /> Allergies:
-                </span>
-              )}
+          {allergies.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5" aria-label="Allergies">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700">
+                <AlertTriangle size={14} aria-hidden="true" /> Allergies:
+              </span>
               {allergies.map((a, i) => <span key={`a${i}`} className="badge badge-danger">{a}</span>)}
+            </div>
+          )}
+          {conditions.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label="Chronic conditions">
+              <span className="text-xs font-semibold text-amber-700">Conditions:</span>
               {conditions.map((c, i) => <span key={`c${i}`} className="badge badge-warning">{c}</span>)}
             </div>
           )}
@@ -939,8 +942,8 @@ export default function PatientDetailsPage() {
                   )}
 
                   <div className="rounded-xl border border-gray-200">
-                    <p className="px-4 pt-3 text-sm font-semibold text-gray-900">All visits, reviews and prescriptions</p>
-                    <TimelineList items={tabItems('visits')} empty="No visits recorded yet." />
+                    <p className="px-4 pt-3 text-sm font-semibold text-gray-900">Clerkings, reviews, admissions and prescriptions</p>
+                    <TimelineList items={tabItems('visits').filter(i => i.kind !== 'visit')} empty="None recorded yet." />
                   </div>
                 </div>
               )}
@@ -1069,10 +1072,10 @@ export default function PatientDetailsPage() {
 
       {/* Phone: the primary action stays in reach. */}
       <div className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex gap-2">
-        <button type="button" onClick={() => setShowConsult(true)} className="btn btn-primary flex-1 justify-center">
+        <button type="button" onClick={() => setShowConsult(true)} className="btn btn-primary flex-1 min-w-0 justify-center whitespace-nowrap">
           <Stethoscope size={18} /> Start consultation
         </button>
-        <button type="button" onClick={() => setShowMore(true)} className="btn btn-secondary" aria-haspopup="dialog">
+        <button type="button" onClick={() => setShowMore(true)} className="btn btn-secondary flex-none w-auto px-4 whitespace-nowrap" aria-haspopup="dialog">
           <MoreHorizontal size={18} /> More
         </button>
       </div>
