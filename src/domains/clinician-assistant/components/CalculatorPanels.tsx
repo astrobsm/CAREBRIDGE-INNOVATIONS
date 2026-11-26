@@ -23,9 +23,14 @@ import type { Sex } from '../services/calculators';
 import { generateMealPlan, type DayPlan } from '../../../data/nigerianFoods';
 import { FOOD_COMPOSITION_ACKNOWLEDGEMENT } from '../../nutrition/data/foodSourceAcknowledgement';
 import { burnCareService } from '../services/burnCalculators';
-import { riskAssessmentService } from '../services/riskCalculators';
+import { riskAssessmentService, type BradenSubscores } from '../services/riskCalculators';
 import DeterministicPlanView from '../../calculators/report/components/DeterministicPlanView';
 import { correctionPlanToReportPlan } from '../../calculators/report/format';
+import CalculatorReportActions from '../../calculators/report/components/CalculatorReportActions';
+import type { ReportPatient } from '../../calculators/report/types';
+import {
+  acidBaseReport, burnsReport, electrolyteReport, gfrReport, nutritionReport, scoreReport, woundMealReport,
+} from '../services/bedsideReports';
 
 // ── shared bits ───────────────────────────────────────────────────────────
 
@@ -75,7 +80,7 @@ const Note = ({ children, tone = 'info' }: { children: React.ReactNode; tone?: '
 
 // ── Acid-base ─────────────────────────────────────────────────────────────
 
-export function AcidBasePanel() {
+export function AcidBasePanel({ patient }: { patient?: ReportPatient } = {}) {
   const [ph, setPh] = useState('');
   const [paco2, setPaco2] = useState('');
   const [unit, setUnit] = useState<'kPa' | 'mmHg'>('kPa');
@@ -88,6 +93,11 @@ export function AcidBasePanel() {
     ph: numOrNull(ph), paco2: numOrNull(paco2), paco2Unit: unit,
     hco3: numOrNull(hco3), sodium: numOrNull(na), chloride: numOrNull(cl), albumin: numOrNull(alb),
   }), [ph, paco2, unit, hco3, na, cl, alb]);
+
+  const report = useMemo(() => acidBaseReport({
+    ph: numOrNull(ph), paco2: numOrNull(paco2), paco2Unit: unit,
+    hco3: numOrNull(hco3), sodium: numOrNull(na), chloride: numOrNull(cl), albumin: numOrNull(alb),
+  }, patient), [ph, paco2, unit, hco3, na, cl, alb, patient]);
 
   return (
     <div className="space-y-4">
@@ -128,6 +138,8 @@ export function AcidBasePanel() {
           {r.notes.map((n, i) => <li key={i}>{n}</li>)}
         </ul>
       )}
+
+      <CalculatorReportActions report={report} />
     </div>
   );
 }
@@ -138,21 +150,25 @@ const ELECTROLYTES: Record<string, {
   label: string; unit: string; key: string;
   low: ElectrolyteFinding; high: ElectrolyteFinding;
   lowCut: number; highCut: number;
+  /** Outside this range the value is a typo or a wrong unit, not a patient. */
+  plausible: [number, number];
 }> = {
-  sodium:    { label: 'Sodium',    unit: 'mmol/L', key: 'na', low: 'lyte.hyponatraemia', high: 'lyte.hypernatraemia', lowCut: 135, highCut: 145 },
-  potassium: { label: 'Potassium', unit: 'mmol/L', key: 'k',  low: 'lyte.hypokalaemia',  high: 'lyte.hyperkalaemia',  lowCut: 3.5, highCut: 5.3 },
+  sodium:    { label: 'Sodium',    unit: 'mmol/L', key: 'na', low: 'lyte.hyponatraemia', high: 'lyte.hypernatraemia', lowCut: 135, highCut: 145, plausible: [90, 200] },
+  potassium: { label: 'Potassium', unit: 'mmol/L', key: 'k',  low: 'lyte.hypokalaemia',  high: 'lyte.hyperkalaemia',  lowCut: 3.5, highCut: 5.3, plausible: [1, 10] },
 };
 
 export function ElectrolytePanel({
-  analyte, weightKg, ageYears, sex,
-}: { analyte: 'sodium' | 'potassium'; weightKg: number; ageYears: number; sex: Sex }) {
+  analyte, weightKg, ageYears, sex, patient,
+}: { analyte: 'sodium' | 'potassium'; weightKg: number; ageYears: number; sex: Sex; patient?: ReportPatient }) {
   const cfg = ELECTROLYTES[analyte];
   const [value, setValue] = useState('');
   const [severity, setSeverity] = useState<'mild' | 'moderate' | 'severe' | 'critical'>('moderate');
 
   useEffect(() => { setValue(''); }, [analyte]);
 
-  const v = numOrNull(value);
+  const entered = numOrNull(value);
+  const implausible = entered != null && (entered < cfg.plausible[0] || entered > cfg.plausible[1]);
+  const v = implausible ? null : entered;
   const direction = v == null ? null : v < cfg.lowCut ? 'low' : v > cfg.highCut ? 'high' : 'normal';
 
   const plan = useMemo(() => {
@@ -166,6 +182,14 @@ export function ElectrolytePanel({
       severity,
     });
   }, [v, direction, cfg, weightKg, ageYears, sex, severity]);
+
+  const report = useMemo(() => {
+    if (v == null || direction === 'normal' || direction === null) return null;
+    return electrolyteReport({
+      analyteLabel: cfg.label, unit: cfg.unit, key: cfg.key, value: v,
+      finding: direction === 'low' ? cfg.low : cfg.high, weightKg, ageYears, sex, severity,
+    }, patient);
+  }, [v, direction, cfg, weightKg, ageYears, sex, severity, patient]);
 
   return (
     <div className="space-y-4">
@@ -187,7 +211,13 @@ export function ElectrolytePanel({
         <Note>{cfg.label} of {v} {cfg.unit} is within the reference interval. No replacement is indicated.</Note>
       )}
 
-      {v == null && (
+      {implausible && (
+        <Note tone="warn">
+          {cfg.label} {entered} {cfg.unit} is outside {cfg.plausible[0]}–{cfg.plausible[1]} {cfg.unit}. Check the value and the unit — no plan is generated from it.
+        </Note>
+      )}
+
+      {v == null && !implausible && (
         <p className="text-sm text-gray-600">Enter a {cfg.label.toLowerCase()} to generate a correction plan.</p>
       )}
 
@@ -219,6 +249,8 @@ export function ElectrolytePanel({
       {!weightKg && v != null && direction !== 'normal' && (
         <p className="text-xs text-amber-700">Enter a weight — deficit estimates depend on total body water.</p>
       )}
+
+      <CalculatorReportActions report={report} />
     </div>
   );
 }
@@ -226,8 +258,8 @@ export function ElectrolytePanel({
 // ── eGFR ──────────────────────────────────────────────────────────────────
 
 export function GfrPanel({
-  ageYears, sex, onGfr,
-}: { ageYears: number; sex: Sex; onGfr?: (v: number | null) => void }) {
+  ageYears, sex, onGfr, patient,
+}: { ageYears: number; sex: Sex; onGfr?: (v: number | null) => void; patient?: ReportPatient }) {
   const [creat, setCreat] = useState('');
   const [unit, setUnit] = useState<'umol' | 'mgdl'>('umol');
 
@@ -244,13 +276,18 @@ export function GfrPanel({
 
   useEffect(() => { onGfr?.(r.egfr); }, [r.egfr, onGfr]);
 
+  const report = useMemo(
+    () => gfrReport({ creatinineUmolL: umol, enteredValue: numOrNull(creat), enteredUnit: unit, ageYears, sex }, patient),
+    [umol, creat, unit, ageYears, sex, patient]
+  );
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Field label="Creatinine">
           <div className="flex gap-1">
             <input type="number" step="0.01" value={creat} onChange={e => setCreat(e.target.value)} className="input" />
-            <select value={unit} onChange={e => setUnit(e.target.value as any)} className="input w-28">
+            <select value={unit} onChange={e => setUnit(e.target.value as 'umol' | 'mgdl')} className="input w-28">
               <option value="umol">µmol/L</option>
               <option value="mgdl">mg/dL</option>
             </select>
@@ -273,6 +310,12 @@ export function GfrPanel({
       </Note>
 
       {!ageYears && <p className="text-xs text-amber-700">Enter an age — the equation depends on it.</p>}
+      {umol != null && umol <= 0 && <p className="text-xs text-amber-700">Creatinine must be greater than zero.</p>}
+      {umol != null && umol > 0 && (umol < 15 || umol > 3000) && (
+        <p className="text-xs text-amber-700">Creatinine {numOrNull(creat)} {unit === 'mgdl' ? 'mg/dL' : 'µmol/L'} is unusual — check the unit selected.</p>
+      )}
+
+      <CalculatorReportActions report={report} />
     </div>
   );
 }
@@ -290,7 +333,7 @@ const NINES = [
   { key: 'genitalia', label: 'Genitalia', max: 1 },
 ];
 
-export function BurnsPanel({ weightKg, ageYears }: { weightKg: number; ageYears: number }) {
+export function BurnsPanel({ weightKg, ageYears, patient }: { weightKg: number; ageYears: number; patient?: ReportPatient }) {
   const [areas, setAreas] = useState<Record<string, string>>({});
   const [hoursSince, setHoursSince] = useState('0');
   const [inhalation, setInhalation] = useState(false);
@@ -329,6 +372,13 @@ export function BurnsPanel({ weightKg, ageYears }: { weightKg: number; ageYears:
     return burnCareService.determineDisposition(tbsa, inhalation, fullThickness, ageYears || 30, 'flame', circumferential);
   }, [tbsa, inhalation, fullThickness, ageYears, circumferential]);
 
+  const overMax = NINES.filter(r => num(areas[r.key] || '') > r.max);
+
+  const report = useMemo(() => burnsReport({
+    weightKg, ageYears, hoursSince: elapsed, inhalation, fullThickness, circumferential,
+    areas: NINES.map(r => ({ label: r.label, pct: Math.max(0, Math.min(num(areas[r.key] || ''), r.max)) })),
+  }, patient), [weightKg, ageYears, elapsed, inhalation, fullThickness, circumferential, areas, patient]);
+
   return (
     <div className="space-y-4">
       <div>
@@ -344,6 +394,11 @@ export function BurnsPanel({ weightKg, ageYears }: { weightKg: number; ageYears:
             </Field>
           ))}
         </div>
+        {overMax.length > 0 && (
+          <p className="text-xs text-amber-700 mt-2">
+            {overMax.map(r => `${r.label} is capped at ${r.max}%`).join('; ')} — the value entered is above the region's whole area.
+          </p>
+        )}
         <p className="text-xs text-gray-500 mt-2">
           Count partial and full thickness only — superficial erythema is excluded from TBSA, and
           including it overestimates fluid substantially.
@@ -411,6 +466,10 @@ export function BurnsPanel({ weightKg, ageYears }: { weightKg: number; ageYears:
       )}
 
       {!weightKg && <p className="text-xs text-amber-700">Enter a weight — Parkland cannot be calculated without it.</p>}
+      {!tbsa && <p className="text-sm text-gray-600">Enter the burned area by region to calculate TBSA and fluids.</p>}
+      {elapsed > 24 && <p className="text-xs text-amber-700">More than 24 hours since the burn — Parkland covers the first 24 hours only; plan ongoing fluids on losses and urine output.</p>}
+
+      <CalculatorReportActions report={report} />
 
       <div className="pt-3 border-t">
         <ModuleLink to="/burn-care">Open the burn care module to chart fluids and monitor</ModuleLink>
@@ -488,7 +547,7 @@ const RISK_TONE: Record<string, string> = {
   very_high: 'bg-red-50 border-red-300',
 };
 
-export function DvtPanel({ weightKg, heightCm, ageYears }: { weightKg: number; heightCm: number; ageYears: number }) {
+export function DvtPanel({ weightKg, heightCm, ageYears, patient }: { weightKg: number; heightCm: number; ageYears: number; patient?: ReportPatient }) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [result, setResult] = useState<{ score: number; riskLevel: string; interpretation: string } | null>(null);
 
@@ -512,7 +571,7 @@ export function DvtPanel({ weightKg, heightCm, ageYears }: { weightKg: number; h
   useEffect(() => {
     let live = true;
     riskAssessmentService
-      .calculateDVTRisk({ risk_factors: factors as any })
+      .calculateDVTRisk({ risk_factors: factors })
       .then(r => { if (live) setResult(r); })
       .catch(() => { if (live) setResult(null); });
     return () => { live = false; };
@@ -559,6 +618,15 @@ export function DvtPanel({ weightKg, heightCm, ageYears }: { weightKg: number; h
             A high Caprini score in a patient actively bleeding does not mean anticoagulate.
           </Note>
           <ModuleLink to="/booking-register">Record this assessment in preoperative planning</ModuleLink>
+          <CalculatorReportActions report={scoreReport({
+            id: 'dvt', name: 'Caprini VTE risk', scoreLabel: 'Caprini score', scoreValue: String(result.score), result,
+            inputs: [
+              { label: 'Age', value: ageYears ? `${ageYears} years` : '—' },
+              { label: 'BMI', value: bmi ? bmi.toFixed(1) : '—' },
+              ...CAPRINI.flatMap(g => g.items.filter(i => checked[i.key]).map(i => ({ label: i.label, value: `+${g.points}` }))),
+            ],
+            advice: ['Prophylaxis choice also depends on bleeding risk, which this score does not measure.'],
+          }, patient)} />
         </div>
       )}
     </div>
@@ -588,7 +656,7 @@ const BRADEN: { key: string; label: string; options: { v: number; l: string }[] 
     { v: 3, l: '3 — No apparent problem' }] },
 ];
 
-export function PressureSorePanel() {
+export function PressureSorePanel({ patient }: { patient?: ReportPatient } = {}) {
   const [scores, setScores] = useState<Record<string, number>>({
     sensory_perception: 4, moisture: 4, activity: 4, mobility: 4, nutrition: 4, friction_shear: 3,
   });
@@ -597,7 +665,7 @@ export function PressureSorePanel() {
   useEffect(() => {
     let live = true;
     riskAssessmentService
-      .calculatePressureSoreRisk({ braden_subscores: scores as any })
+      .calculatePressureSoreRisk({ braden_subscores: scores as unknown as BradenSubscores })
       .then(r => { if (live) setResult(r); })
       .catch(() => { if (live) setResult(null); });
     return () => { live = false; };
@@ -631,6 +699,11 @@ export function PressureSorePanel() {
             Reassess after any change in mobility, continence or conscious level.
           </Note>
           <ModuleLink to="/pressure-sore">Open the pressure sore module</ModuleLink>
+          <CalculatorReportActions report={scoreReport({
+            id: 'pressuresore', name: 'Braden pressure sore risk', scoreLabel: 'Braden total', scoreValue: `${result.score}/23`, result,
+            inputs: BRADEN.map(d => ({ label: d.label, value: d.options.find(o => o.v === scores[d.key])?.l ?? String(scores[d.key]) })),
+            advice: ['Reassess after any change in mobility, continence or conscious level; the score does not replace looking at the skin.'],
+          }, patient)} />
         </div>
       )}
     </div>
@@ -639,7 +712,7 @@ export function PressureSorePanel() {
 
 // ── MUST malnutrition screening ───────────────────────────────────────────
 
-export function MustPanel({ weightKg, heightCm }: { weightKg: number; heightCm: number }) {
+export function MustPanel({ weightKg, heightCm, patient }: { weightKg: number; heightCm: number; patient?: ReportPatient }) {
   const [weightLossPct, setWeightLossPct] = useState('');
   const [acuteIllness, setAcuteIllness] = useState(false);
   const [result, setResult] = useState<{ score: number; riskLevel: string; interpretation: string } | null>(null);
@@ -656,7 +729,7 @@ export function MustPanel({ weightKg, heightCm }: { weightKg: number; heightCm: 
     riskAssessmentService
       .calculateNutritionalRisk({
         must_components: { bmi_score: bmiScore, weight_loss_score: lossScore, acute_disease_score: acuteScore },
-      } as any)
+      })
       .then(r => { if (live) setResult(r); })
       .catch(() => { if (live) setResult(null); });
     return () => { live = false; };
@@ -666,7 +739,8 @@ export function MustPanel({ weightKg, heightCm }: { weightKg: number; heightCm: 
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Unplanned weight loss (%)" hint="Over the past 3–6 months">
-          <input type="number" step="0.1" value={weightLossPct} onChange={e => setWeightLossPct(e.target.value)} className="input" />
+          <input type="number" step="0.1" min="0" max="100" value={weightLossPct} onChange={e => setWeightLossPct(e.target.value)} className="input" />
+          {lossPct != null && (lossPct < 0 || lossPct > 60) && <p className="text-xs text-amber-700 mt-0.5">Enter a loss between 0 and 60%.</p>}
         </Field>
       </div>
 
@@ -690,6 +764,16 @@ export function MustPanel({ weightKg, heightCm }: { weightKg: number; heightCm: 
             <Stat label="Risk" value={result.riskLevel} tone={RISK_TONE[result.riskLevel]} />
           </div>
           <p className="text-sm text-gray-700">{result.interpretation}</p>
+          {bmi == null && <p className="text-xs text-amber-700">The BMI component was not scored — this total is a minimum.</p>}
+          <CalculatorReportActions report={scoreReport({
+            id: 'must', name: 'MUST malnutrition screening', scoreLabel: 'MUST score', scoreValue: String(result.score), result,
+            inputs: [
+              { label: 'BMI', value: bmi ? `${bmi.toFixed(1)} kg/m² (${bmiScore} point${bmiScore === 1 ? '' : 's'})` : 'Not entered (not scored)' },
+              { label: 'Unplanned weight loss', value: lossPct != null ? `${lossPct}% (${lossScore})` : 'Not entered (0)' },
+              { label: 'Acute illness, no intake > 5 days', value: acuteIllness ? 'Yes (2)' : 'No (0)' },
+            ],
+            advice: [],
+          }, patient)} />
         </div>
       )}
     </div>
@@ -747,7 +831,7 @@ function MealPlanDays({ days }: { days: DayPlan[] }) {
   );
 }
 
-export function WoundMealPlanPanel({ weightKg }: { weightKg: number }) {
+export function WoundMealPlanPanel({ weightKg, patient }: { weightKg: number; patient?: ReportPatient }) {
   const [severity, setSeverity] = useState<WoundSeverity>('moderate');
   const [albumin, setAlbumin] = useState('');
   const [diabetes, setDiabetes] = useState(false);
@@ -809,8 +893,11 @@ export function WoundMealPlanPanel({ weightKg }: { weightKg: number }) {
 
           <div>
             <p className="font-semibold text-sm text-gray-900 mb-2">Seven-day plan</p>
-            <MealPlanDays days={r.days} />
+            {r.days.length ? <MealPlanDays days={r.days} /> : <p className="text-sm text-amber-700">No feasible meal plan for these targets.</p>}
           </div>
+          <CalculatorReportActions report={woundMealReport({
+            weightKg, severity, albuminGdL: numOrNull(albumin), diabetes, ckd, liverDisease: liver,
+          }, patient)} />
         </>
       )}
     </div>
@@ -822,7 +909,7 @@ export function WoundMealPlanPanel({ weightKg }: { weightKg: number }) {
  * when the target comes from somewhere other than the wound or weight
  * calculators — a dietitian's figure, or a condition-specific requirement.
  */
-export function NutritionPanel({ weightKg }: { weightKg: number }) {
+export function NutritionPanel({ weightKg, patient }: { weightKg: number; patient?: ReportPatient }) {
   const [kcal, setKcal] = useState('');
   const [proteinPerKg, setProteinPerKg] = useState('1.2');
 
@@ -857,12 +944,19 @@ export function NutritionPanel({ weightKg }: { weightKg: number }) {
 
       {!weightKg && <p className="text-sm text-amber-700">Enter a weight above.</p>}
 
+      {weightKg > 0 && !targetKcal && <p className="text-sm text-gray-600">Enter an energy target to build the seven-day plan.</p>}
+      {targetKcal > 0 && (targetKcal < 800 || targetKcal > 5000) && (
+        <p className="text-xs text-amber-700">An energy target of {targetKcal} kcal/day is outside 800–5000 — check the figure.</p>
+      )}
+
       {days && (
         <div>
           <p className="font-semibold text-sm text-gray-900 mb-2">Seven-day plan</p>
-          <MealPlanDays days={days} />
+          {days.length ? <MealPlanDays days={days} /> : <p className="text-sm text-amber-700">No feasible meal plan for these targets.</p>}
         </div>
       )}
+
+      <CalculatorReportActions report={nutritionReport({ weightKg, kcal: targetKcal, proteinPerKg: num(proteinPerKg), days }, patient)} />
 
       <Note>
         Portions use West African foods with household measures, from the app's food composition

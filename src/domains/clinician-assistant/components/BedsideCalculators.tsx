@@ -29,7 +29,10 @@ import {
   AcidBasePanel, ElectrolytePanel, GfrPanel, BurnsPanel, DvtPanel,
   PressureSorePanel, MustPanel, WoundMealPlanPanel, NutritionPanel, MealPlanDays,
 } from './CalculatorPanels';
-import { generateMealPlan } from '../../../data/nigerianFoods';
+import { generateMealPlan, type DayPlan } from '../../../data/nigerianFoods';
+import CalculatorReportActions from '../../calculators/report/components/CalculatorReportActions';
+import type { ReportPatient } from '../../calculators/report/types';
+import { resuscitationReport, sickleReport, weightPlanReport } from '../services/bedsideReports';
 
 // The BNF database is several thousand drug records. Loading it with the tab
 // would make every other calculator wait for data most of them never touch.
@@ -41,6 +44,11 @@ export interface PatientPrefill {
   heightCm?: number | null;
   ageYears?: number | null;
   sex?: Sex;
+  /** Identity, for the PDF only — never sent to the AI. */
+  name?: string;
+  hospitalNumber?: string;
+  comorbidities?: string[];
+  diagnosis?: string;
 }
 
 type Tool =
@@ -128,6 +136,29 @@ export default function BedsideCalculators({ prefill }: { prefill?: PatientPrefi
 
   const w = num(weight), h = num(height), a = num(age);
 
+  // What the reports (PDF, AI) know about the patient: the values on the
+  // form now, plus identity when a patient record is selected.
+  const patient = useMemo<ReportPatient | undefined>(() => {
+    const p: ReportPatient = {
+      name: prefill?.name || undefined,
+      hospitalNumber: prefill?.hospitalNumber || undefined,
+      comorbidities: prefill?.comorbidities?.length ? prefill.comorbidities : undefined,
+      diagnosis: prefill?.diagnosis || undefined,
+      ageYears: a > 0 ? a : null,
+      sex: sex === 'unspecified' ? undefined : sex,
+      weightKg: w > 0 ? w : null,
+      heightCm: h > 0 ? h : null,
+    };
+    return p.name || p.hospitalNumber || p.ageYears || p.sex || p.weightKg || p.heightCm ? p : undefined;
+  }, [prefill, a, sex, w, h]);
+
+  // Out-of-range demographics are flagged, not silently used.
+  const demographicWarnings = [
+    weight !== '' && !(w > 0 && w <= 400) ? 'Weight should be between 1 and 400 kg.' : null,
+    height !== '' && !(h >= 40 && h <= 250) ? 'Height should be between 40 and 250 cm.' : null,
+    age !== '' && !(a > 0 && a <= 120) ? 'Age should be between 0 and 120 years.' : null,
+  ].filter((x): x is string => x !== null);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
@@ -174,24 +205,27 @@ export default function BedsideCalculators({ prefill }: { prefill?: PatientPrefi
                 </select>
               </Field>
             )}
+            {demographicWarnings.length > 0 && (
+              <p className="col-span-2 sm:col-span-4 text-xs text-amber-700">{demographicWarnings.join(' ')}</p>
+            )}
           </div>
         )}
 
-        {tool === 'resuscitation' && <Resuscitation weightKg={w} />}
-        {tool === 'sickle' && <SickleCell weightKg={w} />}
-        {tool === 'gain' && <WeightPlan mode="gain" weightKg={w} heightCm={h} ageYears={a} sex={sex} />}
-        {tool === 'reduction' && <WeightPlan mode="reduction" weightKg={w} heightCm={h} ageYears={a} sex={sex} />}
+        {tool === 'resuscitation' && <Resuscitation weightKg={w} patient={patient} />}
+        {tool === 'sickle' && <SickleCell weightKg={w} patient={patient} />}
+        {tool === 'gain' && <WeightPlan mode="gain" weightKg={w} heightCm={h} ageYears={a} sex={sex} patient={patient} />}
+        {tool === 'reduction' && <WeightPlan mode="reduction" weightKg={w} heightCm={h} ageYears={a} sex={sex} patient={patient} />}
 
-        {tool === 'sodium' && <ElectrolytePanel analyte="sodium" weightKg={w} ageYears={a} sex={sex} />}
-        {tool === 'potassium' && <ElectrolytePanel analyte="potassium" weightKg={w} ageYears={a} sex={sex} />}
-        {tool === 'acidbase' && <AcidBasePanel />}
-        {tool === 'gfr' && <GfrPanel ageYears={a} sex={sex} onGfr={setGfr} />}
-        {tool === 'burns' && <BurnsPanel weightKg={w} ageYears={a} />}
-        {tool === 'nutrition' && <NutritionPanel weightKg={w} />}
-        {tool === 'dvt' && <DvtPanel weightKg={w} heightCm={h} ageYears={a} />}
-        {tool === 'pressuresore' && <PressureSorePanel />}
-        {tool === 'must' && <MustPanel weightKg={w} heightCm={h} />}
-        {tool === 'woundmeal' && <WoundMealPlanPanel weightKg={w} />}
+        {tool === 'sodium' && <ElectrolytePanel analyte="sodium" weightKg={w} ageYears={a} sex={sex} patient={patient} />}
+        {tool === 'potassium' && <ElectrolytePanel analyte="potassium" weightKg={w} ageYears={a} sex={sex} patient={patient} />}
+        {tool === 'acidbase' && <AcidBasePanel patient={patient} />}
+        {tool === 'gfr' && <GfrPanel ageYears={a} sex={sex} onGfr={setGfr} patient={patient} />}
+        {tool === 'burns' && <BurnsPanel weightKg={w} ageYears={a} patient={patient} />}
+        {tool === 'nutrition' && <NutritionPanel weightKg={w} patient={patient} />}
+        {tool === 'dvt' && <DvtPanel weightKg={w} heightCm={h} ageYears={a} patient={patient} />}
+        {tool === 'pressuresore' && <PressureSorePanel patient={patient} />}
+        {tool === 'must' && <MustPanel weightKg={w} heightCm={h} patient={patient} />}
+        {tool === 'woundmeal' && <WoundMealPlanPanel weightKg={w} patient={patient} />}
 
         {tool === 'bnf' && (
           <Suspense fallback={
@@ -209,7 +243,7 @@ export default function BedsideCalculators({ prefill }: { prefill?: PatientPrefi
 
 // ── Resuscitation & sepsis ────────────────────────────────────────────────
 
-function Resuscitation({ weightKg }: { weightKg: number }) {
+function Resuscitation({ weightKg, patient }: { weightKg: number; patient?: ReportPatient }) {
   const [sbp, setSbp] = useState('');
   const [dbp, setDbp] = useState('');
   const [hr, setHr] = useState('');
@@ -228,6 +262,21 @@ function Resuscitation({ weightKg }: { weightKg: number }) {
     { wbc: numOrNull(wbc), lactate: numOrNull(lactate) }
   ), [sbp, dbp, hr, rr, temp, gcs, wbc, lactate]);
 
+  const report = useMemo(() => resuscitationReport({
+    weightKg, dehydration,
+    vitals: {
+      systolicBP: numOrNull(sbp), diastolicBP: numOrNull(dbp), heartRate: numOrNull(hr),
+      respiratoryRate: numOrNull(rr), temperature: numOrNull(temp), gcs: numOrNull(gcs),
+    },
+    labs: { wbc: numOrNull(wbc), lactate: numOrNull(lactate) },
+  }, patient), [weightKg, dehydration, sbp, dbp, hr, rr, temp, gcs, wbc, lactate, patient]);
+
+  const vitalWarnings = [
+    gcs !== '' && !(num(gcs) >= 3 && num(gcs) <= 15) ? 'GCS must be 3–15.' : null,
+    temp !== '' && !(num(temp) >= 25 && num(temp) <= 45) ? 'Temperature should be 25–45 °C.' : null,
+    sbp !== '' && dbp !== '' && num(dbp) >= num(sbp) ? 'Diastolic is not below systolic — check the blood pressure.' : null,
+  ].filter((x): x is string => x !== null);
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -240,6 +289,8 @@ function Resuscitation({ weightKg }: { weightKg: number }) {
         <Field label="WBC (×10⁹/L)"><input type="number" step="0.1" value={wbc} onChange={e => setWbc(e.target.value)} className="input" /></Field>
         <Field label="Lactate (mmol/L)"><input type="number" step="0.1" value={lactate} onChange={e => setLactate(e.target.value)} className="input" /></Field>
       </div>
+
+      {vitalWarnings.length > 0 && <p className="text-xs text-amber-700">{vitalWarnings.join(' ')}</p>}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Stat label="MAP" value={result.map ?? '—'} unit={result.map ? 'mmHg' : ''}
@@ -289,13 +340,15 @@ function Resuscitation({ weightKg }: { weightKg: number }) {
         </div>
         {!weightKg && <p className="text-xs text-amber-700 mt-2">Enter a weight — fluid volumes cannot be estimated without it.</p>}
       </div>
+
+      <CalculatorReportActions report={report} />
     </div>
   );
 }
 
 // ── Sickle cell crisis ────────────────────────────────────────────────────
 
-function SickleCell({ weightKg }: { weightKg: number }) {
+function SickleCell({ weightKg, patient }: { weightKg: number; patient?: ReportPatient }) {
   const [pain, setPain] = useState('7');
   const [hb, setHb] = useState('');
   const [baseline, setBaseline] = useState('');
@@ -314,6 +367,11 @@ function SickleCell({ weightKg }: { weightKg: number }) {
     chestSymptoms: chest,
     priorStroke: stroke,
   }), [weightKg, pain, hb, baseline, spo2, temp, chest, stroke]);
+
+  const report = useMemo(() => sickleReport({
+    weightKg, painScore: num(pain), haemoglobinGdL: numOrNull(hb), baselineHbGdL: numOrNull(baseline),
+    spo2: numOrNull(spo2), temperatureC: numOrNull(temp), chestSymptoms: chest, priorStroke: stroke,
+  }, patient), [weightKg, pain, hb, baseline, spo2, temp, chest, stroke, patient]);
 
   return (
     <div className="space-y-4">
@@ -363,6 +421,10 @@ function SickleCell({ weightKg }: { weightKg: number }) {
       </div>
 
       {!weightKg && <p className="text-xs text-amber-700">Enter a weight for fluid and opioid dosing.</p>}
+      {pain !== '' && !(num(pain) >= 0 && num(pain) <= 10) && <p className="text-xs text-amber-700">Pain score must be 0–10.</p>}
+      {spo2 !== '' && !(num(spo2) > 50 && num(spo2) <= 100) && <p className="text-xs text-amber-700">SpO₂ should be 50–100%.</p>}
+
+      <CalculatorReportActions report={report} />
     </div>
   );
 }
@@ -370,8 +432,8 @@ function SickleCell({ weightKg }: { weightKg: number }) {
 // ── Weight gain / reduction ───────────────────────────────────────────────
 
 function WeightPlan({
-  mode, weightKg, heightCm, ageYears, sex,
-}: { mode: 'gain' | 'reduction'; weightKg: number; heightCm: number; ageYears: number; sex: Sex }) {
+  mode, weightKg, heightCm, ageYears, sex, patient,
+}: { mode: 'gain' | 'reduction'; weightKg: number; heightCm: number; ageYears: number; sex: Sex; patient?: ReportPatient }) {
   const [activity, setActivity] = useState<ActivityLevel>('moderate');
   const [targetChange, setTargetChange] = useState('');
   const [weeks, setWeeks] = useState('');
@@ -386,6 +448,19 @@ function WeightPlan({
   }, [mode, weightKg, heightCm, ageYears, sex, activity, targetChange, weeks]);
 
   const ready = weightKg > 0 && heightCm > 0 && ageYears > 0;
+
+  // The meal plan is built only when opened (the optimiser is not free), and
+  // goes into the PDF once it has been.
+  const [mealOpen, setMealOpen] = useState(false);
+  const days = useMemo(
+    () => (mealOpen && ready ? generateMealPlan(plan.targetCalories, plan.proteinG, { goal: mode === 'gain' ? 'gain' : 'loss' }) : null),
+    [mealOpen, ready, plan.targetCalories, plan.proteinG, mode]
+  );
+
+  const report = useMemo(() => weightPlanReport({
+    mode, weightKg, heightCm, ageYears, sex, activity,
+    targetChangeKg: numOrNull(targetChange) ?? undefined, weeks: numOrNull(weeks) ?? undefined, days,
+  }, patient), [mode, weightKg, heightCm, ageYears, sex, activity, targetChange, weeks, days, patient]);
 
   return (
     <div className="space-y-4">
@@ -441,7 +516,12 @@ function WeightPlan({
             mode={mode}
             targetCalories={plan.targetCalories}
             proteinG={plan.proteinG}
+            open={mealOpen}
+            onToggle={() => setMealOpen(o => !o)}
+            days={days}
           />
+
+          <CalculatorReportActions report={report} />
         </>
       )}
     </div>
@@ -455,18 +535,15 @@ function WeightPlan({
  * most consultations need; the plan is what the patient goes home with.
  */
 function MealPlanSection({
-  mode, targetCalories, proteinG,
-}: { mode: 'gain' | 'reduction'; targetCalories: number; proteinG: number }) {
-  const [open, setOpen] = useState(false);
-  const days = useMemo(
-    () => (open ? generateMealPlan(targetCalories, proteinG) : null),
-    [open, targetCalories, proteinG]
-  );
-
+  mode, targetCalories, proteinG, open, onToggle, days,
+}: {
+  mode: 'gain' | 'reduction'; targetCalories: number; proteinG: number;
+  open: boolean; onToggle: () => void; days: DayPlan[] | null;
+}) {
   return (
     <div className="pt-3 border-t">
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={onToggle}
         className="text-sm font-medium text-primary-700 hover:underline"
       >
         {open ? 'Hide' : 'Show'} seven-day {mode === 'gain' ? 'weight gain' : 'weight loss'} meal plan
@@ -479,7 +556,7 @@ function MealPlanSection({
             foods and household measures.
             {mode === 'reduction' && ' Protein is held high so the deficit comes off fat rather than muscle.'}
           </p>
-          <MealPlanDays days={days} />
+          {days.length ? <MealPlanDays days={days} /> : <p className="text-sm text-amber-700">No feasible meal plan for these targets.</p>}
         </div>
       )}
     </div>
