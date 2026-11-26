@@ -1,11 +1,19 @@
 // Weight Gain Calculator
 // Clinical Weight Gain for Underweight/Malnourished Patients
 
-import { useState } from 'react';
-import { TrendingUp, Calculator, AlertCircle, Target, Apple, Download, Share2 } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { PatientCalculatorInfo, WeightManagementResult } from '../../types';
-import { downloadMealPlanPDF, shareMealPlanOnWhatsApp, type MealPlanPDFOptions } from '../../../../utils/mealPlanPdfGenerator';
+import { useMemo, useState } from 'react';
+import { TrendingUp, Calculator, AlertCircle, Target, Apple } from 'lucide-react';
+import { PatientCalculatorInfo } from '../../types';
+import { toSex } from '../../engine/calculationEngine';
+import {
+  GAIN_ACTIVITY, GAIN_RATES, computeWeightGain, weightGainDays, weightGainReport,
+  type WeightGainInput, type WeightGainResult,
+} from '../../engine/hub/weightGain';
+import { NO_PLAN_MESSAGE } from '../../engine/hub/nutritionCommon';
+import { hasComorbidity } from '../../report/hubPatient';
+import CalculatorReportActions from '../../report/components/CalculatorReportActions';
+import { MealPlanDays } from '../../../clinician-assistant/components/CalculatorPanels';
+import type { DayPlan } from '../../../../data/nigerianFoods';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -16,185 +24,48 @@ export default function WeightGainCalculator({ patientInfo }: Props) {
   const [targetWeight, setTargetWeight] = useState('');
   const [height, setHeight] = useState(patientInfo.height || '');
   const [age, setAge] = useState(patientInfo.age || '');
-  const [gender, setGender] = useState<'male' | 'female'>((patientInfo.gender || 'male') as 'male' | 'female');
+  // Elderly categories fold into sex: an elderly man uses the male equation.
+  const [gender, setGender] = useState<'male' | 'female'>(toSex(patientInfo.gender));
   const [activityLevel, setActivityLevel] = useState<string>('light');
   const [gainRate, setGainRate] = useState<string>('moderate');
-  
+
   // Clinical context
-  const [isMalnourished, setIsMalnourished] = useState(false);
+  const [isMalnourished, setIsMalnourished] = useState(hasComorbidity(patientInfo, /malnutrition/i));
   const [isPostSurgery, setIsPostSurgery] = useState(false);
   const [hasChronicDisease, setHasChronicDisease] = useState(false);
-  
-  const [result, setResult] = useState<WeightManagementResult | null>(null);
 
-  const activityMultipliers: Record<string, { label: string; factor: number }> = {
-    bedridden: { label: 'Bedridden', factor: 1.2 },
-    sedentary: { label: 'Sedentary', factor: 1.3 },
-    light: { label: 'Light activity', factor: 1.4 },
-    moderate: { label: 'Moderate activity', factor: 1.55 },
-    active: { label: 'Active', factor: 1.7 },
-  };
+  const [result, setResult] = useState<WeightGainResult | null>(null);
+  const [calcInput, setCalcInput] = useState<WeightGainInput | null>(null);
+  const [days, setDays] = useState<DayPlan[] | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
 
-  const gainRates: Record<string, { label: string; kgPerWeek: number; surplus: number }> = {
-    slow: { label: 'Slow', kgPerWeek: 0.25, surplus: 250 },
-    moderate: { label: 'Moderate', kgPerWeek: 0.5, surplus: 500 },
-    fast: { label: 'Faster', kgPerWeek: 0.75, surplus: 750 },
-  };
+  const activityMultipliers = GAIN_ACTIVITY;
+  const gainRates = GAIN_RATES;
 
   const calculate = () => {
-    const current = parseFloat(currentWeight);
-    const target = parseFloat(targetWeight);
-    const heightCm = parseFloat(height);
-    const ageYears = parseInt(age);
-    
-    if (target <= current) {
-      alert('Target weight should be more than current weight for weight gain.');
+    const input: WeightGainInput = {
+      currentWeightKg: currentWeight, targetWeightKg: targetWeight, heightCm: height, ageYears: age,
+      sex: gender, activityLevel, rate: gainRate,
+      malnourished: isMalnourished, postSurgery: isPostSurgery, chronicDisease: hasChronicDisease,
+      diabetes: hasComorbidity(patientInfo, /diabet/i),
+    };
+    const out = computeWeightGain(input);
+    if ('errors' in out) {
+      setErrors(out.errors);
+      setResult(null);
+      setDays(null);
       return;
     }
-
-    // BMI calculations
-    const heightM = heightCm / 100;
-    const currentBMI = current / (heightM * heightM);
-    const targetBMI = target / (heightM * heightM);
-    const idealWeight = 22 * heightM * heightM;
-    
-    // BMR using Mifflin-St Jeor
-    let bmr: number;
-    if (gender === 'male') {
-      bmr = (10 * current) + (6.25 * heightCm) - (5 * ageYears) + 5;
-    } else {
-      bmr = (10 * current) + (6.25 * heightCm) - (5 * ageYears) - 161;
-    }
-    
-    // TDEE
-    let activityFactor = activityMultipliers[activityLevel].factor;
-    
-    // Adjust for clinical conditions
-    if (isMalnourished) activityFactor *= 1.2; // Catch-up growth
-    if (isPostSurgery) activityFactor *= 1.1; // Healing demands
-    if (hasChronicDisease) activityFactor *= 1.15; // Increased needs
-    
-    const tdee = bmr * activityFactor;
-    
-    // Weight to gain
-    const weightToGain = target - current;
-    const rate = gainRates[gainRate];
-    const weeksNeeded = Math.ceil(weightToGain / rate.kgPerWeek);
-    const monthsNeeded = Math.round(weeksNeeded / 4.3);
-    
-    // Caloric surplus
-    const targetCalories = Math.round(tdee + rate.surplus);
-    
-    // Protein for muscle/tissue building (1.5-2 g/kg)
-    const proteinTarget = Math.round(1.8 * current);
-    
-    // Nigerian/African high-calorie foods
-    const dietarySuggestions = {
-      toEat: [
-        '🍚 Rice with stew and plenty of meat/fish',
-        '🥜 Groundnuts and groundnut soup',
-        '🍌 Ripe plantain (fried or boiled)',
-        '🥛 Full-cream milk, powdered milk in pap',
-        '🥚 Eggs - boiled, fried, or in dishes',
-        '🫘 Beans with palm oil',
-        '🍠 Yam porridge with vegetables',
-        '🐟 Fish (dried or fresh) - excellent protein',
-        '🥑 Avocado when in season',
-        '🍯 Honey in beverages',
-      ],
-      highCalorieMeals: [
-        'Jollof rice with chicken and plantain - 800+ kcal',
-        'Eba with egusi and assorted meat - 700+ kcal',
-        'Beans and plantain with palm oil - 600+ kcal',
-        'Moi-moi with pap and milk - 500+ kcal',
-        'Suya (grilled meat) - high protein snack',
-      ],
-      toLimit: [
-        'Avoid filling up on water before meals',
-        'Don\'t skip meals',
-        'Limit low-calorie vegetables at start of meals',
-      ],
-      mealTiming: [
-        'Eat 3 main meals + 2-3 snacks',
-        'Never skip breakfast',
-        'Eat calorie-dense foods first',
-        'Drink beverages after meals, not before',
-        'Have a bedtime snack',
-      ],
-    };
-
-    // Supplements for weight gain
-    const supplements: string[] = [];
-    if (isMalnourished) {
-      supplements.push('Therapeutic foods (Plumpy\'nut) if available');
-      supplements.push('Micronutrient supplementation (multivitamins)');
-      supplements.push('Zinc 20mg daily for first 2 weeks');
-    }
-    supplements.push('Protein powder if available and affordable');
-    supplements.push('Full-cream powdered milk - add to foods and drinks');
-    supplements.push('Oral nutritional supplements (ONS) if prescribed');
-
-    // Medical considerations
-    const medicalConsiderations: string[] = [];
-    if (currentBMI < 16) {
-      medicalConsiderations.push('⚠️ Severe underweight (BMI <16) - Medical supervision essential');
-      medicalConsiderations.push('Risk of refeeding syndrome - start slowly');
-      medicalConsiderations.push('Monitor phosphate, potassium, magnesium');
-    } else if (currentBMI < 17) {
-      medicalConsiderations.push('Moderate underweight - Medical evaluation recommended');
-    }
-    if (isMalnourished) {
-      medicalConsiderations.push('Malnutrition: Gradual increase in calories over 7-10 days');
-      medicalConsiderations.push('Monitor for refeeding syndrome');
-    }
-    if (isPostSurgery) {
-      medicalConsiderations.push('Post-surgical: Focus on protein for wound healing');
-    }
-
-    // Milestones
-    const milestones = [
-      { weight: Math.round(current + (target - current) * 0.25), achievement: '25% progress - Keep going!' },
-      { weight: Math.round(current + (target - current) * 0.5), achievement: '50% - Halfway there!' },
-      { weight: Math.round(current + (target - current) * 0.75), achievement: '75% - Almost there!' },
-      { weight: target, achievement: 'Target reached! 🎉' },
-    ];
-
-    // Exercises for healthy weight gain
-    const exerciseRecommendations = [
-      'Resistance training 3-4 times/week for muscle building',
-      'Compound exercises: Squats, deadlifts, bench press',
-      'Limit excessive cardio (burns calories)',
-      'Focus on strength, not endurance',
-      'Rest adequately between workouts',
-      'Sleep 7-9 hours for recovery and growth',
-    ];
-
-    const calculationResult: WeightManagementResult = {
-      direction: 'gain',
-      currentWeight: current,
-      targetWeight: target,
-      currentBMI: Math.round(currentBMI * 10) / 10,
-      targetBMI: Math.round(targetBMI * 10) / 10,
-      idealWeight: Math.round(idealWeight * 10) / 10,
-      weightChange: weightToGain,
-      bmr: Math.round(bmr),
-      tdee: Math.round(tdee),
-      targetCalories,
-      dailyDeficit: -rate.surplus, // Surplus as negative deficit
-      proteinTarget,
-      weeksNeeded,
-      monthsNeeded,
-      weeklyRate: rate.kgPerWeek,
-      exerciseRecommendations,
-      dietarySuggestions,
-      medicalConsiderations,
-      milestones,
-      warnings: currentBMI >= 25 ? ['BMI already in healthy/overweight range - weight gain may not be necessary'] : [],
-      supplements,
-    };
-    
-    setResult(calculationResult);
+    setErrors([]);
+    setCalcInput(input);
+    setResult(out.result);
+    setDays(weightGainDays(out.result));
   };
+
+  const report = useMemo(
+    () => (result && calcInput ? weightGainReport(result, calcInput, patientInfo, days) : null),
+    [result, calcInput, patientInfo, days]
+  );
 
   const getBMICategory = (bmi: number): { category: string; color: string } => {
     if (bmi < 16) return { category: 'Severe Underweight', color: 'text-red-600' };
@@ -349,87 +220,22 @@ export default function WeightGainCalculator({ patientInfo }: Props) {
         Calculate Weight Gain Plan
       </button>
 
+      {errors.length > 0 && (
+        <div className="mt-4 bg-red-50 border border-red-300 rounded-lg p-3 text-sm text-red-800" role="alert">
+          <ul className="list-disc ml-5 space-y-0.5">{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+        </div>
+      )}
+
       {/* Results */}
       {result && (
         <div className="mt-8 space-y-4">
           <div className="border-t-2 border-gray-200 pt-6">
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3 mb-6">
-              <button
-                onClick={() => {
-                  const pdfOptions: MealPlanPDFOptions = {
-                    patientName: patientInfo.name || undefined,
-                    hospitalNumber: patientInfo.hospitalNumber || undefined,
-                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
-                    gender: patientInfo.gender || undefined,
-                    weight: parseFloat(currentWeight) || undefined,
-                    height: parseFloat(height) || undefined,
-                    diagnosis: 'Underweight / Malnutrition',
-                    planType: 'weight_gain',
-                    calorieTarget: result.targetCalories,
-                    proteinTarget: result.proteinTarget,
-                    fluidTarget: 2500,
-                    mealPlan: {
-                      breakfast: result.dietarySuggestions?.toEat?.slice(0, 2) || [],
-                      lunch: result.dietarySuggestions?.toEat?.slice(2, 4) || [],
-                      dinner: result.dietarySuggestions?.toEat?.slice(4, 6) || [],
-                    },
-                    foodsToEat: result.dietarySuggestions?.toEat,
-                    foodsToAvoid: result.dietarySuggestions?.toLimit,
-                    exerciseRecommendations: result.exerciseRecommendations,
-                    warnings: result.medicalConsiderations,
-                    currentBMI: result.currentBMI,
-                    targetBMI: result.targetBMI,
-                    weightChange: result.weightChange,
-                    weeksNeeded: result.weeksNeeded,
-                    dailyDeficit: result.dailyDeficit,
-                  };
-                  downloadMealPlanPDF(pdfOptions);
-                  toast.success('Weight gain plan PDF downloaded!');
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Download PDF
-              </button>
-              <button
-                onClick={async () => {
-                  const pdfOptions: MealPlanPDFOptions = {
-                    patientName: patientInfo.name || undefined,
-                    hospitalNumber: patientInfo.hospitalNumber || undefined,
-                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
-                    gender: patientInfo.gender || undefined,
-                    weight: parseFloat(currentWeight) || undefined,
-                    height: parseFloat(height) || undefined,
-                    diagnosis: 'Underweight / Malnutrition',
-                    planType: 'weight_gain',
-                    calorieTarget: result.targetCalories,
-                    proteinTarget: result.proteinTarget,
-                    fluidTarget: 2500,
-                    mealPlan: {
-                      breakfast: result.dietarySuggestions?.toEat?.slice(0, 2) || [],
-                      lunch: result.dietarySuggestions?.toEat?.slice(2, 4) || [],
-                      dinner: result.dietarySuggestions?.toEat?.slice(4, 6) || [],
-                    },
-                    foodsToEat: result.dietarySuggestions?.toEat,
-                    foodsToAvoid: result.dietarySuggestions?.toLimit,
-                    exerciseRecommendations: result.exerciseRecommendations,
-                    warnings: result.medicalConsiderations,
-                    currentBMI: result.currentBMI,
-                    targetBMI: result.targetBMI,
-                    weightChange: result.weightChange,
-                    weeksNeeded: result.weeksNeeded,
-                    dailyDeficit: result.dailyDeficit,
-                  };
-                  await shareMealPlanOnWhatsApp(pdfOptions);
-                  toast.success('Opening WhatsApp...');
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                Share on WhatsApp
-              </button>
-            </div>
+            {/* Warnings the calculation raised */}
+            {result.warnings.length > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 mb-4 text-sm text-amber-900" role="status">
+                <ul className="list-disc ml-5 space-y-1">{result.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+              </div>
+            )}
 
             {/* Summary Cards */}
             <div className="grid md:grid-cols-4 gap-4 mb-6">
@@ -446,9 +252,9 @@ export default function WeightGainCalculator({ patientInfo }: Props) {
                 <p className="font-semibold text-sm">Protein/Day</p>
               </div>
               <div className="bg-blue-100 rounded-lg p-4 text-center">
-                <p className="text-3xl font-bold text-blue-600">{result.monthsNeeded}</p>
+                <p className="text-3xl font-bold text-blue-600">{result.timelineAchievable ? result.monthsNeeded : '—'}</p>
                 <p className="font-semibold text-sm">Months</p>
-                <p className="text-xs text-gray-500">({result.weeksNeeded} weeks)</p>
+                <p className="text-xs text-gray-500">{result.timelineAchievable ? `(${result.weeksNeeded} weeks at ${result.weeklyRate} kg/week)` : 'Not achievable by diet alone'}</p>
               </div>
             </div>
 
@@ -560,6 +366,27 @@ export default function WeightGainCalculator({ patientInfo }: Props) {
               </div>
             </div>
 
+            {result.refeedingDays.length > 0 && (
+              <div className="bg-red-50 border-l-4 border-red-600 p-4 mb-4 rounded-r-lg">
+                <h4 className="font-bold text-red-800 mb-2">Refeeding schedule — build up to the target</h4>
+                <ul className="text-sm text-red-900 space-y-0.5">
+                  {result.refeedingDays.map(d => <li key={d.day}>Day {d.day}: {d.kcal} kcal ({d.kcalPerKg} kcal/kg)</li>)}
+                </ul>
+                <ul className="list-disc ml-5 mt-2 text-xs text-red-900 space-y-0.5">
+                  {result.refeedingAlerts.map((a, i) => <li key={i}>{a}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {/* Seven-day plan from the meal-plan optimiser */}
+            <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-4 rounded-r-lg">
+              <h4 className="font-bold text-green-800 mb-1">Seven-Day Nigerian Meal Plan</h4>
+              <p className="text-xs text-gray-600 mb-3">
+                Built to {result.targetCalories.toLocaleString()} kcal and {result.proteinTarget} g protein per day{result.diabetes ? ', carbohydrate-controlled' : ''}.
+              </p>
+              {days && days.length > 0 ? <MealPlanDays days={days} /> : <p className="text-sm text-amber-800">{NO_PLAN_MESSAGE}</p>}
+            </div>
+
             {/* Medical Considerations */}
             {result.medicalConsiderations.length > 0 && (
               <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
@@ -572,6 +399,8 @@ export default function WeightGainCalculator({ patientInfo }: Props) {
               </div>
             )}
           </div>
+
+          <CalculatorReportActions report={report} />
         </div>
       )}
     </div>

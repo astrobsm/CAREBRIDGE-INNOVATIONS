@@ -1,15 +1,19 @@
 // Nutrition Calculator
 // Harris-Benedict, Caloric Requirements, African Food-Based Recommendations
 
-import { useState } from 'react';
-import { UtensilsCrossed, Calculator, AlertCircle, Apple, Flame, Download, Share2 } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { PatientCalculatorInfo, NutritionResult } from '../../types';
-import { downloadMealPlanPDF, shareMealPlanOnWhatsApp, type MealPlanPDFOptions } from '../../../../utils/mealPlanPdfGenerator';
+import { useMemo, useState } from 'react';
+import { UtensilsCrossed, Calculator, AlertCircle, Apple, Flame } from 'lucide-react';
+import { PatientCalculatorInfo } from '../../types';
+import { toSex } from '../../engine/calculationEngine';
 import {
-  calculateHarrisBenedictBMR,
-  calculateMifflinStJeorBMR,
-} from '../../engine/calculationEngine';
+  ACTIVITY_FACTORS, STRESS_FACTORS, computeNutritionHub, nutritionHubDays, nutritionHubReport,
+  type NutritionHubInput, type NutritionHubResult,
+} from '../../engine/hub/nutrition';
+import { NO_PLAN_MESSAGE } from '../../engine/hub/nutritionCommon';
+import { hasComorbidity } from '../../report/hubPatient';
+import CalculatorReportActions from '../../report/components/CalculatorReportActions';
+import { MealPlanDays } from '../../../clinician-assistant/components/CalculatorPanels';
+import type { DayPlan } from '../../../../data/nigerianFoods';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -19,233 +23,57 @@ export default function NutritionCalculator({ patientInfo }: Props) {
   const [weight, setWeight] = useState(patientInfo.weight || '');
   const [height, setHeight] = useState(patientInfo.height || '');
   const [age, setAge] = useState(patientInfo.age || '');
-  const [gender, setGender] = useState<'male' | 'female'>((patientInfo.gender || 'male') as 'male' | 'female');
-  // Note: calories and protein are used in sub-component calculations
-  
+  // Elderly categories fold into sex here: an elderly man uses the male equation.
+  const [gender, setGender] = useState<'male' | 'female'>(toSex(patientInfo.gender));
+
   // Activity factor
   const [activityLevel, setActivityLevel] = useState<string>('bedridden');
-  
+
   // Stress/injury factor
   const [stressFactor, setStressFactor] = useState<string>('none');
-  
+
   // Clinical conditions
   const [isWoundHealing, setIsWoundHealing] = useState(false);
   const [isBurns, setIsBurns] = useState(false);
   const [burnsTBSA, setBurnsTBSA] = useState('');
   const [isSepsis, setIsSepsis] = useState(false);
   const [isPostSurgery, setIsPostSurgery] = useState(false);
-  const [isRenalDisease, setIsRenalDisease] = useState(false);
-  const [isLiverDisease, setIsLiverDisease] = useState(false);
-  const [isMalnourished, setIsMalnourished] = useState(false);
-  
-  const [result, setResult] = useState<NutritionResult | null>(null);
+  const [isRenalDisease, setIsRenalDisease] = useState(hasComorbidity(patientInfo, /kidney|renal|ckd/i));
+  const [isLiverDisease, setIsLiverDisease] = useState(hasComorbidity(patientInfo, /liver|cirrhosis|hepat/i));
+  const [isMalnourished, setIsMalnourished] = useState(hasComorbidity(patientInfo, /malnutrition/i));
 
-  const activityFactors: Record<string, { label: string; factor: number; description: string }> = {
-    bedridden: { label: 'Bedridden', factor: 1.2, description: 'Completely bedridden, minimal movement' },
-    ambulatory: { label: 'Ambulatory', factor: 1.3, description: 'Can walk around room/ward' },
-    light: { label: 'Light Activity', factor: 1.4, description: 'Light daily activities' },
-    moderate: { label: 'Moderate Activity', factor: 1.5, description: 'Regular moderate exercise' },
-    active: { label: 'Very Active', factor: 1.7, description: 'Heavy physical activity' },
-  };
+  const [result, setResult] = useState<NutritionHubResult | null>(null);
+  const [calcInput, setCalcInput] = useState<NutritionHubInput | null>(null);
+  const [days, setDays] = useState<DayPlan[] | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
 
-  const stressFactors: Record<string, { label: string; factor: number; description: string }> = {
-    none: { label: 'None/Minimal', factor: 1.0, description: 'No significant stress' },
-    mild: { label: 'Mild Stress', factor: 1.1, description: 'Minor surgery, mild infection' },
-    moderate: { label: 'Moderate Stress', factor: 1.25, description: 'Major surgery, moderate infection' },
-    severe: { label: 'Severe Stress', factor: 1.5, description: 'Sepsis, major trauma' },
-    burns: { label: 'Burns/Critical', factor: 1.75, description: 'Major burns, critical illness' },
-  };
+  const activityFactors = ACTIVITY_FACTORS;
+  const stressFactors = STRESS_FACTORS;
 
   const calculate = () => {
-    const weightKg = parseFloat(weight);
-    const heightCm = parseFloat(height);
-    const ageYears = parseInt(age);
-    
-    // Harris-Benedict Equation (Revised) — shared calculation engine
-    const bmr = calculateHarrisBenedictBMR(gender, weightKg, heightCm, ageYears);
-    
-    // Mifflin-St Jeor Equation (alternative) — shared calculation engine
-    const mifflinBmr = calculateMifflinStJeorBMR(gender, weightKg, heightCm, ageYears);
-    
-    // Get activity and stress factors
-    const activityFactor = activityFactors[activityLevel].factor;
-    let stressMultiplier = stressFactors[stressFactor].factor;
-    
-    // Adjust for burns if applicable
-    if (isBurns && burnsTBSA) {
-      const tbsa = parseFloat(burnsTBSA);
-      stressMultiplier = 1 + (tbsa * 0.02); // Additional 2% per %TBSA
-    }
-    
-    // Calculate TDEE (Total Daily Energy Expenditure)
-    let tdee = bmr * activityFactor * stressMultiplier;
-    
-    // Adjustments for specific conditions
-    if (isMalnourished) {
-      tdee *= 1.2; // Add 20% for catch-up
-    }
-    
-    // Protein requirements (g/kg/day)
-    let proteinFactor = 1.0; // Normal: 0.8-1.0 g/kg
-    let proteinRationale = 'Standard adult requirement';
-    
-    if (isWoundHealing) {
-      proteinFactor = 1.5;
-      proteinRationale = 'Wound healing - increased protein synthesis';
-    }
-    if (isBurns) {
-      proteinFactor = 2.0;
-      proteinRationale = 'Major burns - high catabolic state';
-    }
-    if (isSepsis) {
-      proteinFactor = 1.5;
-      proteinRationale = 'Sepsis - protein catabolism';
-    }
-    if (isPostSurgery) {
-      proteinFactor = Math.max(proteinFactor, 1.25);
-      proteinRationale = 'Post-surgical recovery';
-    }
-    if (isRenalDisease) {
-      proteinFactor = 0.8; // Restrict in CKD pre-dialysis
-      proteinRationale = '⚠️ CKD - protein restriction (pre-dialysis). Dialysis patients may need 1.2 g/kg';
-    }
-    
-    const proteinNeeds = Math.round(proteinFactor * weightKg);
-    
-    // Fluid requirements
-    let fluidNeeds = Math.round(30 * weightKg); // 30mL/kg standard
-    let fluidRationale = 'Standard hydration: 30mL/kg/day';
-    
-    if (isBurns && burnsTBSA) {
-      const tbsa = parseFloat(burnsTBSA);
-      fluidNeeds = Math.round((4 * weightKg * tbsa) + (weightKg * 30)); // Parkland + maintenance
-      fluidRationale = 'Burns: Parkland formula + maintenance';
-    }
-    
-    // Micronutrient recommendations
-    const micronutrients: string[] = [];
-    if (isWoundHealing || isBurns) {
-      micronutrients.push('Vitamin C: 500-1000mg daily (wound healing)');
-      micronutrients.push('Zinc: 25-40mg daily (tissue repair)');
-      micronutrients.push('Vitamin A: 10,000 IU daily (epithelialization)');
-    }
-    if (isMalnourished) {
-      micronutrients.push('Multivitamin/mineral supplement daily');
-      micronutrients.push('Iron: 60mg elemental iron if anemic');
-      micronutrients.push('Vitamin B complex');
-    }
-    micronutrients.push('Vitamin D: 800-1000 IU daily (general)');
-    
-    // Nigerian/African food recommendations
-    const mealPlan = generateAfricanMealPlan(Math.round(tdee), proteinNeeds);
-    
-    // Calculate macronutrient breakdown
-    const proteinCalories = proteinNeeds * 4; // 4 kcal/g
-    const remainingCalories = Math.round(tdee) - proteinCalories;
-    const fatCalories = Math.round(remainingCalories * 0.3); // 30% from fat
-    const carbCalories = remainingCalories - fatCalories;
-    
-    const fatGrams = Math.round(fatCalories / 9); // 9 kcal/g
-    const carbGrams = Math.round(carbCalories / 4); // 4 kcal/g
-    
-    // Special dietary considerations
-    const specialConsiderations: string[] = [];
-    if (isRenalDisease) {
-      specialConsiderations.push('Limit potassium-rich foods (bananas, oranges, tomatoes)');
-      specialConsiderations.push('Limit phosphorus (dairy, beans, nuts)');
-      specialConsiderations.push('Consider renal dietitian referral');
-    }
-    if (isLiverDisease) {
-      specialConsiderations.push('Small, frequent meals');
-      specialConsiderations.push('Adequate protein despite cirrhosis (except encephalopathy)');
-      specialConsiderations.push('Salt restriction if ascites present');
-    }
-    if (patientInfo.comorbidities.includes('Diabetes')) {
-      specialConsiderations.push('Carbohydrate counting/control');
-      specialConsiderations.push('Prefer low glycemic index foods');
-      specialConsiderations.push('Distribute carbs evenly throughout day');
-    }
-    
-    const calculationResult: NutritionResult = {
-      bmr: Math.round(bmr),
-      mifflinBmr: Math.round(mifflinBmr),
-      tdee: Math.round(tdee),
-      activityFactor,
-      stressMultiplier,
-      proteinNeeds,
-      proteinFactor,
-      proteinRationale,
-      carbNeeds: carbGrams,
-      fatNeeds: fatGrams,
-      fluidNeeds,
-      fluidRationale,
-      micronutrients,
-      mealPlan,
-      specialConsiderations,
-      macroBreakdown: {
-        protein: { grams: proteinNeeds, calories: proteinCalories, percentage: Math.round((proteinCalories / tdee) * 100) },
-        carbs: { grams: carbGrams, calories: carbCalories, percentage: Math.round((carbCalories / tdee) * 100) },
-        fat: { grams: fatGrams, calories: fatCalories, percentage: Math.round((fatCalories / tdee) * 100) },
-      },
+    const input: NutritionHubInput = {
+      weightKg: weight, heightCm: height, ageYears: age, sex: gender, activityLevel, stressFactor,
+      woundHealing: isWoundHealing, burns: isBurns, burnsTBSA, sepsis: isSepsis, postSurgery: isPostSurgery,
+      renalDisease: isRenalDisease, liverDisease: isLiverDisease, malnourished: isMalnourished,
+      diabetes: hasComorbidity(patientInfo, /diabet/i),
     };
-    
-    setResult(calculationResult);
+    const out = computeNutritionHub(input);
+    if ('errors' in out) {
+      setErrors(out.errors);
+      setResult(null);
+      setDays(null);
+      return;
+    }
+    setErrors([]);
+    setCalcInput(input);
+    setResult(out.result);
+    setDays(nutritionHubDays(out.result));
   };
 
-  const generateAfricanMealPlan = (_calories: number, _protein: number) => {
-    const mealPlan = {
-      breakfast: [
-        'Akamu/Ogi (corn pap) with milk and sugar - 250 kcal',
-        'Boiled eggs (2) - 140 kcal, 12g protein',
-        'OR: Moi-moi with pap - 300 kcal, 15g protein',
-        'OR: Bread with peanut butter and tea - 350 kcal',
-      ],
-      midMorning: [
-        'Groundnuts (handful) - 160 kcal, 7g protein',
-        'OR: Banana with yogurt - 150 kcal',
-        'OR: Chin-chin (small portion) - 120 kcal',
-      ],
-      lunch: [
-        'Jollof rice with grilled chicken - 500 kcal, 30g protein',
-        'OR: Eba with egusi soup and meat - 550 kcal, 25g protein',
-        'OR: Beans and plantain - 450 kcal, 20g protein',
-        'OR: Pounded yam with vegetable soup - 500 kcal, 20g protein',
-      ],
-      afternoon: [
-        'Roasted plantain (bole) with groundnut - 200 kcal',
-        'OR: Puff-puff (2-3 pieces) - 150 kcal',
-        'OR: Fresh fruit (pawpaw, mango, orange) - 80 kcal',
-      ],
-      dinner: [
-        'Rice with stew and fish - 450 kcal, 25g protein',
-        'OR: Amala with ewedu and gbegiri - 400 kcal, 15g protein',
-        'OR: Yam porridge with vegetables - 380 kcal, 10g protein',
-        'Add extra protein: Fish, chicken, or eggs',
-      ],
-      evening: [
-        'Warm milk or malt drink - 120 kcal',
-        'Light snack if hungry',
-      ],
-      highProteinOptions: [
-        '🥚 Eggs (2 large): 12g protein, 140 kcal',
-        '🐟 Dried fish (50g): 35g protein, 170 kcal',
-        '🐔 Grilled chicken (100g): 25g protein, 165 kcal',
-        '🫘 Beans/cowpeas (1 cup cooked): 15g protein, 220 kcal',
-        '🥜 Groundnuts (50g): 13g protein, 280 kcal',
-        '🥛 Powdered milk (30g): 8g protein, 150 kcal',
-        '🧀 Wara/Awara (tofu, 100g): 8g protein, 76 kcal',
-      ],
-      caloricBoosters: [
-        'Add palm oil to soups for extra calories',
-        'Use groundnut paste in cooking',
-        'Add honey or sugar to beverages',
-        'Include avocado (healthy fats)',
-        'Fortify pap with milk and egg',
-      ],
-    };
-    
-    return mealPlan;
-  };
+  const report = useMemo(
+    () => (result && calcInput ? nutritionHubReport(result, calcInput, patientInfo, days) : null),
+    [result, calcInput, patientInfo, days]
+  );
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
@@ -457,80 +285,16 @@ export default function NutritionCalculator({ patientInfo }: Props) {
         Calculate Nutritional Requirements
       </button>
 
+      {errors.length > 0 && (
+        <div className="mt-4 bg-red-50 border border-red-300 rounded-lg p-3 text-sm text-red-800" role="alert">
+          <ul className="list-disc ml-5 space-y-0.5">{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+        </div>
+      )}
+
       {/* Results */}
       {result && (
         <div className="mt-8 space-y-6">
           <div className="border-t-2 border-gray-200 pt-6">
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3 mb-6">
-              <button
-                onClick={() => {
-                  const pdfOptions: MealPlanPDFOptions = {
-                    patientName: patientInfo.name || undefined,
-                    hospitalNumber: patientInfo.hospitalNumber || undefined,
-                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
-                    gender: patientInfo.gender || undefined,
-                    weight: parseFloat(String(weight)) || undefined,
-                    height: parseFloat(String(height)) || undefined,
-                    diagnosis: result.specialConsiderations?.join(', ') || 'Clinical Nutrition Assessment',
-                    planType: 'clinical_nutrition',
-                    calorieTarget: result.tdee,
-                    proteinTarget: result.proteinNeeds,
-                    fluidTarget: result.fluidNeeds,
-                    mealPlan: {
-                      breakfast: result.mealPlan.breakfast,
-                      midMorning: result.mealPlan.midMorning,
-                      lunch: result.mealPlan.lunch,
-                      afternoon: result.mealPlan.afternoon,
-                      dinner: result.mealPlan.dinner,
-                      evening: result.mealPlan.evening,
-                    },
-                    foodsToEat: result.mealPlan.highProteinOptions,
-                    warnings: result.specialConsiderations,
-                  };
-                  downloadMealPlanPDF(pdfOptions);
-                  toast.success('Nutrition plan PDF downloaded!');
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Download PDF
-              </button>
-              <button
-                onClick={async () => {
-                  const pdfOptions: MealPlanPDFOptions = {
-                    patientName: patientInfo.name || undefined,
-                    hospitalNumber: patientInfo.hospitalNumber || undefined,
-                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
-                    gender: patientInfo.gender || undefined,
-                    weight: parseFloat(String(weight)) || undefined,
-                    height: parseFloat(String(height)) || undefined,
-                    diagnosis: result.specialConsiderations?.join(', ') || 'Clinical Nutrition Assessment',
-                    planType: 'clinical_nutrition',
-                    calorieTarget: result.tdee,
-                    proteinTarget: result.proteinNeeds,
-                    fluidTarget: result.fluidNeeds,
-                    mealPlan: {
-                      breakfast: result.mealPlan.breakfast,
-                      midMorning: result.mealPlan.midMorning,
-                      lunch: result.mealPlan.lunch,
-                      afternoon: result.mealPlan.afternoon,
-                      dinner: result.mealPlan.dinner,
-                      evening: result.mealPlan.evening,
-                    },
-                    foodsToEat: result.mealPlan.highProteinOptions,
-                    warnings: result.specialConsiderations,
-                  };
-                  await shareMealPlanOnWhatsApp(pdfOptions);
-                  toast.success('Opening WhatsApp...');
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                Share on WhatsApp
-              </button>
-            </div>
-
             {/* Main Metrics */}
             <div className="grid md:grid-cols-3 gap-4 mb-6">
               <div className="bg-blue-100 rounded-lg p-4 text-center">
@@ -588,6 +352,9 @@ export default function NutritionCalculator({ patientInfo }: Props) {
               <h4 className="font-bold text-blue-800 mb-2">Fluid Requirements</h4>
               <p className="text-2xl font-bold text-blue-600">{result.fluidNeeds.toLocaleString()} mL/day</p>
               <p className="text-sm text-gray-600">{result.fluidRationale}</p>
+              {result.fluidCaution && (
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-300 rounded p-2 mt-2">{result.fluidCaution}</p>
+              )}
             </div>
 
             {/* Protein Rationale */}
@@ -607,58 +374,31 @@ export default function NutritionCalculator({ patientInfo }: Props) {
               </ul>
             </div>
 
-            {/* African Meal Plan */}
+            {/* Seven-day plan from the meal-plan optimiser */}
             <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-4 rounded-r-lg">
-              <h4 className="font-bold text-green-800 mb-3 flex items-center gap-2">
+              <h4 className="font-bold text-green-800 mb-1 flex items-center gap-2">
                 <UtensilsCrossed className="w-5 h-5" />
-                Nigerian/African Food-Based Meal Plan
+                Seven-Day Nigerian Meal Plan
               </h4>
-              
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <p className="font-semibold text-gray-800 mb-1">🌅 Breakfast</p>
-                  <ul className="text-sm text-gray-700 ml-4 list-disc">
-                    {result.mealPlan.breakfast.map((item, i) => <li key={i}>{item}</li>)}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-800 mb-1">🍎 Mid-Morning</p>
-                  <ul className="text-sm text-gray-700 ml-4 list-disc">
-                    {result.mealPlan.midMorning.map((item, i) => <li key={i}>{item}</li>)}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-800 mb-1">🍽️ Lunch</p>
-                  <ul className="text-sm text-gray-700 ml-4 list-disc">
-                    {result.mealPlan.lunch.map((item, i) => <li key={i}>{item}</li>)}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-800 mb-1">🍌 Afternoon</p>
-                  <ul className="text-sm text-gray-700 ml-4 list-disc">
-                    {result.mealPlan.afternoon.map((item, i) => <li key={i}>{item}</li>)}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-800 mb-1">🌙 Dinner</p>
-                  <ul className="text-sm text-gray-700 ml-4 list-disc">
-                    {result.mealPlan.dinner.map((item, i) => <li key={i}>{item}</li>)}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-800 mb-1">😴 Evening</p>
-                  <ul className="text-sm text-gray-700 ml-4 list-disc">
-                    {result.mealPlan.evening.map((item, i) => <li key={i}>{item}</li>)}
-                  </ul>
-                </div>
-              </div>
+              <p className="text-xs text-gray-600 mb-3">
+                Built to {result.tdee.toLocaleString()} kcal and {result.proteinNeeds} g protein per day
+                {result.diabetes ? ', carbohydrate-controlled with no sugar-sweetened items' : ''}
+                {result.renal ? ', within potassium and phosphate limits' : ''}.
+              </p>
+              {days && days.length > 0
+                ? <MealPlanDays days={days} />
+                : <p className="text-sm text-amber-800">{NO_PLAN_MESSAGE}</p>}
 
               {/* High Protein Options */}
               <div className="mt-4 p-3 bg-white rounded-lg">
-                <p className="font-semibold text-gray-800 mb-2">💪 High-Protein Food Options:</p>
+                <p className="font-semibold text-gray-800 mb-2">High-Protein Food Options:</p>
                 <div className="grid md:grid-cols-2 gap-1 text-sm text-gray-700">
-                  {result.mealPlan.highProteinOptions.map((item, i) => <span key={i}>{item}</span>)}
+                  {result.highProteinOptions.map((item, i) => <span key={i}>{item}</span>)}
                 </div>
+                <p className="font-semibold text-gray-800 mt-3 mb-1">Calorie boosters:</p>
+                <ul className="list-disc ml-5 text-sm text-gray-700">
+                  {result.caloricBoosters.map((item, i) => <li key={i}>{item}</li>)}
+                </ul>
               </div>
             </div>
 
@@ -674,6 +414,8 @@ export default function NutritionCalculator({ patientInfo }: Props) {
               </div>
             )}
           </div>
+
+          <CalculatorReportActions report={report} />
         </div>
       )}
     </div>
