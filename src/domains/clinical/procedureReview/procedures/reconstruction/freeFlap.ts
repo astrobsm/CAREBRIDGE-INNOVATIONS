@@ -469,12 +469,12 @@ export const freeFlap: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'First 72 hours after surgery', purpose: 'Flap observations hourly, then 2-hourly, then 4-hourly (unit protocol) with immediate escalation' }],
     post_op: [
-      { when: 'Daily on the ward', purpose: 'Consultant / registrar flap review' },
-      { when: 'Day 10–14', purpose: 'Sutures, donor-site graft' },
+      { when: 'Daily on the ward', schedule: { kind: 'ward' }, purpose: 'Consultant / registrar flap review' },
+      { when: 'Day 10–14', schedule: { kind: 'once', startDay: 10, from: 'operation' }, purpose: 'Sutures, donor-site graft' },
     ],
     follow_up: [
-      { when: '2 and 6 weeks after discharge', purpose: 'Healing, donor site, mobilisation; radiotherapy timing' },
-      { when: '3–6 months', purpose: 'Function, contour, debulking, donor morbidity' },
+      { when: '2 and 6 weeks after discharge', schedule: { kind: 'multi', days: [14, 42], from: 'discharge' }, purpose: 'Healing, donor site, mobilisation; radiotherapy timing' },
+      { when: '3–6 months', schedule: { kind: 'once', startDay: 90, from: 'operation' }, purpose: 'Function, contour, debulking, donor morbidity' },
     ],
   },
   handoffs: [

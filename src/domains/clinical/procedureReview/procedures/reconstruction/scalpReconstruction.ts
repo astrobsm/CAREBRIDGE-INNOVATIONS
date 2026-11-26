@@ -405,13 +405,13 @@ export const scalpReconstruction: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Within 1–2 weeks of excision', purpose: 'Histology and margins before definitive reconstruction' }],
     post_op: [
-      { when: 'Day 5–7', purpose: 'Graft / flap check, head dressing off' },
-      { when: 'Day 10–14', purpose: 'Sutures / staples out; histology reviewed' },
-      { when: 'Weekly (expansion)', purpose: 'Expander inflation until the planned volume' },
+      { when: 'Day 5–7', schedule: { kind: 'once', startDay: 5, from: 'operation' }, purpose: 'Graft / flap check, head dressing off' },
+      { when: 'Day 10–14', schedule: { kind: 'once', startDay: 10, from: 'operation' }, purpose: 'Sutures / staples out; histology reviewed' },
+      { when: 'Weekly (expansion)', schedule: { kind: 'recall', dueDay: 14, from: 'operation' }, purpose: 'Expander inflation until the planned volume' },
     ],
     follow_up: [
-      { when: '6 weeks', purpose: 'Healing, radiotherapy timing' },
-      { when: '3–6 months, then per tumour surveillance', purpose: 'Stability, alopecia, recurrence' },
+      { when: '6 weeks', schedule: { kind: 'once', startDay: 42, from: 'operation' }, purpose: 'Healing, radiotherapy timing' },
+      { when: '3–6 months, then per tumour surveillance', schedule: { kind: 'once', startDay: 90, from: 'operation' }, purpose: 'Stability, alopecia, recurrence' },
     ],
   },
   handoffs: [

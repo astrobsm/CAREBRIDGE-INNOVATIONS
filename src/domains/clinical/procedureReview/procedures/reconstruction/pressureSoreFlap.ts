@@ -469,13 +469,13 @@ export const pressureSoreFlap: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Before booking theatre', purpose: 'Confirm surface, bowel / bladder plan, nutrition and osteomyelitis work-up' }],
     post_op: [
-      { when: 'Daily', purpose: 'Flap, suture line, positioning, spasms, soiling' },
-      { when: 'Week 2–3', purpose: 'Sutures and drains; decide when sitting may start' },
-      { when: 'Week 3–6', purpose: 'Progressive sitting protocol (unit protocol)' },
+      { when: 'Daily', schedule: { kind: 'ward' }, purpose: 'Flap, suture line, positioning, spasms, soiling' },
+      { when: 'Week 2–3', schedule: { kind: 'once', startDay: 14, from: 'operation' }, purpose: 'Sutures and drains; decide when sitting may start' },
+      { when: 'Week 3–6', schedule: { kind: 'ward' }, purpose: 'Progressive sitting protocol (unit protocol)' },
     ],
     follow_up: [
-      { when: '6 weeks after discharge', purpose: 'Sitting tolerance, skin, seating' },
-      { when: '3, 6 and 12 months', purpose: 'Recurrence surveillance, equipment check' },
+      { when: '6 weeks after discharge', schedule: { kind: 'once', startDay: 42, from: 'discharge' }, purpose: 'Sitting tolerance, skin, seating' },
+      { when: '3, 6 and 12 months', schedule: { kind: 'multi', days: [90, 180, 360], from: 'operation' }, purpose: 'Recurrence surveillance, equipment check' },
     ],
   },
   handoffs: [

@@ -812,12 +812,12 @@ export const burnsExcisionGrafting: ProcedureModule = {
     ],
     pre_op: [{ when: 'Day 3–5 after grafting', purpose: 'First graft inspection' }],
     post_op: [
-      { when: 'Day 3–5', purpose: 'First graft inspection; plan regrafting' },
-      { when: 'Twice weekly', purpose: 'Wounds, nutrition, sepsis screen, physiotherapy' },
+      { when: 'Day 3–5', schedule: { kind: 'once', startDay: 3, from: 'operation' }, purpose: 'First graft inspection; plan regrafting' },
+      { when: 'Twice weekly', schedule: { kind: 'ward' }, purpose: 'Wounds, nutrition, sepsis screen, physiotherapy' },
     ],
     follow_up: [
-      { when: '2–4 weeks after healing', purpose: 'Pressure-garment fitting, scar review, splints' },
-      { when: 'Every 3 months for 18–24 months', purpose: 'Scar maturation, contracture, garment refit, psychological recovery; children until growth is complete' },
+      { when: '2–4 weeks after healing', schedule: { kind: 'recall', dueDay: 28, from: 'operation' }, purpose: 'Pressure-garment fitting, scar review, splints' },
+      { when: 'Every 3 months for 18–24 months', schedule: { kind: 'next', startDay: 90, everyDays: 90, from: 'operation' }, purpose: 'Scar maturation, contracture, garment refit, psychological recovery; children until growth is complete' },
     ],
   },
   handoffs: [

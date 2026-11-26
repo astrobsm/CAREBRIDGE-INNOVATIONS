@@ -516,13 +516,13 @@ export const nerveRepairHandTrauma: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Within the first week after surgery', purpose: 'Hand therapy and wound check' }],
     post_op: [
-      { when: 'Days 3–7', purpose: 'Hand therapy, oedema control, splint' },
-      { when: 'Day 10–14', purpose: 'Wound review, suture removal' },
+      { when: 'Days 3–7', schedule: { kind: 'once', startDay: 3, from: 'operation' }, purpose: 'Hand therapy, oedema control, splint' },
+      { when: 'Day 10–14', schedule: { kind: 'once', startDay: 10, from: 'operation' }, purpose: 'Wound review, suture removal' },
     ],
     follow_up: [
-      { when: '6 weeks', purpose: 'Baseline Tinel\'s sign, protection, therapy' },
-      { when: '3, 6 and 12 months', purpose: 'Tinel advance, MRC sensory / motor grade, 2PD, function' },
-      { when: '18–24 months', purpose: 'Final sensory outcome; secondary surgery if needed' },
+      { when: '6 weeks', schedule: { kind: 'once', startDay: 42, from: 'operation' }, purpose: 'Baseline Tinel\'s sign, protection, therapy' },
+      { when: '3, 6 and 12 months', schedule: { kind: 'multi', days: [90, 180, 360], from: 'operation' }, purpose: 'Tinel advance, MRC sensory / motor grade, 2PD, function' },
+      { when: '18–24 months', schedule: { kind: 'once', startDay: 540, from: 'operation' }, purpose: 'Final sensory outcome; secondary surgery if needed' },
     ],
   },
   handoffs: [

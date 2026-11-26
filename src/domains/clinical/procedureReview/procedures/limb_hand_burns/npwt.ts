@@ -433,8 +433,8 @@ export const npwt: ProcedureModule = {
     wound_review: [{ when: 'Every 48–72 hours (12–24 h if infected)', purpose: 'Dressing change, measurement, count of pieces, response' }],
     pre_op: [{ when: 'Day 5–7 (graft fixation) or 48–72 hours (open wound)', purpose: 'First NPWT change / graft inspection' }],
     post_op: [
-      { when: 'Every 48–72 hours', purpose: 'Change, measure, response; stop at the endpoint' },
-      { when: '2 weeks', purpose: 'Is there measurable improvement? If not, stop and reassess' },
+      { when: 'Every 48–72 hours', schedule: { kind: 'ward' }, purpose: 'Change, measure, response; stop at the endpoint' },
+      { when: '2 weeks', schedule: { kind: 'once', startDay: 14, from: 'operation' }, purpose: 'Is there measurable improvement? If not, stop and reassess' },
     ],
   },
   handoffs: [

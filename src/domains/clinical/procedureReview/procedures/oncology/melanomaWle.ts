@@ -673,13 +673,13 @@ export const melanomaWle: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Before WLE', purpose: 'Lymphoscintigraphy (if SLNB) and staging imaging reviewed' }],
     post_op: [
-      { when: 'Day 7–14', purpose: 'Wound and SLNB site review; suture removal' },
-      { when: '2–3 weeks', purpose: 'Final histology, sentinel node result and AJCC stage; MDT outcome' },
+      { when: 'Day 7–14', schedule: { kind: 'once', startDay: 7, from: 'operation' }, purpose: 'Wound and SLNB site review; suture removal' },
+      { when: '2–3 weeks', schedule: { kind: 'once', startDay: 14, from: 'operation' }, purpose: 'Final histology, sentinel node result and AJCC stage; MDT outcome' },
     ],
     follow_up: [
-      { when: 'Stage 0', purpose: 'Annual skin examination (NCCN)' },
-      { when: 'Stage IA–IIA', purpose: 'Every 6–12 months for 5 years, then annually (NCCN)' },
-      { when: 'Stage IIB–IV', purpose: 'Every 3–6 months for 2 years, every 3–12 months to year 5, then annually; imaging as the MDT directs (NCCN)' },
+      { when: 'Stage 0', schedule: { kind: 'recall', dueDay: 21, from: 'operation' }, purpose: 'Annual skin examination (NCCN)' },
+      { when: 'Stage IA–IIA', schedule: { kind: 'recall', dueDay: 21, from: 'operation' }, purpose: 'Every 6–12 months for 5 years, then annually (NCCN)' },
+      { when: 'Stage IIB–IV', schedule: { kind: 'recall', dueDay: 21, from: 'operation' }, purpose: 'Every 3–6 months for 2 years, every 3–12 months to year 5, then annually; imaging as the MDT directs (NCCN)' },
     ],
   },
   handoffs: [

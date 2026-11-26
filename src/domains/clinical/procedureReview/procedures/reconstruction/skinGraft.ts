@@ -502,13 +502,13 @@ export const skinGraft: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Day 3–7 after surgery', purpose: 'First graft inspection (earlier if pain, fever, odour or discharge)' }],
     post_op: [
-      { when: 'Day 3–7', purpose: 'First graft inspection, earlier if pain, fever, odour or discharge' },
-      { when: 'Day 10–14', purpose: 'Donor-site review; remove sutures / staples' },
-      { when: 'Weeks 2–3', purpose: 'Graft stable: start moisturising and massage once healed' },
+      { when: 'Day 3–7', schedule: { kind: 'once', startDay: 3, from: 'operation' }, purpose: 'First graft inspection, earlier if pain, fever, odour or discharge' },
+      { when: 'Day 10–14', schedule: { kind: 'once', startDay: 10, from: 'operation' }, purpose: 'Donor-site review; remove sutures / staples' },
+      { when: 'Weeks 2–3', schedule: { kind: 'once', startDay: 14, from: 'operation' }, purpose: 'Graft stable: start moisturising and massage once healed' },
     ],
     follow_up: [
-      { when: '3 months', purpose: 'Scar and contracture review (Scar Monitor)' },
-      { when: '6 and 12 months', purpose: 'Maturation, pigmentation, need for scar treatment or revision' },
+      { when: '3 months', schedule: { kind: 'once', startDay: 90, from: 'operation' }, purpose: 'Scar and contracture review (Scar Monitor)' },
+      { when: '6 and 12 months', schedule: { kind: 'multi', days: [180, 360], from: 'operation' }, purpose: 'Maturation, pigmentation, need for scar treatment or revision' },
     ],
   },
   handoffs: [

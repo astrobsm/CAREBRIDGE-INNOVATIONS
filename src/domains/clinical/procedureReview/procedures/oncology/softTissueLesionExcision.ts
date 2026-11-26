@@ -422,11 +422,11 @@ export const softTissueLesionExcision: ProcedureModule = {
   followUp: {
     pre_op: [{ when: 'Before listing', purpose: 'Imaging / biopsy results reviewed when any red flag is present' }],
     post_op: [
-      { when: 'Day 7–14', purpose: 'Wound check, suture removal, histology result' },
+      { when: 'Day 7–14', schedule: { kind: 'once', startDay: 7, from: 'operation' }, purpose: 'Wound check, suture removal, histology result' },
     ],
     follow_up: [
-      { when: 'Benign, complete', purpose: 'Discharge with advice to return if it recurs' },
-      { when: 'Piecemeal removal, ALT or recurrence', purpose: '3–6 months, then as the MDT advises (MRI surveillance for ALT)' },
+      { when: 'Benign, complete', schedule: { kind: 'recall', dueDay: 14, from: 'operation' }, purpose: 'Discharge with advice to return if it recurs' },
+      { when: 'Piecemeal removal, ALT or recurrence', schedule: { kind: 'recall', dueDay: 14, from: 'operation' }, purpose: '3–6 months, then as the MDT advises (MRI surveillance for ALT)' },
     ],
   },
   handoffs: [
