@@ -7,6 +7,7 @@
  * section the clinician never opens is reported as not examined.
  */
 import type { ExamSection, Question } from './types';
+import { CONDITION_EXAMS } from '../clerkingPlan/conditions';
 
 const NE = 'Not examined';
 const sel = (id: string, label: string, options: string[], extra: Partial<Question> = {}): Question =>
@@ -33,7 +34,7 @@ export const VITALS_CONTEXT: Question[] = [
   { id: 'consciousness', label: 'Consciousness (ACVPU)', type: 'select', options: ['Alert', 'New confusion', 'Responds to voice', 'Responds to pain', 'Unresponsive'], redFlags: ['New confusion', 'Responds to voice', 'Responds to pain', 'Unresponsive'] },
 ];
 
-export const EXAM_SECTIONS: Record<string, ExamSection> = {
+const BASE_EXAM_SECTIONS: Record<string, ExamSection> = {
   general: { id: 'general', title: 'General examination', questions: [
     sel('appearance', 'General appearance', ['Well', 'Unwell', 'Ill-looking', 'Toxic / septic-looking', 'In obvious pain', 'Distressed']),
     sel('consciousness', 'Conscious level', ['Alert and oriented', 'Confused', 'Drowsy', 'Responds to pain only', 'Unresponsive']),
@@ -229,3 +230,6 @@ export const EXAM_SECTIONS: Record<string, ExamSection> = {
     sel('gen_testes', 'Testes (if male)', ['Not applicable', 'Both normal', 'Swollen / tender', 'High-riding / horizontal lie', 'Undescended'], { redFlags: ['High-riding / horizontal lie'] }),
   ] },
 };
+
+/** The sections above plus every condition template's examination section (clerkingPlan/conditions). */
+export const EXAM_SECTIONS: Record<string, ExamSection> = { ...BASE_EXAM_SECTIONS, ...CONDITION_EXAMS };

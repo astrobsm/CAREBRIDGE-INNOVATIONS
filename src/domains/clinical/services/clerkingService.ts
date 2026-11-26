@@ -33,13 +33,16 @@ export function patientContext(p?: Pick<Patient, 'dateOfBirth' | 'gender'> | nul
   if (!p) return {};
   const dob = p.dateOfBirth ? new Date(p.dateOfBirth) : null;
   let age: number | null = null;
+  let months: number | null = null;
   if (dob && !Number.isNaN(dob.getTime())) {
     const now = new Date();
     age = now.getFullYear() - dob.getFullYear();
     const m = now.getMonth() - dob.getMonth();
     if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+    // Whole months, for infants (an 8-month-old is ageYears 0).
+    months = (now.getFullYear() - dob.getFullYear()) * 12 + m - (now.getDate() < dob.getDate() ? 1 : 0);
   }
-  return { ageYears: age, sex: p.gender === 'female' ? 'Female' : p.gender === 'male' ? 'Male' : null };
+  return { ageYears: age, ageMonths: months, sex: p.gender === 'female' ? 'Female' : p.gender === 'male' ? 'Male' : null };
 }
 
 /** What identifies this patient, to be removed from anything sent to the AI. */

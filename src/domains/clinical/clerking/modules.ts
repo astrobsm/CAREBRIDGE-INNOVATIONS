@@ -9,6 +9,7 @@
  * "Unknown" so nothing is forced.
  */
 import type { QuestionModule } from './types';
+import { CONDITION_MODULES } from '../clerkingPlan/conditions';
 
 const YNU = ['Yes', 'No', 'Unknown'];
 const SITES_BODY = [
@@ -19,7 +20,7 @@ const SITES_BODY = [
 ];
 const SIDE = ['Left', 'Right', 'Bilateral', 'Midline', 'Not applicable'];
 
-export const MODULES: Record<string, QuestionModule> = {
+const BASE_MODULES: Record<string, QuestionModule> = {
   general: {
     id: 'general',
     title: 'Symptom analysis',
@@ -302,3 +303,6 @@ export const MODULES: Record<string, QuestionModule> = {
     ],
   },
 };
+
+/** The modules above plus every condition template's history module (clerkingPlan/conditions). */
+export const MODULES: Record<string, QuestionModule> = { ...BASE_MODULES, ...CONDITION_MODULES };

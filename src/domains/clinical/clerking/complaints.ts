@@ -10,6 +10,7 @@
  * suggestions still run.
  */
 import type { Complaint } from './types';
+import { conditionComplaints, withConditionFields } from '../clerkingPlan/conditions';
 
 const c = (
   id: string, label: string, system: string, modules: string[], exams: string[],
@@ -19,7 +20,7 @@ const c = (
 const WOUND = ['wound_ulcer', 'pain'];
 const LUMP = ['swelling_lump'];
 
-export const COMPLAINTS: Complaint[] = [
+const BASE_COMPLAINTS: Complaint[] = [
   // ── Wounds, ulcers and soft-tissue infection ──────────────────────────────
   c('chronic_ulcer', 'Non-healing wound / chronic ulcer', 'Wounds & skin', WOUND, ['local_wound', 'limb_vascular', 'limb_neuro', 'lymph'], ['venous_ulcer', 'arterial_ulcer', 'diabetic_foot_ulcer', 'pressure_ulcer', 'marjolin_ulcer', 'sickle_ulcer', 'buruli_ulcer', 'infected_wound', 'tb_ulcer', 'scc_skin', 'pyoderma_gangrenosum'], ['ulcer', 'sore that will not heal', 'non healing ulcer', 'chronic wound', 'leg ulcer']),
   c('leg_ulcer', 'Leg ulcer', 'Wounds & skin', WOUND, ['local_wound', 'limb_vascular', 'limb_neuro'], ['venous_ulcer', 'arterial_ulcer', 'sickle_ulcer', 'diabetic_foot_ulcer', 'marjolin_ulcer', 'buruli_ulcer', 'infected_wound', 'pyoderma_gangrenosum'], ['ulcer on the leg', 'shin ulcer', 'tropical ulcer']),
@@ -191,6 +192,13 @@ export const COMPLAINTS: Complaint[] = [
   c('flap_problem', 'Flap colour change / flap concern', 'Postoperative', ['limb_vascular'], ['local_wound'], ['flap_compromise', 'haematoma'], ['flap congestion', 'flap pale', 'flap failing']),
   c('graft_problem', 'Skin graft not taking', 'Postoperative', ['wound_ulcer'], ['local_wound'], ['graft_failure', 'infected_wound', 'haematoma'], ['graft loss', 'graft failure']),
 ];
+
+/**
+ * The catalogue: the complaints above with the condition templates' fields
+ * added (clerkingPlan/conditions), then the conditions that have no complaint
+ * of their own (syndactyly, carpal tunnel...), searchable like any other.
+ */
+export const COMPLAINTS: Complaint[] = [...withConditionFields(BASE_COMPLAINTS), ...conditionComplaints()];
 
 /** Normalise text for search: lower case, strip punctuation and accents. */
 export function normaliseTerm(s: string): string {

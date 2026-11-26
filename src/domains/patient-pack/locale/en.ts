@@ -6,6 +6,8 @@
  * Rules for these strings: plain words, no scores (ASA, Mallampati, Caprini,
  * RCRI), no clinical shorthand, second person ("you", "your").
  */
+import { planEn } from './en.plan';
+
 export const en = {
   pack: {
     title: 'YOUR SURGERY INFORMATION',
@@ -83,6 +85,8 @@ export const en = {
     missed: (patient: string, date: string, clinic: string) =>
       `Dear ${patient}, this is ${clinic}. We missed you at your appointment on ${date}. Please reply or call us to book a new date. Thank you.`,
   },
+  /** The clerking treatment plan's patient copy (stage 5): en.plan.ts. */
+  plan: planEn,
 } as const;
 
 export type PatientLocale = typeof en;
