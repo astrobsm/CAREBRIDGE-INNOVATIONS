@@ -83,6 +83,9 @@ import {
 } from '../journey/operationRecord';
 import ComplicationsEditor from '../components/ComplicationsEditor';
 import FollowUpPlanner from '../components/FollowUpPlanner';
+import PatientPackPanel from '../../patient-pack/components/PatientPackPanel';
+import { defaultFastingLines } from '../../patient-pack/beforeSurgery';
+import { patientText } from '../../patient-pack/locale/en';
 import { complicationText } from '../journey/clavienDindo';
 import type { GradedComplication, IntraOperativeRecord } from '../../../types';
 
@@ -1415,17 +1418,11 @@ export default function SurgicalWorkflowPage() {
           ['Scheduled Date', scheduledDate],
         ],
       },
+      // This leaflet goes to the patient: no ASA, Mallampati, Caprini or RCRI
+      // scores (they stay in the clinician record and the conference slides).
       {
-        heading: 'Risk Assessment',
-        rows: [
-          ['ASA Class', `${asaClass}`],
-          ['Mallampati Score', `${mallampatiScore}`],
-          ['Caprini VTE Score', `${capriniScore} (${capriniRisk})`],
-          ['RCRI Cardiac Risk', `${rcriScore} (${rcriRisk} MACE risk)`],
-          ['Risk Factors', CAPRINI_FACTORS.filter((_, i) => capriniFactors[i]).map(f => f.label).join('; ') || 'None'],
-          ['NPO Status', npoStatus ? 'Confirmed NPO' : 'Not confirmed'],
-          ['Notes', riskNotes],
-        ],
+        heading: 'Getting Ready',
+        rows: defaultFastingLines(anaesthesiaType, patientAge || null).map((line, i) => [i === 0 ? 'Eating and drinking' : '', line] as [string, string]),
       },
       {
         heading: 'Preoperative Information',
@@ -1481,7 +1478,8 @@ export default function SurgicalWorkflowPage() {
         heading: 'Postoperative Instructions',
         rows: [
           ['Procedure', selectedProcedure],
-          ['Instructions', postopInstructions || 'Standard postoperative care instructions apply'],
+          ['Instructions', postopInstructions || patientText.pack.afterGeneric.join(' ')],
+          ['Get help straight away if', patientText.pack.warningGeneric.join(' ')],
         ],
       },
     ]);
@@ -2797,6 +2795,10 @@ export default function SurgicalWorkflowPage() {
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Surgical Documents</h2>
+
+              {/* One pack with everything, in plain English, by WhatsApp or download */}
+              {currentSurgeryId ? <div className="mb-6"><PatientPackPanel surgeryId={currentSurgeryId} /></div>
+                : <p className="mb-6 text-xs text-gray-500">Save the planning section to send the patient pack.</p>}
 
               {/* Preoperative workup — generated, nothing to type */}
               <div className="mb-6">
