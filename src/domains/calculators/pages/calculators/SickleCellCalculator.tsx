@@ -1,12 +1,11 @@
 // Sickle Cell Crisis Calculator
 // Crisis Management, Hydroxyurea Dosing, Wound Healing, and Exchange Transfusion Guidelines
 
-import { useState } from 'react';
-import { Calculator, AlertTriangle, Droplets, Activity, Thermometer, FileText, Scissors } from 'lucide-react';
-import { format } from 'date-fns';
-import jsPDF from 'jspdf';
-import { PatientCalculatorInfo, SickleCellResult } from '../../types';
-import { createSafePDF } from '../../../../utils/pdfTextSafe';
+import { useMemo, useState } from 'react';
+import { Calculator, AlertTriangle, Droplets, Activity, Thermometer, Scissors } from 'lucide-react';
+import { PatientCalculatorInfo } from '../../types';
+import { CRISIS_TYPES, computeSickle, sickleReport, type SickleHubResult } from '../../engine/hub/sickleCell';
+import CalculatorReportActions from '../../report/components/CalculatorReportActions';
 
 interface WoundHealingAssessment {
   hasWound: boolean;
@@ -61,497 +60,26 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
     nutritionStatus: 'adequate',
   });
   
-  const [result, setResult] = useState<SickleCellResult | null>(null);
+  const [result, setResult] = useState<SickleHubResult | null>(null);
 
-  const crisisTypes = [
-    { value: 'vaso-occlusive', label: 'Vaso-Occlusive Crisis (VOC)', description: 'Pain crisis - most common' },
-    { value: 'acs', label: 'Acute Chest Syndrome', description: 'Pulmonary complication - emergency' },
-    { value: 'aplastic', label: 'Aplastic Crisis', description: 'Parvovirus B19 - severe anemia' },
-    { value: 'sequestration', label: 'Splenic Sequestration', description: 'Splenic pooling - children' },
-    { value: 'hemolytic', label: 'Hemolytic Crisis', description: 'Acute hemolysis' },
-    { value: 'stroke', label: 'Stroke/TIA', description: 'Cerebrovascular event - emergency' },
-    { value: 'priapism', label: 'Priapism', description: 'Urological emergency' },
-  ];
+  const crisisTypes = CRISIS_TYPES;
+  const [errors, setErrors] = useState<string[]>([]);
 
   const calculate = () => {
-    const weightKg = parseFloat(weight);
-    const ageYears = parseInt(age);
-    const hb = parseFloat(hbLevel) || 8;
-    const hbsPercent = parseFloat(hbS) || 0;
-    
-    // Determine severity
-    let severity: 'Mild' | 'Moderate' | 'Severe' | 'Critical' = 'Moderate';
-    const severityFactors: string[] = [];
-    
-    if (hasStroke || hasACS || hasSplenic) {
-      severity = 'Critical';
-      severityFactors.push('Life-threatening complication present');
-    }
-    if (hb < 5) {
-      severity = 'Critical';
-      severityFactors.push('Severe anemia (Hb < 5 g/dL)');
-    } else if (hb < 6) {
-      if (severity !== 'Critical') severity = 'Severe';
-      severityFactors.push('Significant anemia (Hb < 6 g/dL)');
-    }
-    if (painScore >= 8) {
-      if (severity !== 'Critical') severity = 'Severe';
-      severityFactors.push('Severe pain (score ≥ 8)');
-    } else if (painScore <= 4) {
-      severity = 'Mild';
-    }
-    if (hasFever) {
-      severityFactors.push('Fever present - rule out infection/ACS');
-    }
-
-    // Fluid management
-    const maintenanceFluid = Math.round(((weightKg * 30) + 70));
-    const hydrationRecommendation = [
-      `Maintenance IV fluids: ${maintenanceFluid} mL/day (Normal Saline or D5NS)`,
-      'Bolus: 10-20 mL/kg NS if dehydrated',
-      'Oral hydration: 2-3L/day if tolerated',
-      'Avoid over-hydration (risk of ACS)',
-      'Target euvolemia - monitor fluid balance',
-    ];
-
-    // Pain management (WHO ladder adapted)
-    const painManagement: string[] = [];
-    if (painScore <= 3) {
-      painManagement.push('Step 1: Paracetamol 1g PO q6h');
-      painManagement.push('± NSAIDs (Ibuprofen 400mg TDS) if not contraindicated');
-    } else if (painScore <= 6) {
-      painManagement.push('Step 2: Tramadol 50-100mg PO/IV q6h');
-      painManagement.push('+ Paracetamol 1g PO q6h');
-      painManagement.push('Consider weak opioids');
-    } else {
-      painManagement.push('Step 3: Strong opioids indicated');
-      painManagement.push('Morphine 0.1-0.15 mg/kg IV/SC q3-4h PRN');
-      painManagement.push('OR PCA morphine if available');
-      painManagement.push('+ Paracetamol 1g q6h');
-      painManagement.push('+ Consider adjuvants (gabapentin, amitriptyline)');
-      painManagement.push('Laxatives prophylactically with opioids');
-    }
-
-    // Transfusion guidelines
-    const transfusionGuidelines: string[] = [];
-    let transfusionIndicated = false;
-    let exchangeTransfusion = false;
-    
-    if (hasStroke) {
-      exchangeTransfusion = true;
-      transfusionIndicated = true;
-      transfusionGuidelines.push('🚨 EMERGENCY EXCHANGE TRANSFUSION INDICATED');
-      transfusionGuidelines.push('Target HbS < 30%');
-      transfusionGuidelines.push('Maintain Hb 10-11 g/dL');
-    }
-    if (hasACS && (hb < 9 || hbsPercent > 30)) {
-      exchangeTransfusion = true;
-      transfusionIndicated = true;
-      transfusionGuidelines.push('⚠️ Exchange transfusion for severe ACS');
-      transfusionGuidelines.push('Target HbS < 30%');
-    } else if (hasACS) {
-      transfusionIndicated = true;
-      transfusionGuidelines.push('Simple transfusion to Hb 10-11 g/dL');
-    }
-    if (hasSplenic && hb < 6) {
-      transfusionIndicated = true;
-      transfusionGuidelines.push('Urgent transfusion for splenic sequestration');
-      transfusionGuidelines.push('Transfuse cautiously - splenic autotransfusion may occur');
-    }
-    if (hasAplastic && hb < 6) {
-      transfusionIndicated = true;
-      transfusionGuidelines.push('Transfusion for aplastic crisis');
-      transfusionGuidelines.push('Check reticulocyte count - expect recovery in 7-10 days');
-    }
-    if (hb < 5 && !transfusionIndicated) {
-      transfusionIndicated = true;
-      transfusionGuidelines.push('Severe symptomatic anemia - transfusion needed');
-    }
-    
-    if (!transfusionIndicated) {
-      transfusionGuidelines.push('Transfusion not routinely indicated');
-      transfusionGuidelines.push('Simple VOC: Avoid transfusion unless Hb drops significantly');
-      transfusionGuidelines.push('Target Hb should not exceed 10-11 g/dL (hyperviscosity risk)');
-    }
-
-    // Exchange transfusion calculation
-    let exchangeVolume = 0;
-    if (exchangeTransfusion) {
-      // Blood volume estimation: 70mL/kg for adults, 80mL/kg for children
-      const bloodVolume = ageYears < 18 ? 80 * weightKg : 70 * weightKg;
-      exchangeVolume = Math.round(1.5 * bloodVolume); // 1.5 blood volumes
-    }
-
-    // Hydroxyurea dosing
-    const hydroxyureaDosing: string[] = [];
-    const initialHUDose = Math.round(15 * weightKg);
-    const maxHUDose = Math.round(35 * weightKg);
-    
-    if (onHydroxyurea) {
-      hydroxyureaDosing.push(`Current dose: ${currentHUDose || 'Unknown'} mg/day`);
-      hydroxyureaDosing.push('Continue during crisis unless myelosuppression');
-      hydroxyureaDosing.push('May need dose adjustment based on FBC');
-    } else {
-      hydroxyureaDosing.push('⚡ Hydroxyurea is disease-modifying therapy');
-      hydroxyureaDosing.push(`Starting dose: ${initialHUDose} mg/day (15 mg/kg)`);
-      hydroxyureaDosing.push(`Maximum dose: ${maxHUDose} mg/day (35 mg/kg)`);
-      hydroxyureaDosing.push('Titrate every 8 weeks based on FBC');
-      hydroxyureaDosing.push('Target: MCV >100fL, neutrophils >2.0, platelets >80');
-      hydroxyureaDosing.push('Monitor FBC every 2 weeks initially, then monthly');
-    }
-
-    // Infection management
-    const infectionManagement: string[] = [];
-    if (hasFever) {
-      infectionManagement.push('🌡️ FEVER IS AN EMERGENCY in SCD');
-      infectionManagement.push('Blood cultures before antibiotics');
-      infectionManagement.push('Empirical antibiotics within 1 hour:');
-      infectionManagement.push('  - Ceftriaxone 2g IV (covers encapsulated organisms)');
-      infectionManagement.push('  - Add Vancomycin if severely ill');
-      infectionManagement.push('Malaria film if in endemic area');
-      infectionManagement.push('Urinalysis and chest X-ray');
-    } else {
-      infectionManagement.push('No fever - low threshold to investigate if unwell');
-      infectionManagement.push('Functional asplenia increases infection risk');
-      infectionManagement.push('Ensure vaccinations up to date');
-    }
-
-    // ACS-specific
-    const acsManagement: string[] = [];
-    if (hasACS) {
-      acsManagement.push('🫁 ACUTE CHEST SYNDROME PROTOCOL:');
-      acsManagement.push('1. Oxygen to maintain SpO2 > 94%');
-      acsManagement.push('2. Antibiotics: Ceftriaxone + Azithromycin (atypicals)');
-      acsManagement.push('3. Incentive spirometry every 2 hours');
-      acsManagement.push('4. Pain control (avoid over-sedation)');
-      acsManagement.push('5. Bronchodilators if wheeze');
-      acsManagement.push('6. Transfusion as above');
-      acsManagement.push('7. ICU admission if SpO2 <90% on O2 or deteriorating');
-    }
-
-    // Monitoring
-    const monitoring = [
-      'Vital signs every 4 hours (every 1-2h if severe)',
-      'Pain scores regularly (every 4 hours)',
-      'Oxygen saturation continuous if ACS',
-      'Daily FBC, reticulocytes, LDH, bilirubin',
-      'U&E if dehydrated or on IV fluids',
-      'Blood group and crossmatch if transfusion likely',
-      'Chest X-ray if respiratory symptoms or fever',
-    ];
-
-    // Discharge criteria
-    const dischargeCriteria = [
-      'Pain controlled on oral analgesia',
-      'Afebrile for 24 hours',
-      'Adequate oral intake',
-      'Stable hemoglobin',
-      'No respiratory distress',
-      'Social circumstances appropriate',
-      'Follow-up arranged within 1-2 weeks',
-    ];
-
-    // Long-term recommendations
-    const longTermRecommendations = [
-      'Hydroxyurea for recurrent crises (≥3/year)',
-      'Pneumococcal, meningococcal, Haemophilus vaccines',
-      'Daily penicillin prophylaxis (or erythromycin if allergic)',
-      'Folic acid 5mg daily',
-      'Annual transcranial Doppler in children',
-      'Regular ophthalmology screening',
-      'Avoid dehydration, cold, hypoxia',
-      'Consider chronic transfusion program if indicated',
-    ];
-
-    // Wound Healing Assessment & Recommendations (SCD-specific)
-    const woundHealingRecommendations: string[] = [];
-    if (woundAssessment.hasWound) {
-      woundHealingRecommendations.push('SICKLE CELL WOUND HEALING PROTOCOL');
-      woundHealingRecommendations.push('');
-      woundHealingRecommendations.push('-- Pathophysiology --');
-      woundHealingRecommendations.push('SCD wounds result from chronic microvascular occlusion, endothelial dysfunction, and tissue hypoxia.');
-      woundHealingRecommendations.push('Impaired nitric oxide bioavailability reduces blood flow to wound margins.');
-      woundHealingRecommendations.push('');
-      woundHealingRecommendations.push('-- Wound Care --');
-      woundHealingRecommendations.push('Moist wound healing: Hydrocolloid or foam dressings (change every 2-3 days)');
-      woundHealingRecommendations.push('Gentle debridement of necrotic tissue if present');
-      woundHealingRecommendations.push('Avoid compression bandaging if arterial insufficiency suspected');
-      woundHealingRecommendations.push('Consider topical zinc oxide preparations');
-      woundHealingRecommendations.push('Biofilm management: Apply antimicrobial dressings (silver or PHMB-based)');
-      
-      // Duration-specific
-      const durationWeeks = parseInt(woundAssessment.woundDuration) || 0;
-      if (durationWeeks > 12) {
-        woundHealingRecommendations.push('');
-        woundHealingRecommendations.push('-- Chronic Wound (>12 weeks) --');
-        woundHealingRecommendations.push('Consider biopsy to rule out malignant transformation (Marjolin ulcer)');
-        woundHealingRecommendations.push('Referral to wound care specialist / plastic surgeon');
-        woundHealingRecommendations.push('Consider skin grafting if wound bed prepared');
-        woundHealingRecommendations.push('Negative Pressure Wound Therapy (NPWT) if appropriate');
-      }
-
-      woundHealingRecommendations.push('');
-      woundHealingRecommendations.push('-- Nutrition for Wound Healing --');
-      woundHealingRecommendations.push('High-protein diet: 1.5-2g protein/kg/day');
-      woundHealingRecommendations.push('Zinc supplementation: 220mg zinc sulfate daily (contains 50mg elemental zinc)');
-      woundHealingRecommendations.push('Vitamin C: 500mg twice daily (collagen synthesis)');
-      woundHealingRecommendations.push('Vitamin A: 10,000 IU daily for 10 days (epithelial cell growth)');
-      woundHealingRecommendations.push('Iron supplementation if ferritin low and not on chronic transfusions');
-      woundHealingRecommendations.push('Folic acid: 5mg daily (cell proliferation)');
-      woundHealingRecommendations.push('Ensure adequate caloric intake: 30-35 kcal/kg/day');
-
-      // Albumin-specific
-      const albumin = parseFloat(woundAssessment.albuminLevel) || 0;
-      if (albumin > 0 && albumin < 3.5) {
-        woundHealingRecommendations.push('');
-        woundHealingRecommendations.push('-- Hypoalbuminemia Detected --');
-        woundHealingRecommendations.push(`Serum albumin: ${albumin} g/dL (low - impairs wound healing)`);
-        woundHealingRecommendations.push('Increase oral protein supplements (Ensure Plus, Complan)');
-        woundHealingRecommendations.push('Consider parenteral nutrition if oral intake inadequate');
-      }
-
-      woundHealingRecommendations.push('');
-      woundHealingRecommendations.push('-- SCD-Specific Wound Management --');
-      woundHealingRecommendations.push('Optimize hemoglobin: Target Hb 9-10 g/dL (chronic transfusion if needed)');
-      woundHealingRecommendations.push('Hydroxyurea: Increases HbF, improves microvascular flow to wound');
-      woundHealingRecommendations.push('Avoid tourniquets and tight dressings on affected limb');
-      woundHealingRecommendations.push('Leg elevation when resting to reduce edema');
-      woundHealingRecommendations.push('Ankle-brachial pressure index (ABPI) if lower limb wound');
-      woundHealingRecommendations.push('Pain management: Adequate analgesia improves wound healing');
-      woundHealingRecommendations.push('Smoking cessation counseling (further impairs microcirculation)');
-
-      woundHealingRecommendations.push('');
-      woundHealingRecommendations.push('-- Monitoring --');
-      woundHealingRecommendations.push('Weekly wound measurement (length x width x depth)');
-      woundHealingRecommendations.push('Wound photography for progress documentation');
-      woundHealingRecommendations.push('Wound swab if signs of infection (increasing pain, erythema, exudate)');
-      woundHealingRecommendations.push('Monthly: FBC, reticulocytes, CRP, albumin, zinc levels');
-      woundHealingRecommendations.push('Review at 4 weeks - reassess if <30% reduction in wound area');
-    }
-
-    const calculationResult: SickleCellResult = {
-      severity,
-      severityFactors,
-      crisisType: crisisTypes.find(c => c.value === crisisType)?.label || crisisType,
-      hydrationRecommendation,
-      hydrationRequirement: maintenanceFluid, // Required: maintenance fluid calculation
-      painManagement,
-      transfusionNeeded: transfusionIndicated,
-      exchangeTransfusion,
-      exchangeVolume,
-      transfusionGuidelines,
-      antibioticProphylaxis: infectionManagement, // Use infection management as antibiotic prophylaxis
-      hydroxyureaIndicated: !onHydroxyurea && severity !== 'Mild', // Indicated if not already on it and crisis is not mild
-      hydroxyureaDose: onHydroxyurea ? currentHUDose : `${initialHUDose} mg/day`,
-      hydroxyureaDosing,
-      infectionManagement,
-      acsManagement,
-      monitoring,
-      emergencyReferral: severity === 'Critical' || hasStroke || hasACS, // Emergency referral for critical cases
-      referralReasons: severity === 'Critical' ? ['Critical severity crisis', hasStroke ? 'Stroke' : '', hasACS ? 'Acute Chest Syndrome' : ''].filter(Boolean) : undefined,
-      dischargeCriteria,
-      longTermRecommendations,
-      woundHealingRecommendations,
-    };
-    
-    setResult(calculationResult);
+    const r = computeSickle({
+      weight, age, hbLevel, hbS, reticulocyteCount, crisisType, painScore,
+      hasFever, hasACS, hasStroke, hasPriapism, hasSplenic, hasAplastic,
+      onHydroxyurea, currentHUDose, transfusionHistory, wound: woundAssessment,
+    });
+    if (r.errors) { setErrors(r.errors); setResult(null); return; }
+    setErrors([]);
+    setResult(r.result);
   };
 
-  // B&W PDF Export: Georgia font, size 12, 0.75 line spacing, bold headers/footers
-  const generatePDF = (res: SickleCellResult) => {
-    const doc = createSafePDF('p', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 20;
-    const contentWidth = pageWidth - margin * 2;
-    const fontSize = 12;
-    const lineHeight = fontSize * 0.3528 * 0.75; // pt to mm * 0.75 spacing
-    let y = margin;
-
-    // White background
-    doc.setFillColor(255, 255, 255);
-    doc.rect(0, 0, pageWidth, pageHeight, 'F');
-
-    // All black text
-    doc.setTextColor(0, 0, 0);
-    doc.setDrawColor(0, 0, 0);
-
-    const addNewPage = () => {
-      doc.addPage();
-      doc.setFillColor(255, 255, 255);
-      doc.rect(0, 0, pageWidth, pageHeight, 'F');
-      doc.setTextColor(0, 0, 0);
-      doc.setDrawColor(0, 0, 0);
-      y = margin;
-      addFooter();
-    };
-
-    const checkPageBreak = (needed: number = lineHeight + 5) => {
-      if (y + needed > pageHeight - 25) {
-        addNewPage();
-      }
-    };
-
-    const addFooter = () => {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.text('AstroHEALTH Innovations - Sickle Cell Crisis Management Report', margin, pageHeight - 10);
-      doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-      doc.setFontSize(fontSize);
-    };
-
-    const addHeader = (text: string) => {
-      checkPageBreak(lineHeight * 3);
-      y += lineHeight * 0.5;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(fontSize);
-      doc.text(text.toUpperCase(), margin, y);
-      y += lineHeight * 0.3;
-      doc.line(margin, y, margin + contentWidth, y);
-      y += lineHeight;
-      doc.setFont('helvetica', 'normal');
-    };
-
-    const addLine = (text: string, bold = false) => {
-      checkPageBreak();
-      doc.setFont('helvetica', bold ? 'bold' : 'normal');
-      doc.setFontSize(fontSize);
-      // Word wrap
-      const lines = doc.splitTextToSize(text, contentWidth);
-      for (const line of lines) {
-        checkPageBreak();
-        doc.text(line, margin, y);
-        y += lineHeight;
-      }
-    };
-
-    const addBullet = (text: string) => {
-      checkPageBreak();
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(fontSize);
-      const lines = doc.splitTextToSize(text, contentWidth - 8);
-      doc.text('\u2022', margin + 2, y);
-      for (let i = 0; i < lines.length; i++) {
-        checkPageBreak();
-        doc.text(lines[i], margin + 8, y);
-        y += lineHeight;
-      }
-    };
-
-    // === TITLE ===
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text('SICKLE CELL CRISIS MANAGEMENT REPORT', pageWidth / 2, y, { align: 'center' });
-    y += lineHeight * 1.5;
-
-    doc.setFontSize(fontSize);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Date: ${format(new Date(), 'dd MMMM yyyy')}`, margin, y);
-    y += lineHeight;
-
-    // Patient info
-    if (patientInfo.name) {
-      addLine(`Patient: ${patientInfo.name}`, true);
-      if (patientInfo.hospitalNumber) addLine(`Hospital Number: ${patientInfo.hospitalNumber}`);
-      if (patientInfo.age) addLine(`Age: ${patientInfo.age} years    Gender: ${patientInfo.gender}`);
-      if (patientInfo.hospital) addLine(`Hospital: ${patientInfo.hospital}`);
-      if (patientInfo.diagnosis) addLine(`Diagnosis: ${patientInfo.diagnosis}`);
-      y += lineHeight * 0.5;
-    }
-
-    // === SEVERITY ===
-    addHeader('Crisis Assessment');
-    addLine(`Severity: ${res.severity}`, true);
-    addLine(`Crisis Type: ${res.crisisType}`);
-    if (res.severityFactors?.length) {
-      for (const f of res.severityFactors) addBullet(f);
-    }
-
-    // === PAIN MANAGEMENT ===
-    addHeader('Pain Management');
-    for (const item of res.painManagement) addBullet(item);
-
-    // === FLUID MANAGEMENT ===
-    addHeader('Fluid Management');
-    if (res.hydrationRecommendation?.length) {
-      for (const item of res.hydrationRecommendation) addBullet(item);
-    }
-
-    // === ACS ===
-    if (res.acsManagement?.length) {
-      addHeader('Acute Chest Syndrome Protocol');
-      for (const item of res.acsManagement) addBullet(item);
-    }
-
-    // === TRANSFUSION ===
-    addHeader('Transfusion Guidelines');
-    if (res.exchangeTransfusion) {
-      addLine(`EMERGENCY EXCHANGE TRANSFUSION - Volume: ${res.exchangeVolume?.toLocaleString()} mL`, true);
-    }
-    if (res.transfusionGuidelines?.length) {
-      for (const item of res.transfusionGuidelines) addBullet(item.replace(/[🚨⚠️]/g, '').trim());
-    }
-
-    // === INFECTION ===
-    if (res.infectionManagement?.length) {
-      addHeader('Infection Management');
-      for (const item of res.infectionManagement) addBullet(item.replace(/[🌡️]/g, '').trim());
-    }
-
-    // === HYDROXYUREA ===
-    addHeader('Hydroxyurea Therapy');
-    if (res.hydroxyureaDosing?.length) {
-      for (const item of res.hydroxyureaDosing) addBullet(item.replace(/[⚡]/g, '').trim());
-    }
-
-    // === WOUND HEALING ===
-    if (res.woundHealingRecommendations?.length) {
-      addHeader('Wound Healing Protocol');
-      for (const item of res.woundHealingRecommendations) {
-        if (item === '' || item === 'SICKLE CELL WOUND HEALING PROTOCOL') continue;
-        if (item.startsWith('--')) {
-          y += lineHeight * 0.3;
-          addLine(item.replace(/--/g, '').trim(), true);
-        } else {
-          addBullet(item);
-        }
-      }
-    }
-
-    // === MONITORING ===
-    addHeader('Monitoring Parameters');
-    for (const item of res.monitoring) addBullet(item);
-
-    // === DISCHARGE ===
-    if (res.dischargeCriteria?.length) {
-      addHeader('Discharge Criteria');
-      for (const item of res.dischargeCriteria) addBullet(item);
-    }
-
-    // === LONG-TERM ===
-    if (res.longTermRecommendations?.length) {
-      addHeader('Long-Term Recommendations');
-      for (const item of res.longTermRecommendations) addBullet(item);
-    }
-
-    // Footer on all pages
-    const totalPages = doc.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i);
-      addFooter();
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-    }
-
-    const filename = patientInfo.name
-      ? `SCD_Crisis_${patientInfo.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`
-      : `SCD_Crisis_Report_${format(new Date(), 'yyyyMMdd')}.pdf`;
-    doc.save(filename);
-  };
+  const report = useMemo(() => (result ? sickleReport(result, patientInfo) : null), [result, patientInfo]);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
+    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
       <div className="flex items-center gap-3 mb-6">
         <Droplets className="w-7 h-7 text-red-600" />
         <h2 className="text-2xl font-bold text-gray-800">Sickle Cell Crisis Calculator</h2>
@@ -568,7 +96,7 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
       </div>
 
       {/* Basic Parameters */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Weight (kg) *</label>
           <input
@@ -873,9 +401,14 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
         )}
       </div>
 
+      {errors.length > 0 && (
+        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">
+          <ul className="list-disc pl-5 space-y-0.5">{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+        </div>
+      )}
+
       <button
         onClick={calculate}
-        disabled={!weight || !age}
         className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400"
       >
         <Calculator className="w-5 h-5" />
@@ -905,10 +438,20 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
               ))}
             </div>
 
+            {/* Emergency referral */}
+            {result.emergencyReferral && (result.referralReasons?.length ?? 0) > 0 && (
+              <div className="bg-red-50 border-2 border-red-400 p-4 mb-4 rounded-lg">
+                <h4 className="font-bold text-red-800 mb-2">Emergency referral</h4>
+                <ul className="list-disc ml-6 text-sm text-red-700 space-y-0.5">
+                  {result.referralReasons?.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+
             {/* Emergency - Exchange Transfusion */}
             {result.exchangeTransfusion && (
               <div className="bg-red-100 border-2 border-red-500 p-4 mb-4 rounded-lg">
-                <h4 className="font-bold text-red-800 mb-2 text-lg">🚨 EMERGENCY EXCHANGE TRANSFUSION</h4>
+                <h4 className="font-bold text-red-800 mb-2 text-lg">EMERGENCY EXCHANGE TRANSFUSION</h4>
                 <p className="text-red-700 font-medium">
                   Estimated exchange volume: {result.exchangeVolume?.toLocaleString()} mL (1.5 blood volumes)
                 </p>
@@ -1040,16 +583,7 @@ export default function SickleCellCalculator({ patientInfo }: Props) {
               </div>
             )}
 
-            {/* PDF Export Button */}
-            <div className="mt-6 flex justify-center">
-              <button
-                onClick={() => generatePDF(result)}
-                className="flex items-center gap-2 px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white font-semibold rounded-lg transition-colors"
-              >
-                <FileText className="w-5 h-5" />
-                Download PDF Report
-              </button>
-            </div>
+            <CalculatorReportActions report={report} className="mt-6" />
           </div>
         </div>
       )}
