@@ -1626,9 +1626,13 @@ export interface DischargeSummary {
 
 export interface DischargeProcedure {
   name: string;
-  date: Date;
+  /** From the surgery record; absent when no record matched. */
+  date?: Date;
+  /** From the surgery record; '' when unknown (never the person typing). */
   surgeon: string;
+  /** From the surgery record's status/complications; '' when unknown. */
   outcome: string;
+  surgeryId?: string;
 }
 
 export interface DischargeMedication {

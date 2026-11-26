@@ -259,7 +259,10 @@ export default function DischargeSummaryView({ summary, patient, onClose }: Prop
                 <ul className="list-disc list-inside mt-2">
                   {summary.proceduresPerformed.map((proc, i) => (
                     <li key={i}>
-                      {proc.name} - {format(new Date(proc.date), 'dd MMM yyyy')} ({proc.outcome})
+                      {proc.name}
+                      {proc.date && !Number.isNaN(new Date(proc.date).getTime()) ? ` - ${format(new Date(proc.date), 'dd MMM yyyy')}` : ''}
+                      {proc.surgeon ? `, ${proc.surgeon}` : ''}
+                      {proc.outcome ? ` (${proc.outcome})` : ''}
                     </li>
                   ))}
                 </ul>
