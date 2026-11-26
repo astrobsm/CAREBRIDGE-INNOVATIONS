@@ -35,6 +35,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import PostOpDayCounter from '../components/PostOpDayCounter';
 import PostOpMonitoringModal from '../components/PostOpMonitoringModal';
 import PostOpCarePlanModal from '../components/PostOpCarePlanModal';
+import { latestActivePlan } from '../services/postOpObservation';
 import type { Surgery, Patient, PostOperativeNote, Admission } from '../../../types';
 
 interface PostOpPatient {
@@ -89,6 +90,19 @@ export default function PostOpCarePage() {
   const postOpNotes = useLiveQuery(() => db.postOperativeNotes.toArray(), []);
   const vitalSigns = useLiveQuery(() => db.vitalSigns.orderBy('recordedAt').reverse().toArray(), []);
   const users = useLiveQuery(() => db.users.toArray(), []);
+  // The care plan already written for the selected surgery, so reopening the
+  // modal edits it instead of creating a second plan. The lookup carries the
+  // surgery id so a stale result for the previous surgery is never used.
+  const carePlanLookup = useLiveQuery(
+    async () => selectedSurgery
+      ? {
+          surgeryId: selectedSurgery.id,
+          plan: latestActivePlan(await db.postOpCarePlans.where('surgeryId').equals(selectedSurgery.id).toArray()),
+        }
+      : null,
+    [selectedSurgery?.id],
+  );
+  const carePlanReady = !!selectedSurgery && carePlanLookup?.surgeryId === selectedSurgery.id;
 
   // Build post-op patients list
   const postOpPatients = useMemo(() => {
@@ -509,11 +523,12 @@ export default function PostOpCarePage() {
             }}
           />
         )}
-        {showCarePlanModal && selectedPatient && selectedSurgery && (
+        {showCarePlanModal && selectedPatient && selectedSurgery && carePlanReady && (
           <PostOpCarePlanModal
             isOpen={showCarePlanModal}
             patient={selectedPatient.patient}
             surgery={selectedSurgery}
+            existingPlan={carePlanLookup?.plan}
             onClose={() => {
               setShowCarePlanModal(false);
               setSelectedPatient(null);

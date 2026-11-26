@@ -119,6 +119,7 @@ import type {
 } from '../domains/nutrition/types';
 import { normaliseLegacyMust } from '../domains/nutrition/services/assessmentRecord';
 import type { LymphedemaAssessment, LymphedemaMonitoringRecord, PostOpLymphedemaMonitoring } from '../domains/lymphedema/types';
+import type { PostOpCarePlan, PostOpObservation } from '../domains/post-op-care/types';
 import type {
   FinanceBucket,
   FinanceIncome,
@@ -301,6 +302,10 @@ export class AstroHEALTHDatabase extends Dexie {
   foods!: Table<Food, string>;
   recipes!: Table<Recipe, string>;
   householdMeasures!: Table<HouseholdMeasure, string>;
+  // Post-operative care plans and the full monitoring observations. Device-
+  // local: there is no Supabase table for either yet.
+  postOpCarePlans!: Table<PostOpCarePlan, string>;
+  postOpObservations!: Table<PostOpObservation, string>;
 
   constructor() {
     super('AstroHEALTHDB');
@@ -540,6 +545,15 @@ export class AstroHEALTHDatabase extends Dexie {
         normaliseLegacyMust(a);
       })
     );
+
+    // v94: post-op care. The care-plan modal wrote to a postOpCarePlans store
+    // that was never declared, so every save threw; the monitoring modal kept
+    // only the vitals and dropped wound, drain and complication findings.
+    // Both stores are device-local until a Supabase migration adds them.
+    this.version(94).stores({
+      postOpCarePlans: 'id, patientId, surgeryId, hospitalId, status, createdAt, updatedAt',
+      postOpObservations: 'id, patientId, surgeryId, carePlanId, recordedAt, createdAt, updatedAt',
+    });
   }
 }
 

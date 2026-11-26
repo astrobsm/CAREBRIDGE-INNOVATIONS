@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+
 import { motion } from 'framer-motion';
 import {
   X,
@@ -22,9 +22,17 @@ import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Patient, Surgery } from '../../../types';
 import type { PostOpMonitoringRecord } from '../types';
+import {
+  monitoringSchema,
+  buildPostOpObservation,
+  buildObservationVitals,
+  latestActivePlan,
+  type MonitoringFormData,
+} from '../services/postOpObservation';
 
 interface PostOpMonitoringModalProps {
   patient: Patient;
@@ -32,69 +40,6 @@ interface PostOpMonitoringModalProps {
   onClose: () => void;
   existingRecord?: PostOpMonitoringRecord;
 }
-
-const monitoringSchema = z.object({
-  // Vital Signs
-  heartRate: z.number().min(30).max(220).optional(),
-  bloodPressureSystolic: z.number().min(60).max(250).optional(),
-  bloodPressureDiastolic: z.number().min(30).max(150).optional(),
-  temperature: z.number().min(34).max(42).optional(),
-  respiratoryRate: z.number().min(8).max(60).optional(),
-  oxygenSaturation: z.number().min(50).max(100).optional(),
-  
-  // Pain Assessment
-  painScore: z.number().min(0).max(10),
-  painLocation: z.string().optional(),
-  painCharacter: z.string().optional(),
-  painManagementEffective: z.boolean().optional(),
-  
-  // Wound Assessment
-  woundCondition: z.enum(['clean_dry', 'minimal_drainage', 'moderate_drainage', 'heavy_drainage', 'signs_of_infection']).optional(),
-  dressingIntact: z.boolean().optional(),
-  dressingChanged: z.boolean().optional(),
-  dressingNotes: z.string().optional(),
-  
-  // Drains
-  drainOneOutput: z.number().optional(),
-  drainTwoOutput: z.number().optional(),
-  drainColor: z.string().optional(),
-  
-  // Fluid Balance
-  oralIntake: z.number().optional(),
-  ivFluidIntake: z.number().optional(),
-  urineOutput: z.number().optional(),
-  
-  // GI/GU
-  bowelSoundsPresent: z.boolean().optional(),
-  bowelMovement: z.boolean().optional(),
-  flatusPresent: z.boolean().optional(),
-  catheterInSitu: z.boolean().optional(),
-  voidingNormally: z.boolean().optional(),
-  
-  // Mobility
-  mobilityLevel: z.enum(['bedbound', 'sitting_up', 'chair_transfer', 'walking_with_assist', 'walking_independently']).optional(),
-  mobilizedToday: z.boolean().optional(),
-  physioReview: z.boolean().optional(),
-  
-  // Diet
-  dietStatus: z.enum(['nil_by_mouth', 'sips_only', 'free_fluids', 'light_diet', 'regular_diet']).optional(),
-  dietTolerated: z.boolean().optional(),
-  nausea: z.boolean().optional(),
-  vomiting: z.boolean().optional(),
-  
-  // Complications
-  complicationPresent: z.boolean(),
-  complicationType: z.string().optional(),
-  complicationNotes: z.string().optional(),
-  
-  // General
-  overallCondition: z.enum(['stable', 'improving', 'concerning', 'deteriorating']),
-  nursingNotes: z.string().optional(),
-  escalationRequired: z.boolean(),
-  escalationDetails: z.string().optional(),
-});
-
-type MonitoringFormData = z.infer<typeof monitoringSchema>;
 
 export default function PostOpMonitoringModal({
   patient,
@@ -157,41 +102,45 @@ export default function PostOpMonitoringModal({
     currentHour >= 6 && currentHour < 14 ? 'morning' :
     currentHour >= 14 && currentHour < 22 ? 'afternoon' : 'night';
 
-  // Use these for future features
+  // Shown in the header; the saved record recomputes them at save time.
   void shift;
   void hourPostOp;
 
   const onSubmit = async (data: MonitoringFormData) => {
+    if (!user) {
+      toast.error('You must be signed in to record observations');
+      return;
+    }
     setSaving(true);
     try {
-      // TODO: When postOpMonitoringRecords table is added to database,
-      // build and save the full PostOpMonitoringRecord here.
-      // For now, save vital signs as the primary record which captures
-      // the essential monitoring data.
-      
-      if (data.heartRate || data.bloodPressureSystolic || data.temperature) {
-        await db.vitalSigns.add({
-          id: uuidv4(),
-          patientId: patient.id,
-          encounterId: surgery.id,
-          pulse: data.heartRate || 0,
-          bloodPressureSystolic: data.bloodPressureSystolic || 0,
-          bloodPressureDiastolic: data.bloodPressureDiastolic || 0,
-          temperature: data.temperature || 0,
-          respiratoryRate: data.respiratoryRate || 0,
-          oxygenSaturation: data.oxygenSaturation || 0,
-          painScore: data.painScore,
-          recordedAt: new Date(),
-          recordedBy: user?.id || '',
-          notes: `Post-op Day ${dayPostOp}. ${
-            data.overallCondition !== 'stable' ? `Condition: ${data.overallCondition}. ` : ''
-          }${
-            data.complicationPresent ? `Complication: ${data.complicationType}. ` : ''
-          }${data.nursingNotes || ''}`.trim(),
-        });
-      }
+      // The whole observation (wound, drains, fluids, complications,
+      // escalation...) goes to postOpObservations; the vitals also go to
+      // vitalSigns, which the post-op charts read.
+      const plans = await db.postOpCarePlans.where('surgeryId').equals(surgery.id).toArray();
+      const observation = buildPostOpObservation(data, {
+        id: uuidv4(),
+        vitalSignsId: uuidv4(),
+        patientId: patient.id,
+        surgeryId: surgery.id,
+        carePlanId: latestActivePlan(plans)?.id,
+        hospitalId: surgery.hospitalId,
+        surgeryDate,
+        now: new Date(),
+        recordedBy: user.id,
+        recordedByName: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.id,
+      });
+      const vitals = buildObservationVitals(data, observation);
 
-      toast.success('Monitoring record saved successfully');
+      await db.transaction('rw', db.postOpObservations, db.vitalSigns, async () => {
+        await db.postOpObservations.add(observation);
+        if (vitals) await db.vitalSigns.add(vitals);
+      });
+      // Confirm the write landed before telling the nurse it did.
+      const saved = await db.postOpObservations.get(observation.id);
+      if (!saved) throw new Error('Observation was not written');
+      if (vitals) syncRecord('vitalSigns', vitals as unknown as Record<string, unknown>).catch(console.error);
+
+      toast.success(vitals ? 'Observation and vitals saved' : 'Observation saved (no vitals entered)');
       onClose();
     } catch (error) {
       console.error('Error saving monitoring record:', error);
