@@ -220,4 +220,23 @@ export interface NutritionConfig {
     /** Prealbumin/CRP ratio threshold. null = no validated threshold configured. */
     prealbuminCrpRatioThreshold: Sourced<number | null>;
   };
+
+  /**
+   * The practice's Wound Clinic Protocol (26 Nov 2026), "Protein and calories
+   * come first" table, verbatim. Adults and children; see woundTargets.ts.
+   */
+  woundProtocol: Sourced<{
+    adultChronic: { kcalPerKg: NumericRange; proteinGPerKg: NumericRange; proteinLargeDeepUpToGPerKg: number; fluidMlPerKcal: number };
+    adultMajorBurn: { proteinGPerKg: NumericRange };
+    child: { energyUpliftPercent: NumericRange; proteinGPerKg: NumericRange };
+    /** Children 1 month to 17 years; the adult table from this age. */
+    adultFromYears: number;
+  }>;
+  /** Holliday–Segar maintenance fluid: mL/kg/day for the first 10 kg, the next 10 kg, and each kg above 20. */
+  hollidaySegar: Sourced<{ first10: number; next10: number; above20: number }>;
+  /** STRONGkids (Hulst 2010): item points and risk bands, ages 1 month to 17 years. */
+  strongKids: Sourced<{
+    points: { highRiskDisease: number; poorNutritionalStatus: number; intakeOrLosses: number; weightLossOrNoGain: number };
+    bands: { lowMax: number; mediumMax: number };
+  }>;
 }

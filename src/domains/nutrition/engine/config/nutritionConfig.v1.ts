@@ -18,7 +18,10 @@ export const NUTRITION_CONFIG_V1: NutritionConfig = {
   version: '1.0.0',
   effectiveDate: '2026-11-07',
   validationStatus: 'pending_clinical_validation',
-  changelog: ['1.0.0 — initial engine configuration (stage 1). Not clinically signed off.'],
+  changelog: [
+    '1.0.0 — initial engine configuration (stage 1). Not clinically signed off.',
+    '1.0.0 (stage 5 addition) — wound clinic protocol targets, Holliday–Segar fluid and STRONGkids; additive, no existing value changed.',
+  ],
   sources: SOURCES_V1,
 
   population: {
@@ -267,5 +270,28 @@ export const NUTRITION_CONFIG_V1: NutritionConfig = {
     nitrogen: { value: { proteinToNitrogen: 6.25, insensibleLossG: 4, ureaMmolToNitrogenG: 0.028 }, sourceId: 'blackburn1977',
       note: '0.028 g N per mmol urea follows from 2 N atoms (28 g) per mole of urea.' },
     prealbuminCrpRatioThreshold: { value: null, sourceId: 'localPolicy', note: 'No validated cut-off configured; ratio is reported for trend only.' },
+  },
+
+  // Stage 5: the practice's wound clinic protocol, "Protein and calories come
+  // first" table. Every number is the protocol's own; do not change one
+  // without the protocol changing.
+  woundProtocol: {
+    value: {
+      adultChronic: { kcalPerKg: { low: 30, high: 35 }, proteinGPerKg: { low: 1.25, high: 1.5 }, proteinLargeDeepUpToGPerKg: 2, fluidMlPerKcal: 1 },
+      adultMajorBurn: { proteinGPerKg: { low: 1.5, high: 2 } },
+      child: { energyUpliftPercent: { low: 10, high: 20 }, proteinGPerKg: { low: 1.5, high: 2.5 } },
+      adultFromYears: 18,
+    },
+    sourceId: 'astroWoundProtocol2026',
+    note: 'Adult pressure-injury targets as summarised by RNAO from EPUAP/NPIAP/PPPIA (npiap2019).',
+  },
+  hollidaySegar: { value: { first10: 100, next10: 50, above20: 20 }, sourceId: 'hollidaySegar1957' },
+  strongKids: {
+    value: {
+      points: { highRiskDisease: 2, poorNutritionalStatus: 1, intakeOrLosses: 1, weightLossOrNoGain: 1 },
+      bands: { lowMax: 0, mediumMax: 3 },
+    },
+    sourceId: 'hulst2010',
+    note: 'Pending clinical validation in this practice (stage 5).',
   },
 };

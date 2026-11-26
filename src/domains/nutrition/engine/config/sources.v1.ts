@@ -50,6 +50,11 @@ export const SOURCES_V1: Record<string, Source> = {
   nhlbi1998: s('NHLBI. Clinical guidelines on the identification, evaluation, and treatment of overweight and obesity in adults. NIH Publication 98-4083; 1998.'),
   jensen2013: s('Jensen MD, Ryan DH, Apovian CM, et al. 2013 AHA/ACC/TOS guideline for the management of overweight and obesity in adults. Circulation. 2014;129(25 Suppl 2):S102-S138.'),
   espenMicronutrients2022: s('Berger MM, Shenkin A, Schweinlin A, et al. ESPEN micronutrient guideline. Clin Nutr. 2022;41(6):1357-1424.'),
+  astroWoundProtocol2026: s('AstroHEALTH Wound Clinic Protocol: Baseline Investigations and Micronutrient Support (26 Nov 2026). docs/protocols/wound-clinic-protocol.md.',
+    'The practice owner\'s protocol; numbers encoded exactly as written.'),
+  npiap2019: s('EPUAP/NPIAP/PPPIA. Prevention and Treatment of Pressure Ulcers/Injuries: Clinical Practice Guideline (2019; 4th edition 2025), as summarised by RNAO (https://bpgmobile.rnao.ca/node/1257).'),
+  hollidaySegar1957: s('Holliday MA, Segar WE. The maintenance need for water in parenteral fluid therapy. Pediatrics. 1957;19(5):823-832.'),
+  hulst2010: s('Hulst JM, Zwart H, Hop WC, Joosten KFM. Dutch national survey to test the STRONGkids nutritional risk screening tool in hospitalized children. Clin Nutr. 2010;29(1):106-111.'),
   localPolicy: s('Module specification / local unit policy (UNTH Enugu). Not a published threshold: requires local clinical sign-off.',
     'Values marked localPolicy are operational choices, not evidence-derived cut-offs.'),
 };
