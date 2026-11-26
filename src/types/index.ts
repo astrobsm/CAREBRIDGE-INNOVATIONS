@@ -98,6 +98,12 @@ export interface Patient {
   lastName: string;
   middleName?: string;
   dateOfBirth: Date;
+  /**
+   * True when dateOfBirth was estimated from an age in years (1 July of
+   * that year) because the patient did not know their birthday. Show it as
+   * "estimated"; absent/false means the date was given.
+   */
+  dobEstimated?: boolean;
   gender: 'male' | 'female';
   bloodGroup?: BloodGroup;
   genotype?: Genotype;
