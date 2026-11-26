@@ -44,7 +44,6 @@ import type { EntryTrackingInfo } from '../../../components/common';
 import { 
   createAssignmentNotification, 
   initVoiceNotificationService,
-  requestNotificationPermission 
 } from '../../../services/voiceNotificationService';
 
 const admissionSchema = z.object({
@@ -121,12 +120,8 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
   // Initialize voice notification service on mount
   useEffect(() => {
     initVoiceNotificationService();
-    // Request notification permission
-    requestNotificationPermission().then(granted => {
-      if (granted) {
-        console.log('Notification permission granted');
-      }
-    });
+    // Notification permission is asked only from a tap (dashboard card or
+    // Settings), never on page load.
   }, []);
 
   useEffect(() => {

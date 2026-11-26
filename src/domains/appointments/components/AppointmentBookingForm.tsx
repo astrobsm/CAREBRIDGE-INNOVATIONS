@@ -34,6 +34,16 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { PatientSelector } from '../../../components/patient';
 import { HospitalSelector } from '../../../components/hospital';
 import { createAppointment, getAvailableSlots } from '../../../services/appointmentService';
+import {
+  STEP_FIELDS,
+  findBookingClashes,
+  bookingSlotKey,
+  cliniciansWithCurrentUser,
+  reminderOffsetsSummary,
+  reminderPlanLines,
+  type BookingClash,
+  type BookingSlot,
+} from '../bookingRules';
 import type { AppointmentType, AppointmentPriority, AppointmentLocation, Patient } from '../../../types';
 
 // Form validation schema
@@ -99,6 +109,9 @@ const priorityOptions: { value: AppointmentPriority; label: string; color: strin
   { value: 'emergency', label: 'Emergency', color: 'bg-red-100 text-red-700' },
 ];
 
+/** Roles that never see patients themselves: not defaulted as the clinician. */
+const NON_CLINICAL_ROLES = new Set(['accountant', 'driver', 'home_care_giver', 'pharmacist', 'lab_scientist']);
+
 const durationOptions = [
   { value: 15, label: '15 min' },
   { value: 30, label: '30 min' },
@@ -120,19 +133,27 @@ export default function AppointmentBookingForm({
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  // Clash warning: shown on "Next" from step 2 (and re-checked at submit);
+  // the user may continue deliberately for that exact slot.
+  const [clashes, setClashes] = useState<BookingClash[]>([]);
+  const [acceptedClashKey, setAcceptedClashKey] = useState<string | null>(null);
 
   // Get hospitals for selection
   const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive === true).toArray(), []);
 
   // Get clinicians (doctors/surgeons)
-  const clinicians = useLiveQuery(() => 
+  // Always includes the signed-in user, so a solo clinician (whose role may
+  // not be in the list) is never told "No clinicians registered".
+  const clinicianRows = useLiveQuery(() =>
     db.users
       .where('role')
-      .anyOf(['surgeon', 'anaesthetist', 'nurse', 'dietician', 'physiotherapist'])
+      .anyOf(['surgeon', 'plastic_surgeon', 'doctor', 'consultant', 'anaesthetist', 'nurse', 'dietician', 'physiotherapist'])
       .filter(u => u.isActive)
       .toArray(),
     []
   );
+  const clinicians = clinicianRows ? cliniciansWithCurrentUser(clinicianRows, user) : undefined;
+  const defaultClinicianId = user && !NON_CLINICAL_ROLES.has(user.role) ? user.id : '';
 
   // Get drivers and home care givers for home visits
   const drivers = useLiveQuery(() =>
@@ -151,6 +172,8 @@ export default function AppointmentBookingForm({
     control,
     watch,
     setValue,
+    getValues,
+    trigger,
     formState: { errors },
   } = useForm<AppointmentFormData>({
     resolver: zodResolver(appointmentSchema) as any,
@@ -162,6 +185,7 @@ export default function AppointmentBookingForm({
       duration: 30,
       reminderEnabled: true,
       hospitalId: user?.hospitalId || '',
+      clinicianId: defaultClinicianId,
     },
   });
 
@@ -265,6 +289,12 @@ export default function AppointmentBookingForm({
       return;
     }
 
+    // Same patient or same clinician at an overlapping time: warn first.
+    if (!(await clashCheckPasses())) {
+      setStep(2);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -337,7 +367,51 @@ export default function AppointmentBookingForm({
     }
   };
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 3));
+  const currentSlot = (): BookingSlot => {
+    const v = getValues();
+    return {
+      patientId: v.patientId,
+      clinicianId: v.clinicianId || null,
+      appointmentDate: v.appointmentDate,
+      appointmentTime: v.appointmentTime,
+      duration: Number(v.duration) || 30,
+    };
+  };
+
+  /** True when there is no clash, or the user already accepted this one. */
+  const clashCheckPasses = async (): Promise<boolean> => {
+    const candidate = currentSlot();
+    if (acceptedClashKey === bookingSlotKey(candidate)) return true;
+    // Only this patient's and this clinician's bookings can clash.
+    const pool = await db.appointments
+      .where('patientId').equals(candidate.patientId)
+      .or('clinicianId').equals(candidate.clinicianId || '\u0000')
+      .toArray()
+      .catch(() => []);
+    const found = findBookingClashes(candidate, pool);
+    setClashes(found);
+    return found.length === 0;
+  };
+
+  const acceptClash = () => {
+    setAcceptedClashKey(bookingSlotKey(currentSlot()));
+    setClashes([]);
+    setStep(3);
+  };
+
+  // Validate the current step's fields before moving on (step 2 used to let
+  // the user continue without a time).
+  const nextStep = async () => {
+    if (step >= 3) return;
+    const fields = [...STEP_FIELDS[step as 1 | 2]] as (keyof AppointmentFormData)[];
+    const ok = await trigger(fields, { shouldFocus: true });
+    if (!ok) {
+      toast.error('Please complete the highlighted fields first');
+      return;
+    }
+    if (step === 2 && !(await clashCheckPasses())) return;
+    setStep(prev => Math.min(prev + 1, 3));
+  };
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
   return (
@@ -569,6 +643,35 @@ export default function AppointmentBookingForm({
                       <p className="text-amber-600 text-sm mt-1">No clinicians registered. Appointment can be assigned later.</p>
                     )}
                   </div>
+
+                  {/* Clash warning: same patient or same clinician, overlapping time */}
+                  {clashes.length > 0 && (
+                    <div className="p-4 rounded-xl border border-amber-300 bg-amber-50 text-sm text-amber-900" role="alert">
+                      <p className="font-semibold flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" /> Possible double booking
+                      </p>
+                      <ul className="mt-2 space-y-1 list-disc pl-5">
+                        {clashes.map((c, i) => (
+                          <li key={c.existing.id || i}>
+                            {c.reason === 'same_patient'
+                              ? 'This patient already has'
+                              : `${c.existing.clinicianName ? `Dr. ${c.existing.clinicianName}` : 'This clinician'} already has`}{' '}
+                            an appointment at {c.existing.appointmentTime}
+                            {c.existing.duration ? ` (${c.existing.duration} min)` : ''}
+                            {c.existing.appointmentNumber ? `, ref ${c.existing.appointmentNumber}` : ''}.
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setClashes([])} className="px-3 py-1.5 rounded-lg border border-amber-400 bg-white font-medium">
+                          Change the time
+                        </button>
+                        <button type="button" onClick={acceptClash} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white font-medium">
+                          Book anyway
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Date & Time */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -901,7 +1004,7 @@ export default function AppointmentBookingForm({
                       <div>
                         <span className="font-medium text-gray-700">Enable Automatic Reminders</span>
                         <p className="text-sm text-gray-500">
-                          Patient will receive reminders at 48h, 24h, and 1h before the appointment
+                          Patient will receive reminders at {reminderOffsetsSummary()} before the appointment
                         </p>
                       </div>
                     </label>
@@ -912,22 +1015,14 @@ export default function AppointmentBookingForm({
                           Scheduled Reminders:
                         </p>
                         <ul className="text-sm text-gray-600 space-y-1">
-                          <li className="flex items-center gap-2">
-                            <MessageCircle className="w-4 h-4 text-green-500" />
-                            WhatsApp: 48 hours before
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <MessageCircle className="w-4 h-4 text-green-500" />
-                            WhatsApp + Push: 24 hours before
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Bell className="w-4 h-4 text-blue-500" />
-                            Push Notification: 2 hours before
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <MessageCircle className="w-4 h-4 text-green-500" />
-                            Final WhatsApp: 1 hour before
-                          </li>
+                          {reminderPlanLines().map((line) => (
+                            <li key={line.text} className="flex items-center gap-2">
+                              {line.channels.includes('whatsapp')
+                                ? <MessageCircle className="w-4 h-4 text-green-500" />
+                                : <Bell className="w-4 h-4 text-blue-500" />}
+                              {line.text}
+                            </li>
+                          ))}
                         </ul>
                       </div>
                     )}

@@ -267,7 +267,7 @@ export default function NutritionPlannerPage() {
                 <Clipboard className="text-blue-600" size={20} />
                 MUST Screening Tool Reference
               </h4>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                 <div>
                   <h5 className="font-medium text-gray-700 mb-2">BMI Score</h5>
                   {mustScreeningCriteria.bmiScoring.map((item, i) => (
@@ -331,7 +331,7 @@ export default function NutritionPlannerPage() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-4 mt-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
                       <div className="text-center p-2 bg-gray-50 rounded-lg">
                         <p className="text-xl font-bold text-blue-600">{assessment.bmi}</p>
                         <p className="text-xs text-gray-500">BMI</p>
@@ -566,7 +566,7 @@ export default function NutritionPlannerPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-4 mt-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-3">
                       <div className="text-center p-2 bg-orange-50 rounded-lg">
                         <p className="font-bold text-orange-600">{plan.targetCalories}</p>
                         <p className="text-xs text-gray-500">kcal/day</p>
@@ -596,7 +596,7 @@ export default function NutritionPlannerPage() {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Nutrition Calculators</h3>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* BMI Calculator */}
               <div className="bg-white rounded-xl p-6 border">
                 <h4 className="font-semibold mb-4 flex items-center gap-2">
@@ -923,7 +923,7 @@ export default function NutritionPlannerPage() {
                 )}
 
                 {/* Anthropometrics */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg) *</label>
                     <input
@@ -1022,7 +1022,7 @@ export default function NutritionPlannerPage() {
                 </div>
 
                 {/* Dietary Assessment */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Appetite Level</label>
                     <select

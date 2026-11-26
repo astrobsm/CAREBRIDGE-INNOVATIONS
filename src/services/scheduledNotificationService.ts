@@ -296,13 +296,9 @@ export async function showPushNotification(
 ): Promise<void> {
   const { voiceMessage, urgency = 'medium', ...notificationOptions } = options;
 
-  // Request permission if needed
+  // Never prompt from here (no user gesture): permission is asked from a tap.
   if (Notification.permission !== 'granted') {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      console.warn('Notification permission denied');
-      return;
-    }
+    return;
   }
 
   // Show notification via service worker if available

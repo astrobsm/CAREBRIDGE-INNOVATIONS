@@ -16,6 +16,11 @@ import { db } from '../../database';
 import type { TreatmentSession } from '../../types';
 import { CheckCircle2, AlertTriangle, Clock, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
 import { format, isAfter, subDays } from 'date-fns';
+import { createAckNotifier, type AckContent } from './previousPlansAck';
+
+// Stable default for useLiveQuery: a fresh [] literal per render would give
+// `buckets` a new identity on every render while the query loads.
+const NO_SESSIONS: TreatmentSession[] = [];
 
 interface Props {
   patientId: string;
@@ -56,7 +61,7 @@ export default function PreviousPlansReviewGuard({
       });
     },
     [patientId, lookbackDays],
-    [] as TreatmentSession[],
+    NO_SESSIONS,
   );
 
   const buckets = useMemo(() => {
@@ -143,18 +148,28 @@ export default function PreviousPlansReviewGuard({
     );
   }, [acked, buckets, totalItems]);
 
-  // Notify parent
+  // Notify parent, only when the acknowledgement's content changes. Parents
+  // pass an inline callback that sets their state; depending on it (or on
+  // freshly built objects) looped forever: "Maximum update depth exceeded".
+  const onAckRef = useRef(onAcknowledgementChange);
+  onAckRef.current = onAcknowledgementChange;
+  const notifierRef = useRef<((c: AckContent) => boolean) | null>(null);
+  if (!notifierRef.current) {
+    notifierRef.current = createAckNotifier(({ allAcked: all, ...counts }) => {
+      onAckRef.current?.(all, { ...counts, acknowledgedAt: new Date() });
+    });
+  }
   useEffect(() => {
-    onAcknowledgementChange?.(allAcked, {
+    notifierRef.current?.({
+      allAcked,
       executedCount: buckets.executed.length,
       missedCount: buckets.missed.length,
       outstandingCount: buckets.outstanding.length,
       ackedExecuted: Array.from(acked.executed),
       ackedMissed: Array.from(acked.missed),
       ackedOutstanding: Array.from(acked.outstanding),
-      acknowledgedAt: new Date(),
     });
-  }, [allAcked, acked, buckets, onAcknowledgementChange]);
+  }, [allAcked, acked, buckets]);
 
   const toggleItem = (bucket: Bucket, id: string) => {
     setAcked((prev) => {

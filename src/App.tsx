@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import MainLayout from './components/layouts/MainLayout';
 import AuthLayout from './components/layouts/AuthLayout';
@@ -115,7 +115,6 @@ import BookingSharePage from './domains/appointments/pages/public/BookingSharePa
 import ClinicBookingsManagementPage from './domains/appointments/pages/ClinicBookingsManagementPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
-import OfflineSessionBanner from './domains/auth/components/OfflineSessionBanner';
 import InstallPrompt from './components/pwa/InstallPrompt';
 import { UpdatePrompt } from './components/pwa';
 
@@ -140,6 +139,16 @@ function RedirectToWorkflow() {
   return <Navigate to={patientId ? `/surgery/workflow/${patientId}` : '/surgery/workflow'} replace />;
 }
 
+/**
+ * PatientsListPage reads ?search= once, into its initial state. Keying it on
+ * the param remounts it when the header search runs again while already on
+ * /patients, so a new search is applied instead of ignored.
+ */
+function PatientsListRoute() {
+  const [searchParams] = useSearchParams();
+  return <PatientsListPage key={searchParams.get('search') ?? ''} />;
+}
+
 function App() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -149,7 +158,6 @@ function App() {
 
   return (
     <>
-    {isAuthenticated && <OfflineSessionBanner />}
     <Routes>
       {/* Public Routes */}
       <Route element={<AuthLayout />}>
@@ -193,7 +201,7 @@ function App() {
         
         {/* Patient Routes */}
         <Route path="patients">
-          <Route index element={<PatientsListPage />} />
+          <Route index element={<PatientsListRoute />} />
           <Route path="new" element={<SlimNewPatientPage />} />
           <Route path="new-comprehensive" element={<NewPatientPage />} />
           {/* Merging double registrations: administrators only. */}
@@ -354,8 +362,9 @@ function App() {
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
     
-    {/* PWA Install Prompt & Offline/Update Notifications */}
-    <InstallPrompt />
+    {/* PWA install prompt: only once signed in, so it never covers the
+        password field or Sign In button on /login. */}
+    {isAuthenticated && <InstallPrompt />}
     <UpdatePrompt variant="banner" />
   </>
   );

@@ -451,12 +451,9 @@ async function sendMDTPushNotification(invitation: MDTInvitation): Promise<void>
     return;
   }
 
+  // Never prompt from here (no user gesture): permission is asked from a tap.
   if (Notification.permission !== 'granted') {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      console.warn('[MDTNotification] Notification permission denied');
-      return;
-    }
+    return;
   }
 
   // Get service worker registration

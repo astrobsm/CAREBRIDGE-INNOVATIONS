@@ -22,6 +22,7 @@ import LabScientistDashboard from '../components/LabScientistDashboard';
 import AccountantDashboard from '../components/AccountantDashboard';
 import PharmacistDashboard from '../components/PharmacistDashboard';
 import AdminDashboard from '../components/AdminDashboard';
+import NotificationPermissionCard from '../../../components/notifications/NotificationPermissionCard';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -58,7 +59,12 @@ export default function DashboardPage() {
   // If there's a role-specific dashboard, render it
   const roleDashboard = getRoleDashboard();
   if (roleDashboard) {
-    return roleDashboard;
+    return (
+      <>
+        <NotificationPermissionCard />
+        {roleDashboard}
+      </>
+    );
   }
 
   // Live queries for dashboard statistics
@@ -123,6 +129,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      <NotificationPermissionCard />
       {/* Welcome Header */}
       <div className="page-header">
         <div>

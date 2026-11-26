@@ -9,10 +9,9 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import initPWA from './services/pwaService';
 import { initCloudSync, fullSync } from './services/cloudSyncService';
 import { initializeDemoData } from './database';
-import { startNotificationScheduler, initVoiceAlarm } from './services/scheduledNotificationService';
-import { startReminderProcessor } from './services/treatmentSchedulerService';
+import { initVoiceAlarm } from './services/scheduledNotificationService';
 import { startTreatmentReminderService } from './services/treatmentReminderService';
-import { requestNotificationPermission, startReminderScheduler, setupNotificationClickHandler } from './services/appointmentNotificationService';
+import { startNotificationServicesIfPermitted } from './services/notificationBootstrap';
 import { installJsPdfTextSanitizer } from './utils/pdfTextSafe';
 import './index.css';
 
@@ -57,11 +56,9 @@ function setupNetworkHandlers() {
   
   window.addEventListener('online', () => {
     console.log('[App] Device came online');
+    // No toast here: the layout's top banner is the one place that reports
+    // connectivity and sync outcome (it used to be banner + toast + card).
     if (wasOffline) {
-      toast.success('You\'re back online! Syncing data...', {
-        icon: '🌐',
-        duration: 3000
-      });
       // Trigger Supabase sync when coming back online
       setTimeout(() => {
         fullSync();
@@ -73,14 +70,6 @@ function setupNetworkHandlers() {
   window.addEventListener('offline', () => {
     console.log('[App] Device went offline');
     wasOffline = true;
-    toast('You\'re offline. Don\'t worry - your changes are saved locally.', {
-      icon: '📱',
-      duration: 5000,
-      style: {
-        background: '#f59e0b',
-        color: '#fff',
-      }
-    });
   });
   
   // Listen for service worker messages
@@ -174,29 +163,8 @@ setTimeout(() => {
   // for upcoming/due/overdue treatment sessions). Works without push permission.
   startTreatmentReminderService();
 
-  // Request notification permission and start schedulers
-  requestNotificationPermission().then((permission) => {
-    if (permission === 'granted') {
-      console.log('[App] Notification permission granted');
-      // Start the scheduled notification service (surgeries, appointments, treatment plans)
-      startNotificationScheduler();
-      // Start the treatment-planning reminder processor (fires push reminders for sessions)
-      startReminderProcessor(30);
-      // Start appointment reminder scheduler
-      startReminderScheduler();
-      // Setup notification click handlers
-      setupNotificationClickHandler();
-      
-      toast.success('Notifications enabled! You\'ll receive reminders for upcoming events.', {
-        icon: '🔔',
-        duration: 4000
-      });
-    } else {
-      console.log('[App] Notification permission:', permission);
-      toast('Enable notifications to receive reminders for surgeries and appointments', {
-        icon: '🔔',
-        duration: 5000
-      });
-    }
-  });
+  // Start the push-reminder schedulers only if permission was granted before.
+  // Permission is never requested here: it is asked after sign-in, from a tap
+  // on the dashboard's NotificationPermissionCard (a user gesture), once.
+  startNotificationServicesIfPermitted();
 }, 100);

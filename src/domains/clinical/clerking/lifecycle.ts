@@ -30,7 +30,11 @@ import {
 export const SIGN_ROLES: readonly UserRole[] = [
   'registrar', 'resident', 'senior_registrar', 'consultant', 'surgeon', 'plastic_surgeon', 'super_admin', 'hospital_admin',
 ];
-/** Who may mark a signed encounter entered in error (D6 amend roles). */
+/**
+ * Who may mark ANY signed encounter entered in error (D6 amend roles).
+ * Separately, the clinician who signed a note may void their own signed note
+ * (owner decision 2026-11-26, solo practice): see isOwnSignedRecord.
+ */
 export const AMEND_ROLES: readonly UserRole[] = ['senior_registrar', 'consultant', 'super_admin', 'hospital_admin'];
 
 export interface Actor { id: string; role?: UserRole | string; name?: string }
@@ -75,7 +79,20 @@ type WithClerking = Pick<ClinicalEncounter, 'id' | 'patientId'> & { clerking?: S
  * review (procedureReview/) is another. The rules are written once, here,
  * against this shape, so the two cannot drift apart.
  */
-export interface LifecycleRecord { status: ClerkingStatus; version: number; createdBy: string }
+export interface LifecycleRecord { status: ClerkingStatus; version: number; createdBy: string; signedBy?: string }
+
+/**
+ * Is this a signed record that this user signed themself? Compared by id with
+ * the signer; for records signed before signedBy was stored, the author counts
+ * as the signer only if their role can sign (an author who could not sign did
+ * not sign it). Marking it entered in error keeps the original (status change
+ * plus reason, never a delete) and the services write an audit event.
+ */
+export function isOwnSignedRecord(c: LifecycleRecord, user: Actor): boolean {
+  if (c.status !== 'signed' || !user?.id) return false;
+  if (c.signedBy) return String(c.signedBy) === String(user.id);
+  return String(c.createdBy) === String(user.id) && canSign(user);
+}
 
 /** May this user edit this record now? Throws a ClerkingError when not. */
 export function assertCanEditRecord(c: LifecycleRecord | undefined, version: number | undefined, user: Actor): void {
@@ -100,8 +117,8 @@ export function assertCanSubmitRecord(c: LifecycleRecord | undefined, version: n
 export function assertCanMarkErrorRecord(c: LifecycleRecord | undefined, user: Actor, reason: string | undefined) {
   if (!c) throw new ClerkingError('Encounter not found', 404);
   const isAuthorDraft = String(c.createdBy) === String(user.id) && c.status !== 'signed';
-  if (!isAuthorDraft && !canAmend(user)) {
-    throw new ClerkingError('Only the author (before signing) or a senior registrar / consultant can mark this entered in error', 403);
+  if (!isAuthorDraft && !isOwnSignedRecord(c, user) && !canAmend(user)) {
+    throw new ClerkingError('Only the author (before signing), the clinician who signed it, or a senior registrar / consultant can mark this entered in error', 403);
   }
   if (!reason || String(reason).trim().length < 3) throw new ClerkingError('A reason is required', 400);
 }
