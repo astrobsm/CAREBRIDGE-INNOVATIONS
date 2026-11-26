@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  assertCanEdit, assertCanMarkError, assertCanSubmit, assertTrackedStatus, cleanPayload, ClerkingError,
+  assertCanEdit, assertCanMarkError, assertCanSubmit, assertTrackedStatus, cleanPayload, ClerkingError, isOwnSignedRecord,
   canSign, encounterStatusFor, narrativeSections, proseFromClerking, proseFromFollowUp, reconcileTracking, trackedId,
 } from '../clerking/lifecycle';
 import { emptyClerking, emptyFollowUp, generateNarrative, generateFollowUpNarrative } from '../clerking/engine';
@@ -66,6 +66,29 @@ describe('entered in error', () => {
     expect(code(() => assertCanMarkError(enc(clerking()), HO, 'wrong patient'))).toBeNull();
     expect(code(() => assertCanMarkError(enc(clerking({ status: 'signed' })), HO, 'wrong patient'))).toBe(403);
     expect(code(() => assertCanMarkError(enc(clerking({ status: 'signed' })), { id: 'x', role: 'consultant' }, 'wrong patient'))).toBeNull();
+  });
+  it('the clinician who signed a note may void their own signed note', () => {
+    const PS = { id: 'u-ps', role: 'plastic_surgeon' };
+    const own = clerking({ status: 'signed', createdBy: PS.id, signedBy: PS.id });
+    expect(code(() => assertCanMarkError(enc(own), PS, 'wrong patient'))).toBeNull();
+    // Signed before signedBy was stored: the author counts if their role signs.
+    expect(code(() => assertCanMarkError(enc(clerking({ status: 'signed', createdBy: PS.id })), PS, 'wrong patient'))).toBeNull();
+    // Still needs a reason.
+    expect(code(() => assertCanMarkError(enc(own), PS, ''))).toBe(400);
+  });
+  it("refuses someone else's signed note (no amend role)", () => {
+    const PS = { id: 'u-ps', role: 'plastic_surgeon' };
+    const OTHER = { id: 'u-other', role: 'plastic_surgeon' };
+    expect(code(() => assertCanMarkError(enc(clerking({ status: 'signed', createdBy: OTHER.id, signedBy: OTHER.id })), PS, 'wrong patient'))).toBe(403);
+    // Authored by me but signed by a registrar: not mine to void.
+    expect(code(() => assertCanMarkError(enc(clerking({ status: 'signed', createdBy: HO.id, signedBy: REG.id })), HO, 'wrong patient'))).toBe(403);
+    // A registrar who signed it may; a registrar who did not, may not.
+    expect(code(() => assertCanMarkError(enc(clerking({ status: 'signed', createdBy: HO.id, signedBy: REG.id })), REG, 'wrong patient'))).toBeNull();
+    expect(code(() => assertCanMarkError(enc(clerking({ status: 'signed', createdBy: HO.id, signedBy: 'u-reg2' })), REG, 'wrong patient'))).toBe(403);
+  });
+  it('isOwnSignedRecord is false for drafts and for anonymous users', () => {
+    expect(isOwnSignedRecord({ status: 'draft', version: 1, createdBy: REG.id, signedBy: REG.id }, REG)).toBe(false);
+    expect(isOwnSignedRecord({ status: 'signed', version: 1, createdBy: REG.id, signedBy: REG.id }, { id: '' })).toBe(false);
   });
   it('maps onto the encounter row status that existing readers understand', () => {
     expect(encounterStatusFor('signed')).toBe('completed');

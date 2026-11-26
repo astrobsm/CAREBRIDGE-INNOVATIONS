@@ -1579,7 +1579,7 @@ Note: Uploaded chart stored successfully.
                 )}
 
                 {/* Blood Type Selection */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Patient Blood Type</label>
                     <select
@@ -1626,7 +1626,7 @@ Note: Uploaded chart stored successfully.
                 {/* Urgency */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Urgency</label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {(['routine', 'urgent', 'emergency', 'massive_transfusion'] as TransfusionUrgency[]).map(u => (
                       <button
                         key={u}
@@ -1655,7 +1655,7 @@ Note: Uploaded chart stored successfully.
                 </div>
 
                 {/* Lab Values */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Hemoglobin (g/dL)</label>
                     <input
@@ -1834,7 +1834,7 @@ Note: Uploaded chart stored successfully.
                 {/* Verification */}
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <h4 className="font-medium mb-3">Two-Person Verification Required</h4>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Verifying Staff 1 *</label>
                       <input
@@ -1861,7 +1861,7 @@ Note: Uploaded chart stored successfully.
                 {/* Pre-transfusion Vitals */}
                 <div>
                   <h4 className="font-medium mb-3">Baseline Vital Signs</h4>
-                  <div className="grid grid-cols-5 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Temp (°C)</label>
                       <input
@@ -2228,7 +2228,7 @@ Note: Uploaded chart stored successfully.
                 
                 <div className="p-3 bg-green-50 rounded-lg">
                   <p className="text-xs text-green-600 font-medium mb-2">Screening Tests</p>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {Object.entries(selectedOrderForView.screeningTests).map(([test, result]) => (
                       <div key={test} className="text-center">
                         <p className="text-xs text-gray-500 uppercase">{test}</p>
@@ -2288,7 +2288,7 @@ Note: Uploaded chart stored successfully.
               </div>
 
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)] space-y-4">
-                <div className="grid grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                   <div>
                     <p className="text-gray-500">Patient</p>
                     <p className="font-medium">{selectedChartForView.patientName}</p>

@@ -69,11 +69,21 @@ const typeIcons: Record<AppointmentType, string> = {
   other: '📌',
 };
 
+/** Below Tailwind's sm breakpoint (640px). */
+function isPhoneWidth(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches;
+  } catch {
+    return false;
+  }
+}
+
 export default function AppointmentsPage() {
   const { user } = useAuth();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [viewMode, setViewMode] = useState<ViewMode>('calendar');
+  // Phones start on the list (agenda) view: the week grid does not fit 390px.
+  const [viewMode, setViewMode] = useState<ViewMode>(() => (isPhoneWidth() ? 'list' : 'calendar'));
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [searchQuery, setSearchQuery] = useState('');

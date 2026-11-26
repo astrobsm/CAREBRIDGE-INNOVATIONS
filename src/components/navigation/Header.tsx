@@ -10,22 +10,28 @@ import {
   ChevronDown,
   Wifi,
   WifiOff,
+  CloudOff,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import SyncIndicator from '../pwa/SyncIndicator';
+import { describeConnection } from '../pwa/connectionStatus';
+import { isSupabaseConfigured } from '../../services/supabaseClient';
 
 interface HeaderProps {
   onMenuClick: () => void;
 }
 
 export default function Header({ onMenuClick }: HeaderProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, sessionMode } = useAuth();
   const navigate = useNavigate();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
@@ -42,6 +48,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  useEffect(() => {
+    if (showMobileSearch) mobileSearchRef.current?.focus();
+  }, [showMobileSearch]);
 
   // Close menus on outside click
   useEffect(() => {
@@ -63,8 +73,17 @@ export default function Header({ onMenuClick }: HeaderProps) {
     if (searchQuery.trim()) {
       navigate(`/patients?search=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery('');
+      setShowMobileSearch(false);
     }
   };
+
+  // Honest connectivity: a network alone is not "online" when the session is
+  // offline-only or there is no cloud to sync to.
+  const connection = describeConnection({
+    networkOnline: isOnline,
+    sessionMode,
+    cloudConfigured: isSupabaseConfigured(),
+  });
 
   const handleLogout = () => {
     logout();
@@ -91,13 +110,24 @@ export default function Header({ onMenuClick }: HeaderProps) {
               alt="AstroHEALTH" 
               className="w-8 h-8 rounded-lg object-contain bg-gradient-to-br from-indigo-50 to-blue-50 p-0.5 shadow-sm ring-1 ring-indigo-100"
             />
-            <span className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent hidden xs:block">
+            <span className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent hidden min-[420px]:block">
               AstroHEALTH
             </span>
           </div>
 
-          {/* Search */}
-          <form onSubmit={handleSearch} className="hidden sm:block">
+          {/* Search (phones: icon button opening a full-width field below) */}
+          <button
+            type="button"
+            onClick={() => setShowMobileSearch((v) => !v)}
+            className="sm:hidden p-2 rounded-lg hover:bg-indigo-50 transition-colors"
+            title="Search patients"
+            aria-label="Search patients"
+            aria-expanded={showMobileSearch}
+            aria-controls="mobile-patient-search"
+          >
+            <Search size={20} className="text-gray-600" />
+          </button>
+          <form onSubmit={handleSearch} className="hidden sm:block" role="search">
             <div className="relative">
               <Search
                 size={18}
@@ -119,18 +149,20 @@ export default function Header({ onMenuClick }: HeaderProps) {
           {/* Sync Status Indicator */}
           <SyncIndicator compact />
 
-          {/* Online Status */}
+          {/* Online Status. Below sm the sync button above carries the same
+              (session-aware) state, so the row fits a 390px phone. */}
           <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
-              isOnline
+            className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+              connection.kind === 'cloud'
                 ? 'bg-emerald-50 text-emerald-700'
                 : 'bg-amber-50 text-amber-700'
             }`}
+            title={connection.detail}
+            role="status"
+            aria-label={connection.detail}
           >
-            {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
-            <span className="hidden sm:inline">
-              {isOnline ? 'Online' : 'Offline'}
-            </span>
+            {connection.kind === 'cloud' ? <Wifi size={14} /> : connection.kind === 'local' ? <CloudOff size={14} /> : <WifiOff size={14} />}
+            <span className="hidden sm:inline">{connection.label}</span>
           </div>
 
           {/* Notifications */}
@@ -230,6 +262,34 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </div>
         </div>
       </div>
+
+      {/* Phone search field: full width under the header bar */}
+      {showMobileSearch && (
+        <form id="mobile-patient-search" onSubmit={handleSearch} className="sm:hidden px-4 pb-3" role="search">
+          <div className="relative flex items-center gap-2">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              ref={mobileSearchRef}
+              type="search"
+              enterKeyHint="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setShowMobileSearch(false); }}
+              placeholder="Search patients by name, hospital no., phone"
+              aria-label="Search patients"
+              className="w-full pl-10 pr-4 py-2.5 text-base bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            />
+            <button
+              type="button"
+              onClick={() => setShowMobileSearch(false)}
+              className="p-2 rounded-lg hover:bg-gray-100"
+              aria-label="Close search"
+            >
+              <X size={18} className="text-gray-500" />
+            </button>
+          </div>
+        </form>
+      )}
     </header>
   );
 }
