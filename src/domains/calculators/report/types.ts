@@ -67,5 +67,10 @@ export interface CalculatorReport {
   plan?: DeterministicPlan;
   /** Free-text interpretation lines shown with the result. */
   notes?: string[];
+  /**
+   * Reference lists that are not a management plan (a drug monograph's
+   * contraindications, say). Exported, but they do not invite an AI plan.
+   */
+  reference?: ReportSection[];
   patient?: ReportPatient;
 }

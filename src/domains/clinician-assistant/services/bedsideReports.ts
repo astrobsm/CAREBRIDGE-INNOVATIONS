@@ -37,7 +37,7 @@ export function mealPlanSections(days: DayPlan[]): ReportSection[] {
   })).filter(s => s.items.length > 0);
 }
 
-const withPatient = (r: CalculatorReport, patient?: ReportPatient): CalculatorReport =>
+export const withPatient = (r: CalculatorReport, patient?: ReportPatient): CalculatorReport =>
   patient ? { ...r, patient } : r;
 
 // ── Emergency & sepsis ──────────────────────────────────────────────────────
@@ -366,4 +366,5 @@ export function nutritionReport(input: { weightKg: number; kcal: number; protein
     plan: emptyPlan({ sections: input.days?.length ? mealPlanSections(input.days) : sections(section('Meal plan', ['No feasible plan for these targets.'])) }),
   }, patient);
 }
+
 

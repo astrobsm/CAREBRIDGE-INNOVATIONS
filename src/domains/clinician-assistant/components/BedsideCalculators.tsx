@@ -233,7 +233,7 @@ export default function BedsideCalculators({ prefill }: { prefill?: PatientPrefi
               <Loader2 className="w-4 h-4 animate-spin" /> Loading the drug database…
             </div>
           }>
-            <BnfDrugPanel weightKg={w} ageYears={a} sex={sex} gfr={gfr} />
+            <BnfDrugPanel weightKg={w} ageYears={a} sex={sex} gfr={gfr} patient={patient} />
           </Suspense>
         )}
       </div>

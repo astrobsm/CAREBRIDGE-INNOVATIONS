@@ -117,6 +117,10 @@ export function reportProblems(r: CalculatorReport): string[] {
   r.inputs.forEach((f, i) => { check(`inputs[${i}].label`, f.label); check(`inputs[${i}] ${f.label}`, f.value); });
   r.results.forEach((f, i) => { check(`results[${i}].label`, f.label); check(`results[${i}] ${f.label}`, f.value); });
   (r.notes ?? []).forEach((n, i) => check(`notes[${i}]`, n));
+  (r.reference ?? []).forEach((s, i) => {
+    check(`reference[${i}].title`, s.title);
+    s.items.forEach((it, j) => check(`reference[${i}] ${s.title}[${j}]`, it));
+  });
   const p = r.plan;
   if (p) {
     if (p.title !== undefined) check('plan.title', p.title);

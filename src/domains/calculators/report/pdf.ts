@@ -112,6 +112,10 @@ export function buildCalculatorPdf(report: CalculatorReport, opts: CalculatorPdf
   if (report.inputs.length) { w.heading('Inputs'); w.fields(report.inputs); }
   if (report.results.length) { w.heading('Result'); w.fields(report.results); }
   if (report.notes?.length) { w.heading('Interpretation'); w.bullets(report.notes); }
+  if (report.reference?.length) {
+    w.heading('Reference');
+    for (const s of report.reference) { w.para(`${s.title}:`, { bold: true }); w.bullets(s.items); }
+  }
 
   const plan = report.plan;
   if (plan) {

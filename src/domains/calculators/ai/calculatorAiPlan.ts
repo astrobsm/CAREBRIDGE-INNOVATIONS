@@ -93,6 +93,7 @@ export function buildAiPlanPayload(report: CalculatorReport) {
     inputs: Object.fromEntries(report.inputs.map(f => [f.label, f.value])),
     result: Object.fromEntries(report.results.map(f => [f.label, f.value])),
     interpretation: report.notes ?? [],
+    reference: (report.reference ?? []).map(s => ({ [s.title]: s.items })),
     deterministic_plan: plan ? {
       title: plan.title ?? null,
       target: plan.target ?? null,

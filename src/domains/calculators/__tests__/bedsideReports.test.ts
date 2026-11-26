@@ -124,3 +124,22 @@ describe('every Bedside calculator report is complete and exportable', () => {
     expect(PDF_FOOTER_TEXT).toMatch(/Decision support/);
   });
 });
+
+describe('BNF lookup report', () => {
+  it('a looked-up drug exports with no AI plan offered (reference only)', async () => {
+    const { searchDrugs, generatePatientWarnings } = await import('../../../data/bnfDrugDatabase');
+    const { bnfReport } = await import('../../clinician-assistant/services/bnfReport');
+    for (const q of ['paracetamol', 'gentamicin', 'enoxaparin', 'morphine']) {
+      const drug = searchDrugs(q)[0];
+      expect(drug, q).toBeDefined();
+      const warnings = generatePatientWarnings(drug, { sex: 'male', age: 56, weight: 100, gfr: 12 });
+      const r = bnfReport({
+        drug, doseLabel: 'Adult', dose: drug.dosage.adult, warnings, weightKg: 100, ageYears: 56, sex: 'male', gfr: 12,
+        flags: { pregnant: false, lactating: false, hepatic: false, cardiac: false },
+      });
+      expect(r.plan).toBeUndefined();
+      expect(reportProblems(r)).toEqual([]);
+      expect(pdfText(r)).toContain(drug.genericName);
+    }
+  });
+});
