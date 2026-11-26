@@ -110,7 +110,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               alt="AstroHEALTH" 
               className="w-8 h-8 rounded-lg object-contain bg-gradient-to-br from-indigo-50 to-blue-50 p-0.5 shadow-sm ring-1 ring-indigo-100"
             />
-            <span className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent hidden xs:block">
+            <span className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent hidden min-[420px]:block">
               AstroHEALTH
             </span>
           </div>
@@ -149,9 +149,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
           {/* Sync Status Indicator */}
           <SyncIndicator compact />
 
-          {/* Online Status */}
+          {/* Online Status. Below sm the sync button above carries the same
+              (session-aware) state, so the row fits a 390px phone. */}
           <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+            className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
               connection.kind === 'cloud'
                 ? 'bg-emerald-50 text-emerald-700'
                 : 'bg-amber-50 text-amber-700'
