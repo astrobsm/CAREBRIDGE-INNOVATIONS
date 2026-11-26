@@ -1,17 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../navigation/Sidebar';
 import Header from '../navigation/Header';
 import { useOfflineState } from '../../services/offlineDataManager';
 import { WifiOff, X, RefreshCw } from 'lucide-react';
 import { AssignmentNotificationBanner } from '../notifications';
-import { initVoiceNotificationService, requestNotificationPermission } from '../../services/voiceNotificationService';
+import { initVoiceNotificationService } from '../../services/voiceNotificationService';
+import { subscribeSyncState } from '../../services/cloudSyncService';
+import { isSupabaseConfigured } from '../../services/supabaseClient';
+import { useAuth } from '../../contexts/AuthContext';
+import { syncBannerFor, type SyncBanner, type SyncSnapshot } from './syncBanner';
 
 // Offline Banner Component
 function OfflineBanner() {
   const offlineState = useOfflineState();
+  const { sessionMode } = useAuth();
   const [dismissed, setDismissed] = useState(false);
-  const [showSyncSuccess, setShowSyncSuccess] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncBanner | null>(null);
+  const prevSync = useRef<SyncSnapshot | null>(null);
 
   useEffect(() => {
     // Reset dismissed state when going offline
@@ -20,14 +26,28 @@ function OfflineBanner() {
     }
   }, [offlineState.isOnline]);
 
+  // Report the outcome of a real cloud sync only: never on load, never for an
+  // offline (device-only) session, never without Supabase. See syncBanner.ts.
   useEffect(() => {
-    // Show sync success message briefly after coming back online
-    if (offlineState.isOnline && offlineState.pendingChanges === 0 && !offlineState.isSyncing) {
-      setShowSyncSuccess(true);
-      const timer = setTimeout(() => setShowSyncSuccess(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [offlineState.isOnline, offlineState.pendingChanges, offlineState.isSyncing]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = subscribeSyncState((state) => {
+      const next: SyncSnapshot = { isSyncing: state.isSyncing, lastSyncAt: state.lastSyncAt, error: state.error };
+      const banner = syncBannerFor(prevSync.current, next, {
+        sessionMode,
+        cloudConfigured: isSupabaseConfigured(),
+      });
+      prevSync.current = next;
+      if (banner) {
+        setSyncResult(banner);
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => setSyncResult(null), banner.kind === 'success' ? 3000 : 8000);
+      }
+    });
+    return () => {
+      unsubscribe();
+      if (timer) clearTimeout(timer);
+    };
+  }, [sessionMode]);
 
   // Offline banner
   if (!offlineState.isOnline && !dismissed) {
@@ -82,12 +102,29 @@ function OfflineBanner() {
     );
   }
 
-  // Sync success toast (briefly shown)
-  if (showSyncSuccess) {
+  // Outcome of a sync that actually ran (briefly shown)
+  if (syncResult?.kind === 'success') {
     return (
-      <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2">
+      <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2" role="status">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-3">
-          <span className="font-medium">✓ All changes synced successfully!</span>
+          <span className="font-medium">✓ {syncResult.message}</span>
+        </div>
+      </div>
+    );
+  }
+  if (syncResult?.kind === 'failure') {
+    return (
+      <div className="bg-gradient-to-r from-red-600 to-rose-500 text-white px-4 py-2" role="alert">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          <span className="font-medium text-sm">{syncResult.message}</span>
+          <button
+            onClick={() => setSyncResult(null)}
+            className="p-1.5 hover:bg-white/20 rounded-full transition-colors"
+            title="Dismiss"
+            aria-label="Dismiss sync message"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       </div>
     );
@@ -99,15 +136,10 @@ function OfflineBanner() {
 export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Initialize voice notifications on app load
+  // Initialize voice notifications on app load. Permission is asked only from
+  // a tap on NotificationPermissionCard, never on mount.
   useEffect(() => {
     initVoiceNotificationService();
-    // Request permission for notifications
-    requestNotificationPermission().then(granted => {
-      if (granted) {
-        console.log('[MainLayout] Notification permission granted for voice announcements');
-      }
-    });
   }, []);
 
   return (
