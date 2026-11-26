@@ -27,6 +27,9 @@ import { db } from '../../../database';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import type { Surgery } from '../../../types';
+import type { Readiness } from '../journey/readiness';
+import { useReadinessMap } from '../journey/readinessData';
+import { ReadinessItemRow } from '../components/ReadinessPanel';
 
 // Action dropdown component for each surgery row
 function SurgeryActionDropdown({ 
@@ -36,7 +39,9 @@ function SurgeryActionDropdown({
   onReschedule,
   onSendReminder,
   onViewOutstanding,
-}: { 
+  readiness,
+}: {
+  readiness?: Readiness;
   surgery: Surgery; 
   patientName: string;
   onCancel: (surgery: Surgery) => void;
@@ -63,7 +68,7 @@ function SurgeryActionDropdown({
     setIsOpen(false);
     switch (action) {
       case 'preop':
-        navigate('/surgery/workflow');
+        navigate(`/surgery/workflow/${surgery.patientId}?edit=${surgery.id}&tab=preanaesthetic`);
         break;
       case 'postop':
         navigate(`/surgery/post-op-note/create/${surgery.id}`);
@@ -86,8 +91,10 @@ function SurgeryActionDropdown({
     }
   };
 
-  // Count outstanding (incomplete) items
-  const outstandingCount = surgery.outstandingItems?.filter(item => !item.completed).length || 0;
+  // Missing readiness items (journey/readiness.ts), for cases not yet in theatre.
+  const open = !['in-progress', 'completed', 'cancelled'].includes(surgery.status);
+  const missingItems = open ? (readiness?.items ?? []).filter(i => i.status === 'missing') : [];
+  const outstandingCount = missingItems.length;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -115,19 +122,19 @@ function SurgeryActionDropdown({
             className="absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
           >
             {/* Show outstanding items section for incomplete preparation */}
-            {surgery.status === 'incomplete_preparation' && surgery.outstandingItems && (
+            {outstandingCount > 0 && (
               <>
                 <div className="px-4 py-2 bg-amber-50 border-b border-amber-100">
                   <p className="text-xs font-semibold text-amber-800 flex items-center gap-2">
                     <AlertTriangle size={14} />
-                    Outstanding Items ({outstandingCount})
+                    Not ready: {outstandingCount} missing
                   </p>
                 </div>
                 <div className="max-h-40 overflow-y-auto">
-                  {surgery.outstandingItems.filter(item => !item.completed).map(item => (
+                  {missingItems.map(item => (
                     <div key={item.id} className="px-4 py-2 text-xs border-b border-gray-50">
                       <p className="font-medium text-gray-700">{item.label}</p>
-                      <p className="text-gray-500 text-xs">{item.description}</p>
+                      {item.detail && <p className="text-gray-500 text-xs">{item.detail}</p>}
                     </div>
                   ))}
                 </div>
@@ -136,12 +143,12 @@ function SurgeryActionDropdown({
                   className="w-full px-4 py-2.5 text-left text-sm hover:bg-amber-50 flex items-center gap-3 text-amber-700 font-medium"
                 >
                   <ListChecks size={16} className="text-amber-600" />
-                  Complete Outstanding Items
+                  Open readiness checklist
                 </button>
                 <div className="border-t border-gray-100 my-1" />
               </>
             )}
-            
+
             <button
               onClick={() => handleAction('preop')}
               className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700"
@@ -228,6 +235,7 @@ export default function SurgeryListPage() {
   );
 
   const patients = useLiveQuery(() => db.patients.toArray(), []);
+  const readinessMap = useReadinessMap(surgeries);
 
   const patientMap = useMemo(() => {
     const map = new Map();
@@ -659,6 +667,16 @@ export default function SurgeryListPage() {
                       </td>
                       <td className="px-6 py-4">
                         {getStatusBadge(surgery.status)}
+                        {(() => {
+                          const r = readinessMap?.get(surgery.id);
+                          if (!r || ['in-progress', 'completed', 'cancelled'].includes(surgery.status)) return null;
+                          return (
+                            <button type="button" onClick={() => handleViewOutstanding(surgery)}
+                              className={`mt-1 block text-xs font-medium ${r.ready ? 'text-green-700' : 'text-red-700'}`}>
+                              {r.ready ? 'Ready for theatre' : `Not ready: ${r.missing.length} missing`}
+                            </button>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold ${
@@ -680,6 +698,7 @@ export default function SurgeryListPage() {
                             onReschedule={handleRescheduleSurgery}
                             onSendReminder={handleSendReminder}
                             onViewOutstanding={handleViewOutstanding}
+                            readiness={readinessMap?.get(surgery.id)}
                           />
                         </div>
                       </td>
@@ -928,7 +947,7 @@ export default function SurgeryListPage() {
                     <ListChecks className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
-                    <h2 className="font-semibold text-gray-900">Outstanding Preparation Items</h2>
+                    <h2 className="font-semibold text-gray-900">Readiness for theatre</h2>
                     <p className="text-sm text-gray-500">{selectedSurgery.procedureName}</p>
                   </div>
                 </div>
@@ -942,75 +961,21 @@ export default function SurgeryListPage() {
                 </button>
               </div>
               <div className="p-4 overflow-y-auto max-h-[60vh]">
-                {selectedSurgery.outstandingItems && selectedSurgery.outstandingItems.length > 0 ? (
-                  <div className="space-y-3">
-                    {selectedSurgery.outstandingItems.map(item => (
-                      <div 
-                        key={item.id} 
-                        className={`p-4 rounded-lg border ${
-                          item.completed 
-                            ? 'bg-green-50 border-green-200' 
-                            : 'bg-amber-50 border-amber-200'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3">
-                            {item.completed ? (
-                              <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
-                            ) : (
-                              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
-                            )}
-                            <div>
-                              <p className={`font-medium ${item.completed ? 'text-green-800' : 'text-amber-800'}`}>
-                                {item.label}
-                              </p>
-                              <p className={`text-sm ${item.completed ? 'text-green-600' : 'text-amber-600'}`}>
-                                {item.description}
-                              </p>
-                              {item.completed && item.completedAt && (
-                                <p className="text-xs text-green-500 mt-1">
-                                  Completed on {format(new Date(item.completedAt), 'MMM d, yyyy h:mm a')}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          {!item.completed && (
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleCompleteItem(item.type)}
-                                className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded hover:bg-amber-200"
-                              >
-                                Complete
-                              </button>
-                              <button
-                                onClick={() => markItemComplete(item.id)}
-                                className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200"
-                                title="Mark as done without navigating"
-                              >
-                                <CheckCircle size={14} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-3" />
-                    <p className="text-gray-600">All preparation items are complete!</p>
-                    <p className="text-sm text-gray-500 mt-1">This surgery is ready for pre-anaesthetic review.</p>
-                  </div>
-                )}
+                {(() => {
+                  const r = readinessMap?.get(selectedSurgery.id);
+                  if (!r) return <p className="text-sm text-gray-500">Loading…</p>;
+                  return (
+                    <ul className="divide-y">
+                      {r.items.map(item => (
+                        <ReadinessItemRow key={item.id} item={item} />
+                      ))}
+                    </ul>
+                  );
+                })()}
               </div>
               <div className="p-4 border-t border-gray-200 flex justify-between">
                 <div className="text-sm text-gray-500">
-                  {selectedSurgery.outstandingItems && (
-                    <>
-                      {selectedSurgery.outstandingItems.filter(i => i.completed).length} of{' '}
-                      {selectedSurgery.outstandingItems.length} items complete
-                    </>
-                  )}
+                  {readinessMap?.get(selectedSurgery.id)?.ready ? 'Ready for theatre' : `${readinessMap?.get(selectedSurgery.id)?.missing.length ?? 0} missing`}
                 </div>
                 <button
                   onClick={() => setShowOutstandingModal(false)}

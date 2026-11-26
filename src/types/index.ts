@@ -468,6 +468,171 @@ export interface Surgery {
   specimenSent?: boolean;
   specimenType?: string;
   postOperativeInstructions?: string;
+
+  // ── Surgical journey (readiness → theatre → follow-up) ──────────────────
+  /** What the patient was told before surgery (Documents section). Kept apart from operativeNotes. */
+  preopInfoNotes?: string;
+  /** The booking approval, by whom and when. The readiness model reads this, not `status`. */
+  bookingApproval?: SurgeryApproval;
+  /** Only a surgery marked as needing a pre-surgical conference has a conference readiness item. */
+  needsConference?: boolean;
+  conferenceCompletedAt?: Date;
+  /** The clinician reviewed the pre-op review's red flags and recorded why it is safe to proceed. */
+  redFlagReview?: { at: Date; by: string; byName?: string; note: string; flags: string[] };
+  /** Theatre started without full readiness (emergency): who, why, and what was missing. */
+  readinessOverride?: { at: Date; by: string; byName?: string; reason: string; missing: string[] };
+  /** WHO Surgical Safety Checklist (2009): sign in, time out, sign out. */
+  whoChecklist?: WhoSurgicalSafetyChecklist;
+  /** CDC/NHSN surgical wound class, recorded at operation. */
+  woundClass?: SurgicalWoundClass;
+  /** Implant left in place (CDC SSI surveillance runs 90 days instead of 30). */
+  implantPlaced?: boolean;
+  /** The intra-operative and anaesthetic record. */
+  intraOpRecord?: IntraOperativeRecord;
+  /** Complications, each graded by Clavien–Dindo. */
+  complicationEntries?: GradedComplication[];
+  /** Follow-up visits from the procedure template: booked, on recall, or cancelled. */
+  followUpPlan?: SurgeryFollowUpPlan;
+  /** The patient pack: last fasting text used, and a log of each pack given. */
+  patientPack?: SurgeryPatientPack;
+  /** Discharge without an admission (day case), or the admission's discharge. */
+  dischargedAt?: Date;
+  dischargeType?: 'day_case' | 'admission';
+  dischargeSummaryId?: string;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SurgeryApproval {
+  at: Date;
+  by: string;
+  byName?: string;
+}
+
+/** CDC/NHSN surgical wound classification (class I–IV). */
+export type SurgicalWoundClass = 'clean' | 'clean_contaminated' | 'contaminated' | 'dirty';
+
+/** One phase of the WHO checklist: item id → ticked, plus who ticked it and when. */
+export interface WhoChecklistPhase {
+  items: Record<string, boolean>;
+  completedAt?: Date;
+  completedBy?: string;
+  completedByName?: string;
+  notes?: string;
+}
+
+export interface WhoSurgicalSafetyChecklist {
+  signIn?: WhoChecklistPhase;
+  timeOut?: WhoChecklistPhase;
+  signOut?: WhoChecklistPhase;
+}
+
+export interface IntraOperativeRecord {
+  anaesthesiaLog: { time: string; drug: string; dose: string; route: string }[];
+  vitalSignsLog: { time: string; bp: string; hr: string; spo2: string; etco2: string; temp: string }[];
+  fluids: string;
+  bloodLoss: number;
+  specimens: { type: string; site: string; notes: string }[];
+  findings: string;
+  procedurePerformed: string;
+  preOperativeDiagnosis: string;
+  postOperativeDiagnosis: string;
+  startTime?: Date;
+  endTime?: Date;
+  recordedBy?: string;
+  recordedAt?: Date;
+}
+
+/** Clavien–Dindo grade (Dindo 2004; Clavien 2009). */
+export type ClavienDindoGrade = 'I' | 'II' | 'IIIa' | 'IIIb' | 'IVa' | 'IVb' | 'V';
+
+export interface GradedComplication {
+  id: string;
+  description: string;
+  grade: ClavienDindoGrade;
+  /** Suffix "d": the patient still has it at discharge / at the outcome check. */
+  ongoing?: boolean;
+  recordedAt: Date;
+  recordedBy?: string;
+  /** 'operation' (theatre record) or 'outcome' (30-day check). */
+  source: 'operation' | 'outcome';
+}
+
+export type SurgeryFollowUpItemStatus =
+  | 'booked'            // appointment(s) created
+  | 'pending_discharge' // waits for the discharge date
+  | 'recall'            // the clinician confirms it (conditional / branching)
+  | 'cancelled'         // the clinician cancelled it
+  | 'stopped';          // a recurring series ended (healed)
+
+export interface SurgeryFollowUpItem {
+  /** Stable per surgery + template visit (+ occurrence): booking is idempotent on it. */
+  key: string;
+  moduleId: string;
+  phase: 'post_op' | 'follow_up';
+  when: string;
+  purpose: string;
+  kind: 'once' | 'multi' | 'next' | 'recall';
+  from: 'operation' | 'discharge';
+  /** Days from `from` (undefined: a recall with no time in the template). */
+  day?: number;
+  /** Planned date, yyyy-MM-dd (undefined until the discharge date is known, or for an untimed recall). */
+  dueDate?: string;
+  everyDays?: number;
+  status: SurgeryFollowUpItemStatus;
+  appointmentIds: string[];
+  updatedAt: Date;
+}
+
+export interface SurgeryFollowUpPlan {
+  moduleId: string;
+  createdAt: Date;
+  createdBy?: string;
+  items: SurgeryFollowUpItem[];
+}
+
+export interface PatientPackLogEntry {
+  id: string;
+  at: Date;
+  by: string;
+  byName?: string;
+  via: 'whatsapp' | 'download';
+  /** Titles of the sections included. */
+  contents: string[];
+  fileName: string;
+}
+
+export interface SurgeryPatientPack {
+  /** The fasting instructions as last edited by the clinician. */
+  fastingText?: string;
+  log: PatientPackLogEntry[];
+}
+
+/** The 30-day (90 with an implant) outcome of one operation. */
+export interface SurgicalOutcome {
+  id: string;
+  surgeryId: string;
+  patientId: string;
+  hospitalId?: string;
+  procedureName: string;
+  operationDate: Date;
+  /** 30, or 90 with an implant (CDC/NHSN SSI surveillance window). */
+  windowDays: 30 | 90;
+  /** CDC/NHSN SSI category, or none. */
+  ssi: 'none' | 'superficial_incisional' | 'deep_incisional' | 'organ_space';
+  ssiDetectedOn?: Date;
+  complications: GradedComplication[];
+  returnToTheatre: boolean;
+  readmission: boolean;
+  vte: boolean;
+  death: boolean;
+  /** Scar score recorded in the Scar Monitor (link only; the score lives there). */
+  scarCaseId?: string;
+  notes?: string;
+  recordedBy: string;
+  recordedByName?: string;
+  recordedAt: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -4589,16 +4754,25 @@ export interface PreoperativeAssessment {
   patientId: string;
   patientName: string;
   hospitalNumber: string;
-  
+  hospitalId?: string;
+
   // Surgery Details
+  /** The surgery this review is for (written by the Surgical Workflow's pre-anaesthetic review). */
+  surgeryId?: string;
   surgeryName: string;
   surgeryType: 'minor' | 'intermediate' | 'major';
   scheduledDate: Date;
-  
+
   // ASA Classification
   asaClass: 1 | 2 | 3 | 4 | 5 | 6;
   asaEmergency: boolean;
-  
+
+  /** Pre-anaesthetic review: the anaesthetist's fitness decision and notes. */
+  fitnessGrade?: 'fit' | 'optimize' | 'defer';
+  preAnaestheticNotes?: string;
+  /** Free-text airway findings (mouth opening, neck, dentition...). */
+  airwayNotes?: string;
+
   // Airway Assessment
   airwayAssessment: {
     mallampatiScore: 1 | 2 | 3 | 4;

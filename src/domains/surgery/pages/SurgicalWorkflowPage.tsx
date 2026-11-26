@@ -72,6 +72,8 @@ import {
   missingAttachments, isImageDataUrl, imageToPdfDataUrl, type SurgeryAttachmentKind,
 } from '../services/surgeryAttachments';
 import { syncRecord } from '../../../services/cloudSyncService';
+import ReadinessPanel from '../components/ReadinessPanel';
+import { useSurgeryReadiness, loadReadiness } from '../journey/readinessData';
 
 // Suppress unused-import warnings for types used as type annotations only
 void (undefined as unknown as ConsumableBOM);
@@ -510,9 +512,12 @@ export default function SurgicalWorkflowPage() {
   const { user } = useAuth();
 
   // Current section
-  const [activeSection, setActiveSection] = useState<SectionId>(
-    searchParams.get('tab') === 'team' ? 'estimates' : 'planning',
-  );
+  // ?tab=<section id> opens that section (readiness links); ?tab=team is the estimates.
+  const [activeSection, setActiveSection] = useState<SectionId>(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'team') return 'estimates';
+    return SECTIONS.some(s => s.id === tab) ? tab as SectionId : 'planning';
+  });
   const [sectionCompletion, setSectionCompletion] = useState<Record<SectionId, boolean>>({ ...EMPTY_SECTION_COMPLETION });
 
   // ---- Live queries ----
@@ -526,6 +531,11 @@ export default function SurgicalWorkflowPage() {
   // ---- Current surgery state ----
   const [currentSurgeryId, setCurrentSurgeryId] = useState<string>(requestedSurgeryId);
   const currentSurgery = surgeries?.find(s => s.id === currentSurgeryId);
+  // One readiness answer from the records (journey/readiness.ts): the
+  // booking gate reads the 'booking' stage, Start Surgery the full one.
+  const bookingReadiness = useSurgeryReadiness(currentSurgeryId || undefined, 'booking');
+  const theatreReadiness = useSurgeryReadiness(currentSurgeryId || undefined, 'theatre');
+  const [redFlagNote, setRedFlagNote] = useState('');
 
   // Follow the URL: a different patient or a different ?edit= is a different
   // case, never the one still in state.
@@ -1173,24 +1183,19 @@ export default function SurgicalWorkflowPage() {
       toast.error('Save planning section first');
       return;
     }
-    // Check all prerequisites
-    const missing: string[] = [];
-    if (!sectionCompletion.planning) missing.push('Preop Planning');
-    if (!sectionCompletion.investigations) missing.push('Investigations');
-    if (!sectionCompletion.estimates) missing.push('Surgical Estimates');
-    if (!sectionCompletion.documents) missing.push('Surgical Documents');
-    // The stored attachments, read fresh from the database: not React state.
-    const storedDocs = await db.scannedDocuments.where('encounterId').equals(currentSurgeryId).toArray();
-    missing.push(...missingAttachments(storedDocs, currentSurgeryId));
-
-    if (missing.length > 0) {
-      toast.error(`Complete these first: ${missing.join(', ')}`);
+    // The readiness model, read fresh from the records (procedure review and
+    // counselling, red flags, results, stored consent and payment, estimate):
+    // not the localStorage section ticks.
+    const readiness = await loadReadiness(currentSurgeryId, 'booking');
+    if (!readiness || !readiness.ready) {
+      toast.error(`Complete these first: ${(readiness?.missing ?? ['the surgery record']).join(', ')}`);
       return;
     }
 
     try {
       await SurgeryOps.update(currentSurgeryId, {
         status: 'scheduled',
+        bookingApproval: { at: new Date(), by: user?.id || '', byName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() },
         preOperativeAssessment: {
           ...currentSurgery?.preOperativeAssessment!,
           consentSigned: true,
@@ -1219,8 +1224,22 @@ export default function SurgicalWorkflowPage() {
   };
 
   const saveConference = async () => {
+    if (currentSurgeryId) await SurgeryOps.update(currentSurgeryId, { conferenceCompletedAt: new Date() });
     setSectionCompletion(prev => ({ ...prev, conference: true }));
     toast.success('Conference notes saved');
+  };
+
+  /** The clinician reviewed the review's red flags: who, when, why it is safe. */
+  const recordRedFlagReview = async (flags: string[]) => {
+    if (!currentSurgeryId || !redFlagNote.trim()) { toast.error('Write why it is safe to proceed'); return; }
+    await SurgeryOps.update(currentSurgeryId, {
+      redFlagReview: {
+        at: new Date(), by: user?.id || '', byName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
+        note: redFlagNote.trim(), flags: [...(currentSurgery?.redFlagReview?.flags ?? []), ...flags],
+      },
+    });
+    setRedFlagNote('');
+    toast.success('Red-flag review recorded');
   };
 
   const startSurgery = async () => {
@@ -1584,6 +1603,18 @@ export default function SurgicalWorkflowPage() {
           </div>
         </div>
       </div>
+
+      {/* Readiness: one answer from the records, each gap linked to its section */}
+      {currentSurgeryId && currentSurgery?.status !== 'completed' && (
+        <div className="px-3 pt-3 lg:max-w-7xl lg:mx-auto">
+          <ReadinessPanel
+            readiness={theatreReadiness}
+            title={currentSurgery?.bookingApproval ? 'Readiness for theatre' : 'Readiness'}
+            onSection={s => setActiveSection(s as SectionId)}
+            defaultOpen={false}
+          />
+        </div>
+      )}
 
       {/* Section Navigation - Horizontal scroll on mobile, hidden on lg (sidebar takes over) */}
       <div className="bg-white border-b overflow-x-auto lg:hidden">
@@ -2903,26 +2934,47 @@ export default function SurgicalWorkflowPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Approve Surgery Booking</h2>
 
-              {/* Checklist */}
-              <div className="space-y-3 mb-6">
-                {[
-                  { label: 'Preoperative Planning & Risk Assessment', done: sectionCompletion.planning },
-                  { label: 'Investigations Requested', done: sectionCompletion.investigations },
-                  { label: 'Consumables BOM Prepared', done: sectionCompletion.consumables },
-                  { label: 'Surgical Estimates Completed', done: sectionCompletion.estimates },
-                  { label: 'Surgical Documents Generated', done: sectionCompletion.documents },
-                  { label: 'Signed Consent Uploaded', done: !!consentUpload },
-                  { label: 'Clinical Photographs Uploaded', done: clinicalPhotos.length > 0 },
-                  { label: 'Payment Evidence Uploaded', done: !!paymentEvidence },
-                ].map((item, i) => (
-                  <div key={i} className={`flex items-center gap-3 p-3 rounded-lg ${item.done ? 'bg-green-50' : 'bg-red-50'}`}>
-                    {item.done ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Circle className="w-5 h-5 text-red-400" />}
-                    <span className={`text-sm font-medium ${item.done ? 'text-green-800' : 'text-red-800'}`}>{item.label}</span>
-                  </div>
+              {/* Checklist: the readiness model's booking stage, from the records */}
+              <div className="space-y-2 mb-4">
+                {(bookingReadiness?.items ?? []).map(item => (
+                  <button key={item.id} type="button"
+                    onClick={() => item.section ? setActiveSection(item.section as SectionId) : item.link && navigate(item.link)}
+                    className={`w-full text-left flex items-start gap-3 p-3 rounded-lg ${item.status === 'done' ? 'bg-green-50' : item.status === 'warning' ? 'bg-amber-50' : 'bg-red-50'}`}>
+                    {item.status === 'done' ? <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                      : item.status === 'warning' ? <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                      : <Circle className="w-5 h-5 text-red-400 flex-shrink-0" />}
+                    <span className="min-w-0">
+                      <span className={`block text-sm font-medium ${item.status === 'done' ? 'text-green-800' : item.status === 'warning' ? 'text-amber-800' : 'text-red-800'}`}>{item.label}</span>
+                      {item.detail && <span className="block text-xs text-gray-600 break-words">{item.detail}</span>}
+                    </span>
+                  </button>
                 ))}
+                {!currentSurgeryId && <p className="text-sm text-gray-500">Save the planning section first.</p>}
               </div>
 
-              {bookingApproved || currentSurgery?.status === 'scheduled' ? (
+              {/* Red flags from the pre-op review: record why it is safe to proceed */}
+              {(() => {
+                const rf = bookingReadiness?.items.find(i => i.id === 'red_flags' && i.status === 'missing');
+                if (!rf) return null;
+                return (
+                  <div className="mb-4 border border-red-200 rounded-lg p-3 bg-white">
+                    <p className="text-sm font-semibold text-red-800 mb-1">Red flags to review</p>
+                    <ul className="list-disc ml-5 text-sm text-gray-700 mb-2">{(rf.values ?? []).map(f => <li key={f}>{f}</li>)}</ul>
+                    <textarea value={redFlagNote} onChange={e => setRedFlagNote(e.target.value)} rows={2}
+                      className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="What was done and why it is safe to proceed" />
+                    <button type="button" onClick={() => recordRedFlagReview(rf.values ?? [])}
+                      className="mt-2 text-sm bg-red-600 text-white px-4 py-2 rounded-lg">Record red-flag review</button>
+                  </div>
+                );
+              })()}
+
+              <label className="flex items-center gap-2 text-sm text-gray-700 mb-4">
+                <input type="checkbox" checked={!!currentSurgery?.needsConference} disabled={!currentSurgeryId}
+                  onChange={e => currentSurgeryId && SurgeryOps.update(currentSurgeryId, { needsConference: e.target.checked })} />
+                This case needs a pre-surgical conference before theatre
+              </label>
+
+              {currentSurgery?.bookingApproval || bookingApproved ? (
                 <div className="bg-green-100 border border-green-300 rounded-lg p-4 text-center">
                   <CheckCircle className="w-10 h-10 text-green-600 mx-auto mb-2" />
                   <p className="font-bold text-green-800">Surgery Booking Approved</p>
