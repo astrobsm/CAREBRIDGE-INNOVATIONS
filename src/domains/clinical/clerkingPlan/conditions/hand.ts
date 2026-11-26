@@ -12,8 +12,8 @@ import {
 
 const OMT = 'Goldfarb CA, Ezaki M, Wall LB, Lam WL, Oberg KC. The Oberg-Manske-Tonkin (OMT) classification of congenital upper extremities: update for 2020. J Hand Surg Am. 2020;45(6):542-547.';
 const PREOP_CHILD: TemplateLine[] = [
-  inv('preop_fbc', 'Full blood count before general anaesthesia', 'Baseline haemoglobin before an operation in a child', { testId: 'fbc', analytes: ['hb', 'wbc', 'plt'] }),
-  inv('preop_genotype', 'Haemoglobin genotype before general anaesthesia (if not known)', 'Sickle status changes anaesthetic and tourniquet management', { testId: 'genotype', options: ['AA', 'AS', 'AC', 'SS', 'SC', 'Other'] }),
+  inv('preop_fbc', 'Full blood count before general anaesthesia', 'Baseline haemoglobin before an operation in a child', { testId: 'fbc', analytes: ['hb', 'wbc', 'plt'], patient: P.tests.fbc_preop }),
+  inv('preop_genotype', 'Haemoglobin genotype before general anaesthesia (if not known)', 'Sickle status changes anaesthetic and tourniquet management', { testId: 'genotype', options: ['AA', 'AS', 'AC', 'SS', 'SC', 'Other'], patient: P.tests.genotype_preop }),
 ];
 
 // ── Syndactyly ──────────────────────────────────────────────────────────────

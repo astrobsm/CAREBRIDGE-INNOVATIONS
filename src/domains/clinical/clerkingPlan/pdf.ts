@@ -50,7 +50,7 @@ export function buildClinicianPlanDocument(i: PlanDocInput): ReviewDocument {
   const sections: ReviewDocSection[] = [];
   sections.push({
     kind: 'summary', title: 'About this plan',
-    body: `Treatment plan version ${approval.version}, approved by ${approval.byName || 'clinician'} on ${approval.at.slice(0, 16).replace('T', ' ')}. `
+    body: `Treatment plan version ${approval.version}, approved by ${approval.byName || 'clinician'} on ${format(new Date(approval.at), 'd MMMM yyyy HH:mm')}. `
       + `Conditions: ${record.conditions.map(c => c.label).join('; ') || 'not recorded'}. `
       + `Built by the rules engine v${approval.engineVersion}${approval.protocolVersion ? ` with the ${WP.source}, v${approval.protocolVersion}` : ''}. `
       + (approval.includesAi ? 'Lines marked "AI-drafted" were drafted by Claude (Anthropic) and accepted by the approving clinician.' : 'No AI-drafted lines are included.'),
@@ -129,7 +129,7 @@ export function buildPatientPlanDocument(i: PlanDocInput): ReviewDocument {
   const booked = (i.appointments ?? []).filter(a => a.status !== 'cancelled').sort((a, b) => new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime());
   const fu = booked.length
     ? booked.map(a => P.copy.followUpLine(`${day(new Date(a.appointmentDate))} at ${a.appointmentTime}`, a.reasonForVisit.replace(/^[^:]*:\s*/, '')))
-    : lines.filter(l => l.section === 'follow_up' && l.followUp).map(l => l.followUp!.days != null
+    : lines.filter(l => l.section === 'follow_up' && l.followUp).sort((a, b) => (a.followUp!.days ?? 1e6) - (b.followUp!.days ?? 1e6)).map(l => l.followUp!.days != null
       ? P.copy.followUpLine(day(addDays(approvedOn, l.followUp!.days)), l.patient ?? plain(l.followUp!.purpose))
       : P.copy.followUpUndated(l.followUp!.when, l.patient ?? plain(l.followUp!.purpose)));
   sections.push({ kind: 'follow_up', title: S.followUp, bullets: fu.filter(safe).length ? [...new Set(fu.filter(safe))] : [P.copy.followUpNone] });

@@ -16,6 +16,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { db } from '../../../../database';
 import { useAuth } from '../../../../contexts/AuthContext';
@@ -60,9 +61,9 @@ export interface ClerkingPlanPanelProps {
 }
 
 const LineRow: React.FC<{
-  line: PlanLine; included: boolean; decided?: 'accepted' | 'rejected'; edited?: string;
+  line: PlanLine; included: boolean; patientId: string; decided?: 'accepted' | 'rejected'; edited?: string;
   onDecide: (d: 'accepted' | 'rejected' | null, text?: string) => void; disabled?: boolean;
-}> = ({ line, included, decided, edited, onDecide, disabled }) => {
+}> = ({ line, included, patientId, decided, edited, onDecide, disabled }) => {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(edited || line.text);
   const ai = line.source.kind === 'ai';
@@ -84,7 +85,7 @@ const LineRow: React.FC<{
           {line.withheld && <p className="text-[11px] text-red-700">Not recommended: {line.withheld}</p>}
           <div className="mt-0.5 flex flex-wrap items-center gap-1">
             <span className={`px-1.5 py-0.5 rounded text-[10px] ${SOURCE_STYLE[line.source.kind]}`} title={line.source.label}>{SOURCE_SHORT[line.source.kind]}: {line.source.label}</span>
-            {line.procedureReviewModuleId && <span className="text-[10px] text-indigo-700">→ procedure template</span>}
+            {line.procedureReviewModuleId && <Link to={`/patients/${encodeURIComponent(patientId)}/procedure-review?module=${line.procedureReviewModuleId}&phase=pre_op`} className="text-[10px] text-indigo-700 underline">→ open the procedure review template</Link>}
             {edited && <span className="text-[10px] text-amber-700">edited</span>}
           </div>
         </div>
@@ -247,7 +248,7 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
             if (!rl.length && !al.length && !ml.length) return null;
             const row = (l: PlanLine) => {
               const d = decisionFor(decisions, l.id);
-              return <LineRow key={l.id} line={l} included={l.source.kind === 'clinician' || isIncluded(l, decisions)} decided={d?.decision} edited={d?.editedText} disabled={busy}
+              return <LineRow key={l.id} line={l} patientId={p.patientId} included={l.source.kind === 'clinician' || isIncluded(l, decisions)} decided={d?.decision} edited={d?.editedText} disabled={busy}
                 onDecide={(dec, text) => { setBusy(true); onDecide(l, dec, text).finally(() => setBusy(false)); }} />;
             };
             return (

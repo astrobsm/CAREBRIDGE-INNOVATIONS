@@ -285,7 +285,7 @@ function protocolLines(f: PatientFacts, s: WoundSignals, templates: ConditionTem
       add(medLine('folic_acid', 'Folic acid', fa.dose, '', fa.duration, f.sickleCell ? 'Sickle cell disease (protocol)' : f.labs.mcv != null && f.labs.mcv > 100 ? `Macrocytosis (MCV ${f.labs.mcv} fL)` : 'Folate deficiency'));
     }
     if (f.labs.b12 != null && f.labs.b12 < 200) { const b = row(ADULT, 'b12'); add(medLine('b12', 'Vitamin B12', b.dose, '', b.duration, 'Proven B12 deficiency', { route: 'IM' })); }
-    if (vitDLow) { const d = row(ADULT, 'vitamin_d'); add(medLine('vitamin_d', 'Vitamin D3', d.dose, '', d.duration, `25-OH vitamin D ${f.labs.vitaminD} ng/mL (below ${T.vitaminDDeficientBelowNgMl})`, { cautions: [H.vitaminD] })); hard.push(H.vitaminD); }
+    if (vitDLow) { const d = row(ADULT, 'vitamin_d'); add(medLine('vitamin_d', 'Vitamin D3', d.dose, '', d.duration, `25-OH vitamin D ${f.labs.vitaminD} ng/mL (below ${T.vitaminDDeficientBelowNgMl})`, { cautions: [H.vitaminD], patient: P.copy.medicineLine('Vitamin D3', d.dose, P.medicineHow.vitamin_d, '') })); hard.push(H.vitaminD); }
     if (f.steroids) {
       const a = row(ADULT, 'vitamin_a');
       const why = mayBePregnant && f.sex === 'female' ? 'Pregnancy not excluded: NOT in pregnancy or women who may be pregnant' : f.liverDisease ? 'Liver disease: avoid vitamin A' : undefined;
@@ -454,6 +454,7 @@ export function warningSigns(plan: Pick<RulesPlan, 'conditions' | 'woundProtocol
     if (L) out.push(...L.warning);
   }
   if (plan.woundProtocolApplied) out.push(...P.wound.warning);
-  out.push(...P.copy.generalWarning);
+  // The wound list already covers fever; keep one fever line.
+  out.push(...P.copy.generalWarning.filter(w => !(plan.woundProtocolApplied && /fever/i.test(w))));
   return [...new Set(out)];
 }

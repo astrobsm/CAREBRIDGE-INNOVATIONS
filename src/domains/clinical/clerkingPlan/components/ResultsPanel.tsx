@@ -15,6 +15,7 @@ import { db } from '../../../../database';
 import type { PatientContext } from '../../clerking/engine';
 import { emptyPatient } from '../../../clinician-assistant/services/engine/types';
 import { scanReports } from '../../../clinician-assistant/services/scanPipeline';
+import { ANALYTE_BY_KEY } from '../../../clinician-assistant/services/engine/referenceRanges';
 import { completeness, enterValue, interpretResults, mapScanned, plannedRows, qualitativeValue, type ResultValue } from '../results';
 import { requestClaudeInterpretation, interpretationToLines } from '../aiInterpret';
 import { saveResultsToInvestigations, updatePlan } from '../service';
@@ -115,7 +116,7 @@ export const ResultsPanel: React.FC<Props> = ({ record, finalLines, rules, ensur
           <p className="font-semibold text-indigo-900">Read from the report — confirm each value</p>
           {proposals.map((p, i) => (
             <div key={i} className="flex items-center justify-between gap-2">
-              <span>{p.analyte}: {p.error ? <span className="text-red-700">{p.error}</span> : <strong>{p.value} {p.unit}</strong>} {p.flag && p.flag !== 'normal' && <span className="text-red-700">({p.flag})</span>}</span>
+              <span>{ANALYTE_BY_KEY[p.analyte ?? '']?.label ?? p.analyte}: {p.error ? <span className="text-red-700">{p.error}</span> : <strong>{p.value} {p.unit}</strong>} {p.flag && p.flag !== 'normal' && <span className="text-red-700">({p.flag})</span>}</span>
               {!p.error && <button type="button" className="px-2 py-0.5 rounded bg-indigo-600 text-white" onClick={() => confirmProposals([p])}>Confirm</button>}
             </div>
           ))}

@@ -106,7 +106,7 @@ export const BREAST_HYPERTROPHY: ConditionTemplate = {
     const out: TemplateLine[] = [
       problem('bh', `Symptomatic breast hypertrophy${c.a('bh_ex_ptosis') ? ` · ${String(c.a('bh_ex_ptosis')).split(' —')[0]}` : ''}`, { patient: L.name }),
       inv('bh_imaging', age != null && age >= 40 ? 'Bilateral mammogram before surgery (age 40 or over), ultrasound as indicated' : 'Breast ultrasound before surgery', 'Pre-operative breast imaging (ASPS 2012)', { testId: 'breast_imaging' }),
-      inv('bh_fbc', 'Full blood count and genotype (if unknown) before surgery', 'Pre-operative baseline', { testId: 'fbc', analytes: ['hb', 'wbc', 'plt'] }),
+      inv('bh_fbc', 'Full blood count and genotype (if unknown) before surgery', 'Pre-operative baseline', { testId: 'fbc', analytes: ['hb', 'wbc', 'plt'], patient: P.tests.fbc_preop }),
       proc('bh_conservative', 'Supportive bra fitting, physiotherapy, weight management, treat intertrigo', 'First-line / while awaiting surgery', { patient: L.options.support }),
       proc('bh_reduction', 'Reduction mammaplasty (e.g. inferior or superomedial pedicle, Wise-pattern or vertical scar); free nipple graft if very large', 'Symptomatic macromastia', { procedureReviewModuleId: 'breast_and_body_contouring', patient: L.options.reduction }),
       followUp('bh_plan', 'In 4–6 weeks', 'Imaging result and surgical planning', 35, { patient: 'A visit for the scan result and to plan the operation' }),
@@ -271,7 +271,7 @@ export const HYPOSPADIAS: ConditionTemplate = {
     const out: TemplateLine[] = [
       problem('hyp', `Hypospadias: ${[c.a('hyp_ex_meatus'), c.a('hyp_ex_chordee') && `curvature ${String(c.a('hyp_ex_chordee')).toLowerCase()}`].filter(Boolean).join(' · ') || 'meatus not documented'}${proximal && udt ? ' — DSD work-up needed' : ''}`, { patient: L.name }),
       proc('hyp_repair', proximal ? 'Proximal hypospadias: staged or one-stage repair with curvature correction (e.g. two-stage graft repair)' : 'Distal hypospadias: one-stage repair (e.g. TIP / Snodgrass)', 'Repair usually at 6–18 months (EAU/ESPU)', { patient: L.options.repair }),
-      ...(m == null || m < 24 ? [inv('hyp_fbc', 'Full blood count and genotype before general anaesthesia', 'Pre-anaesthetic baseline', { testId: 'fbc', analytes: ['hb', 'wbc', 'plt'] })] : []),
+      ...(m == null || m < 24 ? [inv('hyp_fbc', 'Full blood count and genotype before general anaesthesia', 'Pre-anaesthetic baseline', { testId: 'fbc', analytes: ['hb', 'wbc', 'plt'], patient: P.tests.fbc_preop })] : []),
       followUp('hyp_plan', m != null && m < 6 ? 'At about 6 months of age' : 'In 4–6 weeks', 'Surgical planning and consent', m != null && m < 6 ? Math.max(14, Math.round((6 - m) * 30.4)) : 35, { patient: 'A visit to plan the operation' }),
       ...counselAll('hyp', L.counselling),
     ];

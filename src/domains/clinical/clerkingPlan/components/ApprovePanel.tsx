@@ -10,7 +10,7 @@ import { format, parseISO } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../../database';
 import { useAuth } from '../../../../contexts/AuthContext';
-import { approvePlan, appointmentProposals, bookPlanAppointments, downloadClinicianPdf, latestApproval, shareWithPatient, patientPdf, type AppointmentProposal } from '../service';
+import { approvePlan, appointmentProposals, bookPlanAppointments, downloadClinicianPdf, latestApproval, shareWithPatient, type AppointmentProposal } from '../service';
 import type { ClerkingPlanRecord } from '../records';
 import { PLAN_SECTIONS, type PlanLine, type RulesPlan } from '../types';
 
@@ -48,10 +48,7 @@ export const ApprovePanel: React.FC<Props> = ({ record, finalLines, rules, ensur
     await approvePlan(r.id, user);
   }, 'Plan approved');
 
-  const previewPatientCopy = () => run('preview', async () => {
-    const { doc, fileName } = await patientPdf(record!);
-    doc.save(fileName);
-  }, 'Patient copy downloaded');
+  const previewPatientCopy = () => run('preview', () => shareWithPatient(record!.id, 'download', user!), 'Patient copy downloaded');
 
   const book = () => run('book', async () => {
     if (!user || !patient || !record) throw new Error('Patient not loaded');

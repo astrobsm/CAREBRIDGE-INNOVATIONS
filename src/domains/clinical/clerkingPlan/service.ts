@@ -151,7 +151,8 @@ async function docInputs(r: ClerkingPlanRecord) {
     db.appointments.where('patientId').equals(r.patientId).toArray(),
   ]);
   const ids = new Set(r.appointments.map(a => a.appointmentId));
-  const age = r.ctx.ageYears ?? undefined;
+  // Infants: no "0 years" on the documents.
+  const age = r.ctx.ageYears ? r.ctx.ageYears : undefined;
   return {
     patient, approval,
     input: {

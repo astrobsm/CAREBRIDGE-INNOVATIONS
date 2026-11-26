@@ -36,8 +36,10 @@ export const planEn = {
     followUpLine: (date: string, purpose: string) => `${date}: ${purpose}`,
     followUpUndated: (when: string, purpose: string) => `${when}: ${purpose}`,
     contactLine: 'Contact the clinic, or go to the nearest emergency department.',
-    medicineLine: (drug: string, dose: string, how: string, duration: string) =>
-      `${drug}: ${dose}${how ? `, ${how}` : ''}${duration ? `, ${duration}` : ''}.`,
+    medicineLine: (drug: string, dose: string, how: string, duration: string) => {
+      const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+      return `${drug}: ${dose}${how ? `, ${lower(how)}` : ''}${duration ? `. ${duration.charAt(0).toUpperCase()}${duration.slice(1)}` : ''}.`.replace(/\.\.$/, '.');
+    },
     foodLine: (kcal: string | null, protein: string | null, fluid: string | null) =>
       [kcal && `Aim for about ${kcal} of food energy a day`, protein && `about ${protein} of protein a day`, fluid && `and about ${fluid} of fluid a day`]
         .filter(Boolean).join(', ') + '.',
@@ -83,6 +85,8 @@ export const planEn = {
     hormones: 'Hormone blood tests, to look for a cause.',
     breast_imaging: 'A breast scan (ultrasound, and a mammogram if you are older).',
     filaria: 'A blood test for filaria (a worm infection that can block lymph drainage).',
+    fbc_preop: 'Full blood count: checks the blood count before the operation.',
+    genotype_preop: 'Genotype test: sickle cell status matters for a safe anaesthetic and operation.',
     syndrome_screen: 'A check of the heart, kidneys, spine or other parts of the body, as some children have other differences.',
   },
 
