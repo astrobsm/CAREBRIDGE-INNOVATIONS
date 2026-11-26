@@ -21,6 +21,9 @@ import {
   searchDrugs, generatePatientWarnings, getFrequencyLabel, getRouteLabel,
   type BNFDrug,
 } from '../../../../data/bnfDrugDatabase';
+import CalculatorReportActions from '../../../calculators/report/components/CalculatorReportActions';
+import type { ReportPatient } from '../../../calculators/report/types';
+import { bnfReport } from '../../services/bnfReport';
 
 interface Props {
   weightKg: number;
@@ -28,6 +31,7 @@ interface Props {
   sex: string;
   /** Passed through from the eGFR calculator when one has been run. */
   gfr?: number | null;
+  patient?: ReportPatient;
 }
 
 const WARN_STYLE: Record<string, string> = {
@@ -36,7 +40,7 @@ const WARN_STYLE: Record<string, string> = {
   info: 'bg-blue-50 border-blue-200 text-blue-900',
 };
 
-export default function BnfDrugPanel({ weightKg, ageYears, sex, gfr }: Props) {
+export default function BnfDrugPanel({ weightKg, ageYears, sex, gfr, patient }: Props) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<BNFDrug | null>(null);
   const [pregnant, setPregnant] = useState(false);
@@ -76,6 +80,11 @@ export default function BnfDrugPanel({ weightKg, ageYears, sex, gfr }: Props) {
     }
     return { label: 'Adult', info: selected.dosage.adult };
   }, [selected, ageYears]);
+
+  const report = useMemo(() => (selected && doseBlock ? bnfReport({
+    drug: selected, doseLabel: doseBlock.label, dose: doseBlock.info, warnings,
+    weightKg, ageYears, sex, gfr: gfr ?? null, flags: { pregnant, lactating, hepatic, cardiac },
+  }, patient) : null), [selected, doseBlock, warnings, weightKg, ageYears, sex, gfr, pregnant, lactating, hepatic, cardiac, patient]);
 
   return (
     <div className="space-y-4">
@@ -234,6 +243,8 @@ export default function BnfDrugPanel({ weightKg, ageYears, sex, gfr }: Props) {
             {' '}<Link to="/prescriptions" className="font-medium underline">Prescribe in the medication module</Link>,
             which checks interactions and allergies against what they are already taking.
           </div>
+
+          <CalculatorReportActions report={report} />
         </div>
       )}
     </div>

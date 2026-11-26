@@ -1,49 +1,19 @@
 // Wound Healing Meal Plan Calculator
 // African Food-Based Nutritional Support for Wound Healing
 
-import { useState } from 'react';
-import { Utensils, Calculator, AlertCircle, Apple, Droplet, Pill, Download, Share2 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useMemo, useState } from 'react';
+import { Utensils, Calculator, AlertCircle, Apple, Droplet, Pill } from 'lucide-react';
 import { PatientCalculatorInfo } from '../../types';
-import { downloadMealPlanPDF, shareMealPlanOnWhatsApp, type MealPlanPDFOptions } from '../../../../utils/mealPlanPdfGenerator';
-
-interface DayMealPlan {
-  day: string;
-  breakfast: string;
-  midMorning: string;
-  lunch: string;
-  afternoon: string;
-  dinner: string;
-  bedtime: string;
-}
-
-interface WoundHealingResult {
-  calorieNeeds: number;
-  proteinNeeds: number;
-  proteinPerKg: number;
-  fluidNeeds: number;
-  vitaminCNeeds: number;
-  zincNeeds: number;
-  woundGrade: string;
-  healingStage: string;
-  estimatedHealingTime: string;
-  weeklyMealPlan: DayMealPlan[];
-  mealPlan: {
-    breakfast: string[];
-    midMorning: string[];
-    lunch: string[];
-    afternoon: string[];
-    dinner: string[];
-    bedtime: string[];
-  };
-  proteinRichFoods: string[];
-  vitaminCFoods: string[];
-  zincFoods: string[];
-  foodsToAvoid: string[];
-  supplements: string[];
-  hydrationTips: string[];
-  warnings: string[];
-}
+import { toSex } from '../../engine/calculationEngine';
+import {
+  WOUND_TYPES, computeWoundMeal, woundMealDays, woundMealHubReport,
+  type WoundMealInput, type WoundMealResult,
+} from '../../engine/hub/woundMealPlan';
+import { NO_PLAN_MESSAGE } from '../../engine/hub/nutritionCommon';
+import { hasComorbidity } from '../../report/hubPatient';
+import CalculatorReportActions from '../../report/components/CalculatorReportActions';
+import { MealPlanDays } from '../../../clinician-assistant/components/CalculatorPanels';
+import type { DayPlan } from '../../../../data/nigerianFoods';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -53,325 +23,51 @@ export default function WoundMealPlanCalculator({ patientInfo }: Props) {
   const [weight, setWeight] = useState(patientInfo.weight || '');
   const [height, setHeight] = useState(patientInfo.height || '');
   const [age, setAge] = useState(patientInfo.age || '');
-  const [gender, setGender] = useState<'male' | 'female'>((patientInfo.gender || 'male') as 'male' | 'female');
+  // Elderly categories fold into sex: an elderly man uses the male equation.
+  const [gender, setGender] = useState<'male' | 'female'>(toSex(patientInfo.gender));
   const [woundType, setWoundType] = useState('');
   const [woundSize, setWoundSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [woundDepth, setWoundDepth] = useState<'superficial' | 'partial' | 'full'>('partial');
   const [healingStage, setHealingStage] = useState<'inflammatory' | 'proliferative' | 'remodeling'>('proliferative');
   const [activityLevel, setActivityLevel] = useState<string>('sedentary');
-  
-  // Clinical context
-  const [isDiabetic, setIsDiabetic] = useState(patientInfo.comorbidities?.includes('Diabetes') || false);
-  const [hasPVD, setHasPVD] = useState(false);
-  const [isMalnourished, setIsMalnourished] = useState(false);
+
+  // Clinical context. "Diabetes Mellitus" on the comorbidity list now ticks this.
+  const [isDiabetic, setIsDiabetic] = useState(hasComorbidity(patientInfo, /diabet/i));
+  const [hasPVD, setHasPVD] = useState(hasComorbidity(patientInfo, /vascular|pvd|pad\b/i));
+  const [isMalnourished, setIsMalnourished] = useState(hasComorbidity(patientInfo, /malnutrition/i));
   const [isInfected, setIsInfected] = useState(false);
   const [isOnSteroids, setIsOnSteroids] = useState(false);
-  
-  const [result, setResult] = useState<WoundHealingResult | null>(null);
 
-  const woundTypes = [
-    'Surgical wound',
-    'Pressure ulcer',
-    'Diabetic foot ulcer',
-    'Venous leg ulcer',
-    'Burn wound',
-    'Trauma/Laceration',
-    'Chronic wound (>4 weeks)',
-    'Skin graft donor site',
-  ];
+  const [result, setResult] = useState<WoundMealResult | null>(null);
+  const [calcInput, setCalcInput] = useState<WoundMealInput | null>(null);
+  const [days, setDays] = useState<DayPlan[] | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  const woundTypes = WOUND_TYPES;
 
   const calculate = () => {
-    const weightKg = parseFloat(weight);
-    const heightCm = parseFloat(height);
-    const ageYears = parseInt(age);
-    
-    // Calculate BMR (Mifflin-St Jeor)
-    let bmr: number;
-    if (gender === 'male') {
-      bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * ageYears) + 5;
-    } else {
-      bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * ageYears) - 161;
-    }
-
-    // Activity factors
-    const activityFactors: Record<string, number> = {
-      bedridden: 1.2,
-      sedentary: 1.3,
-      ambulatory: 1.4,
-      active: 1.55,
+    const input: WoundMealInput = {
+      weightKg: weight, heightCm: height, ageYears: age, sex: gender, woundType, woundSize, woundDepth,
+      healingStage, activityLevel, diabetic: isDiabetic, pvd: hasPVD, malnourished: isMalnourished,
+      infected: isInfected, steroids: isOnSteroids, ckd: hasComorbidity(patientInfo, /kidney|renal|ckd/i),
     };
-
-    // Wound stress factor based on size and depth
-    let woundFactor = 1.0;
-    if (woundSize === 'small') woundFactor = 1.1;
-    if (woundSize === 'medium') woundFactor = 1.2;
-    if (woundSize === 'large') woundFactor = 1.5;
-    
-    if (woundDepth === 'full') woundFactor += 0.1;
-    if (isInfected) woundFactor += 0.2;
-    if (isMalnourished) woundFactor += 0.2;
-
-    // Total calorie needs
-    const activityFactor = activityFactors[activityLevel] || 1.3;
-    const calorieNeeds = Math.round(bmr * activityFactor * woundFactor);
-
-    // Protein needs for wound healing (higher than normal)
-    let proteinPerKg = 1.2; // Normal wound
-    if (woundSize === 'large') proteinPerKg = 1.5;
-    if (woundDepth === 'full') proteinPerKg = 1.5;
-    if (isMalnourished) proteinPerKg = 1.8;
-    if (isInfected) proteinPerKg = 1.8;
-    const proteinNeeds = Math.round(weightKg * proteinPerKg);
-
-    // Fluid needs (30-35 ml/kg + additional for wounds)
-    const baseFluid = weightKg * 35;
-    const woundFluidAdd = woundSize === 'large' ? 500 : woundSize === 'medium' ? 250 : 0;
-    const fluidNeeds = Math.round(baseFluid + woundFluidAdd);
-
-    // Vitamin C and Zinc
-    const vitaminCNeeds = 500; // mg/day for wound healing
-    const zincNeeds = 25; // mg/day
-
-    // Wound grading
-    let woundGrade = 'Moderate';
-    if (woundSize === 'small' && woundDepth === 'superficial') woundGrade = 'Mild';
-    if (woundSize === 'large' || woundDepth === 'full' || isInfected) woundGrade = 'Severe';
-
-    // Estimated healing time
-    let healingTime = '2-4 weeks';
-    if (woundGrade === 'Mild') healingTime = '1-2 weeks';
-    if (woundGrade === 'Severe') healingTime = '4-8+ weeks';
-    if (isDiabetic || hasPVD) healingTime += ' (may be prolonged)';
-
-    // Nigerian/African wound healing meal plan
-    const mealPlan = {
-      breakfast: [
-        'Akara (bean cakes) - high protein - 3-4 pieces',
-        'Boiled eggs - 2 eggs with bread or yam',
-        'Moi-moi with pap enriched with milk',
-        'Oatmeal with groundnuts and banana',
-        'Beans porridge with plantain',
-      ],
-      midMorning: [
-        'Groundnuts (peanuts) - 1 handful',
-        'Banana or pawpaw (papaya)',
-        'Orange or tangerine (Vitamin C)',
-        'Milk and biscuits',
-      ],
-      lunch: [
-        'Rice with egusi soup and stockfish/meat - generous portion',
-        'Amala with ewedu and gbegiri with assorted meat',
-        'Jollof rice with chicken and vegetables',
-        'Yam porridge with vegetables and fish',
-        'Beans and plantain with palm oil',
-      ],
-      afternoon: [
-        'Roasted groundnuts with coconut',
-        'Fresh fruits - orange, guava, pawpaw',
-        'Yogurt with fruits',
-        'Suya (grilled meat) - protein boost',
-      ],
-      dinner: [
-        'Eba with ogbono/oha soup with plenty meat',
-        'Vegetable soup with pomo, stockfish, and chicken',
-        'Stew with rice and fried fish',
-        'Pepper soup with goat meat',
-        'Wheat fufu with vegetable soup',
-      ],
-      bedtime: [
-        'Warm milk with honey',
-        'Light pap (ogi) with milk',
-      ],
-    };
-
-    // 7-Day Structured Meal Plan
-    const weeklyMealPlan: DayMealPlan[] = [
-      {
-        day: 'Monday',
-        breakfast: 'Akara (bean cakes) - 4 pieces with pap enriched with milk and sugar',
-        midMorning: 'Orange and a handful of groundnuts',
-        lunch: 'Rice with egusi soup, stockfish, and assorted meat. Side of ugu (fluted pumpkin leaves)',
-        afternoon: 'Yogurt with sliced banana',
-        dinner: 'Wheat fufu with oha soup (with chicken, stockfish, and crayfish)',
-        bedtime: 'Warm milk with honey',
-      },
-      {
-        day: 'Tuesday',
-        breakfast: 'Boiled yam with egg sauce (2 eggs, tomato, onion, peppers)',
-        midMorning: 'Pawpaw (papaya) slices and cashew nuts',
-        lunch: 'Jollof rice with grilled chicken, fried plantain, and mixed salad',
-        afternoon: 'Roasted groundnuts with coconut',
-        dinner: 'Amala with ewedu and gbegiri soup with goat meat and ponmo',
-        bedtime: 'Light pap (ogi) with milk',
-      },
-      {
-        day: 'Wednesday',
-        breakfast: 'Moi-moi (2 wraps) with custard and milk',
-        midMorning: 'Guava and tiger nuts (ofio)',
-        lunch: 'Beans porridge with ripe plantain, palm oil, and mackerel fish',
-        afternoon: 'Suya (grilled beef) with vegetables and onion',
-        dinner: 'Eba with ogbono soup (with snails, stockfish, and ugu leaves)',
-        bedtime: 'Warm milk with malt extract',
-      },
-      {
-        day: 'Thursday',
-        breakfast: 'Oatmeal with groundnuts, banana, and honey. Side of boiled egg',
-        midMorning: 'Mango (seasonal) or watermelon slices',
-        lunch: 'Yam porridge with vegetables, crayfish, and smoked fish',
-        afternoon: 'Milk and digestive biscuits',
-        dinner: 'Pepper soup with goat meat, yam chunks, and scent leaves',
-        bedtime: 'Warm pap with soy milk',
-      },
-      {
-        day: 'Friday',
-        breakfast: 'Beans and fried plantain (dodo) with palm oil stew',
-        midMorning: 'Pineapple slices and roasted cashew nuts',
-        lunch: 'Fried rice with grilled fish (tilapia or croaker) and coleslaw',
-        afternoon: 'Fresh fruit salad (pawpaw, orange, banana, watermelon)',
-        dinner: 'Pounded yam with vegetable soup (ugu, water leaf) with assorted meat',
-        bedtime: 'Warm milk with honey',
-      },
-      {
-        day: 'Saturday',
-        breakfast: 'Bread with sardine stew (tomato, pepper, onion) and boiled egg',
-        midMorning: 'Tangerine and a handful of almonds',
-        lunch: 'Tuwo shinkafa with miyan kuka (baobab soup) with beef and fish',
-        afternoon: 'Kunu (millet drink) with groundnuts',
-        dinner: 'Stir-fried noodles with chicken, vegetables, and eggs',
-        bedtime: 'Light pap with milk',
-      },
-      {
-        day: 'Sunday',
-        breakfast: 'Pancakes with groundnut butter and banana. Side of scrambled eggs',
-        midMorning: 'Coconut meat and orange juice',
-        lunch: 'Rice and stew with fried chicken, moi-moi, and salad',
-        afternoon: 'Zobo drink with chin-chin and groundnuts',
-        dinner: 'Semo with edikaikong soup (with periwinkle, stockfish, and crayfish)',
-        bedtime: 'Warm milk with honey',
-      },
-    ];
-
-    // Protein-rich Nigerian foods
-    const proteinRichFoods = [
-      '🥚 Eggs - Scrambled, boiled, or in dishes (7g protein each)',
-      '🐟 Fish - Fresh, smoked, or dried (stockfish, ponmo) - 20g/100g',
-      '🍗 Chicken - Grilled or in stews - 25g/100g',
-      '🐄 Beef - Suya, stew, or pepper soup - 26g/100g',
-      '🐐 Goat meat - Pepper soup, stew - 27g/100g',
-      '🫘 Beans - Akara, moi-moi, porridge - 21g/100g',
-      '🥜 Groundnuts - Snack or in soups - 26g/100g',
-      '🥛 Milk - Fresh or powdered in pap - 3g/100ml',
-      '🐌 Snails - High protein delicacy - 16g/100g',
-      '🦐 Crayfish - Add to all soups - 65g/100g',
-    ];
-
-    // Vitamin C foods
-    const vitaminCFoods = [
-      '🍊 Oranges - Very abundant in Nigeria',
-      '🥭 Mango (seasonal) - High Vitamin C',
-      '🍋 Lime/Lemon - Add to foods/drinks',
-      '🍈 Guava - One of the highest Vitamin C sources',
-      '🥒 Pawpaw (Papaya) - Readily available',
-      '🍅 Tomatoes - Fresh or in stews',
-      '🫑 Bell peppers (tatashe/rodo)',
-      '🥬 Ugu (fluted pumpkin leaves)',
-      '🥗 Bitter leaf and other vegetables',
-      '🍍 Pineapple - Fresh or juice',
-    ];
-
-    // Zinc foods
-    const zincFoods = [
-      '🥩 Red meat (beef, goat) - Best source',
-      '🦪 Oysters/seafood (if available)',
-      '🥜 Pumpkin seeds (egusi)',
-      '🫘 Beans and lentils',
-      '🐔 Chicken and turkey',
-      '🥜 Groundnuts (peanuts)',
-      '🥚 Eggs',
-      '🌾 Whole grains (guinea corn, millet)',
-    ];
-
-    // Foods to avoid
-    const foodsToAvoid = [
-      '❌ Excess sugar - impairs immune function',
-      '❌ Alcohol - delays healing',
-      '❌ Excess salt - causes fluid retention',
-      '❌ Processed foods - low nutritional value',
-      '❌ Fried foods in excess - inflammatory',
-    ];
-    if (isDiabetic) {
-      foodsToAvoid.push('❌ High glycemic foods - white bread, ripe plantain, white rice in excess');
+    const out = computeWoundMeal(input);
+    if ('errors' in out) {
+      setErrors(out.errors);
+      setResult(null);
+      setDays(null);
+      return;
     }
-
-    // Supplements
-    const supplements: string[] = [
-      'Vitamin C 500mg twice daily',
-      'Zinc 25mg daily',
-      'Multivitamin with minerals',
-    ];
-    if (isMalnourished) {
-      supplements.push('High-protein oral nutrition supplements if available');
-      supplements.push('Iron supplementation if anemic');
-    }
-    if (isDiabetic) {
-      supplements.push('Consider Omega-3 fatty acids');
-    }
-    if (isOnSteroids) {
-      supplements.push('Vitamin A supplementation (under medical supervision)');
-    }
-
-    // Hydration tips
-    const hydrationTips = [
-      `Drink at least ${Math.round(fluidNeeds / 1000)} liters of fluids daily`,
-      'Water is best - drink regularly throughout the day',
-      'Include soups (pepper soup, egusi soup) - contribute to fluid intake',
-      'Fresh fruit juices without added sugar',
-      'Avoid excess caffeine (coffee, strong tea)',
-      'Monitor urine color - should be light yellow',
-    ];
-
-    // Warnings
-    const warnings: string[] = [];
-    if (isDiabetic) {
-      warnings.push('Diabetic patient: Monitor blood glucose closely - wound healing requires good glycemic control');
-      warnings.push('Target HbA1c <7% for optimal healing');
-    }
-    if (hasPVD) {
-      warnings.push('Peripheral vascular disease: Nutrition alone may not be sufficient - ensure adequate blood supply');
-    }
-    if (isMalnourished) {
-      warnings.push('Malnourished patient: Consider enteral nutrition support if oral intake insufficient');
-    }
-    if (isInfected) {
-      warnings.push('Infected wound: Nutrition supports healing but antibiotics needed - consult physician');
-    }
-    if (result && proteinNeeds > 100) {
-      warnings.push('High protein needs - ensure adequate kidney function before high protein diet');
-    }
-
-    const calculationResult: WoundHealingResult = {
-      calorieNeeds,
-      proteinNeeds,
-      proteinPerKg,
-      fluidNeeds,
-      vitaminCNeeds,
-      zincNeeds,
-      woundGrade,
-      healingStage: healingStage.charAt(0).toUpperCase() + healingStage.slice(1),
-      estimatedHealingTime: healingTime,
-      weeklyMealPlan,
-      mealPlan,
-      proteinRichFoods,
-      vitaminCFoods,
-      zincFoods,
-      foodsToAvoid,
-      supplements,
-      hydrationTips,
-      warnings,
-    };
-    
-    setResult(calculationResult);
+    setErrors([]);
+    setCalcInput(input);
+    setResult(out.result);
+    setDays(woundMealDays(out.result));
   };
+
+  const report = useMemo(
+    () => (result && calcInput ? woundMealHubReport(result, calcInput, patientInfo, days) : null),
+    [result, calcInput, patientInfo, days]
+  );
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
@@ -565,90 +261,16 @@ export default function WoundMealPlanCalculator({ patientInfo }: Props) {
         Generate Wound Healing Meal Plan
       </button>
 
+      {errors.length > 0 && (
+        <div className="mt-4 bg-red-50 border border-red-300 rounded-lg p-3 text-sm text-red-800" role="alert">
+          <ul className="list-disc ml-5 space-y-0.5">{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+        </div>
+      )}
+
       {/* Results */}
       {result && (
         <div className="mt-8 space-y-4">
           <div className="border-t-2 border-gray-200 pt-6">
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3 mb-6">
-              <button
-                onClick={() => {
-                  const pdfOptions: MealPlanPDFOptions = {
-                    patientName: patientInfo.name || undefined,
-                    hospitalNumber: patientInfo.hospitalNumber || undefined,
-                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
-                    gender: patientInfo.gender || undefined,
-                    weight: parseFloat(weight) || undefined,
-                    height: parseFloat(height) || undefined,
-                    diagnosis: woundType,
-                    planType: 'wound_healing',
-                    calorieTarget: result.calorieNeeds,
-                    proteinTarget: result.proteinNeeds,
-                    fluidTarget: result.fluidNeeds,
-                    vitaminCTarget: result.vitaminCNeeds,
-                    zincTarget: result.zincNeeds,
-                    mealPlan: result.mealPlan,
-                    weeklyMealPlan: result.weeklyMealPlan,
-                    proteinFoods: result.proteinRichFoods,
-                    vitaminCFoods: result.vitaminCFoods,
-                    zincFoods: result.zincFoods,
-                    foodsToAvoid: result.foodsToAvoid,
-                    supplements: result.supplements,
-                    hydrationTips: result.hydrationTips,
-                    warnings: result.warnings,
-                    woundType: woundType,
-                    woundGrade: result.woundGrade,
-                    healingStage: result.healingStage,
-                    estimatedHealingTime: result.estimatedHealingTime,
-                  };
-                  downloadMealPlanPDF(pdfOptions);
-                  toast.success('Meal plan PDF downloaded!');
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Download PDF
-              </button>
-              <button
-                onClick={async () => {
-                  const pdfOptions: MealPlanPDFOptions = {
-                    patientName: patientInfo.name || undefined,
-                    hospitalNumber: patientInfo.hospitalNumber || undefined,
-                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
-                    gender: patientInfo.gender || undefined,
-                    weight: parseFloat(weight) || undefined,
-                    height: parseFloat(height) || undefined,
-                    diagnosis: woundType,
-                    planType: 'wound_healing',
-                    calorieTarget: result.calorieNeeds,
-                    proteinTarget: result.proteinNeeds,
-                    fluidTarget: result.fluidNeeds,
-                    vitaminCTarget: result.vitaminCNeeds,
-                    zincTarget: result.zincNeeds,
-                    mealPlan: result.mealPlan,
-                    weeklyMealPlan: result.weeklyMealPlan,
-                    proteinFoods: result.proteinRichFoods,
-                    vitaminCFoods: result.vitaminCFoods,
-                    zincFoods: result.zincFoods,
-                    foodsToAvoid: result.foodsToAvoid,
-                    supplements: result.supplements,
-                    hydrationTips: result.hydrationTips,
-                    warnings: result.warnings,
-                    woundType: woundType,
-                    woundGrade: result.woundGrade,
-                    healingStage: result.healingStage,
-                    estimatedHealingTime: result.estimatedHealingTime,
-                  };
-                  await shareMealPlanOnWhatsApp(pdfOptions);
-                  toast.success('Opening WhatsApp...');
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                Share on WhatsApp
-              </button>
-            </div>
-
             {/* Summary Cards */}
             <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
               <div className="bg-orange-100 rounded-lg p-3 text-center">
@@ -660,15 +282,15 @@ export default function WoundMealPlanCalculator({ patientInfo }: Props) {
                 <p className="font-semibold text-xs">Protein/day</p>
               </div>
               <div className="bg-blue-100 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-blue-600">{result.fluidNeeds}ml</p>
+                <p className="text-2xl font-bold text-blue-600">{result.fluidNeeds.toLocaleString()} mL</p>
                 <p className="font-semibold text-xs">Fluids/day</p>
               </div>
               <div className="bg-yellow-100 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-yellow-600">{result.vitaminCNeeds}mg</p>
+                <p className="text-lg font-bold text-yellow-600">{result.vitaminCTarget}</p>
                 <p className="font-semibold text-xs">Vitamin C</p>
               </div>
               <div className="bg-purple-100 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-purple-600">{result.zincNeeds}mg</p>
+                <p className="text-2xl font-bold text-purple-600">{result.zincNeeds} mg</p>
                 <p className="font-semibold text-xs">Zinc</p>
               </div>
               <div className="bg-green-100 rounded-lg p-3 text-center">
@@ -696,47 +318,36 @@ export default function WoundMealPlanCalculator({ patientInfo }: Props) {
               </div>
             </div>
 
-            {/* 7-Day Meal Plan */}
+            {/* 7-Day Meal Plan from the meal-plan optimiser */}
             <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-4 rounded-r-lg">
-              <h4 className="font-bold text-green-800 mb-3 flex items-center gap-2">
+              <h4 className="font-bold text-green-800 mb-1 flex items-center gap-2">
                 <Apple className="w-5 h-5" />
                 7-Day Nigerian Wound Healing Meal Plan
               </h4>
-              <div className="space-y-3">
-                {result.weeklyMealPlan.map((day, idx) => (
-                  <div key={idx} className="bg-white rounded-lg p-3 border border-green-200">
-                    <h5 className="font-bold text-green-700 mb-2 text-sm border-b border-green-100 pb-1">
-                      Day {idx + 1} - {day.day}
-                    </h5>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs text-gray-700">
-                      <div><span className="font-semibold text-green-600">Breakfast:</span> {day.breakfast}</div>
-                      <div><span className="font-semibold text-green-600">Mid-Morning:</span> {day.midMorning}</div>
-                      <div><span className="font-semibold text-green-600">Lunch:</span> {day.lunch}</div>
-                      <div><span className="font-semibold text-green-600">Afternoon:</span> {day.afternoon}</div>
-                      <div><span className="font-semibold text-green-600">Dinner:</span> {day.dinner}</div>
-                      <div><span className="font-semibold text-green-600">Bedtime:</span> {day.bedtime}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <p className="text-xs text-gray-600 mb-3">
+                Built to {result.calorieNeeds.toLocaleString()} kcal and {result.proteinNeeds} g protein per day
+                {result.diabetic ? ', carbohydrate-controlled with no sugar-sweetened items' : ''}
+                {result.ckd ? ', within potassium and phosphate limits' : ''}.
+              </p>
+              {days && days.length > 0 ? <MealPlanDays days={days} /> : <p className="text-sm text-amber-800">{NO_PLAN_MESSAGE}</p>}
             </div>
 
             {/* Key Nutrients */}
             <div className="grid md:grid-cols-3 gap-4 mb-4">
               <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
-                <h5 className="font-bold text-red-800 mb-2">🥩 Protein-Rich Foods</h5>
+                <h5 className="font-bold text-red-800 mb-2">Protein-Rich Foods</h5>
                 <ul className="text-xs text-gray-700 space-y-1">
                   {result.proteinRichFoods.slice(0, 6).map((item, i) => <li key={i}>{item}</li>)}
                 </ul>
               </div>
               <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-lg">
-                <h5 className="font-bold text-orange-800 mb-2">🍊 Vitamin C Sources</h5>
+                <h5 className="font-bold text-orange-800 mb-2">Vitamin C Sources</h5>
                 <ul className="text-xs text-gray-700 space-y-1">
                   {result.vitaminCFoods.slice(0, 6).map((item, i) => <li key={i}>{item}</li>)}
                 </ul>
               </div>
               <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r-lg">
-                <h5 className="font-bold text-purple-800 mb-2">💪 Zinc-Rich Foods</h5>
+                <h5 className="font-bold text-purple-800 mb-2">Zinc-Rich Foods</h5>
                 <ul className="text-xs text-gray-700 space-y-1">
                   {result.zincFoods.map((item, i) => <li key={i}>{item}</li>)}
                 </ul>
@@ -785,6 +396,8 @@ export default function WoundMealPlanCalculator({ patientInfo }: Props) {
               </div>
             )}
           </div>
+
+          <CalculatorReportActions report={report} />
         </div>
       )}
     </div>
