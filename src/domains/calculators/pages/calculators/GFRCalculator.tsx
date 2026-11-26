@@ -56,7 +56,8 @@ export default function GFRCalculator({ patientInfo }: Props) {
 
       {/* Input Form */}
       <div className="grid grid-cols-2 gap-3 sm:gap-6 mb-4 sm:mb-6">
-        <div>
+        {/* Full width on a phone: the value and its unit side by side do not fit half a 390 px screen. */}
+        <div className="col-span-2 sm:col-span-1">
           <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
             Creatinine *
           </label>
@@ -65,7 +66,7 @@ export default function GFRCalculator({ patientInfo }: Props) {
               type="number"
               value={creatinine}
               onChange={(e) => setCreatinine(e.target.value)}
-              className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900 text-sm"
+              className="flex-1 min-w-0 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900 text-sm"
               placeholder={creatinineUnit === 'mg/dL' ? 'e.g., 1.2' : 'e.g., 106'}
               step="0.01"
             />

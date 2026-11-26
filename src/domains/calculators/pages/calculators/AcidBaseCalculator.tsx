@@ -79,7 +79,7 @@ export default function AcidBaseCalculator({ patientInfo }: Props) {
               type="number"
               value={pco2}
               onChange={(e) => setPco2(e.target.value)}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
+              className="flex-1 min-w-0 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-gray-900"
               placeholder={pco2Unit === 'mmHg' ? 'e.g., 55' : 'e.g., 7.3'}
               step={pco2Unit === 'mmHg' ? '1' : '0.1'}
             />

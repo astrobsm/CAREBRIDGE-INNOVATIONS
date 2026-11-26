@@ -87,7 +87,7 @@ export function buildCalculatorPdf(report: CalculatorReport, opts: CalculatorPdf
   const startY = addBrandedHeader(doc, {
     title: `${report.calculatorName} — calculator report`,
     subtitle: 'Clinical calculator',
-    hospitalName: opts.hospitalName || 'AstroHEALTH',
+    hospitalName: opts.hospitalName || '',
   }, { includeDate: false });
   const w = new Writer(doc, startY);
 

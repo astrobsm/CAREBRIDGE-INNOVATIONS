@@ -44,8 +44,8 @@ export const numOrNull = (v: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-const Field = ({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) => (
-  <div>
+const Field = ({ label, children, hint, className }: { label: string; children: React.ReactNode; hint?: string; className?: string }) => (
+  <div className={className}>
     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
     {children}
     {hint && <p className="text-xs text-gray-500 mt-0.5">{hint}</p>}
@@ -103,9 +103,10 @@ export function AcidBasePanel({ patient }: { patient?: ReportPatient } = {}) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Field label="pH"><input type="number" step="0.01" value={ph} onChange={e => setPh(e.target.value)} className="input" /></Field>
-        <Field label={`PaCO₂ (${unit})`}>
+        {/* Full width on a phone so the value is not crushed by its unit. */}
+        <Field label={`PaCO₂ (${unit})`} className="col-span-2 sm:col-span-1">
           <div className="flex gap-1">
-            <input type="number" step="0.1" value={paco2} onChange={e => setPaco2(e.target.value)} className="input" />
+            <input type="number" step="0.1" value={paco2} onChange={e => setPaco2(e.target.value)} className="input min-w-0 flex-1" />
             <select value={unit} onChange={e => setUnit(e.target.value as 'kPa' | 'mmHg')} className="input w-24">
               <option value="kPa">kPa</option>
               <option value="mmHg">mmHg</option>
@@ -284,9 +285,9 @@ export function GfrPanel({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <Field label="Creatinine">
+        <Field label="Creatinine" className="col-span-2 sm:col-span-1">
           <div className="flex gap-1">
-            <input type="number" step="0.01" value={creat} onChange={e => setCreat(e.target.value)} className="input" />
+            <input type="number" step="0.01" value={creat} onChange={e => setCreat(e.target.value)} className="input min-w-0 flex-1" />
             <select value={unit} onChange={e => setUnit(e.target.value as 'umol' | 'mgdl')} className="input w-28">
               <option value="umol">µmol/L</option>
               <option value="mgdl">mg/dL</option>
