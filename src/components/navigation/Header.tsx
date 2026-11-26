@@ -110,7 +110,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               alt="AstroHEALTH" 
               className="w-8 h-8 rounded-lg object-contain bg-gradient-to-br from-indigo-50 to-blue-50 p-0.5 shadow-sm ring-1 ring-indigo-100"
             />
-            <span className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent hidden min-[420px]:block">
+            <span className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent hidden min-[440px]:block">
               AstroHEALTH
             </span>
           </div>
@@ -119,7 +119,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <button
             type="button"
             onClick={() => setShowMobileSearch((v) => !v)}
-            className="sm:hidden p-2 rounded-lg hover:bg-indigo-50 transition-colors"
+            className="sm:hidden flex-shrink-0 p-2 rounded-lg hover:bg-indigo-50 transition-colors"
             title="Search patients"
             aria-label="Search patients"
             aria-expanded={showMobileSearch}

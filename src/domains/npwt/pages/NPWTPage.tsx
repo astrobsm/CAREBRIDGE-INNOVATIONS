@@ -6,7 +6,8 @@
  * material tracking, and progress monitoring.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
@@ -114,6 +115,20 @@ export default function NPWTPage() {
   );
 
   const isLoading = sessions === undefined || patients === undefined;
+
+  // Opened for one patient (?patientId=): list that patient's sessions and
+  // start new sessions for them. Selected once the patient list has loaded;
+  // "Show all" drops the list filter.
+  const [searchParams] = useSearchParams();
+  const linkedPatientId = searchParams.get('patientId');
+  const [onlyPatientId, setOnlyPatientId] = useState<string | null>(linkedPatientId);
+  const linkedPatient = linkedPatientId ? patients?.find(p => p.id === linkedPatientId) ?? null : null;
+  const linkedApplied = useRef(false);
+  useEffect(() => {
+    if (!linkedPatient || linkedApplied.current) return;
+    linkedApplied.current = true;
+    setSelectedPatient(cur => cur ?? linkedPatient);
+  }, [linkedPatient]);
 
   // Agents checkboxes state
   const [agentsUsed, setAgentsUsed] = useState<NPWTAgentsUsed>({
@@ -297,7 +312,7 @@ export default function NPWTPage() {
   // Reset form
   const resetForm = () => {
     reset();
-    setSelectedPatient(null);
+    setSelectedPatient(linkedPatient);
     setImagePreview(null);
     setAgentsUsed({ heraGel: false, honeycareGauze: false, sofratule: false });
     setCleaningAgents({ saline: false, woundClex: false, hydrogenPeroxide: false, povidoneIodine: false });
@@ -312,7 +327,8 @@ export default function NPWTPage() {
       (patient?.lastName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (session.machineCode || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCycle = filterCycle === 'all' || session.cycleType === filterCycle;
-    return matchesSearch && matchesCycle;
+    const matchesPatient = !onlyPatientId || session.patientId === onlyPatientId;
+    return matchesSearch && matchesCycle && matchesPatient;
   });
 
   // Get upcoming changes (within 48 hours)
@@ -456,6 +472,13 @@ export default function NPWTPage() {
           </div>
         </div>
       </div>
+
+      {onlyPatientId && (
+        <div className="flex items-center justify-between gap-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-800">
+          <span>Showing sessions for {linkedPatient ? `${linkedPatient.firstName} ${linkedPatient.lastName}` : 'this patient'}</span>
+          <button type="button" onClick={() => setOnlyPatientId(null)} className="font-medium underline">Show all</button>
+        </div>
+      )}
 
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-4">

@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Calendar, AlertTriangle, CheckCircle2, Clock, Bell } from 'lucide-react';
 import { format } from 'date-fns';
@@ -20,9 +20,22 @@ const StatBox: React.FC<{ icon: React.ReactNode; label: string; value: number; c
 
 const TreatmentPlanningDashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const plans = useLiveQuery(() => db.treatmentPlans.reverse().sortBy('createdAt'), []) as TreatmentPlan[] | undefined;
-  const sessions = useLiveQuery(() => db.treatmentSessions.toArray(), []) as TreatmentSession[] | undefined;
+  const allPlans = useLiveQuery(() => db.treatmentPlans.reverse().sortBy('createdAt'), []) as TreatmentPlan[] | undefined;
+  const allSessions = useLiveQuery(() => db.treatmentSessions.toArray(), []) as TreatmentSession[] | undefined;
   const patients = useLiveQuery(() => db.patients.toArray(), []) as Patient[] | undefined;
+
+  // Opened for one patient (?patientId=): show only their plans and sessions,
+  // and start new plans for them. "Show all" drops the filter.
+  const [searchParams] = useSearchParams();
+  const [onlyPatientId, setOnlyPatientId] = useState<string | null>(() => searchParams.get('patientId'));
+  const plans = useMemo(
+    () => (onlyPatientId ? allPlans?.filter(p => p.patientId === onlyPatientId) : allPlans),
+    [allPlans, onlyPatientId],
+  );
+  const sessions = useMemo(
+    () => (onlyPatientId ? allSessions?.filter(s => s.patientId === onlyPatientId) : allSessions),
+    [allSessions, onlyPatientId],
+  );
 
   const patientById = useMemo(() => {
     const m = new Map<string, Patient>();
@@ -68,12 +81,19 @@ const TreatmentPlanningDashboardPage: React.FC = () => {
           <p className="text-sm text-gray-500">Schedule, track, and get push reminders for every treatment session.</p>
         </div>
         <Link
-          to="/treatment-planning/new"
+          to={onlyPatientId ? `/treatment-planning/new?patientId=${encodeURIComponent(onlyPatientId)}` : '/treatment-planning/new'}
           className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-primary-700"
         >
           <Plus className="h-4 w-4" /> New treatment plan
         </Link>
       </div>
+
+      {onlyPatientId && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-800">
+          <span>Showing plans for {patientById.get(onlyPatientId) ? `${patientById.get(onlyPatientId)!.firstName} ${patientById.get(onlyPatientId)!.lastName}` : 'this patient'}</span>
+          <button type="button" onClick={() => setOnlyPatientId(null)} className="font-medium underline">Show all</button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <StatBox icon={<Calendar className="h-5 w-5 text-indigo-700" />} label="Plans" value={stats.totalPlans} color="border-indigo-200 bg-indigo-50 text-indigo-900" />

@@ -6,6 +6,8 @@ import LoginPage from './domains/auth/pages/LoginPage';
 import RegisterPage from './domains/auth/pages/RegisterPage';
 import UserAgreementPage from './domains/auth/pages/UserAgreementPage';
 import DashboardPage from './domains/dashboard/pages/DashboardPage';
+import AdminDashboard from './domains/dashboard/components/AdminDashboard';
+import { canSeeFamily } from './components/navigation/menuModel';
 import PatientsListPage from './domains/patients/pages/PatientsListPage';
 import PatientDetailsPage from './domains/patients/pages/PatientDetailsPage';
 import NewPatientPage from './domains/patients/pages/NewPatientPage';
@@ -139,6 +141,12 @@ function RedirectToWorkflow() {
   return <Navigate to={patientId ? `/surgery/workflow/${patientId}` : '/surgery/workflow'} replace />;
 }
 
+/** /patients/:id/wounds used to drop the patient on the way to the monitor. */
+function RedirectToWoundMonitor() {
+  const { patientId } = useParams();
+  return <Navigate to={patientId ? `/wound-monitor?patientId=${encodeURIComponent(patientId)}` : '/wound-monitor'} replace />;
+}
+
 /**
  * PatientsListPage reads ?search= once, into its initial state. Keying it on
  * the param remounts it when the header search runs again while already on
@@ -216,7 +224,7 @@ function App() {
           <Route path=":patientId/clinical-summary" element={<PatientClinicalSummaryPage />} />
           <Route path=":patientId/procedure-review" element={<ProcedureReviewPage />} />
           <Route path=":patientId/vitals" element={<VitalsPage />} />
-          <Route path=":patientId/wounds" element={<Navigate to="/wound-monitor" replace />} />
+          <Route path=":patientId/wounds" element={<RedirectToWoundMonitor />} />
         </Route>
 
         {/* Surgery Routes
@@ -318,6 +326,12 @@ function App() {
             : <Navigate to="/" replace />
         } />
         <Route path="settings" element={<SettingsPage />} />
+        {/* The hospital/user-count dashboard admins used to land on at "/". */}
+        <Route path="practice-admin" element={
+          (user?.role === 'super_admin' || user?.role === 'hospital_admin')
+            ? <AdminDashboard />
+            : <Navigate to="/" replace />
+        } />
 
         {/* Finance (Part B – ZIGMA BOND): super_admin & hospital_admin only.
             Layout enforces the role guard. */}
@@ -332,7 +346,8 @@ function App() {
         </Route>
 
         {/* Family (Part C) — native domain backed by family.* Supabase schema */}
-        <Route path="family" element={<FamilyShell />}>
+        {/* The owner's own family workspace: owner (super_admin) only. */}
+        <Route path="family" element={canSeeFamily(user?.role) ? <FamilyShell /> : <Navigate to="/" replace />}>
           <Route index element={<FamilyDashboard />} />
           <Route path="children" element={<FamilyChildren />} />
           <Route path="tasks" element={<FamilyTasks />} />

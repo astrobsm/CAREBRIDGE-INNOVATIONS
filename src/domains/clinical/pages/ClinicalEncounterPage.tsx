@@ -49,10 +49,10 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import PreviousPlansReviewGuard, { type AckSummary } from '../../../components/clinical/PreviousPlansReviewGuard';
 import { VoiceDictation, ExportOptionsModal } from '../../../components/common';
 import StructuredHistory, { type StructuredHistoryValue } from '../components/StructuredHistory';
-import StructuredEncountersPanel from '../components/clerking/StructuredEncounters';
+import { consultationChooserHref } from '../../patients/patientHubLinks';
+import { formatDate } from '../../../utils/formatDate';
 import { ENCOUNTER_TYPES, ENCOUNTER_TYPE_IDS } from '../data/encounterTypes';
 import { phaseForEncounterType } from '../procedureReview/phases';
-import { patientContext, patientIdentifiers, patientLabelOf } from '../services/clerkingService';
 import { TEMPLATE_VERSION } from '../services/templateEngine';
 import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
 import AISummaryButton from '../components/AISummaryButton';
@@ -447,7 +447,6 @@ export default function ClinicalEncounterPage() {
    * examination, rule-based and AI differentials, review and sign). Opened
    * from the mode banner; the classic form below stays available.
    */
-  const [structuredClerking, setStructuredClerking] = useState<'initial' | 'follow_up' | null>(null);
   const [structured, setStructured] = useState<StructuredHistoryValue | null>(null);
 
   const chiefComplaint = watch('chiefComplaint') || '';
@@ -984,39 +983,22 @@ export default function ClinicalEncounterPage() {
             }`}>
               {encounterMode === 'initial' 
                 ? 'This is the first clinical encounter for this patient. Complete a comprehensive evaluation including full history and examination.'
-                : `This patient has ${previousEncounters?.length || 0} previous encounter(s). Last visit: ${previousEncounters?.[0] ? format(new Date(previousEncounters[0].createdAt), 'PPP') : 'N/A'}`
+                : `This patient has ${previousEncounters?.length || 0} previous encounter(s). Last visit: ${previousEncounters?.[0] ? formatDate(previousEncounters[0].createdAt, 'N/A') : 'N/A'}`
               }
             </p>
             
-            {/* Option to switch mode */}
+            {/* One way in: the other documentation options live in the patient's
+                "Start consultation" chooser, listed once. */}
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setStructuredClerking(encounterMode === 'initial' ? 'initial' : 'follow_up')}
-                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
+                onClick={() => patientId && leaveTo(consultationChooserHref(patientId))}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                title="Structured clerking, follow-up visit or procedure review"
               >
                 <ClipboardList size={16} />
-                {encounterMode === 'initial' ? 'Structured clerking (recommended)' : 'Structured follow-up (tracked problems)'}
+                Other ways to document this visit
               </button>
-              <button
-                type="button"
-                onClick={() => leaveTo(`/patients/${patientId}/procedure-review`)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-                title="Wound, pre-operative, post-operative or follow-up review for a plastic-surgery procedure"
-              >
-                <ClipboardList size={16} />
-                Procedure review
-              </button>
-              {encounterMode === 'follow_up' && (
-                <button
-                  type="button"
-                  onClick={() => leaveTo(`/patients/${patientId}/follow-up`)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                >
-                  <RefreshCw size={16} />
-                  Quick Follow-Up Form
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => {
@@ -1041,20 +1023,6 @@ export default function ClinicalEncounterPage() {
           </div>
         </div>
       </motion.div>
-
-      {structuredClerking && patient && (
-        <div className="mb-6">
-          <StructuredEncountersPanel
-            key={structuredClerking}
-            patientId={patient.id}
-            patientLabel={patientLabelOf(patient)}
-            ctx={patientContext(patient)}
-            identifiers={patientIdentifiers(patient)}
-            hospitalId={encounterHospital.hospitalId || user?.hospitalId}
-            autoOpen={structuredClerking}
-          />
-        </div>
-      )}
 
       {/* Header */}
       <div className="mb-6">

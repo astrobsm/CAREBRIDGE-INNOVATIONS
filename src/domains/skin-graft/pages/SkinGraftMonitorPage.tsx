@@ -16,6 +16,7 @@ import {
   Activity, AlertTriangle, ArrowLeft, Camera, ChevronRight, Layers, Plus, RefreshCw,
 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useSearchParams } from 'react-router-dom';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Patient } from '../../../types';
@@ -95,6 +96,11 @@ const EpisodeList: React.FC<{ onOpen: (e: SkinGraftEpisode) => void }> = ({ onOp
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const patients = useLiveQuery(() => db.patients.toArray(), []);
+  // Opened for one patient (?patientId=): show that patient's grafts, and
+  // start new episodes for them. "Show all" drops the filter.
+  const [searchParams] = useSearchParams();
+  const [onlyPatientId, setOnlyPatientId] = useState<string | null>(() => searchParams.get('patientId'));
+  const shown = onlyPatientId ? episodes.filter(e => e.patientId === onlyPatientId) : episodes;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -125,19 +131,26 @@ const EpisodeList: React.FC<{ onOpen: (e: SkinGraftEpisode) => void }> = ({ onOp
         </div>
       </div>
 
+      {onlyPatientId && (
+        <div className="flex items-center justify-between gap-2 px-3 py-2 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-800">
+          <span>Showing grafts for {patientName(onlyPatientId)}</span>
+          <button onClick={() => setOnlyPatientId(null)} className="font-medium underline">Show all</button>
+        </div>
+      )}
+
       {loading ? (
         <div className="h-32 bg-gray-50 rounded-xl animate-pulse" />
-      ) : !episodes.length ? (
+      ) : !shown.length ? (
         <div className="text-center py-12 bg-white rounded-xl border">
           <Layers className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">No grafts are being monitored yet.</p>
+          <p className="text-sm text-gray-500">{onlyPatientId ? 'No grafts are being monitored for this patient yet.' : 'No grafts are being monitored yet.'}</p>
           <p className="text-xs text-gray-400 mt-1">
             Start an episode, add its recipient and donor sites, then photograph each one.
           </p>
         </div>
       ) : (
         <ul className="space-y-2">
-          {episodes.map(e => (
+          {shown.map(e => (
             <li key={e.id}>
               <button
                 onClick={() => onOpen(e)}
@@ -162,6 +175,7 @@ const EpisodeList: React.FC<{ onOpen: (e: SkinGraftEpisode) => void }> = ({ onOp
 
       {creating && (
         <NewEpisodeModal
+          initialPatientId={onlyPatientId}
           onClose={() => setCreating(false)}
           onCreated={e => { setCreating(false); load(); onOpen(e); }}
         />
@@ -171,11 +185,16 @@ const EpisodeList: React.FC<{ onOpen: (e: SkinGraftEpisode) => void }> = ({ onOp
 };
 
 const NewEpisodeModal: React.FC<{
+  initialPatientId?: string | null;
   onClose: () => void;
   onCreated: (e: SkinGraftEpisode) => void;
-}> = ({ onClose, onCreated }) => {
+}> = ({ initialPatientId, onClose, onCreated }) => {
   const { user } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
+  useEffect(() => {
+    if (!initialPatientId) return;
+    void db.patients.get(initialPatientId).then(p => { if (p) setPatient(cur => cur ?? p); });
+  }, [initialPatientId]);
   // Defaults to the patient’s registered hospital; overridden when this visit
   // happens somewhere else, and reset whenever the patient changes.
   const encounterHospital = useEncounterHospital(patient);

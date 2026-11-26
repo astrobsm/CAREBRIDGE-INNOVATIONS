@@ -16,6 +16,7 @@ import {
   RefreshCw, ScanLine, Stethoscope, Syringe, Check, FileDown,
 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useSearchParams } from 'react-router-dom';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Patient } from '../../../types';
@@ -81,6 +82,11 @@ const ScarList: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const patients = useLiveQuery(() => db.patients.toArray(), []);
+  // Opened for one patient (?patientId=): show that patient's scars, and
+  // register new ones for them. "Show all" drops the filter.
+  const [searchParams] = useSearchParams();
+  const [onlyPatientId, setOnlyPatientId] = useState<string | null>(() => searchParams.get('patientId'));
+  const shown = onlyPatientId ? scars.filter(s => s.patientId === onlyPatientId) : scars;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,12 +117,19 @@ const ScarList: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => {
         </div>
       </div>
 
+      {onlyPatientId && (
+        <div className="flex items-center justify-between gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg text-sm text-indigo-800">
+          <span>Showing scars for {patientName(onlyPatientId)}</span>
+          <button onClick={() => setOnlyPatientId(null)} className="font-medium underline">Show all</button>
+        </div>
+      )}
+
       {loading ? (
         <div className="h-32 bg-gray-50 rounded-xl animate-pulse" />
-      ) : !scars.length ? (
+      ) : !shown.length ? (
         <div className="text-center py-12 bg-white rounded-xl border">
           <Layers className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">No scars are being followed yet.</p>
+          <p className="text-sm text-gray-500">{onlyPatientId ? 'No scars are being followed for this patient yet.' : 'No scars are being followed yet.'}</p>
           <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
             Register a scar, then photograph it with the green marker in frame. The first assessment
             becomes the baseline everything afterwards is measured against.
@@ -124,7 +137,7 @@ const ScarList: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => {
         </div>
       ) : (
         <ul className="space-y-2">
-          {scars.map(s => (
+          {shown.map(s => (
             <li key={s.id}>
               <button
                 onClick={() => onOpen(s.id)}
@@ -150,6 +163,7 @@ const ScarList: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => {
 
       {creating && (
         <NewScarModal
+          initialPatientId={onlyPatientId}
           onClose={() => setCreating(false)}
           onCreated={s => { setCreating(false); onOpen(s.id); }}
         />
@@ -167,11 +181,16 @@ const LATERALITIES: { value: Laterality; label: string }[] = [
 ];
 
 const NewScarModal: React.FC<{
+  initialPatientId?: string | null;
   onClose: () => void;
   onCreated: (s: ScarCase) => void;
-}> = ({ onClose, onCreated }) => {
+}> = ({ initialPatientId, onClose, onCreated }) => {
   const { user } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
+  useEffect(() => {
+    if (!initialPatientId) return;
+    void db.patients.get(initialPatientId).then(p => { if (p) setPatient(cur => cur ?? p); });
+  }, [initialPatientId]);
   // Defaults to the patient’s registered hospital; overridden when this visit
   // happens somewhere else, and reset whenever the patient changes.
   const encounterHospital = useEncounterHospital(patient);

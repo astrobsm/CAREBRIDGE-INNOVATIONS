@@ -6,7 +6,8 @@
  * to track and document medication administration.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -106,6 +107,21 @@ export default function MedicationChartPage() {
   );
 
   const isLoading = activeAdmissions === undefined || patients === undefined || medicationCharts === undefined;
+
+  // Opened for one patient (?patientId=): open their chart once the admitted
+  // list has loaded. The chart is for inpatients, so a patient who is not
+  // admitted is reported rather than silently ignored.
+  const [searchParams] = useSearchParams();
+  const linkedPatientId = searchParams.get('patientId');
+  const linkedApplied = useRef(false);
+  const [linkedNotAdmitted, setLinkedNotAdmitted] = useState(false);
+  useEffect(() => {
+    if (!linkedPatientId || linkedApplied.current || isLoading) return;
+    linkedApplied.current = true;
+    const match = admittedPatients.find(p => p.id === linkedPatientId);
+    if (match) setSelectedPatient(cur => cur ?? match);
+    else setLinkedNotAdmitted(true);
+  }, [linkedPatientId, isLoading, admittedPatients]);
 
   // Fetch prescriptions when patient is selected
   useEffect(() => {
@@ -428,6 +444,11 @@ export default function MedicationChartPage() {
           <div className="card">
             <div className="p-4 border-b border-gray-100">
               <h2 className="font-semibold text-gray-900">Admitted Patients</h2>
+              {linkedNotAdmitted && (
+                <p className="mt-1 text-xs text-amber-700">
+                  This patient is not currently admitted, so there is no inpatient medication chart for them.
+                </p>
+              )}
             </div>
             <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
               {filteredPatients.length === 0 ? (

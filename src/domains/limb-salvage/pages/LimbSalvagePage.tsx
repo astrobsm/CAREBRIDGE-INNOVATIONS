@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useSearchParams } from 'react-router-dom';
 import {
   Plus,
   Footprints,
@@ -47,10 +48,16 @@ export default function LimbSalvagePage() {
   );
 
   // Fetch all limb salvage assessments
-  const assessments = useLiveQuery(
+  const allAssessments = useLiveQuery(
     () => db.limbSalvageAssessments.reverse().sortBy('createdAt'),
     []
   );
+  // Opened for one patient (?patientId=): list that patient's assessments and
+  // start new ones for them. "Show all" drops the list filter.
+  const [searchParams] = useSearchParams();
+  const linkedPatientId = searchParams.get('patientId');
+  const [onlyPatientId, setOnlyPatientId] = useState<string | null>(linkedPatientId);
+  const assessments = onlyPatientId ? allAssessments?.filter(a => a.patientId === onlyPatientId) : allAssessments;
 
   // Get risk color
   const getRiskColor = (risk?: string) => {
@@ -281,8 +288,14 @@ export default function LimbSalvagePage() {
 
       {/* Assessments List */}
       <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b">
+        <div className="px-6 py-4 border-b flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Recent Assessments</h2>
+          {onlyPatientId && (
+            <span className="text-sm text-blue-700">
+              {getPatientName(onlyPatientId)} only ·{' '}
+              <button type="button" onClick={() => setOnlyPatientId(null)} className="font-medium underline">Show all</button>
+            </span>
+          )}
         </div>
         
         {!assessments || assessments.length === 0 ? (
@@ -386,6 +399,7 @@ export default function LimbSalvagePage() {
           }}
           onSave={() => {}}
           existingAssessment={selectedAssessment}
+          initialPatientId={linkedPatientId}
         />
       )}
 

@@ -23,6 +23,7 @@ import {
   Minus, Loader2, Pencil, X,
 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useSearchParams } from 'react-router-dom';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
@@ -141,6 +142,19 @@ const patientName = (p?: { firstName?: string; lastName?: string } | null) =>
 
 const WoundProgressMonitorPage: React.FC = () => {
   const [view, setView] = useState<View>({ kind: 'dashboard' });
+
+  // Opened from a patient (e.g. the patient hub with ?patientId=): go straight
+  // to that patient's wounds. Applied once, so it never fights later navigation.
+  const [searchParams] = useSearchParams();
+  const linkedPatientId = searchParams.get('patientId');
+  const linkedApplied = useRef(false);
+  useEffect(() => {
+    if (!linkedPatientId || linkedApplied.current) return;
+    linkedApplied.current = true;
+    void db.patients.get(linkedPatientId).then(p => {
+      if (p) setView(v => (v.kind === 'dashboard' ? { kind: 'patient', patient: p } : v));
+    });
+  }, [linkedPatientId]);
 
   return (
     <div className="min-h-screen bg-gray-50 -m-4 sm:-m-6 p-4 md:p-6">

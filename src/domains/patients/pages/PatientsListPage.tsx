@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion } from 'framer-motion';
 import {
@@ -16,13 +16,20 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
-import { format } from 'date-fns';
 import { archivePatient, restorePatient, isArchivedPatient, listablePatients } from '../services/patientArchive';
+import { matchesPatientSearch } from '../patientSearch';
+import { consultationChooserHref } from '../patientHubLinks';
+import { formatDate } from '../../../utils/formatDate';
+import { ageInYears } from '../../../utils/safeDate';
+import type { Patient } from '../../../types';
 
 const ITEMS_PER_PAGE = 10;
 
 export default function PatientsListPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  // Today's "Find patient" opens the list with the search box focused.
+  const focusSearch = searchParams.get('focus') === 'search';
   const initialSearch = searchParams.get('search') || '';
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,11 +44,8 @@ export default function PatientsListPage() {
     // A registration merged into another is kept only for the audit trail;
     // archived patients are hidden unless asked for.
     return listablePatients(patients, showArchived).filter((patient) => {
-      const matchesSearch = searchQuery === '' ||
-        (patient.firstName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (patient.lastName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (patient.hospitalNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (patient.phone || '').includes(searchQuery);
+      // Every word must match a name, the hospital number or the phone.
+      const matchesSearch = matchesPatientSearch(patient, searchQuery);
 
       const matchesGender = selectedGender === 'all' || patient.gender === selectedGender;
 
@@ -104,13 +108,15 @@ export default function PatientsListPage() {
               className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             />
             <input
-              type="text"
+              type="search"
+              aria-label="Search patients"
+              autoFocus={focusSearch}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search by name, hospital number, or phone..."
+              placeholder="Name, hospital number or phone"
               className="input pl-10"
             />
           </div>
@@ -178,7 +184,11 @@ export default function PatientsListPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2, delay: index * 0.05 }}
-                    className="hover:bg-gray-50"
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest('a,button,input')) return;
+                      navigate(`/patients/${patient.id}`);
+                    }}
                   >
                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
@@ -187,14 +197,14 @@ export default function PatientsListPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-gray-900 truncate">
-                            {patient.firstName} {patient.lastName}
+                            <Link to={`/patients/${patient.id}`} className="hover:text-sky-700 focus:outline-none focus-visible:underline">
+                              {displayName(patient)}
+                            </Link>
                             {isArchivedPatient(patient) && (
                               <span className="ml-2 badge badge-warning">Archived</span>
                             )}
                           </p>
-                          <p className="text-sm text-gray-500">
-                            {patient.dateOfBirth ? calculateAge(new Date(patient.dateOfBirth)) : 'N/A'}
-                          </p>
+                          <p className="text-sm text-gray-500">{ageText(patient)}</p>
                         </div>
                       </div>
                     </td>
@@ -217,21 +227,23 @@ export default function PatientsListPage() {
                       </span>
                     </td>
                     <td className="hidden lg:table-cell px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {format(new Date(patient.createdAt), 'MMM d, yyyy')}
+                      {formatDate(patient.createdAt)}
                     </td>
                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Link
                           to={`/patients/${patient.id}`}
                           className="btn-icon text-gray-400 hover:text-sky-600 hover:bg-sky-50"
-                          title="View"
+                          title="Open patient"
+                          aria-label={`Open ${displayName(patient)}`}
                         >
                           <Eye size={18} />
                         </Link>
                         <Link
-                          to={`/patients/${patient.id}/encounter`}
+                          to={consultationChooserHref(patient.id)}
                           className="btn-icon text-gray-400 hover:text-emerald-600 hover:bg-emerald-50"
-                          title="Start Encounter"
+                          title="Start consultation"
+                          aria-label={`Start consultation for ${displayName(patient)}`}
                         >
                           <Stethoscope size={18} />
                         </Link>
@@ -239,6 +251,7 @@ export default function PatientsListPage() {
                           to={`/patients/${patient.id}?edit=true`}
                           className="btn-icon text-gray-400 hover:text-amber-600 hover:bg-amber-50 hidden sm:flex"
                           title="Edit"
+                          aria-label={`Edit ${displayName(patient)}`}
                         >
                           <Edit size={18} />
                         </Link>
@@ -247,6 +260,7 @@ export default function PatientsListPage() {
                             onClick={() => handleRestore(patient.id)}
                             className="btn-icon text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 hidden md:flex"
                             title="Restore"
+                            aria-label={`Restore ${displayName(patient)}`}
                           >
                             <ArchiveRestore size={18} />
                           </button>
@@ -255,6 +269,7 @@ export default function PatientsListPage() {
                             onClick={() => handleArchive(patient.id)}
                             className="btn-icon text-gray-400 hover:text-red-600 hover:bg-red-50 hidden md:flex"
                             title="Archive"
+                            aria-label={`Archive ${displayName(patient)}`}
                           >
                             <Archive size={18} />
                           </button>
@@ -302,6 +317,7 @@ export default function PatientsListPage() {
                 disabled={currentPage === 1}
                 className="btn btn-secondary py-2 px-3"
                 title="Previous page"
+                aria-label="Previous page"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -313,6 +329,7 @@ export default function PatientsListPage() {
                 disabled={currentPage === totalPages}
                 className="btn btn-secondary py-2 px-3"
                 title="Next page"
+                aria-label="Next page"
               >
                 <ChevronRight size={16} />
               </button>
@@ -330,53 +347,47 @@ export default function PatientsListPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, delay: index * 0.05 }}
-              className="card card-compact"
+              className="card card-compact relative hover:border-sky-300 focus-within:ring-2 focus-within:ring-sky-300"
             >
               <div className="p-4">
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0">
+                  <div className="w-11 h-11 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0" aria-hidden="true">
                     {(patient.firstName || '?')[0]}{(patient.lastName || '?')[0]}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 truncate">
-                      {patient.firstName} {patient.lastName}
+                      {/* The whole card is this link (its ::after covers the card);
+                          the icon buttons sit above it and keep their own action. */}
+                      <Link
+                        to={`/patients/${patient.id}`}
+                        className="after:absolute after:inset-0 after:content-[''] after:rounded-xl focus:outline-none"
+                      >
+                        {displayName(patient)}
+                      </Link>
                       {isArchivedPatient(patient) && (
                         <span className="ml-2 badge badge-warning">Archived</span>
                       )}
                     </p>
-                    <p className="text-sm text-gray-500 font-mono">{patient.hospitalNumber}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`badge ${patient.gender === 'male' ? 'badge-info' : 'badge-primary'}`}>
-                        {patient.gender}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {patient.dateOfBirth ? calculateAge(new Date(patient.dateOfBirth)) : 'N/A'}
-                      </span>
-                    </div>
+                    <p className="text-sm text-gray-500">
+                      <span className="font-mono">{patient.hospitalNumber}</span>
+                      {' · '}{[ageText(patient), patient.gender].filter(Boolean).join(' · ')}
+                    </p>
+                    <p className="text-sm text-gray-500">{patient.phone}</p>
                   </div>
-                </div>
-                
-                <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-                  <div className="text-sm text-gray-500">
-                    <p>{patient.phone}</p>
-                    <p className="text-xs">{format(new Date(patient.createdAt), 'MMM d, yyyy')}</p>
-                  </div>
-                  <div className="flex items-center gap-1">
+                  <div className="relative z-10 flex items-center gap-1 -mr-2">
                     <Link
-                      to={`/patients/${patient.id}`}
-                      className="btn-icon text-gray-400 hover:text-sky-600 hover:bg-sky-50"
-                    >
-                      <Eye size={20} />
-                    </Link>
-                    <Link
-                      to={`/patients/${patient.id}/encounter`}
+                      to={consultationChooserHref(patient.id)}
                       className="btn-icon text-gray-400 hover:text-emerald-600 hover:bg-emerald-50"
+                      aria-label={`Start consultation for ${displayName(patient)}`}
+                      title="Start consultation"
                     >
                       <Stethoscope size={20} />
                     </Link>
                     <Link
                       to={`/patients/${patient.id}?edit=true`}
                       className="btn-icon text-gray-400 hover:text-amber-600 hover:bg-amber-50"
+                      aria-label={`Edit ${displayName(patient)}`}
+                      title="Edit"
                     >
                       <Edit size={20} />
                     </Link>
@@ -412,6 +423,7 @@ export default function PatientsListPage() {
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="btn btn-secondary py-2 px-4"
+              aria-label="Previous page"
             >
               <ChevronLeft size={16} />
               Prev
@@ -423,6 +435,7 @@ export default function PatientsListPage() {
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               className="btn btn-secondary py-2 px-4"
+              aria-label="Next page"
             >
               Next
               <ChevronRight size={16} />
@@ -434,12 +447,12 @@ export default function PatientsListPage() {
   );
 }
 
-function calculateAge(birthDate: Date): string {
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return `${age} years`;
+function displayName(p: Pick<Patient, 'firstName' | 'lastName'> & { middleName?: string }): string {
+  return [p.firstName, p.middleName, p.lastName].filter(Boolean).join(' ') || 'Unnamed patient';
+}
+
+function ageText(p: Pick<Patient, 'dateOfBirth'> & { dobEstimated?: boolean }): string {
+  const age = ageInYears(p.dateOfBirth);
+  if (age === null) return 'Age not recorded';
+  return p.dobEstimated ? `~${age} years` : `${age} years`;
 }
