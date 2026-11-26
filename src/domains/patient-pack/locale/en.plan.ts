@@ -107,6 +107,12 @@ export const planEn = {
     monitoring: 'We will measure and photograph your wound at every visit, the same way each time.',
     week4: 'At about 4 weeks we check whether the wound is shrinking well. If it is not, we look again for the cause and change the plan.',
     warning: WOUND_WARNING,
+    followUp: {
+      twoWeeks: 'Wound check: we measure and photograph the wound to see how it is healing',
+      week4: 'Wound check at 4 weeks: is the wound shrinking well enough?',
+      bloods: 'Repeat blood tests',
+      zinc: 'Repeat zinc level; we stop zinc once the wound has healed',
+    },
   },
 
   conditions: {

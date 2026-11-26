@@ -153,6 +153,8 @@ export const TABLES = {
   postOpCarePlans: 'post_op_care_plans',
   postOpObservations: 'post_op_observations',
   surgicalOutcomes: 'surgical_outcomes',
+  // The clerking treatment plan (20261127120000)
+  clerkingPlans: 'clerking_plans',
   
   // Preoperative Assessments
   preoperativeAssessments: 'preoperative_assessments',
@@ -329,6 +331,8 @@ export const LOCAL_TO_CLOUD_TABLE: Record<string, string> = {
   postOpCarePlans: 'post_op_care_plans',
   postOpObservations: 'post_op_observations',
   surgicalOutcomes: 'surgical_outcomes',
+  // The clerking treatment plan (20261127120000)
+  clerkingPlans: 'clerking_plans',
   // Preoperative Assessments
   preoperativeAssessments: 'preoperative_assessments',
   // External Reviews (Admin only)

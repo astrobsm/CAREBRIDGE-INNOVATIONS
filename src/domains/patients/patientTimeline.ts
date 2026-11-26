@@ -12,6 +12,7 @@ import type { WoundAssessment } from '../wounds/monitorTypes';
 import { toValidDate } from '../../utils/safeDate';
 import { appointmentStart } from '../dashboard/today';
 import { REVIEW_PHASES } from '../clinical/procedureReview/phases';
+import type { ClerkingPlanRecord } from '../clinical/clerkingPlan/records';
 
 export type TimelineKind =
   | 'visit' | 'clerking' | 'procedure_review' | 'surgery' | 'post_op_note' | 'investigation'
@@ -53,6 +54,8 @@ export interface PatientRecords {
   labRequests?: LabRequest[];
   woundAssessments?: WoundAssessment[];
   treatmentPlans?: TreatmentPlan[];
+  /** Clerking treatment plans (stage 5). */
+  clerkingPlans?: ClerkingPlanRecord[];
   appointments?: Appointment[];
   admissions?: Admission[];
   dischargeSummaries?: DischargeSummary[];
@@ -165,6 +168,17 @@ export function buildPatientTimeline(r: PatientRecords, now: Date = new Date()):
       id: t.id, kind: 'treatment_plan', at: first(t.startDate, (t as { createdAt?: DateLike }).createdAt),
       title: `Treatment plan: ${t.title || 'plan'}`, status: t.status,
       href: `/treatment-planning/${t.id}`,
+    });
+  }
+
+  for (const p of r.clerkingPlans ?? []) {
+    const approved = p.approvals[p.approvals.length - 1];
+    push({
+      id: p.id, kind: 'treatment_plan', at: first(approved?.at, p.updatedAt, p.createdAt),
+      title: `Treatment plan: ${p.conditions.map(c => c.label).join(', ') || 'clerking plan'}`,
+      detail: join(approved ? `v${approved.version} approved by ${approved.byName || 'clinician'}` : 'draft, not approved',
+        p.shares.length ? `shared ${p.shares.length}×` : null, p.appointments.length ? `${p.appointments.length} visit(s) booked` : null),
+      status: p.status, href: `/patients/${encodeURIComponent(pid)}/plan/${encodeURIComponent(p.id)}`,
     });
   }
 

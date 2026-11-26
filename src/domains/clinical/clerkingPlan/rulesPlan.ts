@@ -312,10 +312,10 @@ function protocolLines(f: PatientFacts, s: WoundSignals, templates: ConditionTem
     if (m.id === 'zinc_review' && !lines.some(l => l.id === 'med:wp_zinc' && !l.withheld)) continue;
     add({ id: `mon:wp_${m.id}`, section: 'monitoring', text: `${m.when}: ${m.what}`, patient: m.id === 'every_visit' ? P.wound.monitoring : m.id === 'week4' ? P.wound.week4 : undefined });
   }
-  add({ id: 'fu:wp_2w', section: 'follow_up', text: 'In 2 weeks: measure and photograph; % change in area from baseline', followUp: { when: 'In 2 weeks', purpose: 'Wound review: measure, photograph, % area change', days: 14 }, patient: undefined });
-  add({ id: 'fu:wp_week4', section: 'follow_up', text: 'Week 4: decision point — if under 40–50% smaller, re-investigate and change the plan', followUp: { when: 'Week 4', purpose: 'Wound review: 4-week decision point (40–50% smaller?)', days: 28 } });
-  if (f.diabetes || lines.some(l => ['med:wp_iron', 'med:wp_vitamin_d'].includes(l.id) && !l.withheld)) add({ id: 'fu:wp_3m', section: 'follow_up', text: 'At 3 months: HbA1c (diabetics); ferritin and Hb after starting iron; vitamin D after a loading course', followUp: { when: 'At 3 months', purpose: 'Repeat blood tests (protocol)', days: 84 } });
-  if (lines.some(l => l.id === 'med:wp_zinc' && !l.withheld)) add({ id: 'fu:wp_zinc', section: 'follow_up', text: 'After 8–12 weeks of zinc: repeat serum zinc; stop zinc once the wound has epithelialised', followUp: { when: 'At 8 weeks', purpose: 'Repeat serum zinc; stop zinc if healed', days: 56 } });
+  add({ id: 'fu:wp_2w', section: 'follow_up', text: 'In 2 weeks: measure and photograph; % change in area from baseline', followUp: { when: 'In 2 weeks', purpose: 'Wound review: measure, photograph, % area change', days: 14 }, patient: P.wound.followUp.twoWeeks });
+  add({ id: 'fu:wp_week4', section: 'follow_up', text: 'Week 4: decision point — if under 40–50% smaller, re-investigate and change the plan', followUp: { when: 'Week 4', purpose: 'Wound review: 4-week decision point (40–50% smaller?)', days: 28 }, patient: P.wound.followUp.week4 });
+  if (f.diabetes || lines.some(l => ['med:wp_iron', 'med:wp_vitamin_d'].includes(l.id) && !l.withheld)) add({ id: 'fu:wp_3m', section: 'follow_up', text: 'At 3 months: HbA1c (diabetics); ferritin and Hb after starting iron; vitamin D after a loading course', followUp: { when: 'At 3 months', purpose: 'Repeat blood tests (protocol)', days: 84 }, patient: P.wound.followUp.bloods });
+  if (lines.some(l => l.id === 'med:wp_zinc' && !l.withheld)) add({ id: 'fu:wp_zinc', section: 'follow_up', text: 'After 8–12 weeks of zinc: repeat serum zinc; stop zinc once the wound has epithelialised', followUp: { when: 'At 8 weeks', purpose: 'Repeat serum zinc; stop zinc if healed', days: 56 }, patient: P.wound.followUp.zinc });
   return { lines, hard };
 }
 
