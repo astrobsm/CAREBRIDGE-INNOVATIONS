@@ -36,6 +36,7 @@ import { VoiceDictation } from '../../../components/common';
 import ScanToText from '../../../components/common/ScanToText';
 import type { Admission, Patient, DischargeSummary, DischargeMedication, FollowUpAppointment } from '../../../types';
 import { generateDischargeSummaryPDF } from '../../../utils/dischargePdfGenerator';
+import { bookOnDischarge } from '../../surgery/journey/followUpBooking';
 import {
   surgeriesForAdmission,
   buildDischargeProcedures,
@@ -312,6 +313,17 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
       });
       const updatedAdmission = await db.admissions.get(admission.id);
       if (updatedAdmission) syncRecord('admissions', updatedAdmission as unknown as Record<string, unknown>);
+
+      // The operations of this admission are discharged too: their "after
+      // discharge" follow-up visits are booked now that the date is known.
+      try {
+        const n = await bookOnDischarge(admission.patientId, new Date(), user, {
+          surgeryIds: admissionSurgeries.filter(s => s.status === 'completed').map(s => s.id),
+        });
+        if (n) toast.success(`${n} after-discharge follow-up visit(s) booked`);
+      } catch (e) {
+        console.error('Follow-up booking on discharge failed:', e);
+      }
 
       // Generate automatic discharge bill summary
       try {
