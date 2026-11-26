@@ -72,6 +72,8 @@ import { db } from '../../../database';
 import { EncounterHospitalField, useEncounterHospital } from '../../../components/hospital';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
+import { createAppointment } from '../../../services/appointmentService';
+import { buildFollowUpAppointment } from '../services/followUpAppointment';
 import { VoiceDictation } from '../../../components/common';
 import ScanToText from '../../../components/common/ScanToText';
 import { performOCR } from '../../../services/ocrService';
@@ -660,7 +662,7 @@ export default function EnhancedFollowUpPage() {
         encounter.notes = (encounter.notes || '') + rxLine;
       }
       await db.clinicalEncounters.put(encounter);
-      syncRecord('clinical_encounters', encounter).catch(console.error);
+      syncRecord('clinicalEncounters', encounter as unknown as Record<string, unknown>).catch(console.error);
 
       // 2. Save vital signs
       for (const v of vitalEntries) {
@@ -685,7 +687,7 @@ export default function EnhancedFollowUpPage() {
           notes: '',
         };
         await db.vitalSigns.put(vitals);
-        syncRecord('vital_signs', vitals).catch(console.error);
+        syncRecord('vitalSigns', vitals as unknown as Record<string, unknown>).catch(console.error);
       }
 
       // 3. Save investigation requests
@@ -762,7 +764,30 @@ export default function EnhancedFollowUpPage() {
         syncRecord('wounds', wound).catch(console.error);
       }
 
-      toast.success('Encounter saved successfully!');
+      // 6. Book the follow-up appointment, if a date was entered. The encounter
+      // is already saved, so a booking failure is reported on its own rather
+      // than as a failed save.
+      const appointmentInput = buildFollowUpAppointment({
+        followUpDate,
+        followUpType,
+        followUpNotes,
+        patient,
+        hospitalId: encounterHospital.hospitalId || user.hospitalId || '',
+        hospitalName: encounterHospital.hospital?.name,
+        encounterId,
+        clinician: { id: user.id, name: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || undefined },
+      });
+      if (appointmentInput) {
+        try {
+          const appt = await createAppointment(appointmentInput);
+          toast.success(`Encounter saved. Follow-up booked for ${format(appt.appointmentDate, 'EEE d MMM yyyy')} (${appt.appointmentNumber}).`);
+        } catch (apptErr) {
+          console.error('Follow-up booking error:', apptErr);
+          toast.error('Encounter saved, but the follow-up appointment could not be booked. Please book it from Appointments.');
+        }
+      } else {
+        toast.success('Encounter saved successfully!');
+      }
       navigate(`/patients/${patientId}`);
     } catch (err) {
       console.error('Save error:', err);
