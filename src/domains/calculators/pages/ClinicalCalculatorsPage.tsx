@@ -99,6 +99,10 @@ const calculatorTabs: CalculatorTabConfig[] = [
   { id: 'sicklecell', label: 'Sickle Cell', icon: CircleDot, description: 'Crisis management', category: 'hematology' },
 ];
 
+const GENDER_LABEL: Record<string, string> = {
+  male: 'Male', female: 'Female', 'elderly-male': 'Male (elderly)', 'elderly-female': 'Female (elderly)',
+};
+
 const categoryLabels = {
   electrolytes: 'Electrolytes & Fluids',
   renal: 'Renal Function',
@@ -214,6 +218,10 @@ export default function ClinicalCalculatorsPage() {
   };
 
   const activeTabConfig = calculatorTabs.find(t => t.id === activeTab);
+  const patientKey = [
+    selectedPatientId, patientInfo.name, patientInfo.age, patientInfo.gender, patientInfo.weight,
+    patientInfo.height, patientInfo.hospitalNumber, patientInfo.comorbidities.join(','),
+  ].join('|');
 
   const renderCalculator = () => {
     switch (activeTab) {
@@ -274,7 +282,7 @@ export default function ClinicalCalculatorsPage() {
                 <div><strong>Patient:</strong> {patientInfo.name}</div>
                 {patientInfo.hospital && <div><strong>Hospital:</strong> {patientInfo.hospital}</div>}
                 <div><strong>Age:</strong> {patientInfo.age} years</div>
-                <div><strong>Gender:</strong> {patientInfo.gender === 'male' ? 'Male' : 'Female'}</div>
+                <div><strong>Gender:</strong> {GENDER_LABEL[patientInfo.gender] ?? patientInfo.gender}</div>
                 {patientInfo.hospitalNumber && <div><strong>Hospital #:</strong> {patientInfo.hospitalNumber}</div>}
                 {patientInfo.diagnosis && <div><strong>Dx:</strong> {patientInfo.diagnosis}</div>}
               </div>
@@ -570,7 +578,10 @@ export default function ClinicalCalculatorsPage() {
             </div>
           )}
           
-          {renderCalculator()}
+          {/* Keyed on the patient: each calculator seeds its fields from the
+              patient once, so a changed patient must remount it rather than
+              leave the previous patient's weight in place. */}
+          <div key={patientKey}>{renderCalculator()}</div>
         </div>
       </div>
 
