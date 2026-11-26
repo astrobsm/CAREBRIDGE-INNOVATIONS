@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -454,11 +454,24 @@ export default function PatientDetailsPage() {
   const navigate = useNavigate();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const patient = useLiveQuery(
     () => patientId ? db.patients.get(patientId) : undefined,
     [patientId]
   );
+
+  // The patient list's Edit icon links here with ?edit=true: open the edit
+  // modal once the patient has loaded, then drop the flag so closing the
+  // modal (or a reload) does not reopen it.
+  useEffect(() => {
+    if (patient && searchParams.get('edit') === 'true') {
+      setShowEditModal(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('edit');
+      setSearchParams(next, { replace: true });
+    }
+  }, [patient, searchParams, setSearchParams]);
 
   const vitals = useLiveQuery(
     async () => {
@@ -736,7 +749,7 @@ export default function PatientDetailsPage() {
               </Link>
               {activeAdmission.treatmentPlanId && (
                 <Link
-                  to={`/treatment-plans/new?patientId=${patientId}`}
+                  to={`/treatment-planning/${activeAdmission.treatmentPlanId}`}
                   className="btn btn-primary text-sm"
                 >
                   View Treatment Plan

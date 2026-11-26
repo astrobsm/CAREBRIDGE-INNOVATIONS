@@ -228,6 +228,8 @@ function App() {
           <Route path="post-op-note/:surgeryId" element={<PostOperativeNotePage />} />
           <Route path="workflow" element={<SurgicalWorkflowPage />} />
           <Route path="workflow/:patientId" element={<SurgicalWorkflowPage />} />
+          {/* Reopen an existing case (also ?edit=<surgeryId> on the routes above). */}
+          <Route path="workflow/:patientId/:surgeryId" element={<SurgicalWorkflowPage />} />
         </Route>
 
         {/* Clinical Modules */}

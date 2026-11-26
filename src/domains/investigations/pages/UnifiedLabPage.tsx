@@ -5,7 +5,8 @@
  * Combines laboratory requests and investigations into a single professional workflow
  */
 
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -96,6 +97,16 @@ export default function UnifiedLabPage() {
   // UI State
   const [activeTab, setActiveTab] = useState<TabType>('pending');
   const [showRequestModal, setShowRequestModal] = useState(false);
+  // Dashboard "Request Lab" links here with ?request=new: open the request form.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('request') === 'new') {
+      setShowRequestModal(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('request');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [showResultModal, setShowResultModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedInvestigation, setSelectedInvestigation] = useState<Investigation | null>(null);

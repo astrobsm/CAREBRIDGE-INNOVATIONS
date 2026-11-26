@@ -24,7 +24,6 @@ import {
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { db } from '../../../database';
-import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { VoiceDictation } from '../../../components/common';
 import type { Surgery, Patient, Admission } from '../../../types';
@@ -202,14 +201,10 @@ export default function PostOpCarePlanModal({
       };
 
       // Save to database
-      if (existingPlan) {
-        await db.table('postOpCarePlans').update(existingPlan.id, carePlan);
-      } else {
-        await db.table('postOpCarePlans').add(carePlan);
-      }
-      
-      syncRecord('postOpCarePlans', carePlan as unknown as Record<string, unknown>);
-      
+      // Device-local (Dexie v94): there is no cloud table for care plans yet,
+      // so there is nothing to syncRecord() to.
+      await db.postOpCarePlans.put(carePlan);
+
       toast.success(existingPlan ? 'Care plan updated' : 'Care plan created');
       onSave?.(carePlan);
       onClose();

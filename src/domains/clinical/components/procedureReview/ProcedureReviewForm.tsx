@@ -37,7 +37,7 @@ import { computeReview } from '../../procedureReview/compute';
 import { reviewPatientFrom } from '../../procedureReview/engine';
 import { carriedForward, priorReviewsFrom } from '../../procedureReview/records';
 import { counsellingGaps, emptyCounselling } from '../../procedureReview/consent';
-import { getProcedureReviewPDFDoc, generateProcedureReviewPDF } from '../../procedureReview/pdf';
+import { getPatientCopyPDF, generateProcedureReviewPDF } from '../../procedureReview/pdf';
 import { answersFromWoundAssessment, describeAssessment } from '../../procedureReview/woundLink';
 import {
   markReviewInError, saveReview, submitReview, submitReviewPlan, type ReviewedEncounter,
@@ -215,12 +215,14 @@ export const ProcedureReviewForm: React.FC<ProcedureReviewFormProps> = ({
     },
   } : null;
 
+  // Export downloads the full clinician PDF. WhatsApp goes to the patient's
+  // phone, so it sends the patient copy: no flags, scores or safeguarding.
   const exportPdf = () => { const i = pdfInput(); if (i) generateProcedureReviewPDF(i); };
   const sharePdf = async () => {
     const i = pdfInput();
     if (!i) return;
-    const doc = getProcedureReviewPDFDoc(i);
-    await sharePDFOnWhatsApp(doc.output('blob'), `${module!.id}-${phase}.pdf`, patient.phone);
+    const { doc, fileName } = getPatientCopyPDF(i);
+    await sharePDFOnWhatsApp(doc.output('blob'), fileName, patient.phone);
   };
 
   // ── Picker ────────────────────────────────────────────────────────────────
@@ -505,7 +507,7 @@ export const ProcedureReviewForm: React.FC<ProcedureReviewFormProps> = ({
               </button>
             )}
             <button type="button" onClick={exportPdf} className="px-4 py-2 border rounded-lg text-sm flex items-center gap-2"><Download className="w-4 h-4" /> Export PDF</button>
-            <button type="button" onClick={sharePdf} className="px-4 py-2 border rounded-lg text-sm flex items-center gap-2"><Share2 className="w-4 h-4" /> WhatsApp</button>
+            <button type="button" onClick={sharePdf} title="Sends the patient copy (no risk flags or scores)" className="px-4 py-2 border rounded-lg text-sm flex items-center gap-2"><Share2 className="w-4 h-4" /> WhatsApp patient copy</button>
             {enc && review?.status !== 'entered_in_error' && (
               <button type="button" onClick={markError} className="px-4 py-2 border border-red-200 text-red-700 rounded-lg text-sm flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> Entered in error</button>
             )}

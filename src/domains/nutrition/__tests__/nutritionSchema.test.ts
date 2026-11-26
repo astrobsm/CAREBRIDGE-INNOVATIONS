@@ -32,9 +32,9 @@ const REFERENCE_TABLES = ['nutrition_foods', 'nutrition_recipes', 'nutrition_hou
 describe('Dexie v93', () => {
   const v93 = DB.match(/this\.version\(93\)\.stores\(\{([\s\S]*?)\}\)\.upgrade/);
 
-  it('is the newest version and declares every new store with patientId/updatedAt indexes', () => {
+  it('exists (later versions may follow) and declares every new store with patientId/updatedAt indexes', () => {
     const versions = [...DB.matchAll(/this\.version\((\d+)\)/g)].map(m => Number(m[1]));
-    expect(Math.max(...versions)).toBe(93);
+    expect(Math.max(...versions)).toBeGreaterThanOrEqual(93);
     expect(v93).toBeTruthy();
     const stores = Object.fromEntries([...v93![1].matchAll(/^\s*(\w+):\s*'([^']+)'/gm)].map(m => [m[1], m[2].split(/,\s*/)]));
     expect(Object.keys(stores).sort()).toEqual(Object.keys(NEW).sort());

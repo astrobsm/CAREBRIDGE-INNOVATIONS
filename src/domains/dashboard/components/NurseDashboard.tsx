@@ -164,7 +164,7 @@ export default function NurseDashboard() {
       value: pendingDressings ?? 0,
       icon: <HeartPulse className="w-5 h-5" />,
       color: pendingDressings && pendingDressings > 0 ? 'bg-amber-500' : 'bg-emerald-500',
-      link: '/wounds',
+      link: '/wound-monitor',
     },
     {
       name: 'Med Charts',
@@ -406,7 +406,8 @@ export default function NurseDashboard() {
         <h2 className="font-semibold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Link
-            to="/clinical/vitals"
+            to="/patients"
+            title="Choose the patient, then record vitals"
             className="flex flex-col items-center p-4 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
           >
             <Heart size={24} className="text-red-600 mb-2" />
@@ -420,7 +421,7 @@ export default function NurseDashboard() {
             <span className="text-sm text-purple-700 text-center">Med Chart</span>
           </Link>
           <Link
-            to="/wounds"
+            to="/wound-monitor"
             className="flex flex-col items-center p-4 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors"
           >
             <HeartPulse size={24} className="text-amber-600 mb-2" />

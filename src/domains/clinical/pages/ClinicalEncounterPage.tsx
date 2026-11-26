@@ -58,6 +58,10 @@ import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
 import AISummaryButton from '../components/AISummaryButton';
 import TrackedInvestigations from '../components/TrackedInvestigations';
 import ClinicalCommentsSection from '../../../components/clinical/ClinicalCommentsSection';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
+import {
+  loadEncounterDraft, saveEncounterDraft, clearEncounterDraft, draftHasContent, type EncounterDraft,
+} from '../services/encounterDraft';
 import { performOCR } from '../../../services/ocrService';
 import { proxyChat } from '../../../services/aiProxy';
 import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination, Investigation, Prescription, ClinicalPhoto } from '../../../types';
@@ -301,6 +305,8 @@ export default function ClinicalEncounterPage() {
     handleSubmit,
     watch,
     setValue,
+    reset,
+    getValues,
     formState: { errors },
   } = useForm<EncounterFormData>({
     resolver: zodResolver(encounterSchema),
@@ -452,6 +458,75 @@ export default function ClinicalEncounterPage() {
   const socialHistory = watch('socialHistory') || '';
   const treatmentPlan = watch('treatmentPlan') || '';
   const notes = watch('notes') || '';
+
+  // ── Draft: autosaved per patient, restored on return ────────────────
+  // Typed notes used to be lost on any navigation or reload.
+  const [draftReady, setDraftReady] = useState(false);
+  const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null);
+  const [encounterSaved, setEncounterSaved] = useState(false);
+  const draftState: Omit<EncounterDraft, 'v' | 'savedAt'> = {
+    form: watch() as Record<string, string | undefined>,
+    diagnoses,
+    physicalExam: physicalExam as Record<string, unknown>,
+    lmpDate,
+    lmpUnknown,
+  };
+  const draftJson = JSON.stringify(draftState);
+  const isDirty = draftReady && !encounterSaved && draftHasContent(draftState);
+  const { confirmLeave } = useUnsavedChangesGuard(isDirty);
+  /** The page's own navigation: asks first when there are unsaved notes. */
+  const leaveTo = (to: string) => { if (confirmLeave()) navigate(to); };
+
+  useEffect(() => {
+    setDraftReady(false);
+    setRestoredDraftAt(null);
+    setEncounterSaved(false);
+    if (!patientId) return;
+    const d = loadEncounterDraft(localStorage, patientId);
+    if (d) {
+      // `type` is chosen from the patient's history, so it is not restored.
+      for (const [k, v] of Object.entries(d.form)) {
+        if (k !== 'type' && typeof v === 'string') setValue(k as keyof EncounterFormData, v as never);
+      }
+      setDiagnoses(d.diagnoses as Diagnosis[]);
+      setPhysicalExam(d.physicalExam as PhysicalExamination);
+      setLmpDate(d.lmpDate);
+      setLmpUnknown(d.lmpUnknown);
+      setRestoredDraftAt(d.savedAt);
+    }
+    setDraftReady(true);
+  }, [patientId, setValue]);
+
+  // Autosave (debounced), and flush on unmount so the last keystrokes survive.
+  const latestDraft = useRef({ patientId, json: draftJson, active: false });
+  latestDraft.current = { patientId, json: draftJson, active: draftReady && !encounterSaved };
+  useEffect(() => {
+    if (!patientId || !draftReady || encounterSaved) return;
+    const t = setTimeout(() => {
+      try { saveEncounterDraft(localStorage, patientId, JSON.parse(draftJson)); } catch { /* quota */ }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [patientId, draftReady, encounterSaved, draftJson]);
+  useEffect(() => {
+    const flush = () => {
+      const l = latestDraft.current;
+      if (!l.patientId || !l.active) return;
+      try { saveEncounterDraft(localStorage, l.patientId, JSON.parse(l.json)); } catch { /* quota */ }
+    };
+    window.addEventListener('beforeunload', flush);
+    return () => { window.removeEventListener('beforeunload', flush); flush(); };
+  }, []);
+
+  const discardDraft = () => {
+    if (!patientId || !window.confirm('Discard the restored draft and clear the form?')) return;
+    clearEncounterDraft(localStorage, patientId);
+    reset({ type: getValues('type') });
+    setDiagnoses([]);
+    setPhysicalExam({});
+    setLmpDate('');
+    setLmpUnknown(false);
+    setRestoredDraftAt(null);
+  };
 
   const addDiagnosis = () => {
     if (newDiagnosis.description.trim()) {
@@ -606,6 +681,10 @@ export default function ClinicalEncounterPage() {
       setPatientPrescriptions(recentPrescriptions);
       setSavedEncounter(encounter);
       setShowPostSubmitModal(true);
+      // Saved: the draft has done its job.
+      setEncounterSaved(true);
+      clearEncounterDraft(localStorage, patientId);
+      setRestoredDraftAt(null);
       
       toast.success('Clinical encounter saved successfully!');
     } catch (error) {
@@ -921,7 +1000,7 @@ export default function ClinicalEncounterPage() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate(`/patients/${patientId}/procedure-review`)}
+                onClick={() => leaveTo(`/patients/${patientId}/procedure-review`)}
                 className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
                 title="Wound, pre-operative, post-operative or follow-up review for a plastic-surgery procedure"
               >
@@ -931,7 +1010,7 @@ export default function ClinicalEncounterPage() {
               {encounterMode === 'follow_up' && (
                 <button
                   type="button"
-                  onClick={() => navigate(`/patients/${patientId}/follow-up`)}
+                  onClick={() => leaveTo(`/patients/${patientId}/follow-up`)}
                   className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                 >
                   <RefreshCw size={16} />
@@ -980,7 +1059,7 @@ export default function ClinicalEncounterPage() {
       {/* Header */}
       <div className="mb-6">
         <button
-          onClick={() => navigate(`/patients/${patientId}`)}
+          onClick={() => leaveTo(`/patients/${patientId}`)}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
         >
           <ArrowLeft size={18} />
@@ -1004,7 +1083,7 @@ export default function ClinicalEncounterPage() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => navigate(`/patients/${patientId}/clinical-summary`)}
+              onClick={() => leaveTo(`/patients/${patientId}/clinical-summary`)}
               className="btn btn-secondary flex items-center gap-2"
             >
               <UserCheck size={18} />
@@ -1150,6 +1229,17 @@ export default function ClinicalEncounterPage() {
         />
       </motion.div>
 
+      {restoredDraftAt && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="status">
+          <span>
+            Draft restored: unsaved notes from {format(new Date(restoredDraftAt), 'd MMM yyyy, HH:mm')} have been put back. Review them before saving.
+          </span>
+          <button type="button" onClick={discardDraft} className="btn btn-secondary text-sm">
+            Discard draft
+          </button>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
         {/* Where this encounter is taking place. Defaults to where the
             patient is registered; changing it does not move the registration. */}
@@ -1190,7 +1280,7 @@ export default function ClinicalEncounterPage() {
                 {phaseForEncounterType(watch('type')) && (
                   <button
                     type="button"
-                    onClick={() => navigate(`/patients/${patientId}/procedure-review?phase=${phaseForEncounterType(watch('type'))}`)}
+                    onClick={() => leaveTo(`/patients/${patientId}/procedure-review?phase=${phaseForEncounterType(watch('type'))}`)}
                     className="mt-1.5 text-xs text-indigo-700 hover:underline"
                   >
                     Use the structured procedure-review template for this encounter type
@@ -1728,7 +1818,7 @@ export default function ClinicalEncounterPage() {
         <div className="flex justify-end gap-4">
           <button
             type="button"
-            onClick={() => navigate(`/patients/${patientId}`)}
+            onClick={() => leaveTo(`/patients/${patientId}`)}
             className="btn btn-secondary"
           >
             Cancel

@@ -570,7 +570,7 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
                 {admission.treatmentPlanId && (
                   <div className="pt-2 border-t">
                     <a
-                      href={`/treatment-plans/${admission.treatmentPlanId}`}
+                      href={`/treatment-planning/${admission.treatmentPlanId}`}
                       className="flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700"
                       onClick={(e) => e.stopPropagation()}
                     >

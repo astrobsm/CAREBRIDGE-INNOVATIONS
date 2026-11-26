@@ -333,7 +333,10 @@ const DischargeSummaryDocument = ({
               <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>Procedures Performed:</Text>
               {summary.proceduresPerformed.map((proc, i) => (
                 <Text key={i} style={styles.listItem}>
-                  • {proc.name} - {format(new Date(proc.date), 'dd MMM yyyy')} ({proc.outcome})
+                  • {proc.name}
+                  {proc.date && !Number.isNaN(new Date(proc.date).getTime()) ? ` - ${format(new Date(proc.date), 'dd MMM yyyy')}` : ''}
+                  {proc.surgeon ? `, ${proc.surgeon}` : ''}
+                  {proc.outcome ? ` (${proc.outcome})` : ''}
                 </Text>
               ))}
             </View>

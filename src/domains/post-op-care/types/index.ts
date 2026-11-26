@@ -131,6 +131,35 @@ export interface PostOpMonitoringRecord {
   updatedAt: Date;
 }
 
+/**
+ * One post-op observation exactly as the nurse entered it on the monitoring
+ * form: vitals, pain, wound, drains, fluid balance, GI/GU, mobility, diet,
+ * complications and escalation. Stored whole (Dexie `postOpObservations`),
+ * so nothing the form collects is dropped. The vitals are also written to
+ * `vitalSigns` so the existing charts keep working.
+ */
+export interface PostOpObservation {
+  id: string;
+  patientId: string;
+  surgeryId: string;
+  carePlanId?: string;
+  hospitalId?: string;
+  vitalSignsId?: string;
+  recordedAt: Date;
+  dayPostOp: number;
+  hourPostOp: number;
+  shift: 'morning' | 'afternoon' | 'night';
+  /** Every field of the monitoring form, unmodified. */
+  observation: Record<string, unknown>;
+  overallCondition: string;
+  complicationPresent: boolean;
+  escalationRequired: boolean;
+  recordedBy: string;
+  recordedByName: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface PainManagementProtocol {
   primaryAnalgesic: string;
   dosage: string;

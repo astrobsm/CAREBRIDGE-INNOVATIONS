@@ -19,7 +19,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { v4 as uuidv4 } from 'uuid';
 import { format, differenceInYears } from 'date-fns';
@@ -64,6 +64,14 @@ import {
   REQUIREMENT_META,
 } from '../data/preopProtocolBridge';
 import { generateSurgicalConsentPDF, findEducationForProcedure } from '../utils/surgicalDocumentGenerator';
+import {
+  draftKeyFor, migrateLegacyDraft, promoteNewCaseDraft, readDraft, newCaseDraftKey,
+} from '../services/workflowDraft';
+import {
+  buildSurgeryAttachment, findSurgeryAttachment, attachmentFileName, withdrawnAttachment,
+  missingAttachments, isImageDataUrl, imageToPdfDataUrl, type SurgeryAttachmentKind,
+} from '../services/surgeryAttachments';
+import { syncRecord } from '../../../services/cloudSyncService';
 
 // Suppress unused-import warnings for types used as type annotations only
 void (undefined as unknown as ConsumableBOM);
@@ -485,18 +493,27 @@ function generateClearanceReport(results: InvResultsState): { issues: string[]; 
 // ========================================
 // MAIN COMPONENT
 // ========================================
+const EMPTY_SECTION_COMPLETION: Record<SectionId, boolean> = {
+  planning: false, investigations: false, consumables: false, estimates: false,
+  documents: false, uploads: false, booking: false, preanaesthetic: false,
+  conference: false, surgery: false, postop: false, medications: false,
+};
+
 export default function SurgicalWorkflowPage() {
   const { patientId, surgeryId } = useParams<{ patientId: string; surgeryId?: string }>();
+  const [searchParams] = useSearchParams();
+  // Reopening an existing case: /surgery/workflow/:patientId/:surgeryId or
+  // ?edit=<surgeryId> (the surgery list's Edit / Team links). Without this
+  // every reopen saved as a brand-new, duplicate surgery.
+  const requestedSurgeryId = surgeryId || searchParams.get('edit') || '';
   const navigate = useNavigate();
   const { user } = useAuth();
 
   // Current section
-  const [activeSection, setActiveSection] = useState<SectionId>('planning');
-  const [sectionCompletion, setSectionCompletion] = useState<Record<SectionId, boolean>>({
-    planning: false, investigations: false, consumables: false, estimates: false,
-    documents: false, uploads: false, booking: false, preanaesthetic: false,
-    conference: false, surgery: false, postop: false, medications: false,
-  });
+  const [activeSection, setActiveSection] = useState<SectionId>(
+    searchParams.get('tab') === 'team' ? 'estimates' : 'planning',
+  );
+  const [sectionCompletion, setSectionCompletion] = useState<Record<SectionId, boolean>>({ ...EMPTY_SECTION_COMPLETION });
 
   // ---- Live queries ----
   const patient = useLiveQuery(() => patientId ? db.patients.get(patientId) : undefined, [patientId]);
@@ -507,8 +524,37 @@ export default function SurgicalWorkflowPage() {
   const allUsers = useLiveQuery(() => db.users.toArray(), []);
 
   // ---- Current surgery state ----
-  const [currentSurgeryId, setCurrentSurgeryId] = useState<string>(surgeryId || '');
+  const [currentSurgeryId, setCurrentSurgeryId] = useState<string>(requestedSurgeryId);
   const currentSurgery = surgeries?.find(s => s.id === currentSurgeryId);
+
+  // Follow the URL: a different patient or a different ?edit= is a different
+  // case, never the one still in state.
+  useEffect(() => {
+    setCurrentSurgeryId(requestedSurgeryId);
+  }, [patientId, requestedSurgeryId]);
+
+  // ?edit=<id> without the patient in the path (e.g. a surgery reminder):
+  // find the surgery's patient and open the full URL.
+  useEffect(() => {
+    if (patientId || !requestedSurgeryId) return;
+    db.surgeries.get(requestedSurgeryId).then(s => {
+      if (s) navigate(`/surgery/workflow/${s.patientId}?edit=${s.id}`, { replace: true });
+      else toast.error('That surgery could not be found on this device');
+    }).catch(console.error);
+  }, [patientId, requestedSurgeryId, navigate]);
+
+  // An ?edit= id that is not one of this patient's surgeries is not loaded,
+  // and is not reused as the id of a new surgery.
+  useEffect(() => {
+    if (!patientId || !currentSurgeryId || !surgeries || surgeries.some(s => s.id === currentSurgeryId)) return;
+    // Not in the (possibly not yet refreshed) list: ask the database.
+    db.surgeries.get(currentSurgeryId).then(s => {
+      if (!s || s.patientId !== patientId) {
+        toast.error('That surgery does not belong to this patient');
+        setCurrentSurgeryId('');
+      }
+    }).catch(console.error);
+  }, [patientId, surgeries, currentSurgeryId]);
 
   // ========================================
   // SECTION 1: PREOP PLANNING & RISK
@@ -562,9 +608,9 @@ export default function SurgicalWorkflowPage() {
 
   // SECTION 6: UPLOADS
   const [investigationUploads, setInvestigationUploads] = useState<{ name: string; data: string }[]>([]);
-  const [consentUpload, setConsentUpload] = useState<{ name: string; data: string } | null>(null);
+  // Signed consent and payment evidence are stored documents: see
+  // attachToSurgery / consentDoc / paymentDoc below.
   const [clinicalPhotos, setClinicalPhotos] = useState<{ name: string; data: string }[]>([]);
-  const [paymentEvidence, setPaymentEvidence] = useState<{ name: string; data: string } | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'complete' | 'part_payment'>('complete');
   const [paymentBalance, setPaymentBalance] = useState(0);
 
@@ -618,6 +664,9 @@ export default function SurgicalWorkflowPage() {
       setAnaesthetistId(currentSurgery.anaesthetistId || '');
       setScrubNurseId(currentSurgery.scrubNurseId || '');
       setCirculatingNurseId(currentSurgery.circulatingNurseId || '');
+      // Saved on the record by the Documents section; only filled when the
+      // draft has nothing (e.g. reopening the case on another device).
+      setPostopInstructions(prev => prev || currentSurgery.postOperativeInstructions || '');
       // Check completion based on status
       if (currentSurgery.status === 'scheduled' || currentSurgery.status === 'in-progress' || currentSurgery.status === 'completed') {
         setSectionCompletion(prev => ({ ...prev, planning: true, booking: true }));
@@ -626,44 +675,63 @@ export default function SurgicalWorkflowPage() {
   }, [currentSurgery]);
 
   // ---- localStorage: persist workflow draft ----
-  const STORAGE_KEY = `astro_workflow_${patientId}`;
+  // One draft per surgery, plus a new-case draft per patient until the first
+  // save (see services/workflowDraft). It used to be one per patient, so a
+  // second operation inherited the first one's findings and complications.
+  const STORAGE_KEY = patientId ? draftKeyFor(patientId, currentSurgeryId || undefined) : '';
+  // The key whose draft is in state. Autosave waits for it, so it never
+  // writes one case's state (or the empty initial state) over another's draft.
+  const [loadedDraftKey, setLoadedDraftKey] = useState<string | null>(null);
+  const surgeriesLoaded = surgeries !== undefined;
 
-  // Load draft on mount
+  // Load the draft for this case (and reset every draft field when there is none).
   useEffect(() => {
-    if (!patientId) return;
+    if (!patientId || !surgeriesLoaded || !STORAGE_KEY) return;
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (!saved) return;
-      const d = JSON.parse(saved);
-      if (d.invResults) setInvResults(d.invResults);
-      if (d.clinicalDetails) setClinicalDetails(d.clinicalDetails);
-      if (d.selectedInvestigations) setSelectedInvestigations(d.selectedInvestigations);
-      if (d.riskNotes) setRiskNotes(d.riskNotes);
-      if (d.preopInfoNotes) setPreopInfoNotes(d.preopInfoNotes);
-      if (d.postopInstructions) setPostopInstructions(d.postopInstructions);
-      if (d.consentDetails) setConsentDetails(d.consentDetails);
-      if (d.preAnaestheticNotes) setPreAnaestheticNotes(d.preAnaestheticNotes);
-      if (d.airwayAssessment) setAirwayAssessment(d.airwayAssessment);
-      if (d.conferenceNotes) setConferenceNotes(d.conferenceNotes);
-      if (d.preOpDiagnosis) setPreOpDiagnosis(d.preOpDiagnosis);
-      if (d.postOpDiagnosis) setPostOpDiagnosis(d.postOpDiagnosis);
-      if (d.operativeFindings) setOperativeFindings(d.operativeFindings);
-      if (d.procedurePerformed) setProcedurePerformed(d.procedurePerformed);
-      if (d.complications) setComplications(d.complications);
-      if (d.postOpMeds) setPostOpMeds(d.postOpMeds);
-      if (d.anaesthesiaLog) setAnaesthesiaLog(d.anaesthesiaLog);
-      if (d.vitalSignsLog) setVitalSignsLog(d.vitalSignsLog);
-      if (d.specimens) setSpecimens(d.specimens);
-      if (d.bloodLoss) setBloodLoss(d.bloodLoss);
-      if (d.fluidInput) setFluidInput(d.fluidInput);
-      if (d.sectionCompletion) setSectionCompletion(d.sectionCompletion);
-      if (Array.isArray(d.comorbidities)) setComorbidities(d.comorbidities);
-    } catch { /* ignore parse errors */ }
+      migrateLegacyDraft(localStorage, patientId, (surgeries ?? []).map(s => s.id));
+    } catch { /* storage unavailable */ }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d: any = readDraft(localStorage, STORAGE_KEY) ?? {};
+    setInvResults(d.invResults ?? { ...EMPTY_INV_RESULTS });
+    setClinicalDetails(d.clinicalDetails ?? '');
+    setSelectedInvestigations(d.selectedInvestigations ?? []);
+    setRiskNotes(d.riskNotes ?? '');
+    setPreopInfoNotes(d.preopInfoNotes ?? '');
+    setPostopInstructions(d.postopInstructions ?? currentSurgery?.postOperativeInstructions ?? '');
+    setConsentDetails(d.consentDetails ?? '');
+    setPreAnaestheticNotes(d.preAnaestheticNotes ?? '');
+    setAirwayAssessment(d.airwayAssessment ?? '');
+    setConferenceNotes(d.conferenceNotes ?? '');
+    setPreOpDiagnosis(d.preOpDiagnosis ?? '');
+    setPostOpDiagnosis(d.postOpDiagnosis ?? '');
+    setOperativeFindings(d.operativeFindings ?? '');
+    setProcedurePerformed(d.procedurePerformed ?? '');
+    setComplications(d.complications ?? '');
+    setPostOpMeds(d.postOpMeds ?? []);
+    setAnaesthesiaLog(d.anaesthesiaLog ?? []);
+    setVitalSignsLog(d.vitalSignsLog ?? []);
+    setSpecimens(d.specimens ?? []);
+    setBloodLoss(d.bloodLoss ?? 0);
+    setFluidInput(d.fluidInput ?? '');
+    const booked = !!currentSurgery && ['scheduled', 'in-progress', 'completed'].includes(currentSurgery.status);
+    setSectionCompletion(d.sectionCompletion ?? { ...EMPTY_SECTION_COMPLETION, planning: booked, booking: booked });
+    setComorbidities(Array.isArray(d.comorbidities) ? d.comorbidities : []);
+    setLoadedDraftKey(STORAGE_KEY);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId]);
+  }, [patientId, STORAGE_KEY, surgeriesLoaded]);
+
+  const draftJson = () => JSON.stringify({
+    invResults, clinicalDetails, selectedInvestigations, riskNotes, comorbidities,
+    preopInfoNotes, postopInstructions, consentDetails,
+    preAnaestheticNotes, airwayAssessment, conferenceNotes,
+    preOpDiagnosis, postOpDiagnosis, operativeFindings,
+    procedurePerformed, complications, postOpMeds,
+    anaesthesiaLog, vitalSignsLog, specimens, bloodLoss, fluidInput,
+    sectionCompletion,
+  });
 
   const saveWorkflowDraft = useCallback(() => {
-    if (!patientId) return;
+    if (!patientId || !STORAGE_KEY || loadedDraftKey !== STORAGE_KEY) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         invResults, clinicalDetails, selectedInvestigations, riskNotes, comorbidities,
@@ -676,7 +744,7 @@ export default function SurgicalWorkflowPage() {
       }));
     } catch { /* quota errors */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId, invResults, clinicalDetails, selectedInvestigations, riskNotes, comorbidities,
+  }, [patientId, STORAGE_KEY, loadedDraftKey, invResults, clinicalDetails, selectedInvestigations, riskNotes, comorbidities,
     preopInfoNotes, postopInstructions, consentDetails,
     preAnaestheticNotes, airwayAssessment, conferenceNotes,
     preOpDiagnosis, postOpDiagnosis, operativeFindings,
@@ -868,9 +936,19 @@ export default function SurgicalWorkflowPage() {
       if (currentSurgeryId && currentSurgery) {
         await SurgeryOps.update(currentSurgeryId, surgeryData);
       } else {
-        const newId = surgeryData.id;
-        setCurrentSurgeryId(newId);
+        // A new case: never reuse an id that is not this patient's surgery.
+        const newId = uuidv4();
+        surgeryData.id = newId;
         await SurgeryOps.create(surgeryData);
+        // The new-case draft becomes this surgery's draft before the key
+        // switches, so nothing typed is lost, and the patient's next
+        // operation starts with an empty draft.
+        try {
+          promoteNewCaseDraft(localStorage, patientId, newId, loadedDraftKey === newCaseDraftKey(patientId) ? draftJson() : undefined);
+        } catch { /* storage unavailable */ }
+        setCurrentSurgeryId(newId);
+        // Keep the case open on reload instead of starting another new one.
+        navigate(`/surgery/workflow/${patientId}?edit=${newId}`, { replace: true });
       }
       setSectionCompletion(prev => ({ ...prev, planning: true }));
       toast.success('Preoperative planning saved');
@@ -1022,9 +1100,72 @@ export default function SurgicalWorkflowPage() {
     }
   };
 
+  // ---- Signed consent & payment evidence: stored, not just held in state ----
+  const surgeryDocuments = useLiveQuery(
+    () => currentSurgeryId ? db.scannedDocuments.where('encounterId').equals(currentSurgeryId).toArray() : [],
+    [currentSurgeryId],
+  );
+  const consentDoc = findSurgeryAttachment(surgeryDocuments ?? [], currentSurgeryId, 'consent');
+  const paymentDoc = findSurgeryAttachment(surgeryDocuments ?? [], currentSurgeryId, 'payment');
+  const consentUpload = consentDoc ? { name: attachmentFileName(consentDoc) } : null;
+  const paymentEvidence = paymentDoc ? { name: attachmentFileName(paymentDoc) } : null;
+
+  const attachToSurgery = async (kind: SurgeryAttachmentKind, file: { name: string; data: string }) => {
+    if (!currentSurgeryId || !currentSurgery || !patientId || !user) {
+      toast.error('Save planning section first');
+      return;
+    }
+    try {
+      const label = kind === 'consent' ? 'Signed consent' : 'Payment evidence';
+      const imagePdfDataUrl = isImageDataUrl(file.data)
+        ? await imageToPdfDataUrl(file.data, `${label} - ${currentSurgery.procedureName}`)
+        : undefined;
+      const doc = buildSurgeryAttachment({
+        id: uuidv4(),
+        pageId: uuidv4(),
+        kind,
+        file,
+        imagePdfDataUrl,
+        surgery: { id: currentSurgeryId, procedureName: currentSurgery.procedureName },
+        patient: {
+          id: patientId,
+          name: patient ? `${patient.firstName} ${patient.lastName}` : undefined,
+          hospitalId: currentSurgery.hospitalId || user.hospitalId,
+        },
+        user: { id: user.id, name: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || undefined },
+        extra: kind === 'payment'
+          ? [
+              { key: 'paymentStatus', label: 'Payment', value: paymentStatus },
+              ...(paymentStatus === 'part_payment' ? [{ key: 'balance', label: 'Balance (NGN)', value: String(paymentBalance) }] : []),
+            ]
+          : undefined,
+        now: new Date(),
+      });
+      await db.scannedDocuments.add(doc);
+      void syncRecord('scannedDocuments', doc as unknown as Record<string, unknown>);
+      toast.success(`${label} saved to the patient's documents`);
+    } catch (err) {
+      console.error('Attachment save failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not save the file');
+    }
+  };
+
+  const withdrawAttachment = async (kind: SurgeryAttachmentKind) => {
+    const doc = kind === 'consent' ? consentDoc : paymentDoc;
+    if (!doc) return;
+    if (!window.confirm('Withdraw this file? It stays in the patient\'s documents, marked withdrawn, and no longer counts for this booking.')) return;
+    const updated = withdrawnAttachment(doc, new Date());
+    await db.scannedDocuments.put(updated);
+    void syncRecord('scannedDocuments', updated as unknown as Record<string, unknown>);
+  };
+
   const saveUploadsSection = async () => {
     setSectionCompletion(prev => ({ ...prev, uploads: true }));
-    toast.success('Uploads saved');
+    // Consent and payment evidence are written as they are uploaded.
+    // Investigation results and clinical photos on this tab are not stored.
+    toast.success(
+      `Consent: ${consentDoc ? 'saved' : 'not uploaded'}. Payment evidence: ${paymentDoc ? 'saved' : 'not uploaded'}.`,
+    );
   };
 
   const approveBooking = async () => {
@@ -1038,8 +1179,9 @@ export default function SurgicalWorkflowPage() {
     if (!sectionCompletion.investigations) missing.push('Investigations');
     if (!sectionCompletion.estimates) missing.push('Surgical Estimates');
     if (!sectionCompletion.documents) missing.push('Surgical Documents');
-    if (!consentUpload) missing.push('Signed Consent Upload');
-    if (!paymentEvidence) missing.push('Payment Evidence');
+    // The stored attachments, read fresh from the database: not React state.
+    const storedDocs = await db.scannedDocuments.where('encounterId').equals(currentSurgeryId).toArray();
+    missing.push(...missingAttachments(storedDocs, currentSurgeryId));
 
     if (missing.length > 0) {
       toast.error(`Complete these first: ${missing.join(', ')}`);
@@ -2675,10 +2817,10 @@ export default function SurgicalWorkflowPage() {
                 {consentUpload ? (
                   <div className="flex items-center justify-between bg-green-50 p-3 rounded text-sm">
                     <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" />{consentUpload.name}</span>
-                    <button onClick={() => setConsentUpload(null)} className="text-red-500"><X className="w-4 h-4" /></button>
+                    <button onClick={() => withdrawAttachment('consent')} className="text-red-500" title="Withdraw this file"><X className="w-4 h-4" /></button>
                   </div>
                 ) : (
-                  <button onClick={() => handleFileUpload(file => setConsentUpload(file))}
+                  <button onClick={() => handleFileUpload(file => { void attachToSurgery('consent', file); })}
                     className="border-2 border-dashed border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 flex items-center gap-2">
                     <Upload className="w-4 h-4" /> Upload Signed Consent
                   </button>
@@ -2728,10 +2870,10 @@ export default function SurgicalWorkflowPage() {
                 {paymentEvidence ? (
                   <div className="flex items-center justify-between bg-green-50 p-3 rounded text-sm">
                     <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" />{paymentEvidence.name}</span>
-                    <button onClick={() => setPaymentEvidence(null)} className="text-red-500"><X className="w-4 h-4" /></button>
+                    <button onClick={() => withdrawAttachment('payment')} className="text-red-500" title="Withdraw this file"><X className="w-4 h-4" /></button>
                   </div>
                 ) : (
-                  <button onClick={() => handleFileUpload(file => setPaymentEvidence(file))}
+                  <button onClick={() => handleFileUpload(file => { void attachToSurgery('payment', file); })}
                     className="border-2 border-dashed border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 flex items-center gap-2">
                     <Upload className="w-4 h-4" /> Upload Payment Receipt
                   </button>

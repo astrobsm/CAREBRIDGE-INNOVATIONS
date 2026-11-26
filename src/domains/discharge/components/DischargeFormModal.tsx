@@ -1,7 +1,7 @@
 // Discharge Form Modal Component
 // Comprehensive form for creating discharge summaries
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,6 +36,12 @@ import { VoiceDictation } from '../../../components/common';
 import ScanToText from '../../../components/common/ScanToText';
 import type { Admission, Patient, DischargeSummary, DischargeMedication, FollowUpAppointment } from '../../../types';
 import { generateDischargeSummaryPDF } from '../../../utils/dischargePdfGenerator';
+import {
+  surgeriesForAdmission,
+  buildDischargeProcedures,
+  procedureLinesFor,
+  procedureFromSurgery,
+} from '../services/dischargeProcedures';
 
 const medicationSchema = z.object({
   name: z.string().min(1, 'Medication name required'),
@@ -137,6 +143,17 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
     return users?.filter(u => ['surgeon', 'anaesthetist'].includes(u.role)) || [];
   }, [users]);
 
+  // The operations actually recorded for this admission: the source of each
+  // procedure's date, surgeon and outcome on the summary.
+  const patientSurgeries = useLiveQuery(
+    () => db.surgeries.where('patientId').equals(admission.patientId).toArray(),
+    [admission.patientId],
+  );
+  const admissionSurgeries = useMemo(
+    () => surgeriesForAdmission(patientSurgeries || [], admission),
+    [patientSurgeries, admission],
+  );
+
   const {
     register,
     handleSubmit,
@@ -190,6 +207,17 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
   const woundCareInstructions = watch('woundCareInstructions') || '';
   const warningSignsToWatch = watch('warningSignsToWatch') || '';
 
+  // Pre-fill the procedures box once from the surgery records, unless the
+  // clinician has already typed something.
+  const proceduresPrefilled = useRef(false);
+  useEffect(() => {
+    if (proceduresPrefilled.current || patientSurgeries === undefined) return;
+    proceduresPrefilled.current = true;
+    if (!proceduresPerformed.trim() && admissionSurgeries.length > 0) {
+      setValue('proceduresPerformed', procedureLinesFor(admissionSurgeries));
+    }
+  }, [patientSurgeries, admissionSurgeries, proceduresPerformed, setValue]);
+
   const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 6));
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
@@ -231,14 +259,9 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
         comorbidities: data.comorbidities ? data.comorbidities.split(',').map(c => c.trim()) : [],
         
         hospitalCourse: data.hospitalCourse,
-        proceduresPerformed: data.proceduresPerformed 
-          ? data.proceduresPerformed.split('\n').map(p => ({
-              name: p.trim(),
-              date: new Date(admission.admissionDate),
-              surgeon: `${user.firstName} ${user.lastName}`,
-              outcome: 'Successful',
-            }))
-          : [],
+        // Date, surgeon and outcome come from the matching surgery record;
+        // a line with no record keeps only its name (nothing is invented).
+        proceduresPerformed: buildDischargeProcedures(data.proceduresPerformed, admissionSurgeries, users || []),
         consultations: data.consultations ? data.consultations.split(',').map(c => c.trim()) : [],
         
         conditionAtDischarge: data.conditionAtDischarge,
@@ -531,6 +554,26 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
                     medicalContext="surgical_notes"
                     showAIEnhance={true}
                   />
+                  {admissionSurgeries.length > 0 ? (
+                    <div className="mt-2 text-xs text-gray-600 space-y-0.5">
+                      <p className="font-medium">Recorded for this admission (details used on the summary):</p>
+                      {admissionSurgeries.map(s => {
+                        const p = procedureFromSurgery(s, users || []);
+                        return (
+                          <p key={s.id}>
+                            {p.name}
+                            {p.date ? ` - ${format(p.date, 'dd MMM yyyy')}` : ''}
+                            {` - surgeon: ${p.surgeon || 'not recorded'}`}
+                            {` - ${p.outcome || 'outcome not recorded'}`}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-gray-500">
+                      No surgery is recorded for this admission. Procedures typed here are saved by name only.
+                    </p>
+                  )}
                 </div>
 
                 <div>
