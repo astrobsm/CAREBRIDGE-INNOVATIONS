@@ -23,9 +23,11 @@ describe('MUSTCalculator: weight GAIN was scored as loss (Math.abs)', () => {
   });
 
   it('the calculator scores through the engine, without Math.abs', () => {
-    const s = src('../../calculators/pages/calculators/MUSTCalculator.tsx');
-    expect(s).toMatch(/mustWeightLossScore\(weightLossPercent\)/);
+    // The scoring moved out of the component into the hub's pure compute.
+    const s = src('../../calculators/engine/hub/must.ts');
+    expect(s).toMatch(/mustWeightLossScore\(lossPct\)/);
     expect(s).not.toMatch(/WeightLossScore\(Math\.abs/);
+    expect(src('../../calculators/pages/calculators/MUSTCalculator.tsx')).not.toMatch(/WeightLossScore\(Math\.abs/);
   });
 });
 

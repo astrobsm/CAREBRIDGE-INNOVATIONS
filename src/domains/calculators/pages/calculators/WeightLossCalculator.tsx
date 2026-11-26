@@ -1,11 +1,19 @@
 // Weight Loss Calculator
 // Clinically-Guided Weight Management for Obesity
 
-import { useState } from 'react';
-import { TrendingDown, Calculator, AlertCircle, Target, Activity, UtensilsCrossed, Download, Share2 } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { PatientCalculatorInfo, WeightManagementResult } from '../../types';
-import { downloadMealPlanPDF, shareMealPlanOnWhatsApp, type MealPlanPDFOptions } from '../../../../utils/mealPlanPdfGenerator';
+import { useMemo, useState } from 'react';
+import { TrendingDown, Calculator, AlertCircle, Target, Activity, UtensilsCrossed } from 'lucide-react';
+import { PatientCalculatorInfo } from '../../types';
+import { toSex } from '../../engine/calculationEngine';
+import {
+  LOSS_ACTIVITY, LOSS_RATES, computeWeightLoss, weightLossDays, weightLossReport,
+  type WeightLossInput, type WeightHubResult,
+} from '../../engine/hub/weightLoss';
+import { NO_PLAN_MESSAGE } from '../../engine/hub/nutritionCommon';
+import { hasComorbidity } from '../../report/hubPatient';
+import CalculatorReportActions from '../../report/components/CalculatorReportActions';
+import { MealPlanDays } from '../../../clinician-assistant/components/CalculatorPanels';
+import type { DayPlan } from '../../../../data/nigerianFoods';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
@@ -16,166 +24,43 @@ export default function WeightLossCalculator({ patientInfo }: Props) {
   const [targetWeight, setTargetWeight] = useState('');
   const [height, setHeight] = useState(patientInfo.height || '');
   const [age, setAge] = useState(patientInfo.age || '');
-  const [gender, setGender] = useState<'male' | 'female'>((patientInfo.gender || 'male') as 'male' | 'female');
+  // Elderly categories fold into sex: an elderly man uses the male equation.
+  const [gender, setGender] = useState<'male' | 'female'>(toSex(patientInfo.gender));
   const [activityLevel, setActivityLevel] = useState<string>('sedentary');
   const [timeframe, setTimeframe] = useState<string>('moderate'); // rate of loss
-  
-  const [result, setResult] = useState<WeightManagementResult | null>(null);
 
-  const activityMultipliers: Record<string, { label: string; factor: number }> = {
-    sedentary: { label: 'Sedentary (little/no exercise)', factor: 1.2 },
-    light: { label: 'Light (1-3 days/week)', factor: 1.375 },
-    moderate: { label: 'Moderate (3-5 days/week)', factor: 1.55 },
-    active: { label: 'Active (6-7 days/week)', factor: 1.725 },
-    veryActive: { label: 'Very Active (twice/day)', factor: 1.9 },
-  };
+  const [result, setResult] = useState<WeightHubResult | null>(null);
+  const [calcInput, setCalcInput] = useState<WeightLossInput | null>(null);
+  const [days, setDays] = useState<DayPlan[] | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
 
-  const lossRates: Record<string, { label: string; kgPerWeek: number; description: string }> = {
-    slow: { label: 'Slow & Steady', kgPerWeek: 0.25, description: '0.25 kg/week - Most sustainable' },
-    moderate: { label: 'Moderate', kgPerWeek: 0.5, description: '0.5 kg/week - Recommended' },
-    fast: { label: 'Faster', kgPerWeek: 0.75, description: '0.75 kg/week - Requires dedication' },
-    aggressive: { label: 'Aggressive', kgPerWeek: 1.0, description: '1 kg/week - Medical supervision advised' },
-  };
+  const activityMultipliers = LOSS_ACTIVITY;
+  const lossRates = LOSS_RATES;
 
   const calculate = () => {
-    const current = parseFloat(currentWeight);
-    const target = parseFloat(targetWeight);
-    const heightCm = parseFloat(height);
-    const ageYears = parseInt(age);
-    
-    if (target >= current) {
-      alert('Target weight should be less than current weight for weight loss.');
+    const input: WeightLossInput = {
+      currentWeightKg: currentWeight, targetWeightKg: targetWeight, heightCm: height, ageYears: age,
+      sex: gender, activityLevel, rate: timeframe,
+      hypertension: hasComorbidity(patientInfo, /hypertension/i),
+      diabetes: hasComorbidity(patientInfo, /diabet/i),
+    };
+    const out = computeWeightLoss(input);
+    if ('errors' in out) {
+      setErrors(out.errors);
+      setResult(null);
+      setDays(null);
       return;
     }
-
-    // BMI calculations
-    const heightM = heightCm / 100;
-    const currentBMI = current / (heightM * heightM);
-    const targetBMI = target / (heightM * heightM);
-    const idealWeight = 22 * heightM * heightM; // BMI 22 as ideal
-    
-    // BMR using Mifflin-St Jeor
-    let bmr: number;
-    if (gender === 'male') {
-      bmr = (10 * current) + (6.25 * heightCm) - (5 * ageYears) + 5;
-    } else {
-      bmr = (10 * current) + (6.25 * heightCm) - (5 * ageYears) - 161;
-    }
-    
-    // TDEE
-    const tdee = bmr * activityMultipliers[activityLevel].factor;
-    
-    // Weight to lose
-    const weightToLose = current - target;
-    const lossRate = lossRates[timeframe].kgPerWeek;
-    const weeksNeeded = Math.ceil(weightToLose / lossRate);
-    const monthsNeeded = Math.round(weeksNeeded / 4.3);
-    
-    // Caloric deficit needed (1 kg fat ≈ 7700 kcal)
-    const weeklyDeficit = lossRate * 7700;
-    const dailyDeficit = Math.round(weeklyDeficit / 7);
-    const targetCalories = Math.max(Math.round(tdee - dailyDeficit), gender === 'male' ? 1500 : 1200);
-    
-    // Protein (higher for weight loss - 1.6-2.2 g/kg of TARGET weight)
-    const proteinTarget = Math.round(1.8 * target);
-    
-    // Exercise recommendations
-    const exerciseRecommendations: string[] = [];
-    if (currentBMI >= 40) {
-      exerciseRecommendations.push('Start with low-impact activities (swimming, water aerobics)');
-      exerciseRecommendations.push('Walking: Start with 10 minutes, build to 30 minutes daily');
-      exerciseRecommendations.push('Chair exercises if mobility limited');
-    } else if (currentBMI >= 30) {
-      exerciseRecommendations.push('Walking: 30-45 minutes, 5 days/week');
-      exerciseRecommendations.push('Low-impact cardio: cycling, swimming');
-      exerciseRecommendations.push('Resistance training 2-3 times/week');
-    } else {
-      exerciseRecommendations.push('Moderate cardio: 150-300 minutes/week');
-      exerciseRecommendations.push('HIIT: 2-3 sessions/week');
-      exerciseRecommendations.push('Strength training: 3-4 times/week');
-    }
-    exerciseRecommendations.push('Daily target: 8,000-10,000 steps');
-    exerciseRecommendations.push('Include flexibility work (stretching, yoga)');
-
-    // Nigerian/African dietary suggestions
-    const dietarySuggestions = {
-      toEat: [
-        'Vegetables: Efo riro, edikaikong, vegetable soup (portion-controlled)',
-        'Lean proteins: Grilled fish, chicken (skinless), turkey',
-        'Complex carbs: Ofada rice, beans, unripe plantain (in moderation)',
-        'Fruits: Oranges, pawpaw, watermelon, garden eggs',
-        'Healthy fats: Groundnuts (small portions), avocado',
-        'Protein-rich: Eggs, moi-moi (steamed, not fried)',
-      ],
-      toLimit: [
-        '❌ Fried foods: Puff-puff, akara, fried plantain',
-        '❌ White carbs: White rice, eba, pounded yam (reduce portions)',
-        '❌ Sugary drinks: Soft drinks, malt, sweetened zobo',
-        '❌ Palm oil: Use sparingly',
-        '❌ Fried meat/fish',
-        '❌ Snacks: Chin-chin, biscuits, cakes',
-      ],
-      mealTiming: [
-        'Eat breakfast within 1-2 hours of waking',
-        'Have largest meal at lunch if possible',
-        'Light dinner, at least 3 hours before bed',
-        'Avoid late-night eating',
-        'Stay hydrated - 8-10 glasses of water daily',
-      ],
-    };
-
-    // Medical considerations
-    const medicalConsiderations: string[] = [];
-    if (currentBMI >= 40) {
-      medicalConsiderations.push('Class III Obesity - Consider bariatric surgery evaluation');
-      medicalConsiderations.push('Screen for: Diabetes, hypertension, sleep apnea');
-    } else if (currentBMI >= 35) {
-      medicalConsiderations.push('Class II Obesity - Medical supervision recommended');
-      medicalConsiderations.push('Screen for metabolic syndrome');
-    }
-    if (patientInfo.comorbidities.includes('Diabetes')) {
-      medicalConsiderations.push('Diabetes: Adjust medications as weight decreases. Monitor glucose closely.');
-    }
-    if (patientInfo.comorbidities.includes('Hypertension')) {
-      medicalConsiderations.push('Hypertension: May need medication adjustments as weight decreases.');
-    }
-    if (dailyDeficit > 750) {
-      medicalConsiderations.push('⚠️ Aggressive deficit - Regular medical monitoring advised');
-    }
-
-    // Milestones
-    const milestones = [
-      { weight: Math.round(current * 0.95), achievement: '5% loss - Metabolic improvements begin' },
-      { weight: Math.round(current * 0.90), achievement: '10% loss - Significant health benefits' },
-      { weight: Math.round(current * 0.85), achievement: '15% loss - Major risk reduction' },
-      { weight: target, achievement: 'Target reached! 🎉' },
-    ].filter(m => m.weight >= target);
-
-    const calculationResult: WeightManagementResult = {
-      direction: 'loss',
-      currentWeight: current,
-      targetWeight: target,
-      currentBMI: Math.round(currentBMI * 10) / 10,
-      targetBMI: Math.round(targetBMI * 10) / 10,
-      idealWeight: Math.round(idealWeight * 10) / 10,
-      weightChange: weightToLose,
-      bmr: Math.round(bmr),
-      tdee: Math.round(tdee),
-      targetCalories,
-      dailyDeficit,
-      proteinTarget,
-      weeksNeeded,
-      monthsNeeded,
-      weeklyRate: lossRate,
-      exerciseRecommendations,
-      dietarySuggestions,
-      medicalConsiderations,
-      milestones,
-      warnings: currentBMI < 25 ? ['BMI already in healthy range - weight loss may not be necessary'] : [],
-    };
-    
-    setResult(calculationResult);
+    setErrors([]);
+    setCalcInput(input);
+    setResult(out.result);
+    setDays(weightLossDays(out.result));
   };
+
+  const report = useMemo(
+    () => (result && calcInput ? weightLossReport(result, calcInput, patientInfo, days) : null),
+    [result, calcInput, patientInfo, days]
+  );
 
   const getBMICategory = (bmi: number): { category: string; color: string } => {
     if (bmi < 18.5) return { category: 'Underweight', color: 'text-blue-600' };
@@ -296,87 +181,22 @@ export default function WeightLossCalculator({ patientInfo }: Props) {
         Calculate Weight Loss Plan
       </button>
 
+      {errors.length > 0 && (
+        <div className="mt-4 bg-red-50 border border-red-300 rounded-lg p-3 text-sm text-red-800" role="alert">
+          <ul className="list-disc ml-5 space-y-0.5">{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+        </div>
+      )}
+
       {/* Results */}
       {result && (
         <div className="mt-8 space-y-4">
           <div className="border-t-2 border-gray-200 pt-6">
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3 mb-6">
-              <button
-                onClick={() => {
-                  const pdfOptions: MealPlanPDFOptions = {
-                    patientName: patientInfo.name || undefined,
-                    hospitalNumber: patientInfo.hospitalNumber || undefined,
-                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
-                    gender: patientInfo.gender || undefined,
-                    weight: parseFloat(currentWeight) || undefined,
-                    height: parseFloat(height) || undefined,
-                    diagnosis: 'Obesity / Weight Management',
-                    planType: 'weight_loss',
-                    calorieTarget: result.targetCalories,
-                    proteinTarget: result.proteinTarget,
-                    fluidTarget: 2500,
-                    mealPlan: {
-                      breakfast: result.dietarySuggestions.toEat.slice(0, 2),
-                      lunch: result.dietarySuggestions.toEat.slice(2, 4),
-                      dinner: result.dietarySuggestions.toEat.slice(4, 6),
-                    },
-                    foodsToEat: result.dietarySuggestions.toEat,
-                    foodsToAvoid: result.dietarySuggestions.toLimit,
-                    exerciseRecommendations: result.exerciseRecommendations,
-                    warnings: result.medicalConsiderations,
-                    currentBMI: result.currentBMI,
-                    targetBMI: result.targetBMI,
-                    weightChange: result.weightChange,
-                    weeksNeeded: result.weeksNeeded,
-                    dailyDeficit: result.dailyDeficit,
-                  };
-                  downloadMealPlanPDF(pdfOptions);
-                  toast.success('Weight loss plan PDF downloaded!');
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Download PDF
-              </button>
-              <button
-                onClick={async () => {
-                  const pdfOptions: MealPlanPDFOptions = {
-                    patientName: patientInfo.name || undefined,
-                    hospitalNumber: patientInfo.hospitalNumber || undefined,
-                    age: patientInfo.age ? parseInt(String(patientInfo.age)) : undefined,
-                    gender: patientInfo.gender || undefined,
-                    weight: parseFloat(currentWeight) || undefined,
-                    height: parseFloat(height) || undefined,
-                    diagnosis: 'Obesity / Weight Management',
-                    planType: 'weight_loss',
-                    calorieTarget: result.targetCalories,
-                    proteinTarget: result.proteinTarget,
-                    fluidTarget: 2500,
-                    mealPlan: {
-                      breakfast: result.dietarySuggestions.toEat.slice(0, 2),
-                      lunch: result.dietarySuggestions.toEat.slice(2, 4),
-                      dinner: result.dietarySuggestions.toEat.slice(4, 6),
-                    },
-                    foodsToEat: result.dietarySuggestions.toEat,
-                    foodsToAvoid: result.dietarySuggestions.toLimit,
-                    exerciseRecommendations: result.exerciseRecommendations,
-                    warnings: result.medicalConsiderations,
-                    currentBMI: result.currentBMI,
-                    targetBMI: result.targetBMI,
-                    weightChange: result.weightChange,
-                    weeksNeeded: result.weeksNeeded,
-                    dailyDeficit: result.dailyDeficit,
-                  };
-                  await shareMealPlanOnWhatsApp(pdfOptions);
-                  toast.success('Opening WhatsApp...');
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                Share on WhatsApp
-              </button>
-            </div>
+            {/* Warnings the calculation raised */}
+            {result.warnings.length > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 mb-4 text-sm text-amber-900" role="status">
+                <ul className="list-disc ml-5 space-y-1">{result.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+              </div>
+            )}
 
             {/* Summary Cards */}
             <div className="grid md:grid-cols-4 gap-4 mb-6">
@@ -393,9 +213,9 @@ export default function WeightLossCalculator({ patientInfo }: Props) {
                 <p className="font-semibold text-sm">Protein/Day</p>
               </div>
               <div className="bg-amber-100 rounded-lg p-4 text-center">
-                <p className="text-3xl font-bold text-amber-600">{result.monthsNeeded}</p>
+                <p className="text-3xl font-bold text-amber-600">{result.timelineAchievable ? result.monthsNeeded : '—'}</p>
                 <p className="font-semibold text-sm">Months</p>
-                <p className="text-xs text-gray-500">({result.weeksNeeded} weeks)</p>
+                <p className="text-xs text-gray-500">{result.timelineAchievable ? `(${result.weeksNeeded} weeks at ${result.weeklyRate} kg/week)` : 'Not achievable by diet alone'}</p>
               </div>
             </div>
 
@@ -502,6 +322,15 @@ export default function WeightLossCalculator({ patientInfo }: Props) {
               </div>
             </div>
 
+            {/* Seven-day plan from the meal-plan optimiser */}
+            <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-4 rounded-r-lg">
+              <h4 className="font-bold text-green-800 mb-1">Seven-Day Nigerian Meal Plan</h4>
+              <p className="text-xs text-gray-600 mb-3">
+                Built to {result.targetCalories.toLocaleString()} kcal and {result.proteinTarget} g protein per day{result.diabetes ? ', carbohydrate-controlled' : ''}.
+              </p>
+              {days && days.length > 0 ? <MealPlanDays days={days} /> : <p className="text-sm text-amber-800">{NO_PLAN_MESSAGE}</p>}
+            </div>
+
             {/* Medical Considerations */}
             {result.medicalConsiderations.length > 0 && (
               <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
@@ -514,6 +343,8 @@ export default function WeightLossCalculator({ patientInfo }: Props) {
               </div>
             )}
           </div>
+
+          <CalculatorReportActions report={report} />
         </div>
       )}
     </div>

@@ -1,15 +1,26 @@
 // Sodium Disorder Calculator
 // WHO-Adapted Hyponatremia/Hypernatremia Management
+//
+// The figures (TBW, deficits, Adrogué–Madias) come from calculationEngine;
+// the management plan — steps, hard limits, monitoring — comes from the same
+// electrolyte engine the Bedside calculator uses (engine/hub/sodium.ts).
 
-import { useState } from 'react';
-import { Calculator, AlertCircle, FileText, CheckCircle, Download } from 'lucide-react';
-import { PatientCalculatorInfo, SodiumResult, VolumeStatus, Gender } from '../../types';
-import { generateSodiumPDF } from '../../utils/pdfGenerator';
-import { calculateSodiumCorrection } from '../../engine/calculationEngine';
+import { useMemo, useState } from 'react';
+import { Calculator, AlertCircle, FileText } from 'lucide-react';
+import { PatientCalculatorInfo, VolumeStatus, Gender } from '../../types';
+import { computeSodium, sodiumPlan, sodiumReport, type SodiumHubResult } from '../../engine/hub/sodium';
+import DeterministicPlanView from '../../report/components/DeterministicPlanView';
+import CalculatorReportActions from '../../report/components/CalculatorReportActions';
 
 interface Props {
   patientInfo: PatientCalculatorInfo;
 }
+
+const SEVERITY_TONE = (s: string) =>
+  s === 'Normal' ? 'text-green-700 bg-green-100'
+    : s.startsWith('Mild') ? 'text-yellow-700 bg-yellow-100'
+    : s.startsWith('Moderate') ? 'text-orange-700 bg-orange-100'
+    : 'text-red-700 bg-red-100';
 
 export default function SodiumCalculator({ patientInfo }: Props) {
   const [currentNa, setCurrentNa] = useState('');
@@ -19,143 +30,22 @@ export default function SodiumCalculator({ patientInfo }: Props) {
   const [volumeStatus, setVolumeStatus] = useState<VolumeStatus>('euvolemic');
   const [isAcute, setIsAcute] = useState(false);
   const [hasSymptoms, setHasSymptoms] = useState(false);
-  const [result, setResult] = useState<SodiumResult | null>(null);
+  const [result, setResult] = useState<SodiumHubResult | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
 
   const calculateSodium = () => {
-    const current = parseFloat(currentNa);
-    const target = parseFloat(targetNa);
-    const wt = parseFloat(weight);
-
-    if (isNaN(current) || isNaN(target) || isNaN(wt)) {
-      alert('Please enter valid numbers for all required fields');
-      return;
-    }
-
-    // TBW, sodium deficit, Adrogué–Madias ΔNa/L and water deficit all come from
-    // the shared calculation engine (single source of truth).
-    const sodiumCalc = calculateSodiumCorrection({
-      currentNa: current,
-      targetNa: target,
-      weightKg: wt,
-      gender,
+    const age = Number(patientInfo.age);
+    const r = computeSodium({
+      currentNa, targetNa, weight, gender, volumeStatus, isAcute, hasSymptoms,
+      ageYears: Number.isFinite(age) && age > 0 ? age : null,
     });
-    const tbw = sodiumCalc?.tbw ?? 0;
-    const sodiumDeficit = sodiumCalc?.sodiumDeficit ?? 0;
-
-    // Determine severity
-    let severity = 'Normal';
-    let severityClass = 'text-green-600';
-    
-    if (current < 135) {
-      if (current >= 130) {
-        severity = 'Mild Hyponatremia';
-        severityClass = 'text-yellow-600';
-      } else if (current >= 125) {
-        severity = 'Moderate Hyponatremia';
-        severityClass = 'text-orange-600';
-      } else {
-        severity = 'Severe Hyponatremia';
-        severityClass = 'text-red-600';
-      }
-    } else if (current > 145) {
-      if (current <= 150) {
-        severity = 'Mild Hypernatremia';
-        severityClass = 'text-yellow-600';
-      } else if (current <= 160) {
-        severity = 'Moderate Hypernatremia';
-        severityClass = 'text-orange-600';
-      } else {
-        severity = 'Severe Hypernatremia';
-        severityClass = 'text-red-600';
-      }
-    }
-
-    // Determine correction rate
-    let maxCorrection = 8;
-    let correctionTime = 24;
-    if (!isAcute || volumeStatus === 'hypervolemic') {
-      maxCorrection = 6;
-    }
-    if (hasSymptoms && isAcute && current < 125) {
-      maxCorrection = 6;
-      correctionTime = 6;
-    }
-
-    // Recommend fluid based on WHO best practices
-    let fluidType = '0.9% Normal Saline (154 mEq/L Na+)';
-    let fluidStrategy = '';
-
-    if (current < 135) {
-      // Hyponatremia
-      if (volumeStatus === 'hypovolemic') {
-        fluidType = '0.9% Normal Saline IV';
-        fluidStrategy = 'Volume resuscitation with isotonic saline. Monitor Na+ every 2-4 hours.';
-      } else if (volumeStatus === 'euvolemic' || volumeStatus === 'hypervolemic') {
-        fluidType = 'Fluid Restriction (800-1000 mL/day)';
-        fluidStrategy = 'SIADH/volume overload protocol. Treat underlying cause. Consider loop diuretic if hypervolemic.';
-      }
-
-      if (current < 125 && hasSymptoms) {
-        fluidType = '3% NaCl 150 mL IV bolus over 10 min (repeat ×2 if needed) — ICU/HDU admission';
-        fluidStrategy = 'EUROPEAN/US 2014 CONSENSUS (Spasovski G et al, Eur J Endocrinol 2014; Verbalis 2013): For severe symptomatic hyponatraemia (seizure, coma, GCS<8) give 3% NaCl 150 mL (or 2 mL/kg if <50 kg) IV over 10 min. Re-check Na+ after 20 min and repeat bolus up to 2 more times until symptoms resolve OR Na+ rises by 5 mmol/L. Then STOP active correction. If 3% NaCl unavailable: refer urgently — 0.9% NS may worsen euvolaemic/SIADH hyponatraemia. Target total rise ≤8-10 mmol/L in first 24 h. Insert urinary catheter; if urine output >100 mL/hr (autocorrection risk) consider DDAVP 2 mcg IV + 5% dextrose 6 mL/kg over 1-2 h to relower.'
-      }
-    } else if (current > 145) {
-      // Hypernatremia
-      if (current > 154 && volumeStatus === 'hypovolemic') {
-        fluidType = '0.9% Normal Saline initially (hypotonic relative to serum)';
-        fluidStrategy = 'Initial resuscitation, then switch to 0.45% NS or D5W. Can make 0.45% NS by mixing 500mL of 0.9% NS + 500mL D5W.';
-      } else {
-        fluidType = '0.45% NS or 5% Dextrose (preferred)';
-        fluidStrategy = 'Mix 0.9% NS with D5W (1:1) if 0.45% NS unavailable. Correct slowly to prevent cerebral edema.';
-      }
-    }
-
-    // Water deficit (hypernatraemia) and Adrogué–Madias ΔNa/L from the engine.
-    const waterDeficit = sodiumCalc?.waterDeficit ?? 0;
-    const infusateNa = 154; // 0.9% NaCl (used for volume calc below)
-    const changePerLiterNS = sodiumCalc?.changePerLiterNS ?? 0;
-
-    // Calculate volume of 0.9% NS needed
-    const volumeNSNeeded = Math.abs(sodiumDeficit) / infusateNa;
-
-    // Calculate infusion rate for safe correction (0.5 mEq/L/hr initial)
-    const safeHourlyRate = 0.5;
-    const infusionRateMlPerHr = Math.abs(changePerLiterNS) > 0
-      ? (safeHourlyRate / Math.abs(changePerLiterNS)) * 1000
-      : 0;
-
-    const calculationResult: SodiumResult = {
-      current,
-      target,
-      weight: wt,
-      tbw: tbw.toFixed(1),
-      sodiumDeficit: Math.abs(sodiumDeficit).toFixed(0),
-      severity,
-      severityClass,
-      maxCorrection,
-      correctionTime,
-      fluidType,
-      fluidStrategy,
-      waterDeficit: waterDeficit > 0 ? waterDeficit.toFixed(1) : null,
-      changePerLiterNS: changePerLiterNS.toFixed(2),
-      volumeNSNeeded: volumeNSNeeded.toFixed(2),
-      infusionRateMlPerHr: infusionRateMlPerHr.toFixed(0),
-      isHypo: current < 135,
-      isHyper: current > 145,
-      volumeStatus,
-      isAcute,
-      hasSymptoms,
-      gender,
-    };
-
-    setResult(calculationResult);
+    if (r.errors) { setErrors(r.errors); setResult(null); return; }
+    setErrors([]);
+    setResult(r.result);
   };
 
-  const handleExportPDF = () => {
-    if (result) {
-      generateSodiumPDF(result, patientInfo);
-    }
-  };
+  const plan = useMemo(() => (result ? sodiumPlan(result) : undefined), [result]);
+  const report = useMemo(() => (result ? sodiumReport(result, patientInfo) : null), [result, patientInfo]);
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
@@ -164,21 +54,20 @@ export default function SodiumCalculator({ patientInfo }: Props) {
         <h2 className="text-lg sm:text-2xl font-bold text-gray-800">Sodium Disorder Calculator</h2>
       </div>
 
-      {/* Alert Box */}
+      {/* Alert Box — consistent with the engine's hard limits shown in the plan */}
       <div className="bg-blue-50 border-l-4 border-sky-600 p-3 sm:p-4 mb-4 sm:mb-6 rounded-r-lg">
         <div className="flex items-start gap-2 sm:gap-3">
           <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-sky-600 mt-0.5 flex-shrink-0" />
           <div className="text-xs sm:text-sm text-gray-700">
-            <p className="font-semibold mb-1">WHO Safety Guidelines for Sodium Correction</p>
+            <p className="font-semibold mb-1">Safety principles for sodium correction</p>
             <ul className="list-disc ml-4 space-y-0.5 sm:space-y-1">
-              <li><strong>Hyponatraemia ceiling:</strong> ≤10 mmol/L in any 24 h, ≤18 mmol/L in any 48 h (Spasovski 2014, Verbalis 2013)</li>
-              <li><strong>High ODS risk</strong> (chronic Na+ &lt;105, alcoholism, malnutrition, hypoK, liver disease): target ≤8 mmol/L/24h</li>
-              <li><strong>Severe symptoms</strong> (seizure/coma): 3% NaCl 150 mL bolus ×10 min, repeat ×2 PRN. Stop after 5 mmol/L rise OR symptom resolution</li>
-              <li>Monitor Na+ at 1, 6, 12 h then 4-hourly during active correction</li>
-              <li><strong>Over-correction rescue:</strong> if Na+ rises &gt;10 mmol/L/24h → stop hypertonic, give 5% dextrose 6 mL/kg over 1-2 h ± DDAVP 2-4 mcg IV q6-8h</li>
-              <li><strong>Hypernatraemia:</strong> Correct at ≤0.5 mmol/L/hr (≤10 mmol/L/24h) to prevent cerebral oedema</li>
-              <li>0.9% NS is NOT a substitute for 3% NaCl in symptomatic hyponatraemia — refer urgently if hypertonic saline unavailable</li>
+              <li><strong>Hyponatraemia ceiling:</strong> ≤10 mmol/L in the first 24 h and ≤8 mmol/L in any later 24 h (≤18 mmol/L in 48 h)</li>
+              <li><strong>High ODS risk</strong> (chronic, alcohol, malnutrition, hypokalaemia, liver disease): ≤8 mmol/L in 24 h</li>
+              <li><strong>Severe symptoms</strong> (seizure/coma): hypertonic 3% saline as in the plan; stop after a 5 mmol/L rise or symptom resolution</li>
+              <li><strong>Hypernatraemia:</strong> ≤10 mmol/L in 24 h where chronic or of unknown duration</li>
+              <li>0.9% saline is NOT a substitute for 3% saline in symptomatic hyponatraemia — refer urgently if hypertonic saline is unavailable</li>
             </ul>
+            <p className="mt-1 text-gray-600">The exact steps, hard limits and monitoring for this patient are in the plan after calculation.</p>
           </div>
         </div>
       </div>
@@ -289,6 +178,12 @@ export default function SodiumCalculator({ patientInfo }: Props) {
         </div>
       </div>
 
+      {errors.length > 0 && (
+        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">
+          <ul className="list-disc pl-5 space-y-0.5">{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+        </div>
+      )}
+
       <button
         onClick={calculateSodium}
         className="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
@@ -306,119 +201,63 @@ export default function SodiumCalculator({ patientInfo }: Props) {
               Treatment Plan
             </h3>
 
-            {/* Severity Badge */}
             <div className="mb-4">
-              <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold ${result.severityClass} ${
-                result.severityClass.includes('green') ? 'bg-green-100' :
-                result.severityClass.includes('yellow') ? 'bg-yellow-100' :
-                result.severityClass.includes('orange') ? 'bg-orange-100' :
-                'bg-red-100'
-              }`}>
+              <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold ${SEVERITY_TONE(result.severity)}`}>
                 <AlertCircle className="w-5 h-5" />
                 {result.severity}
               </span>
             </div>
 
-            {/* Calculations */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm text-gray-600 mb-1">Total Body Water</p>
-                <p className="text-2xl font-bold text-gray-800">{result.tbw} L</p>
+                <p className="text-2xl font-bold text-gray-800">{result.tbwL.toFixed(1)} L</p>
               </div>
 
-              {result.isHypo && (
+              {result.sodiumDeficitMmol !== null && (
                 <div className="bg-sky-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Sodium Deficit</p>
-                  <p className="text-2xl font-bold text-sky-600">{result.sodiumDeficit} mmol</p>
+                  <p className="text-sm text-gray-600 mb-1">Sodium deficit to {result.target} mmol/L</p>
+                  <p className="text-2xl font-bold text-sky-600">{result.sodiumDeficitMmol} mmol</p>
+                  <p className="text-xs text-gray-500 mt-1">A planning figure; the hard limits govern the rate.</p>
                 </div>
               )}
 
-              {result.waterDeficit && (
+              {result.waterDeficitL !== null && (
                 <div className="bg-sky-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">Free Water Deficit</p>
-                  <p className="text-2xl font-bold text-sky-600">{result.waterDeficit} L</p>
+                  <p className="text-2xl font-bold text-sky-600">{result.waterDeficitL.toFixed(1)} L</p>
                 </div>
               )}
 
-              <div className="bg-green-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-1">Max Correction Rate</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {result.maxCorrection} mmol/L per {result.correctionTime}h
-                </p>
-              </div>
-
               <div className="bg-purple-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-1">Na+ Change per L (0.9% NS)</p>
-                <p className="text-xl font-bold text-purple-600">{result.changePerLiterNS} mEq/L</p>
+                <p className="text-sm text-gray-600 mb-1">Na⁺ change per L of 0.9% saline</p>
+                <p className="text-xl font-bold text-purple-600">{result.changePerLiterNS.toFixed(2)} mmol/L</p>
                 <p className="text-xs text-gray-500 mt-1">Adrogué–Madias formula</p>
               </div>
 
-              <div className="bg-blue-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-1">Initial Infusion Rate</p>
-                <p className="text-xl font-bold text-blue-600">{result.infusionRateMlPerHr} mL/hr</p>
-                <p className="text-xs text-gray-500 mt-1">Target: 0.5 mEq/L/hr</p>
-              </div>
-            </div>
-
-            {/* Fluid Recommendation */}
-            <div className="bg-blue-50 border-l-4 border-sky-600 p-4 mb-4 rounded-r-lg">
-              <p className="font-semibold text-gray-800 mb-2">Recommended Fluid:</p>
-              <p className="text-gray-700 font-medium">{result.fluidType}</p>
-              {result.fluidStrategy && (
-                <p className="text-sm text-gray-600 mt-2">{result.fluidStrategy}</p>
+              {result.nsRateMlPerHr !== null && (
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <p className="text-sm text-gray-600 mb-1">0.9% saline rate (hypovolaemic)</p>
+                  <p className="text-xl font-bold text-blue-600">{result.nsRateMlPerHr} mL/hr</p>
+                  <p className="text-xs text-gray-500 mt-1">For a 0.5 mmol/L/h rise; recheck sodium 2–4 hourly</p>
+                </div>
               )}
             </div>
 
-            {/* Clinical Recommendations */}
-            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-r-lg">
-              <p className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-yellow-600" />
-                Clinical Actions (WHO Protocol):
-              </p>
-              <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                <li>Monitor serum sodium every 2-4 hours during active correction</li>
-                <li>Continuous vital signs monitoring (BP, HR, neurological status)</li>
-                <li>Strict fluid balance charting (input/output)</li>
-                <li>Assess and treat underlying cause (dehydration, SIADH, diuretics, etc.)</li>
-                {result.isHypo && <li>Monitor urine osmolality and electrolytes if SIADH suspected</li>}
-                {result.hasSymptoms && (
-                  <li className="font-semibold text-red-600">
-                    ⚠️ EMERGENCY: ICU admission for severe symptoms (seizures/altered consciousness)
-                  </li>
-                )}
-                {result.current < 120 && (
-                  <li className="font-semibold text-red-600">
-                    ⚠️ OSMOTIC DEMYELINATION RISK: Limit correction to 4-6 mEq/L in chronic cases
-                  </li>
-                )}
-                {result.current > 155 && (
-                  <li className="font-semibold text-red-600">
-                    ⚠️ CEREBRAL EDEMA RISK: Slow correction essential (max 0.5 mEq/L/hr)
-                  </li>
-                )}
-              </ul>
+            <div className="bg-blue-50 border-l-4 border-sky-600 p-4 mb-4 rounded-r-lg">
+              <p className="font-semibold text-gray-800 mb-2">Recommended fluid for {result.volumeStatus} status:</p>
+              <p className="text-gray-700 font-medium">{result.fluidType}</p>
+              <p className="text-sm text-gray-600 mt-2">{result.fluidStrategy}</p>
             </div>
 
-            {/* Resource-Limited Settings */}
-            <div className="bg-gray-50 border border-gray-300 rounded-lg p-4 mt-4">
-              <p className="font-semibold text-gray-800 mb-2">💡 Resource-Limited Settings (WHO Adapted):</p>
-              <ul className="list-disc ml-6 space-y-1 text-sm text-gray-700">
-                <li><strong>Making 0.45% NS:</strong> Mix 500mL of 0.9% NS + 500mL of D5W = 1L of 0.45% NS (77 mEq/L Na+)</li>
-                <li><strong>Making 0.225% NS:</strong> Mix 250mL of 0.9% NS + 750mL of D5W = 1L of 0.225% NS (38 mEq/L Na+)</li>
-                <li><strong>Minimum monitoring:</strong> Serum Na+ at 6h, 12h, and 24h if frequent testing unavailable</li>
-                <li><strong>Conservative approach:</strong> Target 0.25 mEq/L/hr if limited monitoring capabilities</li>
-              </ul>
-            </div>
+            {plan ? (
+              <DeterministicPlanView plan={{ ...plan, sections: plan.sections.slice(1) }} heading="Correction plan" />
+            ) : (
+              <p className="text-sm text-gray-700">Sodium {result.current} mmol/L is within the reference interval — no correction plan.</p>
+            )}
           </div>
 
-          {/* Export Button */}
-          <button
-            onClick={handleExportPDF}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            <Download className="w-5 h-5" />
-            Export Treatment Plan (PDF)
-          </button>
+          <CalculatorReportActions report={report} />
         </div>
       )}
     </div>
