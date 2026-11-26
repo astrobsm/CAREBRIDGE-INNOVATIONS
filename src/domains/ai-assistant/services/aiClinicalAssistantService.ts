@@ -92,7 +92,7 @@ export interface AIDraftResult {
   label: string;
   content: string;
   generatedAt: Date;
-  source: 'openai' | 'anthropic';
+  source: 'anthropic';
 }
 
 interface PatientContext {
@@ -222,5 +222,5 @@ export async function generateAIDraft(
 
   if (!content) throw new Error('The AI returned an empty response. Please try again.');
 
-  return { mode, label: def.label, content, generatedAt: new Date(), source: 'openai' };
+  return { mode, label: def.label, content, generatedAt: new Date(), source: 'anthropic' };
 }

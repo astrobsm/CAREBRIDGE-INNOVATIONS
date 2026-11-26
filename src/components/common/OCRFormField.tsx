@@ -3,10 +3,10 @@
  * AstroHEALTH Innovations in Healthcare
  *
  * A form field wrapper that adds OCR handwriting scanning to any text input.
- * Combines a standard input with ScanToText for Google Vision + GPT-4 Vision
+ * Combines a standard input with ScanToText for Claude vision
  * handwriting recognition. Drop-in replacement for <input> elements.
  *
- * Uses: Google Cloud Vision API, GPT-4 Vision, Tesseract.js (fallback)
+ * Uses: Claude vision (Anthropic), Tesseract.js (offline fallback)
  */
 
 import { forwardRef } from 'react';

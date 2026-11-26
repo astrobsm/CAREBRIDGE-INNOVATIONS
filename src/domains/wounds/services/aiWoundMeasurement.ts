@@ -17,7 +17,7 @@ import * as tf from '@tensorflow/tfjs';
 import { CALIBRATION_MARKER, inferGreenReferenceCm } from '../../../services/woundMeasurementEngine';
 
 /**
- * System prompt for the optional GPT-4o Vision enrichment layer
+ * System prompt for the optional Claude vision enrichment layer
  * (see AIWoundMeasurementService.analyzeWithAI).
  *
  * Deliberately conservative: the model is told to underestimate healing rather
@@ -78,7 +78,7 @@ export interface WoundTissueComposition {
   epithelial: number;    // new pink margin
 }
 
-/** Structured qualitative assessment from the GPT-4o Vision layer (hybrid mode). */
+/** Structured qualitative assessment from the Claude vision layer (hybrid mode). */
 export interface AiWoundAssessment {
   wound_type?: string;
   location?: string;
@@ -124,7 +124,7 @@ export interface WoundMeasurementResult {
   scaleReliable: boolean;                            // true when calibration is trustworthy for absolute cm
   calibrationConfidence: number;                     // 0-1, the scale-detection confidence alone
   tissue?: WoundTissueComposition;                   // on-device wound-bed composition
-  aiAssessment?: AiWoundAssessment;                  // GPT-4o Vision enrichment (hybrid mode)
+  aiAssessment?: AiWoundAssessment;                  // Claude vision enrichment (hybrid mode)
   warnings: string[];                                // e.g. "no scale reference", "AI/CV size disagree"
 }
 
@@ -791,7 +791,7 @@ export class AIWoundMeasurementService {
   }
 
   /**
-   * Hybrid AI enrichment — qualitative wound-bed assessment via GPT-4o Vision.
+   * Hybrid AI enrichment — qualitative wound-bed assessment via Claude vision.
    *
    * This is a SUPPLEMENT to the on-device measurement, never a replacement.
    * Geometry (length, width, area, contour) always comes from the calibrated

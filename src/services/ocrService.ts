@@ -33,7 +33,7 @@ export interface OCRResult {
   }[];
   language: string;
   processingTime: number;
-  engine: 'tesseract' | 'google-vision' | 'azure-cv' | 'gpt4-vision' | 'combined';
+  engine: 'tesseract' | 'claude-vision' | 'combined';
 }
 
 // OCR Options
@@ -527,8 +527,8 @@ function postProcessMedicalText(text: string): string {
   return processed;
 }
 
-// GPT-4 Vision OCR - Best for handwriting recognition (via server proxy)
-async function performGPT4VisionOCR(
+// Claude vision OCR - Best for handwriting recognition (via server proxy)
+async function performClaudeVisionOCR(
   imageSource: string | File | Blob,
   medicalContext: boolean = true
 ): Promise<OCRResult> {
@@ -546,11 +546,11 @@ async function performGPT4VisionOCR(
       reader.readAsDataURL(imageSource);
     });
   } else {
-    throw new Error('Invalid image source for GPT-4 Vision');
+    throw new Error('Invalid image source for Claude vision');
   }
 
   // API key is held server-side by the /api/ai-vision proxy.
-  const extractedText = await proxyVision(base64DataUrl, 'openai', medicalContext);
+  const extractedText = await proxyVision(base64DataUrl, medicalContext);
 
   const words = extractedText
     .split(/\s+/)
@@ -562,11 +562,11 @@ async function performGPT4VisionOCR(
 
   return {
     text: extractedText,
-    confidence: 97, // GPT-4 Vision is extremely accurate for handwriting
+    confidence: 97, // Claude vision is extremely accurate for handwriting
     words,
     language: 'en',
     processingTime: Date.now() - startTime,
-    engine: 'gpt4-vision' as OCRResult['engine'],
+    engine: 'claude-vision' as OCRResult['engine'],
   };
 }
 
@@ -628,16 +628,16 @@ export async function performOCR(
   }
 
   // Cloud fallback — ONLY when the local result is weak and we're online.
-  // A single provider (GPT-4 Vision, strongest at handwriting) keeps it fast.
+  // A single provider (Claude vision, strongest at handwriting) keeps it fast.
   const localBest = best?.confidence ?? 0;
   const online = typeof navigator === 'undefined' ? true : navigator.onLine;
   if (useCloudOCR && enhanceHandwriting && online && localBest < CLOUD_FALLBACK_BELOW) {
     try {
-      console.log('[OCR] Local confidence low — trying GPT-4 Vision fallback...');
-      const gptResult = await performGPT4VisionOCR(imageSource, true);
-      if (gptResult.text) results.push(gptResult);
+      console.log('[OCR] Local confidence low — trying Claude vision fallback...');
+      const aiResult = await performClaudeVisionOCR(imageSource, true);
+      if (aiResult.text) results.push(aiResult);
     } catch (e) {
-      console.warn('[OCR] GPT-4 Vision fallback failed/unavailable:', e);
+      console.warn('[OCR] Claude vision fallback failed/unavailable:', e);
     }
   }
 
@@ -876,7 +876,7 @@ export default {
   selectFromGallery,
   selectFromGalleryMultiple,
   preprocessImage,
-  performGPT4VisionOCR,
+  performClaudeVisionOCR,
   warmUpOcr,
   disposeOcrWorker,
 };

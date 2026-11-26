@@ -79,7 +79,7 @@ type EncounterFormData = z.infer<typeof encounterSchema>;
 
 // Offline/local parser: split OCR text into encounter fields by their section
 // headers (with common aliases/abbreviations). Used as a fallback so the
-// Medical Scribe still auto-fills fields when the GPT parser is unavailable
+// Medical Scribe still auto-fills fields when the AI parser is unavailable
 // (e.g. no server API key or offline).
 function parseEncounterHeuristic(text: string): Record<string, string> {
   const sections: { field: string; aliases: string[] }[] = [
@@ -330,11 +330,10 @@ export default function ClinicalEncounterPage() {
   }, [previousEncounters, setValue]);
 
   // ── Medical Scribe OCR Handler ────────────────────────────────
-  const parseEncounterWithGPT = useCallback(async (ocrText: string): Promise<Record<string, string>> => {
+  const parseEncounterWithAI = useCallback(async (ocrText: string): Promise<Record<string, string>> => {
     if (!ocrText.trim()) return {};
     try {
       const content = await proxyChat({
-        model: 'gpt-4o',
         responseFormat: { type: 'json_object' },
         system:
           'You are a clinical document parser. Extract structured clinical encounter data from OCR text. ' +
@@ -344,7 +343,6 @@ export default function ClinicalEncounterPage() {
           'Do not add any other keys. Values should be clean prose, no markdown.',
         prompt: `OCR TEXT:\n${ocrText}`,
         maxTokens: 1500,
-        temperature: 0.1,
       });
       return JSON.parse(content || '{}');
     } catch {
@@ -370,7 +368,7 @@ export default function ClinicalEncounterPage() {
       // Try the AI parser; always compute the local heuristic parse too, and
       // merge (AI wins per-field). This keeps the scribe working even when the
       // AI proxy is unavailable (no key / offline).
-      const gptParsed = await parseEncounterWithGPT(result.text);
+      const aiParsed = await parseEncounterWithAI(result.text);
       const heuristicParsed = parseEncounterHeuristic(result.text);
       const fields = [
         'chiefComplaint',
@@ -385,7 +383,7 @@ export default function ClinicalEncounterPage() {
 
       let filled = 0;
       for (const key of fields) {
-        const value = (gptParsed[key] ?? heuristicParsed[key] ?? '').toString().trim();
+        const value = (aiParsed[key] ?? heuristicParsed[key] ?? '').toString().trim();
         if (value) {
           setValue(key as any, value);
           filled++;
@@ -408,7 +406,7 @@ export default function ClinicalEncounterPage() {
           { id: 'scribe-scan', duration: 6000 }
         );
       } else {
-        const aiUsed = Object.values(gptParsed).some((v) => v && String(v).trim());
+        const aiUsed = Object.values(aiParsed).some((v) => v && String(v).trim());
         toast.success(
           `Scribe complete — ${filled} field${filled !== 1 ? 's' : ''} filled (${result.engine || 'OCR'}, ${confidence}%${aiUsed ? '' : ' · offline parse'})`,
           { id: 'scribe-scan', duration: 5000 }
@@ -421,7 +419,7 @@ export default function ClinicalEncounterPage() {
     } finally {
       setIsScribing(false);
     }
-  }, [parseEncounterWithGPT, setValue]);
+  }, [parseEncounterWithAI, setValue]);
 
   const handleScribeFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

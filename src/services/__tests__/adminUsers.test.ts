@@ -317,8 +317,8 @@ describe('requireAppUser (AI endpoints)', () => {
   it('both AI proxies require it after the origin guard, and the client sends the token', () => {
     for (const f of ['api/ai-chat.js', 'api/ai-vision.js']) {
       const src = read(f);
-      expect(src.indexOf('if (!(await requireAppUser(req, res))) return;'), f).toBeGreaterThan(src.indexOf('guardSameOrigin(req, res)'));
-      expect(src.indexOf('if (!(await requireAppUser(req, res))) return;'), f).toBeLessThan(src.indexOf('process.env.OPENAI_API_KEY'));
+      expect(src.indexOf('if (!(await requireAppUser(req, res, deps.auth))) return;'), f).toBeGreaterThan(src.indexOf('guardSameOrigin(req, res)'));
+      expect(src.indexOf('if (!(await requireAppUser(req, res, deps.auth))) return;'), f).toBeLessThan(src.indexOf('askClaude('));
     }
     const client = read('src/services/aiProxy.ts');
     expect(client.match(/headers: await withAuthHeaders\(/g)?.length).toBe(3);

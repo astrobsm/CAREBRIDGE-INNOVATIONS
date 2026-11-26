@@ -15,7 +15,8 @@
 import { proxyChat } from '../../../services/aiProxy';
 import type { Suggestion } from './types';
 
-export const AI_MODEL = 'gpt-4o';
+/** Every AI feature runs on Claude; the model is chosen on the server (api/_lib/claude.js). */
+export const AI_PROVIDER = 'Claude (Anthropic)';
 
 export const AI_SYSTEM_PROMPT = `You are a senior consultant plastic and reconstructive surgeon and wound-care specialist supporting a resident doctor's clerking at a Nigerian teaching hospital.
 You receive a de-identified, structured clerking as JSON. Missing fields mean "not documented" — never assume they are normal.
@@ -103,7 +104,7 @@ export async function requestAiSuggestions(
   let raw: string;
   try {
     raw = await proxyChat({
-      system: AI_SYSTEM_PROMPT, prompt: text, model: AI_MODEL, temperature: 0.2, maxTokens: 2500,
+      system: AI_SYSTEM_PROMPT, prompt: text, maxTokens: 8000,
       responseFormat: { type: 'json_object' },
     });
   } catch {

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// The AI proxies spend the server's OpenAI / Anthropic / Google keys. They must
+// The AI proxies spend the server's Anthropic key. They must
 // answer this app's own origin only (no wildcard CORS), cap what one request
 // may spend, and never be cached or queued for replay by the service worker.
 // ---------------------------------------------------------------------------
@@ -84,10 +84,12 @@ describe('same-origin guard', () => {
 
 describe('ai-chat budget', () => {
   it('caps max_tokens and defaults nonsense', () => {
-    expect(chat.clampTokens(1500)).toBe(1500);
+    expect(chat.clampTokens(8000)).toBe(8000);
+    // Adaptive thinking spends from the same budget, so a tiny request is raised to the floor.
+    expect(chat.clampTokens(1500)).toBe(4000);
     expect(chat.clampTokens(1_000_000)).toBe(chat.MAX_COMPLETION_TOKENS);
-    expect(chat.clampTokens(-5)).toBe(1500);
-    expect(chat.clampTokens('abc')).toBe(1500);
+    expect(chat.clampTokens(-5)).toBe(8000);
+    expect(chat.clampTokens('abc')).toBe(8000);
   });
 
   it('refuses a foreign origin before touching the upstream', async () => {

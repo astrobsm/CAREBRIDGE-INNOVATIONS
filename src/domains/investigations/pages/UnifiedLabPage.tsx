@@ -1776,8 +1776,8 @@ function ResultModal({
     return val && !isNaN(parseFloat(val));
   });
 
-  // GPT-powered field parser from OCR text
-  const parseOCRWithGPT = useCallback(async (ocrText: string): Promise<Record<string, string>> => {
+  // Claude-powered field parser from OCR text
+  const parseOCRWithAI = useCallback(async (ocrText: string): Promise<Record<string, string>> => {
     if (!ocrText.trim()) return {};
 
     const prompt = `You are a medical lab result parser. Extract values for each parameter from the following OCR text from a medical report/lab result sheet.
@@ -1796,10 +1796,8 @@ Return ONLY valid JSON, no commentary, no markdown.`;
     try {
       const content = await proxyChat({
         prompt,
-        model: 'gpt-4o',
         responseFormat: { type: 'json_object' },
         maxTokens: 1024,
-        temperature: 0.1,
       });
       return JSON.parse(content || '{}');
     } catch {
@@ -1809,7 +1807,7 @@ Return ONLY valid JSON, no commentary, no markdown.`;
 
   // Offline/local parser: for each known parameter, find it in the OCR text and
   // grab the numeric value next to it. Fallback so the scribe still fills fields
-  // when the GPT parser is unavailable (no server API key / offline).
+  // when the AI parser is unavailable (no server API key / offline).
   const parseOCRHeuristic = useCallback((ocrText: string): Record<string, string> => {
     if (!ocrText.trim()) return {};
     const res: Record<string, string> = {};
@@ -1830,7 +1828,7 @@ Return ONLY valid JSON, no commentary, no markdown.`;
     setOcrConfidence(0);
     toast.loading('🔍 Scanning document with AI engines...', { id: 'ocr-result' });
     try {
-      // Step 1: OCR (Google Vision → GPT-4 Vision → Tesseract cascade)
+      // Step 1: OCR (Claude vision; Tesseract on the device when offline)
       const ocrResult = await performOCR(imageFile, {
         enhanceHandwriting: true,
         aggressiveHandwritingMode: true,
@@ -1846,17 +1844,17 @@ Return ONLY valid JSON, no commentary, no markdown.`;
         return;
       }
 
-      // Step 2: parse OCR text → parameter fields. Try GPT, always compute the
-      // local heuristic too, and merge (GPT wins per-field). Keeps the scribe
+      // Step 2: parse OCR text → parameter fields. Try Claude, always compute the
+      // local heuristic too, and merge (Claude wins per field). Keeps the scribe
       // working when the AI proxy is unavailable (no key / offline).
       toast.loading('🧠 Parsing fields...', { id: 'ocr-result' });
-      const gptParsed = await parseOCRWithGPT(ocrResult.text);
+      const aiParsed = await parseOCRWithAI(ocrResult.text);
       const heuristicParsed = parseOCRHeuristic(ocrResult.text);
       const parsed: Record<string, string> = { ...heuristicParsed };
-      for (const [k, v] of Object.entries(gptParsed)) {
+      for (const [k, v] of Object.entries(aiParsed)) {
         if (v && String(v).trim()) parsed[k] = String(v).trim();
       }
-      const aiUsed = Object.entries(gptParsed).some(
+      const aiUsed = Object.entries(aiParsed).some(
         ([k, v]) => k !== 'Interpretation' && v && String(v).trim()
       );
 
@@ -1900,7 +1898,7 @@ Return ONLY valid JSON, no commentary, no markdown.`;
     } finally {
       setIsOCRScanning(false);
     }
-  }, [parseOCRWithGPT, parseOCRHeuristic, setResultValues, setInterpretation, uniqueParams]);
+  }, [parseOCRWithAI, parseOCRHeuristic, setResultValues, setInterpretation, uniqueParams]);
 
   const handleFileOCR = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1957,7 +1955,7 @@ Return ONLY valid JSON, no commentary, no markdown.`;
                   AI Medical Scribe — Scan & Auto-Fill All Fields
                 </p>
                 <p className="text-xs text-indigo-600 mt-0.5">
-                  Google Vision → GPT-4o Vision cascade — reads handwritten &amp; typed lab reports
+                  Claude vision — reads handwritten &amp; typed lab reports
                 </p>
                 {ocrEngine && !isOCRScanning && (
                   <p className="text-xs text-green-700 mt-1 font-medium">
