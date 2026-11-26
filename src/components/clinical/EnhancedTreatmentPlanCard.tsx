@@ -2126,7 +2126,7 @@ export default function EnhancedTreatmentPlanCard({
                       };
 
                       await db.treatmentPlans.add(plan);
-                      syncRecord('treatment_plans', plan as unknown as Record<string, unknown>);
+                      syncRecord('treatmentPlans', plan as unknown as Record<string, unknown>);
                       toast.success('Treatment plan created!');
                       setShowNewPlanModal(false);
                       setSelectedPlanId(plan.id);
