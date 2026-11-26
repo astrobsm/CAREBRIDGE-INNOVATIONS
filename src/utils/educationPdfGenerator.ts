@@ -9,6 +9,7 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import type { EducationCondition, EducationCategory } from '../domains/patient-education/types';
+import { preparedForLine } from '../domains/patient-education/handoutText';
 import { PDF_COLORS, addBrandedHeader, PDFDocumentInfo } from './pdfUtils';
 import { PDF_FONTS } from './pdfConfig';
 import { createSafePDF } from './pdfTextSafe';
@@ -1063,7 +1064,8 @@ export const getPatientEducationPDFDoc = (
   condition: EducationCondition,
   category: EducationCategory,
   patientName?: string,
-  hospitalName?: string
+  hospitalName?: string,
+  hospitalNumber?: string
 ): jsPDF => {
   const doc = createSafePDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -1108,7 +1110,7 @@ export const getPatientEducationPDFDoc = (
   if (patientName) {
     doc.setFontSize(9);
     doc.setTextColor(0, 0, 0);
-    doc.text(`Prepared for: ${patientName}`, margin, y);
+    doc.text(preparedForLine(patientName, hospitalNumber), margin, y);
     doc.text(`Date: ${format(new Date(), 'dd MMMM yyyy')}`, margin + 100, y);
     y += 10;
   }

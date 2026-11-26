@@ -6,7 +6,9 @@
  * organized by surgical categories with WHO-aligned guidelines
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BookOpen,
@@ -29,9 +31,9 @@ import {
   Scissors,
   GraduationCap
 } from 'lucide-react';
-import { EDUCATION_CATEGORIES } from '../types';
 import type { EducationCondition, EducationCategory } from '../types';
-import { allBurnsConditions, allWoundsConditions, allPressureInjuriesConditions, allReconstructiveSurgeryConditions, allHerniaConditions, allPediatricSurgeryConditions, allVascularConditions, allBreastConditions, allCosmeticConditions, allGenitalReconstructionConditions, allReconstructiveTechniquesConditions, allSystemicConditions, allDrNnadiBurnsEducation } from '../data';
+import { buildEducationCategories } from '../categoryConditions';
+import { db } from '../../../database';
 import { getPatientEducationPDFDoc, getCategorySummaryPDFDoc } from '../../../utils/educationPdfGenerator';
 import { createSimpleThermalPDF } from '../../../utils/thermalPdfGenerator';
 import { ExportButtonWithModal } from '../../../components/common/ExportOptionsModal';
@@ -62,59 +64,32 @@ const PatientEducationPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedSection, setExpandedSection] = useState<string>('overview');
 
-  // Build categories with their conditions
-  const categoriesWithConditions = useMemo(() => {
-    return EDUCATION_CATEGORIES.map(cat => {
-      let conditions: EducationCondition[] = [];
-      
-      // Map conditions to their categories
-      switch (cat.code) {
-        case 'A':
-          conditions = allBurnsConditions;
-          break;
-        case 'B':
-          conditions = allWoundsConditions;
-          break;
-        case 'C':
-          conditions = allPressureInjuriesConditions;
-          break;
-        case 'D':
-          conditions = allReconstructiveSurgeryConditions;
-          break;
-        case 'E':
-          conditions = allHerniaConditions;
-          break;
-        case 'F':
-          conditions = allPediatricSurgeryConditions;
-          break;
-        case 'G':
-          conditions = allVascularConditions;
-          break;
-        case 'H':
-          conditions = allBreastConditions;
-          break;
-        case 'I':
-          conditions = allCosmeticConditions;
-          break;
-        case 'J':
-          conditions = allGenitalReconstructionConditions;
-          break;
-        case 'K':
-          conditions = allReconstructiveTechniquesConditions;
-          break;
-        case 'L':
-          conditions = allSystemicConditions;
-          break;
-        case 'M':
-          conditions = allDrNnadiBurnsEducation;
-          break;
-        default:
-          conditions = [];
-      }
-      
-      return { ...cat, conditions };
-    });
-  }, []);
+  // ?patientId= personalises the handout with the patient's name and number.
+  const [searchParams] = useSearchParams();
+  const patientId = searchParams.get('patientId');
+  const patient = useLiveQuery(
+    () => (patientId ? db.patients.get(patientId) : undefined),
+    [patientId],
+  );
+  const patientName = patient
+    ? [patient.firstName, patient.middleName, patient.lastName].filter(Boolean).join(' ')
+    : undefined;
+
+  // On phones the columns stack: bring the chosen list / content into view.
+  const conditionsRef = useRef<HTMLDivElement>(null);
+  const detailsRef = useRef<HTMLDivElement>(null);
+  const selectedConditionId = selectedCondition?.id;
+  const selectedCategoryCode = selectedCategory?.code;
+  useEffect(() => {
+    if (selectedConditionId) detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [selectedConditionId]);
+  useEffect(() => {
+    if (selectedCategoryCode) conditionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [selectedCategoryCode]);
+
+  // Every category with its conditions (empty ones hidden). Category N
+  // used to show 0 because this switch had no case for it.
+  const categoriesWithConditions = useMemo(() => buildEducationCategories(), []);
 
   // Filter conditions by search term
   const filteredCategories = useMemo(() => {
@@ -134,7 +109,13 @@ const PatientEducationPage: React.FC = () => {
   // Generate A4 PDF for condition education
   const generateConditionA4PDF = () => {
     if (selectedCondition && selectedCategory) {
-      return getPatientEducationPDFDoc(selectedCondition, selectedCategory);
+      return getPatientEducationPDFDoc(
+        selectedCondition,
+        selectedCategory,
+        patientName,
+        undefined,
+        patient?.hospitalNumber,
+      );
     }
     throw new Error('No condition selected');
   };
@@ -219,6 +200,12 @@ const PatientEducationPage: React.FC = () => {
                 <p className="text-sm sm:text-base text-gray-600 mt-1">
                   Comprehensive educational materials aligned with WHO guidelines
                 </p>
+                {patientName && (
+                  <p className="text-sm text-blue-700 mt-1 font-medium">
+                    PDFs personalised for {patientName}
+                    {patient?.hospitalNumber ? ` (${patient.hospitalNumber})` : ''}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -285,7 +272,7 @@ const PatientEducationPage: React.FC = () => {
           </div>
 
           {/* Conditions List */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 scroll-mt-4" ref={conditionsRef}>
             <AnimatePresence mode="wait">
               {selectedCategory ? (
                 <motion.div
@@ -350,7 +337,7 @@ const PatientEducationPage: React.FC = () => {
           </div>
 
           {/* Condition Details */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 scroll-mt-4" ref={detailsRef}>
             <AnimatePresence mode="wait">
               {selectedCondition ? (
                 <motion.div
