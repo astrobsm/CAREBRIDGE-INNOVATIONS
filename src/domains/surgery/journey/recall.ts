@@ -71,7 +71,7 @@ export function selectRecallList({ appointments, surgeries, patients, now, lookb
     if (!missed && !noShow) continue;
     // A later visit already booked for the same surgery / patient covers it.
     const rebooked = appointments.some(b => b.id !== a.id && b.patientId === a.patientId
-      && (a.relatedSurgeryId ? b.relatedSurgeryId === a.relatedSurgeryId : true)
+      && b.relatedSurgeryId === a.relatedSurgeryId
       && ['scheduled', 'confirmed'].includes(b.status) && appointmentMoment(b) > now && b.createdAt && new Date(b.createdAt) > when);
     if (rebooked) continue;
     const s = a.relatedSurgeryId ? sById.get(a.relatedSurgeryId) : undefined;

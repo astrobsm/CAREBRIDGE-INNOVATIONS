@@ -48,7 +48,7 @@ export const en = {
     contactLine: 'Contact the clinic, or go to the nearest emergency department.',
   },
   fasting: {
-    heading: 'Eating and drinking before your operation',
+    heading: 'Eating and drinking',
     general: [
       'Stop eating food (including milk, tea or coffee with milk, sweets and chewing gum) 6 hours before your operation.',
       'You may drink clear fluids (water, clear apple juice, black tea or coffee without milk) until 2 hours before your operation. Then stop drinking.',

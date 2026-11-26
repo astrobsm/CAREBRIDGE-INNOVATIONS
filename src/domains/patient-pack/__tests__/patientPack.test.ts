@@ -44,7 +44,7 @@ function pack(over: Partial<Parameters<typeof buildPatientPack>[0]> = {}) {
 describe('patient pack', () => {
   it('has every part, in order', () => {
     const titles = packContents(pack());
-    const order = ['Your diagnosis and plan', 'What to buy before your operation', 'Your cost estimate', 'Before your operation: eating and drinking before your operation',
+    const order = ['Your diagnosis and plan', 'What to buy before your operation', 'Your cost estimate', 'Before your operation: eating and drinking',
       'Your medicines before your operation', 'After your operation', 'Get help straight away if', 'Your follow-up dates'];
     const idx = order.map(t => titles.indexOf(t));
     expect(idx.every(i => i >= 0)).toBe(true);

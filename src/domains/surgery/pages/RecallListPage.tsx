@@ -60,10 +60,10 @@ export default function RecallListPage() {
   };
 
   return (
-    <div className="p-3 sm:p-6 max-w-3xl mx-auto" data-testid="recall-page">
+    <div className="p-3 sm:p-6 w-full min-w-0 max-w-3xl mx-auto" data-testid="recall-page">
       <h1 className="text-xl font-bold text-gray-900">Follow-up recall</h1>
       <p className="text-sm text-gray-500 mb-3">Missed visits, and follow-up waiting for you to confirm or book.</p>
-      <div className="flex gap-1 overflow-x-auto mb-3">
+      <div className="flex flex-wrap gap-1 mb-3">
         {(['all', 'missed', 'no_show', 'template_recall', 'next_due', 'awaiting_booking'] as const).map(k => (
           <button key={k} type="button" onClick={() => setFilter(k)}
             className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap border ${filter === k ? 'bg-gray-900 text-white' : 'bg-white'}`}>
@@ -75,7 +75,7 @@ export default function RecallListPage() {
       {list && shown.length === 0 && <p className="text-sm text-gray-500 bg-white rounded-lg p-6 text-center">Nobody to recall.</p>}
       <ul className="space-y-2">
         {shown.map(e => (
-          <li key={e.id} className="bg-white rounded-lg shadow-sm border p-3">
+          <li key={e.id} className="bg-white rounded-lg shadow-sm border p-3 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-semibold text-gray-900 truncate">{e.patientName}</p>
