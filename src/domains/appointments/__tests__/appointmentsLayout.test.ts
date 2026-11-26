@@ -21,4 +21,13 @@ describe('Appointment diary on phones', () => {
   it('the view and date-range buttons share the width', () => {
     expect(page.match(/flex-1 lg:flex-none/g)?.length).toBeGreaterThanOrEqual(3);
   });
+
+  it('phones open on the list view, and the calendar on a single day', () => {
+    expect(page).toMatch(/useState<ViewMode>\(\(\) => \(isPhoneWidth\(\) \? 'list' : 'calendar'\)\)/);
+    const calendar = readFileSync(join(process.cwd(), 'src/domains/appointments/components/AppointmentCalendar.tsx'), 'utf8');
+    expect(calendar).toMatch(/matchMedia\('\(max-width: 639px\)'\)\.matches \? 'day' : 'week'/);
+    // Day/Week/Month wraps to its own full-width row instead of overflowing.
+    expect(calendar).toMatch(/flex w-full sm:w-auto items-center/);
+    expect(calendar).toMatch(/flex flex-wrap items-center justify-between/);
+  });
 });

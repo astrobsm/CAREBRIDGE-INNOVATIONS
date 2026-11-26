@@ -79,7 +79,14 @@ export default function AppointmentCalendar({
   onAppointmentClick,
   onQuickAction,
 }: AppointmentCalendarProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('week');
+  // Phones open on a single day; the seven-column week does not fit 390px.
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    try {
+      return typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches ? 'day' : 'week';
+    } catch {
+      return 'week';
+    }
+  });
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
 
@@ -496,8 +503,8 @@ export default function AppointmentCalendar({
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b bg-gray-50">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-4">
           <div className="flex items-center gap-1">
             <button
               onClick={() => navigate('prev')}
@@ -522,19 +529,20 @@ export default function AppointmentCalendar({
             Today
           </button>
 
-          <h2 className="text-lg font-semibold text-gray-800">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800">
             {viewMode === 'day' && format(currentDate, 'MMMM d, yyyy')}
             {viewMode === 'week' && `${format(dateRange.start, 'MMM d')} - ${format(dateRange.end, 'MMM d, yyyy')}`}
             {viewMode === 'month' && format(currentDate, 'MMMM yyyy')}
           </h2>
         </div>
 
-        <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg">
+        {/* Shares the row width on phones instead of overflowing it */}
+        <div className="flex w-full sm:w-auto items-center gap-1 sm:gap-2 bg-gray-200 p-1 rounded-lg">
           {(['day', 'week', 'month'] as ViewMode[]).map(mode => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors capitalize ${
+              className={`flex-1 sm:flex-none px-3 py-1.5 text-sm font-medium rounded-md transition-colors capitalize ${
                 viewMode === mode
                   ? 'bg-white text-emerald-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800'

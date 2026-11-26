@@ -2,6 +2,7 @@
 // Handles CRUD operations, reminders, and notifications for the appointment module
 
 import { v4 as uuidv4 } from 'uuid';
+import { REMINDER_PLAN } from '../domains/appointments/bookingRules';
 import { format, subHours, startOfDay, endOfDay, isBefore, isAfter } from 'date-fns';
 import { db } from '../database';
 import { syncRecord } from './cloudSyncService';
@@ -340,59 +341,20 @@ function buildReminderSchedule(appointmentDate: Date, appointmentTime: string): 
   const reminders: ReminderSchedule[] = [];
   const now = new Date();
 
-  // 48 hours before - WhatsApp reminder
-  const reminder48h = subHours(aptDateTime, 48);
-  if (isAfter(reminder48h, now)) {
-    reminders.push({
-      id: uuidv4(),
-      offsetHours: 48,
-      channel: 'whatsapp',
-      status: 'pending',
-      scheduledFor: reminder48h,
-    });
-  }
-
-  // 24 hours before - WhatsApp + Push notification
-  const reminder24h = subHours(aptDateTime, 24);
-  if (isAfter(reminder24h, now)) {
-    reminders.push({
-      id: uuidv4(),
-      offsetHours: 24,
-      channel: 'whatsapp',
-      status: 'pending',
-      scheduledFor: reminder24h,
-    });
-    reminders.push({
-      id: uuidv4(),
-      offsetHours: 24,
-      channel: 'push_notification',
-      status: 'pending',
-      scheduledFor: reminder24h,
-    });
-  }
-
-  // 2 hours before - Push notification
-  const reminder2h = subHours(aptDateTime, 2);
-  if (isAfter(reminder2h, now)) {
-    reminders.push({
-      id: uuidv4(),
-      offsetHours: 2,
-      channel: 'push_notification',
-      status: 'pending',
-      scheduledFor: reminder2h,
-    });
-  }
-
-  // 1 hour before - Final WhatsApp reminder
-  const reminder1h = subHours(aptDateTime, 1);
-  if (isAfter(reminder1h, now)) {
-    reminders.push({
-      id: uuidv4(),
-      offsetHours: 1,
-      channel: 'whatsapp',
-      status: 'pending',
-      scheduledFor: reminder1h,
-    });
+  // One entry per (offset, channel) in REMINDER_PLAN, which is also what the
+  // booking form shows the user, so the copy cannot drift from the schedule.
+  for (const entry of REMINDER_PLAN) {
+    const at = subHours(aptDateTime, entry.offsetHours);
+    if (!isAfter(at, now)) continue;
+    for (const channel of entry.channels) {
+      reminders.push({
+        id: uuidv4(),
+        offsetHours: entry.offsetHours,
+        channel,
+        status: 'pending',
+        scheduledFor: at,
+      });
+    }
   }
 
   return reminders;
