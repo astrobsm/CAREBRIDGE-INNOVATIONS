@@ -115,7 +115,6 @@ import BookingSharePage from './domains/appointments/pages/public/BookingSharePa
 import ClinicBookingsManagementPage from './domains/appointments/pages/ClinicBookingsManagementPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoadingScreen from './components/common/LoadingScreen';
-import OfflineSessionBanner from './domains/auth/components/OfflineSessionBanner';
 import InstallPrompt from './components/pwa/InstallPrompt';
 import { UpdatePrompt } from './components/pwa';
 
@@ -149,7 +148,6 @@ function App() {
 
   return (
     <>
-    {isAuthenticated && <OfflineSessionBanner />}
     <Routes>
       {/* Public Routes */}
       <Route element={<AuthLayout />}>
@@ -352,8 +350,9 @@ function App() {
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
     
-    {/* PWA Install Prompt & Offline/Update Notifications */}
-    <InstallPrompt />
+    {/* PWA install prompt: only once signed in, so it never covers the
+        password field or Sign In button on /login. */}
+    {isAuthenticated && <InstallPrompt />}
     <UpdatePrompt variant="banner" />
   </>
   );

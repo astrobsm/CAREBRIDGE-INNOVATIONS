@@ -10,6 +10,7 @@ import { subscribeSyncState } from '../../services/cloudSyncService';
 import { isSupabaseConfigured } from '../../services/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
 import { syncBannerFor, type SyncBanner, type SyncSnapshot } from './syncBanner';
+import OfflineSessionBanner from '../../domains/auth/components/OfflineSessionBanner';
 
 // Offline Banner Component
 function OfflineBanner() {
@@ -149,6 +150,9 @@ export default function MainLayout() {
       
       {/* Offline/Sync Status Banner */}
       <OfflineBanner />
+
+      {/* Signed in offline: a thin in-flow strip, never over form fields */}
+      <OfflineSessionBanner />
       
       <div className="flex-1 flex min-h-0">
         {/* Mobile sidebar overlay */}
