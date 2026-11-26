@@ -11,7 +11,8 @@
  * - PDF Export & Patient Sharing
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -137,10 +138,18 @@ export default function KeloidCarePlanningPage() {
   const hospitals = useLiveQuery(() => db.hospitals.filter(h => h.isActive === true).toArray(), []);
   const keloidPlans = useLiveQuery(() => db.keloidCarePlans.reverse().sortBy('createdAt'), []);
 
+  // Opened for one patient (?patientId=): list that patient's plans and start
+  // new plans for them (the form default, so it survives a reset). "Show all"
+  // drops the list filter.
+  const [searchParams] = useSearchParams();
+  const linkedPatientId = searchParams.get('patientId');
+  const [onlyPatientId, setOnlyPatientId] = useState<string | null>(linkedPatientId);
+
   // Form
   const form = useForm<KeloidFormData>({
     resolver: zodResolver(keloidFormSchema),
     defaultValues: {
+      ...(linkedPatientId ? { patientId: linkedPatientId } : {}),
       hospitalId: user?.hospitalId || '',
     },
   });
@@ -174,17 +183,24 @@ export default function KeloidCarePlanningPage() {
     setPreTriamcinoloneTests(tests);
   }, [isReproductiveAgeFemale]);
 
+  // A preselected patient never went through the select's onChange, so the
+  // pre-triamcinolone tests are set up here once the patient has loaded.
+  useEffect(() => {
+    if (showCreateModal && selectedPatient && preTriamcinoloneTests.length === 0) initializeTests();
+  }, [showCreateModal, selectedPatient, preTriamcinoloneTests.length, initializeTests]);
+
   // Filtered plans
   const filteredPlans = useMemo(() => {
     if (!keloidPlans) return [];
-    if (!searchQuery) return keloidPlans;
+    const forPatient = onlyPatientId ? keloidPlans.filter(plan => plan.patientId === onlyPatientId) : keloidPlans;
+    if (!searchQuery) return forPatient;
     const query = searchQuery.toLowerCase();
-    return keloidPlans.filter(plan => {
+    return forPatient.filter(plan => {
       const patient = patients?.find(p => p.id === plan.patientId);
       const patientName = patient ? `${patient.firstName} ${patient.lastName}`.toLowerCase() : '';
       return patientName.includes(query) || plan.clinicalSummary?.toLowerCase().includes(query);
     });
-  }, [keloidPlans, searchQuery, patients]);
+  }, [keloidPlans, searchQuery, patients, onlyPatientId]);
 
   // Generate triamcinolone schedule
   const generateTriamcinoloneSchedule = (
@@ -582,6 +598,15 @@ export default function KeloidCarePlanningPage() {
               <Eye className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
           </div>
+
+          {onlyPatientId && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 mb-3 bg-primary-50 border border-primary-200 rounded-lg text-sm text-primary-800">
+              <span>
+                Showing plans for {(() => { const p = patients?.find(x => x.id === onlyPatientId); return p ? `${p.firstName} ${p.lastName}` : 'this patient'; })()}
+              </span>
+              <button type="button" onClick={() => setOnlyPatientId(null)} className="font-medium underline">Show all</button>
+            </div>
+          )}
 
           {/* Plans List */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

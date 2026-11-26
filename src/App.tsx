@@ -139,6 +139,12 @@ function RedirectToWorkflow() {
   return <Navigate to={patientId ? `/surgery/workflow/${patientId}` : '/surgery/workflow'} replace />;
 }
 
+/** /patients/:id/wounds used to drop the patient on the way to the monitor. */
+function RedirectToWoundMonitor() {
+  const { patientId } = useParams();
+  return <Navigate to={patientId ? `/wound-monitor?patientId=${encodeURIComponent(patientId)}` : '/wound-monitor'} replace />;
+}
+
 /**
  * PatientsListPage reads ?search= once, into its initial state. Keying it on
  * the param remounts it when the header search runs again while already on
@@ -216,7 +222,7 @@ function App() {
           <Route path=":patientId/clinical-summary" element={<PatientClinicalSummaryPage />} />
           <Route path=":patientId/procedure-review" element={<ProcedureReviewPage />} />
           <Route path=":patientId/vitals" element={<VitalsPage />} />
-          <Route path=":patientId/wounds" element={<Navigate to="/wound-monitor" replace />} />
+          <Route path=":patientId/wounds" element={<RedirectToWoundMonitor />} />
         </Route>
 
         {/* Surgery Routes

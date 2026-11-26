@@ -5,7 +5,7 @@
 // ============================================================
 
 import { useState, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -167,7 +167,11 @@ const SKIN_CONDITION_OPTIONS: { value: SkinCondition; label: string }[] = [
 ];
 
 export default function LymphedemaAssessmentPage() {
-  const { patientId } = useParams<{ patientId: string }>();
+  // The patient comes from a :patientId route segment or, from the patient
+  // hub, ?patientId= on /lymphedema.
+  const { patientId: routePatientId } = useParams<{ patientId: string }>();
+  const [searchParams] = useSearchParams();
+  const patientId = routePatientId || searchParams.get('patientId') || undefined;
   const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState<TabId>('assessment');

@@ -7,6 +7,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -86,7 +87,11 @@ export default function NutritionPlannerPage() {
   const [activeTab, setActiveTab] = useState<TabType>('assessment');
   const [showAssessmentModal, setShowAssessmentModal] = useState(false);
   const [showMealPlanModal, setShowMealPlanModal] = useState(false);
-  const [selectedPatientId, setSelectedPatientId] = useState('');
+  // Opened for one patient (?patientId=): that patient is preselected in the
+  // assessment and meal-plan forms, and stays the default after a save.
+  const [searchParams] = useSearchParams();
+  const linkedPatientId = searchParams.get('patientId') ?? '';
+  const [selectedPatientId, setSelectedPatientId] = useState(linkedPatientId);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory | 'all'>('all');
   const [expandedFood, setExpandedFood] = useState<string | null>(null);
@@ -206,7 +211,7 @@ export default function NutritionPlannerPage() {
   };
 
   const resetAssessmentForm = () => {
-    setSelectedPatientId('');
+    setSelectedPatientId(linkedPatientId);
     setWeight('');
     setHeight('');
     setAge('');
