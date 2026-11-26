@@ -156,8 +156,17 @@ function buildPatientDocument(input: ReviewDocumentInput): ReviewDocument {
 
   const consent = review.consent;
   if (consent) {
-    sections.push({ kind: 'consent', title: `About your procedure: ${consent.procedureName}`, body: 'The information you were given when consent was discussed.' });
-    for (const s of consent.sections) sections.push({ kind: 'consent', title: s.title, body: s.body, bullets: s.bullets });
+    sections.push({
+      kind: 'consent', title: `About your procedure: ${consent.procedureName}`,
+      body: 'The information you were given when consent was discussed. Your full consent form, which you signed, was given to you in person.',
+    });
+    // The phone may be shared with, or read by, someone else: personal risk
+    // lines about alcohol, mental health and the like stay in the signed form.
+    for (const s of consent.sections) {
+      const bullets = s.bullets?.filter(patientSafe);
+      if (!s.body && !bullets?.length) continue;
+      sections.push({ kind: 'consent', title: s.title, body: s.body, bullets });
+    }
   }
 
   const followUp = [

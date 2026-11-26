@@ -105,6 +105,22 @@ describe('patient copy with a safeguarding concern (child)', () => {
   });
 });
 
+describe('patient copy with a sensitive personal consent risk', () => {
+  const { clinician, patient } = docsFor(skinGraft, 'pre_op', { 'core.alcohol': 'dependent' });
+
+  it('keeps the risk in the clinician document and drops it from the WhatsApp copy', () => {
+    expect(allText(clinician)).toMatch(/heavy drinking/i);
+    expect(allText(patient)).not.toMatch(/heavy drinking|alcohol/i);
+    expect(allText(patient)).toMatch(/full consent form/i);
+  });
+
+  it('no consent bullet matches the exclusion list', () => {
+    for (const s of patient.sections.filter(x => x.kind === 'consent')) {
+      for (const b of s.bullets ?? []) expect(b, `${s.title}: ${b}`).not.toMatch(PATIENT_COPY_EXCLUDE);
+    }
+  });
+});
+
 describe('patient copy for a wound review', () => {
   it('omits psychological screening content', () => {
     const { patient } = docsFor(woundCareReview, 'wound_review', provocativeAnswers(woundCareReview, 'wound_review'));
