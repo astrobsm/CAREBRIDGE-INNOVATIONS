@@ -246,7 +246,7 @@ export function gfrReport(input: { creatinineUmolL: number | null; enteredValue:
       field('Creatinine', input.enteredValue, input.enteredUnit === 'mgdl' ? 'mg/dL' : 'µmol/L', 2),
       field('Age', input.ageYears, 'years', 0), { label: 'Sex', value: SEX_LABEL[input.sex] },
     ],
-    results: [field('eGFR', r.egfr, 'mL/min/1.73m²', 0), { label: 'CKD stage', value: r.stage }],
+    results: [field('eGFR', r.egfr, 'mL/min/1.73m²', 1), { label: 'CKD stage', value: r.stage }],
     notes: [r.note, 'Race-free 2021 equation.'],
     plan: emptyPlan({ sections: sections(section('Recommendation', [r.note])) }),
   }, patient);

@@ -22,6 +22,7 @@ import { interpretAcidBase } from './engine/modules/abg';
 import { correctionPlan, type CorrectionPlan } from './engine/replacement';
 import { generateMealPlan, type DayPlan } from '../../../data/nigerianFoods';
 import { emptyPatient, type PatientContext, type Severity, type Sex } from './engine/types';
+import { calculateGFR, type CKDStage } from '../../calculators/engine/calculationEngine';
 
 // ── Acid-base ────────────────────────────────────────────────────────────
 
@@ -156,6 +157,11 @@ export interface GfrOutput {
   note: string;
 }
 
+const STAGE_LABEL: Record<CKDStage, string> = {
+  G1: 'G1 — normal or high', G2: 'G2 — mildly reduced', G3a: 'G3a — mild to moderate',
+  G3b: 'G3b — moderate to severe', G4: 'G4 — severely reduced', G5: 'G5 — kidney failure',
+};
+
 /**
  * CKD-EPI 2021, the race-free equation. The 2009 version applied a coefficient
  * for Black patients that has since been withdrawn as scientifically
@@ -168,29 +174,21 @@ export function egfrCkdEpi(input: GfrInput): GfrOutput {
     return { egfr: null, stage: '—', note: 'Creatinine, age and sex are required.' };
   }
 
-  // The equation is defined in mg/dL.
-  const scr = creatinineUmolL / 88.4;
-  const female = sex === 'female';
-  const kappa = female ? 0.7 : 0.9;
-  const alpha = female ? -0.241 : -0.302;
-  const ratio = scr / kappa;
+  // One implementation for both calculator surfaces: the shared engine's
+  // CKD-EPI 2021. The stage comes from the engine's unrounded value, so a
+  // result of 59.6 is staged G3a here exactly as on the /calculators page
+  // (staging the rounded 60 called it G2).
+  const r = calculateGFR({
+    creatinine: creatinineUmolL, creatinineUnit: 'umol/L', ageYears, sex: sex === 'female' ? 'female' : 'male',
+  });
+  if (!r || !Number.isFinite(r.gfrCKDEPI)) {
+    return { egfr: null, stage: '—', note: 'Creatinine, age and sex are required.' };
+  }
 
-  let egfr =
-    142 *
-    Math.pow(Math.min(ratio, 1), alpha) *
-    Math.pow(Math.max(ratio, 1), -1.2) *
-    Math.pow(0.9938, ageYears);
-  if (female) egfr *= 1.012;
-
-  egfr = Math.round(egfr);
-
-  const stage =
-    egfr >= 90 ? 'G1 — normal or high'
-    : egfr >= 60 ? 'G2 — mildly reduced'
-    : egfr >= 45 ? 'G3a — mild to moderate'
-    : egfr >= 30 ? 'G3b — moderate to severe'
-    : egfr >= 15 ? 'G4 — severely reduced'
-    : 'G5 — kidney failure';
+  // One decimal, as the engine gives it: a rounded 60 shown beside "G3a" would
+  // read as a contradiction.
+  const egfr = r.gfrCKDEPI;
+  const stage = STAGE_LABEL[r.ckdStage];
 
   const note = egfr < 60
     ? 'Review renally cleared drugs and contrast exposure. An eGFR alone does not distinguish acute from chronic — compare with a baseline.'
