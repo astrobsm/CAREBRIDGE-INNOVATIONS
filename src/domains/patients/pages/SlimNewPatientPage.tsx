@@ -17,7 +17,7 @@ import { HospitalNumberField, numberCheckBlocks, type NumberCheck } from '../com
 import { registerPatient, isDuplicateHospitalNumberError } from '../services/patientDedupeService';
 import { registrationScopeProblem } from '../services/registrationScope';
 import {
-  resolveDateOfBirth,
+  resolveOptionalDateOfBirth,
   maskDdMmYyyy,
   formatDdMmYyyy,
   ageFromDob,
@@ -27,14 +27,15 @@ import {
 /**
  * Quick Patient Registration
  * ──────────────────────────
- * Required: first name, last name, sex, phone, and EITHER the date of birth
- * OR the age in years (an age-only registration stores an estimated date of
- * birth, 1 July of that year, flagged `dobEstimated`). Everything else is
- * optional and can be filled in later. Clinical data (allergies,
+ * Required: the patient's name (first and last). Everything else is optional
+ * and can be filled in later: sex, phone, and the date of birth OR the age in
+ * years (an age-only registration stores an estimated date of birth, 1 July
+ * of that year, flagged `dobEstimated`). Clinical data (allergies,
  * comorbidities, risk scores) is captured at the first encounter.
  *
  * The hospital defaults to the practice's only active hospital, and the
- * picker is shown only when there is more than one.
+ * picker is shown only when there is more than one (or none yet). With no
+ * hospital the patient is still saved, with no registered hospital.
  *
  * Hospital Number: auto-generated if blank; refused if another patient at the
  * same hospital already holds it.
@@ -48,8 +49,8 @@ const slimSchema = z
     dobMode: z.enum(['dob', 'age']),
     dateOfBirth: z.string().optional(),
     ageYears: z.string().optional(),
-    gender: z.enum(['male', 'female'], { errorMap: () => ({ message: 'Sex is required' }) }),
-    phone: z.string().trim().min(7, 'Phone number is required'),
+    gender: z.enum(['', 'male', 'female']).optional(),
+    phone: z.string().trim().optional(),
     email: z.string().email('Invalid email').optional().or(z.literal('')),
     address: z.string().optional(),
     folderNumber: z.string().optional(),
@@ -57,12 +58,12 @@ const slimSchema = z
     nextOfKinPhone: z.string().optional(),
     maritalStatus: z.enum(['', 'single', 'married', 'divorced', 'widowed']).optional(),
     occupation: z.string().optional(),
-    // Asked rather than assumed: registeredHospitalId used to fall back to the
-    // string 'global', which belongs to no hospital and matches no filter.
-    hospitalId: z.string().min(1, 'Select the hospital this patient is registered at'),
+    // Optional. Never the string 'global' (it belongs to no hospital and
+    // matched no filter): no hospital is stored as no hospital.
+    hospitalId: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    const dob = resolveDateOfBirth({ mode: data.dobMode, dobText: data.dateOfBirth, ageText: data.ageYears });
+    const dob = resolveOptionalDateOfBirth({ mode: data.dobMode, dobText: data.dateOfBirth, ageText: data.ageYears });
     if (!dob.ok) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -98,8 +99,9 @@ export default function SlimNewPatientPage() {
   }, [hospitalChoice?.defaultId, hospitalChoice?.showPicker, getValues, setValue]);
 
   const registeringAt = watch('hospitalId');
+  const registeringName = hospitals?.find(h => h.id === registeringAt)?.name;
   const dobMode = watch('dobMode');
-  const dobPreview = resolveDateOfBirth({ mode: dobMode, dobText: watch('dateOfBirth'), ageText: watch('ageYears') });
+  const dobPreview = resolveOptionalDateOfBirth({ mode: dobMode, dobText: watch('dateOfBirth'), ageText: watch('ageYears') });
 
   const onSubmit = async (data: SlimFormData) => {
     if (numberCheckBlocks(numberCheck)) {
@@ -113,11 +115,12 @@ export default function SlimNewPatientPage() {
       toast.error(scopeProblem, { duration: 8000 });
       return;
     }
-    const dob = resolveDateOfBirth({ mode: data.dobMode, dobText: data.dateOfBirth, ageText: data.ageYears });
+    const dob = resolveOptionalDateOfBirth({ mode: data.dobMode, dobText: data.dateOfBirth, ageText: data.ageYears });
     if (!dob.ok) {
       toast.error(dob.error);
       return;
     }
+    const hospitalId = data.hospitalId?.trim() || undefined;
     setIsLoading(true);
     try {
       const draft: Patient = {
@@ -128,11 +131,11 @@ export default function SlimNewPatientPage() {
         lastName: data.lastName.trim(),
         middleName: data.middleName?.trim() || undefined,
         dateOfBirth: dob.dateOfBirth,
-        dobEstimated: dob.dobEstimated,
-        gender: data.gender,
+        dobEstimated: dob.dateOfBirth ? dob.dobEstimated : undefined,
+        gender: data.gender || undefined,
         // Optional now: left unset rather than guessed.
         maritalStatus: data.maritalStatus || undefined,
-        phone: data.phone.trim(),
+        phone: data.phone?.trim() || '',
         email: data.email?.trim() || undefined,
         address: data.address?.trim() || '',
         city: '',
@@ -147,9 +150,11 @@ export default function SlimNewPatientPage() {
           address: '',
         },
         careType: 'hospital',
-        hospitalId: data.hospitalId,
-        hospitalName: data.hospitalId ? (await db.hospitals.get(data.hospitalId))?.name : undefined,
-        registeredHospitalId: data.hospitalId,
+        // Null in the cloud when there is no hospital (one older schema
+        // types registered_hospital_id as a UUID, which '' would fail).
+        hospitalId,
+        hospitalName: hospitalId ? (await db.hospitals.get(hospitalId))?.name : undefined,
+        registeredHospitalId: hospitalId,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -214,7 +219,7 @@ export default function SlimNewPatientPage() {
         </button>
         <h1 className="page-title">New Patient</h1>
         <p className="page-subtitle">
-          Name, sex, phone and date of birth (or age) are all that is needed. Fill in the rest now or later.
+          Only the name is needed. Add sex, phone, age and the rest now or later.
         </p>
       </div>
 
@@ -243,22 +248,22 @@ export default function SlimNewPatientPage() {
               {errors.lastName && <p className="form-error">{errors.lastName.message}</p>}
             </div>
             <div>
-              <label className="form-label" htmlFor="reg-sex">Sex *</label>
+              <label className="form-label" htmlFor="reg-sex">Sex</label>
               <select id="reg-sex" {...register('gender')} className="form-input">
-                <option value="">Select…</option>
+                <option value="">Not recorded</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
               </select>
               {errors.gender && <p className="form-error">{errors.gender.message}</p>}
             </div>
             <div>
-              <label className="form-label" htmlFor="reg-phone">Phone *</label>
+              <label className="form-label" htmlFor="reg-phone">Phone</label>
               <input id="reg-phone" type="tel" inputMode="tel" {...register('phone')} className="form-input" placeholder="08012345678" />
               {errors.phone && <p className="form-error">{errors.phone.message}</p>}
             </div>
 
             <div className="sm:col-span-2">
-              <span className="form-label" id="reg-dob-mode">Date of birth or age *</span>
+              <span className="form-label" id="reg-dob-mode">Date of birth or age</span>
               <div role="radiogroup" aria-labelledby="reg-dob-mode" className="flex gap-1 p-1 bg-gray-100 rounded-lg mb-2">
                 {modeButton('dob', 'Date of birth')}
                 {modeButton('age', 'Age only')}
@@ -295,7 +300,7 @@ export default function SlimNewPatientPage() {
               )}
               {dobMode === 'dob' && errors.dateOfBirth && <p className="form-error">{errors.dateOfBirth.message}</p>}
               {dobMode === 'age' && errors.ageYears && <p className="form-error">{errors.ageYears.message}</p>}
-              {dobPreview.ok && (
+              {dobPreview.ok && dobPreview.dateOfBirth && (
                 <p className="text-xs text-gray-600 mt-1" data-testid="dob-preview">
                   {dobPreview.dobEstimated
                     ? <>Date of birth {formatDdMmYyyy(dobPreview.dateOfBirth)} <span className="font-semibold text-amber-700">(estimated)</span></>
@@ -328,9 +333,7 @@ export default function SlimNewPatientPage() {
                       label="Hospital"
                       value={field.value}
                       onChange={(id) => field.onChange(id ?? '')}
-                      placeholder="Search or select hospital"
-                      required
-                      error={errors.hospitalId?.message}
+                      placeholder="Search or select hospital (optional)"
                       showAddNew
                     />
                   )}
@@ -340,7 +343,9 @@ export default function SlimNewPatientPage() {
                 </p>
               </div>
             ) : (
-              errors.hospitalId && <p className="form-error sm:col-span-2">{errors.hospitalId.message}</p>
+              registeringName && (
+                <p className="text-xs text-gray-500 sm:col-span-2">Registering at {registeringName}.</p>
+              )
             )}
           </div>
         </div>

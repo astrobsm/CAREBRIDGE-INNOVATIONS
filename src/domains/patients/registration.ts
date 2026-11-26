@@ -96,6 +96,20 @@ export function resolveDateOfBirth(input: DobInput, today: Date = new Date()): D
   return { ok: true, dateOfBirth: dob, dobEstimated: false };
 }
 
+export type OptionalDobResult =
+  | { ok: true; dateOfBirth?: Date; dobEstimated: boolean }
+  | { ok: false; error: string };
+
+/**
+ * The date of birth / age is optional: nothing entered is fine (no DOB
+ * stored); anything entered must still be valid.
+ */
+export function resolveOptionalDateOfBirth(input: DobInput, today: Date = new Date()): OptionalDobResult {
+  const text = (input.mode === 'age' ? input.ageText : input.dobText) ?? '';
+  if (!text.trim()) return { ok: true, dateOfBirth: undefined, dobEstimated: false };
+  return resolveDateOfBirth(input, today);
+}
+
 /** Whole years between a date-only DOB and today (local calendar date). */
 export function ageFromDob(dob: Date, today: Date = new Date()): number {
   let age = today.getFullYear() - dob.getUTCFullYear();
