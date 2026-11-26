@@ -5,6 +5,7 @@
 import { format, addMinutes } from 'date-fns';
 import { db } from '../database';
 import type { TreatmentPlan, Investigation, LabRequest, Prescription } from '../types';
+import { scheduledEventUrl } from './notificationUrls';
 
 // ============================================
 // TYPES
@@ -690,7 +691,7 @@ export async function processScheduledNotifications(): Promise<{ sent: number; e
             type: event.type,
             eventId: event.id,
             patientId: event.patientId,
-            url: `/${event.type === 'surgery' ? 'surgery' : event.type === 'appointment' ? 'appointments' : 'treatment-plans'}/${event.id}`,
+            url: scheduledEventUrl(event),
           },
           voiceMessage,
           urgency,
@@ -805,7 +806,8 @@ export async function notifyInvestigationRequest(investigation: Investigation): 
       type: 'investigation',
       id: investigation.id,
       patientId: investigation.patientId,
-      url: `/investigations/${investigation.id}`,
+      // There is no /investigations/:id route.
+      url: '/investigations',
     },
     voiceMessage: isVoiceEnabled() ? `New investigation request. ${investigation.type || 'Investigation'} for patient ${patientName}.` : undefined,
     urgency: investigation.priority === 'urgent' || investigation.priority === 'stat' ? 'high' : 'medium',
@@ -830,7 +832,8 @@ export async function notifyLabRequest(labRequest: LabRequest): Promise<void> {
       type: 'lab_request',
       id: labRequest.id,
       patientId: labRequest.patientId,
-      url: `/laboratory/${labRequest.id}`,
+      // There is no /laboratory/:id route; the laboratory page lists the request.
+      url: '/laboratory',
     },
     voiceMessage: isVoiceEnabled() ? `New lab request. ${testNames} for patient ${patientName}.` : undefined,
     urgency: labRequest.priority === 'urgent' || labRequest.priority === 'stat' ? 'high' : 'medium',
@@ -855,7 +858,8 @@ export async function notifyPrescription(prescription: Prescription): Promise<vo
       type: 'prescription',
       id: prescription.id,
       patientId: prescription.patientId,
-      url: `/pharmacy/prescriptions/${prescription.id}`,
+      // There is no /pharmacy/prescriptions/:id route.
+      url: '/pharmacy',
     },
     voiceMessage: isVoiceEnabled() ? `New prescription. ${medicationCount} medication${medicationCount !== 1 ? 's' : ''} prescribed for patient ${patientName}.` : undefined,
     urgency: 'medium',
@@ -879,7 +883,7 @@ export async function notifyNewTreatmentPlan(treatmentPlan: TreatmentPlan): Prom
       type: 'treatment_plan',
       id: treatmentPlan.id,
       patientId: treatmentPlan.patientId,
-      url: `/treatment-plans/${treatmentPlan.id}`,
+      url: `/treatment-planning/${treatmentPlan.id}`,
     },
     voiceMessage: isVoiceEnabled() ? `New treatment plan created. ${planAny.treatmentType || 'Treatment plan'} for patient ${patientName}.` : undefined,
     urgency: planAny.priority === 'high' || planAny.priority === 'urgent' ? 'high' : 'medium',
@@ -911,7 +915,8 @@ export async function notifyInvestigationResults(investigation: Investigation): 
       type: 'investigation_result',
       id: investigation.id,
       patientId: investigation.patientId,
-      url: `/investigations/${investigation.id}`,
+      // There is no /investigations/:id route.
+      url: '/investigations',
     },
     voiceMessage: isVoiceEnabled() ? `Investigation results ready. ${investigation.type || 'Investigation'} results for patient ${patientName} are now available.` : undefined,
     urgency: 'high',
@@ -935,7 +940,8 @@ export async function notifyLabResults(labRequest: LabRequest): Promise<void> {
       type: 'lab_result',
       id: labRequest.id,
       patientId: labRequest.patientId,
-      url: `/laboratory/${labRequest.id}`,
+      // There is no /laboratory/:id route; the laboratory page lists the request.
+      url: '/laboratory',
     },
     voiceMessage: isVoiceEnabled() ? `Lab results ready. ${testNames} results for patient ${patientName} are now available.` : undefined,
     urgency: 'high',
@@ -957,7 +963,8 @@ export async function notifyPrescriptionReady(prescription: Prescription): Promi
       type: 'prescription_ready',
       id: prescription.id,
       patientId: prescription.patientId,
-      url: `/pharmacy/prescriptions/${prescription.id}`,
+      // There is no /pharmacy/prescriptions/:id route.
+      url: '/pharmacy',
     },
     voiceMessage: isVoiceEnabled() ? `Prescription ready. Medications for patient ${patientName} are ready for collection.` : undefined,
     urgency: 'medium',

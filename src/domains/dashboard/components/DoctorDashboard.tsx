@@ -111,7 +111,9 @@ export default function DoctorDashboard() {
       value: todaysEncounters?.length ?? 0,
       icon: <Stethoscope className="w-5 h-5" />,
       color: 'bg-emerald-500',
-      link: '/clinical',
+      // Encounters are opened per patient (/patients/:id/encounter); there is
+      // no encounter list route.
+      link: '/patients',
     },
     {
       name: 'Scheduled Surgeries',
@@ -343,7 +345,8 @@ export default function DoctorDashboard() {
         <h2 className="font-semibold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Link
-            to="/clinical/new"
+            to="/patients"
+            title="Choose the patient, then Start Encounter"
             className="flex flex-col items-center p-4 bg-sky-50 rounded-lg hover:bg-sky-100 transition-colors"
           >
             <FileText size={24} className="text-sky-600 mb-2" />
@@ -357,14 +360,14 @@ export default function DoctorDashboard() {
             <span className="text-sm text-emerald-700 text-center">Ward Round</span>
           </Link>
           <Link
-            to="/wounds"
+            to="/wound-monitor"
             className="flex flex-col items-center p-4 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors"
           >
             <HeartPulse size={24} className="text-amber-600 mb-2" />
             <span className="text-sm text-amber-700 text-center">Wound Care</span>
           </Link>
           <Link
-            to="/investigations/request"
+            to="/investigations?request=new"
             className="flex flex-col items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
           >
             <ClipboardList size={24} className="text-purple-600 mb-2" />
