@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
+import { useSearchParams } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
@@ -142,7 +143,13 @@ export default function BurnsAssessmentPage() {
   const [patientWeightState, setPatientWeightState] = useState(70);
   void setPatientWeightState; // Reserved for future weight adjustment UI
 
-  const burns = useLiveQuery(() => db.burnAssessments.orderBy('createdAt').reverse().toArray(), []);
+  const allBurns = useLiveQuery(() => db.burnAssessments.orderBy('createdAt').reverse().toArray(), []);
+  // Opened for one patient (?patientId=): list that patient's burns and start
+  // new assessments for them. "Show all" drops the list filter.
+  const [searchParams] = useSearchParams();
+  const linkedPatientId = searchParams.get('patientId');
+  const [onlyPatientId, setOnlyPatientId] = useState<string | null>(linkedPatientId);
+  const burns = onlyPatientId ? allBurns?.filter(b => b.patientId === onlyPatientId) : allBurns;
   
   // Use the new patient map hook for efficient lookups
   const patientMap = usePatientMap();
@@ -157,6 +164,7 @@ export default function BurnsAssessmentPage() {
   } = useForm<BurnFormData>({
     resolver: zodResolver(burnSchema),
     defaultValues: {
+      ...(linkedPatientId ? { patientId: linkedPatientId } : {}),
       burnType: 'thermal',
       inhalationInjury: false,
       tetanusStatus: false,
@@ -699,8 +707,14 @@ export default function BurnsAssessmentPage() {
         transition={{ delay: 0.4 }}
         className="card"
       >
-        <div className="card-header">
+        <div className="card-header flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold text-gray-900">Recent Burn Assessments</h2>
+          {onlyPatientId && (
+            <span className="text-sm text-orange-700">
+              {(() => { const p = patientMap.get(onlyPatientId); return p ? `${p.firstName} ${p.lastName}` : 'This patient'; })()} only ·{' '}
+              <button type="button" onClick={() => setOnlyPatientId(null)} className="font-medium underline">Show all</button>
+            </span>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">

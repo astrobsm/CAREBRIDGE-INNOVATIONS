@@ -92,6 +92,11 @@ export default function AppointmentsPage() {
   const [filterHospital, setFilterHospital] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'all'>('week');
+  // /appointments/new?patientId=… (from the patient hub / Today) opens the
+  // booking form with that patient already chosen.
+  const [bookingPatientId, setBookingPatientId] = useState<string | undefined>(
+    () => searchParams.get('patientId') || undefined,
+  );
 
   useEffect(() => {
     if (location.pathname.endsWith('/new')) {
@@ -719,7 +724,8 @@ export default function AppointmentsPage() {
       <AnimatePresence>
         {showBookingForm && (
           <AppointmentBookingForm
-            onClose={() => setShowBookingForm(false)}
+            preselectedPatientId={bookingPatientId}
+            onClose={() => { setShowBookingForm(false); setBookingPatientId(undefined); }}
             onSuccess={() => {
               // Refresh will happen automatically via dexie-react-hooks
             }}

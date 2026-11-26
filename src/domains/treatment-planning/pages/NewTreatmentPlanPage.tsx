@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -44,7 +44,7 @@ const NewTreatmentPlanPage: React.FC = () => {
     () => (patients || []).slice().sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)),
     [patients]
   );
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, watch, setValue, getValues, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
     defaultValues: {
       timeOfDay: '09:00',
@@ -60,6 +60,20 @@ const NewTreatmentPlanPage: React.FC = () => {
       startDate: new Date().toISOString().slice(0, 10),
     },
   });
+
+  // Opened for one patient (?patientId=): select them once the patient list has
+  // loaded (the <select> has no matching option before then). Only fills an
+  // empty choice, so it never overrides the clinician.
+  const [searchParams] = useSearchParams();
+  const linkedPatientId = searchParams.get('patientId');
+  const linkedApplied = useRef(false);
+  useEffect(() => {
+    if (!linkedPatientId || linkedApplied.current || !patients) return;
+    linkedApplied.current = true;
+    if (!getValues('patientId') && patients.some(p => p.id === linkedPatientId)) {
+      setValue('patientId', linkedPatientId, { shouldValidate: true });
+    }
+  }, [linkedPatientId, patients, getValues, setValue]);
 
   const selectedPatientId = watch('patientId');
   const selectedPatient = useMemo(

@@ -1,560 +1,151 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Home,
-  Users,
-  Stethoscope,
-  Scissors,
-  CircleDot,
-  Flame,
-  Pill,
-  Apple,
-  Receipt,
-  Building2,
-  Settings,
-  X,
-  ChevronDown,
-  Calculator,
-  BedDouble,
-  MessageSquare,
-  Clipboard,
-  TestTube2,
-  Droplets,
-  Footprints,
-  Wind,
-  ClipboardList,
-  BookOpen,
-  CalendarDays,
-  Wallet,
-  FileText,
-  Send,
-  Activity,
-  ShoppingCart,
-  AlertTriangle,
-  Shield,
-  Presentation,
-  HeartPulse,
-  Heart,
-  Microscope,
-  Brain,
-  Layers,
-  ScanLine,
-  GitMerge,
+  Home, Users, UserPlus, CalendarDays, Scissors, TestTube2, BookOpen, Calculator,
+  Receipt, Settings, MoreHorizontal, LayoutGrid, Network, Brain, AlertTriangle,
+  CircleDot, Flame, Layers, ScanLine, Shield, Wind, Footprints, HeartPulse, Apple,
+  ClipboardList, Activity, BedDouble, ShoppingCart, Wallet, Heart, GitMerge,
+  Building2, MessageSquare, Send, Droplets, Microscope, Pill, FileText,
+  Presentation, FlaskConical, Stethoscope, X, ChevronDown, Search,
 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useState } from 'react';
+import { useMultiSiteEnabled } from '../../services/practiceSettings';
+import {
+  visibleMenu, filterMenu, activeHref, allMenuHrefs,
+  type MenuGroup, type MenuItem, type MenuIconKey,
+} from './menuModel';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: React.ReactNode;
-  permission?: string;
-  roles?: string[]; // Only show to specific roles
-  children?: { name: string; href: string }[];
-}
-
-const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/', icon: <Home size={20} /> },
-  { 
-    name: 'Appointments', 
-    href: '/appointments', 
-    icon: <CalendarDays size={20} />,
-    permission: 'view_patients',
-  },
-  { 
-    name: 'Patients', 
-    href: '/patients', 
-    icon: <Users size={20} />,
-    permission: 'view_patients',
-  },
-  { 
-    name: 'ADT', 
-    href: '/adt', 
-    icon: <BedDouble size={20} />,
-    permission: 'manage_admissions',
-  },
-  { 
-    name: 'Ward Rounds', 
-    href: '/ward-rounds', 
-    icon: <Clipboard size={20} />,
-    permission: 'create_encounters',
-  },
-  { 
-    name: 'Treatment Planning', 
-    href: '/treatment-planning', 
-    icon: <CalendarDays size={20} />,
-    permission: 'create_encounters',
-  },
-  {
-    // Preoperative Planning, Preoperative Review and Surgery Planning were
-    // separate entries over overlapping pages. Theatre is one module now: the
-    // Surgical Workflow carries preop planning through to post-op medications.
-    name: 'Surgery',
-    href: '/surgery/workflow',
-    icon: <Scissors size={20} />,
-    permission: 'manage_surgeries',
-    children: [
-      { name: 'Surgical Workflow', href: '/surgery/workflow' },
-      { name: 'Surgery List', href: '/surgery' },
-      { name: 'Post-Op Notes', href: '/surgery/post-op-notes' },
-      { name: 'Pre-Surgical Conference', href: '/pre-surgical-conference' },
-    ],
-  },
-  { 
-    name: 'Post-Op Care', 
-    href: '/post-op-care', 
-    icon: <Activity size={20} />,
-    permission: 'create_encounters',
-  },
-  {
-    name: 'MDT',
-    href: '/mdt',
-    icon: <Users size={20} />,
-    permission: 'create_encounters',
-  },
-  {
-    name: 'Tumour Board',
-    href: '/tumour-board',
-    icon: <Microscope size={20} />,
-    permission: 'create_encounters',
-  },
-  { 
-    name: 'Blood Bank', 
-    href: '/blood-transfusion', 
-    icon: <Droplets size={20} />,
-    permission: 'create_encounters',
-  },
-  { 
-    name: 'Referrals', 
-    href: '/referrals', 
-    icon: <Send size={20} />,
-    permission: 'create_encounters',
-  },
-  { 
-    name: 'Clinical', 
-    href: '/clinical', 
-    icon: <Stethoscope size={20} />,
-    permission: 'create_encounters',
-    children: [
-      { name: 'Encounters', href: '/patients' },
-      { name: 'Vital Signs', href: '/patients' },
-    ],
-  },
-  {
-    // The standalone Wounds page was merged into the WoundProgress Monitor, so
-    // wound care is one entry now. /wounds redirects here.
-    name: 'Wounds',
-    href: '/wound-monitor',
-    icon: <CircleDot size={20} />,
-    permission: 'manage_wounds',
-  },
-  {
-    name: 'Clinician Assistant',
-    href: '/clinician-assistant',
-    icon: <Brain size={20} />,
-    permission: 'create_encounters',
-  },
-  {
-    name: 'Skin Graft Monitor',
-    href: '/skin-graft',
-    icon: <Layers size={20} />,
-    permission: 'manage_wounds',
-  },
-  {
-    name: 'Scar & Keloid Monitor',
-    href: '/scar-monitor',
-    icon: <ScanLine size={20} />,
-    permission: 'manage_wounds',
-  },
-  {
-    name: 'Burns',
-    href: '/burns', 
-    icon: <Flame size={20} />,
-    permission: 'manage_wounds',
-  },
-  { 
-    name: 'Limb Salvage', 
-    href: '/limb-salvage', 
-    icon: <Footprints size={20} />,
-    permission: 'manage_wounds',
-  },
-  {
-    name: 'PAD / Limb Ischaemia',
-    href: '/vascular',
-    icon: <HeartPulse size={20} />,
-    permission: 'manage_wounds',
-  },
-  { 
-    name: 'NPWT', 
-    href: '/npwt', 
-    icon: <Wind size={20} />,
-    permission: 'manage_wounds',
-  },
-  { 
-    name: 'Keloid Care', 
-    href: '/keloid-care', 
-    icon: <Shield size={20} />,
-    permission: 'manage_wounds',
-  },
-  { 
-    name: 'Lymphedema', 
-    href: '/lymphedema', 
-    icon: <HeartPulse size={20} />,
-    permission: 'manage_wounds',
-  },
-  { 
-    name: 'STI / NEC Protocol', 
-    href: '/sti-protocol', 
-    icon: <AlertTriangle size={20} />,
-    permission: 'create_encounters',
-    children: [
-      { name: 'Classifications', href: '/sti-protocol?tab=classifications' },
-      { name: 'LRINEC Score', href: '/sti-protocol?tab=lrinec' },
-      { name: 'qSOFA', href: '/sti-protocol?tab=qsofa' },
-      { name: 'Lab Panels', href: '/sti-protocol?tab=labs' },
-      { name: 'Treatment', href: '/sti-protocol?tab=treatment' },
-      { name: 'Nursing', href: '/sti-protocol?tab=nursing' },
-      { name: 'Patient Education', href: '/sti-protocol?tab=education' },
-      { name: 'CME', href: '/sti-protocol?tab=cme' },
-    ],
-  },
-  { 
-    name: 'Substance Use', 
-    href: '/substance-use', 
-    icon: <AlertTriangle size={20} />,
-    permission: 'create_encounters',
-  },
-  { 
-    name: 'Medication Chart', 
-    href: '/medication-chart', 
-    icon: <ClipboardList size={20} />,
-    permission: 'view_prescriptions',
-  },
-  { 
-    name: 'Investigations', 
-    href: '/investigations', 
-    icon: <TestTube2 size={20} />,
-    permission: 'view_labs',
-  },
-  { 
-    name: 'Pharmacy', 
-    href: '/pharmacy', 
-    icon: <Pill size={20} />,
-    permission: 'view_prescriptions',
-  },
-  { 
-    name: 'Nutrition', 
-    href: '/nutrition', 
-    icon: <Apple size={20} />,
-    permission: 'manage_nutrition',
-  },
-  { 
-    name: 'Billing', 
-    href: '/billing', 
-    icon: <Receipt size={20} />,
-    permission: 'view_invoices',
-  },
-  { 
-    name: 'Surgical Estimate', 
-    href: '/billing/surgical-estimate', 
-    icon: <Calculator size={20} />,
-    permission: 'view_invoices',
-  },
-  { 
-    name: 'Shopping Checklist', 
-    href: '/shopping-checklist', 
-    icon: <ShoppingCart size={20} />,
-  },
-  { 
-    name: 'Payroll', 
-    href: '/billing/payroll', 
-    icon: <Wallet size={20} />,
-    permission: 'manage_hospital',
-  },
-  { 
-    name: 'Communication', 
-    href: '/communication/chat', 
-    icon: <MessageSquare size={20} />,
-    children: [
-      { name: 'Chat', href: '/communication/chat' },
-      { name: 'Video Conference', href: '/communication/video' },
-    ],
-  },
-  { 
-    name: 'Calculators', 
-    href: '/calculators', 
-    icon: <Calculator size={20} />,
-    children: [
-      { name: 'Electrolytes', href: '/calculators?tab=sodium' },
-      { name: 'GFR & Renal', href: '/calculators?tab=gfr' },
-      { name: 'Drug Dosing', href: '/calculators?tab=bnf' },
-      { name: 'Burns & TBSA', href: '/calculators?tab=burns' },
-      { name: 'Nutrition', href: '/calculators?tab=nutrition' },
-      { name: 'DVT Risk', href: '/calculators?tab=dvt' },
-    ],
-  },
-  { 
-    name: 'Patient Education', 
-    href: '/patient-education', 
-    icon: <BookOpen size={20} />,
-  },
-  { 
-    name: 'External Review', 
-    href: '/external-review', 
-    icon: <FileText size={20} />,
-    permission: 'manage_hospital', // Admin only
-  },
-  { 
-    name: 'Hospitals', 
-    href: '/hospitals', 
-    icon: <Building2 size={20} />,
-    permission: 'manage_hospital',
-  },
-  { 
-    name: 'Users', 
-    href: '/users', 
-    icon: <Users size={20} />,
-    permission: 'manage_hospital',
-  },
-  {
-    name: 'Duplicate Patients',
-    href: '/patients/duplicates',
-    icon: <GitMerge size={20} />,
-    roles: ['super_admin', 'hospital_admin'],
-  },
-  { 
-    name: 'Activity Analytics', 
-    href: '/user-activity', 
-    icon: <Activity size={20} />,
-    roles: ['super_admin'],
-  },
-  { 
-    name: 'Settings', 
-    href: '/settings', 
-    icon: <Settings size={20} />,
-  },
-  // Part B – ZIGMA BOND finance / treasury (admins only)
-  {
-    name: 'Finance (Part B)',
-    href: '/finance',
-    icon: <Wallet size={20} />,
-    roles: ['super_admin', 'hospital_admin'],
-    children: [
-      { name: 'Dashboard', href: '/finance' },
-      { name: 'Income', href: '/finance/income' },
-      { name: 'Buckets', href: '/finance/buckets' },
-      { name: 'Expenses', href: '/finance/expenses' },
-      { name: 'Projects', href: '/finance/projects' },
-      { name: 'Investments', href: '/finance/investments' },
-      { name: 'Settings', href: '/finance/settings' },
-    ],
-  },
-  // Part C – Family (native domain on Supabase family.* schema)
-  {
-    name: 'Family (Part C)',
-    href: '/family',
-    icon: <Heart size={20} />,
-    children: [
-      { name: 'Dashboard', href: '/family' },
-      { name: 'Children', href: '/family/children' },
-      { name: 'Tasks', href: '/family/tasks' },
-      { name: 'Approvals', href: '/family/approvals' },
-      { name: 'Radio', href: '/family/radio' },
-      { name: 'Routines', href: '/family/routines' },
-      { name: 'Compliance', href: '/family/compliance' },
-      { name: 'Readiness', href: '/family/readiness' },
-      { name: 'Wallets', href: '/family/wallets' },
-      { name: 'Events', href: '/family/events' },
-      { name: 'Prayer', href: '/family/prayer' },
-      { name: 'Growth', href: '/family/growth' },
-      { name: 'Health', href: '/family/health' },
-      { name: 'School', href: '/family/school' },
-      { name: 'Alerts', href: '/family/notifications' },
-    ],
-  },
-];
-
-// ---------------------------------------------------------------------------
-// Clinical module groups (CareBridge architecture). Items are assigned to a
-// group by their href below, so the item definitions above stay untouched.
-// Any item whose href is not mapped falls back to the "More" group, so nothing
-// can ever silently disappear from the menu.
-// ---------------------------------------------------------------------------
-interface NavSection {
-  id: string;
-  label?: string; // undefined = ungrouped (rendered without a header)
-}
-
-const NAV_SECTIONS: NavSection[] = [
-  { id: 'main' },
-  { id: 'outpatient', label: 'Outpatient Care' },
-  { id: 'inpatient', label: 'Inpatient Care' },
-  { id: 'theatre', label: 'Theatre' },
-  { id: 'wound-care', label: 'Wound Care' },
-  { id: 'clinical-tools', label: 'Clinical Tools' },
-  { id: 'reports', label: 'Reports & Research' },
-  { id: 'admin', label: 'Billing & Admin' },
-  { id: 'modules', label: 'Other Modules' },
-  { id: 'more', label: 'More' },
-];
-
-const SECTION_BY_HREF: Record<string, string> = {
-  '/': 'main',
-  '/patients': 'main',
-  // Surfaced top-level, matching the source application's flat navigation.
-  '/clinician-assistant': 'main',
-  // Outpatient Care
-  '/appointments': 'outpatient',
-  '/clinical': 'outpatient',
-  '/substance-use': 'outpatient',
-  '/sti-protocol': 'outpatient',
-  '/patient-education': 'outpatient',
-  // Inpatient Care
-  '/adt': 'inpatient',
-  '/ward-rounds': 'inpatient',
-  '/treatment-planning': 'inpatient',
-  '/medication-chart': 'inpatient',
-  '/investigations': 'inpatient',
-  '/pharmacy': 'inpatient',
-  '/nutrition': 'inpatient',
-  '/mdt': 'inpatient',
-  '/tumour-board': 'inpatient',
-  '/blood-transfusion': 'inpatient',
-  '/referrals': 'inpatient',
-  '/post-op-care': 'inpatient',
-  // Theatre
-  '/surgery/workflow': 'theatre',
-  '/pre-surgical-conference': 'theatre',
-  '/billing/surgical-estimate': 'theatre',
-  // Wound Care
-  '/wound-monitor': 'wound-care',
-  '/skin-graft': 'wound-care',
-  '/scar-monitor': 'wound-care',
-  '/vascular': 'wound-care',
-  '/burns': 'wound-care',
-  '/limb-salvage': 'wound-care',
-  '/npwt': 'wound-care',
-  '/keloid-care': 'wound-care',
-  '/lymphedema': 'wound-care',
-  // Clinical Tools
-  '/calculators': 'clinical-tools',
-  '/communication/chat': 'clinical-tools',
-  // Reports & Research
-  '/external-review': 'reports',
-  '/user-activity': 'reports',
-  // Billing & Admin
-  '/billing': 'admin',
-  '/billing/payroll': 'admin',
-  '/shopping-checklist': 'admin',
-  '/hospitals': 'admin',
-  '/users': 'admin',
-  '/patients/duplicates': 'admin',
-  '/settings': 'admin',
-  // Other Modules
-  '/finance': 'modules',
-  '/family': 'modules',
+const ICONS: Record<MenuIconKey, (size: number) => ReactNode> = {
+  home: s => <Home size={s} />, users: s => <Users size={s} />, userPlus: s => <UserPlus size={s} />,
+  calendar: s => <CalendarDays size={s} />, scissors: s => <Scissors size={s} />, testTube: s => <TestTube2 size={s} />,
+  book: s => <BookOpen size={s} />, calculator: s => <Calculator size={s} />, receipt: s => <Receipt size={s} />,
+  settings: s => <Settings size={s} />, more: s => <MoreHorizontal size={s} />, apps: s => <LayoutGrid size={s} />,
+  network: s => <Network size={s} />, brain: s => <Brain size={s} />, alert: s => <AlertTriangle size={s} />,
+  wound: s => <CircleDot size={s} />, flame: s => <Flame size={s} />, layers: s => <Layers size={s} />,
+  scan: s => <ScanLine size={s} />, shield: s => <Shield size={s} />, wind: s => <Wind size={s} />,
+  footprints: s => <Footprints size={s} />, heartPulse: s => <HeartPulse size={s} />, apple: s => <Apple size={s} />,
+  clipboard: s => <ClipboardList size={s} />, activity: s => <Activity size={s} />, bed: s => <BedDouble size={s} />,
+  cart: s => <ShoppingCart size={s} />, wallet: s => <Wallet size={s} />, heart: s => <Heart size={s} />,
+  gitMerge: s => <GitMerge size={s} />, building: s => <Building2 size={s} />, message: s => <MessageSquare size={s} />,
+  send: s => <Send size={s} />, droplets: s => <Droplets size={s} />, microscope: s => <Microscope size={s} />,
+  pill: s => <Pill size={s} />, fileText: s => <FileText size={s} />, presentation: s => <Presentation size={s} />,
+  flask: s => <FlaskConical size={s} />, stethoscope: s => <Stethoscope size={s} />,
 };
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, hasPermission } = useAuth();
+  const multiSite = useMultiSiteEnabled();
   const location = useLocation();
+  const [query, setQuery] = useState('');
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
-  const [collapsedSections, setCollapsedSections] = useState<string[]>([]);
+  // Groups the user opened/closed against their default.
+  const [toggledGroups, setToggledGroups] = useState<string[]>([]);
 
-  const toggleExpanded = (name: string) => {
-    setExpandedItems(prev =>
-      prev.includes(name)
-        ? prev.filter(item => item !== name)
-        : [...prev, name]
-    );
+  const menu = useMemo(
+    () => visibleMenu({ role: user?.role, hasPermission, multiSite }),
+    [user?.role, hasPermission, multiSite],
+  );
+  const searching = query.trim().length > 0;
+  const shown = useMemo(() => filterMenu(menu, query), [menu, query]);
+  const current = activeHref(location.pathname, allMenuHrefs(menu));
+
+  const toggle = (list: string[], id: string) =>
+    list.includes(id) ? list.filter(x => x !== id) : [...list, id];
+
+  const groupOpen = (g: MenuGroup) => {
+    if (searching) return true;
+    const containsActive = g.items.some(i => i.href === current || i.children?.some(c => c.href === current));
+    const base = g.defaultCollapsed ? containsActive : true;
+    return toggledGroups.includes(g.id) ? !base : base;
   };
 
-  const toggleSection = (id: string) => {
-    setCollapsedSections(prev =>
-      prev.includes(id)
-        ? prev.filter(section => section !== id)
-        : [...prev, id]
-    );
-  };
-
-  const renderNavItem = (item: NavItem) => {
-    const isActive = location.pathname === item.href ||
-      (item.href !== '/' && location.pathname.startsWith(item.href));
-    const isExpanded = expandedItems.includes(item.name);
+  const renderItem = (item: MenuItem) => {
+    const childActive = item.children?.some(c => c.href.split('?')[0] === current) ?? false;
+    const isActive = item.href === current || childActive;
 
     if (item.children) {
+      const isExpanded = searching || childActive !== expandedItems.includes(item.name);
       return (
         <div key={item.name}>
           <button
-            onClick={() => toggleExpanded(item.name)}
+            type="button"
+            onClick={() => setExpandedItems(prev => toggle(prev, item.name))}
+            aria-expanded={isExpanded}
             className={`w-full sidebar-link ${isActive ? 'sidebar-link-active' : ''}`}
           >
-            {item.icon}
+            {ICONS[item.icon](20)}
             <span className="flex-1 text-left">{item.name}</span>
-            <ChevronDown
-              size={16}
-              className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-            />
+            <ChevronDown size={16} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
           </button>
-          <AnimatePresence>
-            {isExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="ml-9 mt-1 space-y-1">
-                  {item.children.map((child) => (
-                    <NavLink
-                      key={child.name}
-                      to={child.href}
-                      onClick={onClose}
-                      className="block px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-900"
-                    >
-                      {child.name}
-                    </NavLink>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {isExpanded && (
+            <div className="ml-9 mt-1 space-y-1">
+              {item.children.map(child => (
+                <NavLink
+                  key={child.href + child.name}
+                  to={child.href}
+                  end
+                  onClick={onClose}
+                  className={`block px-4 py-2 text-sm rounded-lg hover:bg-gray-100 hover:text-gray-900 ${
+                    child.href === current ? 'text-sky-700 font-medium bg-sky-50' : 'text-gray-600'
+                  }`}
+                >
+                  {child.name}
+                </NavLink>
+              ))}
+            </div>
+          )}
         </div>
       );
     }
 
     return (
       <NavLink
-        key={item.name}
+        key={item.href}
         to={item.href}
+        end
         onClick={onClose}
         className={`sidebar-link ${isActive ? 'sidebar-link-active' : ''}`}
       >
-        {item.icon}
+        {ICONS[item.icon](20)}
         <span>{item.name}</span>
       </NavLink>
     );
   };
 
-  const filteredNavigation = navigation.filter(item => {
-    // Super admins have access to everything
-    if (user?.role === 'super_admin') return true;
-    // Check role-based access first
-    if (item.roles && item.roles.length > 0) {
-      if (!user?.role || !item.roles.includes(user.role)) {
-        return false;
-      }
+  const renderGroup = (g: MenuGroup) => {
+    if (!g.label) {
+      return <div key={g.id} className="space-y-1">{g.items.map(renderItem)}</div>;
     }
-    // Then check permission-based access
-    if (!item.permission) return true;
-    return hasPermission(item.permission);
-  });
+    const open = groupOpen(g);
+    const collapsible = g.defaultCollapsed || g.bottom;
+    return (
+      <div key={g.id} className="pt-3 first:pt-0">
+        <button
+          type="button"
+          onClick={() => setToggledGroups(prev => toggle(prev, g.id))}
+          aria-expanded={open}
+          className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider hover:text-gray-600 ${
+            collapsible ? 'text-gray-500' : 'text-gray-400'
+          }`}
+        >
+          {g.icon && ICONS[g.icon](14)}
+          <span className="flex-1 text-left">{g.label}</span>
+          <ChevronDown size={14} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+        </button>
+        {open && <div className="space-y-1 mt-1">{g.items.map(renderItem)}</div>}
+      </div>
+    );
+  };
+
+  const mainGroups = shown.filter(g => !g.bottom);
+  const bottomGroups = shown.filter(g => g.bottom);
 
   const sidebarContent = (
     <>
@@ -562,9 +153,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-blue-50">
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl blur-sm opacity-30" />
-          <img 
-            src="/icons/logo.png" 
-            alt="AstroHEALTH" 
+          <img
+            src="/icons/logo.png"
+            alt="AstroHEALTH"
             className="relative w-11 h-11 rounded-xl object-contain bg-white p-1 shadow-md ring-1 ring-indigo-100"
           />
         </div>
@@ -576,63 +167,42 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           onClick={onClose}
           className="ml-auto lg:hidden p-2 rounded-lg hover:bg-indigo-100 transition-colors"
           title="Close sidebar"
+          aria-label="Close menu"
         >
           <X size={20} className="text-indigo-600" />
         </button>
       </div>
 
+      {/* Menu filter */}
+      <div className="px-4 pt-3">
+        <label className="relative block">
+          <span className="sr-only">Filter menu</span>
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+          <input
+            type="search"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Find in menu…"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-300"
+          />
+        </label>
+      </div>
+
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto scrollbar-thin">
-        {NAV_SECTIONS.map((section) => {
-          const sectionItems = filteredNavigation.filter(
-            (item) => (SECTION_BY_HREF[item.href] ?? 'more') === section.id
-          );
-          if (sectionItems.length === 0) return null;
-
-          // Ungrouped (main) section: render items directly, no header.
-          if (!section.label) {
-            return (
-              <div key={section.id} className="space-y-1">
-                {sectionItems.map(renderNavItem)}
-              </div>
-            );
-          }
-
-          const isCollapsed = collapsedSections.includes(section.id);
-          return (
-            <div key={section.id} className="pt-3 first:pt-0">
-              <button
-                onClick={() => toggleSection(section.id)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400 hover:text-gray-600"
-              >
-                <span className="flex-1 text-left">{section.label}</span>
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
-                />
-              </button>
-              <AnimatePresence initial={false}>
-                {!isCollapsed && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="space-y-1 mt-1">{sectionItems.map(renderNavItem)}</div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          );
-        })}
+      <nav className="flex-1 px-4 py-3 space-y-1 overflow-y-auto scrollbar-thin" aria-label="Main menu">
+        {mainGroups.map(renderGroup)}
+        {bottomGroups.length > 0 && (
+          <div className="mt-3 pt-2 border-t border-gray-100">{bottomGroups.map(renderGroup)}</div>
+        )}
+        {shown.length === 0 && (
+          <p className="px-3 py-6 text-sm text-gray-500 text-center">Nothing in the menu matches “{query}”.</p>
+        )}
       </nav>
 
       {/* User Info */}
       {user && (
-        <div className="px-4 py-4 border-t border-gray-200">
-          <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl">
+        <div className="px-4 py-3 border-t border-gray-200">
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-gray-50 rounded-xl">
             <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-medium">
               {(user.firstName || '?')[0]}{(user.lastName || '?')[0]}
             </div>
@@ -641,7 +211,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {user.firstName || ''} {user.lastName || ''}
               </p>
               <p className="text-xs text-gray-500 truncate capitalize">
-                {(user.role || '').replace('_', ' ')}
+                {(user.role || '').replace(/_/g, ' ')}
               </p>
             </div>
           </div>

@@ -22,7 +22,10 @@ import {
   VolumeX,
   Calendar,
   Stethoscope,
+  Building2,
 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useMultiSiteEnabled, setMultiSiteEnabled } from '../../../services/practiceSettings';
 import PushNotificationSettings from '../../../components/settings/PushNotificationSettings';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -52,9 +55,19 @@ const settingsTabs = [
   { id: 'data', label: 'Data Management', icon: Database },
 ];
 
+/** Practice-wide options; administrators only. */
+const practiceTab = { id: 'practice', label: 'Practice', icon: Building2 };
+
 export default function SettingsPage() {
   const { user, logout, updateUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('profile');
+  const [searchParams] = useSearchParams();
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'hospital_admin';
+  const tabs = isAdmin ? [...settingsTabs, practiceTab] : settingsTabs;
+  const [activeTab, setActiveTab] = useState(() => {
+    const wanted = searchParams.get('tab');
+    return wanted && tabs.some(t => t.id === wanted) ? wanted : 'profile';
+  });
+  const multiSite = useMultiSiteEnabled();
   const [isSaving, setIsSaving] = useState(false);
   const offlineState = useOfflineState();
   const [storageUsage, setStorageUsage] = useState({ used: 0, quota: 0 });
@@ -932,6 +945,52 @@ export default function SettingsPage() {
           </motion.div>
         );
 
+      case 'practice':
+        return (
+          <motion.div
+            key="practice"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Multi-site / hospital features</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Shows the modules built for several hospitals in the menu: hospitals, activity analytics,
+                external review, payroll, MDT, tumour board, pre-surgical conference, blood bank, referrals,
+                pharmacy and communication. Off suits a single private practice. The pages still open by
+                link either way. This choice is saved on this device.
+              </p>
+              <label className={`flex items-center gap-3 p-3 rounded-lg border ${multiSite ? 'border-violet-300 bg-violet-50' : 'border-gray-200'}`}>
+                <input
+                  type="checkbox"
+                  className="w-5 h-5"
+                  checked={multiSite}
+                  disabled={user?.role !== 'super_admin'}
+                  onChange={(e) => {
+                    setMultiSiteEnabled(e.target.checked);
+                    toast.success(e.target.checked ? 'Hospital features shown in the menu' : 'Hospital features hidden from the menu');
+                  }}
+                />
+                <span className="text-sm font-medium text-gray-900">
+                  Show multi-site / hospital features
+                </span>
+              </label>
+              {user?.role !== 'super_admin' && (
+                <p className="text-xs text-gray-500 mt-2">Only the super administrator can change this.</p>
+              )}
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Practice admin</h3>
+              <p className="text-sm text-gray-600 mb-3">Hospital, user and activity counts.</p>
+              <Link to="/practice-admin" className="btn btn-secondary inline-flex items-center gap-2">
+                <Building2 size={16} /> Open practice admin
+              </Link>
+            </div>
+          </motion.div>
+        );
+
       default:
         return null;
     }
@@ -955,7 +1014,7 @@ export default function SettingsPage() {
         <div className="lg:w-64 flex-shrink-0">
           <nav className="card card-compact p-2 overflow-x-auto lg:overflow-visible">
             <div className="flex lg:flex-col gap-1 min-w-max lg:min-w-0">
-              {settingsTabs.map((tab) => (
+              {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
