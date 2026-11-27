@@ -39,6 +39,7 @@ import ScarMonitorPage from './domains/scar/pages/ScarMonitorPage';
 import VascularAssessmentPage from './domains/vascular/pages/VascularAssessmentPage';
 import TumourBoardPage from './domains/tumour-board/pages/TumourBoardPage';
 import ClinicianAssistantPage from './domains/clinician-assistant/pages/ClinicianAssistantPage';
+import DermRheumPage from './domains/derm-rheum/pages/DermRheumPage';
 import BurnsAssessmentPage from './domains/burns/pages/BurnsAssessmentPage';
 import LaboratoryPage from './domains/laboratory/pages/LaboratoryPage';
 import PharmacyPage from './domains/pharmacy/pages/PharmacyPage';
@@ -290,6 +291,7 @@ function App() {
         <Route path="mdt" element={<MDTPage />} />
         <Route path="tumour-board" element={<TumourBoardPage />} />
         <Route path="clinician-assistant" element={<ClinicianAssistantPage />} />
+        <Route path="derm-rheum" element={<DermRheumPage />} />
         {/* Legacy/US spelling — keep the module reachable from either link. */}
         <Route path="tumor-board" element={<TumourBoardPage />} />
         <Route path="blood-transfusion" element={<BloodTransfusionPage />} />

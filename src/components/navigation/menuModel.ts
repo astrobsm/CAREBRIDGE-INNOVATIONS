@@ -121,7 +121,13 @@ export const PRACTICE_MENU: MenuGroup[] = [
     label: 'Tools',
     items: [
       { name: 'Calculators', href: '/calculators', icon: 'calculator', keywords: 'electrolytes sodium gfr renal drug dosing burns tbsa nutrition dvt caprini' },
-      { name: 'Clinician assistant', href: '/clinician-assistant', icon: 'brain', permission: 'create_encounters', keywords: 'ai analysis' },
+      {
+        name: 'Clinician assistant', href: '/clinician-assistant', icon: 'brain', permission: 'create_encounters', keywords: 'ai analysis',
+        children: [
+          { name: 'Clinician assistant', href: '/clinician-assistant', keywords: 'ai analysis' },
+          { name: 'Derm & Rheum review', href: '/derm-rheum', permission: 'create_encounters', keywords: 'dermatology rheumatology skin ulcer pyoderma vasculitis lupus scleroderma melanoma rash sjs' },
+        ],
+      },
       { name: 'STI / NEC protocol', href: '/sti-protocol', icon: 'alert', permission: 'create_encounters', keywords: 'soft tissue infection necrotising fasciitis lrinec qsofa' },
       { name: 'Substance use', href: '/substance-use', icon: 'alert', permission: 'create_encounters', keywords: 'detox alcohol drugs' },
       {

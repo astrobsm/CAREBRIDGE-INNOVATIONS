@@ -48,6 +48,11 @@ export function consultationOptions(patientId: string, hasInitialClerking: boole
         hint: 'Clerking with the wound clinic protocol plan: baseline tests, micronutrients, monitoring.',
         href: `${base}?tab=visits&clerk=initial&condition=chronic_ulcer`,
       },
+      {
+        id: 'derm_rheum', label: 'Skin lesion / ulcer: derm & rheum review',
+        hint: 'Atypical ulcer screen, cited knowledge base and score tools; Claude only when you ask.',
+        href: `/derm-rheum?patient=${q(patientId)}`,
+      },
     ],
     procedureReview: [
       { id: 'pre_op', label: 'Pre-op', href: `${base}/procedure-review?phase=pre_op` },
