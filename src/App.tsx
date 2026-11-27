@@ -110,6 +110,10 @@ import PublicBookingPage from './domains/appointments/pages/public/PublicBooking
 // file (src/main.tsx starts the tool on its own); this route only serves an
 // in-app link to it, so it is lazy and stays out of the EMR bundle.
 const PublicWoundToolApp = lazy(() => import('./domains/wounds/public-tool/WoundToolApp'));
+// Public view-only review links. Like the wound tool, a direct visit to
+// /review/<token> starts the viewer on its own (src/main.tsx); this route only
+// covers an in-app navigation to a link.
+const PublicReviewViewerApp = lazy(() => import('./domains/review-share/viewer/ReviewViewerApp'));
 import ChildLoginPage from './domains/family/pages/child/ChildLoginPage';
 import ChildShell from './domains/family/pages/child/ChildShell';
 import ChildHome from './domains/family/pages/child/ChildHome';
@@ -201,6 +205,9 @@ function App() {
 
       {/* Public wound measurement tool - No Login Required, data stays on the device */}
       <Route path="/wound-tool/*" element={<Suspense fallback={null}><PublicWoundToolApp /></Suspense>} />
+
+      {/* Public view-only patient review link - No Login Required, anon RPC only */}
+      <Route path="/review/*" element={<Suspense fallback={null}><PublicReviewViewerApp /></Suspense>} />
 
       {/* Family child self-service portal - No AstroHEALTH login required */}
       <Route path="/family/me/login" element={<ChildLoginPage />} />

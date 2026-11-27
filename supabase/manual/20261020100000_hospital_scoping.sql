@@ -198,6 +198,11 @@ INSERT INTO app_private.hospital_scoping_classes (tablename, class, patient_col,
   ('post_op_observations',              'patient',       'patient_id', 'hospital_id', NULL,                NULL),
   ('surgical_outcomes',                 'patient',       'patient_id', 'hospital_id', NULL,                NULL),
   ('clerking_plans',                    'patient',       'patient_id', 'hospital_id', NULL,                NULL),
+  -- view-only review links (20261128130000): anon reaches them only through
+  -- app_open_review_share(); photos and the access log follow their link
+  ('patient_review_shares',             'patient',       'patient_id', 'hospital_id', NULL,                NULL),
+  ('patient_review_share_photos',       'parent',        NULL,         NULL,          'share_id',          'patient_review_shares'),
+  ('patient_review_share_access_log',   'parent',        NULL,         NULL,          'share_id',          'patient_review_shares'),
   ('external_reviews',                  'patient',       'patient_id', 'hospital_id', NULL,                NULL),
   ('referrals',                         'patient',       'patient_id', 'from_hospital_id', NULL,           NULL),
   ('patient_education_records',         'patient',       'patient_id', 'hospital_id', NULL,                NULL),

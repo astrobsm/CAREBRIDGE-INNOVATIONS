@@ -13,6 +13,7 @@ import {
   Stethoscope,
   ChevronLeft,
   ChevronRight,
+  Share2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
@@ -23,6 +24,7 @@ import { consultationChooserHref } from '../patientHubLinks';
 import { formatDate } from '../../../utils/formatDate';
 import { ageInYears } from '../../../utils/safeDate';
 import type { Patient } from '../../../types';
+import ReviewShareSheets, { type ReviewShareMode } from '../../review-share/components/ReviewShareSheets';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -36,6 +38,10 @@ export default function PatientsListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedGender, setSelectedGender] = useState<string>('all');
   const [showArchived, setShowArchived] = useState(false);
+  // "Share for review" opens a sheet over the list; it never opens the patient.
+  const [sharePatient, setSharePatient] = useState<Patient | null>(null);
+  const [shareMode, setShareMode] = useState<ReviewShareMode>(null);
+  const openShare = (patient: Patient) => { setSharePatient(patient); setShareMode('share'); };
 
   const patients = useLiveQuery(() => db.patients.orderBy('createdAt').reverse().toArray(), []);
 
@@ -250,6 +256,16 @@ export default function PatientsListPage() {
                         >
                           <Stethoscope size={18} />
                         </Link>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openShare(patient); }}
+                          className="btn-icon text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
+                          title="Share for review"
+                          aria-label={`Share ${displayName(patient)} for review`}
+                          data-testid="share-for-review"
+                        >
+                          <Share2 size={18} />
+                        </button>
                         <Link
                           to={`/patients/${patient.id}?edit=true`}
                           className="btn-icon text-gray-400 hover:text-amber-600 hover:bg-amber-50 hidden sm:flex"
@@ -388,6 +404,16 @@ export default function PatientsListPage() {
                     >
                       <Stethoscope size={20} />
                     </Link>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); openShare(patient); }}
+                      className="btn-icon text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
+                      aria-label={`Share ${displayName(patient)} for review`}
+                      title="Share for review"
+                      data-testid="share-for-review-card"
+                    >
+                      <Share2 size={20} />
+                    </button>
                     <Link
                       to={`/patients/${patient.id}?edit=true`}
                       className="btn-icon text-gray-400 hover:text-amber-600 hover:bg-amber-50"
@@ -448,6 +474,12 @@ export default function PatientsListPage() {
           </div>
         )}
       </div>
+
+      <ReviewShareSheets
+        mode={shareMode}
+        onModeChange={setShareMode}
+        patient={sharePatient ? { id: sharePatient.id, name: displayName(sharePatient), hospitalId: sharePatient.registeredHospitalId || sharePatient.hospitalId } : null}
+      />
     </div>
   );
 }
