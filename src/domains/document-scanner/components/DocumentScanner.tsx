@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { v4 as uuidv4 } from 'uuid';
 import jsPDF from 'jspdf';
 import toast from 'react-hot-toast';
@@ -31,6 +30,7 @@ import {
   DOCUMENT_TYPE_LABELS,
 } from '../utils/documentClassifier';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
+import { Sheet } from '../../../components/motion';
 
 interface Props {
   patientId?: string;
@@ -325,9 +325,11 @@ export default function DocumentScanner({
     [pages]
   );
 
-  return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
-      <div className="flex h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:h-[88vh] sm:rounded-2xl">
+  // Captured pages are unsaved work: Escape keeps them, and no backdrop close (as before).
+  return (
+    <Sheet onClose={onClose} label="Scan document" size="3xl" scroll="content" className="h-[92vh] max-h-[92vh] sm:h-[88vh] sm:max-h-[88vh]" zClassName="z-[70]" closeOnBackdrop={false} hasUnsavedInput={pages.length > 0 ? true : undefined}>
+      {close => (
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
           <ScanLine className="text-indigo-600" size={20} />
@@ -337,7 +339,7 @@ export default function DocumentScanner({
               {patientName ? `For ${patientName} · ` : ''}Add multiple pages, then scan all — auto-classified
             </p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-2 hover:bg-gray-100" title="Close">
+          <button onClick={close} className="rounded-lg p-2 hover:bg-gray-100" title="Close">
             <X size={18} />
           </button>
         </div>
@@ -542,7 +544,7 @@ export default function DocumentScanner({
         {/* Footer */}
         <div className="flex items-center gap-2 border-t border-gray-200 px-4 py-3">
           <button
-            onClick={onClose}
+            onClick={close}
             className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
           >
             Cancel
@@ -557,7 +559,7 @@ export default function DocumentScanner({
           </button>
         </div>
       </div>
-    </div>,
-    document.body
+      )}
+    </Sheet>
   );
 }

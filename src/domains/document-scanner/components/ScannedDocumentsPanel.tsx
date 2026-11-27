@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { createPortal } from 'react-dom';
+import { Sheet } from '../../../components/motion';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import {
@@ -128,10 +128,10 @@ export default function ScannedDocumentsPanel({
         ))}
       </div>
 
-      {preview &&
-        createPortal(
-          <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
-            <div className="flex h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:h-[88vh] sm:rounded-2xl">
+      {/* Read-only document preview: may be swiped away. */}
+      <Sheet open={!!preview} onClose={() => setPreview(null)} label="Scanned document" size="3xl" scroll="content" className="h-[92vh] max-h-[92vh] sm:h-[88vh] sm:max-h-[88vh]" zClassName="z-[70]" closeOnBackdrop={false} dragToDismiss>
+        {() => preview && (
+            <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
                 <FileText className="text-indigo-600" size={20} />
                 <div className="min-w-0 flex-1">
@@ -224,9 +224,8 @@ export default function ScannedDocumentsPanel({
                 )}
               </div>
             </div>
-          </div>,
-          document.body
         )}
+      </Sheet>
     </div>
   );
 }
