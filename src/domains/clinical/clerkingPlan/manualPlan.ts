@@ -117,6 +117,10 @@ const CODE_PATIENT: Record<string, string> = {
   b12: 'b12_folate', folate: 'b12_folate', vitd: 'vitamin_d', hiv: 'hiv', urinalysis: 'urinalysis', preop_urinalysis: 'urinalysis',
   bc_aerobic: 'blood_culture', bc_anaerobic: 'blood_culture', bc_x2: 'blood_culture', deep_tissue_culture: 'culture',
   abi: 'abpi', ven_doppler: 'duplex', duplex_ven: 'duplex', calcium: 'minerals', phosphate: 'minerals', magnesium: 'minerals',
+  hb_genotype: 'genotype', sickling_test: 'genotype', g6pd: 'g6pd',
+  histo_excision: 'biopsy', histo_incision: 'biopsy', histo_punch: 'biopsy', histo_shave: 'biopsy', histo_wound_edge: 'biopsy',
+  histo_lymph_node: 'biopsy', histo_margins: 'biopsy', fnac: 'cytology', frozen_section: 'frozen_section',
+  immunohistochemistry: 'tissue_stains', sentinel_node_biopsy: 'sentinel_node',
 };
 const plainTests = P.tests as Record<string, string>;
 

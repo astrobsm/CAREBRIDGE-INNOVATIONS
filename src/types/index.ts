@@ -5909,6 +5909,7 @@ export type InvestigationCategory =
   | 'advanced_imaging'
   | 'vascular'
   | 'cardiac_preop'
+  | 'histopathology'
   | 'consultation'
   | 'wound_classification';
 

@@ -222,3 +222,19 @@ describe('manual lines in the final plan: approval, both PDFs and booking', () =
     expect(final.filter(l => l.source.kind === 'clinician').map(l => l.text)).toEqual(['Elevate the leg', 'Stop smoking', 'Diet advice']);
   });
 });
+
+describe('manual plan builder: histopathology and genotype (owner request 2026-11-27)', () => {
+  it('lists skin biopsy histology and genotype, with plain patient wording', () => {
+    const tests = investigationCategories().flatMap(c => c.groups.flatMap(g => g.tests));
+    const pick = (code: string) => tests.find(t => t.key === `cat:${code}`)!;
+    const histo = investigationCategories().find(c => c.id === 'histopathology')!;
+    expect(histo.label).toBe('Histopathology & Cytology');
+    for (const code of ['histo_excision', 'histo_incision', 'histo_punch', 'histo_wound_edge', 'fnac', 'frozen_section', 'hb_genotype', 'sickling_test', 'g6pd']) {
+      const p = pick(code);
+      expect(p, code).toBeTruthy();
+      expect(p.patient, code).not.toMatch(/a test we have asked for|e\.g\./);
+    }
+    expect(pick('hb_genotype').patient).toMatch(/^Genotype test/);
+    expect(pick('histo_punch').patient).toMatch(/small piece of tissue/);
+  });
+});

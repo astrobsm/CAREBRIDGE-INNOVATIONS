@@ -87,6 +87,46 @@ export const INVESTIGATION_CATALOG: CatalogCategory[] = [
           { code: 'ferritin', name: 'Ferritin' },
         ],
       },
+      {
+        group: 'Haemoglobinopathy & Red Cell Disorders',
+        items: [
+          { code: 'hb_genotype', name: 'Haemoglobin Genotype (Hb Electrophoresis)' },
+          { code: 'sickling_test', name: 'Sickling Test (Screening)' },
+          { code: 'g6pd', name: 'G6PD Screen' },
+        ],
+      },
+    ],
+  },
+  {
+    category: 'histopathology',
+    title: 'Laboratory Request — Histopathology & Cytology',
+    groups: [
+      {
+        group: 'Skin & Soft Tissue Biopsy',
+        items: [
+          { code: 'histo_excision', name: 'Excision Biopsy — Histology', modifierKind: 'site' },
+          { code: 'histo_incision', name: 'Incision Biopsy — Histology', modifierKind: 'site' },
+          { code: 'histo_punch', name: 'Punch Biopsy — Histology', modifierKind: 'site' },
+          { code: 'histo_shave', name: 'Shave Biopsy — Histology', modifierKind: 'site' },
+          { code: 'histo_wound_edge', name: 'Wound-Edge Biopsy — Exclude Malignancy (e.g. Marjolin Ulcer)', modifierKind: 'site' },
+          { code: 'histo_margins', name: 'Excised Specimen — Histology with Margin Assessment', modifierKind: 'site' },
+        ],
+      },
+      {
+        group: 'Lymph Node & Cytology',
+        items: [
+          { code: 'histo_lymph_node', name: 'Lymph Node Biopsy — Histology', modifierKind: 'site' },
+          { code: 'sentinel_node_biopsy', name: 'Sentinel Lymph Node Biopsy', modifierKind: 'site' },
+          { code: 'fnac', name: 'Fine Needle Aspiration Cytology (FNAC)', modifierKind: 'site' },
+        ],
+      },
+      {
+        group: 'Special Studies',
+        items: [
+          { code: 'frozen_section', name: 'Frozen Section (Intra-operative)', modifierKind: 'site' },
+          { code: 'immunohistochemistry', name: 'Immunohistochemistry (IHC)' },
+        ],
+      },
     ],
   },
   {
@@ -492,6 +532,8 @@ export function categoryToInvestigationFields(cat: InvestigationCategory): {
       return { type: 'imaging', category: 'imaging' };
     case 'cardiac_preop':
       return { type: 'cardiac', category: 'cardiology' };
+    case 'histopathology':
+      return { type: 'histopathology', category: 'histopathology' };
     case 'consultation':
       return { type: 'consultation', category: 'other' };
     case 'wound_classification':
