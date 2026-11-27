@@ -20,7 +20,7 @@ export interface DermHardRule {
 
 export const HARD_RULE_TEXT = {
   pg_no_debride: 'Suspected pyoderma gangrenosum: do NOT debride, excise or graft the ulcer (pathergy makes it spread). Biopsy only the edge, after discussion, and treat the inflammation first.',
-  biopsy_chronic: 'Biopsy this ulcer (edge and base): it has not healed in about 3 months, or has atypical features, so malignancy must be excluded.',
+  biopsy_chronic: 'Biopsy this lesion or ulcer (edge and base): it has not healed in about 3 months, or has atypical features, so malignancy must be excluded.',
   sjs_emergency: KB_BY_ID.sjs_ten.warnings[0],
   vasculitis_urine: 'Check the urine for blood and protein, the blood pressure and the creatinine today: kidney involvement makes suspected vasculitis or lupus urgent.',
   acral_full_thickness: KB_BY_ID.acral_melanoma.warnings[0],
@@ -40,7 +40,8 @@ export function dermHardRules(f: LesionFeatures, cands: Candidate[]): DermHardRu
   if (pg >= 3 || f.underminedViolaceous || (f.pathergy && f.rapid)) {
     add('pg_no_debride', f.underminedViolaceous ? 'undermined violaceous edge' : f.pathergy ? 'pathergy with rapid progression' : 'pyoderma gangrenosum features', 'Maverakis E et al. JAMA Dermatol. 2018;154(4):461-466.');
   }
-  const atypicalInflammatory = f.underminedViolaceous || f.multiple || f.livedo || f.palpablePurpura || f.retiformPurpura || f.failedCare;
+  // Several digital ulcers (systemic sclerosis pattern) are not biopsied for that reason alone: they heal poorly after biopsy.
+  const atypicalInflammatory = f.underminedViolaceous || (f.multiple && !f.digitalUlcers) || f.livedo || f.palpablePurpura || f.retiformPurpura || f.failedCare;
   if (f.over3Months || f.rolledEdge || f.inScar || f.fungating || atypicalInflammatory) {
     const why = [f.over3Months && 'open over about 3 months', f.rolledEdge && 'rolled / everted edge', f.inScar && 'in a scar', f.fungating && 'friable / fungating', atypicalInflammatory && 'atypical features'].filter(Boolean).join(', ');
     add('biopsy_chronic', why, 'AstroHEALTH Wound Clinic Protocol (26 Nov 2026), targeted biopsy; NICE NG12.');
