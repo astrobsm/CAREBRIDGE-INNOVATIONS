@@ -15,7 +15,7 @@
  * flags any it failed to restate. Nothing in the draft is used until the
  * clinician accepts it line by line.
  */
-import { proxyChat, type ProxyChatArgs } from '../../../services/aiProxy';
+import { aiFailureReason, proxyChat, type ProxyChatArgs } from '../../../services/aiProxy';
 import { deidentifyText } from '../clerking/aiSuggestions';
 import { aiPayload, type PatientContext } from '../clerking/engine';
 import type { ClerkingData } from '../clerking/types';
@@ -217,7 +217,7 @@ export function aiErrorMessage(e: unknown, what: string): { message: string; not
   const notConfigured = /not configured|ANTHROPIC_API_KEY/i.test(msg);
   return {
     notConfigured,
-    message: notConfigured ? `Claude is not configured on the server (ANTHROPIC_API_KEY is not set). ${what}` : `Claude did not respond (${msg}). ${what}`,
+    message: `${aiFailureReason(e)} ${what}`,
   };
 }
 

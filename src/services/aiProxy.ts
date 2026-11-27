@@ -27,6 +27,22 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
   return `${fallback} (${res.status})`;
 }
 
+/**
+ * Why an AI request failed, in words a clinician can act on. Callers used to
+ * swallow the error and say only "did not respond", which hid a missing
+ * server key (HTTP 501) behind what looked like a network problem.
+ */
+export function aiFailureReason(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e ?? '');
+  if (/not configured|ANTHROPIC_API_KEY/i.test(msg)) return 'AI is switched off on the server: the Anthropic key (ANTHROPIC_API_KEY) is not set in Vercel.';
+  if (/sign in|\(401\)|unauthori[sz]ed/i.test(msg)) return 'Please sign in online again to use AI (this device is signed in offline or the session expired).';
+  if (/key was refused|\(502\)/i.test(msg)) return 'The server\'s Anthropic key was refused. Check ANTHROPIC_API_KEY in Vercel.';
+  if (/\(504\)|timed? ?out|took too long/i.test(msg)) return 'Claude took too long to answer. Please try again.';
+  if (/\(429\)|rate limit|overloaded|\(529\)/i.test(msg)) return 'Claude is busy right now. Please try again in a minute.';
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) return 'No internet connection reached the server. Check the connection and try again.';
+  return `The AI request failed (${msg || 'no reason given'}).`;
+}
+
 /** Send a text request to Claude through the server proxy. Returns the text content. */
 export async function proxyChat(args: ProxyChatArgs): Promise<string> {
   const res = await fetch('/api/ai-chat', {

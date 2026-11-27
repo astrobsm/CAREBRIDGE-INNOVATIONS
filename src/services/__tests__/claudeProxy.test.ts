@@ -197,3 +197,15 @@ describe('no other AI provider is left', () => {
     expect(JSON.parse(read('package.json')).dependencies['@anthropic-ai/sdk']).toBeTruthy();
   });
 });
+
+describe('aiFailureReason: the clinician sees why AI failed', () => {
+  it('names each common cause', async () => {
+    const { aiFailureReason } = await import('../aiProxy');
+    expect(aiFailureReason(new Error('AI is not configured on the server (ANTHROPIC_API_KEY is not set).'))).toMatch(/key .*not set in Vercel/);
+    expect(aiFailureReason(new Error('Sign in to use this feature.'))).toMatch(/sign in online again/);
+    expect(aiFailureReason(new Error('AI request failed (504)'))).toMatch(/took too long/);
+    expect(aiFailureReason(new Error('AI request failed (429)'))).toMatch(/busy/);
+    expect(aiFailureReason(new TypeError('Failed to fetch'))).toMatch(/No internet/);
+    expect(aiFailureReason(new Error('odd'))).toBe('The AI request failed (odd).');
+  });
+});
