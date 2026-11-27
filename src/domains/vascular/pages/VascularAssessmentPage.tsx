@@ -36,6 +36,7 @@ import {
 } from '../types';
 import WifiPanel from '../components/WifiPanel';
 import PerfusionWoundChart from '../components/PerfusionWoundChart';
+import { Sheet } from '../../../components/motion';
 
 export default function VascularAssessmentPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -713,8 +714,9 @@ const InterventionModal: React.FC<{
   const [saving, setSaving] = useState(false);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg p-5 space-y-3">
+    <Sheet onClose={onClose} label="Record intervention" size="lg" closeOnBackdrop={false}>
+      {close => (
+      <div className="p-5 space-y-3">
         <div className="flex items-center gap-2">
           <Stethoscope className="w-4 h-4 text-purple-600" />
           <h3 className="font-semibold text-gray-900">Record intervention</h3>
@@ -741,7 +743,7 @@ const InterventionModal: React.FC<{
           against what was done between the two visits.
         </p>
         <div className="flex gap-2 pt-1">
-          <button onClick={onClose} className="flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium">
+          <button onClick={close} className="flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium">
             Cancel
           </button>
           <button
@@ -762,6 +764,7 @@ const InterventionModal: React.FC<{
           </button>
         </div>
       </div>
-    </div>
+      )}
+    </Sheet>
   );
 };

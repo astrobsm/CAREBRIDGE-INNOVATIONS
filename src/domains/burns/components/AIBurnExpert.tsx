@@ -32,6 +32,7 @@ import toast from 'react-hot-toast';
 import * as tf from '@tensorflow/tfjs';
 import type { BurnDepthType } from '../types';
 import { LUND_BROWDER_CHART } from '../types';
+import { Sheet } from '../../../components/motion';
 
 // ==========================================
 // TYPES & INTERFACES
@@ -1035,12 +1036,9 @@ export default function AIBurnExpert({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
-      >
+    <Sheet onClose={onClose} label="Burn Expert AI" size="3xl" scroll="content" closeOnBackdrop={false}>
+      {close => (
+      <div className="flex flex-col min-h-0 flex-1">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1053,7 +1051,7 @@ export default function AIBurnExpert({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={close}
             className="p-2 hover:bg-white/20 rounded-lg transition-colors"
           >
             <X size={20} />
@@ -1093,7 +1091,8 @@ export default function AIBurnExpert({
           {step === 'analyze' && renderAnalyze()}
           {step === 'assess' && renderAssess()}
         </div>
-      </motion.div>
-    </div>
+      </div>
+      )}
+    </Sheet>
   );
 }

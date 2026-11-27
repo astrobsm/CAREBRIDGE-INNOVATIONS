@@ -18,6 +18,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'react-router-dom';
 import { db } from '../../../database';
+import { Sheet } from '../../../components/motion';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { Patient } from '../../../types';
 import { PatientSelector } from '../../../components/patient/PatientSelector';
@@ -896,15 +897,15 @@ const TreatmentModal: React.FC<{
 const Modal: React.FC<{
   title: string; onClose: () => void; children: React.ReactNode;
 }> = ({ title, onClose, children }) => (
-  <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-    <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+  <Sheet onClose={onClose} label={title} size="lg" closeOnBackdrop={false}>
+    {close => (<>
       <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white">
         <h3 className="font-semibold text-gray-900">{title}</h3>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500" aria-label="Close">
+        <button onClick={close} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500" aria-label="Close">
           <Activity className="w-4 h-4 rotate-45" />
         </button>
       </div>
       <div className="p-5">{children}</div>
-    </div>
-  </div>
+    </>)}
+  </Sheet>
 );
