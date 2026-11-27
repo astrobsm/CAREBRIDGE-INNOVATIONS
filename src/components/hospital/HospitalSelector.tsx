@@ -26,6 +26,7 @@ import { syncRecord } from '../../services/cloudSyncService';
 import type { Hospital } from '../../types';
 import { searchHospitals } from './hospitalSearch';
 import { quickAddHospital, hospitalPlace } from './quickAddHospital';
+import { Sheet } from '../motion';
 
 // ============================================================
 // TYPES
@@ -127,21 +128,13 @@ function QuickAddHospitalForm({
   const field = 'w-full px-3 py-2.5 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500';
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="quick-add-hospital-title"
-        className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90dvh] flex flex-col"
-        onKeyDown={onKeyDown}
-      >
+    <Sheet onClose={onCancel} labelledBy="quick-add-hospital-title" size="md" scroll="content" className="max-h-[90dvh]" zClassName="z-[70]">
+      {close => (
+      <div className="flex flex-col min-h-0 flex-1" onKeyDown={onKeyDown}>
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
           <Building2 size={18} className="text-emerald-600" />
           <span id="quick-add-hospital-title" className="font-semibold text-gray-900 flex-1">Quick Add Hospital</span>
-          <button type="button" onClick={onCancel} className="p-2 -mr-2 rounded-full hover:bg-gray-100" aria-label="Close">
+          <button type="button" onClick={close} className="p-2 -mr-2 rounded-full hover:bg-gray-100" aria-label="Close">
             <X size={18} />
           </button>
         </div>
@@ -185,7 +178,7 @@ function QuickAddHospitalForm({
 
         {/* Always visible, never scrolled out of reach. */}
         <div className="flex gap-2 px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-gray-100">
-          <button type="button" onClick={onCancel} className="flex-1 px-3 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button type="button" onClick={close} className="flex-1 px-3 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
             <ArrowLeft size={14} className="inline mr-1" />
             Cancel
           </button>
@@ -194,8 +187,9 @@ function QuickAddHospitalForm({
             Save Hospital
           </button>
         </div>
-      </motion.div>
-    </div>
+      </div>
+      )}
+    </Sheet>
   );
 }
 

@@ -18,6 +18,7 @@ import {
   calculatePayrollForPeriod,
   markPayrollAsPaid 
 } from '../../../services/activityBillingService';
+import { Sheet } from '../../../components/motion';
 
 export default function PayrollDashboardPage() {
   const { user } = useAuth();
@@ -411,13 +412,9 @@ export default function PayrollDashboardPage() {
       </motion.div>
 
       {/* New Period Modal */}
-      {showNewPeriodModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
-          >
+      <Sheet open={showNewPeriodModal} onClose={() => setShowNewPeriodModal(false)} label="Create New Payroll Period" size="md" closeOnBackdrop={false}>
+        {() => (
+          <div className="p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Create New Payroll Period</h2>
             <p className="text-gray-600 mb-6">
               This will create a payroll period for <strong>{format(new Date(), 'MMMM yyyy')}</strong> and calculate earnings for all staff based on their recorded activities.
@@ -437,9 +434,9 @@ export default function PayrollDashboardPage() {
                 {isProcessing ? 'Processing...' : 'Create & Calculate'}
               </button>
             </div>
-          </motion.div>
-        </div>
-      )}
+          </div>
+        )}
+      </Sheet>
     </div>
   );
 }

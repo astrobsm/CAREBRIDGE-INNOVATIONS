@@ -6,6 +6,7 @@ import { hashPin } from '../../../services/childAuth';
 import { useFamilyCtx } from '../context';
 import { subscribeFamilyChanges } from '../hooks/useFamilyRealtime';
 import type { Child } from '../types';
+import { Sheet } from '../../../components/motion';
 
 export default function FamilyChildren() {
   const { parent } = useFamilyCtx();
@@ -186,9 +187,9 @@ export default function FamilyChildren() {
         </ul>
       )}
 
-      {credChild && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={()=>setCredChild(null)}>
-          <form onClick={(e)=>e.stopPropagation()} onSubmit={saveCred} className="bg-white rounded-xl shadow-lg w-full max-w-sm p-5 space-y-3">
+      <Sheet open={!!credChild} onClose={()=>setCredChild(null)} label="Self-login" size="sm">
+        {() => credChild && (
+          <form onClick={(e)=>e.stopPropagation()} onSubmit={saveCred} className="p-5 space-y-3">
             <div>
               <h3 className="text-base font-semibold text-gray-900">Self-login for {credChild.first_name}</h3>
               <p className="text-xs text-gray-500">Share these credentials with your child. They sign in at <span className="font-mono">/family/me/login</span> on any device.</p>
@@ -224,8 +225,8 @@ export default function FamilyChildren() {
               </button>
             </div>
           </form>
-        </div>
-      )}
+        )}
+      </Sheet>
     </div>
   );
 }

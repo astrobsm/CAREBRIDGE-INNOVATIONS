@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
+import { Sheet } from '../../../components/motion';
 import toast from 'react-hot-toast';
 import {
   Sparkles,
@@ -53,9 +53,11 @@ export default function AIClinicalAssistant({ patientId, patientName, onClose }:
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
-      <div className="flex h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:h-[86vh] sm:rounded-2xl">
+  // Same tall panel as before; no backdrop close (as before).
+  return (
+    <Sheet onClose={onClose} label="AI Clinical Assistant" size="2xl" scroll="content" className="h-[92vh] max-h-[92vh] sm:h-[86vh] sm:max-h-[86vh]" closeOnBackdrop={false}>
+      {close => (
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
           <Sparkles className="text-violet-600" size={20} />
@@ -65,7 +67,7 @@ export default function AIClinicalAssistant({ patientId, patientName, onClose }:
               {patientName ? `${patientName} · ` : ''}Draft support — not a substitute for clinical judgement
             </p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-2 hover:bg-gray-100" title="Close">
+          <button onClick={close} className="rounded-lg p-2 hover:bg-gray-100" title="Close">
             <X size={18} />
           </button>
         </div>
@@ -164,7 +166,7 @@ export default function AIClinicalAssistant({ patientId, patientName, onClose }:
           )}
         </div>
       </div>
-    </div>,
-    document.body
+      )}
+    </Sheet>
   );
 }

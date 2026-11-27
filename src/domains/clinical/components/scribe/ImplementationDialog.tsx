@@ -30,6 +30,7 @@ import {
   getAttachment, logAction, prescribeForPlanItem, recordInvestigationResult, requestInvestigationForPlanItem,
   type LocationFix, type LogInput,
 } from '../../scribe/implementationService';
+import { Sheet } from '../../../../components/motion';
 
 interface Attachment { name: string; data: string }
 
@@ -198,8 +199,9 @@ export function ImplementationDialog({ planId, patientId, hospitalId, item, acti
   const drugGroups = getDrugCategories();
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
-      <div className="bg-white w-full sm:max-w-2xl max-h-[95vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl">
+    <Sheet onClose={onClose} label="Carry out plan item" size="2xl" className="max-h-[95vh]" closeOnBackdrop={false}>
+      {close => (<>
+      <div>
         <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-xs text-gray-500">{item.group} · <span className="capitalize">{item.kind}</span></p>
@@ -207,7 +209,7 @@ export function ImplementationDialog({ planId, patientId, hospitalId, item, acti
             {item.why && <p className="text-xs text-gray-500">{item.why}</p>}
             <p className="text-xs mt-1">Status: <strong>{state.label}</strong></p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100" aria-label="Close"><X className="w-5 h-5" /></button>
+          <button onClick={close} className="p-1.5 rounded-lg hover:bg-gray-100" aria-label="Close"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="p-4 space-y-4">
@@ -401,6 +403,8 @@ export function ImplementationDialog({ planId, patientId, hospitalId, item, acti
       {showScan && (
         <DocumentScanner patientId={patientId} hospitalId={hospitalId} onClose={() => setShowScan(false)} onSaved={doc => { void onScanned(doc); }} />
       )}
-    </div>
+      </>
+      )}
+    </Sheet>
   );
 }

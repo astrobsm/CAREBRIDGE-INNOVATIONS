@@ -89,6 +89,7 @@ import {
   type TreatmentRecommendation,
   type Goal,
 } from '../../../services/mdtService';
+import { Sheet } from '../../../components/motion';
 
 type TabType = 'meetings' | 'plans' | 'harmonize' | 'approvals';
 
@@ -2398,21 +2399,9 @@ export default function MDTPage() {
       </div>
 
       {/* Specialty Plan Modal */}
-      <AnimatePresence>
-        {showPlanModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowPlanModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
-            >
+      <Sheet open={showPlanModal} onClose={() => setShowPlanModal(false)} label="Submit Specialty Treatment Plan" size="3xl">
+        {() => (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <div className="flex items-center gap-3">
                   <h2 className="text-xl font-semibold">Submit Specialty Treatment Plan</h2>
@@ -2810,27 +2799,14 @@ export default function MDTPage() {
                   Submit Plan
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Meeting Modal */}
-      <AnimatePresence>
-        {showMeetingModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto"
-            onClick={(e) => e.target === e.currentTarget && setShowMeetingModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-4xl my-8 max-h-[90vh] overflow-hidden flex flex-col"
-            >
+      <Sheet open={showMeetingModal} onClose={() => setShowMeetingModal(false)} label="Schedule MDT Meeting" size="4xl" scroll="content">
+        {() => (
+            <div className="flex flex-col min-h-0 flex-1">
               <div className="flex items-center justify-between p-4 border-b">
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <Users className="text-primary-600" />
@@ -3351,27 +3327,14 @@ export default function MDTPage() {
                   Schedule Meeting
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Harmonize Confirmation Modal */}
-      <AnimatePresence>
-        {showHarmonizeModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowHarmonizeModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md"
-            >
+      <Sheet open={showHarmonizeModal} onClose={() => setShowHarmonizeModal(false)} label="Harmonize Treatment Plans" size="md">
+        {() => (
+            <div>
               <div className="p-6 text-center">
                 <RefreshCw className="mx-auto mb-4 text-primary-600" size={48} />
                 <h2 className="text-xl font-semibold mb-2">Harmonize Treatment Plans</h2>
@@ -3410,10 +3373,9 @@ export default function MDTPage() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

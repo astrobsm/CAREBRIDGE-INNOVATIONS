@@ -38,6 +38,7 @@ import { surgicalConsumables } from '../../../data/surgicalConsumables';
 import { numberToWords } from '../../../utils/pdfUtils';
 import type { Patient } from '../../../types';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
+import { Sheet } from '../../../components/motion';
 
 // Estimate Line Item Interface
 interface EstimateLineItem {
@@ -1327,22 +1328,9 @@ export default function SurgicalEstimatePage() {
       </div>
 
       {/* Consumable Modal */}
-      <AnimatePresence>
-        {showConsumableModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowConsumableModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden"
-            >
+      <Sheet open={showConsumableModal} onClose={() => setShowConsumableModal(false)} label="Add Surgical Consumables" size="2xl" className="max-h-[80vh]">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold">Add Surgical Consumables</h3>
                 <button onClick={() => setShowConsumableModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
@@ -1389,28 +1377,14 @@ export default function SurgicalEstimatePage() {
                   ))}
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Custom Item Modal */}
-      <AnimatePresence>
-        {showCustomItemModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowCustomItemModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md"
-            >
+      <Sheet open={showCustomItemModal} onClose={() => setShowCustomItemModal(false)} label="Add Custom Item" size="md">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold">Add Custom Item</h3>
                 <button onClick={() => setShowCustomItemModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
@@ -1465,28 +1439,14 @@ export default function SurgicalEstimatePage() {
                   Add Item
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Estimate Preview Modal */}
-      <AnimatePresence>
-        {showEstimatePreview && selectedPatient && selectedProcedure && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowEstimatePreview(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
-            >
+      <Sheet open={!!(showEstimatePreview && selectedPatient && selectedProcedure)} onClose={() => setShowEstimatePreview(false)} label="Estimate Preview" size="3xl">
+        {() => showEstimatePreview && selectedPatient && selectedProcedure && (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold">Estimate Preview</h3>
                 <div className="flex gap-2">
@@ -1590,10 +1550,9 @@ export default function SurgicalEstimatePage() {
                   </div>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

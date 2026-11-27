@@ -85,7 +85,8 @@ describe('the Quick Add panel in the selector', () => {
     expect(src).toMatch(/e\.key === 'Enter'[\s\S]{0,160}e\.preventDefault\(\);\s*e\.stopPropagation\(\)/);
   });
   it('opens as a fixed sheet outside the clipped dropdown, and syncs just the new row', () => {
-    expect(src).toMatch(/fixed inset-0 z-\[70\]/);
+    // The shared Sheet portals to <body>, so the dropdown's clipping cannot reach it; it keeps the z-70 layer.
+    expect(src).toMatch(/<Sheet [^>]*zClassName="z-\[70\]"/);
     expect(src).toMatch(/syncRecord\('hospitals'/);
     expect(src).not.toMatch(/fullSync\(/);
     // The sheet is rendered after the dropdown's AnimatePresence closes, not inside max-h-80.
