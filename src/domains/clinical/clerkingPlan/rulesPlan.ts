@@ -146,6 +146,12 @@ const TARGETED = WP.targeted;
 const ADULT = WP.adultMicronutrients.rows;
 const CHILD = WP.childMicronutrients.rows;
 const T = WP.thresholds;
+/** The protocol's targeted tests (row id) → the result-row test id and analytes. The manual plan builder offers the same tests. */
+export const TARGETED_TEST_ID: Record<string, string> = {
+  infected: 'culture', bone: 'xray', leg_foot_ulcer: 'abpi', venous: 'duplex', biopsy: 'biopsy', vasculitis: 'vasculitis',
+  burns_intake: 'minerals', b12_folate: 'b12_folate', copper: 'copper', thyroid: 'thyroid', child_growth: 'child_growth',
+};
+export const TARGETED_ANALYTES: Record<string, readonly string[]> = { b12_folate: ['b12', 'folate'], burns_intake: ['magnesium', 'phosphate', 'calcium'] };
 const highCrp = (f: PatientFacts) => f.labs.crp != null && f.labs.crp > T.highCrpAboveMgL;
 
 /** Iron deficiency per the protocol: ferritin below 30, or below 100 with high CRP. */
@@ -185,17 +191,18 @@ function protocolLines(f: PatientFacts, s: WoundSignals, templates: ConditionTem
     });
   }
   // Targeted tests by situation.
-  const targeted: Array<[boolean, string, string]> = [
-    [s.infected, 'infected', 'culture'], [s.boneInvolved || s.diabeticFootNonHealing, 'bone', 'xray'], [s.legOrFootUlcer, 'leg_foot_ulcer', 'abpi'],
-    [s.venousSuspected, 'venous', 'duplex'], [s.biopsyIndicated, 'biopsy', 'biopsy'], [s.vasculitisSuspected, 'vasculitis', 'vasculitis'],
-    [s.largeBurnOrPoorIntake, 'burns_intake', 'minerals'], [s.b12FolateSuspected, 'b12_folate', 'b12_folate'], [s.copperSuspected, 'copper', 'copper'],
-    [s.thyroidSuspected, 'thyroid', 'thyroid'], [s.childPoorGrowth, 'child_growth', 'child_growth'],
+  const targeted: Array<[boolean, string]> = [
+    [s.infected, 'infected'], [s.boneInvolved || s.diabeticFootNonHealing, 'bone'], [s.legOrFootUlcer, 'leg_foot_ulcer'],
+    [s.venousSuspected, 'venous'], [s.biopsyIndicated, 'biopsy'], [s.vasculitisSuspected, 'vasculitis'],
+    [s.largeBurnOrPoorIntake, 'burns_intake'], [s.b12FolateSuspected, 'b12_folate'], [s.copperSuspected, 'copper'],
+    [s.thyroidSuspected, 'thyroid'], [s.childPoorGrowth, 'child_growth'],
   ];
-  for (const [on, id, testId] of targeted) {
+  for (const [on, id] of targeted) {
     if (!on) continue;
+    const testId = TARGETED_TEST_ID[id];
     const r = row(TARGETED, id);
     add({ id: `inv:wpt_${id}`, section: 'investigations', text: r.investigation, why: r.situation, urgency: id === 'biopsy' || (id === 'infected' && s.febrile) ? 'soon' : 'routine',
-      test: { id: testId, analytes: id === 'b12_folate' ? ['b12', 'folate'] : id === 'burns_intake' ? ['magnesium', 'phosphate', 'calcium'] : undefined },
+      test: { id: testId, analytes: TARGETED_ANALYTES[id] ? [...TARGETED_ANALYTES[id]] : undefined },
       patient: (P.tests as Record<string, string>)[testId] });
     if (id === 'infected' && s.febrile) add({ id: 'inv:wpt_blood_culture', section: 'investigations', text: 'Blood culture', why: 'Clinically infected wound and febrile', test: { id: 'blood_culture' }, urgency: 'soon', patient: P.tests.blood_culture });
   }
