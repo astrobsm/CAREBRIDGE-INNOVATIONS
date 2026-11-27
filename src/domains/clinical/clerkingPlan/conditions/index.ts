@@ -16,8 +16,9 @@ import { HAND_TEMPLATES } from './hand';
 import { SKIN_TEMPLATES } from './skin';
 import { WOUND_TEMPLATES } from './wounds';
 import { OTHER_TEMPLATES } from './other';
+import { DERM_RHEUM_TEMPLATES } from './dermRheum';
 
-export const CONDITIONS: readonly ConditionTemplate[] = [...HAND_TEMPLATES, ...SKIN_TEMPLATES, ...WOUND_TEMPLATES, ...OTHER_TEMPLATES];
+export const CONDITIONS: readonly ConditionTemplate[] = [...HAND_TEMPLATES, ...SKIN_TEMPLATES, ...WOUND_TEMPLATES, ...OTHER_TEMPLATES, ...DERM_RHEUM_TEMPLATES];
 export const CONDITION_BY_ID: Record<string, ConditionTemplate> = Object.fromEntries(CONDITIONS.map(t => [t.id, t]));
 
 export const CONDITION_SYSTEM = 'Plastic surgery conditions';
@@ -33,7 +34,7 @@ export function conditionComplaints(): Complaint[] {
   return CONDITIONS.filter(t => t.complaintIds.length === 0).map(t => ({
     id: conditionComplaintId(t), label: t.label, system: CONDITION_SYSTEM,
     modules: [t.history.id],
-    exams: [t.exam.id, ...(t.group === 'Congenital hand' || t.group === 'Hand' ? ['local_hand'] : ['local_lump'])],
+    exams: [t.exam.id, ...(t.group === 'Congenital hand' || t.group === 'Hand' ? ['local_hand'] : t.group === 'Wounds' ? ['local_wound'] : ['local_lump'])],
     differentials: [], synonyms: t.synonyms,
   }));
 }
