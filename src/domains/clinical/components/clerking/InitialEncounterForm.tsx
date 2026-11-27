@@ -24,7 +24,7 @@ import {
   type PatientContext,
 } from '../../clerking/engine';
 import { useAuth } from '../../../../contexts/AuthContext';
-import { AsyncButton, useActionStatus } from '../../../../components/motion';
+import { AsyncButton, Sheet, useActionStatus } from '../../../../components/motion';
 import { requestAiSuggestions } from '../../clerking/aiSuggestions';
 import { messageOf } from '../../clerking/lifecycle';
 import { localDraft, saveClerking, submitClerking, type ClerkedEncounter } from '../../services/clerkingService';
@@ -217,8 +217,9 @@ export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel,
   const essentialsMissing = gaps.filter(g => g.essential).length;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-stretch sm:items-center justify-center sm:p-4" role="dialog" aria-modal="true" aria-label="Initial patient encounter">
-      <div className="bg-gray-50 w-full sm:max-w-5xl lg:max-w-7xl sm:rounded-2xl shadow-xl flex flex-col max-h-screen sm:max-h-[95vh]">
+    <Sheet onClose={onClose} label="Initial patient encounter" scroll="content" closeOnBackdrop={false} className="sm:max-w-5xl lg:max-w-7xl h-[100dvh] max-h-[100dvh] sm:h-auto sm:max-h-[95vh] !bg-gray-50 !rounded-none sm:!rounded-2xl">
+      {close => (
+      <div className="flex flex-col min-h-0 flex-1">
         <div className="bg-white border-b px-4 py-3 sm:rounded-t-2xl">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -226,7 +227,7 @@ export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel,
               <p className="text-xs text-gray-500 truncate">{patientLabel} · {ctx.ageYears ?? '?'} y · {ctx.sex || 'sex not recorded'}
                 {status && <> · <span className="font-medium">{status.replace('_', ' ')}</span></>}</p>
             </div>
-            <button type="button" onClick={onClose} className="px-3 py-1.5 text-sm rounded-lg border">Close</button>
+            <button type="button" onClick={close} className="px-3 py-1.5 text-sm rounded-lg border">Close</button>
           </div>
           {useRestored && restored?.savedAt && (
             <p className="mt-2 text-[11px] text-blue-700 bg-blue-50 rounded px-2 py-1">
@@ -352,7 +353,8 @@ export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel,
           )}
         </div>
       </div>
-    </div>
+      )}
+    </Sheet>
   );
 };
 

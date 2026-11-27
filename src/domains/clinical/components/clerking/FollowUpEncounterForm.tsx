@@ -12,7 +12,7 @@ import {
   aiPayload, emptyFollowUp, generateFollowUpNarrative, mergeSuggestions, redFlags, ruleSuggestions, type FollowUpData, type PatientContext,
 } from '../../clerking/engine';
 import { useAuth } from '../../../../contexts/AuthContext';
-import { AsyncButton, useActionStatus } from '../../../../components/motion';
+import { AsyncButton, Sheet, useActionStatus } from '../../../../components/motion';
 import { requestAiSuggestions } from '../../clerking/aiSuggestions';
 import { messageOf } from '../../clerking/lifecycle';
 import type { ClinicalPlanItem, ClinicalProblem } from '../../clerking/records';
@@ -190,15 +190,16 @@ export const FollowUpEncounterForm: React.FC<Props> = ({ patientId, patientLabel
   const riskFactorsFromInitial: string[] = initial?.clerking.summary?.risk_factors || [];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-stretch sm:items-center justify-center sm:p-4" role="dialog" aria-modal="true" aria-label="Follow-up encounter">
-      <div className="bg-gray-50 w-full sm:max-w-4xl sm:rounded-2xl shadow-xl flex flex-col max-h-screen sm:max-h-[95vh]">
+    <Sheet onClose={onClose} label="Follow-up encounter" size="4xl" scroll="content" closeOnBackdrop={false} className="h-[100dvh] max-h-[100dvh] sm:h-auto sm:max-h-[95vh] !bg-gray-50 !rounded-none sm:!rounded-2xl">
+      {close => (
+      <div className="flex flex-col min-h-0 flex-1">
         <div className="bg-white border-b px-4 py-3 sm:rounded-t-2xl flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-gray-900">Follow-up Encounter</h2>
             <p className="text-xs text-gray-500 truncate">{patientLabel}{status && <> · <span className="font-medium">{status.replace('_', ' ')}</span></>}
 </p>
           </div>
-          <button type="button" onClick={onClose} className="px-3 py-1.5 text-sm rounded-lg border">Close</button>
+          <button type="button" onClick={close} className="px-3 py-1.5 text-sm rounded-lg border">Close</button>
         </div>
 
         <fieldset disabled={readOnly} className="flex-1 overflow-y-auto px-3 sm:px-5 py-4 space-y-4 min-w-0">
@@ -293,7 +294,8 @@ export const FollowUpEncounterForm: React.FC<Props> = ({ patientId, patientLabel
           </div>
         )}
       </div>
-    </div>
+      )}
+    </Sheet>
   );
 };
 

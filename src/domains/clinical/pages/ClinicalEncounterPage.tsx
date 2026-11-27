@@ -67,6 +67,7 @@ import { performOCR } from '../../../services/ocrService';
 import { proxyChat } from '../../../services/aiProxy';
 import type { ClinicalEncounter, Diagnosis, EncounterType, PhysicalExamination, Investigation, Prescription, ClinicalPhoto } from '../../../types';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
+import { Sheet } from '../../../components/motion';
 
 const encounterSchema = z.object({
   type: z.enum(ENCOUNTER_TYPE_IDS),
@@ -1814,20 +1815,9 @@ export default function ClinicalEncounterPage() {
       </form>
 
       {/* Post-Submission Modal */}
-      <AnimatePresence>
-        {showPostSubmitModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
-            >
+      <Sheet open={showPostSubmitModal} onClose={() => setShowPostSubmitModal(false)} label="Encounter saved" size="md" closeOnBackdrop={false} dismissible={false}>
+        {() => (
+            <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                   <CheckCircle className="w-6 h-6 text-emerald-500" />
@@ -1948,10 +1938,9 @@ export default function ClinicalEncounterPage() {
                   Done - Back to Patient
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Investigation Export Modal */}
       {showInvestigationExport && patientInvestigations.length > 0 && (
@@ -2117,22 +2106,9 @@ export default function ClinicalEncounterPage() {
       )}
 
       {/* Previous Encounters Modal */}
-      <AnimatePresence>
-        {showPreviousEncountersModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowPreviousEncountersModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
-              onClick={e => e.stopPropagation()}
-            >
+      <Sheet open={showPreviousEncountersModal} onClose={() => setShowPreviousEncountersModal(false)} label="Previous encounters" size="4xl" dragToDismiss>
+        {() => (
+            <div onClick={e => e.stopPropagation()}>
               {/* Modal Header */}
               <div className="bg-gradient-to-r from-sky-500 to-indigo-600 text-white p-4 sm:p-6">
                 <div className="flex items-center justify-between">
@@ -2493,35 +2469,21 @@ export default function ClinicalEncounterPage() {
                   Close
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Tracked Investigations Modal */}
-      <AnimatePresence>
-        {showTrackedInvestigations && patientId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowTrackedInvestigations(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={!!(showTrackedInvestigations && patientId)} onClose={() => setShowTrackedInvestigations(false)} label="Tracked investigations" size="4xl" scroll="content">
+        {() => showTrackedInvestigations && patientId && (
+            <div className="flex flex-col min-h-0 flex-1" onClick={(e) => e.stopPropagation()}>
               <TrackedInvestigations 
                 patientId={patientId} 
                 onClose={() => setShowTrackedInvestigations(false)} 
               />
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

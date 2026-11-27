@@ -147,16 +147,12 @@ function EditPatientModal({ patient, onClose, onSave }: EditPatientModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 100 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 100 }}
-        className="bg-white w-full sm:max-w-2xl sm:rounded-xl rounded-t-2xl max-h-[90vh] overflow-y-auto"
-      >
+    <Sheet onClose={onClose} label="Edit patient details" size="2xl" closeOnBackdrop={false}>
+      {close => (
+      <div>
         <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between z-10">
           <h3 className="text-lg font-semibold">Edit Patient Details</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
+          <button onClick={close} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -439,7 +435,7 @@ function EditPatientModal({ patient, onClose, onSave }: EditPatientModalProps) {
           <div className="flex gap-3 pt-4 border-t">
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
               disabled={isSaving}
             >
@@ -464,8 +460,9 @@ function EditPatientModal({ patient, onClose, onSave }: EditPatientModalProps) {
             </button>
           </div>
         </form>
-      </motion.div>
-    </div>
+      </div>
+      )}
+    </Sheet>
   );
 }
 
