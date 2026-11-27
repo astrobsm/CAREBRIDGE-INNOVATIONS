@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { BurnAlert, AlertPriority } from '../types';
+import { Sheet } from '../../../components/motion';
 
 interface AlertsPanelProps {
   alerts: BurnAlert[];
@@ -378,9 +379,9 @@ export default function BurnAlertsPanel({
       )}
 
       {/* Escalation Modal */}
-      {showEscalateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <Sheet open={showEscalateModal} onClose={() => setShowEscalateModal(false)} label="Escalate Alert" size="md" closeOnBackdrop={false}>
+        {() => (
+          <div>
             <div className="border-b px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Phone className="h-5 w-5 text-orange-600" />
@@ -424,8 +425,8 @@ export default function BurnAlertsPanel({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Sheet>
     </div>
   );
 }

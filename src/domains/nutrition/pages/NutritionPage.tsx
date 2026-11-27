@@ -29,6 +29,7 @@ import { PatientSelector } from '../../../components/patient';
 import { nutritionPageFoods } from '../services/legacyFoodAdapters';
 import { FOOD_COMPOSITION_ACKNOWLEDGEMENT } from '../data/foodSourceAcknowledgement';
 import { mustTotal } from '../types';
+import { Sheet } from '../../../components/motion';
 
 // Foods for the meal planner: calculated from WAFCT 2019 and the seed recipes
 // (src/domains/nutrition/data/legacyFoodSpecs.ts, NUTRITION_PAGE_SPEC).
@@ -406,22 +407,9 @@ export default function NutritionPage() {
       </motion.div>
 
       {/* New Assessment Modal */}
-      <AnimatePresence>
-        {showModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
-            onClick={() => setShowModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showModal} onClose={() => setShowModal(false)} label="Nutrition Assessment (MUST Screening)" size="3xl">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">Nutrition Assessment (MUST Screening)</h2>
                 <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
@@ -633,28 +621,14 @@ export default function NutritionPage() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Meal Planner Modal */}
-      <AnimatePresence>
-        {showMealPlanModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
-            onClick={() => setShowMealPlanModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showMealPlanModal} onClose={() => setShowMealPlanModal(false)} label="7-Day Meal Planner (African Foods)" size="6xl">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <Utensils className="w-6 h-6 text-green-500" />
@@ -803,10 +777,9 @@ export default function NutritionPage() {
                   </div>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

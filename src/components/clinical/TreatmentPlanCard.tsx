@@ -29,6 +29,7 @@ import { format, differenceInDays } from 'date-fns';
 import { db } from '../../database';
 import type { TreatmentPlan, TreatmentOrder, TreatmentGoal, TreatmentProgress } from '../../types';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Sheet } from '../motion';
 
 interface TreatmentPlanCardProps {
   patientId: string;
@@ -659,22 +660,9 @@ export default function TreatmentPlanCard({
       </div>
 
       {/* New Plan Modal */}
-      <AnimatePresence>
-        {showNewPlanModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowNewPlanModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
-              onClick={e => e.stopPropagation()}
-            >
+      <Sheet open={showNewPlanModal} onClose={() => setShowNewPlanModal(false)} label="Create Treatment Plan" size="md">
+        {() => (
+            <div onClick={e => e.stopPropagation()}>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Create Treatment Plan</h3>
@@ -752,28 +740,14 @@ export default function TreatmentPlanCard({
                   </div>
                 </form>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Add Order Modal */}
-      <AnimatePresence>
-        {showAddOrderModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowAddOrderModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
-              onClick={e => e.stopPropagation()}
-            >
+      <Sheet open={showAddOrderModal} onClose={() => setShowAddOrderModal(false)} label="Add Treatment Order" size="md">
+        {() => (
+            <div onClick={e => e.stopPropagation()}>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Add Treatment Order</h3>
@@ -875,28 +849,14 @@ export default function TreatmentPlanCard({
                   </div>
                 </form>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Add Goal Modal */}
-      <AnimatePresence>
-        {showAddGoalModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowAddGoalModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl max-w-md w-full"
-              onClick={e => e.stopPropagation()}
-            >
+      <Sheet open={showAddGoalModal} onClose={() => setShowAddGoalModal(false)} label="Add Clinical Goal" size="md">
+        {() => (
+            <div onClick={e => e.stopPropagation()}>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Add Clinical Goal</h3>
@@ -948,28 +908,14 @@ export default function TreatmentPlanCard({
                   </div>
                 </form>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Record Progress Modal */}
-      <AnimatePresence>
-        {showProgressModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowProgressModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
-              onClick={e => e.stopPropagation()}
-            >
+      <Sheet open={showProgressModal} onClose={() => setShowProgressModal(false)} label="Record Progress" size="md">
+        {() => (
+            <div onClick={e => e.stopPropagation()}>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Record Progress</h3>
@@ -1089,10 +1035,9 @@ export default function TreatmentPlanCard({
                   </div>
                 </form>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

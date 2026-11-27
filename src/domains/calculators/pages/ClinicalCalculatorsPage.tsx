@@ -44,6 +44,7 @@ import WoundMealPlanCalculator from './calculators/WoundMealPlanCalculator';
 import WeightLossCalculator from './calculators/WeightLossCalculator';
 import WeightGainCalculator from './calculators/WeightGainCalculator';
 import SickleCellCalculator from './calculators/SickleCellCalculator';
+import { Sheet } from '../../../components/motion';
 
 type CalculatorTab = 
   | 'sodium' 
@@ -335,20 +336,9 @@ export default function ClinicalCalculatorsPage() {
       </nav>
 
       {/* Patient Information Form Modal */}
-      <AnimatePresence>
-        {showPatientForm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden"
-            >
+      <Sheet open={showPatientForm} onClose={() => setShowPatientForm(false)} label="Patient Information" size="2xl" scroll="content" className="max-h-[95vh] sm:max-h-[90vh]" closeOnBackdrop={false}>
+        {() => (
+            <div className="flex flex-col min-h-0 flex-1">
               <div className="flex-shrink-0 bg-gradient-to-r from-sky-600 to-indigo-600 text-white p-4 sm:p-6 rounded-t-2xl sm:rounded-t-xl flex items-center justify-between">
                 <div>
                   <h2 className="text-lg sm:text-2xl font-bold">Patient Information</h2>
@@ -559,10 +549,9 @@ export default function ClinicalCalculatorsPage() {
                   Cancel
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Calculator Content */}
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">

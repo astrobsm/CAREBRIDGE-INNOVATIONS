@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ocrService, { OCRResult, OCROptions } from '../../services/ocrService';
+import { Sheet } from '../motion';
 
 export interface ScanToTextProps {
   /** Callback when text is recognized */
@@ -333,21 +334,9 @@ export default function ScanToText({
       </button>
 
       {/* Modal */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && closeModal()}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
-            >
+      <Sheet open={isOpen} onClose={() => closeModal()} label="Scan to Text" size="2xl">
+        {() => (
+            <div>
               {/* Header */}
               <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -658,10 +647,9 @@ export default function ScanToText({
                   </div>
                 </div>
               )}
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </>
   );
 }

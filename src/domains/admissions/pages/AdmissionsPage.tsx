@@ -45,6 +45,7 @@ import {
   createAssignmentNotification, 
   initVoiceNotificationService,
 } from '../../../services/voiceNotificationService';
+import { Sheet } from '../../../components/motion';
 
 const admissionSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
@@ -589,22 +590,9 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
       )}
 
       {/* New Admission Modal */}
-      <AnimatePresence>
-        {showModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-            onClick={() => { setShowModal(false); setAdmissionStep('details'); }}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showModal} onClose={() => { setShowModal(false); setAdmissionStep('details'); }} label="New Patient Admission" size="4xl">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
                 <div>
                   <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -884,28 +872,14 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
                   )}
                 </div>
               )}
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Admission Detail Modal */}
-      <AnimatePresence>
-        {showDetailModal && selectedAdmission && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-            onClick={() => setShowDetailModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={!!(showDetailModal && selectedAdmission)} onClose={() => setShowDetailModal(false)} label="Admission details" size="2xl" dragToDismiss>
+        {() => showDetailModal && selectedAdmission && (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className={`px-6 py-4 ${
                 selectedAdmission.status === 'active' ? 'bg-emerald-500' : 'bg-gray-500'
               } text-white flex items-center justify-between rounded-t-2xl`}>
@@ -1094,10 +1068,9 @@ export default function AdmissionsPage({ embedded: _embedded = false }: Admissio
                   )}
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

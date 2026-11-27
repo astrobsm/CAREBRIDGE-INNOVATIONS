@@ -39,6 +39,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import type { TransfusionMonitoringChart, TransfusionMonitoringEntry } from '../../../types';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
+import { Sheet } from '../../../components/motion';
 
 interface TransfusionMonitoringChartViewProps {
   chart: TransfusionMonitoringChart;
@@ -291,12 +292,9 @@ export default function TransfusionMonitoringChartView({
   const totalVolume = chart.entries?.reduce((sum, e) => sum + (e.volumeInfused || 0), 0) || 0;
   
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col"
-      >
+    <Sheet onClose={onClose} label="Transfusion monitoring chart" size="6xl" scroll="content" className="max-h-[95vh]" closeOnBackdrop={false}>
+      {close => (<>
+      <div className="flex flex-col min-h-0 flex-1">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-red-50 to-orange-50">
           <div>
@@ -326,7 +324,7 @@ export default function TransfusionMonitoringChartView({
                 </>
               )}
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close chart">
+            <button onClick={close} className="p-2 hover:bg-gray-100 rounded-lg" title="Close chart">
               <X size={20} />
             </button>
           </div>
@@ -633,29 +631,17 @@ export default function TransfusionMonitoringChartView({
               <CheckCircle2 size={18} />
               Complete Transfusion
             </button>
-            <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+            <button onClick={close} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
               Close
             </button>
           </div>
         )}
-      </motion.div>
+      </div>
       
       {/* Add Entry Modal */}
-      <AnimatePresence>
-        {showAddModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-60 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowAddModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-lg"
-            >
+      <Sheet open={showAddModal} onClose={() => setShowAddModal(false)} label="Add Monitoring Record" size="lg" zClassName="z-[70]">
+        {() => (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Plus className="text-green-600" />
@@ -801,27 +787,14 @@ export default function TransfusionMonitoringChartView({
                   Add Record
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
       
       {/* Complete Transfusion Modal */}
-      <AnimatePresence>
-        {showCompleteModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-60 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowCompleteModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md"
-            >
+      <Sheet open={showCompleteModal} onClose={() => setShowCompleteModal(false)} label="Complete Transfusion" size="md" zClassName="z-[70]">
+        {() => (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <CheckCircle2 className="text-green-600" />
@@ -912,10 +885,11 @@ export default function TransfusionMonitoringChartView({
                   Complete
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
-    </div>
+      </Sheet>
+      </>
+      )}
+    </Sheet>
   );
 }

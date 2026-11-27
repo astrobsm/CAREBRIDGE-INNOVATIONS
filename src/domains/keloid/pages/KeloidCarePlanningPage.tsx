@@ -69,6 +69,7 @@ import {
   type TriamcinoloneSchedule,
   type PreTriamcinoloneTestStatus,
 } from '../types';
+import { Sheet } from '../../../components/motion';
 
 // ==================== FORM SCHEMA ====================
 
@@ -711,21 +712,9 @@ export default function KeloidCarePlanningPage() {
       ) : null}
 
       {/* Create Modal */}
-      <AnimatePresence>
-        {showCreateModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowCreateModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[95vh] overflow-hidden"
-            >
+      <Sheet open={showCreateModal} onClose={() => setShowCreateModal(false)} label="New Keloid Care Plan" size="5xl" className="max-h-[95vh]">
+        {() => (
+            <div>
               {/* Modal Header */}
               <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-primary-50 to-blue-50">
                 <div>
@@ -1672,10 +1661,9 @@ export default function KeloidCarePlanningPage() {
                   </div>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

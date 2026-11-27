@@ -174,8 +174,43 @@ const BATCH_1: Record<string, { sheets: number; rawAllowed?: number; why?: strin
   'src/components/common/ExportOptionsModal.tsx': { sheets: 1 },
 };
 
-describe('batch-1 dialogs stay on the shared Sheet', () => {
-  for (const [file, rule] of Object.entries(BATCH_1)) {
+/** Batch 2: treatment plans and clinical cards, specialty monitors, transfusion, wards, nutrition, lab, scanning, calculators. */
+const BATCH_2: Record<string, { sheets: number; rawAllowed?: number; why?: string }> = {
+  'src/components/clinical/EnhancedTreatmentPlanCard.tsx': { sheets: 5 },
+  'src/components/clinical/TreatmentPlanCard.tsx': { sheets: 4 },
+  'src/components/clinical/StaffAssignmentModal.tsx': { sheets: 1 },
+  'src/domains/burns/components/AIBurnExpert.tsx': { sheets: 1 },
+  'src/domains/burns/components/BurnAlertsPanel.tsx': { sheets: 1 },
+  'src/domains/burns/components/BurnWoundAssessment.tsx': { sheets: 1 },
+  'src/domains/burns/components/VitalsMonitor.tsx': { sheets: 2 },
+  'src/domains/burns/pages/BurnsAssessmentPage.tsx': { sheets: 2 },
+  'src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx': { sheets: 2 },
+  'src/domains/npwt/pages/NPWTPage.tsx': { sheets: 3 },
+  'src/domains/limb-salvage/components/LimbSalvageForm.tsx': { sheets: 1 },
+  'src/domains/limb-salvage/pages/LimbSalvagePage.tsx': { sheets: 1 },
+  'src/domains/keloid/pages/KeloidCarePlanningPage.tsx': { sheets: 1 },
+  'src/domains/scar/pages/ScarMonitorPage.tsx': { sheets: 1 },
+  'src/domains/skin-graft/pages/SkinGraftMonitorPage.tsx': { sheets: 1 },
+  'src/domains/vascular/pages/VascularAssessmentPage.tsx': { sheets: 1 },
+  'src/domains/clinical/pages/BloodTransfusionPage.tsx': { sheets: 8 },
+  'src/domains/clinical/components/TransfusionMonitoringChartView.tsx': { sheets: 3 },
+  'src/domains/admissions/pages/AdmissionsPage.tsx': { sheets: 2 },
+  'src/domains/adt/pages/ADTPage.tsx': { sheets: 1 },
+  'src/domains/ward-rounds/components/ClinicSchedulingTab.tsx': { sheets: 1 },
+  'src/domains/ward-rounds/pages/WardRoundReviewPage.tsx': { sheets: 1 },
+  'src/domains/ward-rounds/pages/WardRoundsPage.tsx': { sheets: 1 },
+  'src/domains/nutrition/pages/NutritionPage.tsx': { sheets: 2 },
+  'src/domains/nutrition/pages/NutritionPlannerPage.tsx': { sheets: 2 },
+  'src/domains/laboratory/pages/LaboratoryPage.tsx': { sheets: 3 },
+  'src/components/common/BulkImportModal.tsx': { sheets: 1 },
+  'src/components/common/ScanToText.tsx': { sheets: 1 },
+  'src/domains/document-scanner/components/DocumentScanner.tsx': { sheets: 1 },
+  'src/domains/document-scanner/components/ScannedDocumentsPanel.tsx': { sheets: 1 },
+  'src/domains/calculators/pages/ClinicalCalculatorsPage.tsx': { sheets: 1 },
+};
+
+describe('batch-1 and batch-2 dialogs stay on the shared Sheet', () => {
+  for (const [file, rule] of Object.entries({ ...BATCH_1, ...BATCH_2 })) {
     it(file.replace(/^src\//, ''), () => {
       const src = read(file);
       const raw = src.split('\n').filter(l => /fixed inset-0/.test(l)).length;
@@ -200,6 +235,28 @@ describe('batch-1 dialogs stay on the shared Sheet', () => {
       'src/domains/discharge/components/AMADischargeForm.tsx',
       'src/domains/discharge/components/DischargeFormModal.tsx',
       'src/domains/discharge/components/FollowUpTracker.tsx',
+      // batch 2
+      'src/components/clinical/EnhancedTreatmentPlanCard.tsx',
+      'src/components/clinical/TreatmentPlanCard.tsx',
+      'src/domains/burns/components/BurnWoundAssessment.tsx',
+      'src/domains/burns/components/VitalsMonitor.tsx',
+      'src/domains/burns/pages/BurnsAssessmentPage.tsx',
+      'src/domains/burns/pages/EnhancedBurnsAssessmentPage.tsx',
+      'src/domains/limb-salvage/components/LimbSalvageForm.tsx',
+      'src/domains/keloid/pages/KeloidCarePlanningPage.tsx',
+      'src/domains/scar/pages/ScarMonitorPage.tsx',
+      'src/domains/skin-graft/pages/SkinGraftMonitorPage.tsx',
+      'src/domains/vascular/pages/VascularAssessmentPage.tsx',
+      'src/domains/clinical/components/TransfusionMonitoringChartView.tsx',
+      'src/domains/adt/pages/ADTPage.tsx',
+      'src/domains/ward-rounds/components/ClinicSchedulingTab.tsx',
+      'src/domains/ward-rounds/pages/WardRoundReviewPage.tsx',
+      'src/domains/ward-rounds/pages/WardRoundsPage.tsx',
+      'src/domains/nutrition/pages/NutritionPage.tsx',
+      'src/domains/nutrition/pages/NutritionPlannerPage.tsx',
+      'src/domains/laboratory/pages/LaboratoryPage.tsx',
+      'src/domains/document-scanner/components/DocumentScanner.tsx',
+      'src/domains/calculators/pages/ClinicalCalculatorsPage.tsx',
     ];
     for (const f of forms) expect(read(f), f).not.toMatch(/dragToDismiss/);
   });

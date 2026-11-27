@@ -37,6 +37,7 @@ import { generateBurnsPDFFromEntity } from '../../../utils/clinicalPdfGenerators
 import { PatientSelector } from '../../../components/patient';
 import { usePatientMap } from '../../../services/patientHooks';
 import { AIBurnExpert } from '../components';
+import { Sheet } from '../../../components/motion';
 
 const burnSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
@@ -821,22 +822,9 @@ export default function BurnsAssessmentPage() {
       </motion.div>
 
       {/* New Assessment Modal */}
-      <AnimatePresence>
-        {showModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
-            onClick={() => setShowModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showModal} onClose={() => setShowModal(false)} label="New Burn Assessment" size="lg">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">New Burn Assessment</h2>
                 <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
@@ -927,28 +915,14 @@ export default function BurnsAssessmentPage() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Burn Detail Modal */}
-      <AnimatePresence>
-        {showDetailModal && selectedBurn && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
-            onClick={() => setShowDetailModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={!!(showDetailModal && selectedBurn)} onClose={() => setShowDetailModal(false)} label="Burn Assessment Details" size="5xl">
+        {() => showDetailModal && selectedBurn && (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-orange-50 to-amber-50">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -1157,10 +1131,9 @@ export default function BurnsAssessmentPage() {
                   </div>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

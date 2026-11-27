@@ -45,6 +45,7 @@ import {
   type MealType,
 } from '../../../services/nutritionPlannerService';
 import { FOOD_COMPOSITION_ACKNOWLEDGEMENT } from '../data/foodSourceAcknowledgement';
+import { Sheet } from '../../../components/motion';
 
 type TabType = 'assessment' | 'foods' | 'meal-plans' | 'calculator';
 
@@ -847,21 +848,9 @@ export default function NutritionPlannerPage() {
       </div>
 
       {/* Assessment Modal */}
-      <AnimatePresence>
-        {showAssessmentModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowAssessmentModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
-            >
+      <Sheet open={showAssessmentModal} onClose={() => setShowAssessmentModal(false)} label="New Nutrition Assessment" size="3xl">
+        {() => (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <Scale className="text-green-600" />
@@ -1116,27 +1105,14 @@ export default function NutritionPlannerPage() {
                   Save Assessment
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Meal Plan Modal */}
-      <AnimatePresence>
-        {showMealPlanModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowMealPlanModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md"
-            >
+      <Sheet open={showMealPlanModal} onClose={() => setShowMealPlanModal(false)} label="Create Meal Plan" size="md">
+        {() => (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <Utensils className="text-green-600" />
@@ -1205,10 +1181,9 @@ export default function NutritionPlannerPage() {
                   Create Plan
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

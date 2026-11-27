@@ -52,6 +52,7 @@ import type {
   CleaningAgentsUsed,
 } from '../types';
 import { WOUND_TYPES, WOUND_CLASSES } from '../types';
+import { Sheet } from '../../../components/motion';
 
 // Form validation schema
 const npwtFormSchema = z.object({
@@ -584,22 +585,9 @@ export default function NPWTPage() {
       </div>
 
       {/* New Session Modal */}
-      <AnimatePresence>
-        {showNewSession && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8"
-            onClick={() => setShowNewSession(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-              className="bg-white rounded-xl w-full max-w-4xl mx-4 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showNewSession} onClose={() => setShowNewSession(false)} label="New NPWT Session" size="4xl">
+        {() => (
+            <div className="mx-4" onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <Wind className="w-6 h-6 text-purple-600" />
@@ -1162,15 +1150,14 @@ export default function NPWTPage() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Patient Selector Modal */}
-      {showPatientSelector && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg shadow-xl p-6">
+      <Sheet open={showPatientSelector} onClose={() => setShowPatientSelector(false)} label="Select Patient" size="lg" closeOnBackdrop={false} dragToDismiss hasUnsavedInput={false}>
+        {() => (
+          <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900">Select Patient</h3>
               <button onClick={() => setShowPatientSelector(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
@@ -1188,36 +1175,22 @@ export default function NPWTPage() {
               showAddNew={true}
             />
           </div>
-        </div>
-      )}
+        )}
+      </Sheet>
 
       {/* Patient Education & Consent Modal */}
-      <AnimatePresence>
-        {showEducation && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center overflow-y-auto py-4"
-            onClick={() => setShowEducation(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-              className="bg-white rounded-xl w-full max-w-4xl mx-4 shadow-2xl my-4"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showEducation} onClose={() => setShowEducation(false)} label="NPWT patient education" size="4xl" dragToDismiss>
+        {() => (
+            <div className="mx-4" onClick={(e) => e.stopPropagation()}>
               <NPWTPatientEducation
                 patient={selectedPatient}
                 sessionDate={new Date()}
                 performedBy={user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : undefined}
                 onClose={() => setShowEducation(false)}
               />
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

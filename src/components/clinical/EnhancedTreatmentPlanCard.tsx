@@ -40,6 +40,7 @@ import type {
 import { useLiveQuery } from 'dexie-react-hooks';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import PrescriptionHistoryReviewGuard, { type RxAckSummary } from './PrescriptionHistoryReviewGuard';
+import { Sheet } from '../motion';
 
 interface EnhancedTreatmentPlanCardProps {
   patientId: string;
@@ -2067,22 +2068,9 @@ export default function EnhancedTreatmentPlanCard({
       {/* ============== MODALS ============== */}
 
       {/* New Plan Modal */}
-      <AnimatePresence>
-        {showNewPlanModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowNewPlanModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl max-w-md w-full"
-              onClick={e => e.stopPropagation()}
-            >
+      <Sheet open={showNewPlanModal} onClose={() => setShowNewPlanModal(false)} label="Create Treatment Plan" size="md">
+        {() => (
+            <div onClick={e => e.stopPropagation()}>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Create Treatment Plan</h3>
@@ -2155,28 +2143,14 @@ export default function EnhancedTreatmentPlanCard({
                   </div>
                 </form>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Medication Modal */}
-      <AnimatePresence>
-        {showMedicationModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => { setShowMedicationModal(false); setMedications([]); }}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-              onClick={e => e.stopPropagation()}
-            >
+      <Sheet open={showMedicationModal} onClose={() => { setShowMedicationModal(false); setMedications([]); }} label="Add Prescription" size="2xl">
+        {() => (
+            <div onClick={e => e.stopPropagation()}>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Add Prescription</h3>
@@ -2352,28 +2326,14 @@ export default function EnhancedTreatmentPlanCard({
                   </button>
                 </form>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Investigation Modal */}
-      <AnimatePresence>
-        {showInvestigationModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowInvestigationModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl max-w-md w-full"
-              onClick={e => e.stopPropagation()}
-            >
+      <Sheet open={showInvestigationModal} onClose={() => setShowInvestigationModal(false)} label="Request Investigation" size="md">
+        {() => (
+            <div onClick={e => e.stopPropagation()}>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Request Investigation</h3>
@@ -2488,28 +2448,14 @@ export default function EnhancedTreatmentPlanCard({
                   </div>
                 </form>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Procedure Modal */}
-      <AnimatePresence>
-        {showProcedureModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto"
-            onClick={() => { setShowProcedureModal(false); setSelectedProcedureType(null); setProcedureChecklist([]); }}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto my-4"
-              onClick={e => e.stopPropagation()}
-            >
+      <Sheet open={showProcedureModal} onClose={() => { setShowProcedureModal(false); setSelectedProcedureType(null); setProcedureChecklist([]); }} label="Schedule Procedure" size="2xl">
+        {() => (
+            <div onClick={e => e.stopPropagation()}>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Schedule Procedure</h3>
@@ -2724,28 +2670,14 @@ export default function EnhancedTreatmentPlanCard({
                   </div>
                 </form>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Implementation Log Modal */}
-      <AnimatePresence>
-        {showLogModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowLogModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl max-w-md w-full"
-              onClick={e => e.stopPropagation()}
-            >
+      <Sheet open={showLogModal} onClose={() => setShowLogModal(false)} label="Log Implementation" size="md">
+        {() => (
+            <div onClick={e => e.stopPropagation()}>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">Log Implementation</h3>
@@ -2799,10 +2731,9 @@ export default function EnhancedTreatmentPlanCard({
                   </div>
                 </form>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

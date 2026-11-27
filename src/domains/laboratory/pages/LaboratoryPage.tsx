@@ -38,6 +38,7 @@ import { ExportButtonWithModal } from '../../../components/common/ExportOptionsM
 import { OCRScanner } from '../../../components/common';
 import type { LabRequest, LabTest, LabCategory } from '../../../types';
 import { PatientSelector } from '../../../components/patient';
+import { Sheet } from '../../../components/motion';
 
 const labRequestSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
@@ -871,22 +872,9 @@ export default function LaboratoryPage() {
       </motion.div>
 
       {/* New Lab Request Modal */}
-      <AnimatePresence>
-        {showModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
-            onClick={() => setShowModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showModal} onClose={() => setShowModal(false)} label="New Lab Request" size="4xl">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">New Lab Request</h2>
                 <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
@@ -1059,28 +1047,14 @@ export default function LaboratoryPage() {
                   </div>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Sample Collection Modal */}
-      <AnimatePresence>
-        {showCollectionModal && selectedRequest && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
-            onClick={() => setShowCollectionModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={!!(showCollectionModal && selectedRequest)} onClose={() => setShowCollectionModal(false)} label="Sample Collection" size="lg">
+        {() => showCollectionModal && selectedRequest && (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-6 border-b bg-sky-50">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-sky-100 rounded-lg">
@@ -1152,28 +1126,14 @@ export default function LaboratoryPage() {
                   Confirm Collection
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Result Upload Modal */}
-      <AnimatePresence>
-        {showResultModal && selectedRequest && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
-            onClick={() => setShowResultModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[95vh] flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={!!(showResultModal && selectedRequest)} onClose={() => setShowResultModal(false)} label="Upload Test Results" size="3xl" scroll="content" className="max-h-[95vh]">
+        {() => showResultModal && selectedRequest && (
+            <div className="flex flex-col min-h-0 flex-1" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-6 border-b bg-purple-50 flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-purple-100 rounded-lg">
@@ -1336,10 +1296,9 @@ export default function LaboratoryPage() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

@@ -22,6 +22,7 @@ import { syncRecord } from '../../services/cloudSyncService';
 import { createAccount } from '../../services/adminUsersClient';
 import type { Hospital, User, UserRole } from '../../types';
 import { normaliseEmail } from '../../utils/loginIdentity';
+import { Sheet } from '../motion';
 
 interface BulkImportModalProps {
   isOpen: boolean;
@@ -361,24 +362,10 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
-        onClick={handleClose}
-      >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          onClick={(e) => e.stopPropagation()}
-          className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden"
-        >
+    <Sheet open={isOpen} onClose={handleClose} label="Bulk Import" size="2xl" scroll="content" className="max-h-[95vh] sm:max-h-[90vh]">
+      {close => (
+        <div className="flex flex-col min-h-0 flex-1" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="flex-shrink-0 bg-gradient-to-r from-blue-600 to-indigo-600 px-4 sm:px-6 py-4">
             <div className="flex items-center justify-between">
@@ -398,7 +385,7 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
                 </div>
               </div>
               <button
-                onClick={handleClose}
+                onClick={close}
                 className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
                 title="Close"
               >
@@ -566,7 +553,7 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
           {/* Footer */}
           <div className="flex-shrink-0 bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 border-t flex gap-3">
             <button
-              onClick={handleClose}
+              onClick={close}
               className="flex-1 sm:flex-none px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium"
             >
               {result ? 'Close' : 'Cancel'}
@@ -599,8 +586,8 @@ export default function BulkImportModal({ isOpen, onClose, type, onImportComplet
               </button>
             )}
           </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        </div>
+      )}
+    </Sheet>
   );
 }

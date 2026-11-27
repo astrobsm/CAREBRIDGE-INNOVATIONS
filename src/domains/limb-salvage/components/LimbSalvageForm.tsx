@@ -44,6 +44,7 @@ import type {
   LimbSalvageRecommendation,
   AmputationLevel,
 } from '../../../types';
+import { Sheet } from '../../../components/motion';
 
 interface LimbSalvageFormProps {
   onClose: () => void;
@@ -383,15 +384,16 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment, i
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+    <Sheet onClose={onClose} label="Limb Salvage Assessment" size="5xl" scroll="content" closeOnBackdrop={false}>
+      {close => (
+      <div className="flex flex-col min-h-0 flex-1">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-xl font-bold text-gray-900">
             {existingAssessment ? 'Edit' : 'New'} Limb Salvage Assessment
           </h2>
           <button
-            onClick={onClose}
+            onClick={close}
             className="p-2 hover:bg-gray-100 rounded-full"
             title="Close"
           >
@@ -567,6 +569,7 @@ export default function LimbSalvageForm({ onClose, onSave, existingAssessment, i
           </div>
         </div>
       </div>
-    </div>
+      )}
+    </Sheet>
   );
 }

@@ -19,6 +19,7 @@ import type {
   GraftingRecord,
   BurnDepthType 
 } from '../types';
+import { Sheet } from '../../../components/motion';
 
 interface BurnWoundAssessmentProps {
   assessments: BurnWoundAssessment[];
@@ -397,9 +398,9 @@ export default function BurnWoundAssessmentComponent({
       )}
 
       {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <Sheet open={showForm} onClose={() => setShowForm(false)} label="Burn wound assessment" size="2xl" closeOnBackdrop={false}>
+        {() => (
+          <div>
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">
                 {activeTab === 'assessments' ? 'Wound Assessment' : 
@@ -724,8 +725,8 @@ export default function BurnWoundAssessmentComponent({
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Sheet>
     </div>
   );
 }

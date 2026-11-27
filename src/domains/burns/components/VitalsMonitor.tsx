@@ -16,6 +16,7 @@ import {
 import { format } from 'date-fns';
 import type { BurnVitalSigns, UrineOutput, BurnAlert } from '../types';
 import { calculateMAP, calculateGCS, checkVitalsForAlerts } from '../services/burnScoringService';
+import { Sheet } from '../../../components/motion';
 
 interface VitalsMonitorProps {
   burnAssessmentId: string;
@@ -390,9 +391,9 @@ export default function VitalsMonitor({
       </div>
 
       {/* Vitals Form Modal */}
-      {showVitalsForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <Sheet open={showVitalsForm} onClose={() => setShowVitalsForm(false)} label="Record Vital Signs" size="2xl" closeOnBackdrop={false}>
+        {() => (
+          <div>
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Record Vital Signs</h3>
               <button onClick={() => setShowVitalsForm(false)} className="text-2xl hover:text-gray-600" title="Close vital signs form">×</button>
@@ -546,13 +547,13 @@ export default function VitalsMonitor({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Sheet>
 
       {/* UO Form Modal */}
-      {showUOForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <Sheet open={showUOForm} onClose={() => setShowUOForm(false)} label="Record Urine Output" size="md" closeOnBackdrop={false}>
+        {() => (
+          <div>
             <div className="border-b px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Record Urine Output</h3>
               <button onClick={() => setShowUOForm(false)} className="text-2xl hover:text-gray-600" title="Close urine output form">×</button>
@@ -597,8 +598,8 @@ export default function VitalsMonitor({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Sheet>
     </div>
   );
 }
