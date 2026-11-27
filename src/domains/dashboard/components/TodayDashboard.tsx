@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
+import { Skeleton, SkeletonRows } from '../../../components/motion';
 import type { Patient } from '../../../types';
 import { formatDate, formatDateTime } from '../../../utils/formatDate';
 import {
@@ -27,8 +28,10 @@ function greeting(now: Date): string {
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
-function Section({ title, icon, count, href, hrefLabel = 'View all', children, empty }: {
+function Section({ title, icon, count, href, hrefLabel = 'View all', children, empty, loading = false }: {
   title: string; icon: ReactNode; count?: number; href?: string; hrefLabel?: string; children?: ReactNode; empty: string;
+  /** Data still loading: shimmer rows instead of the "nothing here" line. */
+  loading?: boolean;
 }) {
   const hasItems = (count ?? 0) > 0;
   return (
@@ -41,7 +44,9 @@ function Section({ title, icon, count, href, hrefLabel = 'View all', children, e
         </h2>
         {href && <Link to={href} className="text-sm text-sky-600 hover:text-sky-700 whitespace-nowrap">{hrefLabel}</Link>}
       </div>
-      {hasItems ? <ul className="divide-y divide-gray-100">{children}</ul> : <p className="px-4 sm:px-6 py-4 text-sm text-gray-500">{empty}</p>}
+      {loading
+        ? <SkeletonRows count={3} />
+        : hasItems ? <ul className="divide-y divide-gray-100">{children}</ul> : <p className="px-4 sm:px-6 py-4 text-sm text-gray-500">{empty}</p>}
     </section>
   );
 }
@@ -114,15 +119,15 @@ export default function TodayDashboard() {
 
       {/* Quick actions */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <Link to="/patients/new" className="flex flex-col items-center justify-center gap-1.5 p-3 sm:p-4 bg-sky-600 text-white rounded-xl hover:bg-sky-700 text-center min-h-[72px]">
+        <Link to="/patients/new" className="pressable flex flex-col items-center justify-center gap-1.5 p-3 sm:p-4 bg-sky-600 text-white rounded-xl hover:bg-sky-700 text-center min-h-[72px]">
           <UserPlus size={22} aria-hidden="true" />
           <span className="text-xs sm:text-sm font-medium leading-tight">New patient</span>
         </Link>
-        <Link to="/appointments/new" className="flex flex-col items-center justify-center gap-1.5 p-3 sm:p-4 bg-emerald-50 text-emerald-800 rounded-xl hover:bg-emerald-100 text-center min-h-[72px]">
+        <Link to="/appointments/new" className="pressable flex flex-col items-center justify-center gap-1.5 p-3 sm:p-4 bg-emerald-50 text-emerald-800 rounded-xl hover:bg-emerald-100 text-center min-h-[72px]">
           <CalendarDays size={22} aria-hidden="true" />
           <span className="text-xs sm:text-sm font-medium leading-tight">Book appointment</span>
         </Link>
-        <Link to="/patients?focus=search" className="flex flex-col items-center justify-center gap-1.5 p-3 sm:p-4 bg-gray-100 text-gray-800 rounded-xl hover:bg-gray-200 text-center min-h-[72px]">
+        <Link to="/patients?focus=search" className="pressable flex flex-col items-center justify-center gap-1.5 p-3 sm:p-4 bg-gray-100 text-gray-800 rounded-xl hover:bg-gray-200 text-center min-h-[72px]">
           <Search size={22} aria-hidden="true" />
           <span className="text-xs sm:text-sm font-medium leading-tight">Find patient</span>
         </Link>
@@ -135,12 +140,12 @@ export default function TodayDashboard() {
             <>
               <span className={`p-2 rounded-lg ${s.color}`} aria-hidden="true">{s.icon}</span>
               <span className="min-w-0">
-                <span className="block text-xl font-bold text-gray-900 leading-none">{loading ? '…' : s.value}</span>
+                <span className="block text-xl font-bold text-gray-900 leading-none">{loading ? <><Skeleton className="h-5 w-8" /><span className="sr-only">…</span></> : s.value}</span>
                 <span className="block text-xs text-gray-500 mt-1 leading-tight">{s.name}</span>
               </span>
             </>
           );
-          const cls = 'flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300';
+          const cls = 'pressable flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300';
           return s.to.startsWith('#')
             ? <a key={s.name} href={s.to} className={cls}>{body}</a>
             : <Link key={s.name} to={s.to} className={cls}>{body}</Link>;
@@ -150,7 +155,7 @@ export default function TodayDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Section
           title="Today's appointments" icon={<CalendarDays size={18} className="text-emerald-600" />}
-          count={today.length} href="/appointments" empty="No appointments today."
+          count={today.length} href="/appointments" empty="No appointments today." loading={loading}
         >
           {today.slice(0, LIMIT * 2).map(a => {
             const p = byId.get(a.patientId);
@@ -170,7 +175,7 @@ export default function TodayDashboard() {
         <div id="overdue">
           <Section
             title="Overdue follow-ups" icon={<AlertTriangle size={18} className="text-amber-600" />}
-            count={overdue.length} href="/appointments" empty="No missed follow-ups in the last 30 days."
+            count={overdue.length} href="/appointments" empty="No missed follow-ups in the last 30 days." loading={loading}
           >
             {overdue.slice(0, LIMIT).map(o => {
               const a = o.appointment;
@@ -192,7 +197,7 @@ export default function TodayDashboard() {
 
         <Section
           title="Theatre: today and next 7 days" icon={<Scissors size={18} className="text-purple-600" />}
-          count={theatre.length} href="/surgery" hrefLabel="Surgery list" empty="Nothing booked for theatre this week."
+          count={theatre.length} href="/surgery" hrefLabel="Surgery list" empty="Nothing booked for theatre this week." loading={surgeries === undefined}
         >
           {theatre.slice(0, LIMIT).map(s => (
             <Row
@@ -209,7 +214,7 @@ export default function TodayDashboard() {
         <div id="pending-results">
           <Section
             title="Pending results" icon={<TestTube2 size={18} className="text-violet-600" />}
-            count={pending.length} href="/investigations" empty="No results outstanding."
+            count={pending.length} href="/investigations" empty="No results outstanding." loading={investigations === undefined || labRequests === undefined}
           >
             {pending.slice(0, LIMIT).map(r => (
               <Row
@@ -225,7 +230,7 @@ export default function TodayDashboard() {
 
         <Section
           title="New patients (7 days)" icon={<UserPlus size={18} className="text-sky-600" />}
-          count={fresh.length} href="/patients" empty="No new registrations this week."
+          count={fresh.length} href="/patients" empty="No new registrations this week." loading={patients === undefined}
         >
           {fresh.slice(0, LIMIT).map(p => (
             <Row

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
+import { SkeletonGroup, SkeletonRows } from '../../../components/motion';
 import { archivePatient, restorePatient, isArchivedPatient, listablePatients } from '../services/patientArchive';
 import { matchesPatientSearch } from '../patientSearch';
 import { consultationChooserHref } from '../patientHubLinks';
@@ -177,13 +178,15 @@ export default function PatientsListPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {paginatedPatients.length > 0 ? (
+              {patients === undefined ? (
+                <tr><td colSpan={6} className="p-0"><SkeletonGroup label="Loading patients"><SkeletonRows count={6} avatar /></SkeletonGroup></td></tr>
+              ) : paginatedPatients.length > 0 ? (
                 paginatedPatients.map((patient, index) => (
                   <motion.tr
                     key={patient.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2, delay: index * 0.05 }}
+                    transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.03 }}
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={(e) => {
                       if ((e.target as HTMLElement).closest('a,button,input')) return;
@@ -340,14 +343,16 @@ export default function PatientsListPage() {
 
       {/* Patients List - Mobile Cards */}
       <div className="sm:hidden space-y-3">
-        {paginatedPatients.length > 0 ? (
+        {patients === undefined ? (
+          <SkeletonGroup label="Loading patients" className="card card-compact"><SkeletonRows count={5} avatar /></SkeletonGroup>
+        ) : paginatedPatients.length > 0 ? (
           paginatedPatients.map((patient, index) => (
             <motion.div
               key={patient.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2, delay: index * 0.05 }}
-              className="card card-compact relative hover:border-sky-300 focus-within:ring-2 focus-within:ring-sky-300"
+              transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.03 }}
+              className="pressable card card-compact relative hover:border-sky-300 focus-within:ring-2 focus-within:ring-sky-300"
             >
               <div className="p-4">
                 <div className="flex items-start gap-3">

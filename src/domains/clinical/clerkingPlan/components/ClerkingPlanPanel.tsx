@@ -22,6 +22,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { db } from '../../../../database';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { LongTaskProgress, SkeletonText } from '../../../../components/motion';
 import type { ClerkingData } from '../../clerking/types';
 import type { PatientContext } from '../../clerking/engine';
 import { buildRulesPlan } from '../rulesPlan';
@@ -129,7 +130,8 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
   const record = useLiveQuery(() => (p.planId ? db.clerkingPlans.get(p.planId) : undefined), [p.planId]) as ClerkingPlanRecord | undefined;
   const [conditionIds, setConditionIds] = useState<string[]>([]);
   const [woundOverride, setWoundOverride] = useState<boolean | null>(null);
-  const [ai, setAi] = useState<{ state: 'idle' | 'loading' | 'error'; message?: string }>({ state: 'idle' });
+  // stage: which step of "Build Plan" is running (shown as progress text only).
+  const [ai, setAi] = useState<{ state: 'idle' | 'loading' | 'error'; message?: string; stage?: number }>({ state: 'idle' });
   const [adding, setAdding] = useState<{ section: PlanSection; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -171,12 +173,14 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
   const buildWithClaude = async () => {
     if (!data.complaints.length) { toast.error('Add the presenting condition first'); return; }
     if (!navigator.onLine) { setAi({ state: 'error', message: 'Offline — Claude needs a connection. The rules plan is complete without it.' }); return; }
-    setAi({ state: 'loading' });
+    setAi({ state: 'loading', stage: 0 });
     const r = await ensure();
     if (!r) { setAi({ state: 'idle' }); return; }
     const results = Object.fromEntries(r.results.filter(v => v.confirmed && !v.error).map(v => [v.analyte ?? v.testId, v.text ?? `${v.value} ${v.unit ?? ''}`.trim()]));
+    setAi({ state: 'loading', stage: 1 });
     const res = await requestClaudePlan({ data: p.data, ctx: p.ctx, rules, weightKg: Number(p.data.vitals?.weight) || null, results, identifiers: p.identifiers });
     if (res.status === 'error') { setAi({ state: 'error', message: res.message }); return; }
+    setAi({ state: 'loading', stage: 2 });
     await updatePlan(r.id, { aiDraft: { draft: res.value, lines: draftToLines(res.value), inputsHash: rules.inputsHash, at: new Date().toISOString(), by: user?.id, missingHardRules: res.missingHardRules } });
     setAi({ state: 'idle' });
     toast.success('Claude drafted a plan — check each line before accepting it');
@@ -264,6 +268,18 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
               </button>
               <span className="text-[11px] text-purple-900">Build Plan uses Claude, sent without name, hospital number or phone. Build manually: no AI, free, works offline.</span>
             </div>
+            {ai.state === 'loading' && (
+              <div className="pt-1 space-y-2" data-testid="build-progress">
+                <LongTaskProgress
+                  tone="purple"
+                  label="Claude is writing the plan…"
+                  stages={['Saving the clerking', 'Writing the plan', 'Adding the draft lines']}
+                  current={ai.stage ?? 0}
+                  hint={ai.stage === 1 ? 'Writing the plan… this usually takes 20–40 seconds. The rules plan below is already complete.' : undefined}
+                />
+                <SkeletonText lines={3} className="max-w-md" />
+              </div>
+            )}
             {ai.state === 'error' && <p className="text-[11px] text-amber-800">{ai.message}</p>}
             {record?.aiDraft && (
               <div className="space-y-1">
@@ -276,7 +292,7 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
           </div>
 
           {manualOpen && (
-            <Suspense fallback={<p className="text-xs text-gray-500">Loading the lists…</p>}>
+            <Suspense fallback={<div className="rounded-lg border border-indigo-200 p-3 space-y-2"><p className="text-xs text-gray-500">Loading the lists…</p><SkeletonText lines={4} /></div>}>
               <ManualPlanBuilder ctx={builderCtx} existing={planLines} onAdd={addManualLines} onClose={() => setManualOpen(false)} />
             </Suspense>
           )}
