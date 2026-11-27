@@ -51,6 +51,7 @@ import {
 } from '../patientTimeline';
 import { hubQuickActions, hubModuleLinks } from '../patientHubLinks';
 import StartConsultationSheet from '../components/StartConsultationSheet';
+import ReviewShareSheets, { type ReviewShareMode } from '../../review-share/components/ReviewShareSheets';
 import { Sheet, Skeleton, SkeletonGroup, SkeletonRows } from '../../../components/motion';
 
 // Blood groups and genotypes for select options
@@ -542,6 +543,7 @@ export default function PatientDetailsPage() {
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [showConsult, setShowConsult] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [shareMode, setShareMode] = useState<ReviewShareMode>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const tab: HubTab = isTab(tabParam) ? tabParam : 'timeline';
@@ -728,6 +730,12 @@ export default function PatientDetailsPage() {
         ))}
         <button type="button" onClick={() => setShowEditModal(true)} className="px-3 py-2.5 text-sm font-medium rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-800 text-left">
           Edit patient
+        </button>
+        <button type="button" onClick={() => setShareMode('share')} className="px-3 py-2.5 text-sm font-medium rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-left" data-testid="hub-share-for-review">
+          Share for review
+        </button>
+        <button type="button" onClick={() => setShareMode('manage')} className="px-3 py-2.5 text-sm font-medium rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-800 text-left" data-testid="hub-manage-links">
+          Manage shared links
         </button>
       </div>
       <div className="px-3 pb-3">
@@ -1102,6 +1110,8 @@ export default function PatientDetailsPage() {
               ))}
               <button type="button" onClick={() => { setShowMore(false); setShowEditModal(true); }} className="px-3 py-3 text-sm font-medium rounded-lg bg-gray-50 text-gray-800 text-left">Edit patient</button>
               <button type="button" onClick={() => { setShowMore(false); setShowAIAssistant(true); }} className="px-3 py-3 text-sm font-medium rounded-lg bg-gray-50 text-gray-800 text-left">AI assistant</button>
+              <button type="button" onClick={() => { setShowMore(false); setShareMode('share'); }} className="px-3 py-3 text-sm font-medium rounded-lg bg-indigo-50 text-indigo-900 text-left" data-testid="more-share-for-review">Share for review</button>
+              <button type="button" onClick={() => { setShowMore(false); setShareMode('manage'); }} className="px-3 py-3 text-sm font-medium rounded-lg bg-gray-50 text-gray-800 text-left" data-testid="more-manage-links">Manage shared links</button>
             </div>
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 px-4 mb-2">Open with this patient</p>
             <div className="px-3 pb-4 flex flex-wrap gap-2">
@@ -1110,6 +1120,12 @@ export default function PatientDetailsPage() {
               ))}
             </div>
       </Sheet>
+
+      <ReviewShareSheets
+        mode={shareMode}
+        onModeChange={setShareMode}
+        patient={{ id: patient.id, name: fullName || 'Unnamed patient', hospitalId: patient.registeredHospitalId || patient.hospitalId }}
+      />
 
       <StartConsultationSheet
         open={showConsult}

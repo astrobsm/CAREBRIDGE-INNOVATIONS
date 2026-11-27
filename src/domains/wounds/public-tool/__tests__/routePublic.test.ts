@@ -39,8 +39,10 @@ describe('start-up', () => {
 
   it('main.tsx decides before loading the EMR, and imports nothing of it statically', () => {
     const staticImports = [...main.matchAll(/^import\s.*?from\s+['"]([^'"]+)['"]/gm)].map(m => m[1]);
-    expect(staticImports).toEqual(['./domains/wounds/public-tool/route']);
-    expect(main).toMatch(/if \(isPublicWoundToolPath\(window\.location\.pathname\)\) \{\s*void import\('\.\/domains\/wounds\/public-tool\/boot'\);\s*\} else \{\s*void import\('\.\/bootEmr'\);/);
+    // The review viewer (/review/<token>) is switched the same way: two route modules, nothing else.
+    expect(staticImports).toEqual(['./domains/wounds/public-tool/route', './domains/review-share/route']);
+    expect(main).toMatch(/if \(isPublicWoundToolPath\(window\.location\.pathname\)\) \{\s*void import\('\.\/domains\/wounds\/public-tool\/boot'\);\s*\} else if/);
+    expect(main).toMatch(/\} else \{\s*void import\('\.\/bootEmr'\);\s*\}/);
   });
 
   it('the route module itself imports nothing', () => {

@@ -1,0 +1,12 @@
+/* The public review page: print layout. The confidential banner stays on
+   every printed page; navigation and buttons do not print. */
+@media print {
+  .rv-no-print { display: none !important; }
+  .rv-banner { position: static !important; background: #fff !important; color: #000 !important; border-bottom: 2px solid #000; box-shadow: none !important; }
+  .rv-section { break-inside: auto; border-color: #999 !important; }
+  .rv-item, .rv-photo { break-inside: avoid; }
+  body { background: #fff !important; }
+}
+
+/* Make casual saving a little harder (it cannot be prevented). */
+[data-testid="rv-summary"] img { -webkit-user-drag: none; user-select: none; -webkit-touch-callout: none; }
