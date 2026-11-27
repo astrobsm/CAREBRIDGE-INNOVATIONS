@@ -31,7 +31,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../database';
 import ScanToText from '../../../components/common/ScanToText';
 import { useAuth } from '../../../contexts/AuthContext';
-import { AsyncButton, useActionStatus } from '../../../components/motion';
+import { AsyncButton, Sheet, useActionStatus } from '../../../components/motion';
 import { PatientSelector } from '../../../components/patient';
 import { HospitalSelector } from '../../../components/hospital';
 import { createAppointment, getAvailableSlots } from '../../../services/appointmentService';
@@ -420,22 +420,10 @@ export default function AppointmentBookingForm({
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
-      onClick={(e) => {
-        // Only close if clicking directly on the backdrop, not on children
-        if (e.target === e.currentTarget) {
-          // Don't close on backdrop click - user must use Cancel or X button
-        }
-      }}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+    // Don't close on backdrop click - user must use Cancel or X button
+    <Sheet onClose={onClose} label="Book appointment" size="3xl" scroll="content" closeOnBackdrop={false} className="max-h-[95vh] sm:max-h-[90vh]">
+      {close => (
+      <div className="flex flex-col min-h-0 flex-1" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex-shrink-0 bg-gradient-to-r from-emerald-600 to-teal-600 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
@@ -449,7 +437,7 @@ export default function AppointmentBookingForm({
               </p>
             </div>
             <button
-              onClick={onClose}
+              onClick={close}
               className="text-white/80 hover:text-white p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
               title="Close"
               aria-label="Close booking form"
@@ -1059,7 +1047,7 @@ export default function AppointmentBookingForm({
                 e.preventDefault();
                 e.stopPropagation();
                 if (step === 1) {
-                  onClose();
+                  close();
                 } else {
                   prevStep();
                 }
@@ -1101,7 +1089,8 @@ export default function AppointmentBookingForm({
             </div>
           </div>
         </form>
-      </motion.div>
-    </div>
+      </div>
+      )}
+    </Sheet>
   );
 }

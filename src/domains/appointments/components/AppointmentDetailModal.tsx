@@ -23,7 +23,8 @@ import {
   Activity,
   Stethoscope,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { Sheet } from '../../../components/motion';
 import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -227,18 +228,13 @@ export default function AppointmentDetailModal({
   };
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
-        >
+    <Sheet onClose={onClose} label="Appointment details" size="2xl" scroll="content" closeOnBackdrop={false} dragToDismiss>
+      {close => (
+        <>
           {/* Header */}
           <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-4 relative">
             <button
-              onClick={onClose}
+              onClick={close}
               className="absolute top-4 right-4 text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10"
               title="Close modal"
             >
@@ -501,25 +497,20 @@ export default function AppointmentDetailModal({
           </div>
 
           {/* WhatsApp Modal */}
-          {showWhatsApp && patient && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-60 p-4">
+          <Sheet open={showWhatsApp && !!patient} onClose={() => setShowWhatsApp(false)} label="WhatsApp reminder" size="lg" scroll="content" closeOnBackdrop={false} zClassName="z-[70]">
+            {() => patient && (
               <WhatsAppReminder
                 appointment={appointment}
                 patient={patient}
                 hospital={hospital}
                 onClose={() => setShowWhatsApp(false)}
               />
-            </div>
-          )}
+            )}
+          </Sheet>
 
           {/* Cancel Confirmation Modal */}
-          {showCancelConfirm && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-60 p-4">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
-              >
+          <Sheet open={showCancelConfirm} onClose={() => setShowCancelConfirm(false)} label="Cancel appointment" size="md" closeOnBackdrop={false} zClassName="z-[70]">
+              <div className="p-6">
                 <h3 className="text-lg font-bold text-red-600 flex items-center gap-2">
                   <XCircle className="w-6 h-6" />
                   Cancel Appointment?
@@ -554,11 +545,10 @@ export default function AppointmentDetailModal({
                     Yes, Cancel
                   </button>
                 </div>
-              </motion.div>
-            </div>
-          )}
-        </motion.div>
-      </div>
-    </AnimatePresence>
+              </div>
+          </Sheet>
+        </>
+      )}
+    </Sheet>
   );
 }
