@@ -88,11 +88,8 @@ function setupNetworkHandlers() {
           console.log('[App] Service Worker activated:', event.data.version);
           break;
         case 'SYNC_COMPLETED':
-          if (synced && synced > 0) {
-            toast.success(`Synced ${synced} change${synced > 1 ? 's' : ''}`, {
-              duration: 2000
-            });
-          }
+          // Success is silent (owner request 2026-11-27); only failures interrupt.
+          if (synced && synced > 0) console.log(`[App] Background sync: ${synced} change(s) synced`);
           if (failed && failed > 0) {
             toast.error(`Failed to sync ${failed} change${failed > 1 ? 's' : ''}`, {
               duration: 3000

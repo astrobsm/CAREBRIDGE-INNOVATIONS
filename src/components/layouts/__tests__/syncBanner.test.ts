@@ -17,8 +17,8 @@ describe('syncBannerFor', () => {
     expect(syncBannerFor(done, done, online)).toBeNull();
   });
 
-  it('reports success only after a sync finished without error', () => {
-    expect(syncBannerFor(syncing, done, online)).toMatchObject({ kind: 'success' });
+  it('a successful sync is silent (owner request 2026-11-27)', () => {
+    expect(syncBannerFor(syncing, done, online)).toBeNull();
   });
 
   it('does not report success when the sync ended without a new completion time', () => {
