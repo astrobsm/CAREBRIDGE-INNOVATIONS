@@ -86,6 +86,11 @@ export const planEn = {
     filaria: 'A blood test for filaria (a worm infection that can block lymph drainage).',
     fbc_preop: 'Full blood count: checks the blood count before the operation.',
     genotype_preop: 'Genotype test: sickle cell status matters for a safe anaesthetic and operation.',
+    g6pd: 'G6PD blood test: shows whether some medicines could break down your red blood cells.',
+    cytology: 'A small needle sample of the lump, looked at under the microscope.',
+    frozen_section: 'A quick tissue check during the operation, so the surgeon knows the edges are clear.',
+    tissue_stains: 'Extra laboratory tests on the tissue sample to find out exactly what it is.',
+    sentinel_node: 'A test of the nearest lymph gland, to see whether the growth has spread.',
     syndrome_screen: 'A check of the heart, kidneys, spine or other parts of the body, as some children have other differences.',
   },
 
