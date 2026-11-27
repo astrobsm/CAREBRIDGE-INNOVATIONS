@@ -44,9 +44,11 @@ export interface StructuredEncountersPanelProps {
   hospitalId?: string;
   /** Open straight into a form (e.g. from the encounter page). */
   autoOpen?: 'initial' | 'follow_up';
+  /** With autoOpen 'initial': start the clerking with this complaint (wound clinic visit). */
+  initialComplaintId?: string;
 }
 
-export const StructuredEncountersPanel: React.FC<StructuredEncountersPanelProps> = ({ patientId, patientLabel, ctx, identifiers, hospitalId, autoOpen }) => {
+export const StructuredEncountersPanel: React.FC<StructuredEncountersPanelProps> = ({ patientId, patientLabel, ctx, identifiers, hospitalId, autoOpen, initialComplaintId }) => {
   const { user } = useAuth();
   const state = usePatientClerking(patientId);
   const [form, setForm] = useState<{ type: 'initial' | 'follow_up'; existing?: ClerkedEncounter | null } | null>(autoOpen ? { type: autoOpen } : null);
@@ -165,7 +167,7 @@ export const StructuredEncountersPanel: React.FC<StructuredEncountersPanelProps>
         )}
       </div>
 
-      {form?.type === 'initial' && <InitialEncounterForm {...common} existing={form.existing} />}
+      {form?.type === 'initial' && <InitialEncounterForm {...common} existing={form.existing} initialComplaintId={form.existing ? undefined : initialComplaintId} />}
       {form?.type === 'follow_up' && (
         <FollowUpEncounterForm {...common} problems={problems} planItems={planItems} initial={initial} existing={form.existing} />
       )}

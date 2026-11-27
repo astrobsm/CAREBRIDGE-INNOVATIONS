@@ -15,7 +15,8 @@ import { COMORBIDITIES, FAMILY_QUESTIONS, GYN_QUESTIONS, PSH_QUESTIONS, ROS, SOC
 import { EXAM_SECTIONS, VITALS, VITALS_CONTEXT } from './examination';
 import { DIFFERENTIALS } from './differentials';
 
-export interface PatientContext { ageYears?: number | null; sex?: string | null }
+/** ageMonths, when known, is the exact age (an 8-month-old has ageYears 0). */
+export interface PatientContext { ageYears?: number | null; ageMonths?: number | null; sex?: string | null }
 
 type Answer = string | string[] | number | undefined | null;
 
@@ -25,11 +26,19 @@ const isAnswered = (v: Answer) =>
 const asList = (v: Answer): string[] =>
   !isAnswered(v) ? [] : Array.isArray(v) ? v.map(String) : [String(v)];
 
-/** Questions to show for a complaint: general analysis + its modules (deduplicated). */
-export function questionsForComplaint(entry: Pick<ComplaintEntry, 'complaintId'>): Array<{ title: string; questions: Question[] }> {
+/**
+ * Questions to show for a complaint: general analysis + its modules
+ * (deduplicated), then any Claude-drafted modules on a free-text complaint,
+ * titled as AI-drafted so they are never mistaken for a template.
+ */
+export function questionsForComplaint(entry: Pick<ComplaintEntry, 'complaintId' | 'aiFields'>): Array<{ title: string; questions: Question[]; aiDrafted?: boolean }> {
   const complaint = COMPLAINT_BY_ID[entry.complaintId];
   const ids = ['general', ...(complaint?.modules || [])];
-  return [...new Set(ids)].map(id => MODULES[id]).filter(Boolean).map(m => ({ title: m.title, questions: m.questions }));
+  const fixed = [...new Set(ids)].map(id => MODULES[id]).filter(Boolean).map(m => ({ title: m.title, questions: m.questions }));
+  const ai = (entry.aiFields?.modules || []).map(m => ({
+    title: `${m.title} — AI-drafted fields${entry.aiFields!.status === 'approved' ? ' (approved)' : ''}`, questions: m.questions, aiDrafted: true,
+  }));
+  return [...fixed, ...ai];
 }
 
 /** Examination sections relevant to the chosen complaints (general first). */

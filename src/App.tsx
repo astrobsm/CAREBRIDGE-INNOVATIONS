@@ -18,6 +18,7 @@ import FollowUpEncounterPage from './domains/clinical/pages/FollowUpEncounterPag
 import EnhancedFollowUpPage from './domains/clinical/pages/EnhancedFollowUpPage';
 import PatientClinicalSummaryPage from './domains/clinical/pages/PatientClinicalSummaryPage';
 import ProcedureReviewPage from './domains/clinical/pages/ProcedureReviewPage';
+import ClerkingPlanPage from './domains/clinical/clerkingPlan/components/ClerkingPlanPage';
 import VitalsPage from './domains/clinical/pages/VitalsPage';
 import MDTPage from './domains/clinical/pages/MDTPage';
 import BloodTransfusionPage from './domains/clinical/pages/BloodTransfusionPage';
@@ -227,6 +228,7 @@ function App() {
           <Route path=":patientId/follow-up" element={<EnhancedFollowUpPage />} />
           <Route path=":patientId/clinical-summary" element={<PatientClinicalSummaryPage />} />
           <Route path=":patientId/procedure-review" element={<ProcedureReviewPage />} />
+          <Route path=":patientId/plan/:planId" element={<ClerkingPlanPage />} />
           <Route path=":patientId/vitals" element={<VitalsPage />} />
           <Route path=":patientId/wounds" element={<RedirectToWoundMonitor />} />
         </Route>

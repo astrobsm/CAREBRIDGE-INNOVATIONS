@@ -22,6 +22,7 @@ export * from './refeeding';
 export * from './weightGoals';
 export * from './monitoring';
 export * from './assess';
+export * from './woundTargets';
 export {
   ACTIVE_NUTRITION_CONFIG, NUTRITION_CONFIG_V1, equationById, auditConfig,
 } from './config';

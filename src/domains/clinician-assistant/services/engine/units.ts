@@ -83,6 +83,13 @@ export const UNIT_RULES: Record<string, UnitRule> = {
   seconds: { canonical: 's', convert: { s: 1, sec: 1, secs: 1, seconds: 1 } },
   ratio: { canonical: '', convert: { '': 1, ratio: 1 } },
   antixa: { canonical: 'IU/mL', convert: { 'iu/ml': 1, 'u/ml': 1, 'iu/l': 0.001 } },
+  // Wound clinic baseline panel (stage 5). Zinc: 65.38 g/mol, so 1 umol/L =
+  // 6.54 mcg/dL (the protocol's 70 mcg/dL = 10.7 umol/L). 25-OH vitamin D:
+  // 1 nmol/L = 0.4006 ng/mL. HbA1c in mmol/mol (IFCC) is not a multiple of %
+  // (NGSP); it is converted by the master equation before reaching here.
+  zinc: { canonical: 'mcg/dL', convert: { 'mcg/dl': 1, 'ug/dl': 1, 'umol/l': 6.54, 'mcg/l': 0.1, 'ug/l': 0.1 } },
+  vitaminD: { canonical: 'ng/mL', convert: { 'ng/ml': 1, 'ug/l': 1, 'nmol/l': 0.4006 } },
+  hba1c: { canonical: '%', convert: { '%': 1 } },
 };
 
 /**

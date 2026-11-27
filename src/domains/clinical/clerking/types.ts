@@ -62,6 +62,20 @@ export interface ComplaintEntry {
   label: string;            // display text (free text for 'other')
   duration?: { value: number | null; unit: string };
   answers: Record<string, string | string[] | number>;
+  /**
+   * Question modules Claude drafted for a condition with no template
+   * (clerkingPlan/aiFields.ts): validated against this file's Question shape,
+   * shown labelled "AI-drafted fields", editable, and approved by a clinician.
+   * Answers go into `answers` like any other module's.
+   */
+  aiFields?: {
+    modules: QuestionModule[];
+    status: 'draft' | 'approved';
+    draftedAt: string;
+    approvedBy?: string;
+    approvedAt?: string;
+    source: string;
+  };
 }
 
 export type FindingStatus = 'present' | 'absent' | 'not_assessed' | 'unable';

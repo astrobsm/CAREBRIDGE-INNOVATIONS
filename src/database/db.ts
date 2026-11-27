@@ -121,6 +121,7 @@ import { normaliseLegacyMust } from '../domains/nutrition/services/assessmentRec
 import type { LymphedemaAssessment, LymphedemaMonitoringRecord, PostOpLymphedemaMonitoring } from '../domains/lymphedema/types';
 import type { PostOpCarePlan, PostOpObservation } from '../domains/post-op-care/types';
 import type { SurgicalOutcome } from '../types';
+import type { ClerkingPlanRecord } from '../domains/clinical/clerkingPlan/records';
 import type {
   FinanceBucket,
   FinanceIncome,
@@ -309,6 +310,9 @@ export class AstroHEALTHDatabase extends Dexie {
   postOpObservations!: Table<PostOpObservation, string>;
   // The 30-day (90 with an implant) outcome of each operation.
   surgicalOutcomes!: Table<SurgicalOutcome, string>;
+  // The clerking treatment plan (stage 5): rules plan snapshot, Claude draft,
+  // final plan, approvals, results, shares and booked follow-up.
+  clerkingPlans!: Table<ClerkingPlanRecord, string>;
 
   constructor() {
     super('AstroHEALTHDB');
@@ -564,6 +568,13 @@ export class AstroHEALTHDatabase extends Dexie {
     this.version(95).stores({
       surgicalOutcomes: 'id, surgeryId, patientId, hospitalId, operationDate, createdAt, updatedAt',
       appointments: 'id, appointmentNumber, patientId, hospitalId, appointmentDate, type, status, priority, clinicianId, bookedBy, createdAt, relatedSurgeryId',
+    });
+
+    // v96: the clerking treatment plan (stage 5). Its own table, linked to the
+    // encounter by encounterId (see clinical/clerkingPlan/records.ts for why
+    // it is not a field on the signed encounter).
+    this.version(96).stores({
+      clerkingPlans: 'id, patientId, hospitalId, encounterId, status, createdAt, updatedAt',
     });
   }
 }
