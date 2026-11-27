@@ -87,6 +87,7 @@ import type {
   ConferenceQA,
   MeetingReaction,
 } from '../../../types';
+import { Sheet } from '../../../components/motion';
 
 // Supabase client for real-time subscriptions
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -430,15 +431,12 @@ function PollModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6"
-      >
+    <Sheet onClose={onClose} label="Create Poll" size="md" closeOnBackdrop={false}>
+      {close => (
+      <div className="mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Create Poll</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg" title="Close">
+          <button onClick={close} className="p-1 hover:bg-gray-100 rounded-lg" title="Close">
             <X size={20} />
           </button>
         </div>
@@ -507,7 +505,7 @@ function PollModal({
 
         <div className="flex justify-end gap-2 mt-6">
           <button
-            onClick={onClose}
+            onClick={close}
             className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
           >
             Cancel
@@ -519,8 +517,9 @@ function PollModal({
             Launch Poll
           </button>
         </div>
-      </motion.div>
-    </div>
+      </div>
+      )}
+    </Sheet>
   );
 }
 
@@ -4156,22 +4155,9 @@ export default function VideoConferencePage() {
       </AnimatePresence>
 
       {/* Meeting Minutes Modal */}
-      <AnimatePresence>
-        {showMinutesModal && meetingMinutes && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
-            onClick={() => setShowMinutesModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={!!(showMinutesModal && meetingMinutes)} onClose={() => setShowMinutesModal(false)} label="Meeting Minutes" size="2xl" className="max-h-[80vh]" dragToDismiss>
+        {() => showMinutesModal && meetingMinutes && (
+            <div onClick={(e) => e.stopPropagation()}>
               {/* Modal Header */}
               <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600">
                 <div className="flex items-center justify-between">
@@ -4315,10 +4301,9 @@ export default function VideoConferencePage() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }
