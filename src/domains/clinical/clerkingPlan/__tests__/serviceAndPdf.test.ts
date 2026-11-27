@@ -192,3 +192,23 @@ describe('patient copy medicine lines (owner decision 2026-11-27): plain words, 
     expect(plainMedicineLine({ drug: 'No antibiotic', dose: '-', route: '-', frequency: '-', duration: '-', cautions: [] })).toBeUndefined();
   });
 });
+
+describe('PDF file names use the local date, not the UTC date', () => {
+  it('a plan made at 00:30 West Africa Time on 27 Nov is named 27 Nov (UTC is still 26 Nov)', async () => {
+    let r = await savePlanDraft({ patientId: 'p1', source: 'initial', clerking: data, ctx: { ageYears: 0, ageMonths: 8, sex: 'Male' } }, user);
+    r = await approvePlan(r.id, user);
+    const date = new Date('2026-11-27T00:30:00+01:00');
+    const input = { record: r, approval: { ...r.approvals[0], at: date.toISOString() }, patient: { name: 'Ada Okafor', hospitalNumber: 'H1' }, date };
+    const local = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+    const p = buildPatientPlanDocument(input), c = buildClinicianPlanDocument(input);
+    expect(p.fileName).toBe(`treatment-plan-ada-okafor-${local}.pdf`);
+    expect(c.fileName).toBe(`treatment-plan-ada-okafor-${local}-v1.pdf`);
+    expect(c.meta?.Date).toBe(local);
+    expect(c.meta?.Approved).toMatch(new RegExp(`${local}$`));
+    // On a West Africa Time clock (UTC+1, this practice) the local date is the 27th while UTC is the 26th.
+    if (date.getTimezoneOffset() === -60) {
+      expect(local).toBe('2026-11-27');
+      expect(date.toISOString().slice(0, 10)).toBe('2026-11-26');
+    }
+  });
+});
