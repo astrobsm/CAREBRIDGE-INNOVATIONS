@@ -43,6 +43,7 @@ import {
   procedureLinesFor,
   procedureFromSurgery,
 } from '../services/dischargeProcedures';
+import { Sheet } from '../../../components/motion';
 
 const medicationSchema = z.object({
   name: z.string().min(1, 'Medication name required'),
@@ -386,20 +387,9 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
+    <Sheet onClose={onClose} label="Discharge summary" size="4xl">
+      {close => (<>
+      <div onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
           <div className="flex items-center gap-3">
@@ -411,7 +401,7 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-white/20 rounded" title="Close">
+          <button onClick={close} className="p-1 hover:bg-white/20 rounded" title="Close">
             <X size={20} />
           </button>
         </div>
@@ -1058,20 +1048,12 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
             </div>
           </div>
         </form>
-      </motion.div>
+      </div>
 
-      {/* Discharge Bill Summary Modal */}
-      {showBillSummary && billSummary && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
-          >
+      {/* Discharge Bill Summary Modal: its only way out is Confirm & Close (which completes the discharge) */}
+      <Sheet open={!!(showBillSummary && billSummary)} onClose={() => setShowBillSummary(false)} label="Discharge bill summary" size="md" closeOnBackdrop={false} dismissible={false} zClassName="z-[70]">
+        {() => showBillSummary && billSummary && (
+          <div className="p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 bg-primary/10 rounded-full">
                 <Receipt className="w-6 h-6 text-primary" />
@@ -1160,9 +1142,11 @@ export default function DischargeFormModal({ admission, patient, onClose, onComp
                 Confirm & Close
               </button>
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        )}
+      </Sheet>
+      </>
       )}
-    </motion.div>
+    </Sheet>
   );
 }

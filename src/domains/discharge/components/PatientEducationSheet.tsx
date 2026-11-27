@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DischargeSummary, Patient, DischargeMedication } from '../../../types';
+import { Sheet } from '../../../components/motion';
 
 interface Props {
   summary: DischargeSummary;
@@ -476,20 +477,9 @@ export default function PatientEducationSheet({ summary, patient, onClose }: Pro
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
+    <Sheet onClose={onClose} label="Patient education sheet" size="4xl" dragToDismiss>
+      {close => (
+      <div onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-cyan-500 text-white print:bg-blue-500">
           <div className="flex items-center gap-3">
@@ -509,7 +499,7 @@ export default function PatientEducationSheet({ summary, patient, onClose }: Pro
             >
               <Printer size={18} />
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded" title="Close">
+            <button onClick={close} className="p-2 hover:bg-white/20 rounded" title="Close">
               <X size={20} />
             </button>
           </div>
@@ -582,7 +572,8 @@ export default function PatientEducationSheet({ summary, patient, onClose }: Pro
             </p>
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+      )}
+    </Sheet>
   );
 }

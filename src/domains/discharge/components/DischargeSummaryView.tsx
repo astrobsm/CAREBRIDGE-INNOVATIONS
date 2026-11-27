@@ -23,6 +23,7 @@ import type { DischargeSummary, Patient } from '../../../types';
 import { generateDischargeSummaryPDF } from '../../../utils/dischargePdfGenerator';
 import { ExportOptionsModal } from '../../../components/common/ExportOptionsModal';
 import { createThermalPDF, type ThermalDocumentSection } from '../../../utils/thermalPdfGenerator';
+import { Sheet } from '../../../components/motion';
 
 interface Props {
   summary: DischargeSummary;
@@ -113,20 +114,9 @@ export default function DischargeSummaryView({ summary, patient, onClose }: Prop
   }, [summary, patient, losDays]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
+    <Sheet onClose={onClose} label="Discharge summary" size="4xl" dragToDismiss>
+      {close => (<>
+      <div onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-green-500 to-emerald-500 text-white">
           <div className="flex items-center gap-3">
@@ -147,7 +137,7 @@ export default function DischargeSummaryView({ summary, patient, onClose }: Prop
               <Share2 size={16} />
               Export
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded" title="Close">
+            <button onClick={close} className="p-2 hover:bg-white/20 rounded" title="Close">
               <X size={20} />
             </button>
           </div>
@@ -460,7 +450,7 @@ export default function DischargeSummaryView({ summary, patient, onClose }: Prop
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Export Options Modal */}
       <ExportOptionsModal
@@ -472,6 +462,8 @@ export default function DischargeSummaryView({ summary, patient, onClose }: Prop
         fileNamePrefix={`DischargeSummary_${patient?.lastName || 'patient'}`}
         phoneNumber={patient?.phone}
       />
-    </motion.div>
+      </>
+      )}
+    </Sheet>
   );
 }
