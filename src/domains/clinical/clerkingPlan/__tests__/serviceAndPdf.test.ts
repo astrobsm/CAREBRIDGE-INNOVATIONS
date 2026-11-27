@@ -212,3 +212,23 @@ describe('PDF file names use the local date, not the UTC date', () => {
     }
   });
 });
+
+describe('an edited line reaches both PDFs (no stale dose)', () => {
+  it('the edited zinc dose replaces the original on the clinician and patient copies', async () => {
+    const adult = clerking({ complaints: [complaint('chronic_ulcer', 'Non-healing wound / chronic ulcer')], vitals: { weight: 70 } });
+    let r = await savePlanDraft({ patientId: 'p-edit', source: 'initial', clerking: adult, ctx: { ageYears: 50, sex: 'Male' } }, user);
+    r = await updatePlan(r.id, { results: [enterValue('zinc', 'zinc', 50, 'mcg/dL')] });
+    const zinc = r.rulesPlan.lines.find(l => l.section === 'medications' && /zinc/i.test(l.text) && !l.withheld)!;
+    expect(zinc).toBeTruthy();
+    const edited = 'Zinc 25 mg once daily with food for 4 weeks';
+    r = await updatePlan(r.id, { decisions: [{ lineId: zinc.id, decision: 'accepted', editedText: edited, at: new Date().toISOString() }] });
+    r = await approvePlan(r.id, user);
+    const input = { record: r, approval: r.approvals[0], patient: { name: 'Ada Okafor', hospitalNumber: 'H1' }, date: new Date(2026, 10, 27) };
+    const text = (d: ReturnType<typeof buildPatientPlanDocument>) => d.sections.flatMap(s => [s.body ?? '', ...(s.bullets ?? [])]).join('\n');
+    const patient = text(buildPatientPlanDocument(input)), clinician = text(buildClinicianPlanDocument(input));
+    expect(clinician).toContain(edited);
+    expect(clinician).toContain('[edited by clinician]');
+    expect(patient).toContain(edited);
+    expect(patient).not.toMatch(/Zinc tablet – take 1 tablet \(50 mg\)/);
+  });
+});
