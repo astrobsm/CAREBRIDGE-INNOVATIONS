@@ -38,6 +38,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { VoiceDictation } from '../../../components/common';
 import VitalsChart from '../../../components/clinical/VitalsChart';
 import type { ClinicalEncounter } from '../../../types';
+import { Sheet } from '../../../components/motion';
 
 // Form Schema
 const wardRoundReviewSchema = z.object({
@@ -839,22 +840,9 @@ Discharge Consideration: ${data.dischargeConsideration.replace(/_/g, ' ')}
       </motion.div>
 
       {/* Defer Ward Round Modal */}
-      <AnimatePresence>
-        {showDeferModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowDeferModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showDeferModal} onClose={() => setShowDeferModal(false)} label="Defer Ward Round" size="md">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <Clock className="w-6 h-6 text-amber-500" />
@@ -910,10 +898,9 @@ Discharge Consideration: ${data.dischargeConsideration.replace(/_/g, ' ')}
                   Defer Round
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

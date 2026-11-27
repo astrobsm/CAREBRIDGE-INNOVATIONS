@@ -32,6 +32,7 @@ import { VoiceDictation } from '../../../components/common';
 import type { WardRound } from '../../../types';
 import ClinicSchedulingTab from '../components/ClinicSchedulingTab';
 import StartWardRoundTab from '../components/StartWardRoundTab';
+import { Sheet } from '../../../components/motion';
 
 // Schemas
 const wardRoundSchema = z.object({
@@ -440,22 +441,9 @@ export default function WardRoundsPage() {
       )}
 
       {/* Ward Round Modal */}
-      <AnimatePresence>
-        {showRoundModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowRoundModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showRoundModal} onClose={() => setShowRoundModal(false)} label="Schedule Ward Round" size="lg">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">Schedule Ward Round</h2>
                 <button onClick={() => setShowRoundModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
@@ -680,10 +668,9 @@ export default function WardRoundsPage() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

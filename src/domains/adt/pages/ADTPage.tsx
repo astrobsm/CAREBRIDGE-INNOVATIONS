@@ -26,6 +26,7 @@ import type { Patient } from '../../../types';
 // Import admission components
 import AdmissionsPage from '../../admissions/pages/AdmissionsPage';
 import DischargePage from '../../discharge/pages/DischargePage';
+import { Sheet } from '../../../components/motion';
 
 type ADTTab = 'overview' | 'admissions' | 'inpatients' | 'discharges' | 'transfers';
 
@@ -759,22 +760,9 @@ const ADTPage: React.FC = () => {
       </div>
 
       {/* Transfer Modal */}
-      <AnimatePresence>
-        {showTransferModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowTransferModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
-              onClick={e => e.stopPropagation()}
-            >
+      <Sheet open={showTransferModal} onClose={() => setShowTransferModal(false)} label="New Transfer Request" size="lg">
+        {() => (
+            <div onClick={e => e.stopPropagation()}>
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-900">New Transfer Request</h2>
                 <p className="text-sm text-gray-500 mt-1">Request patient transfer to another ward or facility</p>
@@ -875,10 +863,9 @@ const ADTPage: React.FC = () => {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 };

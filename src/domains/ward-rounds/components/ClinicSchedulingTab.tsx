@@ -40,6 +40,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { HospitalSelector } from '../../../components/hospital';
 import { VoiceDictation } from '../../../components/common';
 import type { ClinicSession } from '../../../types';
+import { Sheet } from '../../../components/motion';
 
 // Clinic session schema - updated for multiple clinicians and single nurse
 const clinicSessionSchema = z.object({
@@ -746,22 +747,9 @@ export default function ClinicSchedulingTab({ searchQuery, selectedHospital }: C
       )}
 
       {/* Modal */}
-      <AnimatePresence>
-        {showModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showModal} onClose={() => setShowModal(false)} label="Clinic session" size="2xl">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-white z-10">
                 <h2 className="text-xl font-bold text-gray-900">
                   {editingSession ? 'Edit Clinic Session' : 'Schedule Clinic Session'}
@@ -1019,10 +1007,9 @@ export default function ClinicSchedulingTab({ searchQuery, selectedHospital }: C
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }
