@@ -109,7 +109,7 @@ describe('manual plan builder: lines', () => {
     expect(o.weight).toEqual({ dose: '250–400 mg', basis: '5–10 mg/kg × 50 kg = 250–500 mg, capped at 400 mg (never above the adult dose)', capped: true });
     const l = medicationLine({ drug: drug('ibuprofen'), route: 'oral', dose: o.weight!.dose, frequency: 'tds', duration: '3 days', weightBasis: o.weight!.basis }, ctx, 'manual:medications:c');
     expect(l.medication!.weightBasis).toMatch(/capped at 400 mg/);
-    expect(l.patient).toBe('Ibuprofen – take 250–400 mg three times a day for 3 days.');
+    expect(l.patient).toBe('Ibuprofen – give 250–400 mg three times a day for 3 days.');
     expect(l.patient).not.toMatch(PATIENT_MEDICINE_BANNED);
     // Paracetamol: 15 mg/kg × 8 kg, under the 1 g adult cap; no weight → no dose offered.
     const baby = ctxFor(clerking({ complaints: [], vitals: { weight: 8 } }), { ageYears: 0, ageMonths: 10, sex: 'Female' });

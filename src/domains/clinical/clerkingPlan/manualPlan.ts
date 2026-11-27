@@ -170,7 +170,7 @@ export function investigationPanels(): TestGroup[] {
   const preop = cats.flatMap(c => c.groups).find(g => g.label === 'Pre-Operative Tests');
   return [
     { id: 'wp_baseline', label: `Wound clinic baseline panel (${WP_LABEL})`, tests: woundBaselinePicks() },
-    ...(preop ? [{ ...preop, label: 'Pre-operative tests' }] : []),
+    ...(preop ? [{ ...preop, id: 'preop', label: 'Pre-operative tests' }] : []),
   ];
 }
 
@@ -212,6 +212,8 @@ export interface MedicationOptions {
   formulations: string[];
   /** Dose amounts from the formulary (adult or child entry, and the strengths). */
   doses: string[];
+  /** Preselected: the child's weight-based dose, else the formulary's standard dose when it is a plain amount; otherwise none (the clinician chooses). */
+  defaultDose: string;
   frequencies: DrugFrequency[];
   durations: string[];
   /** The formulary's dosing text, shown as a guide. */
@@ -271,7 +273,8 @@ export function medicationOptions(drug: BNFDrug, ctx: BuilderContext, route?: st
       weight = { dose: doseText(d), basis: d.basis, capped: d.capped };
     }
   }
-  return { routes, formulations: forms.map(f => f.form), doses, frequencies, durations, guide, weight, weightNote };
+  const defaultDose = weight?.dose ?? (!child && AMOUNT.test(entry.standard.trim()) ? tidyAmount(entry.standard) : '');
+  return { routes, formulations: forms.map(f => f.form), doses, defaultDose, frequencies, durations, guide, weight, weightNote };
 }
 
 const NSAID = /ibuprofen|diclofenac|naproxen|ketorolac|aspirin|piroxicam|meloxicam|celecoxib|indometacin|indomethacin|ketoprofen/i;
@@ -337,6 +340,8 @@ export function medicationLine(c: MedicationChoice, ctx: BuilderContext, id: str
   const text = `${c.drug.genericName} ${dose} ${routeText(c.route)}${c.formulation ? ` (${c.formulation})` : ''}, ${freqLabel}${medication.duration ? `, ${/^\d/.test(medication.duration) ? 'for ' : ''}${medication.duration}` : ''}${c.note?.trim() ? `. ${c.note.trim()}` : ''}`;
   let patient = plainMedicineLine(medication);
   if (!patient || PATIENT_MEDICINE_BANNED.test(patient)) patient = `${noBrackets(c.drug.genericName)} – take the dose on your prescription.`;
+  // A child's copy is read by the parent, as the locale's child lines are: "give", not "take".
+  if (ctx.facts.isChild) patient = patient.replace(' – take ', ' – give ');
   return line(id, 'medications', text, { medication, patient });
 }
 
