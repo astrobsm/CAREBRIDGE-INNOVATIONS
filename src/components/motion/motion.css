@@ -1,0 +1,206 @@
+/* ==========================================================================
+   Motion: the CSS half of src/components/motion.
+   Transform and opacity only (no layout properties). The spring curves come
+   from springs.ts via custom properties set at boot; the values here are the
+   fallbacks. Everything has a reduced-motion branch at the end.
+   ========================================================================== */
+
+:root {
+  --spring-snappy: cubic-bezier(0.2, 0.9, 0.25, 1);
+  --spring-snappy-ms: 290ms;
+  --spring-gentle: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring-gentle-ms: 340ms;
+  --spring-sheet: cubic-bezier(0.18, 1.12, 0.3, 1);
+  --spring-sheet-ms: 350ms;
+}
+
+/* --------------------------------------------------------------------------
+   Press feedback: buttons sink a little while held (the `scale` property, so
+   a button's own transform, e.g. a centring translate, is left alone).
+   Tailwind's transition-colors / transition include `scale` (tailwind.config),
+   so buttons with those classes ease back too.
+   -------------------------------------------------------------------------- */
+:where(button, [role="button"], .pressable) {
+  transition: scale 160ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+@media (prefers-reduced-motion: no-preference) {
+  :is(button, .btn):not(:disabled):not([data-no-press]):active,
+  [role="button"]:not([aria-disabled="true"]):not([data-no-press]):active,
+  .pressable:active {
+    scale: 0.97;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Dialogs written inline across the app (a fixed full-screen backdrop with a
+   white panel inside). Entrance only: the backdrop fades in and the panel
+   scales up from 0.95; on phones a bottom-aligned panel rises like a sheet.
+   framer-motion dialogs (they carry an inline style) and the shared Sheet
+   (data-motion) are left to their own animation.
+   -------------------------------------------------------------------------- */
+.fixed.inset-0:is([class*="bg-black/"], [class*="bg-gray-900/"], [class*="bg-opacity-"]):not([style]):not([data-motion]) {
+  animation: cb-fade-in 180ms ease-out backwards;
+}
+.fixed.inset-0:is([class*="bg-black/"], [class*="bg-gray-900/"], [class*="bg-opacity-"]):not([style]):not([data-motion])
+  > :is([class*="bg-white"], [class*="shadow-xl"], [class*="shadow-2xl"]):not([style]) {
+  animation: cb-pop-in var(--spring-snappy-ms) var(--spring-snappy) backwards;
+}
+@media (max-width: 639.98px) {
+  .fixed.inset-0[class*="items-end"]:is([class*="bg-black/"], [class*="bg-gray-900/"], [class*="bg-opacity-"]):not([style]):not([data-motion])
+    > :is([class*="bg-white"], [class*="shadow-xl"], [class*="shadow-2xl"]):not([style]) {
+    animation: cb-sheet-in var(--spring-sheet-ms) var(--spring-sheet) backwards;
+  }
+}
+/* A light blur behind dialogs, skipped on low-end devices. */
+html:not(.fx-low) .fixed.inset-0:is([class*="bg-black/"], [class*="bg-gray-900/"]):not([data-motion]),
+html:not(.fx-low) .cb-backdrop-blur {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+@keyframes cb-fade-in { from { opacity: 0; } }
+@keyframes cb-pop-in { from { opacity: 0; transform: scale(0.95); } }
+@keyframes cb-sheet-in { from { transform: translate3d(0, 100%, 0); } }
+
+/* --------------------------------------------------------------------------
+   Async button: three faces stacked in one cell (no width jump).
+   -------------------------------------------------------------------------- */
+.cb-async { position: relative; }
+.cb-async__stack {
+  display: inline-grid;
+  place-items: center;
+  gap: inherit;
+}
+.cb-async__face {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+  white-space: nowrap;
+  transition: opacity 160ms ease, transform var(--spring-snappy-ms) var(--spring-snappy);
+}
+.cb-async:is([data-status="idle"], [data-status="error"]) .cb-async__face:not([data-face="idle"]),
+.cb-async[data-status="working"] .cb-async__face:not([data-face="working"]),
+.cb-async[data-status="done"] .cb-async__face:not([data-face="done"]) {
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none;
+}
+.cb-async[data-status="error"] {
+  animation: cb-shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+.cb-spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex: none;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  opacity: 0.9;
+  animation: cb-spin 700ms linear infinite;
+}
+.cb-tick { flex: none; }
+.cb-tick path { stroke-dasharray: 22; stroke-dashoffset: 22; }
+.cb-async[data-status="done"] .cb-tick path {
+  transition: stroke-dashoffset 320ms cubic-bezier(0.65, 0, 0.35, 1) 60ms;
+  stroke-dashoffset: 0;
+}
+@keyframes cb-spin { to { transform: rotate(360deg); } }
+@keyframes cb-shake {
+  0%, 100% { translate: 0; }
+  20% { translate: -6px; }
+  40% { translate: 5px; }
+  60% { translate: -3px; }
+  80% { translate: 2px; }
+}
+
+/* --------------------------------------------------------------------------
+   Skeleton shimmer and long-task progress.
+   -------------------------------------------------------------------------- */
+.cb-skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #e5e7eb;
+  border-radius: 6px;
+}
+.cb-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translate3d(-100%, 0, 0);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: cb-shimmer 1.5s ease-in-out infinite;
+}
+@keyframes cb-shimmer { to { transform: translate3d(100%, 0, 0); } }
+
+.cb-progress__sweep { animation: cb-sweep 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+.cb-progress__fill {
+  transform-origin: left center;
+  transition: transform var(--spring-gentle-ms) var(--spring-gentle);
+}
+@keyframes cb-sweep {
+  from { transform: translate3d(-100%, 0, 0); }
+  to { transform: translate3d(250%, 0, 0); }
+}
+
+/* --------------------------------------------------------------------------
+   Toasts: frosted cards (the doubled class outranks react-hot-toast's own).
+   -------------------------------------------------------------------------- */
+.cb-toast.cb-toast {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.97);
+  color: #111827;
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-size: 0.875rem;
+  max-width: min(380px, calc(100vw - 24px));
+  box-shadow: 0 12px 32px -10px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html:not(.fx-low) .cb-toast.cb-toast {
+    background: rgba(255, 255, 255, 0.78);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    backdrop-filter: saturate(180%) blur(18px);
+  }
+}
+.cb-toast--error.cb-toast--error { box-shadow: 0 12px 32px -10px rgba(127, 29, 29, 0.3), 0 0 0 1px rgba(239, 68, 68, 0.25); }
+.cb-toast__sweep {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 40%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #6366f1, transparent);
+  animation: cb-sweep 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes cb-toast-in {
+  from { opacity: 0; transform: translate3d(0, -120%, 0) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cb-toast-out {
+  to { opacity: 0; transform: translate3d(0, -30%, 0) scale(0.96); }
+}
+@keyframes cb-toast-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cb-toast-fade-out { to { opacity: 0; } }
+
+/* --------------------------------------------------------------------------
+   Reduced motion: no movement, no scaling, no sweeping; fades remain.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .fixed.inset-0:is([class*="bg-black/"], [class*="bg-gray-900/"], [class*="bg-opacity-"]):not([style]):not([data-motion])
+    > :is([class*="bg-white"], [class*="shadow-xl"], [class*="shadow-2xl"]):not([style]) {
+    animation: cb-fade-in 150ms ease-out backwards;
+  }
+  .cb-async__face { transition: opacity 120ms ease; transform: none !important; }
+  .cb-async[data-status="error"] { animation: none; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.55); }
+  .cb-spinner { animation: cb-breathe 1.6s ease-in-out infinite; }
+  .cb-async[data-status="done"] .cb-tick path { transition: none; }
+  .cb-skeleton::after { display: none; }
+  .cb-progress__sweep, .cb-toast__sweep { animation: cb-breathe 1.8s ease-in-out infinite; transform: translate3d(75%, 0, 0); }
+  .cb-progress__fill { transition: none; }
+}
+@keyframes cb-breathe { 50% { opacity: 0.45; } }

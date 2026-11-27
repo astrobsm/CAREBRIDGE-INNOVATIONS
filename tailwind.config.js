@@ -109,6 +109,14 @@ export default {
           '50%': { opacity: '0.7' },
         },
       },
+      // Tailwind's defaults plus `scale`, so the press-down feedback in
+      // src/components/motion/motion.css eases back on buttons that use
+      // transition / transition-colors / transition-transform.
+      transitionProperty: {
+        DEFAULT: 'color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter, scale',
+        colors: 'color, background-color, border-color, text-decoration-color, fill, stroke, scale',
+        transform: 'transform, scale',
+      },
       // Mobile-friendly spacing
       spacing: {
         'safe-top': 'env(safe-area-inset-top)',
