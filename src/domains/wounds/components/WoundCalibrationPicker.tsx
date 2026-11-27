@@ -23,6 +23,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Move, RotateCcw, X } from 'lucide-react';
+import { Sheet } from '../../../components/motion/Sheet';
 
 /**
  * Real-world sizes in centimetres. The card figures are the ISO/IEC 7810 ID-1
@@ -189,11 +190,13 @@ export default function WoundCalibrationPicker({
   const canConfirm = pixelsPerCm > 0 && !tooShort;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-2 sm:p-4" role="dialog" aria-modal="true" aria-label="Set the scale">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[96vh] overflow-y-auto">
+    // Opened over the assessment form: one layer above it. A drawn line counts as unsaved work.
+    <Sheet onClose={onCancel} label="Set the scale" size="2xl" className="max-h-[96vh]" zClassName="z-[70]" closeOnBackdrop={false} hasUnsavedInput={!!(start && end)}>
+      {close => (
+      <div>
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h2 className="font-semibold text-gray-900">Set the scale</h2>
-          <button type="button" onClick={onCancel} className="p-1 text-gray-400 hover:text-gray-600" aria-label="Close">
+          <button type="button" onClick={close} className="p-1 text-gray-400 hover:text-gray-600" aria-label="Close">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -276,10 +279,11 @@ export default function WoundCalibrationPicker({
             >
               <RotateCcw className="h-4 w-4" /> Redraw
             </button>
-            <button type="button" onClick={onCancel} className="flex-1 sm:flex-none px-4 py-2 rounded-lg border text-sm">Cancel</button>
+            <button type="button" onClick={close} className="flex-1 sm:flex-none px-4 py-2 rounded-lg border text-sm">Cancel</button>
           </div>
         </div>
       </div>
-    </div>
+      )}
+    </Sheet>
   );
 }

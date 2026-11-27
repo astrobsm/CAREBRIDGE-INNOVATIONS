@@ -25,6 +25,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'react-router-dom';
 import { db } from '../../../database';
+import { Sheet } from '../../../components/motion';
 import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import type { Patient } from '../../../types';
@@ -1072,7 +1073,7 @@ const PatientPickerModal: React.FC<{ onClose: () => void; onPick: (p: Patient) =
   }
 
   return (
-    <Modal title="Select patient" onClose={onClose}>
+    <Modal title="Select patient" onClose={onClose} picker>
       <div className="relative mb-3">
         <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
         <input
@@ -2185,16 +2186,17 @@ const NumField: React.FC<{ label: string; value: any; onChange: (v: string) => v
   </Field>
 );
 
-const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }> = ({ title, onClose, children, wide }) => (
-  <div className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" role="dialog" aria-modal="true">
-    <div className={`bg-white rounded-2xl w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} shadow-2xl my-4 sm:my-8 max-h-[calc(100vh-2rem)] flex flex-col`}>
+/** The page's dialogs. `picker`: a pick-from-a-list view, so it may be swiped away and its search box is not unsaved work. */
+const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; wide?: boolean; picker?: boolean }> = ({ title, onClose, children, wide, picker }) => (
+  <Sheet onClose={onClose} label={title} size={wide ? '2xl' : 'lg'} scroll="content" className="max-h-[calc(100vh-2rem)]" closeOnBackdrop={false} dragToDismiss={picker} hasUnsavedInput={picker ? false : undefined}>
+    {close => (<>
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="font-semibold text-gray-900">{title}</h3>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X className="w-4 h-4" /></button>
+        <button onClick={close} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400" aria-label="Close"><X className="w-4 h-4" /></button>
       </div>
       <div className="p-4 overflow-y-auto">{children}</div>
-    </div>
-  </div>
+    </>)}
+  </Sheet>
 );
 
 const VisionRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
