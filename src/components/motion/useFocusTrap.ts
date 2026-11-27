@@ -15,6 +15,14 @@ export function focusableIn(root: HTMLElement): HTMLElement[] {
     .filter(el => el.getAttribute('aria-hidden') !== 'true' && (el.offsetParent !== null || el === document.activeElement));
 }
 
+/**
+ * Open traps, oldest first. Only the newest (a dialog opened from a dialog)
+ * handles Escape and Tab, so one Escape closes one layer.
+ */
+const trapStack: object[] = [];
+export const isTopTrap = (token: object) => trapStack[trapStack.length - 1] === token;
+export const openTrapCount = () => trapStack.length;
+
 export function useFocusTrap(
   active: boolean,
   panelRef: RefObject<HTMLElement>,
@@ -37,7 +45,12 @@ export function useFocusTrap(
       target.focus({ preventScroll: true });
     });
 
+    const token = {};
+    trapStack.push(token);
+
     const onKey = (e: KeyboardEvent) => {
+      // A dialog opened from this one is on top: it answers the keys.
+      if (!isTopTrap(token)) return;
       if (e.key === 'Escape' && optsRef.current.onEscape) {
         e.stopPropagation();
         optsRef.current.onEscape();
@@ -57,6 +70,8 @@ export function useFocusTrap(
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener('keydown', onKey, true);
+      const at = trapStack.indexOf(token);
+      if (at >= 0) trapStack.splice(at, 1);
       // Give focus back, unless the user has already moved it elsewhere.
       if (returnTo && document.contains(returnTo) && (!document.activeElement || document.activeElement === document.body || panel.contains(document.activeElement))) {
         returnTo.focus({ preventScroll: true });

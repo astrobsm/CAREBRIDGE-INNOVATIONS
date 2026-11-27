@@ -5,7 +5,10 @@ export * from './springs';
 export * from './environment';
 export { usePageTransition, directionFor, historyIndex, type PageDirection } from './usePageTransition';
 export { useFocusTrap } from './useFocusTrap';
-export { Sheet, Dialog, useIsPhone, shouldDismiss, type SheetProps } from './Sheet';
+export {
+  Sheet, Dialog, useIsPhone, useSheetClose, shouldDismiss, dismissDecision, createCloseController,
+  SHEET_SIZES, type SheetProps, type SheetSize, type DismissReason,
+} from './Sheet';
 export { AsyncButton, useActionStatus, effectiveStatus, type ActionStatus, type ActionStatusApi } from './AsyncButton';
 export { Skeleton, SkeletonGroup, SkeletonText, SkeletonRows } from './Skeleton';
 export { LongTaskProgress, stageFraction } from './LongTaskProgress';
