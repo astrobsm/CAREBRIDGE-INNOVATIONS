@@ -169,11 +169,12 @@ export default function ShareForReviewSheet({ open, patientId, patientName, hosp
 
               <fieldset>
                 <legend className="label">Link expires after</legend>
-                <div className="grid grid-cols-3 rounded-xl bg-gray-100 p-1" role="radiogroup" aria-label="Link expires after">
+                {/* flex, not grid: phones stack every 3-column grid inside a form (index.css). */}
+                <div className="flex rounded-xl bg-gray-100 p-1" role="radiogroup" aria-label="Link expires after">
                   {EXPIRY_OPTIONS.map(o => (
                     <button key={o.id} type="button" role="radio" aria-checked={expiry === o.id} onClick={() => setExpiry(o.id)}
                       data-testid={`expiry-${o.id}`}
-                      className={`min-h-[44px] rounded-lg text-sm font-medium transition ${expiry === o.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>
+                      className={`flex-1 min-h-[44px] rounded-lg text-sm font-medium transition ${expiry === o.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>
                       {o.label}
                     </button>
                   ))}
@@ -215,8 +216,8 @@ export default function ShareForReviewSheet({ open, patientId, patientName, hosp
             <div className="p-4 space-y-4" data-testid="share-result">
               <div>
                 <p className="label">Review link</p>
-                <div className="flex gap-2">
-                  <input className="input font-mono text-xs sm:text-sm" readOnly value={result.link} onFocus={e => e.currentTarget.select()} aria-label="Review link" data-testid="share-link" />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input className="input font-mono text-xs sm:text-sm min-w-0 flex-1" readOnly value={result.link} onFocus={e => e.currentTarget.select()} aria-label="Review link" data-testid="share-link" />
                   <button type="button" className="btn btn-secondary flex-none" onClick={() => void copy('link', result.link)}>
                     {copied === 'link' ? <Check size={18} /> : <Copy size={18} />} Copy
                   </button>

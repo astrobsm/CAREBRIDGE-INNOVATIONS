@@ -22,7 +22,8 @@ export function applyReviewPageHead(doc: Document = document) {
   };
   meta('robots', 'noindex, nofollow, noarchive');
   meta('referrer', 'no-referrer');
-  doc.querySelector('link[rel="manifest"]')?.remove();
+  // index.html carries the manifest link twice (ours and vite-plugin-pwa's).
+  doc.querySelectorAll('link[rel="manifest"]').forEach(l => l.remove());
   doc.title = VIEWER_TITLE;
 }
 

@@ -48,6 +48,7 @@ describe('start-up', () => {
     expect(boot).not.toMatch(/AuthProvider|initCloudSync|fullSync|initializeDemoData|BrowserRouter|supabase/);
     expect(boot).toMatch(/meta\('robots', 'noindex, nofollow, noarchive'\)/);
     expect(boot).toMatch(/meta\('referrer', 'no-referrer'\)/);
+    expect(boot).toMatch(/querySelectorAll\('link\[rel="manifest"\]'\)\.forEach\(l => l\.remove\(\)\)/);
   });
 
   it('App.tsx has a lazy /review route outside the login guard and layout', () => {
@@ -141,6 +142,7 @@ describe('what the viewer shows', () => {
     expect(html).toContain('<strong>Confidential</strong> — shared by Dr Kene Owner for clinical review · view only · link expires 4 Dec 2026');
     for (const s of snapshot.sections) expect(html).toContain(s.title.replace(/&/g, '&amp;'));
     expect(html).toContain('src="data:image/jpeg;base64,QUJD"');
+    expect(html).not.toContain('loading="lazy"'); // lazy images print blank
     expect(html).toContain('2 older photos were left out.');
     expect(html).toContain('Penicillin');
     const links = [...html.matchAll(/href="([^"#][^"]*)"/g)].map(m => m[1]);

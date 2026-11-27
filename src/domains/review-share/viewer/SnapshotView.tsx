@@ -89,7 +89,7 @@ function Gallery({ photos, summary }: { photos: ReviewPhoto[]; summary: ReviewSn
           {shown.map(({ p, src }, i) => (
             <li key={p.seq} className="rv-photo">
               <button type="button" onClick={() => setOpen(i)} className="block w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-100" aria-label={`Enlarge photo: ${p.caption || p.source || 'photo'}`}>
-                <img src={src!} alt={p.caption || p.source || 'Clinical photo'} className="aspect-square w-full object-cover" loading="lazy" draggable={false} />
+                <img src={src!} alt={p.caption || p.source || 'Clinical photo'} className="aspect-square w-full object-cover" draggable={false} />
               </button>
               <p className="mt-1 text-xs text-gray-800 line-clamp-2">{p.caption || 'Photo'}</p>
               <p className="text-[11px] text-gray-500 line-clamp-2">{[p.source, fmt(p.taken_at ?? undefined)].filter(Boolean).join(' · ')}</p>
@@ -138,7 +138,7 @@ export default function SnapshotView({ share, snapshot, photos }: { share: Revie
             Snapshot of the record as of {fmt(snapshot.snapshotAt || share.snapshot_at)}{share.invitee_name ? ` · for ${share.invitee_name}` : ''}. Later changes to the record are not shown unless the sharing clinician refreshes it.
           </p>
           {snapshot.patient.fields.length > 0 && (
-            <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1.5 text-sm">
+            <dl className="mt-3 grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1.5 text-sm">
               {snapshot.patient.fields.map((f, i) => (
                 <div key={i}><dt className="text-xs text-gray-500">{f.label}</dt><dd className="text-gray-900 break-words">{f.value}</dd></div>
               ))}
