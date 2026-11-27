@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { db } from '../../database';
 import { assignStaffToPatient, releaseStaffAssignment } from '../../services/activityBillingService';
+import { Sheet } from '../motion';
 
 interface StaffAssignmentModalProps {
   admissionId: string;
@@ -147,16 +148,10 @@ export default function StaffAssignmentModal({
     return <Heart size={14} />;
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
-      >
+    <Sheet open={isOpen} onClose={onClose} label="Assign Staff" size="2xl" closeOnBackdrop={false}>
+      {close => (
+      <div>
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
@@ -164,7 +159,7 @@ export default function StaffAssignmentModal({
             <p className="text-sm text-gray-500">Patient: {patientName}</p>
           </div>
           <button
-            onClick={onClose}
+            onClick={close}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             title="Close"
           >
@@ -317,13 +312,14 @@ export default function StaffAssignmentModal({
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
           <button
-            onClick={onClose}
+            onClick={close}
             className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
           >
             Done
           </button>
         </div>
-      </motion.div>
-    </div>
+      </div>
+      )}
+    </Sheet>
   );
 }
