@@ -225,7 +225,16 @@ export function Sheet({
   const close = useCallback(() => requestDismiss('button'), [requestDismiss]);
   const shown = open && !closing;
 
-  useFocusTrap(shown, panelRef, { onEscape: () => requestDismiss('escape'), initialFocusRef });
+  // The opener, read while rendering the opening frame: before an autoFocus field inside takes focus.
+  const openerRef = useRef<HTMLElement | null>(null);
+  const wasShownRef = useRef(false);
+  if (shown && !wasShownRef.current && typeof document !== 'undefined') {
+    const a = document.activeElement as HTMLElement | null;
+    openerRef.current = a && a !== document.body ? a : null;
+  }
+  wasShownRef.current = shown;
+
+  useFocusTrap(shown, panelRef, { onEscape: () => requestDismiss('escape'), initialFocusRef, returnFocusRef: openerRef });
 
   const panelMotion = reduce
     ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.15 } }
