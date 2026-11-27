@@ -51,6 +51,7 @@ import {
 } from '../patientTimeline';
 import { hubQuickActions, hubModuleLinks } from '../patientHubLinks';
 import StartConsultationSheet from '../components/StartConsultationSheet';
+import { Sheet, Skeleton, SkeletonGroup, SkeletonRows } from '../../../components/motion';
 
 // Blood groups and genotypes for select options
 const bloodGroups: BloodGroup[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -688,9 +689,17 @@ export default function PatientDetailsPage() {
 
   if (!patient) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">Loading patient details...</p>
-      </div>
+      <SkeletonGroup label="Loading patient details..." className="space-y-4">
+        <div className="card card-compact p-4 flex items-center gap-4">
+          <Skeleton className="h-14 w-14 rounded-full flex-shrink-0" />
+          <span className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-3 w-1/3" />
+          </span>
+        </div>
+        <div className="card card-compact"><SkeletonRows count={4} /></div>
+        <p className="text-center text-sm text-gray-500">Loading patient details...</p>
+      </SkeletonGroup>
     );
   }
 
@@ -1084,10 +1093,9 @@ export default function PatientDetailsPage() {
         </button>
       </div>
 
-      {showMore && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50" onClick={() => setShowMore(false)}>
-          <div role="dialog" aria-modal="true" aria-label="More actions" className="bg-white w-full rounded-t-2xl max-h-[85vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 pt-4 pb-1">
+      {/* A menu, not a form: it can be pulled down to close. */}
+      <Sheet open={showMore} onClose={() => setShowMore(false)} label="More actions" placement="bottom" dragToDismiss className="!max-h-[85vh]">
+            <div className="flex items-center justify-between px-4 pt-2 pb-1">
               <h2 className="text-lg font-semibold text-gray-900">More</h2>
               <button type="button" onClick={() => setShowMore(false)} className="p-2 -mr-2 rounded-full hover:bg-gray-100" aria-label="Close"><X size={20} /></button>
             </div>
@@ -1104,18 +1112,15 @@ export default function PatientDetailsPage() {
                 <Link key={m.id} to={m.href} onClick={() => setShowMore(false)} className="px-3 py-2 text-sm rounded-full border border-gray-200 text-gray-700">{m.label}</Link>
               ))}
             </div>
-          </div>
-        </div>
-      )}
+      </Sheet>
 
-      {showConsult && (
-        <StartConsultationSheet
-          patientId={patient.id}
-          patientName={fullName}
-          hasInitialClerking={hasInitialClerking}
-          onClose={() => setShowConsult(false)}
-        />
-      )}
+      <StartConsultationSheet
+        open={showConsult}
+        patientId={patient.id}
+        patientName={fullName}
+        hasInitialClerking={hasInitialClerking}
+        onClose={() => setShowConsult(false)}
+      />
 
       {/* Edit Patient Modal */}
       <AnimatePresence>

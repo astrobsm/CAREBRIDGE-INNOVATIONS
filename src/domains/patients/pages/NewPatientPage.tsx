@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { HospitalSelector } from '../../../components/hospital';
 import { useAuth } from '../../../contexts/AuthContext';
+import { AsyncButton, useActionStatus } from '../../../components/motion';
 import { syncRecord } from '../../../services/cloudSyncService';
 import ScanToText from '../../../components/common/ScanToText';
 import { 
@@ -157,6 +158,7 @@ export default function NewPatientPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const saveFx = useActionStatus();
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_loadingHospitals, setLoadingHospitals] = useState(true);
@@ -358,17 +360,20 @@ export default function NewPatientPage() {
   const onSubmit = async (data: PatientFormData) => {
     // Validate risk assessments
     if (!validateRiskAssessments()) {
+      saveFx.error();
       return;
     }
     if (numberCheckBlocks(numberCheck)) {
       toast.error(numberCheck.state === 'checking'
         ? 'Still checking the folder number - try again in a moment.'
         : 'This folder number is already registered. Open the existing record instead.');
+      saveFx.error();
       return;
     }
     const scopeProblem = await registrationScopeProblem(data.hospitalId, user);
     if (scopeProblem) {
       toast.error(scopeProblem, { duration: 8000 });
+      saveFx.error();
       return;
     }
 
@@ -470,11 +475,13 @@ export default function NewPatientPage() {
       
       const syncMessage = navigator.onLine ? 'registered and synced' : 'registered (will sync when online)';
       toast.success(`Patient ${syncMessage} successfully!`);
+      saveFx.done();
       navigate(`/patients/${patient.id}`);
     } catch (error) {
       console.error('[Patient Registration] Error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to register patient';
       toast.error(errorMessage);
+      saveFx.error();
     } finally {
       setIsLoading(false);
     }
@@ -1439,24 +1446,18 @@ export default function NewPatientPage() {
             >
               Cancel
             </button>
-            <button
+            <AsyncButton
               type="submit"
-              disabled={isLoading}
+              busy={isLoading}
+              status={saveFx.status}
+              workingLabel="Registering…"
+              doneLabel="Registered"
+              errorLabel="Patient not registered"
               className="btn btn-primary"
             >
-              {isLoading ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                  className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                />
-              ) : (
-                <>
-                  <Save size={18} />
-                  Register Patient
-                </>
-              )}
-            </button>
+              <Save size={18} />
+              Register Patient
+            </AsyncButton>
           </div>
         </div>
       </form>

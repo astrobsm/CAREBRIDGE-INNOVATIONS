@@ -3,7 +3,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
@@ -16,6 +15,11 @@ import { startTreatmentReminderService } from './services/treatmentReminderServi
 import { startNotificationServicesIfPermitted } from './services/notificationBootstrap';
 import { installJsPdfTextSanitizer } from './utils/pdfTextSafe';
 import './index.css';
+import './components/motion/motion.css';
+import { installMotionEnvironment, MotionProvider, MotionToaster } from './components/motion';
+
+// Spring curves into CSS custom properties; low-end / reduced-motion classes.
+installMotionEnvironment();
 
 // Install jsPDF text sanitizer EARLY so every generator emits clean cp1252 text
 // (fixes "& þ W a r n i n g  S i g n s" garbled emoji/Unicode output).
@@ -118,29 +122,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
-        <AuthProvider>
-          <App />
-          <Toaster 
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-              success: {
-                style: {
-                  background: '#10B981',
-                },
-              },
-              error: {
-                style: {
-                  background: '#EF4444',
-                },
-              },
-            }}
-          />
-        </AuthProvider>
+        <MotionProvider>
+          <AuthProvider>
+            <App />
+            {/* Frosted toasts that spring in from the top: see MotionToaster. */}
+            <MotionToaster />
+          </AuthProvider>
+        </MotionProvider>
       </BrowserRouter>
     </ErrorBoundary>
   </React.StrictMode>

@@ -10,6 +10,7 @@ import { format, parseISO } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../../database';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { AsyncButton, useActionStatus, type ActionStatusApi } from '../../../../components/motion';
 import { approvePlan, appointmentProposals, bookPlanAppointments, downloadClinicianPdf, latestApproval, shareWithPatient, type AppointmentProposal } from '../service';
 import type { ClerkingPlanRecord } from '../records';
 import { PLAN_SECTIONS, type PlanLine, type RulesPlan } from '../types';
@@ -34,9 +35,12 @@ export const ApprovePanel: React.FC<Props> = ({ record, finalLines, rules, ensur
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   useEffect(() => { setDates(Object.fromEntries(proposals.map(p => [p.key, p.date]))); }, [proposals.map(p => p.key).join()]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const run = async (label: string, fn: () => Promise<unknown>, ok: string) => {
+  const approveFx = useActionStatus();
+  const bookFx = useActionStatus();
+  // fx: optional button feedback (tick on success, shake on failure); visual only.
+  const run = async (label: string, fn: () => Promise<unknown>, ok: string, fx?: ActionStatusApi) => {
     setBusy(label);
-    try { await fn(); toast.success(ok); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); console.error(e); } finally { setBusy(null); }
+    try { await fn(); toast.success(ok); fx?.done(); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); fx?.error(); console.error(e); } finally { setBusy(null); }
   };
 
   const approve = () => run('approve', async () => {
@@ -46,7 +50,7 @@ export const ApprovePanel: React.FC<Props> = ({ record, finalLines, rules, ensur
     const aiCount = finalLines.filter(l => l.source.kind === 'ai').length;
     if (aiCount && !window.confirm(`${aiCount} AI-drafted line(s) are in the final plan. You have checked each one?`)) throw new Error('Approval cancelled');
     await approvePlan(r.id, user);
-  }, 'Plan approved');
+  }, 'Plan approved', approveFx);
 
   const previewPatientCopy = () => run('preview', () => shareWithPatient(record!.id, 'download', user!), 'Patient copy downloaded');
 
@@ -55,7 +59,7 @@ export const ApprovePanel: React.FC<Props> = ({ record, finalLines, rules, ensur
     const confirmed: AppointmentProposal[] = proposals.filter(p => !excluded.has(p.key)).map(p => ({ ...p, date: dates[p.key] || p.date }));
     if (!confirmed.length) throw new Error('Nothing selected to book');
     await bookPlanAppointments(record.id, confirmed, patient, user);
-  }, 'Follow-up booked (WhatsApp reminders scheduled)');
+  }, 'Follow-up booked (WhatsApp reminders scheduled)', bookFx);
 
   return (
     <div className="space-y-3 text-xs" data-testid="approve-panel">
@@ -65,9 +69,10 @@ export const ApprovePanel: React.FC<Props> = ({ record, finalLines, rules, ensur
         {finalLines.some(l => l.source.kind === 'ai') && <p className="text-purple-800 mt-1">Includes {finalLines.filter(l => l.source.kind === 'ai').length} AI-drafted line(s), labelled in the PDF.</p>}
         {rules.missing.length > 0 && <p className="text-amber-800 mt-1">Still not documented: {rules.missing.join('; ')}</p>}
         {approval && <p className="text-green-800 mt-1" data-testid="approved-line">Version {approval.version} approved by {approval.byName || 'clinician'} on {format(new Date(approval.at), 'd MMM yyyy HH:mm')}{changed ? ' — the plan has changed since' : ''}</p>}
-        <button type="button" disabled={!!busy || (!!approval && !changed)} onClick={approve} className="mt-2 w-full py-2 rounded-lg bg-green-700 text-white font-semibold disabled:opacity-50" data-testid="approve-plan">
-          {busy === 'approve' ? 'Approving…' : approval ? (changed ? `Approve changes (version ${approval.version + 1})` : 'Approved') : 'Approve plan'}
-        </button>
+        <AsyncButton type="button" busy={busy === 'approve'} status={approveFx.status} workingLabel="Approving…" doneLabel="Approved" errorLabel="Plan not approved"
+          disabled={!!busy || (!!approval && !changed)} onClick={approve} className="mt-2 w-full py-2 rounded-lg bg-green-700 text-white font-semibold disabled:opacity-50" data-testid="approve-plan">
+          {approval ? (changed ? `Approve changes (version ${approval.version + 1})` : 'Approved') : 'Approve plan'}
+        </AsyncButton>
       </div>
 
       {!approval && <p className="text-gray-600 bg-gray-50 rounded p-2">Nothing is sent to the patient and no appointment is booked until the plan is approved.</p>}
@@ -102,9 +107,10 @@ export const ApprovePanel: React.FC<Props> = ({ record, finalLines, rules, ensur
             </ul>
             {undated.length > 0 && <p className="mt-1 text-gray-500">Not dated yet (book when it applies): {undated.join('; ')}</p>}
             {proposals.length > 0 && (
-              <button type="button" disabled={!!busy || !patient} onClick={book} className="mt-2 w-full py-2 rounded-lg bg-indigo-700 text-white font-semibold disabled:opacity-50" data-testid="book-appointments">
+              <AsyncButton type="button" busy={busy === 'book'} status={bookFx.status} workingLabel="Booking…" doneLabel="Booked" errorLabel="Not booked"
+                disabled={!!busy || !patient} onClick={book} className="mt-2 w-full py-2 rounded-lg bg-indigo-700 text-white font-semibold disabled:opacity-50" data-testid="book-appointments">
                 Book {proposals.filter(p => !excluded.has(p.key)).length} visit(s)
-              </button>
+              </AsyncButton>
             )}
             {record.appointments.length > 0 && (
               <ul className="mt-2 text-gray-700 space-y-0.5">{record.appointments.map(a => <li key={a.key}>Booked {format(parseISO(a.date), 'EEE d MMM yyyy')} 09:00 — {a.purpose}</li>)}</ul>

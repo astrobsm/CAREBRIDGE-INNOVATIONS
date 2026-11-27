@@ -27,6 +27,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database/db';
 import { SurgeryOps, InvestigationOps, ConsumableBOMOps, PrescriptionOps } from '../../../database/operations';
 import { useAuth } from '../../../contexts/AuthContext';
+import { AsyncButton, useActionStatus } from '../../../components/motion';
 import { searchProcedures, formatNaira } from '../../../data/surgicalFees';
 import { searchConsumables, consumableCategories, getConsumablesByCategory, getConsumableById } from '../../../data/surgicalConsumables';
 import jsPDF from 'jspdf';
@@ -644,6 +645,7 @@ export default function SurgicalWorkflowPage() {
 
   // SECTION 7: BOOKING
   const [bookingApproved, setBookingApproved] = useState(false);
+  const approveFx = useActionStatus(); // button feedback only
 
   // SECTION 8: PRE-ANAESTHETIC
   const [preAnaestheticNotes, setPreAnaestheticNotes] = useState('');
@@ -1220,14 +1222,17 @@ export default function SurgicalWorkflowPage() {
   const approveBooking = async () => {
     if (!currentSurgeryId) {
       toast.error('Save planning section first');
+      approveFx.error();
       return;
     }
+    approveFx.start();
     // The readiness model, read fresh from the records (procedure review and
     // counselling, red flags, results, stored consent and payment, estimate):
     // not the localStorage section ticks.
     const readiness = await loadReadiness(currentSurgeryId, 'booking');
     if (!readiness || !readiness.ready) {
       toast.error(`Complete these first: ${(readiness?.missing ?? ['the surgery record']).join(', ')}`);
+      approveFx.error();
       return;
     }
 
@@ -1243,8 +1248,10 @@ export default function SurgicalWorkflowPage() {
       setBookingApproved(true);
       setSectionCompletion(prev => ({ ...prev, booking: true }));
       toast.success('Surgery booking approved');
+      approveFx.done();
     } catch (err) {
       toast.error('Failed to approve booking');
+      approveFx.error();
       console.error(err);
     }
   };
@@ -3058,10 +3065,11 @@ export default function SurgicalWorkflowPage() {
                   <p className="text-sm text-green-700 mt-1">Scheduled for {scheduledDate}</p>
                 </div>
               ) : (
-                <button onClick={approveBooking}
+                <AsyncButton onClick={() => approveBooking().catch(e => { approveFx.error(); throw e; })} status={approveFx.status} disableWhileWorking={false}
+                  workingLabel="Approving…" doneLabel="Approved" errorLabel="Booking not approved"
                   className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 flex items-center justify-center gap-2">
                   <CheckCircle className="w-5 h-5" /> Approve Surgery Booking
-                </button>
+                </AsyncButton>
               )}
 
               <div className="flex flex-wrap items-center justify-between gap-y-2 mt-4">

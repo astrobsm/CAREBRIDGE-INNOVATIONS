@@ -9,6 +9,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { ArrowLeft, Save, User, ChevronDown, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
+import { AsyncButton, useActionStatus } from '../../../components/motion';
 import { db } from '../../../database/db';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { HospitalSelector } from '../../../components/hospital';
@@ -79,6 +80,7 @@ export default function SlimNewPatientPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const saveFx = useActionStatus();
   const [numberCheck, setNumberCheck] = useState<NumberCheck>({ state: 'empty' });
 
   const { register, handleSubmit, control, watch, setValue, getValues, formState: { errors } } = useForm<SlimFormData>({
@@ -108,16 +110,19 @@ export default function SlimNewPatientPage() {
       toast.error(numberCheck.state === 'checking'
         ? 'Still checking the hospital number - try again in a moment.'
         : 'This hospital number is already registered. Open the existing record instead.');
+      saveFx.error();
       return;
     }
     const scopeProblem = await registrationScopeProblem(data.hospitalId, user);
     if (scopeProblem) {
       toast.error(scopeProblem, { duration: 8000 });
+      saveFx.error();
       return;
     }
     const dob = resolveOptionalDateOfBirth({ mode: data.dobMode, dobText: data.dateOfBirth, ageText: data.ageYears });
     if (!dob.ok) {
       toast.error(dob.error);
+      saveFx.error();
       return;
     }
     const hospitalId = data.hospitalId?.trim() || undefined;
@@ -183,10 +188,12 @@ export default function SlimNewPatientPage() {
           ? `Patient registered — ${hospitalNumber}`
           : `Patient registered (offline) — will sync when online`
       );
+      saveFx.done();
       navigate(`/patients/${patient.id}`);
     } catch (error) {
       console.error('[SlimPatientRegistration] Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to register patient');
+      saveFx.error();
     } finally {
       setIsLoading(false);
     }
@@ -226,7 +233,7 @@ export default function SlimNewPatientPage() {
       <motion.form
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={handleSubmit(onSubmit, () => saveFx.error())}
         className="space-y-5"
         noValidate
       >
@@ -416,18 +423,22 @@ export default function SlimNewPatientPage() {
           >
             Cancel
           </button>
-          <button
+          <AsyncButton
             type="submit"
-            disabled={isLoading}
-            className={`px-6 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 ${
+            busy={isLoading}
+            status={saveFx.status}
+            workingLabel="Registering…"
+            doneLabel="Registered"
+            errorLabel="Patient not registered"
+            className={`px-6 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors ${
               isLoading
-                ? 'bg-gray-300 text-gray-500 cursor-wait'
+                ? 'bg-blue-500 text-white cursor-wait'
                 : 'bg-blue-600 text-white hover:bg-blue-700 shadow'
             }`}
           >
             <Save size={18} />
-            {isLoading ? 'Registering…' : 'Register Patient'}
-          </button>
+            Register Patient
+          </AsyncButton>
         </div>
       </motion.form>
     </div>

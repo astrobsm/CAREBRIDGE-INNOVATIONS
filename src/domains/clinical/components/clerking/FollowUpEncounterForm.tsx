@@ -12,6 +12,7 @@ import {
   aiPayload, emptyFollowUp, generateFollowUpNarrative, mergeSuggestions, redFlags, ruleSuggestions, type FollowUpData, type PatientContext,
 } from '../../clerking/engine';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { AsyncButton, useActionStatus } from '../../../../components/motion';
 import { requestAiSuggestions } from '../../clerking/aiSuggestions';
 import { messageOf } from '../../clerking/lifecycle';
 import type { ClinicalPlanItem, ClinicalProblem } from '../../clerking/records';
@@ -74,6 +75,9 @@ export const FollowUpEncounterForm: React.FC<Props> = ({ patientId, patientLabel
   const [encounter, setEncounter] = useState<ClerkedEncounter | null>(existing || null);
   const [hasNew, setHasNew] = useState<boolean | null>(data.newComplaints.length ? true : null);
   const [saving, setSaving] = useState(false);
+  // Visual feedback only: the draft and sign buttons show their own outcome.
+  const draftFx = useActionStatus();
+  const signFx = useActionStatus();
   const [aiState, setAiState] = useState<string>('');
 
   useEffect(() => {
@@ -152,18 +156,21 @@ export const FollowUpEncounterForm: React.FC<Props> = ({ patientId, patientLabel
   const submit = async () => {
     if (unreviewed && !window.confirm(`${unreviewed} problem(s) / plan item(s) are not reviewed and will stay as they are. Submit anyway?`)) return;
     if (hasNew === null && !window.confirm('You have not recorded whether there are new complaints. Submit anyway?')) return;
+    signFx.start();
     const saved = await save();
-    if (!saved) return;
+    if (!saved) { signFx.error(); return; }
     setSaving(true);
     try {
       const r = await submitClerking(saved.id, saved.clerking.version, user!, canSign);
       localDraft.clear(patientId, `followup-${saved.id}`);
       localDraft.clear(patientId, 'followup');
       toast.success(r.clerking.status === 'signed' ? 'Follow-up signed — progress recorded' : 'Follow-up submitted for review');
+      signFx.done();
       onSaved();
       onClose();
     } catch (e) {
       toast.error(messageOf(e, 'Could not submit'));
+      signFx.error();
     } finally {
       setSaving(false);
     }
@@ -278,8 +285,10 @@ export const FollowUpEncounterForm: React.FC<Props> = ({ patientId, patientLabel
           <div className="bg-white border-t px-4 py-3 flex flex-wrap items-center justify-between gap-2 sm:rounded-b-2xl">
             <span className="text-xs text-gray-500">{unreviewed ? `${unreviewed} item(s) not reviewed` : 'All items reviewed ✓'}</span>
             <div className="flex gap-2">
-              <button type="button" disabled={saving} onClick={async () => { if (await save()) toast.success('Draft saved'); }} className="px-3 py-2 text-sm rounded-lg border">{saving ? 'Saving…' : 'Save draft'}</button>
-              <button type="button" disabled={saving} onClick={submit} className="px-4 py-2 text-sm rounded-lg bg-green-600 text-white disabled:opacity-50">{canSign ? 'Sign follow-up' : 'Submit for review'}</button>
+              <AsyncButton type="button" busy={saving && signFx.status !== 'working'} status={draftFx.status} workingLabel="Saving…" doneLabel="Draft saved"
+                disabled={saving} onClick={async () => { if (await save()) { toast.success('Draft saved'); draftFx.done(); } else draftFx.error(); }} className="px-3 py-2 text-sm rounded-lg border">Save draft</AsyncButton>
+              <AsyncButton type="button" status={signFx.status} workingLabel={canSign ? 'Signing…' : 'Submitting…'} doneLabel={canSign ? 'Signed' : 'Submitted'}
+                disabled={saving} onClick={submit} className="px-4 py-2 text-sm rounded-lg bg-green-600 text-white disabled:opacity-50">{canSign ? 'Sign follow-up' : 'Submit for review'}</AsyncButton>
             </div>
           </div>
         )}

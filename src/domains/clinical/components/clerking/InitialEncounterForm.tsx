@@ -24,6 +24,7 @@ import {
   type PatientContext,
 } from '../../clerking/engine';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { AsyncButton, useActionStatus } from '../../../../components/motion';
 import { requestAiSuggestions } from '../../clerking/aiSuggestions';
 import { messageOf } from '../../clerking/lifecycle';
 import { localDraft, saveClerking, submitClerking, type ClerkedEncounter } from '../../services/clerkingService';
@@ -92,6 +93,9 @@ export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel,
   const [step, setStep] = useState(0);
   const [gynOverride, setGynOverride] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Visual feedback only: the draft and sign buttons show their own outcome.
+  const draftFx = useActionStatus();
+  const signFx = useActionStatus();
   const [ai, setAi] = useState<{ state: 'idle' | 'loading' | 'done' | 'error'; message?: string; missing?: string[] }>({ state: 'idle' });
   const [showNarrative, setShowNarrative] = useState(false);
   const aiTried = useRef(false);
@@ -190,18 +194,21 @@ export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel,
     const acceptedDx = suggestions.filter(s => s.kind === 'differential' && s.decision === 'accepted').length;
     if (!acceptedDx && !window.confirm('No diagnosis has been accepted, so nothing will be tracked as a problem. Submit anyway?')) return;
     if (pending && !window.confirm(`${pending} suggestion(s) are still undecided and will not be tracked. Continue?`)) return;
+    signFx.start();
     const saved = await save();
-    if (!saved) return;
+    if (!saved) { signFx.error(); return; }
     setSaving(true);
     try {
       const r = await submitClerking(saved.id, saved.clerking.version, user!, canSign);
       localDraft.clear(patientId, `initial-${saved.id}`);
       localDraft.clear(patientId, 'initial');
       toast.success(r.clerking.status === 'signed' ? 'Clerking signed — problems and plan are now tracked' : 'Submitted for registrar / consultant review');
+      signFx.done();
       onSaved();
       onClose();
     } catch (e) {
       toast.error(messageOf(e, 'Could not submit'));
+      signFx.error();
     } finally {
       setSaving(false);
     }
@@ -332,14 +339,15 @@ export const InitialEncounterForm: React.FC<Props> = ({ patientId, patientLabel,
           </div>
           {!readOnly && (
             <div className="flex gap-2">
-              <button type="button" disabled={saving} onClick={async () => { if (await save()) toast.success('Draft saved'); }} className="px-3 py-2 text-sm rounded-lg border">
-                {saving ? 'Saving…' : 'Save draft'}
-              </button>
-              <button type="button" disabled={saving || step < 3} onClick={submit} title={step < 3 ? 'Review the assessment step first' : undefined}
+              <AsyncButton type="button" busy={saving && signFx.status !== 'working'} status={draftFx.status} workingLabel="Saving…" doneLabel="Draft saved"
+                disabled={saving} onClick={async () => { if (await save()) { toast.success('Draft saved'); draftFx.done(); } else draftFx.error(); }} className="px-3 py-2 text-sm rounded-lg border">
+                Save draft
+              </AsyncButton>
+              <AsyncButton type="button" status={signFx.status} workingLabel={canSign ? 'Signing…' : 'Submitting…'} doneLabel={canSign ? 'Signed' : 'Submitted'}
+                disabled={saving || step < 3} onClick={submit} title={step < 3 ? 'Review the assessment step first' : undefined}
                 className="px-4 py-2 text-sm rounded-lg bg-green-600 text-white disabled:opacity-50">
                 {canSign ? (status === 'pending_review' ? 'Review & sign' : 'Sign clerking') : 'Submit for review'}
-
-              </button>
+              </AsyncButton>
             </div>
           )}
         </div>

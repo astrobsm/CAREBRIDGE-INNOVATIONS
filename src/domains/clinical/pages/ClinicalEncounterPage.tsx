@@ -45,6 +45,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { EncounterHospitalField, useEncounterHospital } from '../../../components/hospital';
 import { useAuth } from '../../../contexts/AuthContext';
+import { AsyncButton, useActionStatus } from '../../../components/motion';
 import { syncRecord } from '../../../services/cloudSyncService';
 import PreviousPlansReviewGuard, { type AckSummary } from '../../../components/clinical/PreviousPlansReviewGuard';
 import { VoiceDictation, ExportOptionsModal } from '../../../components/common';
@@ -131,6 +132,7 @@ export default function ClinicalEncounterPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const saveFx = useActionStatus();
   const [activeTab, setActiveTab] = useState<'history' | 'examination' | 'diagnosis'>('history');
 
   // Medical Scribe OCR State
@@ -606,6 +608,7 @@ export default function ClinicalEncounterPage() {
         toast.error('LMP is compulsory for female patients. Please enter a date or mark as Unknown/N/A.');
         setActiveTab('history');
         setIsLoading(false);
+        saveFx.error();
         return;
       }
 
@@ -686,9 +689,11 @@ export default function ClinicalEncounterPage() {
       setRestoredDraftAt(null);
       
       toast.success('Clinical encounter saved successfully!');
+      saveFx.done();
     } catch (error) {
       console.error('Error saving encounter:', error);
       toast.error('Failed to save encounter');
+      saveFx.error();
     } finally {
       setIsLoading(false);
     }
@@ -1791,24 +1796,20 @@ export default function ClinicalEncounterPage() {
           >
             Cancel
           </button>
-          <button
+          <AsyncButton
             type="submit"
-            disabled={isLoading || !plansAcknowledged}
+            busy={isLoading}
+            status={saveFx.status}
+            workingLabel="Saving..."
+            doneLabel="Saved"
+            errorLabel="Encounter not saved"
+            disabled={!plansAcknowledged}
             title={!plansAcknowledged ? 'Acknowledge all prior plan items first' : ''}
             className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save size={18} />
-                {plansAcknowledged ? 'Save Encounter' : 'Review Prior Plans'}
-              </>
-            )}
-          </button>
+            <Save size={18} />
+            {plansAcknowledged ? 'Save Encounter' : 'Review Prior Plans'}
+          </AsyncButton>
         </div>
       </form>
 
