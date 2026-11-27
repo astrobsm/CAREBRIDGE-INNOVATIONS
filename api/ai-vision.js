@@ -10,6 +10,8 @@
 //  2. Structured analysis — answer a caller-supplied prompt about the image and
 //     return JSON. Used by the Wound Progress Monitor's enrichment layer.
 //     Body: { imageDataUrl, system, userText?, jsonMode: true }
+//     or, for up to MAX_IMAGES photos in one question (the derm & rheum
+//     review): { imageDataUrls: [..], system, userText, jsonMode: true }
 //
 // Returns: { text: string, engine: 'claude-vision' | 'claude-vision-json' }.
 // In jsonMode `text` is a JSON document (the caller parses it).
@@ -18,6 +20,9 @@
 import { guardSameOrigin } from './_lib/sameOrigin.js';
 import { requireAppUser } from './_lib/requireUser.js';
 import { askClaude, imageBlock, sendClaudeError } from './_lib/claude.js';
+
+/** Most photos one structured request may carry. */
+export const MAX_IMAGES = 3;
 
 const MEDICAL_SYSTEM = `You are a medical document OCR specialist. Extract ALL text from this handwritten or printed medical document image.
 Preserve the exact structure including:
@@ -45,10 +50,15 @@ export default async function handler(req, res, deps = {}) {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
-    const { imageDataUrl = '', medicalContext = true, system = '', userText = '', jsonMode = false } = body;
+    const { imageDataUrl = '', imageDataUrls, medicalContext = true, system = '', userText = '', jsonMode = false } = body;
 
-    // Validates the data URL, the image type and Claude's 5 MB limit.
-    const image = imageBlock(imageDataUrl);
+    // Validates each data URL, the image type and Claude's 5 MB limit.
+    // Several images (at most MAX_IMAGES) only in structured-analysis mode.
+    if (imageDataUrls !== undefined && (!jsonMode || !Array.isArray(imageDataUrls) || imageDataUrls.length === 0 || imageDataUrls.length > MAX_IMAGES)) {
+      res.status(400).json({ error: `Send 1 to ${MAX_IMAGES} images, in structured-analysis mode only.` });
+      return;
+    }
+    const images = Array.isArray(imageDataUrls) ? imageDataUrls.map(u => imageBlock(u)) : [imageBlock(imageDataUrl)];
 
     const systemPrompt = jsonMode && system ? String(system) : (medicalContext ? MEDICAL_SYSTEM : GENERAL_SYSTEM);
     const instruction = jsonMode
@@ -58,8 +68,9 @@ export default async function handler(req, res, deps = {}) {
     const { text } = await askClaude(
       {
         system: systemPrompt,
-        content: [image, { type: 'text', text: instruction }],
-        maxTokens: 8000,
+        content: [...images, { type: 'text', text: instruction }],
+        // A caller may ask for more room for a long structured answer; askClaude clamps it.
+        maxTokens: jsonMode && body.max_tokens ? body.max_tokens : 8000,
         json: Boolean(jsonMode),
         // Transcription needs reading, not deliberation.
         effort: jsonMode ? 'medium' : 'low',

@@ -159,6 +159,25 @@ describe('the proxies', () => {
     expect(json.calls[0].system).toMatch(/^Wound prompt/);
   });
 
+  it('/api/ai-vision takes up to 3 images in one structured request (derm & rheum review), never more', async () => {
+    const json = fakeClient({ text: '{"ok":true}' });
+    const res = fakeRes();
+    const img = 'data:image/jpeg;base64,AAAA';
+    await vision.default(post({ imageDataUrls: [img, img, img], system: 'Derm prompt', userText: 'case', jsonMode: true, max_tokens: 12000 }), res, { auth: okAuth, claude: { client: json, env: ENV } });
+    expect(res.body.engine).toBe('claude-vision-json');
+    const content = json.calls[0].messages[0].content;
+    expect(content.filter((b: any) => b.type === 'image')).toHaveLength(3);
+    expect(content[3]).toEqual({ type: 'text', text: 'case' });
+    expect(json.calls[0].max_tokens).toBe(12000);
+    for (const bad of [{ imageDataUrls: [img, img, img, img], jsonMode: true }, { imageDataUrls: [img] }, { imageDataUrls: [], jsonMode: true }]) {
+      const r = fakeRes();
+      const c = fakeClient({ text: 'x' });
+      await vision.default(post({ system: 's', ...bad }), r, { auth: okAuth, claude: { client: c, env: ENV } });
+      expect(r.statusCode).toBe(400);
+      expect(c.calls).toHaveLength(0);
+    }
+  });
+
   it('pass the helper\'s status and message to the browser', async () => {
     const res = fakeRes();
     await vision.default(post({ imageDataUrl: 'data:image/bmp;base64,AAAA' }), res, { auth: okAuth, claude: { client: fakeClient({}), env: ENV } });

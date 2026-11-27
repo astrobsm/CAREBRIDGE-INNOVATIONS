@@ -90,6 +90,28 @@ export async function proxyVision(imageDataUrl: string, medicalContext = true): 
   return (data.text || '').trim();
 }
 
+/** At most this many photos go to Claude in one request (the derm & rheum review). */
+export const AI_MAX_IMAGES = 3;
+/** Several photos in one request stay well under the server's body limit at this size. */
+export const AI_MULTI_IMAGE_EDGE = 1100;
+
+/**
+ * A structured question about up to three images, answered as one JSON
+ * document (raw text; the caller validates it). Used by the derm & rheum
+ * review, where the clinical text and the lesion photos go together.
+ */
+export async function proxyVisionJsonText(imageDataUrls: string[], system: string, userText: string, maxTokens?: number): Promise<string> {
+  const images = await Promise.all(imageDataUrls.slice(0, AI_MAX_IMAGES).map(u => prepareImageForAI(u, AI_MULTI_IMAGE_EDGE)));
+  const res = await fetch('/api/ai-vision', {
+    method: 'POST',
+    headers: await withAuthHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ imageDataUrls: images, system, userText, jsonMode: true, max_tokens: maxTokens }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, 'Vision analysis failed'));
+  const data = await res.json();
+  return (data.text || '').trim();
+}
+
 /**
  * Ask a structured question about an image and get parsed JSON back.
  *

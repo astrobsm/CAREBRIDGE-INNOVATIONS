@@ -26,6 +26,7 @@ import { buildClinicianPlanDocument, buildPatientPlanDocument, renderPlanDocumen
 import { RULES_ENGINE_VERSION } from './rulesPlan';
 import type { ClerkingPlanRecord, ClerkingPlanSource, PlanAppointment, PlanApproval } from './records';
 import type { PlanLine } from './types';
+import { dermRheumLines } from '../../derm-rheum/store';
 
 const asRecord = (r: unknown) => r as Record<string, unknown>;
 const now = () => new Date().toISOString();
@@ -85,7 +86,7 @@ export async function updatePlan(id: string, patch: Partial<ClerkingPlanRecord>)
 
 /** The final plan as it would be approved now. */
 export function finalLinesOf(r: ClerkingPlanRecord): PlanLine[] {
-  return buildFinalPlan(r.rulesPlan.lines, [...(r.aiDraft?.lines ?? []), ...(r.interpretation?.ai?.lines ?? [])], r.decisions, r.manualLines);
+  return buildFinalPlan(r.rulesPlan.lines, [...(r.aiDraft?.lines ?? []), ...(r.interpretation?.ai?.lines ?? []), ...dermRheumLines(r.dermRheum, r.decisions)], r.decisions, r.manualLines);
 }
 
 /** Approve: a new version with the approver, time, final lines and the rules it was checked against. */
