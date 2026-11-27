@@ -27,6 +27,7 @@ import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import { generateEncounterSummary, formatSummaryAsText, type EncounterSummaryResult } from '../services/encounterSummaryService';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
+import { Sheet } from '../../../components/motion';
 
 interface AISummaryButtonProps {
   patientId: string;
@@ -185,22 +186,9 @@ export function AISummaryButton({ patientId, patientName, className = '' }: AISu
       </button>
 
       {/* Modal */}
-      <AnimatePresence>
-        {isOpen && summary && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setIsOpen(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={!!(isOpen && summary)} onClose={() => setIsOpen(false)} label="AI Clinical Summary" size="3xl" dragToDismiss>
+        {() => isOpen && summary && (
+            <div onClick={(e) => e.stopPropagation()}>
               {/* Header */}
               <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white p-6">
                 <div className="flex items-center justify-between">
@@ -393,10 +381,9 @@ export function AISummaryButton({ patientId, patientName, className = '' }: AISu
                   Regenerate
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </>
   );
 }

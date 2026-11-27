@@ -38,6 +38,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { syncRecord } from '../../../services/cloudSyncService';
 import type { ChatRoom, ChatMessage, ChatParticipant, UserRole, ChatRoomType } from '../../../types';
 import { findDirectRoom, isListedRoom, roomDisplayName } from '../utils/chatRooms';
+import { Sheet } from '../../../components/motion';
 
 // Room type icons and colors
 const roomTypeConfig: Record<string, { icon: React.ReactNode; color: string; bgColor: string }> = {
@@ -840,25 +841,14 @@ function NewRoomModal({ users, currentUserId, onClose, onCreate }: NewRoomModalP
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Sheet onClose={onClose} label="New Conversation" size="lg" scroll="content" className="max-h-[80vh]">
+      {close => (
+      <div className="flex flex-col min-h-0 flex-1" onClick={(e) => e.stopPropagation()}>
         {/* Fixed Header */}
         <div className="flex-shrink-0 p-6 border-b">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">New Conversation</h2>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
+            <button onClick={close} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
               <X size={20} />
             </button>
           </div>
@@ -957,7 +947,7 @@ function NewRoomModal({ users, currentUserId, onClose, onCreate }: NewRoomModalP
         {/* Fixed Footer */}
         <div className="flex-shrink-0 p-6 border-t bg-gray-50 flex justify-end gap-3">
           <button
-            onClick={onClose}
+            onClick={close}
             className="px-4 py-2 border rounded-lg hover:bg-gray-100 transition-colors"
           >
             Cancel
@@ -970,7 +960,8 @@ function NewRoomModal({ users, currentUserId, onClose, onCreate }: NewRoomModalP
             Create Chat
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+      )}
+    </Sheet>
   );
 }

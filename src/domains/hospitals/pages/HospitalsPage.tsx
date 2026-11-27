@@ -27,6 +27,7 @@ import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import BulkImportModal from '../../../components/common/BulkImportModal';
 import type { Hospital } from '../../../types';
+import { Sheet } from '../../../components/motion';
 
 // Nigerian states for address
 const nigerianStates = [
@@ -475,22 +476,9 @@ export default function HospitalsPage() {
       </div>
 
       {/* Add/Edit Hospital Modal */}
-      <AnimatePresence>
-        {showModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50"
-            onClick={closeModal}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showModal} onClose={closeModal} label="Hospital" size="3xl">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">
                   {editingHospital ? 'Edit Hospital' : 'Add New Hospital'}
@@ -678,10 +666,9 @@ export default function HospitalsPage() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Bulk Import Modal */}
       <BulkImportModal

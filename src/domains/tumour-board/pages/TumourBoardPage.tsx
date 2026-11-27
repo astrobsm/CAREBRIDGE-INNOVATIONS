@@ -47,6 +47,7 @@ import {
   generateBoardSummaryPdf, generateAllReferralLettersPdf,
   generateSurveillancePdf, generateCounsellingPdf,
 } from '../services/tumourBoardPdfService';
+import { Sheet } from '../../../components/motion';
 
 const TUMOR_FAMILIES: { value: TumorFamily; label: string; hint: string }[] = [
   { value: 'cutaneous_melanoma', label: 'Cutaneous melanoma', hint: 'Staged on Breslow thickness and ulceration' },
@@ -1062,11 +1063,12 @@ const PatientPickerModal: React.FC<{ onClose: () => void; onPick: (p: Patient) =
   }, [q, all]);
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" role="dialog" aria-modal="true">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl my-4 sm:my-8 max-h-[calc(100vh-2rem)] flex flex-col">
+    <Sheet onClose={onClose} label="Select patient" size="lg" scroll="content" className="max-h-[calc(100vh-2rem)]" closeOnBackdrop={false} dragToDismiss hasUnsavedInput={false}>
+      {close => (
+      <div className="flex flex-col min-h-0 flex-1">
         <div className="flex items-center justify-between p-4 border-b">
           <h3 className="font-semibold text-gray-900">Select patient</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X className="w-4 h-4" /></button>
+          <button onClick={close} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-4 overflow-y-auto">
           <div className="relative mb-3">
@@ -1094,7 +1096,8 @@ const PatientPickerModal: React.FC<{ onClose: () => void; onPick: (p: Patient) =
           )}
         </div>
       </div>
-    </div>
+      )}
+    </Sheet>
   );
 };
 

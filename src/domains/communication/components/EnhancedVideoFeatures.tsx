@@ -19,6 +19,7 @@ import {
   Play,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Sheet } from '../../../components/motion';
 
 // Virtual background options
 export const virtualBackgrounds = [
@@ -426,23 +427,16 @@ export function DeviceSettingsModal({
   onAudioInputChange,
   onAudioOutputChange,
 }: DeviceSettingsProps) {
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Sheet open={isOpen} onClose={onClose} label="Device Settings" size="md" dragToDismiss>
+      {close => (
+      <div className="p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <Settings size={24} />
             Device Settings
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={close} className="p-2 hover:bg-gray-100 rounded-lg">
             <span className="sr-only">Close</span>
             ×
           </button>
@@ -511,13 +505,14 @@ export function DeviceSettingsModal({
         </div>
 
         <button
-          onClick={onClose}
+          onClick={close}
           className="w-full mt-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
         >
           Done
         </button>
       </div>
-    </div>
+      )}
+    </Sheet>
   );
 }
 
@@ -539,23 +534,16 @@ export function VirtualBackgroundSelector({
 }: VirtualBackgroundSelectorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Sheet open={isOpen} onClose={onClose} label="Virtual Background" size="lg" dragToDismiss>
+      {close => (
+      <div className="p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <Sparkles size={24} className="text-purple-500" />
             Virtual Background
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
+          <button onClick={close} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
             ×
           </button>
         </div>
@@ -617,7 +605,8 @@ export function VirtualBackgroundSelector({
           }}
         />
       </div>
-    </div>
+      )}
+    </Sheet>
   );
 }
 

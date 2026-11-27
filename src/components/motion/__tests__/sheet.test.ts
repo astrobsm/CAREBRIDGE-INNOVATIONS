@@ -209,8 +209,32 @@ const BATCH_2: Record<string, { sheets: number; rawAllowed?: number; why?: strin
   'src/domains/calculators/pages/ClinicalCalculatorsPage.tsx': { sheets: 1 },
 };
 
-describe('batch-1 and batch-2 dialogs stay on the shared Sheet', () => {
-  for (const [file, rule] of Object.entries({ ...BATCH_1, ...BATCH_2 })) {
+/** Batch 3: users / hospitals, billing, MDT / tumour board / external review, chat / video, family / finance, AI tools. */
+const BATCH_3: Record<string, { sheets: number; rawAllowed?: number; why?: string }> = {
+  'src/components/hospital/HospitalSelector.tsx': { sheets: 1 },
+  'src/domains/auth/components/UserHospitalsModal.tsx': { sheets: 1 },
+  'src/domains/auth/pages/UsersManagementPage.tsx': { sheets: 4, rawAllowed: 1, why: 'the transparent click-catcher behind the row menu (not a dialog)' },
+  'src/domains/hospitals/pages/HospitalsPage.tsx': { sheets: 1 },
+  'src/domains/billing/pages/BillingPage.tsx': { sheets: 3 },
+  'src/domains/billing/pages/PayrollDashboardPage.tsx': { sheets: 1 },
+  'src/domains/billing/pages/SurgicalEstimatePage.tsx': { sheets: 3 },
+  'src/domains/clinical/pages/MDTPage.tsx': { sheets: 3 },
+  'src/domains/external-review/pages/ExternalReviewPage.tsx': { sheets: 2 },
+  'src/domains/tumour-board/pages/TumourBoardPage.tsx': { sheets: 1 },
+  'src/domains/communication/components/EnhancedVideoFeatures.tsx': { sheets: 2 },
+  'src/domains/communication/pages/ChatPage.tsx': { sheets: 1 },
+  'src/domains/communication/pages/VideoConferencePage.tsx': { sheets: 2, rawAllowed: 1, why: 'the call screen\'s own fullscreen mode (not a dialog)' },
+  'src/domains/family/pages/FamilyChildren.tsx': { sheets: 1 },
+  'src/domains/finance/pages/FinanceBuckets.tsx': { sheets: 1 },
+  'src/domains/finance/pages/FinanceProjects.tsx': { sheets: 1 },
+  'src/domains/shopping-checklist/pages/ShoppingChecklistPage.tsx': { sheets: 1 },
+  'src/domains/ai-assistant/components/AIClinicalAssistant.tsx': { sheets: 1 },
+  'src/domains/clinical/components/AISummaryButton.tsx': { sheets: 1 },
+  'src/domains/clinical/components/scribe/ImplementationDialog.tsx': { sheets: 1 },
+};
+
+describe('batch-1, batch-2 and batch-3 dialogs stay on the shared Sheet', () => {
+  for (const [file, rule] of Object.entries({ ...BATCH_1, ...BATCH_2, ...BATCH_3 })) {
     it(file.replace(/^src\//, ''), () => {
       const src = read(file);
       const raw = src.split('\n').filter(l => /fixed inset-0/.test(l)).length;
@@ -219,6 +243,12 @@ describe('batch-1 and batch-2 dialogs stay on the shared Sheet', () => {
       expect((src.match(/<Sheet\b/g) || []).length).toBeGreaterThanOrEqual(rule.sheets);
     });
   }
+
+  it('dialogs showing a one-time password close only from their own buttons', () => {
+    const src = read('src/domains/auth/pages/UsersManagementPage.tsx');
+    expect(src).toMatch(/<Sheet [^>]*label="Login Details"[^>]*dismissible={false}/);
+    expect(src).toMatch(/<Sheet [^>]*label="Account password"[^>]*dismissible={false}/);
+  });
 
   it('form dialogs in batch 1 never turn on swipe-to-dismiss', () => {
     // Files whose sheets hold fields: none may pass dragToDismiss.
@@ -257,6 +287,22 @@ describe('batch-1 and batch-2 dialogs stay on the shared Sheet', () => {
       'src/domains/laboratory/pages/LaboratoryPage.tsx',
       'src/domains/document-scanner/components/DocumentScanner.tsx',
       'src/domains/calculators/pages/ClinicalCalculatorsPage.tsx',
+      // batch 3 (billing never swipes: payments and invoices)
+      'src/components/hospital/HospitalSelector.tsx',
+      'src/domains/auth/components/UserHospitalsModal.tsx',
+      'src/domains/auth/pages/UsersManagementPage.tsx',
+      'src/domains/hospitals/pages/HospitalsPage.tsx',
+      'src/domains/billing/pages/BillingPage.tsx',
+      'src/domains/billing/pages/PayrollDashboardPage.tsx',
+      'src/domains/billing/pages/SurgicalEstimatePage.tsx',
+      'src/domains/clinical/pages/MDTPage.tsx',
+      'src/domains/external-review/pages/ExternalReviewPage.tsx',
+      'src/domains/communication/pages/ChatPage.tsx',
+      'src/domains/family/pages/FamilyChildren.tsx',
+      'src/domains/finance/pages/FinanceBuckets.tsx',
+      'src/domains/finance/pages/FinanceProjects.tsx',
+      'src/domains/ai-assistant/components/AIClinicalAssistant.tsx',
+      'src/domains/clinical/components/scribe/ImplementationDialog.tsx',
     ];
     for (const f of forms) expect(read(f), f).not.toMatch(/dragToDismiss/);
   });

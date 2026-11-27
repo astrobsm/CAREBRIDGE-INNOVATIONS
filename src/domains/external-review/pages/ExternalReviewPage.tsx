@@ -35,6 +35,7 @@ import { PatientSelector } from '../../../components/patient';
 import { HospitalSelector } from '../../../components/hospital';
 import type { ExternalReview, Patient, Hospital } from '../../../types';
 import { generateExternalReviewPDF } from '../utils/pdfGenerator';
+import { Sheet } from '../../../components/motion';
 
 // Predefined services catalog with fees
 interface ServiceItem {
@@ -641,22 +642,9 @@ export default function ExternalReviewPage() {
       </div>
 
       {/* Add/Edit Form Modal */}
-      <AnimatePresence>
-        {showForm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowForm(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showForm} onClose={() => setShowForm(false)} label="External review" size="lg">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-900">
@@ -825,28 +813,14 @@ export default function ExternalReviewPage() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Export Modal */}
-      <AnimatePresence>
-        {showExportModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowExportModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showExportModal} onClose={() => setShowExportModal(false)} label="Export Reviews" size="lg">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-900">Export Reviews</h2>
@@ -1027,10 +1001,9 @@ export default function ExternalReviewPage() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }
