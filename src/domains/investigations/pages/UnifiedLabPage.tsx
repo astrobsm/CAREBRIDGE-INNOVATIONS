@@ -76,6 +76,7 @@ import { performOCR } from '../../../services/ocrService';
 import { proxyChat } from '../../../services/aiProxy';
 // investigationApprovalService import removed (unused - approval handled via InvestigationApprovalPanel)
 import type { Investigation } from '../../../types';
+import { Sheet } from '../../../components/motion';
 
 // Form schemas
 const requestSchema = z.object({
@@ -1260,25 +1261,15 @@ function RequestModal({
   }, [hospitals, selectedPatient]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
-      >
+    <Sheet onClose={onClose} label="New investigation request" size="4xl">
+      {close => (
+      <div>
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <FlaskConical className="text-primary-600" />
             New Investigation Request
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
+          <button onClick={close} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
             <X size={20} />
           </button>
         </div>
@@ -1620,7 +1611,7 @@ function RequestModal({
           </div>
 
           <div className="flex justify-end gap-3 p-4 border-t bg-gray-50">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+            <button type="button" onClick={close} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
               Cancel
             </button>
             {hasPathologySelected && (
@@ -1672,8 +1663,9 @@ function RequestModal({
             </button>
           </div>
         </form>
-      </motion.div>
-    </motion.div>
+      </div>
+      )}
+    </Sheet>
   );
 }
 
@@ -1926,19 +1918,9 @@ Return ONLY valid JSON, no commentary, no markdown.`;
   const refRange = referenceRanges[selectedTrendParam];
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[95vh] flex flex-col"
-      >
+    <Sheet onClose={onClose} label="Enter results" size="3xl" scroll="content" className="max-h-[95vh]">
+      {close => (
+      <div className="flex flex-col min-h-0 flex-1">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
           <div>
@@ -1950,7 +1932,7 @@ Return ONLY valid JSON, no commentary, no markdown.`;
               </p>
             )}
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
+          <button onClick={close} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
             <X size={20} />
           </button>
         </div>
@@ -2172,7 +2154,7 @@ Return ONLY valid JSON, no commentary, no markdown.`;
         </div>
 
         <div className="flex justify-end gap-3 p-4 border-t bg-gray-50 flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+          <button type="button" onClick={close} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
             Cancel
           </button>
           <button onClick={onSubmit} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
@@ -2180,8 +2162,9 @@ Return ONLY valid JSON, no commentary, no markdown.`;
             {completedCount < uniqueParams.length && uniqueParams.length > 0 ? 'Save Partial Results' : 'Save Results'}
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+      )}
+    </Sheet>
   );
 }
 
@@ -2365,25 +2348,15 @@ function DetailsModal({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
-      >
+    <Sheet onClose={onClose} label="Investigation results" size="2xl" dragToDismiss>
+      {close => (
+      <div>
         <div className="flex items-center justify-between p-4 border-b">
           <div>
             <h2 className="text-xl font-semibold">Investigation Results</h2>
             <p className="text-sm text-gray-500">{investigation.patientName} - {investigation.typeName}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
+          <button onClick={close} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
             <X size={20} />
           </button>
         </div>
@@ -2488,12 +2461,13 @@ function DetailsModal({
             <Printer size={16} />
             Print
           </button>
-          <button onClick={onClose} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+          <button onClick={close} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
             Close
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+      )}
+    </Sheet>
   );
 }
 

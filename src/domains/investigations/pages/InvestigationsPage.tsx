@@ -57,6 +57,7 @@ import PatientOrdersReview from '../../../components/clinical/PatientOrdersRevie
 import { InvestigationApprovalPanel } from '../../../components/investigations';
 import type { Investigation, InvestigationResult } from '../../../types';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
+import { Sheet } from '../../../components/motion';
 
 // Investigation category type for type safety
 type InvestigationCategory = Investigation['category'];
@@ -1205,22 +1206,9 @@ export default function InvestigationsPage() {
       )}
 
       {/* Request Investigation Modal */}
-      <AnimatePresence>
-        {showRequestModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowRequestModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showRequestModal} onClose={() => setShowRequestModal(false)} label="Request investigation" size="lg">
+        {() => (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">Request Investigation</h2>
                 <button onClick={() => setShowRequestModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="Close">
@@ -1377,28 +1365,14 @@ export default function InvestigationsPage() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Result Upload Modal */}
-      <AnimatePresence>
-        {showResultModal && selectedInvestigation && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowResultModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[95vh] flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={!!(showResultModal && selectedInvestigation)} onClose={() => setShowResultModal(false)} label="Upload results" size="3xl" scroll="content" className="max-h-[95vh]">
+        {() => showResultModal && selectedInvestigation && (
+            <div className="flex flex-col min-h-0 flex-1" onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b flex items-center justify-between flex-shrink-0">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Upload Results</h2>
@@ -1558,28 +1532,14 @@ export default function InvestigationsPage() {
                     Save Results
                   </button>
                 </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* View Results Modal */}
-      <AnimatePresence>
-        {showTrendModal && selectedInvestigation && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowTrendModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={!!(showTrendModal && selectedInvestigation)} onClose={() => setShowTrendModal(false)} label="Investigation results" size="2xl" dragToDismiss>
+        {() => showTrendModal && selectedInvestigation && (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Investigation Results</h2>
@@ -1666,10 +1626,9 @@ export default function InvestigationsPage() {
                   />
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Export Options Modal */}
       {exportInvestigation && (

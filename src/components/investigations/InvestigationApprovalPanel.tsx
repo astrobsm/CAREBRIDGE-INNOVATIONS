@@ -32,6 +32,7 @@ import { db } from '../../database';
 import { useAuth } from '../../contexts/AuthContext';
 import { investigationApprovalService } from '../../services/investigationApprovalService';
 import type { UserRole } from '../../types';
+import { Sheet } from '../motion';
 
 // ==================== TYPES ====================
 
@@ -637,22 +638,9 @@ export default function InvestigationApprovalPanel({
       </div>
       
       {/* Rejection Modal */}
-      <AnimatePresence>
-        {showRejectionModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowRejectionModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={showRejectionModal} onClose={() => setShowRejectionModal(false)} label="Reject investigation" size="md">
+        {() => (
+            <div className="p-6" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-red-100 rounded-full">
                   <XCircle className="text-red-600" size={24} />
@@ -696,10 +684,9 @@ export default function InvestigationApprovalPanel({
                   Reject Investigation
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }
