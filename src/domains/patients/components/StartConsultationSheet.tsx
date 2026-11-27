@@ -6,7 +6,7 @@
 
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardList, RefreshCw, FileEdit, Scissors, X, ChevronRight } from 'lucide-react';
+import { ClipboardList, RefreshCw, FileEdit, Scissors, X, ChevronRight, Microscope } from 'lucide-react';
 import { consultationOptions } from '../patientHubLinks';
 import { Sheet } from '../../../components/motion';
 
@@ -23,7 +23,9 @@ export default function StartConsultationSheet({ open, patientId, patientName, h
   const closeRef = useRef<HTMLButtonElement>(null);
 
   const icon = (id: string) =>
-    id === 'initial' ? <ClipboardList size={20} className="text-emerald-600" /> : <RefreshCw size={20} className="text-sky-600" />;
+    id === 'initial' ? <ClipboardList size={20} className="text-emerald-600" />
+      : id === 'derm_rheum' ? <Microscope size={20} className="text-orange-600" />
+      : <RefreshCw size={20} className="text-sky-600" />;
 
   return (
     <Sheet open={open} onClose={onClose} labelledBy="start-consultation-title" dragToDismiss initialFocusRef={closeRef} className="sm:max-w-md">

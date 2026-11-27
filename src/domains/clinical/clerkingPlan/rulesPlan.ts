@@ -29,6 +29,9 @@ import { doseText, weightDose } from './dosing';
 import { ACTIVE_WOUND_PROTOCOL as WP } from './protocols/woundClinic.v1';
 import { CHILD_HB_UNDER_6_MONTHS_NOTE, CHILD_IRON_OWNER_DECISION, SEVERE_ANAEMIA_HB_BELOW_GDL, SEVERE_ANAEMIA_SOURCE, childHbLimit, isMajorBurnTbsa } from './ownerDecisions';
 import { plainMedicineLine } from './patientMedicine';
+import { lesionFeatures, longestDurationDays } from '../../derm-rheum/features';
+import { screen as dermScreen } from '../../derm-rheum/screen';
+import { dermHardRules } from '../../derm-rheum/hardRules';
 import type { PlanLine, PlanSource, RulesPlan } from './types';
 
 export const RULES_ENGINE_VERSION = '1.0.0';
@@ -437,6 +440,14 @@ export function buildRulesPlan(input: PlanInput): RulesPlan {
   if (facts.penicillinAllergy) hard.push('Penicillin allergy recorded: no penicillin-class antibiotic (including co-amoxiclav and flucloxacillin).');
   if (facts.isChild && !facts.isNeonate && !applyWound) hard.push('Children: dose by weight, never above the adult dose.');
 
+  // Derm & rheum hard rules from every template's answers, not only the
+  // atypical-ulcer screen: a chronic wound with a purple undermined edge
+  // fires the pyoderma gangrenosum rule, and debridement is then withheld.
+  const dermF = lesionFeatures(c, facts, longestDurationDays(data));
+  const dermRules = dermHardRules(dermF, dermScreen(dermF).candidates);
+  hard.push(...dermRules.map(r => r.text));
+  const noDebride = dermRules.some(r => r.id === 'pg_no_debride');
+
   // De-duplicate by id (first wins) and by investigation test id across sources.
   const seen = new Set<string>();
   const seenTests = new Set<string>();
@@ -448,6 +459,7 @@ export function buildRulesPlan(input: PlanInput): RulesPlan {
     if (l.test) seenTests.add(l.test.id);
     const { _src, sourceLabel: _sl, ...rest } = l;
     if (rest.section === 'medications' && rest.medication && !rest.patient) rest.patient = plainMedicineLine(rest.medication);
+    if (noDebride && rest.section === 'procedures' && /debrid/i.test(rest.id) && !rest.withheld) rest.withheld = 'Suspected pyoderma gangrenosum: no sharp debridement (pathergy). Gentle cleansing and moist dressings only.';
     lines.push({ ...rest, source: _src });
   }
 

@@ -515,6 +515,63 @@ export const planEn = {
       ],
       warning: ['After the operation: your child cannot pass urine, the tube falls out or blocks, or there is bleeding or fever.'],
     },
+    atypical_ulcer: {
+      name: 'A skin ulcer that needs more tests to find the cause',
+      about: 'Your ulcer does not look like an ordinary wound. Some ulcers are caused by inflammation of the skin or blood vessels, by problems with the immune system, by infection, or rarely by a growth. We test for these so that the right treatment can be given.',
+      options: {
+        biopsy: 'A small piece of skin from the edge of the ulcer, taken with local anaesthetic and sent to the laboratory.',
+        gentleCare: 'Gentle cleaning and soft dressings only, without cutting away tissue, until we know the cause.',
+        specialist: 'A review by a skin specialist (dermatologist) or joint specialist (rheumatologist), if the tests suggest it.',
+      },
+      counselling: [
+        'Some of these tests take one to two weeks. Please come back for the results.',
+        'Do not let anyone cut or scrape the ulcer until we know the cause.',
+        'Tell us about any new medicine, fever, joint pain, mouth sores or blood in your urine.',
+        'Do not put herbs, powders or native medicine on the ulcer.',
+        'Healing can leave the skin darker or lighter than before; this often fades slowly.',
+      ],
+      warning: [
+        'The ulcer grows quickly or becomes much more painful.',
+        'New sores or dark, purple or black patches appear on the skin.',
+        'You have a fever, blood in your urine, or feel very unwell.',
+      ],
+    },
+    sjs_ten: {
+      name: 'A severe skin reaction to a medicine',
+      about: 'Some medicines can cause a serious reaction with blisters and peeling of the skin and sore mouth or eyes. It needs care in hospital, and the medicine should never be taken again.',
+      options: {
+        admission: 'Care in hospital (a burns unit or high-dependency ward) with skin, eye and mouth care.',
+      },
+      counselling: [
+        'Stop the medicine we named and never take it, or similar medicines, again.',
+        'Tell every doctor, nurse and pharmacist about this reaction.',
+        'Your eyes will be checked by an eye specialist.',
+        'After healing, the skin can be darker or lighter for some months.',
+      ],
+      warning: [
+        'New blisters, peeling skin, or sores in the mouth, eyes or private parts.',
+        'Your eyes become red, painful or sticky.',
+        'You cannot drink, or you pass very little urine.',
+      ],
+    },
+    hidradenitis: {
+      name: 'Hidradenitis suppurativa (painful lumps and tunnels in skin folds)',
+      about: 'A long-term condition of the hair roots in the armpits, groin, buttocks or under the breasts. It causes painful lumps, boils and tunnels under the skin. It is not caused by poor hygiene and it is not contagious.',
+      options: {
+        medicines: 'Antibiotic creams or tablets that calm the inflammation, taken for some weeks.',
+        surgery: 'An operation to open or remove the affected skin and tunnels, for long-standing areas.',
+      },
+      counselling: [
+        'Stopping smoking helps the condition settle.',
+        'Losing weight, if advised, reduces flares.',
+        'Wear loose cotton clothes and avoid shaving the affected skin.',
+        'It is not caused by being unclean and you cannot pass it to others.',
+      ],
+      warning: [
+        'A lump becomes very painful and swollen, or you have a fever.',
+        'An area stays open and does not heal for many weeks.',
+      ],
+    },
     other: {
       name: 'Your condition',
       about: 'Your doctor will explain what was found and the plan.',
@@ -522,6 +579,55 @@ export const planEn = {
       counselling: [],
       warning: [],
     },
+  },
+
+  /**
+   * The derm & rheum review's patient leaflet section: plain names for the
+   * knowledge-base conditions and plain words for its tests. Never a score,
+   * a likelihood or a drug dose per kilogram.
+   */
+  dermRheum: {
+    leafletTitle: 'YOUR SKIN REVIEW',
+    intro: 'Your doctor looked carefully at your skin problem, with help from a computer program that checks medical guidelines. These are the possible causes being checked and what happens next. Your doctor has checked everything on this page.',
+    possibleCauses: 'Possible causes we are checking',
+    tests: 'Tests',
+    advice: 'What we talked about',
+    warning: 'Come back at once, or go to the emergency unit, if',
+    photosNote: 'Photos of your skin were looked at without your name.',
+    names: {
+      pyoderma_gangrenosum: 'Pyoderma gangrenosum: an inflammation of the skin (not an infection) that makes ulcers grow quickly',
+      small_vessel_vasculitis: 'Inflammation of the small blood vessels in the skin (vasculitis)',
+      systemic_vasculitis: 'Inflammation of the blood vessels that can affect other organs (vasculitis)',
+      sle: 'Lupus: a condition where the immune system attacks the body',
+      systemic_sclerosis: 'Systemic sclerosis (scleroderma): a condition that thickens the skin and narrows small blood vessels',
+      rheumatoid_ulcer: 'An ulcer linked to rheumatoid arthritis',
+      antiphospholipid: 'A blood condition that makes small clots in the skin',
+      cryoglobulinaemia: 'Proteins in the blood that clump in the cold and block small blood vessels',
+      calciphylaxis: 'Calcium blocking the small blood vessels of the skin, linked to the kidneys',
+      livedoid_vasculopathy: 'Small clots in the skin vessels around the ankles',
+      necrobiosis_lipoidica: 'A shiny skin patch on the shins, often linked to diabetes',
+      sickle_cell_ulcer: 'An ulcer caused by sickle cell disease',
+      marjolin_scc: 'A growth (skin cancer) that can start in an old scar or a long-standing ulcer',
+      bcc: 'A slow-growing skin cancer that does not usually spread',
+      acral_melanoma: 'Melanoma: a skin cancer that can start on the sole, palm or under a nail',
+      kaposi_sarcoma: 'Kaposi sarcoma: a growth of blood vessels in the skin',
+      buruli_ulcer: 'Buruli ulcer: an infection that causes deep painless ulcers, treated with antibiotics',
+      tropical_ulcer: 'A tropical ulcer, from infection after a small injury',
+      cutaneous_tb: 'Tuberculosis (TB) of the skin, treated with TB medicines',
+      leprosy: 'Leprosy: a curable infection of the skin and nerves, with free treatment',
+      mycetoma: 'Mycetoma: a long-lasting infection of the foot from a thorn or soil',
+      hidradenitis: 'Hidradenitis suppurativa: painful lumps and tunnels in skin folds',
+      dfsp: 'A firm growth in the skin that can look like a keloid',
+      sjs_ten: 'A severe skin reaction to a medicine',
+    } as Record<string, string>,
+    testWords: {
+      biopsy: 'A small piece of skin taken with local anaesthetic and sent to the laboratory.',
+      serology: 'Blood tests for the immune system and inflammation of the blood vessels.',
+      blood: 'Blood tests for blood count, kidneys, liver and sugar.',
+      microbiology: 'Tests on a swab or tissue sample for germs, including TB and the Buruli germ.',
+      imaging: 'A scan or X-ray.',
+      bedside: 'A urine test and a blood pressure check.',
+    } as Record<string, string>,
   },
 } as const;
 

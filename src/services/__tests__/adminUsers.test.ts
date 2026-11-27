@@ -321,7 +321,10 @@ describe('requireAppUser (AI endpoints)', () => {
       expect(src.indexOf('if (!(await requireAppUser(req, res, deps.auth))) return;'), f).toBeLessThan(src.indexOf('askClaude('));
     }
     const client = read('src/services/aiProxy.ts');
-    expect(client.match(/headers: await withAuthHeaders\(/g)?.length).toBe(3);
+    // Every request to the AI proxies carries the token (chat, OCR, structured vision, multi-image vision).
+    const fetches = client.match(/fetch\('\/api\//g)?.length ?? 0;
+    expect(fetches).toBe(4);
+    expect(client.match(/headers: await withAuthHeaders\(/g)?.length).toBe(fetches);
   });
 
   it('an AI request without a token is refused before any upstream call', async () => {

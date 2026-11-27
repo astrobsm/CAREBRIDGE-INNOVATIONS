@@ -17,6 +17,7 @@ import type { AiInterpretation } from './aiInterpret';
 import type { FinalLine, LineDecision } from './finalPlan';
 import type { Interpretation, ResultValue } from './results';
 import type { PlanLine, RulesPlan } from './types';
+import type { DermRheumConsultRecord } from '../../derm-rheum/store';
 
 export type ClerkingPlanSource = 'initial' | 'follow_up' | 'wound_review';
 export type ClerkingPlanStatus = 'draft' | 'approved';
@@ -84,6 +85,8 @@ export interface ClerkingPlanRecord {
     at: string;
     ai?: { value: AiInterpretation; lines: PlanLine[]; at: string; missingHardRules: string[] } | null;
   } | null;
+  /** Derm & rheum reviews (Claude, on a press), oldest first; cloud column derm_rheum. */
+  dermRheum?: DermRheumConsultRecord[];
   approvals: PlanApproval[];
   shares: PlanShare[];
   appointments: PlanAppointment[];

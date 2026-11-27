@@ -22,7 +22,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { db } from '../../../../database';
 import { useAuth } from '../../../../contexts/AuthContext';
-import { LongTaskProgress, SkeletonText } from '../../../../components/motion';
+import { LongTaskProgress, Sheet, SkeletonText } from '../../../../components/motion';
 import type { ClerkingData } from '../../clerking/types';
 import type { PatientContext } from '../../clerking/engine';
 import { buildRulesPlan } from '../rulesPlan';
@@ -37,9 +37,13 @@ import { PLAN_SECTIONS, type PlanLine, type PlanSection } from '../types';
 import type { ClerkingPlanRecord, ClerkingPlanSource } from '../records';
 import { ResultsPanel } from './ResultsPanel';
 import { ApprovePanel } from './ApprovePanel';
+import { reviewApplies } from '../../../derm-rheum/review';
+import { dermRheumLines } from '../../../derm-rheum/store';
 
 /** The manual builder carries the catalogues (formulary, procedures, education library): loaded when opened. */
 const ManualPlanBuilder = lazy(() => import('./ManualPlanBuilder'));
+/** The derm & rheum review (knowledge base, score tools, Claude on a press): loaded when opened. */
+const DermRheumReview = lazy(() => import('../../../derm-rheum/components/DermRheumReview'));
 
 export function useDebounced<T>(value: T, ms = 300): T {
   const [v, setV] = useState(value);
@@ -135,6 +139,7 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
   const [adding, setAdding] = useState<{ section: PlanSection; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [dermOpen, setDermOpen] = useState(false);
 
   useEffect(() => { if (record) { setConditionIds(record.conditionIds); setWoundOverride(record.woundProtocol); } }, [record?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -145,13 +150,14 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
     [data, p.ctx, maps, conditionIds, woundOverride],
   );
   const decisions = record?.decisions ?? [];
-  const aiLines = useMemo(() => [...(record?.aiDraft?.lines ?? []), ...(record?.interpretation?.ai?.lines ?? [])], [record?.aiDraft, record?.interpretation]);
+  const aiLines = useMemo(() => [...(record?.aiDraft?.lines ?? []), ...(record?.interpretation?.ai?.lines ?? []), ...dermRheumLines(record?.dermRheum, record?.decisions ?? [])], [record?.aiDraft, record?.interpretation, record?.dermRheum, record?.decisions]);
   const finalLines = useMemo(() => buildFinalPlan(rules.lines, aiLines, decisions, record?.manualLines ?? []), [rules.lines, aiLines, decisions, record?.manualLines]);
   const suggestions = useMemo(() => suggestedConditions(data), [data]);
   const stale = isStale(rules, record?.aiDraft?.inputsHash);
   const builderCtx = useMemo(() => builderContext(patientFacts({ data, ctx: p.ctx, labs: maps.labs, qualitative: maps.qualitative }), data.allergies.map(a => a.substance)), [data, p.ctx, maps]);
   const planLines = useMemo(() => [...rules.lines, ...aiLines, ...(record?.manualLines ?? [])], [rules.lines, aiLines, record?.manualLines]);
   const approved = record ? latestApproval(record) : undefined;
+  const dermAvailable = reviewApplies(data, rules.conditions.map(c => c.id));
 
   const ensure = useCallback(async (patch: Partial<ClerkingPlanRecord> = {}): Promise<ClerkingPlanRecord | null> => {
     if (!user) { toast.error('Sign in to save the plan'); return null; }
@@ -290,6 +296,23 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
               </div>
             )}
           </div>
+
+          {dermAvailable && (
+            <div className="rounded-lg border border-orange-300 bg-orange-50 p-2 flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => setDermOpen(true)} className="px-3 py-1.5 rounded-lg bg-orange-600 text-white text-xs font-semibold min-h-[36px]" data-testid="derm-rheum-open">Derm &amp; Rheum review</button>
+              <span className="text-[11px] text-orange-900">Skin lesion or ulcer: knowledge base, score tools and hard rules (free); Claude only if you ask.{record?.dermRheum?.length ? ` ${record.dermRheum.length} review(s) saved.` : ''}</span>
+            </div>
+          )}
+          <Sheet open={dermOpen} onClose={() => setDermOpen(false)} label="Dermatology and rheumatology review" className="sm:max-w-2xl">
+            {close => (
+              <div className="px-3 pb-4 pt-2">
+                <div className="flex justify-end"><button type="button" onClick={close} className="px-3 py-1.5 text-sm text-gray-600 min-h-[40px]">Close</button></div>
+                <Suspense fallback={<SkeletonText lines={5} />}>
+                  <DermRheumReview patientId={p.patientId} data={data} ctx={p.ctx} identifiers={p.identifiers} record={record ?? null} ensurePlan={ensure} planHardRules={rules.hardRules} inputsHash={rules.inputsHash} />
+                </Suspense>
+              </div>
+            )}
+          </Sheet>
 
           {manualOpen && (
             <Suspense fallback={<div className="rounded-lg border border-indigo-200 p-3 space-y-2"><p className="text-xs text-gray-500">Loading the lists…</p><SkeletonText lines={4} /></div>}>
