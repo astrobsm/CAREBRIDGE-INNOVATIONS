@@ -30,3 +30,18 @@ export const CHILD_IRON_OWNER_DECISION = {
  */
 export const SEVERE_ANAEMIA_HB_BELOW_GDL = 7;
 export const SEVERE_ANAEMIA_SOURCE = 'WHO severe anaemia threshold, Hb below 7 g/dL (owner decision 2026-11-27)';
+
+/**
+ * Owner decision 2026-11-27: CRP above 5 mg/L counts as "high" wherever the
+ * protocol says "high CRP" (ferritin below 100 ng/mL with high CRP suggests
+ * iron deficiency; serum zinc is falsely low when CRP is high). Source: WHO
+ * guideline on the use of ferritin concentrations to assess iron status in
+ * individuals and populations (2020), which takes CRP above 5 mg/L as
+ * inflammation. The protocol's thresholds.highCrpAboveMgL holds the same
+ * number; a test keeps the two equal.
+ */
+export const HIGH_CRP_OWNER_DECISION = {
+  decided: '2026-11-27',
+  highAboveMgL: 5,
+  source: 'WHO 2020 guideline on ferritin concentrations to assess iron status: CRP above 5 mg/L = inflammation (owner decision 2026-11-27)',
+} as const;

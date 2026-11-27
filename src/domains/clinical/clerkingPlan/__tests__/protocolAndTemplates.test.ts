@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { WOUND_CLINIC_PROTOCOL_V1 as WP, WOUND_PROTOCOL_SOURCE } from '../protocols/woundClinic.v1';
+import { HIGH_CRP_OWNER_DECISION } from '../ownerDecisions';
 import { CONDITIONS, conditionsIn, suggestedConditions } from '../conditions';
 import { COMPLAINTS, COMPLAINT_BY_ID } from '../../clerking/complaints';
 import { MODULES } from '../../clerking/modules';
@@ -43,6 +44,11 @@ describe('wound clinic protocol config is the owner\'s text, verbatim', () => {
     expect(md).toContain('0.5–1 mg/kg once daily (maximum 40 mg/day)');
     expect(md).toContain('3 mg/kg once daily; up to 6 mg/kg/day in severe anaemia (maximum 200 mg/day)');
     expect(WP.childDosing.adultCapMg).toEqual({ zinc: 50, iron: 65, folicAcid: 5 });
+  });
+  it('"high CRP" is above 5 mg/L, the owner decision of 2026-11-27 (WHO 2020)', () => {
+    expect(WP.thresholds.highCrpAboveMgL).toBe(HIGH_CRP_OWNER_DECISION.highAboveMgL);
+    expect(HIGH_CRP_OWNER_DECISION.highAboveMgL).toBe(5);
+    expect(HIGH_CRP_OWNER_DECISION.source).toMatch(/WHO 2020/);
   });
 });
 
