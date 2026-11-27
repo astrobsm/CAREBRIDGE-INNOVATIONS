@@ -1,7 +1,8 @@
 /**
  * Weight-based doses for children: mg/kg × weight, never above the stated
- * maximum, and never above the adult dose (the wound clinic protocol's rule,
- * applied to every child dose in the plan). Pure.
+ * maximum, and never above the adult dose when one is passed (the wound
+ * clinic protocol's rule). Child iron is the exception: it is capped only at
+ * the child table's own maximum (ownerDecisions.ts). Pure.
  */
 
 export interface WeightDose {

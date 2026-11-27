@@ -23,6 +23,8 @@ import { CONDITION_BY_ID } from './conditions';
 import { ACTIVE_WOUND_PROTOCOL as WP } from './protocols/woundClinic.v1';
 import { warningSigns } from './rulesPlan';
 import { resultMaps } from './results';
+import { ymd } from '../../surgery/journey/followUpPlan';
+import { plainMedicineLine } from './patientMedicine';
 import { ANALYTE_BY_KEY } from '../../clinician-assistant/services/engine/referenceRanges';
 import { PLAN_SECTIONS } from './types';
 import type { ClerkingPlanRecord, PlanApproval } from './records';
@@ -94,8 +96,9 @@ export function buildClinicianPlanDocument(i: PlanDocInput): ReviewDocument {
   return {
     title: 'TREATMENT PLAN', subtitle: record.conditions.map(c => c.label).join(', ') || 'Clerking plan',
     hospitalName: i.hospitalName || 'AstroHEALTH', patient: i.patient,
-    meta: { Version: String(approval.version), Approved: `${approval.byName || ''} ${approval.at.slice(0, 10)}`.trim(), Date: i.date.toISOString().slice(0, 10) },
-    sections, fileName: `treatment-plan-${safeName}-${i.date.toISOString().slice(0, 10)}-v${approval.version}.pdf`, audience: 'clinician',
+    // Local calendar dates (ymd), not toISOString(): in West Africa Time a plan made after midnight was named with yesterday's UTC date.
+    meta: { Version: String(approval.version), Approved: `${approval.byName || ''} ${ymd(new Date(approval.at))}`.trim(), Date: ymd(i.date) },
+    sections, fileName: `treatment-plan-${safeName}-${ymd(i.date)}-v${approval.version}.pdf`, audience: 'clinician',
     footer: 'Decision support: approved by the clinician named above. AI-drafted lines are labelled.',
   };
 }
@@ -105,8 +108,9 @@ export function buildPatientPlanDocument(i: PlanDocInput): ReviewDocument {
   const S = P.copy.sections;
   const sections: ReviewDocSection[] = [{ kind: 'summary', title: 'About this leaflet', body: P.copy.intro }];
   const lines = approval.lines;
-  // A medicine the clinician approved without a locale line (e.g. accepted from Claude) is still the patient's prescription.
-  const medText = (l: (typeof lines)[number]) => l.patient ?? (l.medication && l.medication.dose !== '-' ? P.copy.medicineLine(l.medication.drug, l.medication.dose, l.medication.frequency, l.medication.duration) : undefined);
+  // A medicine the clinician approved without a locale line (e.g. accepted from Claude) is still the patient's prescription:
+  // written in plain words, never the raw clinical wording (owner decision 2026-11-27).
+  const medText = (l: (typeof lines)[number]) => l.patient ?? plainMedicineLine(l.medication);
   const pt = (sec: string) => lines.filter(l => l.section === sec).map(l => (sec === 'medications' ? medText(l) : l.patient)).filter(safe);
 
   const conditions = record.conditions.map(c => (P.conditions as Record<string, { name: string; about: string }>)[c.id] ?? (c.label ? { name: c.label, about: P.conditions.other.about } : null)).filter(Boolean) as { name: string; about: string }[];
@@ -141,7 +145,7 @@ export function buildPatientPlanDocument(i: PlanDocInput): ReviewDocument {
   return {
     title: P.copy.title, subtitle: conditions.map(c => c.name).join(', ') || 'Your plan',
     hospitalName: i.hospitalName || 'AstroHEALTH', patient: { name: i.patient.name, hospitalNumber: i.patient.hospitalNumber, age: i.patient.age, gender: i.patient.gender },
-    meta: { Date: day(i.date) }, sections, fileName: P.copy.fileName(safeName, i.date.toISOString().slice(0, 10)), audience: 'patient', footer: P.copy.footer,
+    meta: { Date: day(i.date) }, sections, fileName: P.copy.fileName(safeName, ymd(i.date)), audience: 'patient', footer: P.copy.footer,
   };
 }
 

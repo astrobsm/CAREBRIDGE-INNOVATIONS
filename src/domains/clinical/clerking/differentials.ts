@@ -446,7 +446,7 @@ export const DIFFERENTIALS: Record<string, DifferentialRule> = Object.fromEntrie
       { key: 'd.fever', any: ['yes'], weight: 1, reason: 'Fever' },
       { key: 'd.tachycardia', any: ['yes'], weight: 1, reason: 'Tachycardia' },
       { key: 'd.hypotension', any: ['yes'], weight: 3, reason: 'Hypotension' },
-      { key: 'd.tachypnoea', any: ['yes'], weight: 2, reason: 'Respiratory rate ≥ 22' },
+      { key: 'd.tachypnoea', any: ['yes'], weight: 2, reason: 'Raised respiratory rate (≥ 22, or fast breathing for age in a child)' },
       { key: 'd.altered_mentation', any: ['yes'], weight: 2, reason: 'Altered mentation' },
     ],
     investigations: ['Blood cultures before antibiotics, lactate, FBC, U&E, LFT, glucose, CRP', 'Source imaging'],

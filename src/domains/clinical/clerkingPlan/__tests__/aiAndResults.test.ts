@@ -130,6 +130,20 @@ describe('results', () => {
     expect(withLabs.lines.find(l => l.id === 'med:wp_iron')?.withheld).toBeUndefined();
     expect(withLabs.lines.find(l => l.id === 'med:wp_vitamin_d')?.medication?.dose).toBe('50,000 IU once weekly for 8 weeks, then 800–2,000 IU daily');
   });
+  it('child Hb is graded against the owner\'s child cut-offs (WHO 2024; Buseri 2010), not the adult 10 g/dL', () => {
+    const hb = (v: number, e: Parameters<typeof interpretResults>[1]) => interpretResults([enterValue('fbc', 'hb', v, 'g/dL')], { isChild: true, ...e }).findings.find(f => f.text.startsWith(`Hb ${v}`))!;
+    expect(hb(12.4, { ageYears: 10 })).toMatchObject({ severity: 'abnormal' });
+    expect(hb(12.4, { ageYears: 10 }).text).toMatch(/below 12\.5 g\/dL \(9–13 years\)/);
+    expect(hb(12.4, { ageYears: 10 }).source).toMatch(/Buseri/);
+    expect(hb(10.6, { ageYears: 0, ageMonths: 8 })).toMatchObject({ severity: 'normal' });
+    expect(hb(10.4, { ageYears: 0, ageMonths: 8 }).source).toMatch(/WHO .*2024/);
+    expect(hb(6.5, { ageYears: 3 })).toMatchObject({ severity: 'critical' });
+    expect(hb(9, { ageYears: 0, ageMonths: 3 }).text).toMatch(/interpret against neonatal \/ infant ranges/);
+    expect(hb(12.5, { ageYears: 15 }).text).toMatch(/Sex not recorded: the girls' limit \(12\.0 g\/dL\) is used/);
+    expect(hb(12.5, { ageYears: 15, sex: 'male' })).toMatchObject({ severity: 'abnormal' });
+    const t = interpretResults([enterValue('fbc', 'hb', 9, 'g/dL')], { isChild: true, ageYears: 6 }).findings.map(f => f.text).join(' ');
+    expect(t).not.toMatch(/protocol's 10 g\/dL/);
+  });
 });
 
 describe('Interpret with Claude', () => {

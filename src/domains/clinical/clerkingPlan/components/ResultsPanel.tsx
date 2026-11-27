@@ -46,7 +46,7 @@ export const ResultsPanel: React.FC<Props> = ({ record, finalLines, rules, ensur
   const [aiState, setAiState] = useState<{ loading?: boolean; message?: string }>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const entry = { sex: sexOf(ctx.sex), ageYears: ctx.ageYears ?? null };
-  const deterministic = useMemo(() => interpretResults(values, { ...entry, isChild: (ctx.ageYears ?? 99) < 18 }), [values]); // eslint-disable-line react-hooks/exhaustive-deps
+  const deterministic = useMemo(() => interpretResults(values, { ...entry, ageMonths: ctx.ageMonths ?? null, isChild: (ctx.ageYears ?? 99) < 18 }), [values]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async (next: ResultValue[]) => {
     const r = record ?? await ensure();

@@ -64,6 +64,29 @@ const num = (v: any): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+/**
+ * Owner decision 2026-11-27: children's breathing rate is judged by age, with
+ * the WHO IMCI fast-breathing thresholds (WHO Integrated Management of
+ * Childhood Illness chart booklet): 60/min or more under 2 months, 50 or more
+ * at 2–11 months, 40 or more at 1–4 years (IMCI itself stops at 5 years);
+ * 30 or more at 5–11 years, as approved by the owner. From 12 years, and
+ * when the age is not known, the adult rules apply unchanged.
+ */
+export const CHILD_FAST_BREATHING = [
+  { belowMonths: 2, fromPerMin: 60, band: 'under 2 months', source: 'WHO IMCI' },
+  { belowMonths: 12, fromPerMin: 50, band: '2–11 months', source: 'WHO IMCI' },
+  { belowMonths: 60, fromPerMin: 40, band: '1–4 years', source: 'WHO IMCI' },
+  { belowMonths: 144, fromPerMin: 30, band: '5–11 years', source: 'owner decision 2026-11-27' },
+] as const;
+
+/** The child's fast-breathing threshold, or null (12 years and over, or age unknown: adult rules). */
+export function childFastBreathing(ctx: PatientContext): (typeof CHILD_FAST_BREATHING)[number] | null {
+  // Whole years only (no months) and under 1: the 2–11 month band, the more sensitive of the two infant bands.
+  const months = ctx.ageMonths != null ? ctx.ageMonths : ctx.ageYears != null ? (ctx.ageYears < 1 ? 2 : ctx.ageYears * 12) : null;
+  if (months == null || !Number.isFinite(months)) return null;
+  return CHILD_FAST_BREATHING.find(b => months < b.belowMonths) ?? null;
+}
+
 /** Flags derived from vitals and demographics (used by the rules). */
 export function derivedFlags(data: ClerkingData, ctx: PatientContext): Record<string, boolean> {
   const v = data.vitals || {};
@@ -75,7 +98,7 @@ export function derivedFlags(data: ClerkingData, ctx: PatientContext): Record<st
     fever: t != null && t >= 38,
     tachycardia: p != null && p > 100,
     hypotension: sbp != null && sbp < 90,
-    tachypnoea: rr != null && rr >= 22,
+    tachypnoea: rr != null && rr >= (childFastBreathing(ctx)?.fromPerMin ?? 22),
     hypoxia: sp != null && sp < 94,
     hyperglycaemia: g != null && g >= 11.1,
     very_high_glucose: g != null && g >= 14,
@@ -231,7 +254,8 @@ export function redFlags(data: ClerkingData, ctx: PatientContext): Flag[] {
   if (d.hypotension) flags.push({ text: `Systolic BP ${data.vitals.bp_systolic} mmHg`, where: 'Vitals' });
   if (d.hypoxia) flags.push({ text: `SpO₂ ${data.vitals.spo2} %`, where: 'Vitals' });
   if (num(data.vitals.pulse) != null && num(data.vitals.pulse)! > 130) flags.push({ text: `Pulse ${data.vitals.pulse}/min`, where: 'Vitals' });
-  if (num(data.vitals.respiratory_rate) != null && num(data.vitals.respiratory_rate)! >= 25) flags.push({ text: `Respiratory rate ${data.vitals.respiratory_rate}/min`, where: 'Vitals' });
+  const fast = childFastBreathing(ctx);
+  if (num(data.vitals.respiratory_rate) != null && num(data.vitals.respiratory_rate)! >= (fast?.fromPerMin ?? 25)) flags.push({ text: `Respiratory rate ${data.vitals.respiratory_rate}/min${fast ? ` (fast breathing for age: ${fast.fromPerMin} or more at ${fast.band}, ${fast.source})` : ''}`, where: 'Vitals' });
   if (num(data.vitals.temperature) != null && (num(data.vitals.temperature)! >= 39 || num(data.vitals.temperature)! < 35)) flags.push({ text: `Temperature ${data.vitals.temperature} °C`, where: 'Vitals' });
   if (data.allergies.some(a => a.severity === 'Severe / life-threatening')) flags.push({ text: 'Severe drug allergy recorded', where: 'Allergies' });
   return flags;

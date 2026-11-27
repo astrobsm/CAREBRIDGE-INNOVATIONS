@@ -12,6 +12,9 @@ const WOUND_WARNING = [
   'The skin around the wound turns dark or black.',
 ];
 
+/** A child's dose on the patient copy: the dose worked out for the child, or the prescription. */
+const forChild = (dose?: string | null) => dose || 'the dose your doctor has written for your child\'s weight';
+
 export const planEn = {
   copy: {
     title: 'YOUR TREATMENT PLAN',
@@ -36,10 +39,6 @@ export const planEn = {
     followUpLine: (date: string, purpose: string) => `${date}: ${purpose}`,
     followUpUndated: (when: string, purpose: string) => `${when}: ${purpose}`,
     contactLine: 'Contact the clinic, or go to the nearest emergency department.',
-    medicineLine: (drug: string, dose: string, how: string, duration: string) => {
-      const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
-      return `${drug}: ${dose}${how ? `, ${lower(how)}` : ''}${duration ? `. ${duration.charAt(0).toUpperCase()}${duration.slice(1)}` : ''}.`.replace(/\.\.$/, '.');
-    },
     foodLine: (kcal: string | null, protein: string | null, fluid: string | null) =>
       [kcal && `Aim for about ${kcal} of food energy a day`, protein && `about ${protein} of protein a day`, fluid && `and about ${fluid} of fluid a day`]
         .filter(Boolean).join(', ') + '.',
@@ -90,21 +89,64 @@ export const planEn = {
     syndrome_screen: 'A check of the heart, kidneys, spine or other parts of the body, as some children have other differences.',
   },
 
-  /** How to take a medicine, in plain words (keyed by medicine id). */
-  medicineHow: {
-    multivitamin: 'once a day',
-    vitamin_c: 'once a day (or half the dose twice a day)',
-    zinc: 'once a day with food. Take it at a different time of day from iron',
-    iron: 'with orange juice or vitamin C, not with tea, milk or antacids. It turns stools black. Keep it out of children\'s reach',
-    folic_acid: 'once a day',
-    vitamin_d: 'as written on your prescription',
-    vitamin_a: 'only for the number of days prescribed',
-    b12: 'as an injection in the clinic',
-    arginine: 'in a special nutrition drink',
-    paracetamol: 'when needed for pain; do not take more than the maximum in 24 hours',
-    ibuprofen: 'with or after food, when needed for pain',
-    antibiotic: 'exactly as prescribed, and finish the course',
-    propranolol: 'with a feed or food; do not give it if your baby is not feeding or is vomiting',
+  /**
+   * Medicine lines for the patient copy, in plain words (owner decision
+   * 2026-11-27): the medicine, how many and what strength, how often, for how
+   * long, and one key tip. No "elemental", no "e.g." product notes, no mg/kg
+   * working: a child's line shows only the dose worked out for the child (or
+   * says the doctor has written it, when the weight is not recorded). The
+   * clinician copy keeps the full protocol wording. Keyed by medicine.
+   */
+  medicines: {
+    multivitamin: (k: { child: boolean }) => k.child
+      ? 'Children\'s multivitamin – give the dose for your child\'s age written on the label, once a day, until the wound has healed and your child is eating well.'
+      : 'Multivitamin with minerals – take 1 tablet once a day until the wound has healed and you are eating well.',
+    antenatal: () => 'Antenatal vitamins with folic acid – take 1 dose once a day, as written on the pack, through your pregnancy. Do not take any other vitamin A supplement.',
+    vitamin_c: (k: { child: boolean; dose?: string | null }) => k.child
+      ? `Vitamin C – give ${forChild(k.dose)} once a day until the wound has healed.`
+      : 'Vitamin C tablet – take 500 mg once a day (or 250 mg twice a day) until the wound has healed. Tell us if you have ever had kidney stones.',
+    zinc: (k: { child: boolean; dose?: string | null }) => k.child
+      ? `Zinc – give ${forChild(k.dose)} once a day with food for 8–12 weeks. Do not give it at the same time as iron.`
+      : 'Zinc tablet – take 1 tablet (50 mg) once a day with food for 8–12 weeks. Do not take it at the same time as your iron tablet.',
+    iron: (k: { child: boolean; dose?: string | null; severe?: boolean }) => k.child
+      ? `Iron – give ${forChild(k.dose)} ${k.severe ? 'a day' : 'once a day'} until 3 months after your child's blood count is back to normal. Keep it out of children's reach: too much iron is dangerous.`
+      : 'Iron tablet – take 1 tablet (ferrous sulphate 200 mg) once a day or every other day, until 3 months after your blood count is back to normal. Take it with orange juice, not with tea, milk or antacids.',
+    folic_acid: (k: { child: boolean; dose?: string | null; continuous: boolean }) =>
+      `Folic acid${k.child ? '' : ' tablet'} – ${k.child ? `give ${forChild(k.dose)}` : 'take 5 mg'} once a day${k.continuous ? ', every day, for as long as your doctor tells you. Keep taking it even when you feel well.' : k.child ? ' for as long as your doctor tells you.' : ' for 4 months.'}`,
+    vitamin_d: (k: { child: boolean; dose?: string | null; then?: string | null }) => k.child
+      ? `Vitamin D3 – give ${forChild(k.dose)} once a day for 12 weeks${k.then ? `, then ${k.then} once a day` : ''}. Give it with milk or other calcium-rich food if your child eats little.`
+      : 'Vitamin D3 – take 50,000 units once a week for 8 weeks, then 800 to 2,000 units once a day. Tell us if you have kidney stones.',
+    b12: (k: { child: boolean }) => k.child
+      ? 'Vitamin B12 injection (1 mg) – given in the clinic, with advice from a children\'s specialist.'
+      : 'Vitamin B12 injection (1 mg) – given in the clinic three times a week for 2 weeks, then once every 3 months. Please keep every appointment.',
+    vitamin_a: () => 'Vitamin A – take 10,000 to 25,000 units once a day for 10 to 14 days only. Do not take it if you are or could be pregnant.',
+    arginine: () => 'Arginine nutrition drink – take the amount of the special drink that gives about 4.5 g of arginine a day, while the pressure sore is open.',
+    paracetamol: (k: { child: boolean; dose?: string | null; light?: boolean }) => k.child
+      ? `Paracetamol – give ${forChild(k.dose)} every 6 hours when needed for pain. Do not give more than 4 doses in 24 hours.`
+      : k.light
+        ? 'Paracetamol 500 mg tablets – take 1 or 2 tablets (500 mg to 1 g) every 6 hours when needed for pain. Do not take more than 6 tablets (3 g) in 24 hours.'
+        : 'Paracetamol 500 mg tablets – take 2 tablets (1 g) every 6 hours when needed for pain. Do not take more than 8 tablets (4 g) in 24 hours.',
+    ibuprofen: (k: { child: boolean; dose?: string | null }) => k.child
+      ? `Ibuprofen – give ${forChild(k.dose)} every 8 hours with food when needed for pain. Do not give it if your child is not drinking or is being sick.`
+      : 'Ibuprofen tablet – take 1 tablet (400 mg) three times a day with food when needed for pain. Stop it and tell us if you get stomach pain or black stools.',
+    coamoxiclav: (k: { child: boolean; dose?: string | null; duration: string }) =>
+      `Co-amoxiclav antibiotic – ${k.child ? `give ${forChild(k.dose)}` : 'take 1 tablet (625 mg)'} three times a day ${k.duration}. Finish the course, even if the wound looks better.`,
+    clindamycin: (k: { child: boolean; dose?: string | null; duration: string; drip?: boolean }) => k.drip
+      ? `Clindamycin antibiotic – given by drip in hospital at first, then by mouth, ${k.duration}. Tell us straight away if you get bad diarrhoea.`
+      : `Clindamycin antibiotic – ${k.child ? `give ${forChild(k.dose)}` : `take ${k.dose || 'the dose on your prescription'}`} four times a day (every 6 hours) ${k.duration}. Tell us straight away if you get bad diarrhoea.`,
+    flucloxacillin: (k: { child: boolean; dose?: string | null; duration: string; drip?: boolean }) => k.drip
+      ? `Flucloxacillin antibiotic – given by drip in hospital at first, then by mouth, ${k.duration}. Finish the course, even if the skin looks better.`
+      : `Flucloxacillin antibiotic – ${k.child ? `give ${forChild(k.dose)}` : 'take 1 or 2 capsules (500 mg to 1 g)'} four times a day (every 6 hours) ${k.duration}. ${k.child ? 'Give' : 'Take'} it on an empty stomach, 1 hour before food.`,
+    dripAntibiotic: () => 'Antibiotics by drip – given into a vein in hospital. We choose the medicine from the wound sample and review it after 2 to 3 days.',
+    doxycycline: () => 'Doxycycline – take 200 mg once a day for 6 weeks. Swallow it with a full glass of water while sitting or standing.',
+    cellulitisPrevention: (k: { penicillinAllergy: boolean }) => k.penicillinAllergy
+      ? 'Erythromycin tablet – take 250 mg twice a day, every day, to prevent skin infections. We will review it after 6 to 12 months.'
+      : 'Penicillin V tablet – take 250 mg twice a day, every day, to prevent skin infections. Take it 1 hour before food. We will review it after 6 to 12 months.',
+    clotrimazole: () => 'Clotrimazole 1% cream – rub a thin layer between the toes twice a day for 2 to 4 weeks. Dry well between the toes before you put it on.',
+    tetanus: () => 'Tetanus vaccine – one injection (0.5 mL) given in the clinic. Ask us to update your vaccination card.',
+    rabies: () => 'Rabies vaccine – a course of injections given in the clinic, starting today, then on days 3 and 7 (and later as we tell you), with an injection into and around the wound. Do not miss any dose.',
+    propranolol: (k: { start?: string | null }) =>
+      `Propranolol liquid – ${k.start ? `start with ${k.start}` : 'give the dose written on the prescription'} twice a day with a feed or food; we increase the dose at the review visits. Do not give it if your baby is not feeding or is being sick.`,
   },
 
   wound: {

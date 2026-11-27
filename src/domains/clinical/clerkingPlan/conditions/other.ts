@@ -58,12 +58,13 @@ export const FACIAL_LACERATION: ConditionTemplate = {
     if (c.is('fl_ex_bone', 'Present — facial fracture suspected')) out.push(inv('fl_ct', 'Facial X-rays / CT face', 'Suspected facial fracture', { testId: 'xray', urgency: 'soon' }));
     if (c.is('fl_head', 'Yes')) out.push(refer('fl_head', 'Head injury / cervical spine assessment first (ATLS)', 'Loss of consciousness, vomiting or neck pain', { urgency: 'urgent' }));
     if (bite) out.push({ id: 'med:fl_coamox', section: 'medications', text: 'Co-amoxiclav prophylaxis for a facial bite', why: 'Bite wound',
-      medication: { drug: c.facts.penicillinAllergy ? 'Alternative per local guideline (penicillin allergy)' : 'Co-amoxiclav', dose: c.facts.isChild ? 'per BNFc by weight' : '625 mg', route: 'oral', frequency: 'three times a day', duration: '3 days (prophylaxis)', cautions: c.facts.penicillinAllergy ? ['Penicillin allergy recorded: do not give co-amoxiclav.'] : [] } });
+      medication: { drug: c.facts.penicillinAllergy ? 'Alternative per local guideline (penicillin allergy)' : 'Co-amoxiclav', dose: c.facts.isChild ? 'per BNFc by weight' : '625 mg', route: 'oral', frequency: 'three times a day', duration: '3 days (prophylaxis)', cautions: c.facts.penicillinAllergy ? ['Penicillin allergy recorded: do not give co-amoxiclav.'] : [] },
+      patient: c.facts.penicillinAllergy ? undefined : P.medicines.coamoxiclav({ child: c.facts.isChild, duration: 'for 3 days' }) });
     if (dog) out.push({ id: 'med:fl_rabies', section: 'medications', text: 'Rabies post-exposure prophylaxis: wound washing 15 min, vaccine course, and rabies immunoglobulin into and around the wound (category III — facial bite)', why: 'WHO 2018: facial dog bite is category III unless the dog is documented vaccinated',
       urgency: 'urgent',
-      medication: { drug: 'Rabies vaccine (+ rabies immunoglobulin)', dose: 'per WHO schedule', route: 'IM / intradermal; RIG infiltrated into the wound', frequency: 'days 0, 3, 7 (and 14–28 per regimen)', duration: 'full course', cautions: c.is('fl_dog_status', 'Yes, documented') ? ['Dog documented as vaccinated: still assess and observe the dog for 10 days.'] : [] } });
+      medication: { drug: 'Rabies vaccine (+ rabies immunoglobulin)', dose: 'per WHO schedule', route: 'IM / intradermal; RIG infiltrated into the wound', frequency: 'days 0, 3, 7 (and 14–28 per regimen)', duration: 'full course', cautions: c.is('fl_dog_status', 'Yes, documented') ? ['Dog documented as vaccinated: still assess and observe the dog for 10 days.'] : [] }, patient: P.medicines.rabies() });
     if (!c.is('fl_tetanus', 'Up to date (< 10 years)')) out.push({ id: 'med:fl_tetanus', section: 'medications', text: 'Tetanus toxoid booster', why: 'Tetanus status not up to date / unknown',
-      medication: { drug: 'Tetanus toxoid-containing vaccine', dose: '0.5 mL', route: 'IM', frequency: 'single dose', duration: '', cautions: [] } });
+      medication: { drug: 'Tetanus toxoid-containing vaccine', dose: '0.5 mL', route: 'IM', frequency: 'single dose', duration: '', cautions: [] }, patient: P.medicines.tetanus() });
     if (c.is('fl_keloid', 'Yes')) out.push(proc('fl_keloid', 'Keloid-prone: tension-free closure, early silicone, consider early intralesional steroid', 'History of keloids', { procedureReviewModuleId: 'keloid_management' }));
     return out;
   },
@@ -223,14 +224,15 @@ export const LYMPHOEDEMA: ConditionTemplate = {
     if (filaria) out.push(
       inv('ly_filaria', 'Filarial antigen test (or night blood film)', 'Endemic area / filarial lymphoedema', { testId: 'filaria' }),
       { id: 'med:ly_doxy', section: 'medications', text: 'Consider doxycycline for filarial lymphoedema (not in pregnancy or under 8 years), per WHO / local guideline', why: 'Filarial lymphoedema',
-        medication: { drug: 'Doxycycline', dose: '200 mg', route: 'oral', frequency: 'once a day', duration: '6 weeks (per guideline)', cautions: ['Not in pregnancy, breastfeeding, or children under 8 years.'] },
+        medication: { drug: 'Doxycycline', dose: '200 mg', route: 'oral', frequency: 'once a day', duration: '6 weeks (per guideline)', cautions: ['Not in pregnancy, breastfeeding, or children under 8 years.'] }, patient: P.medicines.doxycycline(),
         withheld: c.facts.pregnancy === 'confirmed' || c.facts.pregnancy === 'possible' || (c.facts.ageYears != null && c.facts.ageYears < 8) ? 'Pregnancy possible or child under 8' : undefined },
     );
     if (podo) out.push(proc('ly_podo', 'Podoconiosis: daily foot hygiene (soap, water, antiseptic), emollient, socks and shoes, compression and elevation', 'Podoconiosis care package'));
     if (c.is('ly_cellulitis', '2 or more in the past year')) out.push({ id: 'med:ly_prophylaxis', section: 'medications', text: 'Antibiotic prophylaxis for recurrent cellulitis (e.g. phenoxymethylpenicillin 250 mg twice daily; erythromycin if penicillin-allergic), per guideline', why: 'Two or more episodes of cellulitis in a year',
-      medication: { drug: c.facts.penicillinAllergy ? 'Erythromycin' : 'Phenoxymethylpenicillin', dose: c.facts.penicillinAllergy ? '250 mg' : '250 mg', route: 'oral', frequency: 'twice a day', duration: 'review after 6–12 months', cautions: c.facts.penicillinAllergy ? ['Penicillin allergy recorded.'] : [] } });
+      medication: { drug: c.facts.penicillinAllergy ? 'Erythromycin' : 'Phenoxymethylpenicillin', dose: c.facts.penicillinAllergy ? '250 mg' : '250 mg', route: 'oral', frequency: 'twice a day', duration: 'review after 6–12 months', cautions: c.facts.penicillinAllergy ? ['Penicillin allergy recorded.'] : [] },
+      patient: P.medicines.cellulitisPrevention({ penicillinAllergy: c.facts.penicillinAllergy }) });
     if (c.is('ly_ex_skin', 'Fungal toe-web infection')) out.push({ id: 'med:ly_fungal', section: 'medications', text: 'Topical antifungal to toe webs (e.g. clotrimazole 1% twice daily, 2–4 weeks)', why: 'Entry point for cellulitis',
-      medication: { drug: 'Clotrimazole 1% cream', dose: 'thin layer', route: 'topical', frequency: 'twice a day', duration: '2–4 weeks', cautions: [] } });
+      medication: { drug: 'Clotrimazole 1% cream', dose: 'thin layer', route: 'topical', frequency: 'twice a day', duration: '2–4 weeks', cautions: [] }, patient: P.medicines.clotrimazole() });
     if (cancer) out.push(inv('ly_imaging', 'Imaging of the regional nodes / pelvis or axilla (ultrasound / CT)', 'Exclude malignant obstruction', { testId: 'ultrasound', urgency: 'soon' }));
     if (String(c.a('ly_ex_isl') ?? '').startsWith('III')) out.push(proc('ly_surgery', 'Stage III not controlled by compression: consider debulking (e.g. Charles / staged excision) or lymphatic surgery where available', 'Advanced lymphoedema', { patient: L.options.surgery }));
     return out;

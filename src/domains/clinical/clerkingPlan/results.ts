@@ -10,7 +10,8 @@
  *
  * Interpretation is deterministic first: the clinician-assistant analysis
  * engine over the entered values, plus the wound clinic protocol's own action
- * points (Hb, HbA1c, ferritin with CRP, zinc with CRP, vitamin D).
+ * points (Hb, HbA1c, ferritin with CRP, zinc with CRP, vitamin D). Child Hb is
+ * graded against the owner's child cut-offs (ownerDecisions.ts, 2026-11-27).
  */
 import { ANALYTE_BY_KEY, refForPatient } from '../../clinician-assistant/services/engine/referenceRanges';
 import { toCanonical, round } from '../../clinician-assistant/services/engine/units';
@@ -18,6 +19,7 @@ import { analyse } from '../../clinician-assistant/services/engine/analyse';
 import { emptyPatient, type Analyte, type PatientContext as EnginePatient } from '../../clinician-assistant/services/engine/types';
 import { emptyExtraction } from '../../clinician-assistant/services/engine/context';
 import { ACTIVE_WOUND_PROTOCOL as WP } from './protocols/woundClinic.v1';
+import { SEVERE_ANAEMIA_HB_BELOW_GDL, childHbLimit } from './ownerDecisions';
 import type { PlanLine } from './types';
 
 export interface ResultRow {
@@ -145,7 +147,7 @@ export interface Interpretation {
 
 const T = WP.thresholds;
 
-export function interpretResults(values: ResultValue[], e: EntryContext & { weightKg?: number | null; isChild?: boolean } = {}): Interpretation {
+export function interpretResults(values: ResultValue[], e: EntryContext & { weightKg?: number | null; isChild?: boolean; ageMonths?: number | null } = {}): Interpretation {
   const { labs, qualitative } = resultMaps(values);
   const findings: Interpretation['findings'] = [];
   const implications: string[] = [];
@@ -155,6 +157,14 @@ export function interpretResults(values: ResultValue[], e: EntryContext & { weig
   if (labs.hb != null && !e.isChild) {
     if (labs.hb < T.hbAdultMinGdl) { findings.push({ text: `Hb ${labs.hb} g/dL — below the protocol's 10 g/dL (adult): investigate`, severity: labs.hb < 7 ? 'critical' : 'abnormal', source: proto }); implications.push('Investigate the anaemia (iron studies, film, B12 / folate as indicated).'); }
     else findings.push({ text: `Hb ${labs.hb} g/dL — at or above the protocol target (10 g/dL)`, severity: 'normal', source: proto });
+  }
+  const months = e.ageMonths ?? (e.ageYears != null ? e.ageYears * 12 : null);
+  if (labs.hb != null && e.isChild && months != null) {
+    const l = childHbLimit(months, e.sex ?? null);
+    const note = l.note ? ` ${l.note}` : '';
+    if (l.belowGdl == null) findings.push({ text: `Hb ${labs.hb} g/dL —${note}`, severity: 'normal', source: l.source });
+    else if (labs.hb < l.belowGdl) { findings.push({ text: `Hb ${labs.hb} g/dL — below ${l.belowGdl.toFixed(1)} g/dL (${l.band}): anaemia, investigate.${note}`, severity: labs.hb < SEVERE_ANAEMIA_HB_BELOW_GDL ? 'critical' : 'abnormal', source: l.source }); implications.push('Investigate the anaemia (iron studies, film, B12 / folate as indicated).'); }
+    else findings.push({ text: `Hb ${labs.hb} g/dL — at or above ${l.belowGdl.toFixed(1)} g/dL (${l.band}).${note}`, severity: 'normal', source: l.source });
   }
   if (labs.hba1c != null) {
     if (labs.hba1c >= T.hba1cTargetBelowPercent) { findings.push({ text: `HbA1c ${labs.hba1c}% — above the protocol target (below 7%, 53 mmol/mol, where safe)`, severity: 'abnormal', source: proto }); implications.push('Improve glycaemic control (diabetes team); repeat HbA1c in 3 months.'); }

@@ -4,7 +4,7 @@
  *   Plan     the rules plan, recomputed (debounced 300 ms) as the clinician
  *            types — no AI call. Every line shows its source; rules lines are
  *            in the final plan unless rejected; any line can be edited.
- *            "Build plan with Claude" asks Claude for the detailed plan ONLY
+ *            "Build Plan" asks Claude for the detailed plan ONLY
  *            when pressed; its lines are shown labelled AI-drafted, beside the
  *            rules plan, with the hard rules repeated, and enter the final
  *            plan only when accepted. A stale marker shows when the clerking
@@ -226,7 +226,7 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
           <div className="rounded-lg border border-purple-300 bg-purple-50 p-2 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={buildWithClaude} disabled={ai.state === 'loading'} className="px-3 py-1.5 rounded-lg bg-purple-700 text-white text-xs font-semibold disabled:opacity-50" data-testid="build-with-claude">
-                {ai.state === 'loading' ? 'Claude is writing the plan…' : record?.aiDraft ? '↻ Rebuild plan with Claude' : '✨ Build plan with Claude'}
+                {ai.state === 'loading' ? 'Claude is writing the plan…' : record?.aiDraft ? 'Rebuild Plan' : 'Build Plan'}
               </button>
               <span className="text-[11px] text-purple-900">Sent without name, hospital number or phone.</span>
             </div>

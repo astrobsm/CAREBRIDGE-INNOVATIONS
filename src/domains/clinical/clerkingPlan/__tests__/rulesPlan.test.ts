@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildRulesPlan } from '../rulesPlan';
+import { anaemic, buildRulesPlan } from '../rulesPlan';
+import { patientFacts } from '../facts';
 import { WOUND_CLINIC_PROTOCOL_V1 as WP } from '../protocols/woundClinic.v1';
 import { clerking, complaint } from './fixtures';
 
@@ -50,13 +51,30 @@ describe('rules plan — child with a wound and low ferritin', () => {
     pmh: { malnutrition: 'Yes' },
   });
   const plan = buildRulesPlan({ data, ctx: { ageYears: 6, ageMonths: 72, sex: 'Female' }, labs: { hb: 9.2, ferritin: 12, crp: 3, zinc: 60 } });
-  it('iron 3 mg/kg, capped at the adult dose (65 mg)', () => {
+  const withWeight = (kg: number, ageYears: number, labs: Record<string, number>) =>
+    buildRulesPlan({ data: { ...data, vitals: { ...data.vitals, weight: kg } }, ctx: { ageYears, sex: 'Female' }, labs });
+  it('iron 3 mg/kg once daily (child table), not capped at the 65 mg adult dose (owner decision 2026-11-27)', () => {
     const iron = active(plan, 'med:wp_iron')!;
     expect(iron.medication?.dose).toBe('60 mg once daily');
     expect(iron.medication?.weightBasis).toMatch(/3 mg\/kg × 20 kg/);
-    const big = buildRulesPlan({ data: { ...data, vitals: { ...data.vitals, weight: 30 } }, ctx: { ageYears: 10, sex: 'Female' }, labs: { hb: 9, ferritin: 12 } });
-    expect(active(big, 'med:wp_iron')?.medication?.dose).toBe('65 mg once daily');
-    expect(active(big, 'med:wp_iron')?.medication?.weightBasis).toMatch(/never above the adult dose/);
+    const big = withWeight(30, 10, { hb: 9, ferritin: 12 });
+    expect(active(big, 'med:wp_iron')?.medication?.dose).toBe('90 mg once daily');
+    expect(active(big, 'med:wp_iron')?.medication?.weightBasis).not.toMatch(/never above the adult dose/);
+    expect(active(big, 'med:wp_iron')?.medication?.weightBasis).toMatch(/not capped at the adult dose/);
+    expect(big.hardRules.join(' ')).toMatch(/not capped at the 65 mg adult dose/);
+  });
+  it('iron is capped at the child table maximum of 200 mg/day', () => {
+    expect(active(withWeight(80, 15, { hb: 9, ferritin: 12 }), 'med:wp_iron')?.medication?.dose).toBe('200 mg once daily');
+  });
+  it('severe anaemia (Hb below 7 g/dL, WHO): up to 6 mg/kg/day, still at most 200 mg/day', () => {
+    const severe = withWeight(20, 6, { hb: 6.5, ferritin: 12 });
+    expect(active(severe, 'med:wp_iron')?.medication?.dose).toBe('60–120 mg daily');
+    expect(active(severe, 'med:wp_iron')?.medication?.weightBasis).toMatch(/3–6 mg\/kg × 20 kg = 60–120 mg.*Hb below 7 g\/dL/);
+    expect(active(withWeight(40, 12, { hb: 6, ferritin: 12 }), 'med:wp_iron')?.medication?.dose).toBe('120–200 mg daily');
+    expect(active(withWeight(20, 6, { hb: 7, ferritin: 12 }), 'med:wp_iron')?.medication?.dose).toBe('60 mg once daily');
+  });
+  it('zinc stays capped at 40 mg/day', () => {
+    expect(active(withWeight(50, 14, { hb: 12, ferritin: 50, zinc: 50 }), 'med:wp_zinc')?.medication?.dose).toBe('25–40 mg once daily');
   });
   it('zinc 0.5–1 mg/kg (maximum 40 mg) and the child hard rules', () => {
     expect(active(plan, 'med:wp_zinc')?.medication?.dose).toBe('10–20 mg once daily');
@@ -67,6 +85,37 @@ describe('rules plan — child with a wound and low ferritin', () => {
     expect(line(plan, 'nut:fluid')?.text).toMatch(/1500 mL\/day/);
     expect(line(plan, 'nut:protein')?.text).toMatch(/30–50 g\/day/);
     expect(line(plan, 'nut:screen')?.text).toMatch(/STRONGkids/);
+  });
+});
+
+describe('anaemia cut-offs (owner decision 2026-11-27: WHO 2024; Buseri et al. 2010, Port Harcourt)', () => {
+  const d = clerking({ complaints: [complaint('chronic_ulcer', 'Non-healing wound / chronic ulcer')] });
+  const an = (hb: number, ctx: { ageYears: number; ageMonths?: number; sex?: string }) => anaemic(patientFacts({ data: d, ctx, labs: { hb } }));
+  it('adults keep the protocol rule: Hb below 10 g/dL', () => {
+    expect(an(9.9, { ageYears: 40, sex: 'Male' })).toBe(true);
+    expect(an(10, { ageYears: 40, sex: 'Female' })).toBe(false);
+  });
+  it('6–11 months 10.5 (WHO 2024); 1–4 years 10.5; 5–8 years 11.5; 9–13 years 12.5', () => {
+    expect(an(10.4, { ageYears: 0, ageMonths: 8 })).toBe(true);
+    expect(an(10.5, { ageYears: 0, ageMonths: 8 })).toBe(false);
+    expect(an(10.4, { ageYears: 3 })).toBe(true);
+    expect(an(10.8, { ageYears: 3 })).toBe(false); // anaemic under the old WHO 2011 cut-off (11)
+    expect(an(11.4, { ageYears: 6 })).toBe(true);
+    expect(an(11.5, { ageYears: 8 })).toBe(false);
+    expect(an(12.4, { ageYears: 9 })).toBe(true); // not anaemic under the old cut-off (11.5)
+    expect(an(12.5, { ageYears: 13 })).toBe(false);
+  });
+  it('14–17 years: 13.0 boys, 12.0 girls, 12.0 when sex is not recorded', () => {
+    expect(an(12.9, { ageYears: 15, sex: 'Male' })).toBe(true);
+    expect(an(12.9, { ageYears: 15, sex: 'Female' })).toBe(false);
+    expect(an(11.9, { ageYears: 17, sex: 'Female' })).toBe(true);
+    expect(an(12.5, { ageYears: 15 })).toBe(false);
+    expect(an(11.9, { ageYears: 15 })).toBe(true);
+  });
+  it('under 6 months: no cut-off; the iron line says to interpret against neonatal / infant ranges', () => {
+    expect(an(8, { ageYears: 0, ageMonths: 3 })).toBeNull();
+    const plan = buildRulesPlan({ data: { ...d, vitals: { ...d.vitals, weight: 6 } }, ctx: { ageYears: 0, ageMonths: 3 }, labs: { hb: 8, ferritin: 10 } });
+    expect(line(plan, 'med:wp_iron')?.withheld).toMatch(/interpret against neonatal \/ infant ranges/);
   });
 });
 
@@ -152,6 +201,19 @@ describe('rules plan — syndactyly in an 8-month-old', () => {
   it('Apert features trigger craniofacial referral', () => {
     const apert = buildRulesPlan({ data: { ...data, complaints: [{ ...data.complaints[0], answers: { ...data.complaints[0].answers, syn_assoc: ['Skull or face shape (possible Apert / craniosynostosis)'] } }] }, ctx: { ageYears: 0, ageMonths: 8, sex: 'Male' } });
     expect(line(apert, 'ref:syn_craniofacial')).toBeTruthy();
+  });
+});
+
+describe('rules plan — major burn threshold (owner decision 2026-11-27: BBA / NICE)', () => {
+  const burn = (tbsa: number, weight: number) => clerking({ complaints: [complaint('burn', 'Burn', {}, { value: 3, unit: 'days' })], exam: { local_burn: { tbsa_percent: tbsa } }, vitals: { weight } });
+  const minerals = (tbsa: number, ctx: { ageYears: number; sex: string }, weight: number) => !!line(buildRulesPlan({ data: burn(tbsa, weight), ctx }), 'inv:wpt_burns_intake');
+  it('adults: 15% TBSA or more is a major burn (was 20%)', () => {
+    expect(minerals(15, { ageYears: 35, sex: 'Male' }, 70)).toBe(true);
+    expect(minerals(14, { ageYears: 35, sex: 'Male' }, 70)).toBe(false);
+  });
+  it('children: 10% TBSA or more', () => {
+    expect(minerals(10, { ageYears: 6, sex: 'Female' }, 20)).toBe(true);
+    expect(minerals(9, { ageYears: 6, sex: 'Female' }, 20)).toBe(false);
   });
 });
 
