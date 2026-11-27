@@ -9,7 +9,8 @@
  *   protocol     for wound conditions, the Wound Clinic Protocol exactly:
  *                baseline panel, targeted tests by situation, micronutrients
  *                (adult / child, weight-based for children and capped at the
- *                adult dose), monitoring schedule with the week-4 decision
+ *                adult dose; child iron at the child table's own 200 mg/day
+ *                maximum, owner decision 2026-11-27), monitoring schedule with the week-4 decision
  *                point, and its cautions as hard rules
  *   engine       nutrition targets from the nutrition engine
  *   guideline    analgesia (BNF / BNFc), always weight-based for children
@@ -26,6 +27,7 @@ import type { ConditionContext, TemplateLine, WoundSignals } from './conditions/
 import { patientFacts, type PatientFacts } from './facts';
 import { doseText, weightDose } from './dosing';
 import { ACTIVE_WOUND_PROTOCOL as WP } from './protocols/woundClinic.v1';
+import { CHILD_IRON_OWNER_DECISION, SEVERE_ANAEMIA_HB_BELOW_GDL, SEVERE_ANAEMIA_SOURCE } from './ownerDecisions';
 import type { PlanLine, PlanSource, RulesPlan } from './types';
 
 export const RULES_ENGINE_VERSION = '1.0.0';
@@ -234,11 +236,17 @@ function protocolLines(f: PatientFacts, s: WoundSignals, templates: ConditionTem
     }
     const ir = row(CHILD, 'iron');
     if (provenIronDeficiencyAnaemia) {
-      const d = w ? weightDose({ perKg: D.iron.mgPerKg, weightKg: w, maxDose: D.iron.maxMgPerDay, adultDose: D.adultCapMg.iron }) : null;
-      add(medLine('iron', 'Iron (elemental)', d ? `${doseText(d)} once daily` : '3 mg/kg once daily', '', ir.duration, `Low Hb (${f.labs.hb} g/dL) and low ferritin (${f.labs.ferritin} ng/mL)`,
-        { weightBasis: d?.basis ?? 'Weight needed: 3 mg/kg once daily', cautions: [H.iron, 'Treat malaria and worms first; avoid during acute severe infection.'],
+      // Owner decision 2026-11-27: the child table's maximum (200 mg/day) is the cap, not the 65 mg adult dose.
+      const severe = f.labs.hb! < SEVERE_ANAEMIA_HB_BELOW_GDL;
+      const perKg = severe ? { low: D.iron.mgPerKg, high: D.iron.severeMgPerKg } : D.iron.mgPerKg;
+      const d = w ? weightDose({ perKg, weightKg: w, maxDose: D.iron.maxMgPerDay, adultDose: CHILD_IRON_OWNER_DECISION.capAtAdultDose ? D.adultCapMg.iron : undefined }) : null;
+      const severeNote = severe ? `; severe anaemia (Hb below ${SEVERE_ANAEMIA_HB_BELOW_GDL} g/dL, ${SEVERE_ANAEMIA_SOURCE}): up to ${D.iron.severeMgPerKg} mg/kg/day` : '';
+      const perKgText = severe ? `${D.iron.mgPerKg}–${D.iron.severeMgPerKg} mg/kg` : `${D.iron.mgPerKg} mg/kg`;
+      const freq = severe ? 'daily' : 'once daily';
+      add(medLine('iron', 'Iron (elemental)', d ? `${doseText(d)} ${freq}` : `${perKgText} ${freq} (maximum ${D.iron.maxMgPerDay} mg/day)`, '', ir.duration, `Low Hb (${f.labs.hb} g/dL) and low ferritin (${f.labs.ferritin} ng/mL)`,
+        { weightBasis: `${d?.basis ?? `Weight needed: ${perKgText} ${freq}`}; child table maximum ${D.iron.maxMgPerDay} mg/day, not capped at the adult dose (${CHILD_IRON_OWNER_DECISION.source})${severeNote}`, cautions: [H.iron, 'Treat malaria and worms first; avoid during acute severe infection.'],
           withheld: f.sepsis ? 'Acute severe infection: the protocol says avoid iron now' : undefined }));
-      hard.push(H.iron);
+      hard.push(H.iron, CHILD_IRON_OWNER_DECISION.hardRule);
     } else {
       add({ id: 'med:wp_iron', section: 'medications', text: 'Iron: only for iron-deficiency anaemia (low Hb and low ferritin)', why: ironDef === null || anaemia === null ? 'Awaiting FBC and ferritin' : 'Not iron-deficiency anaemia on the results', withheld: ironDef === null || anaemia === null ? 'Awaiting FBC and ferritin' : 'Not indicated on the results' });
     }

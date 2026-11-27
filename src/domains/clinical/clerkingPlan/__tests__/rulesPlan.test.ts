@@ -50,13 +50,30 @@ describe('rules plan — child with a wound and low ferritin', () => {
     pmh: { malnutrition: 'Yes' },
   });
   const plan = buildRulesPlan({ data, ctx: { ageYears: 6, ageMonths: 72, sex: 'Female' }, labs: { hb: 9.2, ferritin: 12, crp: 3, zinc: 60 } });
-  it('iron 3 mg/kg, capped at the adult dose (65 mg)', () => {
+  const withWeight = (kg: number, ageYears: number, labs: Record<string, number>) =>
+    buildRulesPlan({ data: { ...data, vitals: { ...data.vitals, weight: kg } }, ctx: { ageYears, sex: 'Female' }, labs });
+  it('iron 3 mg/kg once daily (child table), not capped at the 65 mg adult dose (owner decision 2026-11-27)', () => {
     const iron = active(plan, 'med:wp_iron')!;
     expect(iron.medication?.dose).toBe('60 mg once daily');
     expect(iron.medication?.weightBasis).toMatch(/3 mg\/kg × 20 kg/);
-    const big = buildRulesPlan({ data: { ...data, vitals: { ...data.vitals, weight: 30 } }, ctx: { ageYears: 10, sex: 'Female' }, labs: { hb: 9, ferritin: 12 } });
-    expect(active(big, 'med:wp_iron')?.medication?.dose).toBe('65 mg once daily');
-    expect(active(big, 'med:wp_iron')?.medication?.weightBasis).toMatch(/never above the adult dose/);
+    const big = withWeight(30, 10, { hb: 9, ferritin: 12 });
+    expect(active(big, 'med:wp_iron')?.medication?.dose).toBe('90 mg once daily');
+    expect(active(big, 'med:wp_iron')?.medication?.weightBasis).not.toMatch(/never above the adult dose/);
+    expect(active(big, 'med:wp_iron')?.medication?.weightBasis).toMatch(/not capped at the adult dose/);
+    expect(big.hardRules.join(' ')).toMatch(/not capped at the 65 mg adult dose/);
+  });
+  it('iron is capped at the child table maximum of 200 mg/day', () => {
+    expect(active(withWeight(80, 15, { hb: 9, ferritin: 12 }), 'med:wp_iron')?.medication?.dose).toBe('200 mg once daily');
+  });
+  it('severe anaemia (Hb below 7 g/dL, WHO): up to 6 mg/kg/day, still at most 200 mg/day', () => {
+    const severe = withWeight(20, 6, { hb: 6.5, ferritin: 12 });
+    expect(active(severe, 'med:wp_iron')?.medication?.dose).toBe('60–120 mg daily');
+    expect(active(severe, 'med:wp_iron')?.medication?.weightBasis).toMatch(/3–6 mg\/kg × 20 kg = 60–120 mg.*Hb below 7 g\/dL/);
+    expect(active(withWeight(40, 12, { hb: 6, ferritin: 12 }), 'med:wp_iron')?.medication?.dose).toBe('120–200 mg daily');
+    expect(active(withWeight(20, 6, { hb: 7, ferritin: 12 }), 'med:wp_iron')?.medication?.dose).toBe('60 mg once daily');
+  });
+  it('zinc stays capped at 40 mg/day', () => {
+    expect(active(withWeight(50, 14, { hb: 12, ferritin: 50, zinc: 50 }), 'med:wp_zinc')?.medication?.dose).toBe('25–40 mg once daily');
   });
   it('zinc 0.5–1 mg/kg (maximum 40 mg) and the child hard rules', () => {
     expect(active(plan, 'med:wp_zinc')?.medication?.dose).toBe('10–20 mg once daily');
