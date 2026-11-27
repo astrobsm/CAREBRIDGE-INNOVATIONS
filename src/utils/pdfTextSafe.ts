@@ -187,7 +187,7 @@ export function createSafePDF(...args: unknown[]): jsPDF {
 }
 
 /**
- * Boot-time diagnostic, kept so main.tsx has one obvious call site.
+ * Boot-time diagnostic, kept so bootEmr.tsx has one obvious call site.
  *
  * Sanitisation itself happens per document in createSafePDF. This only reports
  * if a future jsPDF version moves `text` back onto the prototype — in which

@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Unsaved-changes guard.
 //
-// The app mounts a <BrowserRouter> (src/main.tsx), not a data router, so
+// The app mounts a <BrowserRouter> (src/bootEmr.tsx), not a data router, so
 // react-router's useBlocker is not available (it throws outside a data
 // router). The guard therefore covers what it can:
 //   - closing / reloading the tab: a beforeunload prompt while dirty;
