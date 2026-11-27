@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../database';
 import ScanToText from '../../../components/common/ScanToText';
 import { useAuth } from '../../../contexts/AuthContext';
+import { AsyncButton, useActionStatus } from '../../../components/motion';
 import { PatientSelector } from '../../../components/patient';
 import { HospitalSelector } from '../../../components/hospital';
 import { createAppointment, getAvailableSlots } from '../../../services/appointmentService';
@@ -130,6 +131,7 @@ export default function AppointmentBookingForm({
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const bookFx = useActionStatus();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -346,11 +348,13 @@ export default function AppointmentBookingForm({
       });
 
       toast.success(`Appointment booked successfully! Ref: ${appointment.appointmentNumber}`);
+      bookFx.done();
       onSuccess?.(appointment.id);
       onClose();
     } catch (error) {
       console.error('Error booking appointment:', error);
       toast.error('Failed to book appointment. Please try again.');
+      bookFx.error();
     } finally {
       setIsSubmitting(false);
     }
@@ -365,6 +369,7 @@ export default function AppointmentBookingForm({
     if (errorMessages.length > 0) {
       toast.error(`Please fix: ${errorMessages[0]}`);
     }
+    bookFx.error();
   };
 
   const currentSlot = (): BookingSlot => {
@@ -1079,25 +1084,19 @@ export default function AppointmentBookingForm({
                   <ChevronRight className="w-4 h-4" />
                 </button>
               ) : (
-                <button
+                <AsyncButton
                   type="submit"
-                  disabled={isSubmitting}
+                  busy={isSubmitting}
+                  status={bookFx.status}
+                  workingLabel={<><span className="hidden sm:inline">Booking...</span><span className="sm:hidden">...</span></>}
+                  doneLabel="Booked"
+                  errorLabel="Appointment not booked"
                   className="px-4 sm:px-6 py-2 sm:py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-1.5 sm:gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="hidden sm:inline">Booking...</span>
-                      <span className="sm:hidden">...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span className="hidden sm:inline">Book Appointment</span>
-                      <span className="sm:hidden">Book</span>
-                    </>
-                  )}
-                </button>
+                  <Check className="w-4 h-4" />
+                  <span className="hidden sm:inline">Book Appointment</span>
+                  <span className="sm:hidden">Book</span>
+                </AsyncButton>
               )}
             </div>
           </div>

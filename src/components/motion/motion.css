@@ -66,6 +66,8 @@ html:not(.fx-low) .cb-backdrop-blur {
    Async button: three faces stacked in one cell (no width jump).
    -------------------------------------------------------------------------- */
 .cb-async { position: relative; }
+/* Working is not "unavailable": keep full colour while the spinner shows. */
+.cb-async[data-status="working"]:disabled { opacity: 1; cursor: progress; }
 .cb-async__stack {
   display: inline-grid;
   place-items: center;
