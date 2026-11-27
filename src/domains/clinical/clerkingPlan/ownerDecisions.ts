@@ -45,3 +45,19 @@ export const HIGH_CRP_OWNER_DECISION = {
   highAboveMgL: 5,
   source: 'WHO 2020 guideline on ferritin concentrations to assess iron status: CRP above 5 mg/L = inflammation (owner decision 2026-11-27)',
 } as const;
+
+/**
+ * Owner decision 2026-11-27: a "major burn" (the protocol's "large burns":
+ * minerals, burn nutrition targets, zinc and vitamin C) is TBSA 15% or more
+ * in adults and 10% or more in children: the British Burn Association / NICE
+ * threshold for formal IV fluid resuscitation. (It was 20% in adults.)
+ */
+export const MAJOR_BURN_TBSA_OWNER_DECISION = {
+  decided: '2026-11-27',
+  adultFromPercent: 15,
+  childFromPercent: 10,
+  source: 'British Burn Association / NICE: formal IV fluid resuscitation from 15% TBSA in adults, 10% in children (owner decision 2026-11-27)',
+} as const;
+
+export const isMajorBurnTbsa = (tbsaPercent: number, isChild: boolean): boolean =>
+  tbsaPercent >= (isChild ? MAJOR_BURN_TBSA_OWNER_DECISION.childFromPercent : MAJOR_BURN_TBSA_OWNER_DECISION.adultFromPercent);

@@ -172,6 +172,19 @@ describe('rules plan — syndactyly in an 8-month-old', () => {
   });
 });
 
+describe('rules plan — major burn threshold (owner decision 2026-11-27: BBA / NICE)', () => {
+  const burn = (tbsa: number, weight: number) => clerking({ complaints: [complaint('burn', 'Burn', {}, { value: 3, unit: 'days' })], exam: { local_burn: { tbsa_percent: tbsa } }, vitals: { weight } });
+  const minerals = (tbsa: number, ctx: { ageYears: number; sex: string }, weight: number) => !!line(buildRulesPlan({ data: burn(tbsa, weight), ctx }), 'inv:wpt_burns_intake');
+  it('adults: 15% TBSA or more is a major burn (was 20%)', () => {
+    expect(minerals(15, { ageYears: 35, sex: 'Male' }, 70)).toBe(true);
+    expect(minerals(14, { ageYears: 35, sex: 'Male' }, 70)).toBe(false);
+  });
+  it('children: 10% TBSA or more', () => {
+    expect(minerals(10, { ageYears: 6, sex: 'Female' }, 20)).toBe(true);
+    expect(minerals(9, { ageYears: 6, sex: 'Female' }, 20)).toBe(false);
+  });
+});
+
 describe('rules plan — stability', () => {
   it('same inputs give the same hash; a change gives a new one', () => {
     const data = clerking({ complaints: [complaint('keloid', 'Keloid')] });

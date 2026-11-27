@@ -27,7 +27,7 @@ import type { ConditionContext, TemplateLine, WoundSignals } from './conditions/
 import { patientFacts, type PatientFacts } from './facts';
 import { doseText, weightDose } from './dosing';
 import { ACTIVE_WOUND_PROTOCOL as WP } from './protocols/woundClinic.v1';
-import { CHILD_IRON_OWNER_DECISION, SEVERE_ANAEMIA_HB_BELOW_GDL, SEVERE_ANAEMIA_SOURCE } from './ownerDecisions';
+import { CHILD_IRON_OWNER_DECISION, SEVERE_ANAEMIA_HB_BELOW_GDL, SEVERE_ANAEMIA_SOURCE, isMajorBurnTbsa } from './ownerDecisions';
 import type { PlanLine, PlanSource, RulesPlan } from './types';
 
 export const RULES_ENGINE_VERSION = '1.0.0';
@@ -101,7 +101,8 @@ function baseSignals(data: ClerkingData, c: ConditionContext, f: PatientFacts): 
   const sites = asList(c.a('wound_site'));
   const tbsa = c.num('tbsa_percent');
   const burn = data.complaints.some(x => ['burn', 'electrical_burn', 'chemical_burn'].includes(x.complaintId));
-  const majorBurn = burn && tbsa != null && tbsa >= (f.isChild ? 10 : 20);
+  // Owner decision 2026-11-27: TBSA 15% or more (adults), 10% or more (children); BBA / NICE.
+  const majorBurn = burn && tbsa != null && isMajorBurnTbsa(tbsa, f.isChild);
   const l = c.num('wound_length'), w = c.num('wound_width');
   return {
     infected: c.is('wound_discharge', 'Purulent (pus)', 'Foul-smelling', 'Greenish (Pseudomonas-like)', 'Seropurulent') || c.is('wound_odour', 'Yes')
