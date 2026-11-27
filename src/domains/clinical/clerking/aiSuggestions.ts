@@ -12,7 +12,7 @@
  *   - the model's reply is normalised into PENDING suggestions. Nothing the
  *     model says is accepted, ordered or tracked until a clinician decides.
  */
-import { proxyChat } from '../../../services/aiProxy';
+import { aiFailureReason, proxyChat } from '../../../services/aiProxy';
 import type { Suggestion } from './types';
 
 /** Every AI feature runs on Claude; the model is chosen on the server (api/_lib/claude.js). */
@@ -107,8 +107,8 @@ export async function requestAiSuggestions(
       system: AI_SYSTEM_PROMPT, prompt: text, maxTokens: 8000,
       responseFormat: { type: 'json_object' },
     });
-  } catch {
-    throw new Error('The AI service did not respond. Rule-based suggestions are still available.');
+  } catch (e) {
+    throw new Error(`${aiFailureReason(e)} Rule-based suggestions are still available.`);
   }
   let parsed: unknown = null;
   try { parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, '')); } catch { parsed = null; }
