@@ -15,6 +15,7 @@
  */
 
 import type { HealingAnalytics, HealingStatus, WoundAssessment } from '../monitorTypes';
+import type { WoundProgressEntry } from './aiWoundMeasurement';
 
 export const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -147,4 +148,32 @@ export function healingAlerts(analytics: HealingAnalytics): string[] {
     alerts.push('Some measurements lacked a reliable calibration marker — absolute sizes are approximate.');
   }
   return alerts;
+}
+
+/**
+ * Assessments as the entries the trend chart and healing map draw (the shapes
+ * MonitorTrendChart, WoundHealingMap and generateProgressReport take), oldest
+ * first. Assessments without a date are left out.
+ */
+export function toProgressEntries(assessments: WoundAssessment[]): WoundProgressEntry[] {
+  return assessments
+    .filter(a => a.assessedAt)
+    .slice()
+    .sort((a, b) => new Date(a.assessedAt!).getTime() - new Date(b.assessedAt!).getTime())
+    .map(a => ({
+      date: a.assessedAt!,
+      length: Number(a.lengthCm) || 0,
+      width: Number(a.widthCm) || 0,
+      area: Number(a.areaCm2) || 0,
+      perimeter: Number(a.perimeterCm) || undefined,
+      granulation_percentage: Number(a.granulationPct) || undefined,
+      healing_phase: a.healingStage,
+      contourCm: Array.isArray(a.contourCm) && a.contourCm.length ? a.contourCm : undefined,
+      tissue: (a.granulationPct != null || a.sloughPct != null) ? {
+        granulation: Number(a.granulationPct) || 0,
+        slough: Number(a.sloughPct) || 0,
+        necrotic: Number(a.necroticPct) || 0,
+        epithelial: Number(a.epithelialPct) || 0,
+      } : undefined,
+    }));
 }
