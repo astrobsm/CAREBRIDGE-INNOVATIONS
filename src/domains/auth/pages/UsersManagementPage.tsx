@@ -33,6 +33,7 @@ import UserHospitalsModal from '../components/UserHospitalsModal';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { User, UserRole, Hospital } from '../../../types';
 import { findEmailOwner, normaliseEmail } from '../../../utils/loginIdentity';
+import { Sheet } from '../../../components/motion';
 
 // Passwords are never stored or shown here. Creating an account and resetting
 // a password go through /api/admin-users, which sets a temporary password on
@@ -175,16 +176,12 @@ function EditUserModal({ user, currentUser, hospitals, onClose, onSave }: EditUs
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 100 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 100 }}
-        className="bg-white w-full sm:max-w-lg sm:rounded-xl rounded-t-2xl max-h-[90vh] overflow-y-auto"
-      >
+    <Sheet onClose={onClose} label="Edit User" size="lg" closeOnBackdrop={false}>
+      {close => (
+      <div>
         <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between z-10">
           <h3 className="text-lg font-semibold">Edit User</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
+          <button onClick={close} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -319,7 +316,7 @@ function EditUserModal({ user, currentUser, hospitals, onClose, onSave }: EditUs
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="btn btn-secondary flex-1"
             >
               Cancel
@@ -343,8 +340,9 @@ function EditUserModal({ user, currentUser, hospitals, onClose, onSave }: EditUs
             </button>
           </div>
         </form>
-      </motion.div>
-    </div>
+      </div>
+      )}
+    </Sheet>
   );
 }
 
@@ -920,16 +918,12 @@ function AddUserModal({ currentUser, hospitals, onClose, onSave }: AddUserModalP
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 100 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 100 }}
-        className="bg-white w-full sm:max-w-lg sm:rounded-xl rounded-t-2xl max-h-[90vh] overflow-y-auto"
-      >
+    <Sheet onClose={onClose} label="Add New User" size="lg" closeOnBackdrop={false}>
+      {close => (
+      <div>
         <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between z-10">
           <h3 className="text-lg font-semibold">Add New User</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
+          <button onClick={close} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -1056,7 +1050,7 @@ function AddUserModal({ currentUser, hospitals, onClose, onSave }: AddUserModalP
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="btn btn-secondary flex-1"
             >
               Cancel
@@ -1080,8 +1074,9 @@ function AddUserModal({ currentUser, hospitals, onClose, onSave }: AddUserModalP
             </button>
           </div>
         </form>
-      </motion.div>
-    </div>
+      </div>
+      )}
+    </Sheet>
   );
 }
 
@@ -1110,19 +1105,15 @@ function UserCredentialsModal({ user, onClose }: { user: User; onClose: () => vo
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 100 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 100 }}
-        className="bg-white w-full sm:max-w-md sm:rounded-xl rounded-t-2xl"
-      >
+    <Sheet onClose={onClose} label="Login Details" size="md" closeOnBackdrop={false} dismissible={false}>
+      {close => (
+      <div>
         <div className="border-b px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Key className="w-5 h-5 text-blue-600" />
             <h3 className="text-lg font-semibold">Login Details</h3>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
+          <button onClick={close} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -1210,12 +1201,13 @@ function UserCredentialsModal({ user, onClose }: { user: User; onClose: () => vo
         </div>
 
         <div className="border-t p-4">
-          <button onClick={onClose} className="btn btn-secondary w-full">
+          <button onClick={close} className="btn btn-secondary w-full">
             Close
           </button>
         </div>
-      </motion.div>
-    </div>
+      </div>
+      )}
+    </Sheet>
   );
 }
 
@@ -1271,19 +1263,15 @@ function ResetPasswordModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 100 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 100 }}
-        className="bg-white w-full sm:max-w-md sm:rounded-xl rounded-t-2xl"
-      >
+    <Sheet onClose={onClose} label="Account password" size="md" closeOnBackdrop={false} dismissible={false}>
+      {close => (
+      <div>
         <div className="border-b px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <RefreshCw className="w-5 h-5 text-amber-600" />
             <h3 className="text-lg font-semibold">{initialPassword ? 'Account Created' : 'Reset Password'}</h3>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
+          <button onClick={close} className="p-2 hover:bg-gray-100 rounded-full" title="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -1400,11 +1388,12 @@ function ResetPasswordModal({
         </div>
 
         <div className="border-t p-4">
-          <button onClick={onClose} className="btn btn-secondary w-full">
+          <button onClick={close} className="btn btn-secondary w-full">
             {newPassword ? 'Done' : 'Cancel'}
           </button>
         </div>
-      </motion.div>
-    </div>
+      </div>
+      )}
+    </Sheet>
   );
 }
