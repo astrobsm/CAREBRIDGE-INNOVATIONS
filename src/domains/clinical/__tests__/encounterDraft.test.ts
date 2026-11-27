@@ -84,7 +84,7 @@ describe('ClinicalEncounterPage wiring', () => {
   });
 
   it('the app uses a BrowserRouter, so useBlocker is not used', () => {
-    expect(read('src/main.tsx')).toMatch(/<BrowserRouter>/);
+    expect(read('src/bootEmr.tsx')).toMatch(/<BrowserRouter>/);
     expect(hook).not.toMatch(/import[^;]*useBlocker/);
   });
 });

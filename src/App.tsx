@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import MainLayout from './components/layouts/MainLayout';
@@ -104,6 +105,10 @@ import FamilySchool from './domains/family/pages/FamilySchool';
 import FamilyNotifications from './domains/family/pages/FamilyNotifications';
 // Public Clinic Booking (No login required)
 import PublicBookingPage from './domains/appointments/pages/public/PublicBookingPage';
+// Public no-login wound tool. A direct visit to /wound-tool never loads this
+// file (src/main.tsx starts the tool on its own); this route only serves an
+// in-app link to it, so it is lazy and stays out of the EMR bundle.
+const PublicWoundToolApp = lazy(() => import('./domains/wounds/public-tool/WoundToolApp'));
 import ChildLoginPage from './domains/family/pages/child/ChildLoginPage';
 import ChildShell from './domains/family/pages/child/ChildShell';
 import ChildHome from './domains/family/pages/child/ChildHome';
@@ -192,6 +197,9 @@ function App() {
 
       {/* Public Clinic Booking - No Login Required */}
       <Route path="/book-appointment" element={<PublicBookingPage />} />
+
+      {/* Public wound measurement tool - No Login Required, data stays on the device */}
+      <Route path="/wound-tool/*" element={<Suspense fallback={null}><PublicWoundToolApp /></Suspense>} />
 
       {/* Family child self-service portal - No AstroHEALTH login required */}
       <Route path="/family/me/login" element={<ChildLoginPage />} />
