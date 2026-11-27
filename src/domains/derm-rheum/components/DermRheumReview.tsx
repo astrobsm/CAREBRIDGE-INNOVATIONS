@@ -277,8 +277,8 @@ export const DermRheumReview: React.FC<DermRheumReviewProps> = p => {
                     const inc = isIncluded(l, decisions), d = decisionFor(decisions, l.id)?.decision;
                     return (
                       <li key={l.id} className={`flex items-start gap-2 rounded border px-2 py-1.5 text-[12px] ${inc ? 'border-purple-300 bg-purple-50' : 'border-dashed border-gray-300'}`} data-testid="derm-line">
-                        <span className="flex-1">{l.urgency === 'urgent' && <span className="text-red-700 font-semibold">URGENT · </span>}{l.text}{l.why && <span className="block text-[11px] text-gray-500">Why: {l.why}</span>}</span>
-                        <button type="button" aria-label="Accept" onClick={() => onDecide(l, inc ? null : 'accepted')} className={`px-2 py-1 rounded border min-w-[36px] min-h-[32px] ${inc ? 'bg-green-600 text-white border-green-600' : 'border-green-600 text-green-700'}`}>✓</button>
+                        <span className="flex-1">{l.urgency === 'urgent' && <span className="text-red-700 font-semibold">URGENT · </span>}{l.text}{l.why && <span className="block text-[11px] text-gray-500">Why: {l.why}</span>}{l.withheld && <span className="block text-[11px] font-medium text-red-700" data-testid="derm-line-unsafe">⚠ {l.withheld}</span>}</span>
+                        <button type="button" aria-label="Accept" onClick={() => { if (!inc && l.withheld && !window.confirm(`${l.withheld}\n\nAccept this line anyway?`)) return; onDecide(l, inc ? null : 'accepted'); }} className={`px-2 py-1 rounded border min-w-[36px] min-h-[32px] ${inc ? 'bg-green-600 text-white border-green-600' : 'border-green-600 text-green-700'}`}>✓</button>
                         <button type="button" aria-label="Reject" onClick={() => onDecide(l, d === 'rejected' ? null : 'rejected')} className={`px-2 py-1 rounded border min-w-[36px] min-h-[32px] ${d === 'rejected' ? 'bg-red-600 text-white border-red-600' : 'border-red-300 text-red-600'}`}>✕</button>
                       </li>
                     );

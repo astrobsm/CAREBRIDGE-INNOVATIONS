@@ -71,7 +71,11 @@ export interface ConsultForCheck {
 }
 
 export type RuleStatus = 'ok' | 'omitted' | 'contradicted';
-export interface RuleCheck { rule: DermHardRule; status: RuleStatus; detail?: string }
+export interface RuleCheck {
+  rule: DermHardRule; status: RuleStatus; detail?: string;
+  /** The recommendation that breaks the rule, word for word, so its plan line can be held back. */
+  offending?: string;
+}
 
 const NEG = /\b(no|not|avoid|never|don'?t|do not|without|stop|withhold|contraindicated|until)\b/i;
 /** Recommendations: everything Claude suggests doing (do-nots excluded), each item kept whole for negation. */
@@ -81,13 +85,13 @@ const mentions = (items: string[], re: RegExp) => items.some(t => re.test(t));
 
 export function checkConsult(c: ConsultForCheck, rules: DermHardRule[]): RuleCheck[] {
   return rules.map(rule => {
-    const r = (status: RuleStatus, detail?: string): RuleCheck => ({ rule, status, detail });
+    const r = (status: RuleStatus, detail?: string, offending?: string): RuleCheck => ({ rule, status, detail, offending });
     const tests = c.investigations.map(i => i.test);
     switch (rule.id as HardRuleId) {
       case 'pg_no_debride': {
         // "Graft once the inflammation is controlled" follows the guideline; only an unqualified surgical step contradicts.
         const bad = recommends(c, /debrid|excis|graft|curett|sharp|flap|surgical clean/i, /biops|\bonce\b|\bafter\b|controlled|quiescent|inactive|under (continued )?immunosuppression/i);
-        if (bad) return r('contradicted', `Recommends "${bad}"`);
+        if (bad) return r('contradicted', `Recommends "${bad}"`, bad);
         return mentions(c.doNot, /debrid/i) ? r('ok') : r('omitted', 'No "do not debride" warning');
       }
       case 'biopsy_chronic':
@@ -102,7 +106,7 @@ export function checkConsult(c: ConsultForCheck, rules: DermHardRule[]): RuleChe
         return mentions([...tests, ...c.management.immediate], /urin/i) ? r('ok') : r('omitted', 'No urine test');
       case 'acral_full_thickness': {
         const bad = recommends(c, /shave|curett|cauter|cryo/i);
-        if (bad) return r('contradicted', `Recommends "${bad}"`);
+        if (bad) return r('contradicted', `Recommends "${bad}"`, bad);
         return mentions(tests, /biops|excision/i) ? r('ok') : r('omitted', 'No full-thickness biopsy');
       }
       case 'infection_before_immuno': {
@@ -112,7 +116,7 @@ export function checkConsult(c: ConsultForCheck, rules: DermHardRule[]): RuleChe
       }
       case 'atypical_keloid': {
         const bad = recommends(c, /triamcinolone|intralesional|steroid injection|keloid excision/i);
-        if (bad && !mentions(tests, /biops/i)) return r('contradicted', `Recommends "${bad}" without a biopsy`);
+        if (bad && !mentions(tests, /biops/i)) return r('contradicted', `Recommends "${bad}" without a biopsy`, bad);
         return mentions(tests, /biops/i) ? r('ok') : r('omitted', 'No biopsy');
       }
       case 'calciphylaxis_renal':

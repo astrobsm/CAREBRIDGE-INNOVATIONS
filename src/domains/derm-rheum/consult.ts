@@ -226,6 +226,21 @@ export function consultToLines(c: DermConsult): PlanLine[] {
   return out;
 }
 
+/**
+ * A line that carries a recommendation breaking a hard rule (e.g. "shave biopsy"
+ * of an acral pigmented lesion) is held back on the line itself: it shows the
+ * rule and needs a deliberate override to accept. Flagging it only at the top
+ * of the review left a plain 'Accept' on the unsafe line.
+ */
+export function markContradictions(lines: PlanLine[], checks: RuleCheck[]): PlanLine[] {
+  const bad = checks.filter(c => c.status === 'contradicted' && c.offending);
+  if (!bad.length) return lines;
+  return lines.map(l => {
+    const hit = bad.find(c => l.text.toLowerCase().includes(c.offending!.toLowerCase()));
+    return hit ? { ...l, withheld: `Breaks a safety rule: ${hit.rule.text}` } : l;
+  });
+}
+
 // ── Request ─────────────────────────────────────────────────────────────────
 
 export type ConsultResult =
@@ -255,9 +270,10 @@ export async function requestDermRheumConsult(i: ConsultInput, photos: string[] 
   if (!raw) return { status: 'error', message: `Claude returned an empty reply. ${KEPT}` };
   const v = validateConsult(raw);
   if (!v.ok) return { status: 'error', message: `Claude's reply was not a usable consult (${v.errors.slice(0, 3).join('; ')}). ${KEPT}` };
+  const checks = checkConsult(v.value, i.review.hardRules);
   return {
-    status: 'ok', value: v.value, lines: consultToLines(v.value), photosSent: imgs.length,
-    checks: checkConsult(v.value, i.review.hardRules),
+    status: 'ok', value: v.value, lines: markContradictions(consultToLines(v.value), checks), photosSent: imgs.length,
+    checks,
     missingHardRules: unquoted(v.value.hardRulesQuoted, allHardRules(i)),
   };
 }

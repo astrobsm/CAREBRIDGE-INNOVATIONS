@@ -162,6 +162,12 @@ describe('contradiction flagging', () => {
     expect(vision).not.toHaveBeenCalled();
     expect(res.status).toBe('ok');
     if (res.status === 'ok') expect(res.checks.find(x => x.rule.id === 'pg_no_debride')?.status).toBe('contradicted');
+    // The unsafe line itself is held back with the rule, not just flagged at the top.
+    if (res.status === 'ok') {
+      const unsafe = res.lines.find(l => /Sharp debridement/.test(l.text))!;
+      expect(unsafe.withheld).toMatch(/^Breaks a safety rule: /);
+      expect(res.lines.filter(l => l.withheld)).toHaveLength(1);
+    }
     const bad = await requestDermRheumConsult({ ...c, review: rv }, [], { chat: async () => '{"summary": 1}', vision });
     expect(bad.status).toBe('error');
     if (bad.status === 'error') expect(bad.message).toMatch(/knowledge-base guidance and the rules plan are unchanged/);
