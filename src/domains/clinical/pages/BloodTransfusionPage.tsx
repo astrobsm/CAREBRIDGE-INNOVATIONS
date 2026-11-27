@@ -60,6 +60,7 @@ import {
 } from '../../../utils/transfusionPdfGenerator';
 import TransfusionMonitoringChartView from '../components/TransfusionMonitoringChartView';
 import type { TransfusionOrder, TransfusionMonitoringChart, TransfusionMonitoringEntry, Patient } from '../../../types';
+import { Sheet } from '../../../components/motion';
 
 type TabType = 'requests' | 'active' | 'orders' | 'charts' | 'inventory' | 'reactions' | 'mtp';
 
@@ -1488,21 +1489,9 @@ Note: Uploaded chart stored successfully.
       </div>
 
       {/* Request Modal */}
-      <AnimatePresence>
-        {showRequestModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowRequestModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
-            >
+      <Sheet open={showRequestModal} onClose={() => setShowRequestModal(false)} label="New Transfusion Request" size="3xl">
+        {() => (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <Droplets className="text-red-600" />
@@ -1780,27 +1769,14 @@ Note: Uploaded chart stored successfully.
                   Submit Request
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Start Transfusion Modal */}
-      <AnimatePresence>
-        {showStartModal && selectedRequest && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowStartModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
-            >
+      <Sheet open={!!(showStartModal && selectedRequest)} onClose={() => setShowStartModal(false)} label="Start Transfusion" size="2xl">
+        {() => showStartModal && selectedRequest && (
+            <div>
               <div className="flex items-center justify-between p-4 border-b bg-green-50">
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <Play className="text-green-600" />
@@ -1947,27 +1923,14 @@ Note: Uploaded chart stored successfully.
                   Start Transfusion
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Reaction Modal */}
-      <AnimatePresence>
-        {showReactionModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowReactionModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md"
-            >
+      <Sheet open={showReactionModal} onClose={() => setShowReactionModal(false)} label="Report Transfusion Reaction" size="md">
+        {() => (
+            <div>
               <div className="flex items-center justify-between p-4 border-b bg-red-50">
                 <h2 className="text-xl font-semibold flex items-center gap-2 text-red-700">
                   <AlertTriangle />
@@ -2015,27 +1978,14 @@ Note: Uploaded chart stored successfully.
                   Cancel
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Chart Upload Modal */}
-      <AnimatePresence>
-        {showChartUploadModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowChartUploadModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
-            >
+      <Sheet open={showChartUploadModal} onClose={() => setShowChartUploadModal(false)} label="Upload Monitoring Chart" size="2xl">
+        {() => (
+            <div>
               <div className="flex items-center justify-between p-4 border-b bg-green-50">
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <Upload className="text-green-600" />
@@ -2165,27 +2115,14 @@ Note: Uploaded chart stored successfully.
                   Save Chart
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Order View Modal */}
-      <AnimatePresence>
-        {selectedOrderForView && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setSelectedOrderForView(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
-            >
+      <Sheet open={!!selectedOrderForView} onClose={() => setSelectedOrderForView(null)} label="Order details" size="2xl" dragToDismiss>
+        {() => selectedOrderForView && (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <FileText className="text-red-600" />
@@ -2256,27 +2193,14 @@ Note: Uploaded chart stored successfully.
                   Close
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Chart View Modal */}
-      <AnimatePresence>
-        {selectedChartForView && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setSelectedChartForView(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
-            >
+      <Sheet open={!!selectedChartForView} onClose={() => setSelectedChartForView(null)} label="Monitoring chart" size="3xl" dragToDismiss>
+        {() => selectedChartForView && (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <ClipboardCheck className="text-blue-600" />
@@ -2331,27 +2255,14 @@ Note: Uploaded chart stored successfully.
                   Close
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Vitals Recording Modal */}
-      <AnimatePresence>
-        {showVitalsModal && selectedTransfusionForVitals && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowVitalsModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md"
-            >
+      <Sheet open={!!(showVitalsModal && selectedTransfusionForVitals)} onClose={() => setShowVitalsModal(false)} label="Record Transfusion Vitals" size="md">
+        {() => showVitalsModal && selectedTransfusionForVitals && (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <Activity className="text-blue-600" />
@@ -2490,27 +2401,14 @@ Note: Uploaded chart stored successfully.
                   Save Vitals
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Create Digital Monitoring Chart Modal */}
-      <AnimatePresence>
-        {showCreateDigitalChartModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowCreateDigitalChartModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md"
-            >
+      <Sheet open={showCreateDigitalChartModal} onClose={() => setShowCreateDigitalChartModal(false)} label="New Digital Monitoring Chart" size="md">
+        {() => (
+            <div>
               <div className="flex items-center justify-between p-4 border-b bg-purple-50">
                 <h2 className="text-xl font-semibold flex items-center gap-2">
                   <BarChart3 className="text-purple-600" />
@@ -2593,10 +2491,9 @@ Note: Uploaded chart stored successfully.
                   Create & Start Monitoring
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Digital Chart View with Graphs */}
       {showDigitalChartView && selectedDigitalChart && (
