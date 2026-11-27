@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
-import { motion } from 'framer-motion';
+import { Sheet } from '../../../components/motion';
 import {
   X,
   Activity,
@@ -152,19 +152,9 @@ export default function PostOpMonitoringModal({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <motion.div
-        initial={{ scale: 0.95, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, y: 20 }}
-        className="bg-white rounded-xl shadow-xl w-full max-w-4xl my-8"
-      >
+    <Sheet onClose={onClose} label="Post-op monitoring" size="4xl">
+      {close => (
+      <div>
         {/* Header */}
         <div className="px-6 py-4 border-b flex items-center justify-between bg-gradient-to-r from-sky-50 to-white rounded-t-xl">
           <div className="flex items-center gap-3">
@@ -178,7 +168,7 @@ export default function PostOpMonitoringModal({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="btn btn-ghost" aria-label="Close modal">
+          <button onClick={close} className="btn btn-ghost" aria-label="Close modal">
             <X size={20} />
           </button>
         </div>
@@ -559,7 +549,7 @@ export default function PostOpMonitoringModal({
             Recorded by: {user?.firstName} {user?.lastName} • {format(new Date(), 'PPp')}
           </p>
           <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="btn btn-secondary">
+            <button type="button" onClick={close} className="btn btn-secondary">
               Cancel
             </button>
             <button
@@ -580,7 +570,8 @@ export default function PostOpMonitoringModal({
             </button>
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+      )}
+    </Sheet>
   );
 }
