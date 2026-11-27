@@ -89,7 +89,7 @@ export function Sheet({
       {open && (
         <div className={`fixed inset-0 ${zClassName} flex ${bottom ? 'items-end' : 'items-center p-4'} justify-center`} data-motion="sheet">
           <motion.div
-            className="absolute inset-0 bg-black/45 cb-backdrop-blur"
+            className="absolute inset-0 bg-black/40 cb-backdrop-blur"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -117,7 +117,7 @@ export function Sheet({
             {bottom && (
               <div
                 className={`flex justify-center pt-2 pb-1 ${canDrag ? 'cursor-grab touch-none' : ''}`}
-                onPointerDown={canDrag ? e => drag.start(e) : undefined}
+                onPointerDown={canDrag ? e => { e.preventDefault(); drag.start(e); } : undefined}
                 aria-hidden="true"
               >
                 <span className="block h-1.5 w-10 rounded-full bg-gray-300" />
