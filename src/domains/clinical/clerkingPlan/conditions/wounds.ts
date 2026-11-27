@@ -149,13 +149,16 @@ export const DIABETIC_FOOT: ConditionTemplate = {
       out.push(proc('df_urgent', 'Admit: urgent surgical debridement / drainage, IV broad-spectrum antibiotics after deep tissue samples, glucose and fluid management; amputation if non-salvageable', 'Severe infection, gas, wet gangrene or systemic features', { urgency: 'urgent', procedureReviewModuleId: 'diabetic_foot_debridement', patient: L.options.amputation }));
       out.push({ id: 'med:df_iv', section: 'medications', text: 'IV antibiotics for severe diabetic foot infection, per local guideline (e.g. piperacillin-tazobactam, or ceftriaxone + metronidazole; add MRSA cover if risk), adjusted to deep tissue culture',
         why: 'IWGDF/IDSA grade 4', urgency: 'urgent',
-        medication: { drug: 'Broad-spectrum IV antibiotic per local guideline', dose: 'per local guideline / renal function', route: 'IV', frequency: 'per drug', duration: 'review at 48–72 h with culture; usually 1–2 weeks for soft tissue', cautions: [c.facts.penicillinAllergy ? 'PENICILLIN ALLERGY recorded: avoid piperacillin-tazobactam.' : 'Check allergies.', 'Adjust for eGFR.'] } });
+        medication: { drug: 'Broad-spectrum IV antibiotic per local guideline', dose: 'per local guideline / renal function', route: 'IV', frequency: 'per drug', duration: 'review at 48–72 h with culture; usually 1–2 weeks for soft tissue', cautions: [c.facts.penicillinAllergy ? 'PENICILLIN ALLERGY recorded: avoid piperacillin-tazobactam.' : 'Check allergies.', 'Adjust for eGFR.'] },
+        patient: P.medicines.dripAntibiotic() });
     } else if (moderate || mild) {
       const drug = c.facts.penicillinAllergy ? 'Clindamycin' : 'Co-amoxiclav (amoxicillin / clavulanic acid)';
       out.push({ id: 'med:df_oral', section: 'medications', text: `${drug} for ${mild ? 'mild' : 'moderate'} diabetic foot infection (after deep tissue sample)`, why: `IWGDF/IDSA grade ${grade.split(' —')[0]}: treat only clinically infected ulcers`,
         medication: { drug, dose: c.facts.penicillinAllergy ? '300–450 mg' : '625 mg', route: moderate ? 'oral, or IV if not improving' : 'oral', frequency: c.facts.penicillinAllergy ? 'every 6 hours' : 'three times a day', duration: mild ? '1–2 weeks' : '2–3 weeks (longer if osteomyelitis)',
           cautions: ['Adjust to culture results.', ...(c.facts.penicillinAllergy ? ['Penicillin allergy recorded.'] : [])] },
-        patient: undefined });
+        patient: c.facts.penicillinAllergy
+          ? P.medicines.clindamycin({ child: c.facts.isChild, dose: c.facts.isChild ? null : '300–450 mg', duration: mild ? 'for 1–2 weeks' : 'for 2–3 weeks' })
+          : P.medicines.coamoxiclav({ child: c.facts.isChild, duration: mild ? 'for 1–2 weeks' : 'for 2–3 weeks' }) });
     } else {
       out.push({ id: 'med:df_noabx', section: 'medications', text: 'No antibiotics for an uninfected ulcer', why: 'IWGDF/IDSA 2023: do not treat uninfected ulcers with antibiotics', medication: { drug: 'No antibiotic', dose: '-', route: '-', frequency: '-', duration: '-', cautions: [] } });
     }
@@ -290,12 +293,12 @@ export const CELLULITIS_ABSCESS: ConditionTemplate = {
         medication: { drug, dose: childDose ? doseText(childDose) : pen ? '300–450 mg' : '500 mg–1 g', route: iv ? 'IV' : 'oral', frequency: 'every 6 hours', duration: '5–7 days, then review', weightBasis: childDose?.basis,
           cautions: pen ? ['Penicillin allergy recorded: clindamycin chosen; watch for diarrhoea (C. difficile).'] : ['Confirm no penicillin allergy before giving.', 'Take flucloxacillin on an empty stomach.'] },
         urgency: iv ? 'urgent' : 'soon',
-        patient: P.medicineHow.antibiotic });
+        patient: (pen ? P.medicines.clindamycin : P.medicines.flucloxacillin)({ child, dose: childDose ? doseText(childDose) : pen ? '300–450 mg' : null, duration: iv ? 'for 5–7 days in all' : 'for 5–7 days', drip: iv }) });
     } else if (abscess && !cellulitis) {
       out.push({ id: 'med:cel_noabx', section: 'medications', text: 'Antibiotics not routinely needed after drainage of a simple abscess without cellulitis or systemic features', why: 'IDSA 2014', medication: { drug: 'No antibiotic', dose: '-', route: '-', frequency: '-', duration: '-', cautions: ['Give antibiotics if surrounding cellulitis, systemic features, immunosuppression or a site that is hard to drain.'] } });
     }
     if (c.is('cel_portal', 'Fungal toe-web infection')) out.push({ id: 'med:cel_fungal', section: 'medications', text: 'Treat toe-web fungal infection (topical antifungal, e.g. clotrimazole 1% cream twice daily for 2–4 weeks)', why: 'Portal of entry for recurrent cellulitis',
-      medication: { drug: 'Clotrimazole 1% cream', dose: 'thin layer', route: 'topical', frequency: 'twice a day', duration: '2–4 weeks', cautions: [] } });
+      medication: { drug: 'Clotrimazole 1% cream', dose: 'thin layer', route: 'topical', frequency: 'twice a day', duration: '2–4 weeks', cautions: [] }, patient: P.medicines.clotrimazole() });
     if (c.is('cel_recurrent', 'Two or more')) out.push(refer('cel_recurrent', 'Recurrent cellulitis: look for lymphoedema / venous disease / tinea; consider prophylaxis per guideline', 'Two or more episodes'));
     return out;
   },

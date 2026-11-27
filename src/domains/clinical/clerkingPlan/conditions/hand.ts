@@ -485,11 +485,11 @@ export const HAND_TRAUMA: ConditionTemplate = {
         medication: { drug: 'Co-amoxiclav (amoxicillin / clavulanic acid)', dose: childDose ?? '625 mg', route: 'oral (IV if admitted)', frequency: 'three times a day', duration: open ? 'until debridement / per open-fracture protocol' : bite ? '5 days' : '5 days', weightBasis: childDose ?? undefined,
           cautions: c.facts.penicillinAllergy ? ['PENICILLIN ALLERGY recorded: do not give co-amoxiclav; use an alternative per local guideline (e.g. clindamycin + ciprofloxacin in adults).'] : [] },
         withheld: c.facts.penicillinAllergy ? 'Penicillin allergy recorded: choose an alternative' : undefined,
-        patient: undefined,
+        patient: P.medicines.coamoxiclav({ child: c.facts.isChild, duration: open ? 'until we stop it after the wound is cleaned in theatre' : 'for 5 days' }),
       });
     }
     if (!c.is('ht_tetanus', 'Up to date (< 10 years)')) out.push({ id: 'med:ht_tetanus', section: 'medications', text: 'Tetanus toxoid booster (and tetanus immunoglobulin if tetanus-prone and not immunised)', why: 'Tetanus status not up to date / unknown',
-      medication: { drug: 'Tetanus toxoid-containing vaccine', dose: '0.5 mL', route: 'IM', frequency: 'single dose', duration: '', cautions: [] } });
+      medication: { drug: 'Tetanus toxoid-containing vaccine', dose: '0.5 mL', route: 'IM', frequency: 'single dose', duration: '', cautions: [] }, patient: P.medicines.tetanus() });
     return out;
   },
 };

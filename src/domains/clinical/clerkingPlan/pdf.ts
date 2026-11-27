@@ -23,6 +23,7 @@ import { CONDITION_BY_ID } from './conditions';
 import { ACTIVE_WOUND_PROTOCOL as WP } from './protocols/woundClinic.v1';
 import { warningSigns } from './rulesPlan';
 import { resultMaps } from './results';
+import { plainMedicineLine } from './patientMedicine';
 import { ANALYTE_BY_KEY } from '../../clinician-assistant/services/engine/referenceRanges';
 import { PLAN_SECTIONS } from './types';
 import type { ClerkingPlanRecord, PlanApproval } from './records';
@@ -105,8 +106,9 @@ export function buildPatientPlanDocument(i: PlanDocInput): ReviewDocument {
   const S = P.copy.sections;
   const sections: ReviewDocSection[] = [{ kind: 'summary', title: 'About this leaflet', body: P.copy.intro }];
   const lines = approval.lines;
-  // A medicine the clinician approved without a locale line (e.g. accepted from Claude) is still the patient's prescription.
-  const medText = (l: (typeof lines)[number]) => l.patient ?? (l.medication && l.medication.dose !== '-' ? P.copy.medicineLine(l.medication.drug, l.medication.dose, l.medication.frequency, l.medication.duration) : undefined);
+  // A medicine the clinician approved without a locale line (e.g. accepted from Claude) is still the patient's prescription:
+  // written in plain words, never the raw clinical wording (owner decision 2026-11-27).
+  const medText = (l: (typeof lines)[number]) => l.patient ?? plainMedicineLine(l.medication);
   const pt = (sec: string) => lines.filter(l => l.section === sec).map(l => (sec === 'medications' ? medText(l) : l.patient)).filter(safe);
 
   const conditions = record.conditions.map(c => (P.conditions as Record<string, { name: string; about: string }>)[c.id] ?? (c.label ? { name: c.label, about: P.conditions.other.about } : null)).filter(Boolean) as { name: string; about: string }[];
