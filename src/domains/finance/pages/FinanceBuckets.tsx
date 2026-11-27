@@ -6,6 +6,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../database/db';
 import { FinanceBucketOps } from '../services/financeOps';
 import type { FinanceBucket } from '../types';
+import { Sheet } from '../../../components/motion';
 
 function fmtNaira(n: number): string {
   return `₦${(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
@@ -90,9 +91,9 @@ export default function FinanceBuckets() {
         })}
       </div>
 
-      {adjust && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5 space-y-3">
+      <Sheet open={!!(adjust)} onClose={() => setAdjust(null)} label="Adjust bucket" size="md" closeOnBackdrop={false}>
+        {() => adjust && (
+          <div className="p-5 space-y-3">
             <div className="text-lg font-semibold text-gray-800">
               Adjust “{adjust.bucketName}”
             </div>
@@ -132,8 +133,8 @@ export default function FinanceBuckets() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Sheet>
     </div>
   );
 }

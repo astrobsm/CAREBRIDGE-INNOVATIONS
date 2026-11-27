@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FinanceBucketOps, FinanceProjectOps } from '../services/financeOps';
+import { Sheet } from '../../../components/motion';
 
 const createSchema = z.object({
   name: z.string().min(1, 'Required'),
@@ -193,9 +194,9 @@ export default function FinanceProjects() {
         })}
       </div>
 
-      {fundFor && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5 space-y-3">
+      <Sheet open={!!(fundFor)} onClose={() => setFundFor(null)} label="Fund project" size="md" closeOnBackdrop={false}>
+        {() => fundFor && (
+          <div className="p-5 space-y-3">
             <div className="text-lg font-semibold text-gray-800">Fund “{fundFor.name}”</div>
             <div>
               <label className="block text-sm text-gray-700">Amount (₦)</label>
@@ -237,8 +238,8 @@ export default function FinanceProjects() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Sheet>
     </div>
   );
 }

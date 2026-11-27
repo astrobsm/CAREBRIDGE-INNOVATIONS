@@ -36,6 +36,7 @@ import { consumableItems, getProcedurePresets } from '../data/consumables';
 import { ConsumableItem, ConsumableCategory, SelectedItem, categoryLabels } from '../types';
 import { sharePDFOnWhatsApp } from '../../../utils/whatsappShareUtils';
 import { createSafePDF } from '../../../utils/pdfTextSafe';
+import { Sheet } from '../../../components/motion';
 
 type ProcedurePurpose = 'surgery' | 'bedside_debridement' | 'wound_dressing' | 'intralesional_injection' | 'other';
 
@@ -655,9 +656,9 @@ export const ShoppingChecklistPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Export Options Modal */}
-      {showExportModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <Sheet open={showExportModal} onClose={() => setShowExportModal(false)} label="Export shopping list" size="md" closeOnBackdrop={false} dragToDismiss>
+        {() => (
+          <div className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <Share2 className="w-5 h-5 text-emerald-600" />
@@ -728,8 +729,8 @@ export const ShoppingChecklistPage: React.FC = () => {
               Choose an export format for your shopping checklist
             </p>
           </div>
-        </div>
-      )}
+        )}
+      </Sheet>
 
       {/* Header */}
       <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white sticky top-0 z-20">
