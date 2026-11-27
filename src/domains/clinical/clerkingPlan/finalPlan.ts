@@ -46,7 +46,14 @@ export function buildFinalPlan(rules: PlanLine[], aiLines: PlanLine[], decisions
     if (out.some(x => x.id === l.id)) continue;
     if (l.source.kind !== 'clinician' && !isIncluded(l, decisions)) continue;
     const d = decisionFor(decisions, l.id);
-    if (d?.editedText && d.editedText.trim() && d.editedText.trim() !== l.text) out.push({ ...l, text: d.editedText.trim(), edited: true, originalText: l.text, withheld: undefined });
+    if (d?.editedText && d.editedText.trim() && d.editedText.trim() !== l.text) {
+      // The clinician's edit wins everywhere. The structured medicine and the locale
+      // patient line describe the ORIGINAL line (e.g. the old dose), so both are
+      // replaced: the clinician PDF prints the edited text and the patient copy
+      // prints the clinician's own words, never the stale dose.
+      const text = d.editedText.trim();
+      out.push({ ...l, text, edited: true, originalText: l.text, withheld: undefined, medication: undefined, patient: l.patient || l.medication ? text : undefined });
+    }
     else out.push({ ...l, withheld: d?.decision === 'accepted' ? undefined : l.withheld });
   }
   return out;

@@ -1,5 +1,5 @@
 /**
- * "Build plan with Claude": the detailed plan, drafted by Claude ONLY when the
+ * "Build Plan": the detailed plan, drafted by Claude ONLY when the
  * clinician presses the button (owner decision), through the existing proxy
  * (services/aiProxy → /api/ai-chat). Mirrors the calculators' Claude plan
  * (calculators/ai/calculatorAiPlan.ts) and reuses its validators:

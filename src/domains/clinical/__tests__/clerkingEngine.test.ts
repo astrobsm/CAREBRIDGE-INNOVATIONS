@@ -5,7 +5,7 @@ import { EXAM_SECTIONS } from '../clerking/examination';
 import { COMORBIDITIES, SOCIAL_QUESTIONS, GYN_QUESTIONS, PSH_QUESTIONS, ROS, HIGH_RISK_DRUG_CLASSES } from '../clerking/history';
 import { DIFFERENTIALS } from '../clerking/differentials';
 import {
-  completeness, emptyClerking, generateNarrative, mergeSuggestions, rankDifferentials, redFlags, riskFactors, ruleSuggestions, showGynaecology,
+  completeness, derivedFlags, emptyClerking, generateNarrative, mergeSuggestions, rankDifferentials, redFlags, riskFactors, ruleSuggestions, showGynaecology,
 } from '../clerking/engine';
 import type { ClerkingData, Question } from '../clerking/types';
 import { normaliseAiSuggestions, AI_SYSTEM_PROMPT, deidentifyText } from '../clerking/aiSuggestions';
@@ -117,6 +117,33 @@ describe('rule-based differentials', () => {
     const merged = mergeSuggestions(first, ruleSuggestions(ulcerCase(), {}));
     expect(merged.find(s => s.id === first[0].id)?.decision).toBe('accepted');
     expect(merged.find(s => s.id === first[0].id)?.edited).toBe('Marjolin ulcer — biopsy urgently');
+  });
+});
+
+describe('breathing-rate red flag by age (owner decision 2026-11-27: WHO IMCI fast breathing)', () => {
+  const rr = (rate: number) => { const d = emptyClerking(); d.vitals = { respiratory_rate: rate }; return d; };
+  const flagged = (rate: number, ctx: Parameters<typeof redFlags>[1]) => redFlags(rr(rate), ctx).some(f => /^Respiratory rate/.test(f.text));
+  it('a healthy 8-month-old at 32/min is not flagged; at 52/min is', () => {
+    expect(flagged(32, { ageYears: 0, ageMonths: 8 })).toBe(false);
+    expect(flagged(52, { ageYears: 0, ageMonths: 8 })).toBe(true);
+    expect(redFlags(rr(52), { ageYears: 0, ageMonths: 8 }).find(f => /^Respiratory rate/.test(f.text))?.text).toMatch(/50 or more at 2–11 months, WHO IMCI/);
+    expect(derivedFlags(rr(32), { ageYears: 0, ageMonths: 8 }).tachypnoea).toBe(false);
+  });
+  it('a 3-year-old at 42/min is flagged; under 2 months from 60; 5–11 years from 30', () => {
+    expect(flagged(42, { ageYears: 3, ageMonths: 40 })).toBe(true);
+    expect(flagged(42, { ageYears: 3 })).toBe(true);
+    expect(flagged(38, { ageYears: 3 })).toBe(false);
+    expect(flagged(58, { ageYears: 0, ageMonths: 1 })).toBe(false);
+    expect(flagged(60, { ageYears: 0, ageMonths: 1 })).toBe(true);
+    expect(flagged(29, { ageYears: 8 })).toBe(false);
+    expect(flagged(30, { ageYears: 11 })).toBe(true);
+  });
+  it('from 12 years, and when the age is unknown, the adult rule is unchanged (25/min)', () => {
+    expect(flagged(24, { ageYears: 12 })).toBe(false);
+    expect(flagged(25, { ageYears: 12 })).toBe(true);
+    expect(flagged(25, {})).toBe(true);
+    expect(flagged(24, {})).toBe(false);
+    expect(derivedFlags(rr(22), {}).tachypnoea).toBe(true);
   });
 });
 

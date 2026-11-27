@@ -8,9 +8,10 @@
  * point ACTIVE_WOUND_PROTOCOL at it and keep v1 for plans already approved
  * under it (plans record the protocol version they were built with).
  *
- * Two things the protocol does not define and the code needs are marked
- * NOT IN PROTOCOL below (the CRP level that counts as "high"); the owner is
- * asked to confirm them.
+ * The one number the protocol does not define and the code needs is marked
+ * NOT IN PROTOCOL below (the CRP level that counts as "high"); the owner
+ * confirmed it on 27 Nov 2026 (../ownerDecisions.ts). Other owner decisions
+ * that the protocol is silent on live in ownerDecisions.ts, not here.
  *
  * The energy / protein / fluid table lives in the nutrition engine config
  * (nutrition/engine/config: woundProtocol), so no nutrition figure is
@@ -165,7 +166,8 @@ export const WOUND_CLINIC_PROTOCOL_V1 = {
     /**
      * NOT IN PROTOCOL: the protocol says "high CRP" without a number. The
      * laboratory upper reference of 5 mg/L (the WHO 2020 ferritin guideline's
-     * inflammation cut-off) is used. Owner to confirm.
+     * inflammation cut-off) is used: above 5 mg/L is "high". Owner decision
+     * 2026-11-27: confirmed (HIGH_CRP_OWNER_DECISION in ../ownerDecisions.ts).
      */
     highCrpAboveMgL: 5,
   },

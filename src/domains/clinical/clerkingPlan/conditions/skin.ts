@@ -214,7 +214,8 @@ export const VASCULAR_ANOMALY: ConditionTemplate = {
             medication: { drug: 'Propranolol', dose: d ? `${doseText(d)} per day in 2 divided doses (target 2–3 mg/kg/day)` : '1 mg/kg/day, titrated to 2–3 mg/kg/day', route: 'oral', frequency: 'twice a day with feeds', duration: 'about 6 months, often until 12 months of age', weightBasis: d?.basis,
               cautions: ['Give with feeds; withhold if not feeding or vomiting (hypoglycaemia).', 'Baseline heart rate and blood pressure before starting and after dose increases.', 'Contraindications: asthma / wheeze, heart block or bradycardia, hypoglycaemia; PHACE with cerebrovascular anomaly needs imaging first.'] },
             withheld: contra ? 'Possible contraindication recorded (wheeze, heart problem or low blood sugar): paediatric / cardiac review before starting' : undefined,
-            patient: L.options.propranolol },
+            // Patient copy: the starting dose only (about 1 mg/kg/day in 2 doses), worked out for the baby.
+            patient: P.medicines.propranolol({ start: d ? doseText({ low: Math.round(d.low / 2 * 10) / 10, high: Math.round(d.low / 2 * 10) / 10 }) : null }) },
           inv('va_baseline', 'Baseline heart rate, blood pressure and blood glucose before propranolol; ECG if bradycardic, murmur or family history of heart block', 'Propranolol safety', { testId: 'glucose_hba1c', analytes: ['glucose'] }),
         );
         if (c.is('va_ex_segmental', 'Yes')) out.push(refer('va_phace', 'PHACE work-up: MRI / MRA head and neck, echocardiogram, eye examination before propranolol', 'Large facial segmental haemangioma', { urgency: 'soon' }));

@@ -9,7 +9,8 @@
  *   protocol     for wound conditions, the Wound Clinic Protocol exactly:
  *                baseline panel, targeted tests by situation, micronutrients
  *                (adult / child, weight-based for children and capped at the
- *                adult dose), monitoring schedule with the week-4 decision
+ *                adult dose; child iron at the child table's own 200 mg/day
+ *                maximum, owner decision 2026-11-27), monitoring schedule with the week-4 decision
  *                point, and its cautions as hard rules
  *   engine       nutrition targets from the nutrition engine
  *   guideline    analgesia (BNF / BNFc), always weight-based for children
@@ -26,10 +27,13 @@ import type { ConditionContext, TemplateLine, WoundSignals } from './conditions/
 import { patientFacts, type PatientFacts } from './facts';
 import { doseText, weightDose } from './dosing';
 import { ACTIVE_WOUND_PROTOCOL as WP } from './protocols/woundClinic.v1';
+import { CHILD_HB_UNDER_6_MONTHS_NOTE, CHILD_IRON_OWNER_DECISION, SEVERE_ANAEMIA_HB_BELOW_GDL, SEVERE_ANAEMIA_SOURCE, childHbLimit, isMajorBurnTbsa } from './ownerDecisions';
+import { plainMedicineLine } from './patientMedicine';
 import type { PlanLine, PlanSource, RulesPlan } from './types';
 
 export const RULES_ENGINE_VERSION = '1.0.0';
 const P = patientText.plan;
+const M = P.medicines;
 const PROTOCOL_SRC: PlanSource = { kind: 'protocol', label: `Wound clinic protocol v${WP.version}` };
 const ENGINE_SRC: PlanSource = { kind: 'engine', label: 'Nutrition engine (wound clinic protocol table)' };
 const BNF_SRC: PlanSource = { kind: 'guideline', label: 'BNF / BNF for Children' };
@@ -99,7 +103,8 @@ function baseSignals(data: ClerkingData, c: ConditionContext, f: PatientFacts): 
   const sites = asList(c.a('wound_site'));
   const tbsa = c.num('tbsa_percent');
   const burn = data.complaints.some(x => ['burn', 'electrical_burn', 'chemical_burn'].includes(x.complaintId));
-  const majorBurn = burn && tbsa != null && tbsa >= (f.isChild ? 10 : 20);
+  // Owner decision 2026-11-27: TBSA 15% or more (adults), 10% or more (children); BBA / NICE.
+  const majorBurn = burn && tbsa != null && isMajorBurnTbsa(tbsa, f.isChild);
   const l = c.num('wound_length'), w = c.num('wound_width');
   return {
     infected: c.is('wound_discharge', 'Purulent (pus)', 'Foul-smelling', 'Greenish (Pseudomonas-like)', 'Seropurulent') || c.is('wound_odour', 'Yes')
@@ -141,6 +146,12 @@ const TARGETED = WP.targeted;
 const ADULT = WP.adultMicronutrients.rows;
 const CHILD = WP.childMicronutrients.rows;
 const T = WP.thresholds;
+/** The protocol's targeted tests (row id) → the result-row test id and analytes. The manual plan builder offers the same tests. */
+export const TARGETED_TEST_ID: Record<string, string> = {
+  infected: 'culture', bone: 'xray', leg_foot_ulcer: 'abpi', venous: 'duplex', biopsy: 'biopsy', vasculitis: 'vasculitis',
+  burns_intake: 'minerals', b12_folate: 'b12_folate', copper: 'copper', thyroid: 'thyroid', child_growth: 'child_growth',
+};
+export const TARGETED_ANALYTES: Record<string, readonly string[]> = { b12_folate: ['b12', 'folate'], burns_intake: ['magnesium', 'phosphate', 'calcium'] };
 const highCrp = (f: PatientFacts) => f.labs.crp != null && f.labs.crp > T.highCrpAboveMgL;
 
 /** Iron deficiency per the protocol: ferritin below 30, or below 100 with high CRP. */
@@ -151,16 +162,18 @@ export function ironDeficient(f: PatientFacts): boolean | null {
 }
 
 /**
- * Anaemia: adults Hb below the protocol's 10 g/dL. Children: NOT IN PROTOCOL
- * (the protocol says "low Hb"): WHO 2011 cut-offs (11 g/dL under 5, 11.5 at
- * 5–11 years, 12 at 12–17). Owner to confirm.
+ * Anaemia: adults Hb below the protocol's 10 g/dL. Children (the protocol
+ * says "low Hb"): the owner's cut-offs of 2026-11-27 (ownerDecisions.ts:
+ * WHO 2024 at 6–11 months, Buseri et al. 2010, Port Harcourt, from 1 to 17
+ * years). Under 6 months no cut-off is applied: null (interpret against
+ * neonatal / infant ranges).
  */
 export function anaemic(f: PatientFacts): boolean | null {
   const hb = f.labs.hb;
   if (hb == null) return null;
   if (!f.isChild) return hb < T.hbAdultMinGdl;
-  const a = f.ageYears ?? 0;
-  return hb < (a < 5 ? 11 : a < 12 ? 11.5 : 12);
+  const limit = childHbLimit(f.ageMonths ?? (f.ageYears ?? 0) * 12, f.sex).belowGdl;
+  return limit == null ? null : hb < limit;
 }
 
 function protocolLines(f: PatientFacts, s: WoundSignals, templates: ConditionTemplate[]): { lines: TemplateLine[]; hard: string[] } {
@@ -178,17 +191,18 @@ function protocolLines(f: PatientFacts, s: WoundSignals, templates: ConditionTem
     });
   }
   // Targeted tests by situation.
-  const targeted: Array<[boolean, string, string]> = [
-    [s.infected, 'infected', 'culture'], [s.boneInvolved || s.diabeticFootNonHealing, 'bone', 'xray'], [s.legOrFootUlcer, 'leg_foot_ulcer', 'abpi'],
-    [s.venousSuspected, 'venous', 'duplex'], [s.biopsyIndicated, 'biopsy', 'biopsy'], [s.vasculitisSuspected, 'vasculitis', 'vasculitis'],
-    [s.largeBurnOrPoorIntake, 'burns_intake', 'minerals'], [s.b12FolateSuspected, 'b12_folate', 'b12_folate'], [s.copperSuspected, 'copper', 'copper'],
-    [s.thyroidSuspected, 'thyroid', 'thyroid'], [s.childPoorGrowth, 'child_growth', 'child_growth'],
+  const targeted: Array<[boolean, string]> = [
+    [s.infected, 'infected'], [s.boneInvolved || s.diabeticFootNonHealing, 'bone'], [s.legOrFootUlcer, 'leg_foot_ulcer'],
+    [s.venousSuspected, 'venous'], [s.biopsyIndicated, 'biopsy'], [s.vasculitisSuspected, 'vasculitis'],
+    [s.largeBurnOrPoorIntake, 'burns_intake'], [s.b12FolateSuspected, 'b12_folate'], [s.copperSuspected, 'copper'],
+    [s.thyroidSuspected, 'thyroid'], [s.childPoorGrowth, 'child_growth'],
   ];
-  for (const [on, id, testId] of targeted) {
+  for (const [on, id] of targeted) {
     if (!on) continue;
+    const testId = TARGETED_TEST_ID[id];
     const r = row(TARGETED, id);
     add({ id: `inv:wpt_${id}`, section: 'investigations', text: r.investigation, why: r.situation, urgency: id === 'biopsy' || (id === 'infected' && s.febrile) ? 'soon' : 'routine',
-      test: { id: testId, analytes: id === 'b12_folate' ? ['b12', 'folate'] : id === 'burns_intake' ? ['magnesium', 'phosphate', 'calcium'] : undefined },
+      test: { id: testId, analytes: TARGETED_ANALYTES[id] ? [...TARGETED_ANALYTES[id]] : undefined },
       patient: (P.tests as Record<string, string>)[testId] });
     if (id === 'infected' && s.febrile) add({ id: 'inv:wpt_blood_culture', section: 'investigations', text: 'Blood culture', why: 'Clinically infected wound and febrile', test: { id: 'blood_culture' }, urgency: 'soon', patient: P.tests.blood_culture });
   }
@@ -203,12 +217,15 @@ function protocolLines(f: PatientFacts, s: WoundSignals, templates: ConditionTem
   const mayBePregnant = f.pregnancy === 'confirmed' || f.pregnancy === 'possible' || f.pregnancy === 'unknown';
   const pregnant = f.pregnancy === 'confirmed' || f.pregnancy === 'possible';
   const H = WP.cautions;
-  const medLine = (id: string, nutrient: string, dose: string, frequency: string, duration: string, why: string, o: Partial<TemplateLine> & { cautions?: string[]; weightBasis?: string; route?: string } = {}): TemplateLine => ({
+  // The clinician line keeps the protocol's wording; `patient` is the plain locale line (owner decision 2026-11-27).
+  const medLine = (id: string, nutrient: string, dose: string, frequency: string, duration: string, why: string, patient: string, o: Partial<TemplateLine> & { cautions?: string[]; weightBasis?: string; route?: string } = {}): TemplateLine => ({
     id: `med:wp_${id}`, section: 'medications', text: `${nutrient}: ${dose}${frequency ? ` ${frequency}` : ''}${duration ? ` — ${duration}` : ''}`, why,
     medication: { drug: nutrient, dose, route: o.route ?? 'oral', frequency, duration, weightBasis: o.weightBasis, cautions: o.cautions ?? [] },
-    patient: o.withheld ? undefined : P.copy.medicineLine(nutrient.replace(/ \(.*\)$/, ''), dose, (P.medicineHow as Record<string, string>)[id] ?? '', duration),
     ...o,
+    patient,
   });
+  /** "100–125 mg daily" → "100–125 mg"; "2,000 IU daily" → "2,000 units" (patient copy). */
+  const amount = (t: string) => t.replace(/\s+(once )?daily$/, '').replace(/\bIU\b/g, 'units');
 
   if (f.isNeonate) {
     hard.push(WP.childMicronutrients.principle);
@@ -218,63 +235,72 @@ function protocolLines(f: PatientFacts, s: WoundSignals, templates: ConditionTem
     const w = f.weightKg;
     const D = WP.childDosing;
     const mv = row(CHILD, 'multivitamin');
-    add(medLine('multivitamin', mv.nutrient, mv.dose, '', mv.duration, `${mv.who} (protocol)`));
+    add(medLine('multivitamin', mv.nutrient, mv.dose, '', mv.duration, `${mv.who} (protocol)`, M.multivitamin({ child: true })));
     if (f.poorIntake || burns || s.majorBurn) {
       const band = D.vitaminC.find(b => (f.ageYears ?? 0) < b.belowYears)!;
-      add(medLine('vitamin_c', 'Vitamin C', band.dose, '', row(CHILD, 'vitamin_c').duration, `${row(CHILD, 'vitamin_c').who} (protocol)`, { cautions: [H.vitaminC] }));
+      add(medLine('vitamin_c', 'Vitamin C', band.dose, '', row(CHILD, 'vitamin_c').duration, `${row(CHILD, 'vitamin_c').who} (protocol)`, M.vitamin_c({ child: true, dose: amount(band.dose) }), { cautions: [H.vitaminC] }));
     }
     if (zincLow || f.malnourished || burns || s.majorBurn || zincLow === null && s.largeExudingWound) {
       const z = row(CHILD, 'zinc');
       const d = w ? weightDose({ perKg: D.zinc.mgPerKg, weightKg: w, maxDose: D.zinc.maxMgPerDay, adultDose: D.adultCapMg.zinc }) : null;
       add(medLine('zinc', 'Zinc (elemental)', d ? `${doseText(d)} once daily` : z.dose, '', z.duration, zincLow ? `Serum zinc ${f.labs.zinc} mcg/dL (below ${T.zincLowMcgDl})${highCrp(f) ? ' — may be falsely low with high CRP' : ''}` : `${z.who} (protocol)`,
-        { weightBasis: d?.basis ?? 'Weight needed: 0.5–1 mg/kg once daily (maximum 40 mg/day)', cautions: [H.zinc] }));
+        M.zinc({ child: true, dose: d ? doseText(d) : null }), { weightBasis: d?.basis ?? 'Weight needed: 0.5–1 mg/kg once daily (maximum 40 mg/day)', cautions: [H.zinc] }));
       hard.push(H.zinc);
     } else if (zincLow === false) {
       add({ id: 'med:wp_zinc', section: 'medications', text: 'Zinc: not indicated', why: `Serum zinc ${f.labs.zinc} mcg/dL is not low`, withheld: 'Serum zinc not low' });
     }
     const ir = row(CHILD, 'iron');
     if (provenIronDeficiencyAnaemia) {
-      const d = w ? weightDose({ perKg: D.iron.mgPerKg, weightKg: w, maxDose: D.iron.maxMgPerDay, adultDose: D.adultCapMg.iron }) : null;
-      add(medLine('iron', 'Iron (elemental)', d ? `${doseText(d)} once daily` : '3 mg/kg once daily', '', ir.duration, `Low Hb (${f.labs.hb} g/dL) and low ferritin (${f.labs.ferritin} ng/mL)`,
-        { weightBasis: d?.basis ?? 'Weight needed: 3 mg/kg once daily', cautions: [H.iron, 'Treat malaria and worms first; avoid during acute severe infection.'],
+      // Owner decision 2026-11-27: the child table's maximum (200 mg/day) is the cap, not the 65 mg adult dose.
+      const severe = f.labs.hb! < SEVERE_ANAEMIA_HB_BELOW_GDL;
+      const perKg = severe ? { low: D.iron.mgPerKg, high: D.iron.severeMgPerKg } : D.iron.mgPerKg;
+      const d = w ? weightDose({ perKg, weightKg: w, maxDose: D.iron.maxMgPerDay, adultDose: CHILD_IRON_OWNER_DECISION.capAtAdultDose ? D.adultCapMg.iron : undefined }) : null;
+      const severeNote = severe ? `; severe anaemia (Hb below ${SEVERE_ANAEMIA_HB_BELOW_GDL} g/dL, ${SEVERE_ANAEMIA_SOURCE}): up to ${D.iron.severeMgPerKg} mg/kg/day` : '';
+      const perKgText = severe ? `${D.iron.mgPerKg}–${D.iron.severeMgPerKg} mg/kg` : `${D.iron.mgPerKg} mg/kg`;
+      const freq = severe ? 'daily' : 'once daily';
+      add(medLine('iron', 'Iron (elemental)', d ? `${doseText(d)} ${freq}` : `${perKgText} ${freq} (maximum ${D.iron.maxMgPerDay} mg/day)`, '', ir.duration, `Low Hb (${f.labs.hb} g/dL) and low ferritin (${f.labs.ferritin} ng/mL)`,
+        M.iron({ child: true, dose: d ? doseText(d) : null, severe }), { weightBasis: `${d?.basis ?? `Weight needed: ${perKgText} ${freq}`}; child table maximum ${D.iron.maxMgPerDay} mg/day, not capped at the adult dose (${CHILD_IRON_OWNER_DECISION.source})${severeNote}`, cautions: [H.iron, 'Treat malaria and worms first; avoid during acute severe infection.'],
           withheld: f.sepsis ? 'Acute severe infection: the protocol says avoid iron now' : undefined }));
-      hard.push(H.iron);
+      hard.push(H.iron, CHILD_IRON_OWNER_DECISION.hardRule);
     } else {
-      add({ id: 'med:wp_iron', section: 'medications', text: 'Iron: only for iron-deficiency anaemia (low Hb and low ferritin)', why: ironDef === null || anaemia === null ? 'Awaiting FBC and ferritin' : 'Not iron-deficiency anaemia on the results', withheld: ironDef === null || anaemia === null ? 'Awaiting FBC and ferritin' : 'Not indicated on the results' });
+      const infantHb = anaemia === null && f.labs.hb != null;
+      const awaiting = infantHb ? CHILD_HB_UNDER_6_MONTHS_NOTE : ironDef === null || anaemia === null ? 'Awaiting FBC and ferritin' : null;
+      add({ id: 'med:wp_iron', section: 'medications', text: 'Iron: only for iron-deficiency anaemia (low Hb and low ferritin)', why: awaiting ?? 'Not iron-deficiency anaemia on the results', withheld: awaiting ?? 'Not indicated on the results' });
     }
     if (f.sickleCell || (f.labs.folate != null && f.labs.folate < 3)) {
       const d = (f.ageYears ?? 0) < 1 && w ? weightDose({ perKg: D.folicAcid.under1McgPerKg / 1000, weightKg: w, maxDose: D.folicAcid.under1MaxMg, adultDose: D.adultCapMg.folicAcid }) : null;
       add(medLine('folic_acid', 'Folic acid', d ? `${doseText(d)} daily` : (f.ageYears ?? 0) < 1 ? '500 mcg/kg daily (maximum 5 mg)' : `${D.folicAcid.from1Mg} mg daily${f.sickleCell ? ' (sickle cell maintenance per local protocol, often 2.5–5 mg daily)' : ''}`, '', row(CHILD, 'folic_acid').duration,
-        f.sickleCell ? 'Sickle cell disease (protocol)' : 'Folate deficiency', { weightBasis: d?.basis }));
+        f.sickleCell ? 'Sickle cell disease (protocol)' : 'Folate deficiency', M.folic_acid({ child: true, dose: d ? doseText(d) : (f.ageYears ?? 0) < 1 ? null : `${D.folicAcid.from1Mg} mg`, continuous: f.sickleCell }), { weightBasis: d?.basis }));
     }
     if (vitDLow) {
       const band = D.vitaminD.find(b => (f.ageYears ?? 0) < b.belowYears)!;
-      add(medLine('vitamin_d', 'Vitamin D3', band.dose, '', `12 weeks, then ${band.then}. Give with calcium if intake is poor`, `25-OH vitamin D ${f.labs.vitaminD} ng/mL (below ${T.vitaminDDeficientBelowNgMl})`, { cautions: [H.vitaminD] }));
+      add(medLine('vitamin_d', 'Vitamin D3', band.dose, '', `12 weeks, then ${band.then}. Give with calcium if intake is poor`, `25-OH vitamin D ${f.labs.vitaminD} ng/mL (below ${T.vitaminDDeficientBelowNgMl})`,
+        M.vitamin_d({ child: true, dose: amount(band.dose), then: amount(band.then) }), { cautions: [H.vitaminD] }));
       hard.push(H.vitaminD);
     }
-    if (f.labs.b12 != null && f.labs.b12 < 200) add(medLine('b12', 'Vitamin B12 (hydroxocobalamin)', '1 mg IM, with specialist advice', '', 'Specialist follow-up', 'Proven B12 deficiency', { route: 'IM' }));
+    if (f.labs.b12 != null && f.labs.b12 < 200) add(medLine('b12', 'Vitamin B12 (hydroxocobalamin)', '1 mg IM, with specialist advice', '', 'Specialist follow-up', 'Proven B12 deficiency', M.b12({ child: true }), { route: 'IM' }));
   } else {
     hard.push(WP.doseNote);
     const mv = row(ADULT, 'multivitamin');
     if (pregnant) add({ id: 'med:wp_antenatal', section: 'medications', text: 'Standard antenatal supplement and folic acid (instead of a routine multivitamin)', why: H.pregnancy,
-      medication: { drug: 'Antenatal supplement with folic acid', dose: 'per product', route: 'oral', frequency: 'once daily', duration: 'through pregnancy', cautions: [H.pregnancy] }, patient: P.copy.medicineLine('Antenatal vitamins with folic acid', 'one dose', 'once a day', '') });
-    else add(medLine('multivitamin', mv.nutrient, mv.dose, '', mv.duration, `${mv.who} (protocol)`));
+      medication: { drug: 'Antenatal supplement with folic acid', dose: 'per product', route: 'oral', frequency: 'once daily', duration: 'through pregnancy', cautions: [H.pregnancy] }, patient: M.antenatal() });
+    else add(medLine('multivitamin', mv.nutrient, mv.dose, '', mv.duration, `${mv.who} (protocol)`, M.multivitamin({ child: false })));
     if (f.poorIntake || f.smoker || pressure) {
       const c = row(ADULT, 'vitamin_c');
-      add(medLine('vitamin_c', 'Vitamin C (ascorbic acid)', c.dose, '', c.duration, [f.poorIntake && 'poor diet', f.smoker && 'smoker', pressure && 'pressure injury'].filter(Boolean).join(', ') + ' (protocol)',
+      add(medLine('vitamin_c', 'Vitamin C (ascorbic acid)', c.dose, '', c.duration, [f.poorIntake && 'poor diet', f.smoker && 'smoker', pressure && 'pressure injury'].filter(Boolean).join(', ') + ' (protocol)', M.vitamin_c({ child: false }),
         { cautions: [H.vitaminC], withheld: f.ckd ? 'Renal impairment: avoid high-dose vitamin C (protocol) — reduce or omit' : undefined }));
       hard.push(H.vitaminC);
     }
     const z = row(ADULT, 'zinc');
     if (zincLow || f.malnourished || s.largeExudingWound || s.majorBurn || burns) {
       add(medLine('zinc', 'Zinc (elemental)', z.dose, '', z.duration,
-        zincLow ? `Serum zinc ${f.labs.zinc} mcg/dL (below ${T.zincLowMcgDl})${highCrp(f) ? ' — may be falsely low with high CRP' : ''}` : `${[f.malnourished && 'malnutrition', s.largeExudingWound && 'large exuding wound', (s.majorBurn || burns) && 'burns'].filter(Boolean).join(', ')} (protocol)`,
+        zincLow ? `Serum zinc ${f.labs.zinc} mcg/dL (below ${T.zincLowMcgDl})${highCrp(f) ? ' — may be falsely low with high CRP' : ''}` : `${[f.malnourished && 'malnutrition', s.largeExudingWound && 'large exuding wound', (s.majorBurn || burns) && 'burns'].filter(Boolean).join(', ')} (protocol)`, M.zinc({ child: false }),
         { cautions: [H.zinc, ...(f.ckd ? ['Renal impairment: review zinc (protocol).'] : [])] }));
       hard.push(H.zinc);
     } else if (zincLow === false) add({ id: 'med:wp_zinc', section: 'medications', text: 'Zinc: not indicated', why: `Serum zinc ${f.labs.zinc} mcg/dL is not low`, withheld: 'Serum zinc not low' });
     const ir = row(ADULT, 'iron');
     if (provenIronDeficiencyAnaemia) {
-      add(medLine('iron', 'Iron (elemental)', ir.dose, '', ir.duration, `Iron-deficiency anaemia: Hb ${f.labs.hb} g/dL, ferritin ${f.labs.ferritin} ng/mL${highCrp(f) ? ` with CRP ${f.labs.crp} mg/L` : ''}`, { cautions: [H.iron, ...(f.sickleCell ? [H.sickleCell] : [])] }));
+      add(medLine('iron', 'Iron (elemental)', ir.dose, '', ir.duration, `Iron-deficiency anaemia: Hb ${f.labs.hb} g/dL, ferritin ${f.labs.ferritin} ng/mL${highCrp(f) ? ` with CRP ${f.labs.crp} mg/L` : ''}`, M.iron({ child: false }), { cautions: [H.iron, ...(f.sickleCell ? [H.sickleCell] : [])] }));
       hard.push(H.iron);
     } else {
       add({ id: 'med:wp_iron', section: 'medications', text: `Iron: ${ir.who.toLowerCase()} only`, why: ironDef === null || anaemia === null ? 'Awaiting FBC and ferritin' : 'Not iron-deficiency anaemia on the results',
@@ -282,18 +308,18 @@ function protocolLines(f: PatientFacts, s: WoundSignals, templates: ConditionTem
     }
     if (f.sickleCell || (f.labs.folate != null && f.labs.folate < 3) || (f.labs.mcv != null && f.labs.mcv > 100)) {
       const fa = row(ADULT, 'folic_acid');
-      add(medLine('folic_acid', 'Folic acid', fa.dose, '', fa.duration, f.sickleCell ? 'Sickle cell disease (protocol)' : f.labs.mcv != null && f.labs.mcv > 100 ? `Macrocytosis (MCV ${f.labs.mcv} fL)` : 'Folate deficiency'));
+      add(medLine('folic_acid', 'Folic acid', fa.dose, '', fa.duration, f.sickleCell ? 'Sickle cell disease (protocol)' : f.labs.mcv != null && f.labs.mcv > 100 ? `Macrocytosis (MCV ${f.labs.mcv} fL)` : 'Folate deficiency', M.folic_acid({ child: false, continuous: f.sickleCell })));
     }
-    if (f.labs.b12 != null && f.labs.b12 < 200) { const b = row(ADULT, 'b12'); add(medLine('b12', 'Vitamin B12', b.dose, '', b.duration, 'Proven B12 deficiency', { route: 'IM' })); }
-    if (vitDLow) { const d = row(ADULT, 'vitamin_d'); add(medLine('vitamin_d', 'Vitamin D3', d.dose, '', d.duration, `25-OH vitamin D ${f.labs.vitaminD} ng/mL (below ${T.vitaminDDeficientBelowNgMl})`, { cautions: [H.vitaminD], patient: P.copy.medicineLine('Vitamin D3', d.dose, P.medicineHow.vitamin_d, '') })); hard.push(H.vitaminD); }
+    if (f.labs.b12 != null && f.labs.b12 < 200) { const b = row(ADULT, 'b12'); add(medLine('b12', 'Vitamin B12', b.dose, '', b.duration, 'Proven B12 deficiency', M.b12({ child: false }), { route: 'IM' })); }
+    if (vitDLow) { const d = row(ADULT, 'vitamin_d'); add(medLine('vitamin_d', 'Vitamin D3', d.dose, '', d.duration, `25-OH vitamin D ${f.labs.vitaminD} ng/mL (below ${T.vitaminDDeficientBelowNgMl})`, M.vitamin_d({ child: false }), { cautions: [H.vitaminD] })); hard.push(H.vitaminD); }
     if (f.steroids) {
       const a = row(ADULT, 'vitamin_a');
       const why = mayBePregnant && f.sex === 'female' ? 'Pregnancy not excluded: NOT in pregnancy or women who may be pregnant' : f.liverDisease ? 'Liver disease: avoid vitamin A' : undefined;
-      add(medLine('vitamin_a', 'Vitamin A', a.dose, '', '10–14 days only', 'On steroids with poor healing (protocol)', { cautions: [a.duration, H.vitaminA], withheld: why }));
+      add(medLine('vitamin_a', 'Vitamin A', a.dose, '', '10–14 days only', 'On steroids with poor healing (protocol)', M.vitamin_a(), { cautions: [a.duration, H.vitaminA], withheld: why }));
     }
     if (pressure && s.pressureInjuryStage2Plus && f.malnourished) {
       const ar = row(ADULT, 'arginine');
-      add(medLine('arginine', 'Arginine', ar.dose, '', 'while the pressure injury is open', `${ar.who} (protocol)`, { cautions: [ar.duration], withheld: f.sepsis ? 'Sepsis: avoid arginine (protocol)' : undefined }));
+      add(medLine('arginine', 'Arginine', ar.dose, '', 'while the pressure injury is open', `${ar.who} (protocol)`, M.arginine(), { cautions: [ar.duration], withheld: f.sepsis ? 'Sepsis: avoid arginine (protocol)' : undefined }));
       hard.push('Arginine: avoid in sepsis.');
     }
     hard.push(WP.adultMicronutrients.upperLimits);
@@ -348,24 +374,24 @@ function analgesiaLines(f: PatientFacts): TemplateLine[] {
     const d = w ? weightDose({ perKg: 15, weightKg: w, maxDose: 1000, adultDose: 1000 }) : null;
     out.push({ id: 'med:paracetamol', section: 'medications', sourceLabel: BNF_SRC.label, text: `Paracetamol ${d ? doseText(d) : '15 mg/kg'} every 6 hours when needed (maximum 4 doses in 24 hours)`, why: 'Pain',
       medication: { drug: 'Paracetamol', dose: d ? doseText(d) : '15 mg/kg', route: 'oral', frequency: 'every 6 hours when needed (max 4 doses / 24 h)', duration: 'as needed', weightBasis: d?.basis ?? 'Weight needed: 15 mg/kg per dose', cautions: ['Check the syrup strength (mg per 5 mL).'] },
-      patient: d ? P.copy.medicineLine('Paracetamol', doseText(d), P.medicineHow.paracetamol, '') : undefined });
+      patient: M.paracetamol({ child: true, dose: d ? doseText(d) : null }) });
     if ((f.ageMonths ?? 0) >= 3 && (w ?? 0) >= 5) {
       const i = weightDose({ perKg: { low: 5, high: 10 }, weightKg: w!, maxDose: 400, adultDose: 400 });
       const why = f.nsaidAllergy ? 'NSAID allergy recorded' : f.ckd ? 'Kidney disease' : f.anticoagulated ? 'On an anticoagulant' : undefined;
       out.push({ id: 'med:ibuprofen', section: 'medications', sourceLabel: BNF_SRC.label, text: `Ibuprofen ${doseText(i)} every 8 hours with food when needed`, why: 'Pain / inflammation',
         medication: { drug: 'Ibuprofen', dose: doseText(i), route: 'oral', frequency: 'every 8 hours with food when needed', duration: 'as needed', weightBasis: i.basis, cautions: ['Avoid in dehydration, kidney disease, asthma worsened by NSAIDs.'] },
-        withheld: why, patient: why ? undefined : P.copy.medicineLine('Ibuprofen', doseText(i), P.medicineHow.ibuprofen, '') });
+        withheld: why, patient: M.ibuprofen({ child: true, dose: doseText(i) }) });
     }
     return out;
   }
   const light = (w != null && w < 50) || f.liverDisease;
   out.push({ id: 'med:paracetamol', section: 'medications', sourceLabel: BNF_SRC.label, text: `Paracetamol ${light ? '500 mg–1 g' : '1 g'} every 6 hours when needed (maximum ${light ? '3 g' : '4 g'} in 24 hours)`, why: 'Pain',
     medication: { drug: 'Paracetamol', dose: light ? '500 mg–1 g' : '1 g', route: 'oral', frequency: 'every 6 hours when needed', duration: 'as needed', cautions: [light ? 'Weight under 50 kg or liver disease: maximum 3 g a day.' : 'Maximum 4 g in 24 hours.'] },
-    patient: P.copy.medicineLine('Paracetamol', light ? '500 mg to 1 g' : '1 g', P.medicineHow.paracetamol, '') });
+    patient: M.paracetamol({ child: false, light }) });
   const why = f.nsaidAllergy ? 'NSAID allergy recorded' : f.ckd ? 'Kidney disease' : f.anticoagulated ? 'On an anticoagulant' : f.pregnancy === 'confirmed' || f.pregnancy === 'possible' ? 'Pregnancy possible: avoid NSAIDs' : undefined;
   out.push({ id: 'med:ibuprofen', section: 'medications', sourceLabel: BNF_SRC.label, text: 'Ibuprofen 400 mg three times a day with food when needed', why: 'Pain / inflammation',
     medication: { drug: 'Ibuprofen', dose: '400 mg', route: 'oral', frequency: 'three times a day with food when needed', duration: 'shortest time needed', cautions: ['Avoid in peptic ulcer, kidney disease, heart failure, anticoagulation, pregnancy.'] },
-    withheld: why, patient: why ? undefined : P.copy.medicineLine('Ibuprofen', '400 mg', P.medicineHow.ibuprofen, '') });
+    withheld: why, patient: M.ibuprofen({ child: false }) });
   return out;
 }
 
@@ -421,6 +447,7 @@ export function buildRulesPlan(input: PlanInput): RulesPlan {
     seen.add(l.id);
     if (l.test) seenTests.add(l.test.id);
     const { _src, sourceLabel: _sl, ...rest } = l;
+    if (rest.section === 'medications' && rest.medication && !rest.patient) rest.patient = plainMedicineLine(rest.medication);
     lines.push({ ...rest, source: _src });
   }
 

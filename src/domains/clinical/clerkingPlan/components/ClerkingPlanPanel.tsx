@@ -4,17 +4,19 @@
  *   Plan     the rules plan, recomputed (debounced 300 ms) as the clinician
  *            types — no AI call. Every line shows its source; rules lines are
  *            in the final plan unless rejected; any line can be edited.
- *            "Build plan with Claude" asks Claude for the detailed plan ONLY
+ *            "Build Plan" asks Claude for the detailed plan ONLY
  *            when pressed; its lines are shown labelled AI-drafted, beside the
  *            rules plan, with the hard rules repeated, and enter the final
  *            plan only when accepted. A stale marker shows when the clerking
- *            changed after the draft.
+ *            changed after the draft. "Build manually" opens the no-AI
+ *            builder (ManualPlanBuilder): picks from the app's catalogues
+ *            become clinician lines, which can be edited or removed.
  *   Results  result rows for the planned investigations (ResultsPanel).
  *   Approve  approval, PDFs, WhatsApp and follow-up booking (ApprovePanel).
  *
  * The same component runs inside the clerking form and on the plan page.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -25,13 +27,18 @@ import type { PatientContext } from '../../clerking/engine';
 import { buildRulesPlan } from '../rulesPlan';
 import { suggestedConditions, CONDITIONS } from '../conditions';
 import { requestClaudePlan, draftToLines } from '../aiPlan';
-import { buildFinalPlan, decide, decisionFor, isIncluded, isStale, manualLine } from '../finalPlan';
+import { buildFinalPlan, decide, decisionFor, isIncluded, isStale } from '../finalPlan';
 import { resultMaps } from '../results';
-import { savePlanDraft, updatePlan, latestApproval } from '../service';
+import { savePlanDraft, updatePlan, latestApproval, getPlan } from '../service';
+import { patientFacts } from '../facts';
+import { builderContext, freeTextLine, newManualIds } from '../manualPlan';
 import { PLAN_SECTIONS, type PlanLine, type PlanSection } from '../types';
 import type { ClerkingPlanRecord, ClerkingPlanSource } from '../records';
 import { ResultsPanel } from './ResultsPanel';
 import { ApprovePanel } from './ApprovePanel';
+
+/** The manual builder carries the catalogues (formulary, procedures, education library): loaded when opened. */
+const ManualPlanBuilder = lazy(() => import('./ManualPlanBuilder'));
 
 export function useDebounced<T>(value: T, ms = 300): T {
   const [v, setV] = useState(value);
@@ -63,7 +70,9 @@ export interface ClerkingPlanPanelProps {
 const LineRow: React.FC<{
   line: PlanLine; included: boolean; patientId: string; decided?: 'accepted' | 'rejected'; edited?: string;
   onDecide: (d: 'accepted' | 'rejected' | null, text?: string) => void; disabled?: boolean;
-}> = ({ line, included, patientId, decided, edited, onDecide, disabled }) => {
+  /** The clinician's own line: edit or remove (accept / reject do not apply). */
+  onRemove?: () => void;
+}> = ({ line, included, patientId, decided, edited, onDecide, disabled, onRemove }) => {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(edited || line.text);
   const ai = line.source.kind === 'ai';
@@ -93,6 +102,11 @@ const LineRow: React.FC<{
           <div className="flex flex-col gap-1 shrink-0">
             {editing ? (
               <button type="button" className="px-1.5 py-0.5 rounded bg-green-600 text-white" onClick={() => { onDecide('accepted', text); setEditing(false); }}>Save</button>
+            ) : onRemove ? (
+              <>
+                <button type="button" aria-label="Edit" title="Edit this line" onClick={() => setEditing(true)} className="px-1.5 py-0.5 rounded border border-gray-300 text-gray-600">✎</button>
+                <button type="button" aria-label="Remove" title="Remove this line from the plan" onClick={onRemove} className="px-1.5 py-0.5 rounded border border-red-300 text-red-600" data-testid="remove-line">🗑</button>
+              </>
             ) : (
               <>
                 <button type="button" aria-label="Accept" title="Keep in the final plan" onClick={() => onDecide(included && decided === 'accepted' ? null : 'accepted')}
@@ -118,6 +132,7 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
   const [ai, setAi] = useState<{ state: 'idle' | 'loading' | 'error'; message?: string }>({ state: 'idle' });
   const [adding, setAdding] = useState<{ section: PlanSection; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
 
   useEffect(() => { if (record) { setConditionIds(record.conditionIds); setWoundOverride(record.woundProtocol); } }, [record?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -132,6 +147,8 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
   const finalLines = useMemo(() => buildFinalPlan(rules.lines, aiLines, decisions, record?.manualLines ?? []), [rules.lines, aiLines, decisions, record?.manualLines]);
   const suggestions = useMemo(() => suggestedConditions(data), [data]);
   const stale = isStale(rules, record?.aiDraft?.inputsHash);
+  const builderCtx = useMemo(() => builderContext(patientFacts({ data, ctx: p.ctx, labs: maps.labs, qualitative: maps.qualitative }), data.allergies.map(a => a.substance)), [data, p.ctx, maps]);
+  const planLines = useMemo(() => [...rules.lines, ...aiLines, ...(record?.manualLines ?? [])], [rules.lines, aiLines, record?.manualLines]);
   const approved = record ? latestApproval(record) : undefined;
 
   const ensure = useCallback(async (patch: Partial<ClerkingPlanRecord> = {}): Promise<ClerkingPlanRecord | null> => {
@@ -169,8 +186,22 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
     if (!adding?.text.trim()) { setAdding(null); return; }
     const r = record ?? await ensure();
     if (!r) return;
-    await updatePlan(r.id, { manualLines: [...r.manualLines, manualLine(adding.section, adding.text, r.manualLines.length + 1)] });
+    await updatePlan(r.id, { manualLines: [...r.manualLines, freeTextLine(adding.section, adding.text, false, newManualIds(adding.section, 1, r.manualLines)[0])] });
     setAdding(null);
+  };
+
+  /** Lines from the manual builder join the plan's manualLines (read fresh, so quick adds are not lost). */
+  const addManualLines = async (lines: PlanLine[]) => {
+    const r = record ?? await ensure();
+    if (!r) throw new Error('Sign in to save the plan');
+    const latest = (await getPlan(r.id)) ?? r;
+    await updatePlan(r.id, { manualLines: [...latest.manualLines, ...lines] });
+  };
+
+  const removeManual = async (id: string) => {
+    if (!record) return;
+    const latest = (await getPlan(record.id)) ?? record;
+    await updatePlan(record.id, { manualLines: latest.manualLines.filter(l => l.id !== id), decisions: latest.decisions.filter(d => d.lineId !== id) });
   };
 
   const toggleCondition = async (id: string) => {
@@ -226,9 +257,12 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
           <div className="rounded-lg border border-purple-300 bg-purple-50 p-2 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={buildWithClaude} disabled={ai.state === 'loading'} className="px-3 py-1.5 rounded-lg bg-purple-700 text-white text-xs font-semibold disabled:opacity-50" data-testid="build-with-claude">
-                {ai.state === 'loading' ? 'Claude is writing the plan…' : record?.aiDraft ? '↻ Rebuild plan with Claude' : '✨ Build plan with Claude'}
+                {ai.state === 'loading' ? 'Claude is writing the plan…' : record?.aiDraft ? 'Rebuild Plan' : 'Build Plan'}
               </button>
-              <span className="text-[11px] text-purple-900">Sent without name, hospital number or phone.</span>
+              <button type="button" onClick={() => setManualOpen(o => !o)} className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${manualOpen ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-700 border-indigo-500'}`} data-testid="build-manually" aria-expanded={manualOpen}>
+                Build manually
+              </button>
+              <span className="text-[11px] text-purple-900">Build Plan uses Claude, sent without name, hospital number or phone. Build manually: no AI, free, works offline.</span>
             </div>
             {ai.state === 'error' && <p className="text-[11px] text-amber-800">{ai.message}</p>}
             {record?.aiDraft && (
@@ -241,6 +275,12 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
             )}
           </div>
 
+          {manualOpen && (
+            <Suspense fallback={<p className="text-xs text-gray-500">Loading the lists…</p>}>
+              <ManualPlanBuilder ctx={builderCtx} existing={planLines} onAdd={addManualLines} onClose={() => setManualOpen(false)} />
+            </Suspense>
+          )}
+
           {PLAN_SECTIONS.map(s => {
             const rl = rules.lines.filter(l => l.section === s.id);
             const al = aiLines.filter(l => l.section === s.id);
@@ -248,8 +288,10 @@ export const ClerkingPlanPanel: React.FC<ClerkingPlanPanelProps> = React.memo(fu
             if (!rl.length && !al.length && !ml.length) return null;
             const row = (l: PlanLine) => {
               const d = decisionFor(decisions, l.id);
-              return <LineRow key={l.id} line={l} patientId={p.patientId} included={l.source.kind === 'clinician' || isIncluded(l, decisions)} decided={d?.decision} edited={d?.editedText} disabled={busy}
-                onDecide={(dec, text) => { setBusy(true); onDecide(l, dec, text).finally(() => setBusy(false)); }} />;
+              const mine = l.source.kind === 'clinician';
+              return <LineRow key={l.id} line={l} patientId={p.patientId} included={mine || isIncluded(l, decisions)} decided={d?.decision} edited={d?.editedText} disabled={busy}
+                onDecide={(dec, text) => { setBusy(true); onDecide(l, dec, text).finally(() => setBusy(false)); }}
+                onRemove={mine ? () => { setBusy(true); removeManual(l.id).finally(() => setBusy(false)); } : undefined} />;
             };
             return (
               <section key={s.id} aria-label={s.label}>
