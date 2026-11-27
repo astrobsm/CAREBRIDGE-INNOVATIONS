@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database';
 import { syncRecord } from '../../../services/cloudSyncService';
 import type { DischargeSummary, FollowUpAppointment, FollowUpTracking } from '../../../types';
+import { Sheet } from '../../../components/motion';
 
 interface Props {
   onClose: () => void;
@@ -201,20 +202,9 @@ export default function FollowUpTracker({ onClose }: Props) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
+    <Sheet onClose={onClose} label="Follow-up tracker" size="5xl">
+      {close => (
+      <div onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
           <div className="flex items-center gap-3">
@@ -224,7 +214,7 @@ export default function FollowUpTracker({ onClose }: Props) {
               <p className="text-sm text-white/80">Monitor and manage patient follow-up appointments</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded" title="Close">
+          <button onClick={close} className="p-2 hover:bg-white/20 rounded" title="Close">
             <X size={20} />
           </button>
         </div>
@@ -441,7 +431,8 @@ export default function FollowUpTracker({ onClose }: Props) {
             </div>
           )}
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+      )}
+    </Sheet>
   );
 }

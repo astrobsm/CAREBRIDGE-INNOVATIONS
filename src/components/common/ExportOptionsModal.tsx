@@ -23,6 +23,7 @@ import {
 import jsPDF from 'jspdf';
 import toast from 'react-hot-toast';
 import { sharePDFOnWhatsApp } from '../../utils/whatsappShareUtils';
+import { Sheet } from '../motion';
 
 export interface ExportOptionsModalProps {
   isOpen: boolean;
@@ -48,8 +49,6 @@ export const ExportOptionsModal: React.FC<ExportOptionsModalProps> = ({
   phoneNumber
 }) => {
   const [isExporting, setIsExporting] = useState<string | null>(null);
-
-  if (!isOpen) return null;
 
   const getFileName = (suffix: string = '') => {
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
@@ -136,15 +135,16 @@ export const ExportOptionsModal: React.FC<ExportOptionsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+    <Sheet open={isOpen} onClose={onClose} dismissible={!isExporting} label="Export options" size="md" closeOnBackdrop={false} dragToDismiss>
+      {close => (
+      <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
             <Share2 className="w-5 h-5 text-emerald-600" />
             {title}
           </h3>
           <button
-            onClick={onClose}
+            onClick={close}
             disabled={!!isExporting}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
             aria-label="Close modal"
@@ -216,7 +216,8 @@ export const ExportOptionsModal: React.FC<ExportOptionsModalProps> = ({
           Choose an export format for your document
         </p>
       </div>
-    </div>
+      )}
+    </Sheet>
   );
 };
 

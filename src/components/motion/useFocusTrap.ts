@@ -15,10 +15,24 @@ export function focusableIn(root: HTMLElement): HTMLElement[] {
     .filter(el => el.getAttribute('aria-hidden') !== 'true' && (el.offsetParent !== null || el === document.activeElement));
 }
 
+/**
+ * Open traps, oldest first. Only the newest (a dialog opened from a dialog)
+ * handles Escape and Tab, so one Escape closes one layer.
+ */
+const trapStack: object[] = [];
+export const isTopTrap = (token: object) => trapStack[trapStack.length - 1] === token;
+export const openTrapCount = () => trapStack.length;
+
 export function useFocusTrap(
   active: boolean,
   panelRef: RefObject<HTMLElement>,
-  opts: { onEscape?: () => void; initialFocusRef?: RefObject<HTMLElement> } = {},
+  opts: {
+    onEscape?: () => void;
+    initialFocusRef?: RefObject<HTMLElement>;
+    /** Where focus goes back to. An autoFocus field inside the panel takes focus
+     *  before this effect runs, so the caller records the opener at render time. */
+    returnFocusRef?: RefObject<HTMLElement | null>;
+  } = {},
 ): void {
   const optsRef = useRef(opts);
   optsRef.current = opts;
@@ -27,7 +41,12 @@ export function useFocusTrap(
     if (!active) return;
     const panel = panelRef.current;
     if (!panel) return;
-    const returnTo = document.activeElement as HTMLElement | null;
+    // Candidates, best first: the opener recorded at render time, then whatever has focus now
+    // (used when the opener sat in a sheet that has since closed and handed focus back).
+    const recorded = optsRef.current.returnFocusRef?.current ?? null;
+    const focusedNow = document.activeElement as HTMLElement | null;
+    const usable = (el: HTMLElement | null) => !!el && el !== document.body && !panel.contains(el) && document.contains(el);
+    const pickReturn = () => [recorded, focusedNow].find(usable) ?? null;
 
     // Focus after the first frame so the entrance animation has started and the
     // element is focusable (not inside a still-hidden layer).
@@ -37,7 +56,12 @@ export function useFocusTrap(
       target.focus({ preventScroll: true });
     });
 
+    const token = {};
+    trapStack.push(token);
+
     const onKey = (e: KeyboardEvent) => {
+      // A dialog opened from this one is on top: it answers the keys.
+      if (!isTopTrap(token)) return;
       if (e.key === 'Escape' && optsRef.current.onEscape) {
         e.stopPropagation();
         optsRef.current.onEscape();
@@ -57,8 +81,11 @@ export function useFocusTrap(
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener('keydown', onKey, true);
+      const at = trapStack.indexOf(token);
+      if (at >= 0) trapStack.splice(at, 1);
       // Give focus back, unless the user has already moved it elsewhere.
-      if (returnTo && document.contains(returnTo) && (!document.activeElement || document.activeElement === document.body || panel.contains(document.activeElement))) {
+      const returnTo = pickReturn();
+      if (returnTo && (!document.activeElement || document.activeElement === document.body || panel.contains(document.activeElement))) {
         returnTo.focus({ preventScroll: true });
       }
     };

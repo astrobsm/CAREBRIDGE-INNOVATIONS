@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 import { db } from '../../../database';
+import { Sheet } from '../../../components/motion';
 import { syncRecord } from '../../../services/cloudSyncService';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { DischargeSummary, Patient, Surgery } from '../../../types';
@@ -56,11 +57,12 @@ export default function DayCaseDischargeModal({ surgery, patient, onClose }: { s
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center" role="dialog" aria-label="Day-case discharge">
-      <div className="bg-white w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-4 space-y-3">
+    <Sheet onClose={onClose} label="Day-case discharge" size="lg" closeOnBackdrop={false}>
+      {close => (
+      <div className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">Day-case discharge</h2>
-          <button type="button" onClick={onClose} aria-label="Close"><X className="w-5 h-5" /></button>
+          <button type="button" onClick={close} aria-label="Close"><X className="w-5 h-5" /></button>
         </div>
         <p className="text-sm text-gray-600">{surgery.procedureName} — {patient.firstName} {patient.lastName}</p>
         <div className="space-y-1">
@@ -88,6 +90,7 @@ export default function DayCaseDischargeModal({ surgery, patient, onClose }: { s
           Discharge home and print the summary
         </button>
       </div>
-    </div>
+      )}
+    </Sheet>
   );
 }

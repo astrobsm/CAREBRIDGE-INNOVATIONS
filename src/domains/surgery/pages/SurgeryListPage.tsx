@@ -24,6 +24,7 @@ import {
   ListChecks,
 } from 'lucide-react';
 import { db } from '../../../database';
+import { Sheet } from '../../../components/motion';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import type { Surgery } from '../../../types';
@@ -726,21 +727,9 @@ export default function SurgeryListPage() {
       </div>
 
       {/* Cancel Surgery Modal */}
-      <AnimatePresence>
-        {showCancelModal && selectedSurgery && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowCancelModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden"
-            >
+      <Sheet open={showCancelModal && !!selectedSurgery} onClose={() => setShowCancelModal(false)} label="Cancel surgery" size="md">
+        {() => selectedSurgery && (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold text-red-600 flex items-center gap-2">
                   <XCircle size={20} />
@@ -785,27 +774,14 @@ export default function SurgeryListPage() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Reschedule Surgery Modal */}
-      <AnimatePresence>
-        {showRescheduleModal && selectedSurgery && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowRescheduleModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden"
-            >
+      <Sheet open={showRescheduleModal && !!selectedSurgery} onClose={() => setShowRescheduleModal(false)} label="Reschedule surgery" size="md">
+        {() => selectedSurgery && (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold text-amber-600 flex items-center gap-2">
                   <CalendarClock size={20} />
@@ -852,27 +828,14 @@ export default function SurgeryListPage() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Send Reminder Modal */}
-      <AnimatePresence>
-        {showReminderModal && selectedSurgery && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowReminderModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden"
-            >
+      <Sheet open={showReminderModal && !!selectedSurgery} onClose={() => setShowReminderModal(false)} label="Send reminder" size="md">
+        {() => selectedSurgery && (
+            <div>
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold text-cyan-600 flex items-center gap-2">
                   <MessageSquare size={20} />
@@ -919,28 +882,14 @@ export default function SurgeryListPage() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* Outstanding Items Modal */}
-      <AnimatePresence>
-        {showOutstandingModal && selectedSurgery && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-            onClick={() => setShowOutstandingModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden"
-            >
+      <Sheet open={showOutstandingModal && !!selectedSurgery} onClose={() => setShowOutstandingModal(false)} label="Outstanding items" size="lg" scroll="content" className="max-h-[80vh]" dragToDismiss>
+        {() => selectedSurgery && (
+            <div className="flex flex-col min-h-0 flex-1">
               <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-amber-50">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-amber-100 rounded-lg">
@@ -984,10 +933,9 @@ export default function SurgeryListPage() {
                   Close
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

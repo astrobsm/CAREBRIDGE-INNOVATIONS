@@ -45,6 +45,7 @@ import type {
   Diagnosis, 
   ClinicalPhoto
 } from '../../../types';
+import { Sheet } from '../../../components/motion';
 
 const followUpSchema = z.object({
   intervalHistory: z.string().min(5, 'Please describe changes since last visit'),
@@ -1019,22 +1020,9 @@ export default function FollowUpEncounterPage() {
       </form>
 
       {/* Photo Comparison Modal */}
-      <AnimatePresence>
-        {showPhotoCompare && selectedPhotoForCompare && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-            onClick={() => setShowPhotoCompare(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={!!(showPhotoCompare && selectedPhotoForCompare)} onClose={() => setShowPhotoCompare(false)} label="Photo comparison" size="2xl" dragToDismiss>
+        {() => showPhotoCompare && selectedPhotoForCompare && (
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="p-4 border-b flex items-center justify-between">
                 <h3 className="font-semibold">Photo Comparison</h3>
                 <button
@@ -1069,10 +1057,9 @@ export default function FollowUpEncounterPage() {
                   )}
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }

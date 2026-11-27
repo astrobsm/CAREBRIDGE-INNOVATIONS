@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Sheet } from '../../../components/motion';
 import {
   X,
   Save,
@@ -215,24 +215,10 @@ export default function PostOpCarePlanModal({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
-          onClick={(e) => e.stopPropagation()}
-        >
+    <Sheet open={isOpen} onClose={onClose} label="Post-op care plan" size="4xl">
+      {close => (
+        <div>
           {/* Header */}
           <div className="p-6 border-b sticky top-0 bg-white z-10">
             <div className="flex items-center justify-between">
@@ -249,7 +235,7 @@ export default function PostOpCarePlanModal({
                   </p>
                 </div>
               </div>
-              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Close modal" title="Close">
+              <button onClick={close} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Close modal" title="Close">
                 <X size={20} />
               </button>
             </div>
@@ -435,7 +421,7 @@ export default function PostOpCarePlanModal({
 
             {/* Actions */}
             <div className="flex gap-3 pt-4 border-t">
-              <button type="button" onClick={onClose} className="btn btn-secondary flex-1">
+              <button type="button" onClick={close} className="btn btn-secondary flex-1">
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary flex-1">
@@ -444,8 +430,8 @@ export default function PostOpCarePlanModal({
               </button>
             </div>
           </form>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        </div>
+      )}
+    </Sheet>
   );
 }

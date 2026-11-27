@@ -27,7 +27,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../../database/db';
 import { SurgeryOps, InvestigationOps, ConsumableBOMOps, PrescriptionOps } from '../../../database/operations';
 import { useAuth } from '../../../contexts/AuthContext';
-import { AsyncButton, useActionStatus } from '../../../components/motion';
+import { AsyncButton, Sheet, useActionStatus } from '../../../components/motion';
 import { searchProcedures, formatNaira } from '../../../data/surgicalFees';
 import { searchConsumables, consumableCategories, getConsumablesByCategory, getConsumableById } from '../../../data/surgicalConsumables';
 import jsPDF from 'jspdf';
@@ -3640,17 +3640,17 @@ export default function SurgicalWorkflowPage() {
       </div>
 
       {/* Follow-up confirmation list, shown when the operation is done */}
-      {showFollowUpPlanner && currentSurgeryId && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center" role="dialog" aria-label="Follow-up visits">
-          <div className="bg-white w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-4">
+      <Sheet open={showFollowUpPlanner && !!currentSurgeryId} onClose={() => setShowFollowUpPlanner(false)} label="Follow-up visits" size="lg" closeOnBackdrop={false}>
+        {() => currentSurgeryId && (
+          <div className="p-4">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-bold text-gray-900">Follow-up visits</h2>
               <button type="button" onClick={() => setShowFollowUpPlanner(false)} aria-label="Close"><X className="w-5 h-5" /></button>
             </div>
             <FollowUpPlanner surgeryId={currentSurgeryId} onDone={() => setShowFollowUpPlanner(false)} />
           </div>
-        </div>
-      )}
+        )}
+      </Sheet>
     </div>
   );
 }

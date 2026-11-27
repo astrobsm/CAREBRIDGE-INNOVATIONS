@@ -42,6 +42,7 @@ import type {
   AdministrationRoute,
 } from '../types';
 import { ADMINISTRATION_STATUSES } from '../types';
+import { Sheet } from '../../../components/motion';
 
 // Standard medication times
 const MEDICATION_TIMES = [
@@ -636,22 +637,9 @@ export default function MedicationChartPage() {
       </div>
 
       {/* Administration Modal */}
-      <AnimatePresence>
-        {showAdminModal && selectedMedication && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto"
-            onClick={closeAdminModal}
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-              className="bg-white rounded-xl w-full max-w-md shadow-xl max-h-[90vh] flex flex-col my-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
+      <Sheet open={!!(showAdminModal && selectedMedication)} onClose={closeAdminModal} label="Record administration" size="md" scroll="content">
+        {() => showAdminModal && selectedMedication && (
+            <div className="flex flex-col min-h-0 flex-1" onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b border-gray-200 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold text-gray-900">Record Administration</h2>
@@ -753,10 +741,9 @@ export default function MedicationChartPage() {
                   Record
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
         )}
-      </AnimatePresence>
+      </Sheet>
     </div>
   );
 }
