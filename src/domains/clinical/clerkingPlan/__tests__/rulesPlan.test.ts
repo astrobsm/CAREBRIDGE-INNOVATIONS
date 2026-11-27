@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildRulesPlan } from '../rulesPlan';
+import { anaemic, buildRulesPlan } from '../rulesPlan';
+import { patientFacts } from '../facts';
 import { WOUND_CLINIC_PROTOCOL_V1 as WP } from '../protocols/woundClinic.v1';
 import { clerking, complaint } from './fixtures';
 
@@ -84,6 +85,37 @@ describe('rules plan — child with a wound and low ferritin', () => {
     expect(line(plan, 'nut:fluid')?.text).toMatch(/1500 mL\/day/);
     expect(line(plan, 'nut:protein')?.text).toMatch(/30–50 g\/day/);
     expect(line(plan, 'nut:screen')?.text).toMatch(/STRONGkids/);
+  });
+});
+
+describe('anaemia cut-offs (owner decision 2026-11-27: WHO 2024; Buseri et al. 2010, Port Harcourt)', () => {
+  const d = clerking({ complaints: [complaint('chronic_ulcer', 'Non-healing wound / chronic ulcer')] });
+  const an = (hb: number, ctx: { ageYears: number; ageMonths?: number; sex?: string }) => anaemic(patientFacts({ data: d, ctx, labs: { hb } }));
+  it('adults keep the protocol rule: Hb below 10 g/dL', () => {
+    expect(an(9.9, { ageYears: 40, sex: 'Male' })).toBe(true);
+    expect(an(10, { ageYears: 40, sex: 'Female' })).toBe(false);
+  });
+  it('6–11 months 10.5 (WHO 2024); 1–4 years 10.5; 5–8 years 11.5; 9–13 years 12.5', () => {
+    expect(an(10.4, { ageYears: 0, ageMonths: 8 })).toBe(true);
+    expect(an(10.5, { ageYears: 0, ageMonths: 8 })).toBe(false);
+    expect(an(10.4, { ageYears: 3 })).toBe(true);
+    expect(an(10.8, { ageYears: 3 })).toBe(false); // anaemic under the old WHO 2011 cut-off (11)
+    expect(an(11.4, { ageYears: 6 })).toBe(true);
+    expect(an(11.5, { ageYears: 8 })).toBe(false);
+    expect(an(12.4, { ageYears: 9 })).toBe(true); // not anaemic under the old cut-off (11.5)
+    expect(an(12.5, { ageYears: 13 })).toBe(false);
+  });
+  it('14–17 years: 13.0 boys, 12.0 girls, 12.0 when sex is not recorded', () => {
+    expect(an(12.9, { ageYears: 15, sex: 'Male' })).toBe(true);
+    expect(an(12.9, { ageYears: 15, sex: 'Female' })).toBe(false);
+    expect(an(11.9, { ageYears: 17, sex: 'Female' })).toBe(true);
+    expect(an(12.5, { ageYears: 15 })).toBe(false);
+    expect(an(11.9, { ageYears: 15 })).toBe(true);
+  });
+  it('under 6 months: no cut-off; the iron line says to interpret against neonatal / infant ranges', () => {
+    expect(an(8, { ageYears: 0, ageMonths: 3 })).toBeNull();
+    const plan = buildRulesPlan({ data: { ...d, vitals: { ...d.vitals, weight: 6 } }, ctx: { ageYears: 0, ageMonths: 3 }, labs: { hb: 8, ferritin: 10 } });
+    expect(line(plan, 'med:wp_iron')?.withheld).toMatch(/interpret against neonatal \/ infant ranges/);
   });
 });
 

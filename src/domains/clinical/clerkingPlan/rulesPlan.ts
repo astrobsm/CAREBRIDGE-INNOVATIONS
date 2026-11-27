@@ -27,7 +27,7 @@ import type { ConditionContext, TemplateLine, WoundSignals } from './conditions/
 import { patientFacts, type PatientFacts } from './facts';
 import { doseText, weightDose } from './dosing';
 import { ACTIVE_WOUND_PROTOCOL as WP } from './protocols/woundClinic.v1';
-import { CHILD_IRON_OWNER_DECISION, SEVERE_ANAEMIA_HB_BELOW_GDL, SEVERE_ANAEMIA_SOURCE, isMajorBurnTbsa } from './ownerDecisions';
+import { CHILD_HB_UNDER_6_MONTHS_NOTE, CHILD_IRON_OWNER_DECISION, SEVERE_ANAEMIA_HB_BELOW_GDL, SEVERE_ANAEMIA_SOURCE, childHbLimit, isMajorBurnTbsa } from './ownerDecisions';
 import type { PlanLine, PlanSource, RulesPlan } from './types';
 
 export const RULES_ENGINE_VERSION = '1.0.0';
@@ -154,16 +154,18 @@ export function ironDeficient(f: PatientFacts): boolean | null {
 }
 
 /**
- * Anaemia: adults Hb below the protocol's 10 g/dL. Children: NOT IN PROTOCOL
- * (the protocol says "low Hb"): WHO 2011 cut-offs (11 g/dL under 5, 11.5 at
- * 5–11 years, 12 at 12–17). Owner to confirm.
+ * Anaemia: adults Hb below the protocol's 10 g/dL. Children (the protocol
+ * says "low Hb"): the owner's cut-offs of 2026-11-27 (ownerDecisions.ts:
+ * WHO 2024 at 6–11 months, Buseri et al. 2010, Port Harcourt, from 1 to 17
+ * years). Under 6 months no cut-off is applied: null (interpret against
+ * neonatal / infant ranges).
  */
 export function anaemic(f: PatientFacts): boolean | null {
   const hb = f.labs.hb;
   if (hb == null) return null;
   if (!f.isChild) return hb < T.hbAdultMinGdl;
-  const a = f.ageYears ?? 0;
-  return hb < (a < 5 ? 11 : a < 12 ? 11.5 : 12);
+  const limit = childHbLimit(f.ageMonths ?? (f.ageYears ?? 0) * 12, f.sex).belowGdl;
+  return limit == null ? null : hb < limit;
 }
 
 function protocolLines(f: PatientFacts, s: WoundSignals, templates: ConditionTemplate[]): { lines: TemplateLine[]; hard: string[] } {
@@ -249,7 +251,9 @@ function protocolLines(f: PatientFacts, s: WoundSignals, templates: ConditionTem
           withheld: f.sepsis ? 'Acute severe infection: the protocol says avoid iron now' : undefined }));
       hard.push(H.iron, CHILD_IRON_OWNER_DECISION.hardRule);
     } else {
-      add({ id: 'med:wp_iron', section: 'medications', text: 'Iron: only for iron-deficiency anaemia (low Hb and low ferritin)', why: ironDef === null || anaemia === null ? 'Awaiting FBC and ferritin' : 'Not iron-deficiency anaemia on the results', withheld: ironDef === null || anaemia === null ? 'Awaiting FBC and ferritin' : 'Not indicated on the results' });
+      const infantHb = anaemia === null && f.labs.hb != null;
+      const awaiting = infantHb ? CHILD_HB_UNDER_6_MONTHS_NOTE : ironDef === null || anaemia === null ? 'Awaiting FBC and ferritin' : null;
+      add({ id: 'med:wp_iron', section: 'medications', text: 'Iron: only for iron-deficiency anaemia (low Hb and low ferritin)', why: awaiting ?? 'Not iron-deficiency anaemia on the results', withheld: awaiting ?? 'Not indicated on the results' });
     }
     if (f.sickleCell || (f.labs.folate != null && f.labs.folate < 3)) {
       const d = (f.ageYears ?? 0) < 1 && w ? weightDose({ perKg: D.folicAcid.under1McgPerKg / 1000, weightKg: w, maxDose: D.folicAcid.under1MaxMg, adultDose: D.adultCapMg.folicAcid }) : null;
